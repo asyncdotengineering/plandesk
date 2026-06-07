@@ -1,0 +1,59 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { renderHook } from '@testing-library/react';
+import { createElement, type ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useSseInvalidation } from './events.js';
+import { queryKeys } from './queries.js';
+
+const eventSources: MockEventSource[] = [];
+
+class MockEventSource {
+  onmessage: ((event: MessageEvent) => void) | null = null;
+
+  constructor() {
+    eventSources.push(this);
+  }
+
+  close(): void {}
+}
+
+function dispatchSse(data: unknown) {
+  const source = eventSources[eventSources.length - 1];
+  source?.onmessage?.({ data: JSON.stringify(data) } as MessageEvent);
+}
+
+describe('useSseInvalidation task_updated', () => {
+  beforeEach(() => {
+    eventSources.length = 0;
+    vi.stubGlobal('EventSource', MockEventSource);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('invalidates tasks and canvas queries on task_updated', () => {
+    const queryClient = new QueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    function wrapper({ children }: { children: ReactNode }) {
+      return createElement(QueryClientProvider, { client: queryClient }, children);
+    }
+
+    renderHook(
+      () => {
+        useSseInvalidation();
+      },
+      { wrapper },
+    );
+
+    dispatchSse({
+      type: 'task_updated',
+      taskId: 'task-1',
+      projectId: 'proj-1',
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.tasks('proj-1') });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.canvas('proj-1') });
+  });
+});

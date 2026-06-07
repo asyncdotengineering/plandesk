@@ -69,6 +69,7 @@ export function usePatchTask() {
     onSuccess: (task) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(task.project_id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.tasks(task.project_id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(task.project_id) });
     },
   });
 }

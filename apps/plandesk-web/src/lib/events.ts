@@ -53,6 +53,7 @@ export function useSseInvalidation() {
         case 'task_updated':
           void queryClient.invalidateQueries({ queryKey: queryKeys.project(event.projectId) });
           void queryClient.invalidateQueries({ queryKey: queryKeys.tasks(event.projectId) });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(event.projectId) });
           void queryClient.invalidateQueries({ queryKey: queryKeys.taskDocument(event.taskId) });
           break;
         case 'canvas_updated':

@@ -1,18 +1,28 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
-import { useProject } from '../lib/queries.js';
+import { Board } from '../components/board/Board.js';
+import { useProject, useTasks } from '../lib/queries.js';
 import { validateTaskFilterSearch } from '../lib/search.js';
 
 function ProjectBoardPage() {
   const { id } = Route.useParams();
   const { status } = Route.useSearch();
-  const { data: project, isLoading, error } = useProject(id);
+  const { data: project, isLoading: projectLoading, error: projectError } = useProject(id);
+  const {
+    data: tasks,
+    isLoading: tasksLoading,
+    error: tasksError,
+  } = useTasks(id, status !== undefined ? { status } : {});
 
-  if (isLoading) {
-    return <p>Loading project…</p>;
+  if (projectLoading || tasksLoading) {
+    return <p>Loading board…</p>;
   }
 
-  if (error) {
-    return <p role="alert">Failed to load project: {error.message}</p>;
+  if (projectError !== null) {
+    return <p role="alert">Failed to load project: {projectError.message}</p>;
+  }
+
+  if (tasksError !== null) {
+    return <p role="alert">Failed to load tasks: {tasksError.message}</p>;
   }
 
   if (project === undefined) {
@@ -37,9 +47,10 @@ function ProjectBoardPage() {
         </Link>
       </nav>
       <h1 style={{ marginTop: 0 }}>{project.name} — Board</h1>
-      <p style={{ color: '#666' }}>
-        Kanban board (S4).{status !== undefined ? ` Filter: ${status}` : ''}
-      </p>
+      {status !== undefined ? (
+        <p style={{ color: '#666', marginTop: 0 }}>Filter: {status}</p>
+      ) : null}
+      <Board projectId={id} tasks={tasks ?? []} />
     </section>
   );
 }

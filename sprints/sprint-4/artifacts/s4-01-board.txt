@@ -1,0 +1,18 @@
+S4-01 Board view — A-UI-3 browser verification (2026-06-07)
+
+Setup:
+- plandesk serve on http://127.0.0.1:3957 with project "S4-01 Board Demo"
+- Task "Ship board view" initial status: todo
+
+Test (two tabs, no flow reload):
+1. Tab t1 (/flow): node badge showed "todo" (s4-01-flow-before.png)
+2. Tab t2 (/board): dragged card to In Progress column (s4-01-board-before.png → s4-01-board-after.png)
+   - dnd-kit drop confirmed: "dropped over droppable area in_progress"
+   - PATCH /tasks/:id via useBoardDnd
+3. Tab t1 (/flow) without reload: node badge updated to "in progress" (s4-01-flow-after.png)
+
+SSOT API check after drag:
+- GET /projects/:id/tasks → status in_progress
+- GET /projects/:id/canvas → node status in_progress
+
+REQ-5 satisfied: board + canvas share task status via PATCH + SSE canvas invalidation.
