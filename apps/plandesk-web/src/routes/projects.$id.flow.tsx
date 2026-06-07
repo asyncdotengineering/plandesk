@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
+import { FlowCanvas } from '../components/canvas/FlowCanvas.js';
 import { useProject } from '../lib/queries.js';
 import { validateTaskFilterSearch } from '../lib/search.js';
 
@@ -33,9 +34,10 @@ function ProjectFlowPage() {
         </Link>
       </nav>
       <h1 style={{ marginTop: 0 }}>{project.name} — Flow</h1>
-      <p style={{ color: '#666' }}>
-        Canvas view (S3-02).{status !== undefined ? ` Filter: ${status}` : ''}
-      </p>
+      {status !== undefined ? (
+        <p style={{ color: '#666', marginTop: 0 }}>Filter: {status}</p>
+      ) : null}
+      <FlowCanvas projectId={id} />
     </section>
   );
 }

@@ -1,6 +1,18 @@
 export const taskStatuses = ['scope', 'todo', 'in_progress', 'done', 'backlog'] as const;
 export type TaskStatus = (typeof taskStatuses)[number];
 
+export const edgeLabels = [
+  'blocks',
+  'depends_on',
+  'unblocks',
+  'feeds',
+  'clarifies',
+  'enables',
+  'supports',
+] as const;
+export type EdgeLabel = (typeof edgeLabels)[number];
+export const DEFAULT_EDGE_LABEL: EdgeLabel = 'depends_on';
+
 export type TaskStatusSummary = Record<TaskStatus, number>;
 
 export type SerializedProject = {

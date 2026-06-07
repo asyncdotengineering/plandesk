@@ -1,0 +1,23 @@
+S3-02 Flow canvas — A-UI-1 browser verification
+Date: 2026-06-07
+Server: plandesk serve --port 3859 --data-dir <tmp>
+
+=== Setup ===
+POST /api/v1/projects → S3-02 Canvas Demo
+PUT /api/v1/projects/:id/canvas → 2 nodes (Task Alpha @ 100,100; Task Beta @ 400,100)
+
+=== Browser flow (Playwright, Chromium) ===
+1. Open http://127.0.0.1:3859/ → click project → Flow tab
+2. Drag Task Alpha ~150px right, ~80px down
+3. Draw edge Task Alpha → Task Beta (default label depends_on)
+4. Navigate away (Projects) and back to Flow (simulates reload; deep-link 404 is pre-existing static hook gap)
+
+=== Results ===
+Drag persisted: Task Alpha x=167.5 y=136 (was 100,100) — PASS
+Edge persisted: 1 edge from_task→to_task label=depends_on — PASS
+Layout-only PUT payloads (2 requests): nodes [{id,x,y}] only; edges with from_task_id/to_task_id/label; no status/description/task label — PASS
+
+Sample PUT body (drag save):
+{"nodes":[{"id":"…","x":167.5,"y":136},{"id":"…","x":400,"y":100}],"edges":[]}
+
+Playwright result: {"pass":true,"layoutOnly":true,"hasEdge":true,"dragged":{"pass":true}}
