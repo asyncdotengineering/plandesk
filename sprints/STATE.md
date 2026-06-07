@@ -6,11 +6,11 @@
 
 ## Active sprint
 
-**Sprint number:** `2`
-**Sprint name:** MCP + portability
+**Sprint number:** `3`
+**Sprint name:** Web: shell + canvas + docs
 **Status:** `not-started`
-**Goal:** Claude/Codex can connect to `/mcp/` with a hashed bearer token, list ≥8 tools, `update_task` and see it in REST GET + SSE, and a project exports→imports losslessly via the CLI.
-**WBS section:** [`sprints/WBS.md` § Sprint 2](./WBS.md)
+**Goal:** The React SPA lists projects, renders the flow canvas where a dragged node and a drawn labeled edge persist across reload, and a node click reaches its linked TipTap document in one navigation.
+**WBS section:** [`sprints/WBS.md` § Sprint 3](./WBS.md)
 
 ## Build branch
 
@@ -20,21 +20,20 @@ Every sprint session — manager and IC — works **on this branch only**. This 
 
 At session start: `git checkout main`.
 
-## Load-bearing reading for sprint 2
+## Load-bearing reading for sprint 3
 
-The session running sprint 2 must read these in this order before delegating any story:
+The session running sprint 3 must read these in this order before delegating any story:
 
-1. `sprints/sprint-1/HANDOFF.md` — **read first**; state of the world + MCP-reuses-services rule.
-2. `sprints/WBS.md` § Sprint 2 + § 1.2 DoD.
+1. `sprints/sprint-2/HANDOFF.md` — **read first**; backend state + UI conventions (snake_case, canvas layout-only, SSE invalidation).
+2. `sprints/WBS.md` § Sprint 3 + § 1.2 DoD.
 3. `sprints/SESSION_KICKOFF_PROMPT.md` — the loop you are running.
-4. `../plandesk-rfc/02-requirements-interfaces.md` — §4.1 (CLI), §4.3 (MCP tools/endpoint), §3 REQ-7/8/10.
-5. `../plandesk-rfc/03-pseudocode-blueprint.md` — §6.3 (MCP exec loop), §6.5 (export/import), §7.2 (update_task tool).
-6. `../plandesk-rfc/05-security-rollback-open-qs.md` — §10 (token handling, no mass-delete).
-7. `sprints/sprint-1/WARMDOWN.md` — conventions (snake_case serialize, services-as-write-path, eventBus).
+4. `../plandesk-rfc/02-requirements-interfaces.md` — §4.5 (frontend stack/routes), §4.2 (REST shapes), §4.7 (canvas layout-only), §3 REQ-1/2/3, §5.3 (edge vocab).
+5. `../plandesk-rfc/03-pseudocode-blueprint.md` — §7.3 (FlowCanvas sketch).
+6. `packages/plandesk-api/src/serialize.ts` + `routes/*.ts` — exact response shapes the client consumes.
 
 ## Last completed sprint
 
-`1 — Backend core (REST + SSE)`
+`2 — MCP + portability`
 
 ## Last completed at
 
@@ -46,7 +45,8 @@ The session running sprint 2 must read these in this order before delegating any
 |--------|--------|--------------|----------|
 | 0 | ✅ complete | 2026-06-07 | [sprint-0/WARMDOWN.md](./sprint-0/WARMDOWN.md) |
 | 1 | ✅ complete | 2026-06-07 | [sprint-1/WARMDOWN.md](./sprint-1/WARMDOWN.md) |
-| 2 | not-started | — | — |
+| 2 | ✅ complete | 2026-06-07 | [sprint-2/WARMDOWN.md](./sprint-2/WARMDOWN.md) |
+| 3 | not-started | — | — |
 
 When a sprint completes, append a row here from `WARMDOWN.md`.
 
