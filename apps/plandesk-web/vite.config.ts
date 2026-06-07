@@ -9,6 +9,18 @@ export default defineConfig({
     }),
     react(),
   ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3847',
+        changeOrigin: true,
+      },
+      '/mcp': {
+        target: 'http://127.0.0.1:3847',
+        changeOrigin: true,
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
   },

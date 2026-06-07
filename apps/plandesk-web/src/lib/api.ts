@@ -1,0 +1,197 @@
+export const taskStatuses = ['scope', 'todo', 'in_progress', 'done', 'backlog'] as const;
+export type TaskStatus = (typeof taskStatuses)[number];
+
+export type TaskStatusSummary = Record<TaskStatus, number>;
+
+export type SerializedProject = {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SerializedProjectDetail = SerializedProject & {
+  summary: TaskStatusSummary;
+};
+
+export type SerializedTask = {
+  id: string;
+  project_id: string;
+  label: string;
+  status: TaskStatus;
+  description: string | null;
+  x: number;
+  y: number;
+  assignee: string | null;
+  due_date: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SerializedEdge = {
+  id: string;
+  project_id: string;
+  from_task_id: string;
+  to_task_id: string;
+  label: string | null;
+  arrow_direction: string | null;
+  style: string | null;
+  created_at: string;
+};
+
+export type SerializedDocument = {
+  id: string;
+  project_id: string;
+  title: string;
+  body: string | null;
+  status_line: string | null;
+  parent_id: string | null;
+  linked_task_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SerializedDocumentTree = SerializedDocument & {
+  children: SerializedDocumentTree[];
+};
+
+export type CanvasResponse = {
+  nodes: SerializedTask[];
+  edges: SerializedEdge[];
+  layout: unknown;
+};
+
+export type PutCanvasInput = {
+  nodes: Array<{ id?: string; x: number; y: number; label?: string }>;
+  edges: Array<{
+    id?: string;
+    from_task_id: string;
+    to_task_id: string;
+    label?: string | null;
+    arrow_direction?: string | null;
+    style?: string | null;
+  }>;
+  layout?: unknown;
+};
+
+export type CreateProjectInput = {
+  name: string;
+  description?: string | null;
+};
+
+export type PatchTaskInput = {
+  status?: TaskStatus;
+  label?: string;
+  description?: string | null;
+  x?: number;
+  y?: number;
+};
+
+export type CreateDocumentInput = {
+  title: string;
+  body?: string | null;
+  status_line?: string | null;
+  parent_id?: string | null;
+  linked_task_id?: string | null;
+};
+
+export type PatchDocumentInput = {
+  title?: string;
+  body?: string | null;
+  status_line?: string | null;
+  parent_id?: string | null;
+  linked_task_id?: string | null;
+};
+
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly body: string,
+  ) {
+    super(`API error ${String(status)}: ${body}`);
+    this.name = 'ApiError';
+  }
+}
+
+const BASE = '/api/v1';
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const response = await fetch(`${BASE}${path}`, { ...init, headers });
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  return response.json() as Promise<T>;
+}
+
+export function listProjects(): Promise<SerializedProject[]> {
+  return request('/projects');
+}
+
+export function createProject(input: CreateProjectInput): Promise<SerializedProject> {
+  return request('/projects', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function getProject(id: string): Promise<SerializedProjectDetail> {
+  return request(`/projects/${id}`);
+}
+
+export function listTasks(
+  projectId: string,
+  filter: { status?: TaskStatus } = {},
+): Promise<SerializedTask[]> {
+  const params = new URLSearchParams();
+  if (filter.status !== undefined) {
+    params.set('status', filter.status);
+  }
+  const query = params.toString();
+  return request(`/projects/${projectId}/tasks${query ? `?${query}` : ''}`);
+}
+
+export function patchTask(id: string, input: PatchTaskInput): Promise<SerializedTask> {
+  return request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function getCanvas(projectId: string): Promise<CanvasResponse> {
+  return request(`/projects/${projectId}/canvas`);
+}
+
+export function putCanvas(projectId: string, input: PutCanvasInput): Promise<CanvasResponse> {
+  return request(`/projects/${projectId}/canvas`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+export function listDocuments(projectId: string): Promise<SerializedDocumentTree[]> {
+  return request(`/projects/${projectId}/documents`);
+}
+
+export function createDocument(
+  projectId: string,
+  input: CreateDocumentInput,
+): Promise<SerializedDocument> {
+  return request(`/projects/${projectId}/documents`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getDocument(id: string): Promise<SerializedDocument> {
+  return request(`/documents/${id}`);
+}
+
+export function patchDocument(id: string, input: PatchDocumentInput): Promise<SerializedDocument> {
+  return request(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function getTaskDocument(taskId: string): Promise<SerializedDocument> {
+  return request(`/tasks/${taskId}/document`);
+}

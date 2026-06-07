@@ -10,33 +10,103 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SettingsMcpRouteImport } from './routes/settings.mcp'
+import { Route as ProjectsIdOverviewRouteImport } from './routes/projects.$id.overview'
+import { Route as ProjectsIdFlowRouteImport } from './routes/projects.$id.flow'
+import { Route as ProjectsIdBoardRouteImport } from './routes/projects.$id.board'
+import { Route as ProjectsIdDocumentsDocIdRouteImport } from './routes/projects.$id.documents.$docId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsMcpRoute = SettingsMcpRouteImport.update({
+  id: '/settings/mcp',
+  path: '/settings/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsIdOverviewRoute = ProjectsIdOverviewRouteImport.update({
+  id: '/projects/$id/overview',
+  path: '/projects/$id/overview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsIdFlowRoute = ProjectsIdFlowRouteImport.update({
+  id: '/projects/$id/flow',
+  path: '/projects/$id/flow',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsIdBoardRoute = ProjectsIdBoardRouteImport.update({
+  id: '/projects/$id/board',
+  path: '/projects/$id/board',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsIdDocumentsDocIdRoute =
+  ProjectsIdDocumentsDocIdRouteImport.update({
+    id: '/projects/$id/documents/$docId',
+    path: '/projects/$id/documents/$docId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/settings/mcp': typeof SettingsMcpRoute
+  '/projects/$id/board': typeof ProjectsIdBoardRoute
+  '/projects/$id/flow': typeof ProjectsIdFlowRoute
+  '/projects/$id/overview': typeof ProjectsIdOverviewRoute
+  '/projects/$id/documents/$docId': typeof ProjectsIdDocumentsDocIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/settings/mcp': typeof SettingsMcpRoute
+  '/projects/$id/board': typeof ProjectsIdBoardRoute
+  '/projects/$id/flow': typeof ProjectsIdFlowRoute
+  '/projects/$id/overview': typeof ProjectsIdOverviewRoute
+  '/projects/$id/documents/$docId': typeof ProjectsIdDocumentsDocIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/settings/mcp': typeof SettingsMcpRoute
+  '/projects/$id/board': typeof ProjectsIdBoardRoute
+  '/projects/$id/flow': typeof ProjectsIdFlowRoute
+  '/projects/$id/overview': typeof ProjectsIdOverviewRoute
+  '/projects/$id/documents/$docId': typeof ProjectsIdDocumentsDocIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/settings/mcp'
+    | '/projects/$id/board'
+    | '/projects/$id/flow'
+    | '/projects/$id/overview'
+    | '/projects/$id/documents/$docId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/settings/mcp'
+    | '/projects/$id/board'
+    | '/projects/$id/flow'
+    | '/projects/$id/overview'
+    | '/projects/$id/documents/$docId'
+  id:
+    | '__root__'
+    | '/'
+    | '/settings/mcp'
+    | '/projects/$id/board'
+    | '/projects/$id/flow'
+    | '/projects/$id/overview'
+    | '/projects/$id/documents/$docId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SettingsMcpRoute: typeof SettingsMcpRoute
+  ProjectsIdBoardRoute: typeof ProjectsIdBoardRoute
+  ProjectsIdFlowRoute: typeof ProjectsIdFlowRoute
+  ProjectsIdOverviewRoute: typeof ProjectsIdOverviewRoute
+  ProjectsIdDocumentsDocIdRoute: typeof ProjectsIdDocumentsDocIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +118,51 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/mcp': {
+      id: '/settings/mcp'
+      path: '/settings/mcp'
+      fullPath: '/settings/mcp'
+      preLoaderRoute: typeof SettingsMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/$id/overview': {
+      id: '/projects/$id/overview'
+      path: '/projects/$id/overview'
+      fullPath: '/projects/$id/overview'
+      preLoaderRoute: typeof ProjectsIdOverviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/$id/flow': {
+      id: '/projects/$id/flow'
+      path: '/projects/$id/flow'
+      fullPath: '/projects/$id/flow'
+      preLoaderRoute: typeof ProjectsIdFlowRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/$id/board': {
+      id: '/projects/$id/board'
+      path: '/projects/$id/board'
+      fullPath: '/projects/$id/board'
+      preLoaderRoute: typeof ProjectsIdBoardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/$id/documents/$docId': {
+      id: '/projects/$id/documents/$docId'
+      path: '/projects/$id/documents/$docId'
+      fullPath: '/projects/$id/documents/$docId'
+      preLoaderRoute: typeof ProjectsIdDocumentsDocIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SettingsMcpRoute: SettingsMcpRoute,
+  ProjectsIdBoardRoute: ProjectsIdBoardRoute,
+  ProjectsIdFlowRoute: ProjectsIdFlowRoute,
+  ProjectsIdOverviewRoute: ProjectsIdOverviewRoute,
+  ProjectsIdDocumentsDocIdRoute: ProjectsIdDocumentsDocIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
