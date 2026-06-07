@@ -7,6 +7,7 @@ import {
   getDocument,
   getProject,
   getTaskDocument,
+  listAgentRuns,
   listDocuments,
   listMcpTokens,
   listProjects,
@@ -33,6 +34,7 @@ export const queryKeys = {
   document: (id: string) => ['documents', id] as const,
   taskDocument: (taskId: string) => ['tasks', taskId, 'document'] as const,
   mcpTokens: ['mcp-tokens'] as const,
+  agentRuns: (projectId: string) => ['projects', projectId, 'agent-runs'] as const,
 };
 
 export function useProjects() {
@@ -162,5 +164,12 @@ export function useRevokeMcpToken() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.mcpTokens });
     },
+  });
+}
+
+export function useAgentRuns(projectId: string) {
+  return useQuery({
+    queryKey: queryKeys.agentRuns(projectId),
+    queryFn: () => listAgentRuns(projectId),
   });
 }

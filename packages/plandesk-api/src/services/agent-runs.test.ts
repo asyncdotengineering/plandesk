@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDb, createProject, migrate } from '@plandesk/db';
+import { createAgentRun, createDb, createProject, migrate } from '@plandesk/db';
 import {
   createEventBus,
   type AgentRunCompletedEvent,
@@ -92,5 +92,34 @@ describe('agentRunService', () => {
     }
     service.complete(run.id, 'completed');
     expect(() => service.recordProgress(run.id, 'Late')).toThrow(InvalidAgentRunError);
+  });
+
+  it('lists runs with events newest-first', () => {
+    const service = createService();
+    const olderRun = createAgentRun(db, {
+      projectId,
+      label: 'Older',
+      startedAt: new Date('2026-06-08T10:00:00.000Z'),
+    });
+    const newerRun = createAgentRun(db, {
+      projectId,
+      label: 'Newer',
+      startedAt: new Date('2026-06-08T11:00:00.000Z'),
+    });
+    service.recordProgress(newerRun.id, 'Step one');
+    service.complete(olderRun.id, 'failed');
+
+    const listed = service.listForProject(projectId);
+    expect(listed).toHaveLength(2);
+    expect(listed?.[0]?.label).toBe('Newer');
+    expect(listed?.[0]?.events).toEqual([expect.objectContaining({ message: 'Step one' })]);
+    expect(listed?.[0]?.events[0]).not.toHaveProperty('run_id');
+    expect(listed?.[1]?.label).toBe('Older');
+    expect(listed?.[1]?.status).toBe('failed');
+  });
+
+  it('returns undefined for a missing project', () => {
+    const service = createService();
+    expect(service.listForProject('00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 });

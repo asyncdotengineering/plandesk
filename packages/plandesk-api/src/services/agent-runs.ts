@@ -3,6 +3,8 @@ import {
   createAgentRunEvent,
   getAgentRun,
   getProject,
+  listAgentRunEvents,
+  listAgentRuns,
   updateAgentRunStatus,
   type AgentRunStatus,
   type Db,
@@ -28,6 +30,36 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
+    listForProject(projectId: string) {
+      const project = getProject(db, projectId);
+      if (!project) {
+        return undefined;
+      }
+
+      const runs = listAgentRuns(db, projectId)
+        .slice()
+        .sort((a, b) => {
+          const timeDiff = b.startedAt.getTime() - a.startedAt.getTime();
+          if (timeDiff !== 0) {
+            return timeDiff;
+          }
+          return b.id.localeCompare(a.id);
+        });
+
+      return runs.map((run) => {
+        const serialized = serializeAgentRun(run);
+        const events = listAgentRunEvents(db, run.id).map((event) => {
+          const serialized = serializeAgentRunEvent(event);
+          return {
+            id: serialized.id,
+            message: serialized.message,
+            created_at: serialized.created_at,
+          };
+        });
+        return { ...serialized, events };
+      });
+    },
+
     start(projectId: string, label?: string | null) {
       const project = getProject(db, projectId);
       if (!project) {

@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
+import { AgentRunsPanel } from '../components/canvas/AgentRunsPanel.js';
 import { FlowCanvas } from '../components/canvas/FlowCanvas.js';
 import { useProject } from '../lib/queries.js';
 import { validateTaskFilterSearch } from '../lib/search.js';
@@ -37,7 +38,10 @@ function ProjectFlowPage() {
       {status !== undefined ? (
         <p style={{ color: '#666', marginTop: 0 }}>Filter: {status}</p>
       ) : null}
-      <FlowCanvas projectId={id} />
+      <div style={{ position: 'relative' }}>
+        <AgentRunsPanel projectId={id} />
+        <FlowCanvas projectId={id} />
+      </div>
     </section>
   );
 }

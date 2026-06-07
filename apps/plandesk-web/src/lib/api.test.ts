@@ -193,4 +193,23 @@ describe('api client', () => {
       headers: expect.any(Headers) as Headers,
     });
   });
+
+  it('listAgentRuns fetches GET /api/v1/projects/:id/agent-runs', async () => {
+    const sampleRuns = [
+      {
+        id: 'run-1',
+        project_id: 'proj-1',
+        status: 'running' as const,
+        label: 'Worker',
+        started_at: '2026-06-08T12:00:00.000Z',
+        completed_at: null,
+        events: [{ id: 'evt-1', message: 'Step', created_at: '2026-06-08T12:00:01.000Z' }],
+      },
+    ];
+    mockFetch(sampleRuns);
+    const { listAgentRuns } = await import('./api.js');
+    const result = await listAgentRuns('proj-1');
+    expectFetchCall('/api/v1/projects/proj-1/agent-runs');
+    expect(result).toEqual(sampleRuns);
+  });
 });

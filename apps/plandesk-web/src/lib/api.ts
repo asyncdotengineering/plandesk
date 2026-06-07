@@ -230,3 +230,23 @@ export function createMcpToken(name: string): Promise<CreateMcpTokenResponse> {
 export function revokeMcpToken(id: string): Promise<void> {
   return request(`/mcp-tokens/${id}`, { method: 'DELETE' });
 }
+
+export type SerializedAgentRunEvent = {
+  id: string;
+  message: string;
+  created_at: string;
+};
+
+export type SerializedAgentRun = {
+  id: string;
+  project_id: string;
+  status: 'running' | 'completed' | 'failed';
+  label: string | null;
+  started_at: string;
+  completed_at: string | null;
+  events: SerializedAgentRunEvent[];
+};
+
+export function listAgentRuns(projectId: string): Promise<SerializedAgentRun[]> {
+  return request(`/projects/${projectId}/agent-runs`);
+}
