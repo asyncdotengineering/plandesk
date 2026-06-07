@@ -4,12 +4,26 @@ import { fileURLToPath } from 'node:url';
 import { serveStatic } from '@hono/node-server/serve-static';
 import type { Hono } from 'hono';
 
-const defaultDistPath = join(
-  dirname(fileURLToPath(import.meta.url)),
-  '../../../apps/plandesk-web/dist',
-);
+// Resolve the built web SPA across install layouts:
+//   1. PLANDESK_WEB_DIST env override
+//   2. bundled `web/` next to this package (published npm package ships it here)
+//   3. monorepo dev path (apps/plandesk-web/dist)
+// First candidate that contains index.html wins; otherwise the dev path.
+function resolveDefaultDistPath(): string {
+  const here = dirname(fileURLToPath(import.meta.url)); // .../@plandesk/api/dist
+  const candidates = [
+    process.env.PLANDESK_WEB_DIST,
+    join(here, '../web'), // bundled in the published package
+    join(here, '../../../apps/plandesk-web/dist'), // monorepo dev
+  ].filter((p): p is string => typeof p === 'string' && p.length > 0);
+  return (
+    candidates.find((p) => existsSync(join(p, 'index.html'))) ??
+    candidates[candidates.length - 1] ??
+    join(here, '../../../apps/plandesk-web/dist')
+  );
+}
 
-export function mountStatic(app: Hono, distPath: string = defaultDistPath): void {
+export function mountStatic(app: Hono, distPath: string = resolveDefaultDistPath()): void {
   if (!existsSync(distPath)) {
     return;
   }

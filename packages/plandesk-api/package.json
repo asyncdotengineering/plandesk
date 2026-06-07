@@ -1,6 +1,6 @@
 {
   "name": "@plandesk/api",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "exports": {
     ".": {
@@ -10,6 +10,7 @@
   },
   "files": [
     "dist",
+    "web",
     "!dist/**/*.test.js",
     "!dist/**/*.test.js.map",
     "!dist/**/*.test.d.ts",
@@ -18,7 +19,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "prepack": "node -e \"const fs=require('fs');const s='../../apps/plandesk-web/dist';if(fs.existsSync(s)){fs.rmSync('web',{recursive:true,force:true});fs.cpSync(s,'web',{recursive:true});console.log('bundled web SPA')}else{console.warn('web dist missing; published serve will lack UI')}\""
   },
   "devDependencies": {
     "@plandesk/db": "workspace:*",
