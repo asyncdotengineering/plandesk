@@ -1,0 +1,28 @@
+=== import dogfood fixture ===
+plandesk import --in examples/checkout-revamp.json
+project_id=09c0fc66-f16e-499e-a9ca-3418dcad45f8
+name=Checkout Revamp
+
+=== counts ===
+tasks=8
+edges=6
+documents=3
+agent_runs=1
+
+=== labeled edges ===
+- Payment gateway integration --[blocks]--> Feature flag rollout
+- Address validation --[depends_on]--> Payment gateway integration
+- Cart totals audit --[feeds]--> Feature flag rollout
+- E2E checkout tests --[depends_on]--> Feature flag rollout
+- Scope checkout flow --[clarifies]--> Payment gateway integration
+- Analytics events --[enables]--> Launch announcement
+
+=== linked documents ===
+- Design: Payment flow | status_line="Ready for review" | linked=Payment gateway integration
+- Scope: Checkout Revamp | status_line="Ready to implement" | linked=Scope checkout flow
+- Investigation: Address validation | status_line="Open — requires investigation" | linked=Address validation
+
+=== MCP get_project ===
+PLANDESK_URL=http://127.0.0.1:50557
+get_project summary={"scope":2,"todo":3,"in_progress":1,"done":1,"backlog":1}
+get_project name=Checkout Revamp

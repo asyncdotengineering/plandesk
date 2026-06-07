@@ -1,0 +1,189 @@
+{
+  "version": "plandesk-export-v1",
+  "project": {
+    "name": "Checkout Revamp",
+    "description": "Replace legacy checkout with a modular payment flow, address validation, and staged rollout.",
+    "canvas_layout": "{\"zoom\":1,\"x\":0,\"y\":0}"
+  },
+  "tasks": [
+    {
+      "id": "a1000001-0001-4001-8001-000000000001",
+      "label": "Scope checkout flow",
+      "status": "scope",
+      "description": "Problem: checkout spans three services with inconsistent error handling.\nAction Items:\n- Map current payment + shipping touchpoints\n- Identify blockers for gateway swap\nReferences: Scope: Checkout Revamp",
+      "x": 0,
+      "y": 0,
+      "assignee": "pm",
+      "due_date": null
+    },
+    {
+      "id": "a1000002-0002-4002-8002-000000000002",
+      "label": "Payment gateway integration",
+      "status": "scope",
+      "description": "Problem: Stripe Elements must replace the legacy iframe without breaking saved cards.\nAction Items:\n- Implement PaymentIntent lifecycle\n- Wire webhook reconciliation\nReferences: Design: Payment flow",
+      "x": 0,
+      "y": 220,
+      "assignee": "backend",
+      "due_date": "2026-07-15T00:00:00.000Z"
+    },
+    {
+      "id": "a1000003-0003-4003-8003-000000000003",
+      "label": "Address validation",
+      "status": "todo",
+      "description": "Problem: international addresses fail silently at tax calculation.\nAction Items:\n- Integrate Loqate autocomplete\n- Normalize country/state codes before totals\nReferences: Investigation: Address validation",
+      "x": 240,
+      "y": 220,
+      "assignee": "frontend",
+      "due_date": null
+    },
+    {
+      "id": "a1000004-0004-4004-8004-000000000004",
+      "label": "Cart totals audit",
+      "status": "todo",
+      "description": "Problem: promo stacking can double-apply percentage discounts.\nAction Items:\n- Add invariant tests for discount ordering\n- Log mismatches to observability\nReferences: Scope: Checkout Revamp",
+      "x": 480,
+      "y": 220,
+      "assignee": "backend",
+      "due_date": null
+    },
+    {
+      "id": "a1000005-0005-4005-8005-000000000005",
+      "label": "Feature flag rollout",
+      "status": "in_progress",
+      "description": "Problem: we need a safe ramp from 1% to 100% with instant rollback.\nAction Items:\n- Add checkout_v2 flag with cohort rules\n- Dashboard for conversion delta\nReferences: Payment gateway integration, Cart totals audit",
+      "x": 240,
+      "y": 440,
+      "assignee": "platform",
+      "due_date": "2026-08-01T00:00:00.000Z"
+    },
+    {
+      "id": "a1000006-0006-4006-8006-000000000006",
+      "label": "E2E checkout tests",
+      "status": "todo",
+      "description": "Problem: regressions slip through when gateway mocks drift from production.\nAction Items:\n- Playwright flows for card + wallet paths\n- Nightly run against staging\nReferences: Feature flag rollout",
+      "x": 480,
+      "y": 440,
+      "assignee": "qa",
+      "due_date": null
+    },
+    {
+      "id": "a1000007-0007-4007-8007-000000000007",
+      "label": "Analytics events",
+      "status": "backlog",
+      "description": "Problem: funnel dashboards still reference deprecated step names.\nAction Items:\n- Emit checkout_step_viewed v2 schema\n- Backfill mapping for Looker\nReferences: Launch announcement",
+      "x": 720,
+      "y": 440,
+      "assignee": "data",
+      "due_date": null
+    },
+    {
+      "id": "a1000008-0008-4008-8008-000000000008",
+      "label": "Launch announcement",
+      "status": "done",
+      "description": "Problem: GTM needs a crisp narrative once rollout completes.\nAction Items:\n- Draft changelog + blog post\n- Coordinate support macros\nReferences: Feature flag rollout",
+      "x": 720,
+      "y": 660,
+      "assignee": "pm",
+      "due_date": "2026-08-15T00:00:00.000Z"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e4000001-0001-4001-8001-000000000001",
+      "from_task_id": "a1000002-0002-4002-8002-000000000002",
+      "to_task_id": "a1000005-0005-4005-8005-000000000005",
+      "label": "blocks",
+      "arrow_direction": "forward",
+      "style": "solid"
+    },
+    {
+      "id": "e4000002-0002-4002-8002-000000000002",
+      "from_task_id": "a1000003-0003-4003-8003-000000000003",
+      "to_task_id": "a1000002-0002-4002-8002-000000000002",
+      "label": "depends_on",
+      "arrow_direction": "forward",
+      "style": "solid"
+    },
+    {
+      "id": "e4000003-0003-4003-8003-000000000003",
+      "from_task_id": "a1000004-0004-4004-8004-000000000004",
+      "to_task_id": "a1000005-0005-4005-8005-000000000005",
+      "label": "feeds",
+      "arrow_direction": "forward",
+      "style": "dashed"
+    },
+    {
+      "id": "e4000004-0004-4004-8004-000000000004",
+      "from_task_id": "a1000006-0006-4006-8006-000000000006",
+      "to_task_id": "a1000005-0005-4005-8005-000000000005",
+      "label": "depends_on",
+      "arrow_direction": "forward",
+      "style": "solid"
+    },
+    {
+      "id": "e4000005-0005-4005-8005-000000000005",
+      "from_task_id": "a1000001-0001-4001-8001-000000000001",
+      "to_task_id": "a1000002-0002-4002-8002-000000000002",
+      "label": "clarifies",
+      "arrow_direction": "forward",
+      "style": "dashed"
+    },
+    {
+      "id": "e4000006-0006-4006-8006-000000000006",
+      "from_task_id": "a1000007-0007-4007-8007-000000000007",
+      "to_task_id": "a1000008-0008-4008-8008-000000000008",
+      "label": "enables",
+      "arrow_direction": "forward",
+      "style": "solid"
+    }
+  ],
+  "documents": [
+    {
+      "id": "b2000001-0001-4001-8001-000000000001",
+      "title": "Scope: Checkout Revamp",
+      "body": "<p><strong>Status:</strong> Ready to implement</p><p>Replace the monolithic checkout page with a composable flow: cart review, shipping, payment, confirmation.</p><p>Success metrics: conversion rate parity at 100% rollout, p95 checkout latency under 2.5s.</p>",
+      "status_line": "Ready to implement",
+      "parent_id": null,
+      "linked_task_id": "a1000001-0001-4001-8001-000000000001"
+    },
+    {
+      "id": "b2000002-0002-4002-8002-000000000002",
+      "title": "Design: Payment flow",
+      "body": "<p><strong>Status:</strong> Ready for review</p><p>PaymentIntent created server-side; client confirms with Elements. Webhooks drive order fulfillment state.</p>",
+      "status_line": "Ready for review",
+      "parent_id": null,
+      "linked_task_id": "a1000002-0002-4002-8002-000000000002"
+    },
+    {
+      "id": "b2000003-0003-4003-8003-000000000003",
+      "title": "Investigation: Address validation",
+      "body": "<p><strong>Status:</strong> Open — requires investigation</p><p>Loqate coverage gaps in APAC; fallback to manual entry with server-side normalization.</p>",
+      "status_line": "Open — requires investigation",
+      "parent_id": "b2000001-0001-4001-8001-000000000001",
+      "linked_task_id": "a1000003-0003-4003-8003-000000000003"
+    }
+  ],
+  "agent_runs": [
+    {
+      "id": "c3000001-0001-4001-8001-000000000001",
+      "status": "completed",
+      "label": "Checkout revamp planning",
+      "started_at": "2026-06-01T09:00:00.000Z",
+      "completed_at": "2026-06-01T09:45:00.000Z",
+      "events": [
+        {
+          "message": "Imported scope doc and linked to scope task",
+          "created_at": "2026-06-01T09:05:00.000Z"
+        },
+        {
+          "message": "Added payment gateway blocks rollout edge",
+          "created_at": "2026-06-01T09:20:00.000Z"
+        },
+        {
+          "message": "Marked launch announcement done for demo snapshot",
+          "created_at": "2026-06-01T09:40:00.000Z"
+        }
+      ]
+    }
+  ]
+}
