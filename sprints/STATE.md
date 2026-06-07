@@ -8,7 +8,7 @@
 
 **Sprint number:** `6`
 **Sprint name:** Polish + 1.0
-**Status:** `not-started`
+**Status:** `✅ COMPLETE — program shipped (v1.0.0)`
 **Goal:** Every §9 fail-to-pass test and validation command is green, the v1 measurable-outcome metrics (cold start <5 s, MCP list/inspect <2 s p95, SSE <500 ms, lossless export) are measured and met, and the repo ships a 1.0 tag with full setup docs.
 **WBS section:** [`sprints/WBS.md` § Sprint 6](./WBS.md)
 
@@ -33,7 +33,7 @@ The session running sprint 6 must read these in this order before delegating any
 
 ## Last completed sprint
 
-`5 — Distribution + integration + dogfood`
+`6 — Polish + 1.0` — **PROGRAM COMPLETE (v1.0.0)**
 
 ## Last completed at
 
@@ -49,7 +49,7 @@ The session running sprint 6 must read these in this order before delegating any
 | 3 | ✅ complete | 2026-06-07 | [sprint-3/WARMDOWN.md](./sprint-3/WARMDOWN.md) |
 | 4 | ✅ complete | 2026-06-08 | [sprint-4/WARMDOWN.md](./sprint-4/WARMDOWN.md) |
 | 5 | ✅ complete | 2026-06-08 | [sprint-5/WARMDOWN.md](./sprint-5/WARMDOWN.md) |
-| 6 | not-started | — | — |
+| 6 | ✅ complete | 2026-06-08 | [sprint-6/review-sprint.md](./sprint-6/review-sprint.md) |
 
 When a sprint completes, append a row here from `WARMDOWN.md`.
 
