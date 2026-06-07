@@ -1,4 +1,7 @@
-# Plan Desk MCP skill
+---
+title: The Skill
+description: Agent conventions for Plan Desk MCP — task labels, docs, edges, and agent runs.
+---
 
 Embed this file in a repo so Claude Code, Codex, or other MCP agents follow Plan Desk conventions. `plandesk connect` writes the same content to `.plandesk/skill.md` and references it from `CLAUDE.md`.
 

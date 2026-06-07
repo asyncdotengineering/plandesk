@@ -24,5 +24,4 @@ First production release — local-first, self-hostable planning workspace with 
 ### Documentation
 
 - Top-level README (quickstart, Docker, agent connect, CLI reference).
-- [docs/mcp-setup.md](docs/mcp-setup.md) — Claude Code and Codex MCP registration.
-- [docs/skills/plandesk-mcp.md](docs/skills/plandesk-mcp.md) — repo-embeddable agent skill.
+- [apps/docs](apps/docs/) — Astro Starlight documentation site (MCP setup, agent skill, CLI/API reference).

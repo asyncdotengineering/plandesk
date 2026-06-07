@@ -6,3 +6,5 @@ coverage/
 sprints/
 pnpm-lock.yaml
 **/routeTree.gen.ts
+apps/docs/.astro/
+apps/docs/dist/

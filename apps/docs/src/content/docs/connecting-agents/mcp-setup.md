@@ -1,4 +1,7 @@
-# MCP setup — Claude Code and Codex
+---
+title: MCP Setup
+description: Connect Claude Code or Codex to a running Plan Desk server.
+---
 
 Connect Claude Code or Codex to a running Plan Desk server so agents can read projects, update tasks, write docs, and record agent runs. This is the standard flow for connecting an MCP-capable agent to a local Plan Desk server.
 
@@ -64,7 +67,7 @@ codex mcp add --transport http plandesk http://127.0.0.1:3847/mcp/ \
 
 ### Env-var token (commit-safe)
 
-For teams sharing repo config without committing secrets, use `plandesk connect` — it writes `.mcp.json` with:
+For teams sharing repo config without committing secrets, use [`plandesk connect`](/connecting-agents/connect/) — it writes `.mcp.json` with:
 
 ```json
 {
@@ -90,63 +93,16 @@ export PLANDESK_MCP_TOKEN="$(cat .plandesk/token)"
 
 MCP tool lists load at session start. After adding or changing the server, **start a new Claude Code or Codex session**.
 
-Verify tools are available — you should see 10 Plan Desk tools (see below).
+Verify tools are available — you should see 10 Plan Desk tools (see [REST + MCP API](/reference/api/)).
 
 ## Step 4 — Add agent conventions (skill)
 
 Agents work best with repo-local conventions. Two options:
 
 1. **`plandesk connect`** — writes `.plandesk/skill.md` and wires it into `CLAUDE.md` / Codex commands automatically.
-2. **Manual** — copy [docs/skills/plandesk-mcp.md](skills/plandesk-mcp.md) into your repo and reference it from `CLAUDE.md` or agent instructions.
+2. **Manual** — copy [The Skill](/connecting-agents/skill/) into your repo and reference it from `CLAUDE.md` or agent instructions.
 
 The skill-file pattern applies: keep conventions in a committed markdown file the agent reads every session.
-
-## MCP tools (v1)
-
-| Tool                    | Purpose                              |
-| ----------------------- | ------------------------------------ |
-| `list_projects`         | List accessible projects             |
-| `get_project`           | Tasks, docs summary, canvas snapshot |
-| `create_task`           | Add canvas node + task row           |
-| `update_task`           | Status, label, description, position |
-| `create_document`       | Markdown body; optional link to task |
-| `update_document`       | Patch title/body/status line         |
-| `create_edge`           | Labeled dependency between tasks     |
-| `start_agent_run`       | Begin external agent session         |
-| `record_agent_progress` | Append progress event                |
-| `complete_agent_run`    | Close run (completed or failed)      |
-
-At session start, list tools before calling them. Resolve the project from `.plandesk/config.json` when present — do not guess IDs.
-
-## Repo binding with `plandesk connect`
-
-From a codebase directory (with `plandesk serve` running):
-
-```bash
-plandesk connect --project "Checkout Revamp"
-```
-
-This:
-
-1. Resolves the project (by id or name).
-2. Creates or reuses an MCP token in `.plandesk/token` (gitignored).
-3. Writes `.plandesk/config.json` (committed project binding).
-4. Merges the `plandesk` entry into `.mcp.json`.
-5. Inserts an idempotent sentinel block in `CLAUDE.md` (and `AGENTS.md` if present):
-
-   ```markdown
-   <!-- plandesk:start -->
-
-   @.plandesk/skill.md
-
-   <!-- plandesk:end -->
-   ```
-
-6. Writes `.codex/commands/plandesk.md` for Codex.
-
-Dry-run: `plandesk connect --print`.
-
-Disconnect: `plandesk disconnect` (does not revoke the token).
 
 ## Troubleshooting
 
@@ -164,4 +120,4 @@ plandesk doctor --repo .           # + binding, token, MCP tool list
 
 ## Factory Desk
 
-Programmatic access without Claude/Codex: use `packages/plandesk-mcp-client` with `PLANDESK_URL` and `PLANDESK_MCP_TOKEN`. See the [RFC §4.6](../plandesk-rfc/02-requirements-interfaces.md#46-factory-desk-integration-adapter).
+Programmatic access without Claude/Codex: use `packages/plandesk-mcp-client` with `PLANDESK_URL` and `PLANDESK_MCP_TOKEN`.

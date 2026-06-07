@@ -1,8 +1,13 @@
-# Validation contract (RFC §9)
+---
+title: Validation & Metrics
+description: Test suite, live validation commands, and v1 performance targets.
+---
 
-Plan Desk ships a named validation suite aligned with `../plandesk-rfc/04-tasks-validation.md` §9.
+## Validation contract
 
-## Fail-to-pass tests (`pnpm test`)
+Plan Desk ships a named validation suite aligned with the RFC validation section.
+
+### Fail-to-pass tests (`pnpm test`)
 
 | Assertion ID                 | Behavior                                                             | Test location                                        |
 | ---------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------- |
@@ -19,7 +24,7 @@ Discover any named assertion:
 pnpm test 2>&1 | rg 'test:(canvas_roundtrip|doc_link|sse_task_update|mcp_update_task|export_import|factory_adapter_smoke)'
 ```
 
-## Regression tests (`pnpm test`)
+### Regression tests (`pnpm test`)
 
 | Behavior                                       | Test location                                                                                 |
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
@@ -27,7 +32,7 @@ pnpm test 2>&1 | rg 'test:(canvas_roundtrip|doc_link|sse_task_update|mcp_update_
 | Drizzle migration up/down on seeded DB         | `packages/plandesk-db/src/migrate.test.ts`                                                    |
 | MCP token revoke → subsequent call returns 401 | `packages/plandesk-api/src/routes/tokens.test.ts`, `packages/plandesk-mcp/src/server.test.ts` |
 
-## Live validation commands (`pnpm validate`)
+### Live validation commands (`pnpm validate`)
 
 `scripts/validate.sh` boots `plandesk serve` on a temp data directory and ephemeral port, then runs:
 
@@ -50,3 +55,26 @@ Run the full gate before shipping:
 ```bash
 pnpm build && pnpm test && pnpm lint && pnpm validate
 ```
+
+## v1 Metrics
+
+Performance targets are measured with `pnpm metrics` (`node scripts/metrics.mjs`).
+
+**Measured:** 2026-06-07 — darwin arm64, Apple M1 Pro, Node v22.22.2
+
+| Metric                                            | Target   | Measured                        | Status |
+| ------------------------------------------------- | -------- | ------------------------------- | ------ |
+| Cold start (serve spawn → first `POST /projects`) | < 5 s    | 419.9 ms (0.42 s)               | PASS   |
+| MCP `list_projects` + `get_project` p50           | —        | 2.6 ms                          | —      |
+| MCP `list_projects` + `get_project` p95           | < 2 s    | 4.9 ms                          | PASS   |
+| SSE `task_updated` latency p50 (PATCH → event)    | —        | 1.3 ms                          | —      |
+| SSE `task_updated` latency p95                    | < 500 ms | 1.9 ms                          | PASS   |
+| Export/import lossless (counts + links)           | lossless | true (tasks=3, edges=2, docs=2) | PASS   |
+
+### Measurement rig
+
+- Isolated temp data dir + ephemeral loopback port; `plandesk init` before serve.
+- Cold start: fresh `plandesk serve` spawn until first successful `POST /api/v1/projects`.
+- MCP: Bearer token; 50 sequential `list_projects` + `get_project` pairs via Streamable HTTP MCP.
+- SSE: one `/api/v1/events` subscriber; 20 `PATCH /api/v1/tasks/:id` toggles; time to `task_updated`.
+- Export/import: REST fixture → CLI export → import → re-export; compare structure without IDs.
