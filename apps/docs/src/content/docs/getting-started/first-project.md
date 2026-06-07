@@ -20,18 +20,28 @@ Go to **Flow** (`/projects/:id/flow`). The canvas is a directed graph:
 - **Nodes** are tasks — each card is a unit of work with a label and status badge.
 - **Edges** are labeled dependencies between tasks — they show what blocks or feeds what.
 
-Add a few task cards (double-click the canvas or use the add control). Drag cards to arrange them. Draw dependency edges between related tasks and pick a label from the vocabulary: `blocks`, `depends_on`, `unblocks`, `feeds`, `clarifies`, `enables`, `supports`.
+**Add tasks** with the **+ Add task** panel on the canvas: type a name and click **+ Add task** (the button stays disabled until you enter a name). The new card appears on the canvas. Drag cards to arrange them.
+
+**Edit a task** right on its node: click the label to rename it, and use the status dropdown to change its status. Select a node to open its **detail panel**, where you can edit the description, assignee, and due date.
+
+**Draw dependencies** by dragging from one node's handle to another — this creates a labeled dependency edge. Edge labels come from the vocabulary `blocks`, `depends_on`, `unblocks`, `feeds`, `clarifies`, `enables`, `supports`.
 
 Set initial statuses as you go: `scope` for work still being sized, `todo` for defined work ready to pick up.
 
+To remove things, use the delete control on a node (tasks) or select an edge to delete it — deletes ask for confirmation.
+
 ## 3. Attach a spec to a task
 
-Every non-trivial task should have a linked document. Create one from the canvas:
+Every non-trivial task should have a linked document.
 
-1. Select a task node and open its linked doc (e.g. **Open doc →** on the node).
-2. Or create a document from the project sidebar and link it to the task.
+1. From the project **Overview**, use **New document** to create one.
+2. From the canvas, a task that has a linked doc shows an **Open doc →** link on its node — one click to its editor.
 
-Write a short spec: problem statement, acceptance criteria, references. The doc opens at `/projects/:id/documents/:docId` and stays linked to its task — agents and teammates reach it in one click from the canvas.
+Write a short spec: problem statement, acceptance criteria, references. The doc opens at `/projects/:id/documents/:docId`; you can edit or **delete** it there. Linked docs stay reachable in one click from the canvas — for teammates and agents alike.
+
+## Rename and clean up
+
+From the project **Overview** you can **rename** the project or **delete** it (which removes its tasks, edges, and documents). Deletes confirm first.
 
 ## 4. Track status on the board
 
