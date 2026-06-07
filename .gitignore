@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.db
+.turbo/
+coverage/
+.plandesk/token
+.handoff/result-*.txt
+*.local

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.turbo/
+coverage/
+.handoff/
+sprints/
+pnpm-lock.yaml
+**/routeTree.gen.ts
