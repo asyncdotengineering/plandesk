@@ -21,6 +21,9 @@ export type ParsedArgs =
   | { command: 'init'; dataDir?: string }
   | { command: 'serve'; port: number; dataDir?: string }
   | { command: 'token'; subcommand: 'create'; name: string; dataDir?: string }
+  | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
+  | { command: 'import'; inPath: string; dataDir?: string }
+  | { command: 'doctor'; dataDir?: string }
   | { command: 'help' }
   | { command: 'unknown'; name: string };
 
@@ -114,6 +117,30 @@ export function parseArgs(argv: string[]): ParsedArgs {
     return { command: 'unknown', name: command };
   }
 
+  if (command === 'export') {
+    const projectId = flagString(flags, 'project');
+    const outPath = flagString(flags, 'out');
+    if (projectId === undefined || projectId.trim() === '') {
+      return { command: 'unknown', name: 'export (missing --project)' };
+    }
+    if (outPath === undefined || outPath.trim() === '') {
+      return { command: 'unknown', name: 'export (missing --out)' };
+    }
+    return { command: 'export', projectId, outPath, dataDir };
+  }
+
+  if (command === 'import') {
+    const inPath = flagString(flags, 'in');
+    if (inPath === undefined || inPath.trim() === '') {
+      return { command: 'unknown', name: 'import (missing --in)' };
+    }
+    return { command: 'import', inPath, dataDir };
+  }
+
+  if (command === 'doctor') {
+    return { command: 'doctor', dataDir };
+  }
+
   return { command: 'unknown', name: command };
 }
 
@@ -124,9 +151,15 @@ Usage:
   plandesk init [--data-dir <dir>]
   plandesk serve [--port ${String(DEFAULT_PORT)}] [--data-dir <dir>]
   plandesk token create --name <name> [--data-dir <dir>]
+  plandesk export --project <id> --out <file.json> [--data-dir <dir>]
+  plandesk import --in <file.json> [--data-dir <dir>]
+  plandesk doctor [--data-dir <dir>]
 
 Options:
   --data-dir  Workspace directory (default: ~/.plandesk)
   --port      HTTP port for serve (default: ${String(DEFAULT_PORT)})
+  --project   Project id for export
+  --out       Output file for export
+  --in        Input file for import
 `;
 }

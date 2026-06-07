@@ -1,0 +1,37 @@
+# S2-04 CLI export/import/doctor demo
+# 2026-06-07T15:13:11Z
+
+## init
+Initialized workspace at /tmp/plandesk-s2-04-4u5B/workspace.db
+
+## seed project (via db)
+source_project_id: 710f8bfb-9b9f-4b4b-b81e-183294d76fe7
+
+## export
+Exported project 710f8bfb-9b9f-4b4b-b81e-183294d76fe7 to /tmp/plandesk-s2-04-4u5B/export.json
+export_version: plandesk-export-v1
+
+## import
+imported_project_id: 9038935e-b6d2-477c-94a3-8b40ef153e89
+
+## doctor
+Plan Desk doctor — OK
+data-dir: /tmp/plandesk-s2-04-4u5B
+database: /tmp/plandesk-s2-04-4u5B/workspace.db
+migrations: applied
+tables: 9
+projects: 2
+tasks: 4
+
+## token create
+token_prefix: plandesk... (raw shown once)
+
+## vitest
+Error: port 57943 is already in use
+ ✓ src/cli.test.ts (10 tests) 292ms
+
+ Test Files  3 passed (3)
+      Tests  26 passed (26)
+   Start at  20:43:13
+   Duration  926ms (transform 142ms, setup 0ms, collect 920ms, tests 336ms, environment 0ms, prepare 142ms)
+
