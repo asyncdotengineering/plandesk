@@ -10,7 +10,7 @@
 **Sprint name:** Web: board + MCP settings + agent runs
 **Status:** `not-started`
 **Goal:** Moving a card between board columns updates the canvas node's status badge live, an MCP token can be created/copied-once/revoked from Settings, and an external agent run's progress is visible on the canvas.
-**WBS section:** [`sprints/WBS.md` § Sprint 3](./WBS.md)
+**WBS section:** [`sprints/WBS.md` § Sprint 4](./WBS.md)
 
 ## Build branch
 
@@ -22,10 +22,10 @@ At session start: `git checkout main`.
 
 ## Load-bearing reading for sprint 4
 
-The session running sprint 3 must read these in this order before delegating any story:
+The session running sprint 4 must read these in this order before delegating any story:
 
 1. `sprints/sprint-3/HANDOFF.md` — **read first**; UI state + board-via-PATCH + token REST endpoints to add.
-2. `sprints/WBS.md` § Sprint 3 + § 1.2 DoD.
+2. `sprints/WBS.md` § Sprint 4 + § 1.2 DoD.
 3. `sprints/SESSION_KICKOFF_PROMPT.md` — the loop you are running.
 4. `../plandesk-rfc/02-requirements-interfaces.md` — §4.2 (REST), §5.2 (board), §4.3 (tokens), §3 REQ-5/8/9.
 5. `../plandesk-rfc/03-pseudocode-blueprint.md` — §7.3 (FlowCanvas sketch).
