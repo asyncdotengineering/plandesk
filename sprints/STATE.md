@@ -6,11 +6,11 @@
 
 ## Active sprint
 
-**Sprint number:** `1`
-**Sprint name:** Backend core (REST + SSE)
+**Sprint number:** `2`
+**Sprint name:** MCP + portability
 **Status:** `not-started`
-**Goal:** A client can CRUD projects/tasks, round-trip a canvas of nodes + labeled edges, link a document to a task, and receive an SSE `task_updated` within 500 ms of a PATCH — all through one service layer that is the single SSOT.
-**WBS section:** [`sprints/WBS.md` § Sprint 1](./WBS.md)
+**Goal:** Claude/Codex can connect to `/mcp/` with a hashed bearer token, list ≥8 tools, `update_task` and see it in REST GET + SSE, and a project exports→imports losslessly via the CLI.
+**WBS section:** [`sprints/WBS.md` § Sprint 2](./WBS.md)
 
 ## Build branch
 
@@ -20,21 +20,21 @@ Every sprint session — manager and IC — works **on this branch only**. This 
 
 At session start: `git checkout main`.
 
-## Load-bearing reading for sprint 1
+## Load-bearing reading for sprint 2
 
-The session running sprint 1 must read these in this order before delegating any story:
+The session running sprint 2 must read these in this order before delegating any story:
 
-1. `sprints/sprint-0/HANDOFF.md` — **read first**; state of the world + critical conventions.
-2. `sprints/WBS.md` § Sprint 1 + § 1.2 DoD.
+1. `sprints/sprint-1/HANDOFF.md` — **read first**; state of the world + MCP-reuses-services rule.
+2. `sprints/WBS.md` § Sprint 2 + § 1.2 DoD.
 3. `sprints/SESSION_KICKOFF_PROMPT.md` — the loop you are running.
-4. `../plandesk-rfc/02-requirements-interfaces.md` — §4.2 (REST), **§4.7 (canvas-concurrency fix — critical for S1-02)**, §3 REQ-1/2/3/4/5/9.
-5. `../plandesk-rfc/03-pseudocode-blueprint.md` — §6.2 (canvas save), §6.4 (doc create), §7.1 (Hono+SSE), §7.2 (update_task).
-6. `../plandesk-rfc/04-tasks-validation.md` — §9.1 tests (canvas_roundtrip, doc_link, sse_task_update).
-7. `sprints/sprint-0/WARMDOWN.md` — conventions (service-layer SSOT, timestamps).
+4. `../plandesk-rfc/02-requirements-interfaces.md` — §4.1 (CLI), §4.3 (MCP tools/endpoint), §3 REQ-7/8/10.
+5. `../plandesk-rfc/03-pseudocode-blueprint.md` — §6.3 (MCP exec loop), §6.5 (export/import), §7.2 (update_task tool).
+6. `../plandesk-rfc/05-security-rollback-open-qs.md` — §10 (token handling, no mass-delete).
+7. `sprints/sprint-1/WARMDOWN.md` — conventions (snake_case serialize, services-as-write-path, eventBus).
 
 ## Last completed sprint
 
-`0 — Foundations`
+`1 — Backend core (REST + SSE)`
 
 ## Last completed at
 
@@ -45,7 +45,8 @@ The session running sprint 1 must read these in this order before delegating any
 | Sprint | Status | Completed at | Warmdown |
 |--------|--------|--------------|----------|
 | 0 | ✅ complete | 2026-06-07 | [sprint-0/WARMDOWN.md](./sprint-0/WARMDOWN.md) |
-| 1 | not-started | — | — |
+| 1 | ✅ complete | 2026-06-07 | [sprint-1/WARMDOWN.md](./sprint-1/WARMDOWN.md) |
+| 2 | not-started | — | — |
 
 When a sprint completes, append a row here from `WARMDOWN.md`.
 
