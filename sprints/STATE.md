@@ -6,11 +6,11 @@
 
 ## Active sprint
 
-**Sprint number:** `5`
-**Sprint name:** Distribution + integration + dogfood
+**Sprint number:** `6`
+**Sprint name:** Polish + 1.0
 **Status:** `not-started`
-**Goal:** `plandesk connect` wires a real repo (`.plandesk/` + commit-safe `.mcp.json` + idempotent CLAUDE.md/AGENTS.md include), `docker compose up` serves the UI on :3847, the Factory Desk MCP-client adapter lists projects, and the dogfood fixture imports clean.
-**WBS section:** [`sprints/WBS.md` § Sprint 5](./WBS.md)
+**Goal:** Every §9 fail-to-pass test and validation command is green, the v1 measurable-outcome metrics (cold start <5 s, MCP list/inspect <2 s p95, SSE <500 ms, lossless export) are measured and met, and the repo ships a 1.0 tag with full setup docs.
+**WBS section:** [`sprints/WBS.md` § Sprint 6](./WBS.md)
 
 ## Build branch
 
@@ -20,24 +20,24 @@ Every sprint session — manager and IC — works **on this branch only**. This 
 
 At session start: `git checkout main`.
 
-## Load-bearing reading for sprint 5
+## Load-bearing reading for sprint 6
 
-The session running sprint 5 must read these in this order before delegating any story:
+The session running sprint 6 must read these in this order before delegating any story:
 
-1. `sprints/sprint-4/HANDOFF.md` — **read first**; UI feature-complete; RFC §4.7 is the spec for S5-01.
-2. `sprints/WBS.md` § Sprint 5 + § 1.2 DoD.
+1. `sprints/sprint-5/HANDOFF.md` — **read first**; feature-complete + distributable; S6 = validation/metrics/docs/1.0.
+2. `sprints/WBS.md` § Sprint 6 + § 1.2 DoD.
 3. `sprints/SESSION_KICKOFF_PROMPT.md` — the loop you are running.
-4. `../plandesk-rfc/02-requirements-interfaces.md` — **§4.7 (connect/.plandesk/skill, full)**, §4.6 (Factory adapter), §3 REQ-6/11/12.
-5. `../plandesk-rfc/05-security-rollback-open-qs.md` — §10 (no secrets committed).
-6. `packages/plandesk-cli/src/*` + `packages/plandesk-db/src/repositories/tokens.ts`.
+4. `../plandesk-rfc/04-tasks-validation.md` — §9 (validation contract + fail-to-pass tests + §9.3 commands).
+5. `../plandesk-rfc/01-problem-background.md` — §1 (measurable-outcome targets).
+6. `../plandesk-rfc/05-security-rollback-open-qs.md` — §10 (threat-model checklist).
 
 ## Last completed sprint
 
-`4 — Web: board + MCP settings + agent runs`
+`5 — Distribution + integration + dogfood`
 
 ## Last completed at
 
-`2026-06-07`
+`2026-06-08`
 
 ## Sprint history
 
@@ -48,7 +48,8 @@ The session running sprint 5 must read these in this order before delegating any
 | 2 | ✅ complete | 2026-06-07 | [sprint-2/WARMDOWN.md](./sprint-2/WARMDOWN.md) |
 | 3 | ✅ complete | 2026-06-07 | [sprint-3/WARMDOWN.md](./sprint-3/WARMDOWN.md) |
 | 4 | ✅ complete | 2026-06-08 | [sprint-4/WARMDOWN.md](./sprint-4/WARMDOWN.md) |
-| 5 | not-started | — | — |
+| 5 | ✅ complete | 2026-06-08 | [sprint-5/WARMDOWN.md](./sprint-5/WARMDOWN.md) |
+| 6 | not-started | — | — |
 
 When a sprint completes, append a row here from `WARMDOWN.md`.
 
