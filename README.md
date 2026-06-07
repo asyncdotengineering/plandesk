@@ -6,14 +6,14 @@ Plan Desk is a graph-native planning app you run on your machine: map dependenci
 
 ## Documentation
 
-Full docs live in [`apps/docs`](apps/docs/) (Astro Starlight):
+📖 **[plandesk-docs.pages.dev](https://plandesk-docs.pages.dev)** — hosted documentation: quickstart, Docker self-hosting, MCP/agent setup, CLI reference, API, architecture, and validation.
+
+Built with Astro Starlight in [`apps/docs`](apps/docs/):
 
 ```bash
 pnpm --filter @plandesk/docs dev      # http://localhost:4321
 pnpm --filter @plandesk/docs build    # static site in apps/docs/dist/
 ```
-
-Covers quickstart, Docker self-hosting, MCP/agent setup, CLI reference, API, architecture, and validation.
 
 ## Quickstart
 

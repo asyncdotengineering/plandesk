@@ -2,7 +2,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
-  site: 'https://plandesk.dev',
+  site: 'https://plandesk-docs.pages.dev',
   integrations: [
     starlight({
       title: 'Plan Desk',
