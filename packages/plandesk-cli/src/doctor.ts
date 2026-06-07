@@ -1,5 +1,10 @@
 import { createDb, migrate, type Db } from '@plandesk/db';
 import { resolveDataDir, workspaceDbPath } from './args.js';
+import {
+  formatBindingDoctorReport,
+  runBindingDoctor,
+  type BindingDoctorReport,
+} from './binding-doctor.js';
 import { CorruptWorkspaceError, isDbCorruptionError } from './workspace.js';
 
 const EXPECTED_TABLES = [
@@ -24,6 +29,7 @@ export type DoctorReport = {
   projectCount: number;
   taskCount: number;
   issues: string[];
+  binding?: BindingDoctorReport;
 };
 
 function listTables(db: Db): string[] {
@@ -51,7 +57,7 @@ function hasMigrations(db: Db): boolean {
   return row.count > 0;
 }
 
-export function runDoctor(dataDirOverride?: string): DoctorReport {
+export async function runDoctor(dataDirOverride?: string, repoDir?: string): Promise<DoctorReport> {
   const dataDir = resolveDataDir(dataDirOverride);
   const dbPath = workspaceDbPath(dataDir);
   const issues: string[] = [];
@@ -81,6 +87,14 @@ export function runDoctor(dataDirOverride?: string): DoctorReport {
   const projectCount = tables.includes('projects') ? countRows(db, 'projects') : 0;
   const taskCount = tables.includes('tasks') ? countRows(db, 'tasks') : 0;
 
+  let binding: BindingDoctorReport | undefined;
+  if (repoDir !== undefined) {
+    binding = await runBindingDoctor(repoDir);
+    if (binding.present) {
+      issues.push(...binding.issues);
+    }
+  }
+
   return {
     healthy: issues.length === 0,
     dataDir,
@@ -91,6 +105,7 @@ export function runDoctor(dataDirOverride?: string): DoctorReport {
     projectCount,
     taskCount,
     issues,
+    binding,
   };
 }
 
@@ -106,6 +121,9 @@ export function formatDoctorReport(report: DoctorReport): string {
   }
   lines.push(`projects: ${String(report.projectCount)}`);
   lines.push(`tasks: ${String(report.taskCount)}`);
+  if (report.binding !== undefined) {
+    lines.push(...formatBindingDoctorReport(report.binding));
+  }
   for (const issue of report.issues) {
     lines.push(`issue: ${issue}`);
   }

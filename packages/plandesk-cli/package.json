@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.0.4",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@plandesk/api": "workspace:*",
     "@plandesk/db": "workspace:*",
     "@plandesk/mcp": "workspace:*"

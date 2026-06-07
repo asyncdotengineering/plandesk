@@ -17,13 +17,25 @@ export function resolveDataDir(override?: string): string {
   return override ?? defaultDataDir();
 }
 
+export type ConnectAgent = 'claude' | 'codex' | 'both' | 'detect';
+
 export type ParsedArgs =
   | { command: 'init'; dataDir?: string }
   | { command: 'serve'; port: number; dataDir?: string }
   | { command: 'token'; subcommand: 'create'; name: string; dataDir?: string }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
-  | { command: 'doctor'; dataDir?: string }
+  | {
+      command: 'connect';
+      repoDir?: string;
+      project?: string;
+      url?: string;
+      token?: string;
+      agent: ConnectAgent;
+      print: boolean;
+    }
+  | { command: 'disconnect'; repoDir?: string }
+  | { command: 'doctor'; dataDir?: string; repoDir?: string }
   | { command: 'help' }
   | { command: 'unknown'; name: string };
 
@@ -137,8 +149,29 @@ export function parseArgs(argv: string[]): ParsedArgs {
     return { command: 'import', inPath, dataDir };
   }
 
+  if (command === 'connect') {
+    const agentRaw = flagString(flags, 'agent') ?? 'detect';
+    const agent =
+      agentRaw === 'claude' || agentRaw === 'codex' || agentRaw === 'both' || agentRaw === 'detect'
+        ? agentRaw
+        : 'detect';
+    return {
+      command: 'connect',
+      repoDir: flagString(flags, 'repo'),
+      project: flagString(flags, 'project'),
+      url: flagString(flags, 'url'),
+      token: flagString(flags, 'token'),
+      agent,
+      print: flags['print'] === true,
+    };
+  }
+
+  if (command === 'disconnect') {
+    return { command: 'disconnect', repoDir: flagString(flags, 'repo') };
+  }
+
   if (command === 'doctor') {
-    return { command: 'doctor', dataDir };
+    return { command: 'doctor', dataDir, repoDir: flagString(flags, 'repo') };
   }
 
   return { command: 'unknown', name: command };
@@ -153,12 +186,19 @@ Usage:
   plandesk token create --name <name> [--data-dir <dir>]
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]
-  plandesk doctor [--data-dir <dir>]
+  plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
+  plandesk disconnect [--repo <dir>]
+  plandesk doctor [--data-dir <dir>] [--repo <dir>]
 
 Options:
   --data-dir  Workspace directory (default: ~/.plandesk)
+  --repo      Target repository directory (default: cwd)
   --port      HTTP port for serve (default: ${String(DEFAULT_PORT)})
-  --project   Project id for export
+  --project   Project id or name for connect/export
+  --url       Plan Desk server URL for connect (default: http://127.0.0.1:${String(DEFAULT_PORT)})
+  --token     MCP token for connect
+  --agent     Agent config target for connect (default: detect)
+  --print     Dry-run connect without writing files
   --out       Output file for export
   --in        Input file for import
 `;

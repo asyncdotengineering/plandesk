@@ -14,7 +14,9 @@ import { main } from './cli.js';
 import { runInit } from './init.js';
 import { openWorkspace } from './workspace.js';
 
-function captureIo(run: () => number): { code: number; stdout: string; stderr: string } {
+async function captureIo(
+  run: () => Promise<number> | number,
+): Promise<{ code: number; stdout: string; stderr: string }> {
   const stdoutChunks: string[] = [];
   const stderrChunks: string[] = [];
   const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
@@ -28,7 +30,7 @@ function captureIo(run: () => number): { code: number; stdout: string; stderr: s
 
   let code = 1;
   try {
-    code = run();
+    code = await Promise.resolve(run());
   } finally {
     stdoutSpy.mockRestore();
     stderrSpy.mockRestore();
@@ -114,14 +116,14 @@ describe('CLI export/import/doctor', () => {
     return dataDir;
   }
 
-  it('exports a project to plandesk-export-v1 JSON', () => {
+  it('exports a project to plandesk-export-v1 JSON', async () => {
     const dataDir = makeWorkspace();
     const { db } = openWorkspace(dataDir);
     const project = createProject(db, { name: 'CLI Export Project' });
     createTask(db, { projectId: project.id, label: 'Task A' });
 
     const outPath = join(dataDir, 'export.json');
-    const { code, stdout } = captureIo(() =>
+    const { code, stdout } = await captureIo(() =>
       main([
         'node',
         'plandesk',
@@ -141,10 +143,10 @@ describe('CLI export/import/doctor', () => {
     expect(exported.version).toBe(PLANDESK_EXPORT_VERSION);
   });
 
-  it('exits 1 when export project is unknown', () => {
+  it('exits 1 when export project is unknown', async () => {
     const dataDir = makeWorkspace();
     const outPath = join(dataDir, 'missing.json');
-    const { code, stderr } = captureIo(() =>
+    const { code, stderr } = await captureIo(() =>
       main([
         'node',
         'plandesk',
@@ -162,7 +164,7 @@ describe('CLI export/import/doctor', () => {
     expect(stderr).toContain('project not found');
   });
 
-  it('round-trips export then import via CLI', () => {
+  it('round-trips export then import via CLI', async () => {
     const dataDir = makeWorkspace();
     const { db } = openWorkspace(dataDir);
     const project = createProject(db, { name: 'Round Trip' });
@@ -170,7 +172,7 @@ describe('CLI export/import/doctor', () => {
     createTask(db, { projectId: project.id, label: 'Beta' });
 
     const outPath = join(dataDir, 'round-trip.json');
-    const exportResult = captureIo(() =>
+    const exportResult = await captureIo(() =>
       main([
         'node',
         'plandesk',
@@ -185,7 +187,7 @@ describe('CLI export/import/doctor', () => {
     );
     expect(exportResult.code).toBe(0);
 
-    const importResult = captureIo(() =>
+    const importResult = await captureIo(() =>
       main(['node', 'plandesk', 'import', '--in', outPath, '--data-dir', dataDir]),
     );
     expect(importResult.code).toBe(0);
@@ -202,7 +204,7 @@ describe('CLI export/import/doctor', () => {
     );
   });
 
-  it('exits 1 when import file has unsupported version', () => {
+  it('exits 1 when import file has unsupported version', async () => {
     const dataDir = makeWorkspace();
     const inPath = join(dataDir, 'bad-version.json');
     writeFileSync(
@@ -217,7 +219,7 @@ describe('CLI export/import/doctor', () => {
       }),
     );
 
-    const { code, stderr } = captureIo(() =>
+    const { code, stderr } = await captureIo(() =>
       main(['node', 'plandesk', 'import', '--in', inPath, '--data-dir', dataDir]),
     );
 
@@ -225,12 +227,12 @@ describe('CLI export/import/doctor', () => {
     expect(stderr).toContain('Unsupported export version');
   });
 
-  it('exits 1 when import file has invalid JSON', () => {
+  it('exits 1 when import file has invalid JSON', async () => {
     const dataDir = makeWorkspace();
     const inPath = join(dataDir, 'bad-json.json');
     writeFileSync(inPath, '{not json');
 
-    const { code, stderr } = captureIo(() =>
+    const { code, stderr } = await captureIo(() =>
       main(['node', 'plandesk', 'import', '--in', inPath, '--data-dir', dataDir]),
     );
 
@@ -238,13 +240,13 @@ describe('CLI export/import/doctor', () => {
     expect(stderr).toContain('invalid JSON');
   });
 
-  it('reports healthy workspace via doctor', () => {
+  it('reports healthy workspace via doctor', async () => {
     const dataDir = makeWorkspace();
     const { db } = openWorkspace(dataDir);
     const project = createProject(db, { name: 'Doctor Project' });
     createTask(db, { projectId: project.id, label: 'Check' });
 
-    const { code, stdout } = captureIo(() =>
+    const { code, stdout } = await captureIo(() =>
       main(['node', 'plandesk', 'doctor', '--data-dir', dataDir]),
     );
 
@@ -255,11 +257,11 @@ describe('CLI export/import/doctor', () => {
     expect(stdout).toContain('tasks: 1');
   });
 
-  it('exits 2 when database is corrupt', () => {
+  it('exits 2 when database is corrupt', async () => {
     const dataDir = makeWorkspace();
     writeFileSync(workspaceDbPath(dataDir), 'this is not a sqlite database');
 
-    const { code, stderr } = captureIo(() =>
+    const { code, stderr } = await captureIo(() =>
       main(['node', 'plandesk', 'doctor', '--data-dir', dataDir]),
     );
 
@@ -267,11 +269,11 @@ describe('CLI export/import/doctor', () => {
     expect(stderr).toContain('plandesk doctor');
   });
 
-  it('exits 2 on export when database is corrupt', () => {
+  it('exits 2 on export when database is corrupt', async () => {
     const dataDir = makeWorkspace();
     writeFileSync(workspaceDbPath(dataDir), 'corrupt-bytes');
 
-    const { code, stderr } = captureIo(() =>
+    const { code, stderr } = await captureIo(() =>
       main([
         'node',
         'plandesk',
@@ -289,9 +291,9 @@ describe('CLI export/import/doctor', () => {
     expect(stderr).toContain('plandesk doctor');
   });
 
-  it('token create still works', () => {
+  it('token create still works', async () => {
     const dataDir = makeWorkspace();
-    const { code, stdout } = captureIo(() =>
+    const { code, stdout } = await captureIo(() =>
       main(['node', 'plandesk', 'token', 'create', '--name', 'cli-test', '--data-dir', dataDir]),
     );
 
