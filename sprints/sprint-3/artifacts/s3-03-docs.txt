@@ -1,0 +1,19 @@
+S3-03 Document editor — A-UI-2 browser verification
+Date: 2026-06-07
+Server: http://127.0.0.1:19848 (plandesk serve, fresh init with built SPA)
+Project: abaa8728-a70a-4a33-ae8f-a5611a915e0f
+Task: 83c52009-afa2-4dfd-b3f6-9fef993406e8
+Document: 763bc245-18e7-40b7-8504-85189ab92016
+
+Storage format: HTML string in documents.body (TipTap getHTML round-trip)
+
+Flow:
+1. Open /projects/{id}/flow — Task Alpha node shows "Open doc →" link
+2. One click → /projects/{id}/documents/{docId} (A-UI-2, REQ-2)
+3. Editor: title + Status line + TipTap body; Save → PATCH /api/v1/documents/{id}
+4. Reload — title "Browser Edited Title", status "Status: browser verified", body retains "Round-trip test."
+
+Playwright result:
+{"onEditor":true,"titleVisible":true,"statusVisible":true,"reloadedTitle":"Browser Edited Title","reloadedStatus":"Status: browser verified","bodySnippet":"Updated HTML Round-trip test.","ok":true}
+
+Screenshot: sprints/sprint-3/artifacts/s3-03-docs.png

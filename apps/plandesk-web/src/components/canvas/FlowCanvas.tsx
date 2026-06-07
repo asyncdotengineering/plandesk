@@ -12,8 +12,9 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { DEFAULT_EDGE_LABEL } from '../../lib/api.js';
-import { useCanvas } from '../../lib/queries.js';
+import { useCanvas, useDocuments } from '../../lib/queries.js';
 import {
+  buildTaskDocumentMap,
   canvasToFlowEdges,
   canvasToFlowNodes,
   type LabeledEdgeData,
@@ -32,6 +33,7 @@ type FlowCanvasProps = {
 
 export function FlowCanvas({ projectId }: FlowCanvasProps) {
   const { data: canvas, isLoading, error } = useCanvas(projectId);
+  const { data: documents } = useDocuments(projectId);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<TaskNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge<LabeledEdgeData>>([]);
   const { bindFlowState, onNodeDragStop, saveWithState, isSaving, saveError } =
@@ -41,9 +43,10 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
     if (canvas === undefined) {
       return;
     }
-    setNodes(canvasToFlowNodes(canvas.nodes));
+    const taskDocumentMap = documents !== undefined ? buildTaskDocumentMap(documents) : undefined;
+    setNodes(canvasToFlowNodes(canvas.nodes, { taskDocumentMap }));
     setEdges(canvasToFlowEdges(canvas.edges));
-  }, [canvas, setNodes, setEdges]);
+  }, [canvas, documents, setNodes, setEdges]);
 
   useEffect(() => {
     bindFlowState(nodes, edges);

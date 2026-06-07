@@ -1,5 +1,6 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { TaskNodeData } from './canvas-map.js';
+import { OpenDocLink } from './OpenDocLink.js';
 
 const statusStyles: Record<TaskNodeData['status'], { bg: string; color: string }> = {
   scope: { bg: '#ede9fe', color: '#5b21b6' },
@@ -38,6 +39,11 @@ export function TaskNode({ data }: NodeProps<Node<TaskNodeData>>) {
       >
         {data.status.replace('_', ' ')}
       </span>
+      {data.documentId !== undefined ? (
+        <div style={{ marginTop: '0.5rem' }}>
+          <OpenDocLink projectId={data.projectId} documentId={data.documentId} />
+        </div>
+      ) : null}
       <Handle type="source" position={Position.Bottom} />
     </div>
   );

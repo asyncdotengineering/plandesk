@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createProject,
+  getDocument,
   getProject,
   listProjects,
   listTasks,
+  patchDocument,
+  type SerializedDocument,
   type SerializedProject,
   type SerializedProjectDetail,
   type SerializedTask,
@@ -38,6 +41,18 @@ const sampleTask: SerializedTask = {
   y: 0,
   assignee: null,
   due_date: null,
+  created_at: '2026-06-07T00:00:00.000Z',
+  updated_at: '2026-06-07T00:00:00.000Z',
+};
+
+const sampleDocument: SerializedDocument = {
+  id: 'doc-1',
+  project_id: 'proj-1',
+  title: 'Spec',
+  body: '<p>Hello</p>',
+  status_line: 'Status: draft',
+  parent_id: null,
+  linked_task_id: 'task-1',
   created_at: '2026-06-07T00:00:00.000Z',
   updated_at: '2026-06-07T00:00:00.000Z',
 };
@@ -102,5 +117,30 @@ describe('api client', () => {
     const result = await listTasks('proj-1', { status: 'todo' });
     expectFetchCall('/api/v1/projects/proj-1/tasks?status=todo');
     expect(result[0]?.status).toBe('todo');
+  });
+
+  it('patchDocument sends PATCH with body and status_line', async () => {
+    mockFetch(sampleDocument);
+    const result = await patchDocument('doc-1', {
+      body: '<p>Updated</p>',
+      status_line: 'Status: done',
+      title: 'Spec',
+    });
+    expectFetchCall('/api/v1/documents/doc-1', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        body: '<p>Updated</p>',
+        status_line: 'Status: done',
+        title: 'Spec',
+      }),
+    });
+    expect(result).toEqual(sampleDocument);
+  });
+
+  it('getDocument fetches GET /api/v1/documents/:id', async () => {
+    mockFetch(sampleDocument);
+    const result = await getDocument('doc-1');
+    expectFetchCall('/api/v1/documents/doc-1');
+    expect(result.body).toBe('<p>Hello</p>');
   });
 });

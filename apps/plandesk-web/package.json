@@ -12,7 +12,11 @@
   "dependencies": {
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-router": "^1.170.15",
+    "@tiptap/pm": "^3.26.0",
+    "@tiptap/react": "^3.26.0",
+    "@tiptap/starter-kit": "^3.26.0",
     "@xyflow/react": "^12.11.0",
+    "isomorphic-dompurify": "^3.16.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },

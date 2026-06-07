@@ -1,8 +1,9 @@
 import type { Edge, Node } from '@xyflow/react';
 import { describe, expect, it } from 'vitest';
-import type { SerializedEdge, SerializedTask } from '../../lib/api.js';
+import type { SerializedDocumentTree, SerializedEdge, SerializedTask } from '../../lib/api.js';
 import {
   buildLayoutPayload,
+  buildTaskDocumentMap,
   canvasToFlowEdges,
   canvasToFlowNodes,
   type LabeledEdgeData,
@@ -42,7 +43,7 @@ describe('canvas-map', () => {
         id: sampleTask.id,
         type: 'taskCard',
         position: { x: 120, y: 240 },
-        data: { label: 'Design API', status: 'in_progress' },
+        data: { label: 'Design API', status: 'in_progress', projectId: 'proj-1' },
       },
     ]);
   });
@@ -60,13 +61,33 @@ describe('canvas-map', () => {
     ]);
   });
 
+  it('maps linked documents onto task nodes', () => {
+    const docTree: SerializedDocumentTree[] = [
+      {
+        id: 'doc-1',
+        project_id: 'proj-1',
+        title: 'Spec',
+        body: null,
+        status_line: null,
+        parent_id: null,
+        linked_task_id: sampleTask.id,
+        created_at: '2026-06-07T00:00:00.000Z',
+        updated_at: '2026-06-07T00:00:00.000Z',
+        children: [],
+      },
+    ];
+    const map = buildTaskDocumentMap(docTree);
+    const nodes = canvasToFlowNodes([sampleTask], { taskDocumentMap: map });
+    expect(nodes[0]?.data.documentId).toBe('doc-1');
+  });
+
   it('buildLayoutPayload sends only x/y for nodes and omits semantic fields', () => {
     const nodes: Node<TaskNodeData>[] = [
       {
         id: sampleTask.id,
         type: 'taskCard',
         position: { x: 300, y: 400 },
-        data: { label: 'Design API', status: 'in_progress' },
+        data: { label: 'Design API', status: 'in_progress', projectId: 'proj-1' },
       },
     ];
     const edges: Edge<LabeledEdgeData>[] = [
