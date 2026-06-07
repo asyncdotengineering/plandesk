@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PatchDocumentInput, SerializedDocument } from '../../lib/api.js';
 import { DocumentEditor } from './DocumentEditor.js';
 
@@ -14,6 +14,10 @@ const sampleDocument: SerializedDocument = {
   created_at: '2026-06-07T00:00:00.000Z',
   updated_at: '2026-06-07T00:00:00.000Z',
 };
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('DocumentEditor', () => {
   it('calls onSave with title, HTML body, and status_line via PATCH payload', async () => {
@@ -42,6 +46,27 @@ describe('DocumentEditor', () => {
     expect(payload?.status_line).toBe('Status: in review');
     expect(typeof payload?.body).toBe('string');
     expect(payload?.body).toContain('Initial content');
+  });
+
+  it('renders delete button and calls onDelete after confirm', async () => {
+    const onDelete = vi.fn();
+    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
+
+    render(
+      <DocumentEditor
+        document={sampleDocument}
+        mode="editor"
+        onSave={vi.fn()}
+        onDelete={onDelete}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
   it('renders sanitized reader content without executing scripts', () => {

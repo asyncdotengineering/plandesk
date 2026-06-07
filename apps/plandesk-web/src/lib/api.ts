@@ -92,12 +92,29 @@ export type CreateProjectInput = {
   description?: string | null;
 };
 
+export type CreateTaskInput = {
+  label: string;
+  status?: TaskStatus;
+  description?: string | null;
+  x?: number;
+  y?: number;
+  assignee?: string | null;
+  due_date?: string | null;
+};
+
 export type PatchTaskInput = {
   status?: TaskStatus;
   label?: string;
   description?: string | null;
   x?: number;
   y?: number;
+  assignee?: string | null;
+  due_date?: string | null;
+};
+
+export type PatchProjectInput = {
+  name?: string;
+  description?: string | null;
 };
 
 export type CreateDocumentInput = {
@@ -167,8 +184,27 @@ export function listTasks(
   return request(`/projects/${projectId}/tasks${query ? `?${query}` : ''}`);
 }
 
+export function createTask(projectId: string, input: CreateTaskInput): Promise<SerializedTask> {
+  return request(`/projects/${projectId}/tasks`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 export function patchTask(id: string, input: PatchTaskInput): Promise<SerializedTask> {
   return request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function deleteTask(id: string): Promise<void> {
+  return request(`/tasks/${id}`, { method: 'DELETE' });
+}
+
+export function patchProject(id: string, input: PatchProjectInput): Promise<SerializedProject> {
+  return request(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function deleteProject(id: string): Promise<void> {
+  return request(`/projects/${id}`, { method: 'DELETE' });
 }
 
 export function getCanvas(projectId: string): Promise<CanvasResponse> {
@@ -202,6 +238,14 @@ export function getDocument(id: string): Promise<SerializedDocument> {
 
 export function patchDocument(id: string, input: PatchDocumentInput): Promise<SerializedDocument> {
   return request(`/documents/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function deleteDocument(id: string): Promise<void> {
+  return request(`/documents/${id}`, { method: 'DELETE' });
+}
+
+export function deleteEdge(projectId: string, edgeId: string): Promise<void> {
+  return request(`/projects/${projectId}/edges/${edgeId}`, { method: 'DELETE' });
 }
 
 export function getTaskDocument(taskId: string): Promise<SerializedDocument> {

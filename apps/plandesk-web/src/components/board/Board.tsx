@@ -7,7 +7,8 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { useMemo, useState } from 'react';
-import type { SerializedTask } from '../../lib/api.js';
+import type { SerializedTask, TaskStatus } from '../../lib/api.js';
+import { useCreateTask, useDeleteTask, usePatchTask } from '../../lib/queries.js';
 import { BoardColumn } from './BoardColumn.js';
 import { boardColumnOrder, groupTasksByStatus } from './board-utils.js';
 import { TaskCard } from './TaskCard.js';
@@ -21,6 +22,9 @@ type BoardProps = {
 export function Board({ projectId, tasks }: BoardProps) {
   const grouped = useMemo(() => groupTasksByStatus(tasks), [tasks]);
   const { handleDragEnd, isUpdating, updateError } = useBoardDnd({ projectId, tasks });
+  const createTask = useCreateTask(projectId);
+  const patchTask = usePatchTask();
+  const deleteTask = useDeleteTask();
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -39,6 +43,18 @@ export function Board({ projectId, tasks }: BoardProps) {
   const handleDragEndWrapped = (event: Parameters<typeof handleDragEnd>[0]) => {
     handleDragEnd(event);
     setActiveTaskId(null);
+  };
+
+  const handleAddTask = (status: TaskStatus, label: string) => {
+    createTask.mutate({ label, status });
+  };
+
+  const handlePatchLabel = (taskId: string, label: string) => {
+    patchTask.mutate({ id: taskId, input: { label } });
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    deleteTask.mutate({ id: taskId, projectId });
   };
 
   return (
@@ -61,11 +77,22 @@ export function Board({ projectId, tasks }: BoardProps) {
               status={status}
               tasks={grouped[status]}
               activeTaskId={activeTaskId}
+              onAddTask={handleAddTask}
+              onPatchLabel={handlePatchLabel}
+              onDeleteTask={handleDeleteTask}
+              isAdding={createTask.isPending}
             />
           ))}
         </div>
         <DragOverlay>
-          {activeTask !== undefined ? <TaskCard task={activeTask} isDragging /> : null}
+          {activeTask !== undefined ? (
+            <TaskCard
+              task={activeTask}
+              isDragging
+              onPatchLabel={handlePatchLabel}
+              onDelete={handleDeleteTask}
+            />
+          ) : null}
         </DragOverlay>
       </DndContext>
     </div>

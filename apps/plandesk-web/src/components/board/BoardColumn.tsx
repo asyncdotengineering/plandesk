@@ -1,3 +1,4 @@
+import { useState, type SubmitEvent } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import type { SerializedTask, TaskStatus } from '../../lib/api.js';
 import { columnLabels } from './board-utils.js';
@@ -7,10 +8,35 @@ type BoardColumnProps = {
   status: TaskStatus;
   tasks: SerializedTask[];
   activeTaskId: string | null;
+  onAddTask: (status: TaskStatus, label: string) => void;
+  onPatchLabel: (taskId: string, label: string) => void;
+  onDeleteTask: (taskId: string) => void;
+  isAdding?: boolean;
 };
 
-export function BoardColumn({ status, tasks, activeTaskId }: BoardColumnProps) {
+export function BoardColumn({
+  status,
+  tasks,
+  activeTaskId,
+  onAddTask,
+  onPatchLabel,
+  onDeleteTask,
+  isAdding = false,
+}: BoardColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
+  const [label, setLabel] = useState('');
+  const [showForm, setShowForm] = useState(false);
+
+  const handleSubmit = (event: SubmitEvent) => {
+    event.preventDefault();
+    const trimmed = label.trim();
+    if (trimmed === '') {
+      return;
+    }
+    onAddTask(status, trimmed);
+    setLabel('');
+    setShowForm(false);
+  };
 
   return (
     <div
@@ -63,8 +89,91 @@ export function BoardColumn({ status, tasks, activeTaskId }: BoardColumnProps) {
         }}
       >
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} isDragging={activeTaskId === task.id} />
+          <TaskCard
+            key={task.id}
+            task={task}
+            isDragging={activeTaskId === task.id}
+            onPatchLabel={onPatchLabel}
+            onDelete={onDeleteTask}
+          />
         ))}
+        {showForm ? (
+          <form
+            onSubmit={handleSubmit}
+            style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}
+          >
+            <input
+              type="text"
+              value={label}
+              autoFocus
+              onChange={(event) => {
+                setLabel(event.target.value);
+              }}
+              placeholder="Task name"
+              aria-label={`New task in ${columnLabels[status]}`}
+              style={{
+                padding: '0.375rem 0.5rem',
+                borderRadius: 4,
+                border: '1px solid #d1d5db',
+                fontSize: '0.875rem',
+              }}
+            />
+            <div style={{ display: 'flex', gap: '0.25rem' }}>
+              <button
+                type="submit"
+                disabled={isAdding || label.trim() === ''}
+                style={{
+                  flex: 1,
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: 4,
+                  border: '1px solid #1d4ed8',
+                  background: '#1d4ed8',
+                  color: '#fff',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: isAdding ? 'wait' : 'pointer',
+                }}
+              >
+                {isAdding ? 'Adding…' : 'Add'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForm(false);
+                  setLabel('');
+                }}
+                style={{
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: 4,
+                  border: '1px solid #d1d5db',
+                  background: '#fff',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setShowForm(true);
+            }}
+            style={{
+              padding: '0.375rem',
+              borderRadius: 4,
+              border: '1px dashed #d1d5db',
+              background: 'transparent',
+              color: '#6b7280',
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+            }}
+          >
+            + Add task
+          </button>
+        )}
       </div>
     </div>
   );

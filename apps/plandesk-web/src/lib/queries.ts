@@ -3,6 +3,11 @@ import {
   createDocument,
   createMcpToken,
   createProject,
+  createTask,
+  deleteDocument,
+  deleteEdge,
+  deleteProject,
+  deleteTask,
   getCanvas,
   getDocument,
   getProject,
@@ -13,12 +18,15 @@ import {
   listProjects,
   listTasks,
   patchDocument,
+  patchProject,
   patchTask,
   putCanvas,
   revokeMcpToken,
   type CreateDocumentInput,
   type CreateProjectInput,
+  type CreateTaskInput,
   type PatchDocumentInput,
+  type PatchProjectInput,
   type PatchTaskInput,
   type PutCanvasInput,
   type TaskStatus,
@@ -68,14 +76,60 @@ export function useTasks(projectId: string, filter: { status?: TaskStatus } = {}
   });
 }
 
+function invalidateTaskQueries(queryClient: ReturnType<typeof useQueryClient>, projectId: string) {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.project(projectId) });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.tasks(projectId) });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(projectId) });
+}
+
+export function useCreateTask(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateTaskInput) => createTask(projectId, input),
+    onSuccess: () => {
+      invalidateTaskQueries(queryClient, projectId);
+    },
+  });
+}
+
 export function usePatchTask() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: PatchTaskInput }) => patchTask(id, input),
     onSuccess: (task) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.project(task.project_id) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.tasks(task.project_id) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(task.project_id) });
+      invalidateTaskQueries(queryClient, task.project_id);
+    },
+  });
+}
+
+export function useDeleteTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string; projectId: string }) => deleteTask(id),
+    onSuccess: (_result, { projectId }) => {
+      invalidateTaskQueries(queryClient, projectId);
+    },
+  });
+}
+
+export function usePatchProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: PatchProjectInput }) =>
+      patchProject(id, input),
+    onSuccess: (project) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.project(project.id) });
+    },
+  });
+}
+
+export function useDeleteProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteProject(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projects });
     },
   });
 }
@@ -129,6 +183,26 @@ export function usePatchDocument() {
     onSuccess: (document) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.document(document.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.documents(document.project_id) });
+    },
+  });
+}
+
+export function useDeleteDocument() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string; projectId: string }) => deleteDocument(id),
+    onSuccess: (_result, { projectId }) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.documents(projectId) });
+    },
+  });
+}
+
+export function useDeleteEdge(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (edgeId: string) => deleteEdge(projectId, edgeId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(projectId) });
     },
   });
 }

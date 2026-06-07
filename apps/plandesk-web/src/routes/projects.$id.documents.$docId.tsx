@@ -1,13 +1,15 @@
-import { Link, createFileRoute } from '@tanstack/react-router';
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { DocumentEditor, type DocumentEditorMode } from '../components/docs/DocumentEditor.js';
-import { useDocument, usePatchDocument, useProject } from '../lib/queries.js';
+import { useDeleteDocument, useDocument, usePatchDocument, useProject } from '../lib/queries.js';
 
 function DocumentPage() {
   const { id, docId } = Route.useParams();
+  const navigate = useNavigate();
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(id);
   const { data: document, isLoading: docLoading, error: docError } = useDocument(docId);
   const patchDocument = usePatchDocument();
+  const deleteDocument = useDeleteDocument();
   const [mode, setMode] = useState<DocumentEditorMode>('editor');
 
   if (projectLoading || docLoading) {
@@ -86,8 +88,19 @@ function DocumentPage() {
         document={document}
         mode={mode}
         isSaving={patchDocument.isPending}
+        isDeleting={deleteDocument.isPending}
         onSave={(input) => {
           patchDocument.mutate({ id: docId, input });
+        }}
+        onDelete={() => {
+          deleteDocument.mutate(
+            { id: docId, projectId: id },
+            {
+              onSuccess: () => {
+                void navigate({ to: '/projects/$id/overview', params: { id } });
+              },
+            },
+          );
         }}
       />
     </section>

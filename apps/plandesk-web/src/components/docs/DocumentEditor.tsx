@@ -10,10 +10,19 @@ type DocumentEditorProps = {
   document: SerializedDocument;
   mode: DocumentEditorMode;
   onSave: (input: PatchDocumentInput) => void;
+  onDelete?: () => void;
   isSaving?: boolean;
+  isDeleting?: boolean;
 };
 
-export function DocumentEditor({ document, mode, onSave, isSaving = false }: DocumentEditorProps) {
+export function DocumentEditor({
+  document,
+  mode,
+  onSave,
+  onDelete,
+  isSaving = false,
+  isDeleting = false,
+}: DocumentEditorProps) {
   const [title, setTitle] = useState(document.title);
   const [statusLine, setStatusLine] = useState(document.status_line ?? '');
 
@@ -77,22 +86,46 @@ export function DocumentEditor({ document, mode, onSave, isSaving = false }: Doc
           <h1 style={{ margin: 0, flex: 1 }}>{title}</h1>
         )}
         {mode === 'editor' ? (
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            style={{
-              padding: '0.5rem 1rem',
-              borderRadius: 6,
-              border: '1px solid #1d4ed8',
-              background: '#1d4ed8',
-              color: '#fff',
-              fontWeight: 600,
-              cursor: isSaving ? 'wait' : 'pointer',
-            }}
-          >
-            {isSaving ? 'Saving…' : 'Save'}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              style={{
+                padding: '0.5rem 1rem',
+                borderRadius: 6,
+                border: '1px solid #1d4ed8',
+                background: '#1d4ed8',
+                color: '#fff',
+                fontWeight: 600,
+                cursor: isSaving ? 'wait' : 'pointer',
+              }}
+            >
+              {isSaving ? 'Saving…' : 'Save'}
+            </button>
+            {onDelete !== undefined ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('Delete this document?')) {
+                    onDelete();
+                  }
+                }}
+                disabled={isDeleting}
+                style={{
+                  padding: '0.5rem 1rem',
+                  borderRadius: 6,
+                  border: '1px solid #fca5a5',
+                  background: '#fef2f2',
+                  color: '#b91c1c',
+                  fontWeight: 600,
+                  cursor: isDeleting ? 'wait' : 'pointer',
+                }}
+              >
+                {isDeleting ? 'Deleting…' : 'Delete'}
+              </button>
+            ) : null}
+          </>
         ) : null}
       </div>
 

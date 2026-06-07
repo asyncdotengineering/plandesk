@@ -12,6 +12,9 @@ export type TaskNodeData = {
   status: TaskStatus;
   projectId: string;
   documentId?: string;
+  description: string | null;
+  assignee: string | null;
+  dueDate: string | null;
 };
 
 export type LabeledEdgeData = {
@@ -49,6 +52,9 @@ export function canvasToFlowNodes(
       status: task.status,
       projectId: task.project_id,
       documentId: options.taskDocumentMap?.get(task.id),
+      description: task.description,
+      assignee: task.assignee,
+      dueDate: task.due_date,
     },
   }));
 }

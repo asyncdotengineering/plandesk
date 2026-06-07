@@ -1,11 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createProject,
+  createTask,
+  deleteDocument,
+  deleteEdge,
+  deleteProject,
+  deleteTask,
   getDocument,
   getProject,
   listProjects,
   listTasks,
   patchDocument,
+  patchProject,
+  patchTask,
   type SerializedDocument,
   type SerializedProject,
   type SerializedProjectDetail,
@@ -117,6 +124,121 @@ describe('api client', () => {
     const result = await listTasks('proj-1', { status: 'todo' });
     expectFetchCall('/api/v1/projects/proj-1/tasks?status=todo');
     expect(result[0]?.status).toBe('todo');
+  });
+
+  it('createTask posts snake_case body', async () => {
+    mockFetch(sampleTask, { status: 201 });
+    const result = await createTask('proj-1', {
+      label: 'New task',
+      status: 'todo',
+      x: 10,
+      y: 20,
+      assignee: 'agent',
+      due_date: '2026-12-01T00:00:00.000Z',
+    });
+    expectFetchCall('/api/v1/projects/proj-1/tasks', {
+      method: 'POST',
+      body: JSON.stringify({
+        label: 'New task',
+        status: 'todo',
+        x: 10,
+        y: 20,
+        assignee: 'agent',
+        due_date: '2026-12-01T00:00:00.000Z',
+      }),
+    });
+    expect(result).toEqual(sampleTask);
+  });
+
+  it('deleteTask sends DELETE', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 204,
+        text: () => Promise.resolve(''),
+      }),
+    );
+    await deleteTask('task-1');
+    expect(fetch).toHaveBeenCalledWith('/api/v1/tasks/task-1', {
+      method: 'DELETE',
+      headers: expect.any(Headers) as Headers,
+    });
+  });
+
+  it('patchProject sends PATCH with name', async () => {
+    mockFetch(sampleProject);
+    const result = await patchProject('proj-1', { name: 'Renamed' });
+    expectFetchCall('/api/v1/projects/proj-1', {
+      method: 'PATCH',
+      body: JSON.stringify({ name: 'Renamed' }),
+    });
+    expect(result).toEqual(sampleProject);
+  });
+
+  it('deleteProject sends DELETE', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 204,
+        text: () => Promise.resolve(''),
+      }),
+    );
+    await deleteProject('proj-1');
+    expect(fetch).toHaveBeenCalledWith('/api/v1/projects/proj-1', {
+      method: 'DELETE',
+      headers: expect.any(Headers) as Headers,
+    });
+  });
+
+  it('deleteDocument sends DELETE', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 204,
+        text: () => Promise.resolve(''),
+      }),
+    );
+    await deleteDocument('doc-1');
+    expect(fetch).toHaveBeenCalledWith('/api/v1/documents/doc-1', {
+      method: 'DELETE',
+      headers: expect.any(Headers) as Headers,
+    });
+  });
+
+  it('deleteEdge sends DELETE', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 204,
+        text: () => Promise.resolve(''),
+      }),
+    );
+    await deleteEdge('proj-1', 'edge-1');
+    expect(fetch).toHaveBeenCalledWith('/api/v1/projects/proj-1/edges/edge-1', {
+      method: 'DELETE',
+      headers: expect.any(Headers) as Headers,
+    });
+  });
+
+  it('patchTask sends PATCH with assignee and due_date', async () => {
+    mockFetch(sampleTask);
+    await patchTask('task-1', {
+      label: 'Updated',
+      assignee: 'alice',
+      due_date: '2026-12-01T00:00:00.000Z',
+    });
+    expectFetchCall('/api/v1/tasks/task-1', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        label: 'Updated',
+        assignee: 'alice',
+        due_date: '2026-12-01T00:00:00.000Z',
+      }),
+    });
   });
 
   it('patchDocument sends PATCH with body and status_line', async () => {

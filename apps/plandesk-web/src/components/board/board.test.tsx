@@ -1,7 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { patchTask, type SerializedTask } from '../../lib/api.js';
+import {
+  createTask,
+  deleteTask,
+  patchProject,
+  patchTask,
+  type SerializedTask,
+} from '../../lib/api.js';
 import { Board } from './Board.js';
 import { groupTasksByStatus, resolveDropStatus } from './board-utils.js';
 import { statusFromDragEnd } from './useBoardDnd.js';
@@ -39,16 +45,37 @@ beforeEach(() => {
   vi.stubGlobal(
     'fetch',
     vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      if (typeof path === 'string' && path.includes('/tasks') && init?.method === 'POST') {
+        const rawBody = init.body;
+        const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as {
+          label: string;
+          status: SerializedTask['status'];
+        };
+        return Promise.resolve({
+          ok: true,
+          status: 201,
+          json: () => Promise.resolve(makeTask('new-task', body.label, body.status)),
+        });
+      }
       if (typeof path === 'string' && path.includes('/tasks/') && init?.method === 'PATCH') {
         const rawBody = init.body;
         const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as {
-          status: SerializedTask['status'];
+          status?: SerializedTask['status'];
+          label?: string;
         };
         const taskId = path.split('/').pop() ?? '';
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(makeTask(taskId, 'Updated', body.status)),
+          json: () =>
+            Promise.resolve(makeTask(taskId, body.label ?? 'Updated', body.status ?? 'todo')),
+        });
+      }
+      if (typeof path === 'string' && path.includes('/tasks/') && init?.method === 'DELETE') {
+        return Promise.resolve({
+          ok: true,
+          status: 204,
+          text: () => Promise.resolve(''),
         });
       }
       return Promise.resolve({
@@ -61,6 +88,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
   vi.unstubAllGlobals();
 });
 
@@ -130,6 +158,32 @@ describe('Board', () => {
     expect(screen.getByText('Done')).toBeTruthy();
     expect(screen.getByText('Backlog')).toBeTruthy();
   });
+
+  it('shows add task controls in each column', () => {
+    const { container } = renderBoard([]);
+    const columns = container.querySelectorAll('[data-board-column]');
+    expect(columns.length).toBe(5);
+    for (const column of columns) {
+      expect(column.textContent).toContain('+ Add task');
+    }
+  });
+
+  it('createTask posts with label and column status', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve(makeTask('new-1', 'Board task', 'todo')),
+      }),
+    );
+
+    await createTask('proj-1', { label: 'Board task', status: 'todo' });
+
+    const [, calledInit] = vi.mocked(fetch).mock.calls[0] ?? [];
+    expect(calledInit?.method).toBe('POST');
+    expect(calledInit?.body).toBe(JSON.stringify({ label: 'Board task', status: 'todo' }));
+  });
 });
 
 describe('patchTask drag mapping', () => {
@@ -150,5 +204,49 @@ describe('patchTask drag mapping', () => {
     expect(calledInit?.body).toBe(JSON.stringify({ status: 'done' }));
     const headers = new Headers(calledInit?.headers);
     expect(headers.get('Content-Type')).toBe('application/json');
+  });
+});
+
+describe('deleteTask', () => {
+  it('deleteTask sends DELETE', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 204,
+        text: () => Promise.resolve(''),
+      }),
+    );
+
+    await deleteTask('t1');
+
+    const [, calledInit] = vi.mocked(fetch).mock.calls[0] ?? [];
+    expect(calledInit?.method).toBe('DELETE');
+  });
+});
+
+describe('patchProject', () => {
+  it('patchProject sends PATCH with name', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            id: 'proj-1',
+            name: 'Renamed',
+            description: null,
+            created_at: '2026-06-07T00:00:00.000Z',
+            updated_at: '2026-06-07T00:00:00.000Z',
+          }),
+      }),
+    );
+
+    await patchProject('proj-1', { name: 'Renamed' });
+
+    const [, calledInit] = vi.mocked(fetch).mock.calls[0] ?? [];
+    expect(calledInit?.method).toBe('PATCH');
+    expect(calledInit?.body).toBe(JSON.stringify({ name: 'Renamed' }));
   });
 });

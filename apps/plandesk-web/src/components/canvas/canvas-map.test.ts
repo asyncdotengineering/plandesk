@@ -43,7 +43,14 @@ describe('canvas-map', () => {
         id: sampleTask.id,
         type: 'taskCard',
         position: { x: 120, y: 240 },
-        data: { label: 'Design API', status: 'in_progress', projectId: 'proj-1' },
+        data: {
+          label: 'Design API',
+          status: 'in_progress',
+          projectId: 'proj-1',
+          description: 'Detailed spec',
+          assignee: null,
+          dueDate: null,
+        },
       },
     ]);
   });
@@ -87,7 +94,14 @@ describe('canvas-map', () => {
         id: sampleTask.id,
         type: 'taskCard',
         position: { x: 300, y: 400 },
-        data: { label: 'Design API', status: 'in_progress', projectId: 'proj-1' },
+        data: {
+          label: 'Design API',
+          status: 'in_progress',
+          projectId: 'proj-1',
+          description: 'Detailed spec',
+          assignee: null,
+          dueDate: null,
+        },
       },
     ];
     const edges: Edge<LabeledEdgeData>[] = [
