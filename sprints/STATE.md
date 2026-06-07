@@ -6,11 +6,11 @@
 
 ## Active sprint
 
-**Sprint number:** `4`
-**Sprint name:** Web: board + MCP settings + agent runs
+**Sprint number:** `5`
+**Sprint name:** Distribution + integration + dogfood
 **Status:** `not-started`
-**Goal:** Moving a card between board columns updates the canvas node's status badge live, an MCP token can be created/copied-once/revoked from Settings, and an external agent run's progress is visible on the canvas.
-**WBS section:** [`sprints/WBS.md` § Sprint 4](./WBS.md)
+**Goal:** `plandesk connect` wires a real repo (`.plandesk/` + commit-safe `.mcp.json` + idempotent CLAUDE.md/AGENTS.md include), `docker compose up` serves the UI on :3847, the Factory Desk MCP-client adapter lists projects, and the dogfood fixture imports clean.
+**WBS section:** [`sprints/WBS.md` § Sprint 5](./WBS.md)
 
 ## Build branch
 
@@ -20,20 +20,20 @@ Every sprint session — manager and IC — works **on this branch only**. This 
 
 At session start: `git checkout main`.
 
-## Load-bearing reading for sprint 4
+## Load-bearing reading for sprint 5
 
-The session running sprint 4 must read these in this order before delegating any story:
+The session running sprint 5 must read these in this order before delegating any story:
 
-1. `sprints/sprint-3/HANDOFF.md` — **read first**; UI state + board-via-PATCH + token REST endpoints to add.
-2. `sprints/WBS.md` § Sprint 4 + § 1.2 DoD.
+1. `sprints/sprint-4/HANDOFF.md` — **read first**; UI feature-complete; RFC §4.7 is the spec for S5-01.
+2. `sprints/WBS.md` § Sprint 5 + § 1.2 DoD.
 3. `sprints/SESSION_KICKOFF_PROMPT.md` — the loop you are running.
-4. `../plandesk-rfc/02-requirements-interfaces.md` — §4.2 (REST), §5.2 (board), §4.3 (tokens), §3 REQ-5/8/9.
-5. `../plandesk-rfc/03-pseudocode-blueprint.md` — §7.3 (FlowCanvas sketch).
-6. `packages/plandesk-api/src/serialize.ts` + `routes/*.ts` — exact response shapes the client consumes.
+4. `../plandesk-rfc/02-requirements-interfaces.md` — **§4.7 (connect/.plandesk/skill, full)**, §4.6 (Factory adapter), §3 REQ-6/11/12.
+5. `../plandesk-rfc/05-security-rollback-open-qs.md` — §10 (no secrets committed).
+6. `packages/plandesk-cli/src/*` + `packages/plandesk-db/src/repositories/tokens.ts`.
 
 ## Last completed sprint
 
-`3 — Web: shell + canvas + docs`
+`4 — Web: board + MCP settings + agent runs`
 
 ## Last completed at
 
@@ -47,7 +47,8 @@ The session running sprint 4 must read these in this order before delegating any
 | 1 | ✅ complete | 2026-06-07 | [sprint-1/WARMDOWN.md](./sprint-1/WARMDOWN.md) |
 | 2 | ✅ complete | 2026-06-07 | [sprint-2/WARMDOWN.md](./sprint-2/WARMDOWN.md) |
 | 3 | ✅ complete | 2026-06-07 | [sprint-3/WARMDOWN.md](./sprint-3/WARMDOWN.md) |
-| 4 | not-started | — | — |
+| 4 | ✅ complete | 2026-06-08 | [sprint-4/WARMDOWN.md](./sprint-4/WARMDOWN.md) |
+| 5 | not-started | — | — |
 
 When a sprint completes, append a row here from `WARMDOWN.md`.
 
