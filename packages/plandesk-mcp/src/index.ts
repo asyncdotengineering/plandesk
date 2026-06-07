@@ -1,3 +1,6 @@
+export { createMcpApp, type McpAppDeps, type TokenStore } from './server.js';
+export { v1ToolNames, v1ToolSchemas } from './tools/registry.js';
+
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

@@ -1,7 +1,8 @@
 import { createServer, type Server } from 'node:http';
 import { getRequestListener } from '@hono/node-server';
-import { createApp } from '@plandesk/api';
-import { createDb, migrate } from '@plandesk/db';
+import { createApp, createEventBus, createServices } from '@plandesk/api';
+import { createDb, migrate, verifyToken } from '@plandesk/db';
+import { createMcpApp } from '@plandesk/mcp';
 import { BIND_HOST, resolveDataDir, workspaceDbPath } from './args.js';
 
 export type ServeOptions = {
@@ -33,7 +34,16 @@ export function startServer(options: ServeOptions, exit: ExitFn = defaultExit): 
   const dataDir = resolveDataDir(options.dataDir);
   const db = createDb(workspaceDbPath(dataDir));
   migrate(db);
-  const app = createApp({ db });
+
+  const eventBus = createEventBus();
+  const services = createServices({ db, eventBus });
+  const tokenStore = {
+    verify(raw: string) {
+      return verifyToken(db, raw);
+    },
+  };
+  const mcpApp = createMcpApp({ services, tokenStore });
+  const app = createApp({ db, eventBus, services, mcp: mcpApp });
 
   const server = createServer((req, res) => {
     void getRequestListener(app.fetch)(req, res);

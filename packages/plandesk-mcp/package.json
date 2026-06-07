@@ -16,7 +16,15 @@
     "test": "vitest run",
     "lint": "eslint src"
   },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@plandesk/api": "workspace:*",
+    "@plandesk/db": "workspace:*",
+    "hono": "^4.12.23",
+    "zod": "^3.25.76"
+  },
   "devDependencies": {
+    "@hono/node-server": "^2.0.4",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   }

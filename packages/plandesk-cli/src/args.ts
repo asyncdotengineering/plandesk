@@ -20,6 +20,7 @@ export function resolveDataDir(override?: string): string {
 export type ParsedArgs =
   | { command: 'init'; dataDir?: string }
   | { command: 'serve'; port: number; dataDir?: string }
+  | { command: 'token'; subcommand: 'create'; name: string; dataDir?: string }
   | { command: 'help' }
   | { command: 'unknown'; name: string };
 
@@ -101,6 +102,18 @@ export function parseArgs(argv: string[]): ParsedArgs {
     return { command: 'serve', port, dataDir };
   }
 
+  if (command === 'token') {
+    const subcommand = positional[1];
+    if (subcommand === 'create') {
+      const name = flagString(flags, 'name');
+      if (name === undefined || name.trim() === '') {
+        return { command: 'unknown', name: 'token create (missing --name)' };
+      }
+      return { command: 'token', subcommand: 'create', name, dataDir };
+    }
+    return { command: 'unknown', name: command };
+  }
+
   return { command: 'unknown', name: command };
 }
 
@@ -110,6 +123,7 @@ export function usage(): string {
 Usage:
   plandesk init [--data-dir <dir>]
   plandesk serve [--port ${String(DEFAULT_PORT)}] [--data-dir <dir>]
+  plandesk token create --name <name> [--data-dir <dir>]
 
 Options:
   --data-dir  Workspace directory (default: ~/.plandesk)
