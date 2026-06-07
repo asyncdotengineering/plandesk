@@ -68,4 +68,36 @@ describe('agent-runs routes', () => {
     expect(res.status).toBe(404);
     expect(await parseJson(res)).toEqual({ error: 'not_found' });
   });
+
+  it('GET /projects/:id/agent-runs honors limit and offset', async () => {
+    const { app, db, eventBus } = createTestApp();
+    const { agentRunService } = createServices({ db, eventBus });
+    const projectRes = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Paginate runs' }),
+    });
+    const project = await parseJson<{ id: string }>(projectRes);
+    agentRunService.start(project.id, 'Run 1');
+    agentRunService.start(project.id, 'Run 2');
+
+    const res = await app.request(`/api/v1/projects/${project.id}/agent-runs?limit=1&offset=0`);
+    expect(res.status).toBe(200);
+    const runs = await parseJson<AgentRunResponse[]>(res);
+    expect(runs).toHaveLength(1);
+  });
+
+  it('GET /projects/:id/agent-runs returns 400 for invalid pagination', async () => {
+    const { app } = createTestApp();
+    const project = await parseJson<{ id: string }>(
+      await app.request('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Bad pagination' }),
+      }),
+    );
+
+    const res = await app.request(`/api/v1/projects/${project.id}/agent-runs?limit=bad`);
+    expect(res.status).toBe(400);
+  });
 });

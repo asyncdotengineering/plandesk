@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb } from '../client.js';
 import { migrate } from '../migrate.js';
-import { createProject, getProject, listProjects, updateProject } from './projects.js';
+import {
+  createProject,
+  deleteProject,
+  getProject,
+  listProjects,
+  updateProject,
+} from './projects.js';
 
 describe('projects repository', () => {
   const db = createDb(':memory:');
@@ -44,5 +50,19 @@ describe('projects repository', () => {
     expect(
       updateProject(db, '00000000-0000-4000-8000-000000009999', { name: 'Ghost' }),
     ).toBeUndefined();
+  });
+
+  it('paginates project list', () => {
+    createProject(db, { name: 'A' });
+    createProject(db, { name: 'B' });
+    createProject(db, { name: 'C' });
+    expect(listProjects(db, { limit: 1, offset: 1 })).toHaveLength(1);
+  });
+
+  it('deletes a project', () => {
+    const created = createProject(db, { name: 'Delete me' });
+    expect(deleteProject(db, created.id)).toBe(true);
+    expect(getProject(db, created.id)).toBeUndefined();
+    expect(deleteProject(db, created.id)).toBe(false);
   });
 });

@@ -1,16 +1,19 @@
 import {
   createTask,
+  deleteEdgesByTaskId,
+  deleteTask as dbDeleteTask,
   getProject,
   getTask,
   InvalidTaskStatusError,
   isTaskStatus,
   listTasks,
+  nullDocumentsLinkedTask,
   updateTask,
   type Db,
   type TaskStatus,
 } from '@plandesk/db';
 import type { EventBus } from '../events.js';
-import { serializeTask } from '../serialize.js';
+import { serializeTask, type PaginationParams } from '../serialize.js';
 
 export type TaskServiceDeps = {
   db: Db;
@@ -23,6 +26,8 @@ export type CreateTaskInput = {
   description?: string | null;
   x?: number;
   y?: number;
+  assignee?: string | null;
+  dueDate?: Date | null;
 };
 
 export type UpdateTaskInput = {
@@ -41,7 +46,11 @@ export function createTaskService(deps: TaskServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    listByProject(projectId: string, filter: ListTasksFilter = {}) {
+    listByProject(
+      projectId: string,
+      filter: ListTasksFilter = {},
+      pagination: PaginationParams = {},
+    ) {
       if (filter.status !== undefined && !isTaskStatus(filter.status)) {
         throw new InvalidTaskStatusError(filter.status);
       }
@@ -54,8 +63,8 @@ export function createTaskService(deps: TaskServiceDeps) {
       const statusFilter = filter.status;
       const tasks =
         statusFilter !== undefined
-          ? listTasks(db, projectId, { status: statusFilter })
-          : listTasks(db, projectId);
+          ? listTasks(db, projectId, { status: statusFilter, ...pagination })
+          : listTasks(db, projectId, pagination);
       return tasks.map(serializeTask);
     },
 
@@ -76,6 +85,8 @@ export function createTaskService(deps: TaskServiceDeps) {
         description: input.description,
         x: input.x,
         y: input.y,
+        assignee: input.assignee,
+        dueDate: input.dueDate,
       });
 
       eventBus.emit({
@@ -109,6 +120,24 @@ export function createTaskService(deps: TaskServiceDeps) {
       });
 
       return serializeTask(task);
+    },
+
+    delete(id: string) {
+      const task = getTask(db, id);
+      if (!task) {
+        return false;
+      }
+
+      const projectId = task.projectId;
+
+      db.transaction((tx) => {
+        deleteEdgesByTaskId(tx, id);
+        nullDocumentsLinkedTask(tx, id);
+        dbDeleteTask(tx, id);
+      });
+
+      eventBus.emit({ type: 'canvas_updated', projectId });
+      return true;
     },
   };
 }

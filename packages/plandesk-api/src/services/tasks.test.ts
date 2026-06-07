@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
+  createDocument,
+  createEdge,
   createProject,
   createTask,
+  getDocument,
+  getTask,
   InvalidTaskStatusError,
+  listEdges,
   listTasks,
   migrate,
 } from '@plandesk/db';
@@ -21,6 +26,8 @@ describe('taskService', () => {
 
   beforeEach(() => {
     migrate(db);
+    db.$client.exec('DELETE FROM edges');
+    db.$client.exec('DELETE FROM documents');
     db.$client.exec('DELETE FROM tasks');
     db.$client.exec('DELETE FROM projects');
     projectId = createProject(db, { name: 'Project' }).id;
@@ -134,5 +141,35 @@ describe('taskService', () => {
 
     service.update(created.id, { status: 'done' });
     expect(received).toEqual([{ type: 'task_updated', taskId: created.id, projectId }]);
+  });
+
+  it('deletes a task, cascades edges, and nulls linked documents', () => {
+    const service = createService();
+    const task = createTask(db, { projectId, label: 'Delete me' });
+    createEdge(db, { projectId, fromTaskId: task.id, toTaskId: task.id });
+    const doc = createDocument(db, {
+      projectId,
+      title: 'Linked',
+      linkedTaskId: task.id,
+    });
+
+    expect(service.delete(task.id)).toBe(true);
+    expect(getTask(db, task.id)).toBeUndefined();
+    expect(listEdges(db, projectId)).toHaveLength(0);
+    expect(getDocument(db, doc.id)?.linkedTaskId).toBeNull();
+  });
+
+  it('returns false when deleting a missing task', () => {
+    const service = createService();
+    expect(service.delete('00000000-0000-4000-8000-000000009999')).toBe(false);
+  });
+
+  it('paginates task list', () => {
+    const service = createService();
+    createTask(db, { projectId, label: 'A' });
+    createTask(db, { projectId, label: 'B' });
+    createTask(db, { projectId, label: 'C' });
+    const page = service.listByProject(projectId, {}, { limit: 1, offset: 1 });
+    expect(page).toHaveLength(1);
   });
 });

@@ -9,6 +9,7 @@ import {
   createProject,
   createTask,
   createToken,
+  createDocument,
   migrate,
   revokeToken,
   verifyToken,
@@ -126,7 +127,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names.length).toBeGreaterThanOrEqual(8);
+      expect(names).toHaveLength(13);
       await client.close();
     });
   });
@@ -233,6 +234,70 @@ describe('createMcpApp', () => {
         arguments: { project_id: '00000000-0000-4000-8000-000000009999' },
       });
       expect(result.isError).toBe(true);
+      await client.close();
+    });
+  });
+
+  it('create_project, get_document, and list_documents work via MCP', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+      const client = await connectClient(baseUrl, token);
+
+      const createdProject = await client.callTool({
+        name: 'create_project',
+        arguments: { name: 'MCP Created', description: 'from MCP' },
+      });
+      expect(createdProject.isError).not.toBe(true);
+      const createdContent = createdProject.content as Array<{ type: string; text?: string }>;
+      const createdText =
+        createdContent[0]?.type === 'text' ? (createdContent[0].text ?? '{}') : '{}';
+      const createdPayload = JSON.parse(createdText) as {
+        project: { id: string; name: string; description: string | null };
+      };
+      expect(createdPayload.project.name).toBe('MCP Created');
+
+      const doc = createDocument(db, {
+        projectId,
+        title: 'MCP Doc',
+        body: '# Body',
+        statusLine: 'Status: ok',
+      });
+
+      const gotDoc = await client.callTool({
+        name: 'get_document',
+        arguments: { document_id: doc.id },
+      });
+      expect(gotDoc.isError).not.toBe(true);
+      const gotContent = gotDoc.content as Array<{ type: string; text?: string }>;
+      const gotText = gotContent[0]?.type === 'text' ? (gotContent[0].text ?? '{}') : '{}';
+      const gotPayload = JSON.parse(gotText) as {
+        document: {
+          id: string;
+          title: string;
+          body: string | null;
+          status_line: string | null;
+          linked_task_id: string | null;
+          parent_id: string | null;
+        };
+      };
+      expect(gotPayload.document).toMatchObject({
+        id: doc.id,
+        title: 'MCP Doc',
+        body: '# Body',
+        status_line: 'Status: ok',
+      });
+
+      const listed = await client.callTool({
+        name: 'list_documents',
+        arguments: { project_id: projectId },
+      });
+      expect(listed.isError).not.toBe(true);
+      const listContent = listed.content as Array<{ type: string; text?: string }>;
+      const listText = listContent[0]?.type === 'text' ? (listContent[0].text ?? '[]') : '[]';
+      const listPayload = JSON.parse(listText) as {
+        documents: Array<{ id: string; title: string }>;
+      };
+      expect(listPayload.documents.some((entry) => entry.id === doc.id)).toBe(true);
+
       await client.close();
     });
   });

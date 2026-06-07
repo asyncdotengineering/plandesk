@@ -5,16 +5,22 @@ import type { Services } from '@plandesk/api';
 import { createCompleteAgentRunHandler } from './tools/complete-agent-run.js';
 import { createCreateDocumentHandler } from './tools/create-document.js';
 import { createCreateEdgeHandler } from './tools/create-edge.js';
+import { createCreateProjectHandler } from './tools/create-project.js';
 import { createCreateTaskHandler } from './tools/create-task.js';
+import { createGetDocumentHandler } from './tools/get-document.js';
 import { createGetProjectHandler } from './tools/get-project.js';
+import { createListDocumentsHandler } from './tools/list-documents.js';
 import { createListProjectsHandler } from './tools/list-projects.js';
 import { createRecordAgentProgressHandler } from './tools/record-agent-progress.js';
 import {
   completeAgentRunInputSchema,
   createDocumentInputSchema,
   createEdgeInputSchema,
+  createProjectInputSchema,
   createTaskInputSchema,
+  getDocumentInputSchema,
   getProjectInputSchema,
+  listDocumentsInputSchema,
   listProjectsInputSchema,
   recordAgentProgressInputSchema,
   startAgentRunInputSchema,
@@ -68,6 +74,16 @@ function createMcpServer(services: Services): McpServer {
   );
 
   server.registerTool(
+    'create_project',
+    {
+      title: 'Create Project',
+      description: 'Create a new project',
+      inputSchema: createProjectInputSchema.shape,
+    },
+    createCreateProjectHandler(services.projectService),
+  );
+
+  server.registerTool(
     'create_task',
     {
       title: 'Create Task',
@@ -105,6 +121,28 @@ function createMcpServer(services: Services): McpServer {
       inputSchema: updateDocumentInputSchema.shape,
     },
     createUpdateDocumentHandler(services.documentService),
+  );
+
+  server.registerTool(
+    'get_document',
+    {
+      title: 'Get Document',
+      description: 'Get a document by id',
+      inputSchema: getDocumentInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createGetDocumentHandler(services.documentService),
+  );
+
+  server.registerTool(
+    'list_documents',
+    {
+      title: 'List Documents',
+      description: 'List documents for a project as a tree',
+      inputSchema: listDocumentsInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListDocumentsHandler(services.documentService),
   );
 
   server.registerTool(

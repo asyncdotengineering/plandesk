@@ -3,6 +3,11 @@ import { taskStatuses } from '@plandesk/db';
 
 export const listProjectsInputSchema = z.object({});
 
+export const createProjectInputSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+});
+
 export const getProjectInputSchema = z.object({
   project_id: z.string().uuid(),
 });
@@ -40,6 +45,14 @@ export const updateDocumentInputSchema = z.object({
   status_line: z.string().optional(),
 });
 
+export const getDocumentInputSchema = z.object({
+  document_id: z.string().uuid(),
+});
+
+export const listDocumentsInputSchema = z.object({
+  project_id: z.string().uuid(),
+});
+
 export const createEdgeInputSchema = z.object({
   project_id: z.string().uuid(),
   from_task_id: z.string().uuid(),
@@ -66,10 +79,13 @@ export const completeAgentRunInputSchema = z.object({
 export const v1ToolNames = [
   'list_projects',
   'get_project',
+  'create_project',
   'create_task',
   'update_task',
   'create_document',
   'update_document',
+  'get_document',
+  'list_documents',
   'create_edge',
   'start_agent_run',
   'record_agent_progress',
@@ -81,10 +97,13 @@ export type V1ToolName = (typeof v1ToolNames)[number];
 export const v1ToolSchemas = {
   list_projects: listProjectsInputSchema,
   get_project: getProjectInputSchema,
+  create_project: createProjectInputSchema,
   create_task: createTaskInputSchema,
   update_task: updateTaskInputSchema,
   create_document: createDocumentInputSchema,
   update_document: updateDocumentInputSchema,
+  get_document: getDocumentInputSchema,
+  list_documents: listDocumentsInputSchema,
   create_edge: createEdgeInputSchema,
   start_agent_run: startAgentRunInputSchema,
   record_agent_progress: recordAgentProgressInputSchema,

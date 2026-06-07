@@ -41,8 +41,25 @@ export function getProject(db: DbClient, id: string): Project | undefined {
   return db.select().from(projects).where(eq(projects.id, id)).get();
 }
 
-export function listProjects(db: DbClient): Project[] {
-  return db.select().from(projects).all();
+export type ListProjectsOptions = {
+  limit?: number;
+  offset?: number;
+};
+
+export function listProjects(db: DbClient, options?: ListProjectsOptions): Project[] {
+  let query = db.select().from(projects).$dynamic();
+  if (options?.limit !== undefined) {
+    query = query.limit(options.limit);
+  }
+  if (options?.offset !== undefined) {
+    query = query.offset(options.offset);
+  }
+  return query.all();
+}
+
+export function deleteProject(db: DbClient, id: string): boolean {
+  const result = db.delete(projects).where(eq(projects.id, id)).run();
+  return result.changes > 0;
 }
 
 export function updateProject(db: DbClient, id: string, input: ProjectUpdate): Project | undefined {

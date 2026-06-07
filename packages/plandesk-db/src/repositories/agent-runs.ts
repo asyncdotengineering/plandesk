@@ -19,8 +19,29 @@ export type AgentRunStatusUpdate = {
   completedAt?: Date | null;
 };
 
-export function listAgentRuns(db: DbClient, projectId: string): AgentRun[] {
-  return db.select().from(agentRuns).where(eq(agentRuns.projectId, projectId)).all();
+export type ListAgentRunsOptions = {
+  limit?: number;
+  offset?: number;
+};
+
+export function listAgentRuns(
+  db: DbClient,
+  projectId: string,
+  options?: ListAgentRunsOptions,
+): AgentRun[] {
+  let query = db.select().from(agentRuns).where(eq(agentRuns.projectId, projectId)).$dynamic();
+  if (options?.limit !== undefined) {
+    query = query.limit(options.limit);
+  }
+  if (options?.offset !== undefined) {
+    query = query.offset(options.offset);
+  }
+  return query.all();
+}
+
+export function deleteAgentRun(db: DbClient, id: string): boolean {
+  const result = db.delete(agentRuns).where(eq(agentRuns.id, id)).run();
+  return result.changes > 0;
 }
 
 export function createAgentRun(db: DbClient, input: NewAgentRun): AgentRun {

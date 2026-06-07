@@ -40,5 +40,13 @@ export function createTasksRouter(taskService: TaskService): Hono {
     }
   });
 
+  router.delete('/tasks/:id', (c) => {
+    const deleted = taskService.delete(c.req.param('id'));
+    if (!deleted) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.body(null, 204);
+  });
+
   return router;
 }

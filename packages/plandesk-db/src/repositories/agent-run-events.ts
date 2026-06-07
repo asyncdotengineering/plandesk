@@ -35,3 +35,8 @@ export function createAgentRunEvent(db: DbClient, input: NewAgentRunEvent): Agen
 export function listAgentRunEvents(db: DbClient, runId: string): AgentRunEvent[] {
   return db.select().from(agentRunEvents).where(eq(agentRunEvents.runId, runId)).all();
 }
+
+export function deleteAgentRunEventsByRunId(db: DbClient, runId: string): number {
+  const result = db.delete(agentRunEvents).where(eq(agentRunEvents.runId, runId)).run();
+  return result.changes;
+}

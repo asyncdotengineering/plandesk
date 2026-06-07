@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createProject, createTask, getTask } from '@plandesk/db';
+import { createEdge, createProject, createTask, getTask } from '@plandesk/db';
 import { createTestApp, parseJson, type TaskResponse } from '../test-helpers.js';
 
 type CanvasResponse = {
@@ -211,5 +211,38 @@ describe('canvas routes', () => {
 
     expect(res.status).toBe(400);
     expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+  });
+
+  it('DELETE /projects/:id/edges/:edgeId removes an edge', async () => {
+    const { app, db } = createTestApp();
+    const project = createProject(db, { name: 'Edge delete' });
+    const taskA = createTask(db, { projectId: project.id, label: 'A' });
+    const taskB = createTask(db, { projectId: project.id, label: 'B' });
+    const edge = createEdge(db, {
+      projectId: project.id,
+      fromTaskId: taskA.id,
+      toTaskId: taskB.id,
+      label: 'blocks',
+    });
+
+    const res = await app.request(`/api/v1/projects/${project.id}/edges/${edge.id}`, {
+      method: 'DELETE',
+    });
+    expect(res.status).toBe(204);
+
+    const canvasRes = await app.request(`/api/v1/projects/${project.id}/canvas`);
+    const canvas = await parseJson<CanvasResponse>(canvasRes);
+    expect(canvas.edges).toHaveLength(0);
+  });
+
+  it('DELETE /projects/:id/edges/:edgeId returns 404 when missing', async () => {
+    const { app, db } = createTestApp();
+    const project = createProject(db, { name: 'Missing edge' });
+
+    const res = await app.request(
+      `/api/v1/projects/${project.id}/edges/00000000-0000-4000-8000-000000009999`,
+      { method: 'DELETE' },
+    );
+    expect(res.status).toBe(404);
   });
 });

@@ -52,8 +52,24 @@ export function getDocument(db: DbClient, id: string): Document | undefined {
   return db.select().from(documents).where(eq(documents.id, id)).get();
 }
 
-export function listDocuments(db: DbClient, projectId: string): Document[] {
-  return db.select().from(documents).where(eq(documents.projectId, projectId)).all();
+export type ListDocumentsOptions = {
+  limit?: number;
+  offset?: number;
+};
+
+export function listDocuments(
+  db: DbClient,
+  projectId: string,
+  options?: ListDocumentsOptions,
+): Document[] {
+  let query = db.select().from(documents).where(eq(documents.projectId, projectId)).$dynamic();
+  if (options?.limit !== undefined) {
+    query = query.limit(options.limit);
+  }
+  if (options?.offset !== undefined) {
+    query = query.offset(options.offset);
+  }
+  return query.all();
 }
 
 export function getDocumentByTask(db: DbClient, taskId: string): Document | undefined {
@@ -88,4 +104,41 @@ export function updateDocument(
     .returning()
     .all();
   return rows[0];
+}
+
+export function deleteDocument(db: DbClient, id: string): boolean {
+  const result = db.delete(documents).where(eq(documents.id, id)).run();
+  return result.changes > 0;
+}
+
+export function detachDocumentChildren(db: DbClient, parentId: string): number {
+  const result = db
+    .update(documents)
+    .set({ parentId: null })
+    .where(eq(documents.parentId, parentId))
+    .run();
+  return result.changes;
+}
+
+export function nullDocumentsLinkedTask(db: DbClient, taskId: string): number {
+  const result = db
+    .update(documents)
+    .set({ linkedTaskId: null })
+    .where(eq(documents.linkedTaskId, taskId))
+    .run();
+  return result.changes;
+}
+
+export function clearDocumentParentRefsByProject(db: DbClient, projectId: string): number {
+  const result = db
+    .update(documents)
+    .set({ parentId: null })
+    .where(eq(documents.projectId, projectId))
+    .run();
+  return result.changes;
+}
+
+export function deleteDocumentsByProjectId(db: DbClient, projectId: string): number {
+  const result = db.delete(documents).where(eq(documents.projectId, projectId)).run();
+  return result.changes;
 }

@@ -9,6 +9,37 @@ import type {
 } from '@plandesk/db';
 import { taskStatuses } from '@plandesk/db';
 
+export type PaginationParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export function parsePaginationParams(
+  limitRaw: string | undefined,
+  offsetRaw: string | undefined,
+): PaginationParams | 'invalid' {
+  let limit: number | undefined;
+  let offset = 0;
+
+  if (offsetRaw !== undefined) {
+    const parsed = Number(offsetRaw);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      return 'invalid';
+    }
+    offset = parsed;
+  }
+
+  if (limitRaw !== undefined) {
+    const parsed = Number(limitRaw);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      return 'invalid';
+    }
+    limit = parsed;
+  }
+
+  return { limit, offset };
+}
+
 export type TaskStatusSummary = Record<TaskStatus, number>;
 
 export function emptyTaskStatusSummary(): TaskStatusSummary {

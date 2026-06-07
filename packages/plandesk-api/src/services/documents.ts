@@ -1,5 +1,7 @@
 import {
   createDocument as dbCreateDocument,
+  deleteDocument as dbDeleteDocument,
+  detachDocumentChildren,
   getDocument as dbGetDocument,
   getDocumentByTask as dbGetDocumentByTask,
   getProject,
@@ -11,6 +13,7 @@ import {
 import {
   buildDocumentTree,
   serializeDocument,
+  type PaginationParams,
   type SerializedDocument,
   type SerializedDocumentTree,
 } from '../serialize.js';
@@ -62,12 +65,15 @@ export function createDocumentService(deps: DocumentServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    listTree(projectId: string): SerializedDocumentTree[] | undefined {
+    listTree(
+      projectId: string,
+      pagination: PaginationParams = {},
+    ): SerializedDocumentTree[] | undefined {
       const project = getProject(db, projectId);
       if (!project) {
         return undefined;
       }
-      return buildDocumentTree(dbListDocuments(db, projectId));
+      return buildDocumentTree(dbListDocuments(db, projectId, pagination));
     },
 
     create(projectId: string, input: CreateDocumentInput): SerializedDocument | undefined {
@@ -147,6 +153,21 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       }
 
       return serializeDocument(document);
+    },
+
+    delete(id: string) {
+      const existing = dbGetDocument(db, id);
+      if (!existing) {
+        return false;
+      }
+
+      db.transaction((tx) => {
+        detachDocumentChildren(tx, id);
+        dbDeleteDocument(tx, id);
+      });
+
+      eventBus.emit({ type: 'canvas_updated', projectId: existing.projectId });
+      return true;
     },
   };
 }

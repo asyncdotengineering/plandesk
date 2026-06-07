@@ -220,4 +220,48 @@ describe('documents routes', () => {
     expect(createRes.status).toBe(400);
     expect(await parseJson(createRes)).toEqual({ error: 'invalid_argument' });
   });
+
+  it('DELETE /api/v1/documents/:id detaches children and deletes document', async () => {
+    const { app, db } = createTestApp();
+    const project = createProject(db, { name: 'Doc delete' });
+    const parent = await app.request(`/api/v1/projects/${project.id}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Parent' }),
+    });
+    const parentDoc = await parseJson<DocumentResponse>(parent);
+    const childRes = await app.request(`/api/v1/projects/${project.id}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Child', parent_id: parentDoc.id }),
+    });
+    const childDoc = await parseJson<DocumentResponse>(childRes);
+
+    const deleteRes = await app.request(`/api/v1/documents/${parentDoc.id}`, {
+      method: 'DELETE',
+    });
+    expect(deleteRes.status).toBe(204);
+
+    const childGet = await app.request(`/api/v1/documents/${childDoc.id}`);
+    const child = await parseJson<DocumentResponse>(childGet);
+    expect(child.parent_id).toBeNull();
+
+    const parentGet = await app.request(`/api/v1/documents/${parentDoc.id}`);
+    expect(parentGet.status).toBe(404);
+  });
+
+  it('DELETE /api/v1/documents/:id returns 404 when missing', async () => {
+    const { app } = createTestApp();
+    const res = await app.request('/api/v1/documents/00000000-0000-4000-8000-000000009999', {
+      method: 'DELETE',
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('GET /api/v1/projects/:id/documents returns 400 for invalid pagination', async () => {
+    const { app, db } = createTestApp();
+    const project = createProject(db, { name: 'Paginate docs' });
+    const res = await app.request(`/api/v1/projects/${project.id}/documents?offset=-1`);
+    expect(res.status).toBe(400);
+  });
 });

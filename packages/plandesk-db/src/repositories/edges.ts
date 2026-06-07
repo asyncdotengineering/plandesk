@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
 import { edges } from '../schema.js';
 
@@ -73,4 +73,17 @@ export function getEdgeByProjectAndId(
     .from(edges)
     .where(and(eq(edges.projectId, projectId), eq(edges.id, id)))
     .get();
+}
+
+export function deleteEdgesByTaskId(db: DbClient, taskId: string): number {
+  const result = db
+    .delete(edges)
+    .where(or(eq(edges.fromTaskId, taskId), eq(edges.toTaskId, taskId)))
+    .run();
+  return result.changes;
+}
+
+export function deleteEdgesByProjectId(db: DbClient, projectId: string): number {
+  const result = db.delete(edges).where(eq(edges.projectId, projectId)).run();
+  return result.changes;
 }

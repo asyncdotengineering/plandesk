@@ -1,7 +1,7 @@
 import {
   createEdge,
   createTask,
-  deleteEdge,
+  deleteEdge as dbDeleteEdge,
   getEdgeByProjectAndId,
   getProject,
   getTask,
@@ -185,7 +185,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
 
         for (const existingEdge of existingEdges) {
           if (!payloadEdgeIds.has(existingEdge.id)) {
-            deleteEdge(tx, existingEdge.id);
+            dbDeleteEdge(tx, existingEdge.id);
           }
         }
 
@@ -226,6 +226,17 @@ export function createCanvasService(deps: CanvasServiceDeps) {
       eventBus.emit({ type: 'canvas_updated', projectId });
 
       return buildCanvas(projectId, updatedProject);
+    },
+
+    deleteEdge(projectId: string, edgeId: string) {
+      const edge = getEdgeByProjectAndId(db, projectId, edgeId);
+      if (!edge) {
+        return false;
+      }
+
+      dbDeleteEdge(db, edgeId);
+      eventBus.emit({ type: 'canvas_updated', projectId });
+      return true;
     },
   };
 }

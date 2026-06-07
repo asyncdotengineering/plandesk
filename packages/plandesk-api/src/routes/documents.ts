@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { InvalidDocumentError, type DocumentService } from '../services/documents.js';
+import { parsePaginationParams } from '../serialize.js';
 
 type CreateDocumentBody = {
   title?: string;
@@ -42,7 +43,11 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
   const router = new Hono();
 
   router.get('/projects/:id/documents', (c) => {
-    const tree = documentService.listTree(c.req.param('id'));
+    const pagination = parsePaginationParams(c.req.query('limit'), c.req.query('offset'));
+    if (pagination === 'invalid') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    const tree = documentService.listTree(c.req.param('id'), pagination);
     if (!tree) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -109,6 +114,14 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
       }
       throw error;
     }
+  });
+
+  router.delete('/documents/:id', (c) => {
+    const deleted = documentService.delete(c.req.param('id'));
+    if (!deleted) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.body(null, 204);
   });
 
   router.get('/tasks/:id/document', (c) => {

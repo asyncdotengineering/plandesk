@@ -10,7 +10,7 @@ import {
   type Db,
 } from '@plandesk/db';
 import type { EventBus } from '../events.js';
-import { serializeAgentRun, serializeAgentRunEvent } from '../serialize.js';
+import { serializeAgentRun, serializeAgentRunEvent, type PaginationParams } from '../serialize.js';
 
 export type AgentRunServiceDeps = {
   db: Db;
@@ -30,13 +30,13 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    listForProject(projectId: string) {
+    listForProject(projectId: string, pagination: PaginationParams = {}) {
       const project = getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
-      const runs = listAgentRuns(db, projectId)
+      const runs = listAgentRuns(db, projectId, pagination)
         .slice()
         .sort((a, b) => {
           const timeDiff = b.startedAt.getTime() - a.startedAt.getTime();

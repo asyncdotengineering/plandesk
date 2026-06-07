@@ -79,6 +79,8 @@ export function getTask(db: DbClient, id: string): Task | undefined {
 
 export type ListTasksOptions = {
   status?: TaskStatus;
+  limit?: number;
+  offset?: number;
 };
 
 export function listTasks(db: DbClient, projectId: string, options?: ListTasksOptions): Task[] {
@@ -86,11 +88,28 @@ export function listTasks(db: DbClient, projectId: string, options?: ListTasksOp
   if (options?.status !== undefined) {
     conditions.push(eq(tasks.status, options.status));
   }
-  return db
+  let query = db
     .select()
     .from(tasks)
     .where(and(...conditions))
-    .all();
+    .$dynamic();
+  if (options?.limit !== undefined) {
+    query = query.limit(options.limit);
+  }
+  if (options?.offset !== undefined) {
+    query = query.offset(options.offset);
+  }
+  return query.all();
+}
+
+export function deleteTask(db: DbClient, id: string): boolean {
+  const result = db.delete(tasks).where(eq(tasks.id, id)).run();
+  return result.changes > 0;
+}
+
+export function deleteTasksByProjectId(db: DbClient, projectId: string): number {
+  const result = db.delete(tasks).where(eq(tasks.projectId, projectId)).run();
+  return result.changes;
 }
 
 export function updateTask(db: DbClient, id: string, input: TaskUpdate): Task | undefined {

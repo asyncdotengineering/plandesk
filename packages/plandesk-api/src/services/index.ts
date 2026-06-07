@@ -24,7 +24,7 @@ export type Services = {
 
 export function createServices(deps: ServicesDeps): Services {
   const eventBus = deps.eventBus ?? createEventBus();
-  const projectService = createProjectService({ db: deps.db });
+  const projectService = createProjectService({ db: deps.db, eventBus });
   const taskService = createTaskService({ db: deps.db, eventBus });
   const canvasService = createCanvasService({ db: deps.db, eventBus });
   const documentService = createDocumentService({ db: deps.db, eventBus });

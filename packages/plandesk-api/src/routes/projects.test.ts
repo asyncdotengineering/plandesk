@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTask, createProject } from '@plandesk/db';
+import { createEdge, createProject, createTask, getTask, listEdges } from '@plandesk/db';
 import {
   createTestApp,
   parseJson,
@@ -123,6 +123,155 @@ describe('projects routes', () => {
     expect(res.status).toBe(400);
     expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
   });
+
+  it('POST /api/v1/projects/:id/tasks creates a task', async () => {
+    const { app } = createTestApp();
+    const createRes = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Task create' }),
+    });
+    const created = await parseJson<ProjectResponse>(createRes);
+
+    const res = await app.request(`/api/v1/projects/${created.id}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        label: 'New task',
+        status: 'todo',
+        x: 1,
+        y: 2,
+        assignee: 'agent',
+        due_date: '2026-12-01T00:00:00.000Z',
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await parseJson<TaskResponse>(res);
+    expect(body).toMatchObject({
+      project_id: created.id,
+      label: 'New task',
+      status: 'todo',
+      x: 1,
+      y: 2,
+      assignee: 'agent',
+    });
+  });
+
+  it('POST /api/v1/projects/:id/tasks returns 400 for invalid status', async () => {
+    const { app } = createTestApp();
+    const createRes = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Bad status' }),
+    });
+    const created = await parseJson<ProjectResponse>(createRes);
+
+    const res = await app.request(`/api/v1/projects/${created.id}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 'Task', status: 'invalid' }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+  });
+
+  it('POST /api/v1/projects/:id/tasks returns 404 for missing project', async () => {
+    const { app } = createTestApp();
+    const res = await app.request('/api/v1/projects/00000000-0000-4000-8000-000000009999/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 'Ghost' }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('PATCH /api/v1/projects/:id renames a project', async () => {
+    const { app } = createTestApp();
+    const createRes = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Before' }),
+    });
+    const created = await parseJson<ProjectResponse>(createRes);
+
+    const res = await app.request(`/api/v1/projects/${created.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'After', description: 'Updated' }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await parseJson<ProjectResponse>(res);
+    expect(body.name).toBe('After');
+    expect(body.description).toBe('Updated');
+  });
+
+  it('PATCH /api/v1/projects/:id returns 404 when missing', async () => {
+    const { app } = createTestApp();
+    const res = await app.request('/api/v1/projects/00000000-0000-4000-8000-000000009999', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Ghost' }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('DELETE /api/v1/projects/:id cascade deletes project data', async () => {
+    const { app, db } = createTestApp();
+    const project = createProject(db, { name: 'Delete me' });
+    const task = createTask(db, { projectId: project.id, label: 'Task' });
+    createTask(db, { projectId: project.id, label: 'Other' });
+
+    const res = await app.request(`/api/v1/projects/${project.id}`, { method: 'DELETE' });
+    expect(res.status).toBe(204);
+
+    const getRes = await app.request(`/api/v1/projects/${project.id}`);
+    expect(getRes.status).toBe(404);
+
+    const tasksRes = await app.request(`/api/v1/projects/${project.id}/tasks`);
+    expect(tasksRes.status).toBe(404);
+    expect(getTask(db, task.id)).toBeUndefined();
+  });
+
+  it('DELETE /api/v1/projects/:id returns 404 when missing', async () => {
+    const { app } = createTestApp();
+    const res = await app.request('/api/v1/projects/00000000-0000-4000-8000-000000009999', {
+      method: 'DELETE',
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('GET /api/v1/projects honors limit and offset', async () => {
+    const { app } = createTestApp();
+    await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'A' }),
+    });
+    await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'B' }),
+    });
+    await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'C' }),
+    });
+
+    const res = await app.request('/api/v1/projects?limit=1&offset=1');
+    expect(res.status).toBe(200);
+    const body = await parseJson<ProjectResponse[]>(res);
+    expect(body).toHaveLength(1);
+  });
+
+  it('GET /api/v1/projects returns 400 for invalid pagination', async () => {
+    const { app } = createTestApp();
+    const res = await app.request('/api/v1/projects?limit=-1');
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('tasks routes', () => {
@@ -186,5 +335,29 @@ describe('tasks routes', () => {
 
     expect(res.status).toBe(400);
     expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+  });
+
+  it('DELETE /api/v1/tasks/:id deletes task and cascades edges', async () => {
+    const { app, db } = createTestApp();
+    const project = createProject(db, { name: 'Delete task' });
+    const task = createTask(db, { projectId: project.id, label: 'Task' });
+    createEdge(db, {
+      projectId: project.id,
+      fromTaskId: task.id,
+      toTaskId: task.id,
+    });
+
+    const res = await app.request(`/api/v1/tasks/${task.id}`, { method: 'DELETE' });
+    expect(res.status).toBe(204);
+    expect(getTask(db, task.id)).toBeUndefined();
+    expect(listEdges(db, project.id)).toHaveLength(0);
+  });
+
+  it('DELETE /api/v1/tasks/:id returns 404 when missing', async () => {
+    const { app } = createTestApp();
+    const res = await app.request('/api/v1/tasks/00000000-0000-4000-8000-000000009999', {
+      method: 'DELETE',
+    });
+    expect(res.status).toBe(404);
   });
 });
