@@ -1,17 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createDocument,
+  createMcpToken,
   createProject,
   getCanvas,
   getDocument,
   getProject,
   getTaskDocument,
   listDocuments,
+  listMcpTokens,
   listProjects,
   listTasks,
   patchDocument,
   patchTask,
   putCanvas,
+  revokeMcpToken,
   type CreateDocumentInput,
   type CreateProjectInput,
   type PatchDocumentInput,
@@ -29,6 +32,7 @@ export const queryKeys = {
   documents: (projectId: string) => ['projects', projectId, 'documents'] as const,
   document: (id: string) => ['documents', id] as const,
   taskDocument: (taskId: string) => ['tasks', taskId, 'document'] as const,
+  mcpTokens: ['mcp-tokens'] as const,
 };
 
 export function useProjects() {
@@ -131,5 +135,32 @@ export function useTaskDocument(taskId: string) {
   return useQuery({
     queryKey: queryKeys.taskDocument(taskId),
     queryFn: () => getTaskDocument(taskId),
+  });
+}
+
+export function useMcpTokens() {
+  return useQuery({
+    queryKey: queryKeys.mcpTokens,
+    queryFn: listMcpTokens,
+  });
+}
+
+export function useCreateMcpToken() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => createMcpToken(name),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.mcpTokens });
+    },
+  });
+}
+
+export function useRevokeMcpToken() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => revokeMcpToken(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.mcpTokens });
+    },
   });
 }

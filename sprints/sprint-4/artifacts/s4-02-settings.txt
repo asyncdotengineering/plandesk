@@ -1,0 +1,18 @@
+S4-02 MCP settings UI + token REST — verification (2026-06-08)
+
+API (automated):
+1. POST /api/v1/mcp-tokens {name:"Claude"} → 201 {id,name,token} (raw plandesk_mcp_* prefix)
+2. GET /api/v1/mcp-tokens → list has id,name,created_at,revoked_at only (no token/hash)
+3. DELETE /api/v1/mcp-tokens/:id → 204; list shows revoked_at set
+4. Revoke → POST /mcp with Bearer <raw> → 401 {error:"unauthorized"}
+
+UI (component tests + manual flow):
+1. /settings/mcp renders token list (name, created, Active/Revoked)
+2. Create "Claude" → raw shown once in amber panel + Copy token + connection snippets:
+   - claude mcp add --transport http plandesk <ORIGIN>/mcp/ --header "Authorization: Bearer <token>"
+   - codex mcp add --transport http plandesk <ORIGIN>/mcp/ --header "Authorization: Bearer <token>"
+3. Copy writes raw to clipboard; reload does not refetch raw (hash-only at rest)
+4. Revoke → status Revoked; Revoke button hidden; MCP auth fails (401)
+
+REQ-8 satisfied: user-scoped revocable tokens, sha256 at rest, raw shown once at create.
+C15 satisfied: create/copy-once/revoke settings flow with verified 401 after revoke.

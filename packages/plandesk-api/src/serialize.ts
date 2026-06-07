@@ -137,3 +137,24 @@ export function serializeAgentRunEvent(event: AgentRunEvent) {
     created_at: event.createdAt.toISOString(),
   };
 }
+
+export type SerializedToken = {
+  id: string;
+  name: string;
+  created_at: string;
+  revoked_at: string | null;
+};
+
+export function serializeToken(token: {
+  id: string;
+  name: string;
+  created_at: string;
+  revoked_at: string | null;
+}): SerializedToken {
+  return {
+    id: token.id,
+    name: token.name,
+    created_at: token.created_at,
+    revoked_at: token.revoked_at,
+  };
+}

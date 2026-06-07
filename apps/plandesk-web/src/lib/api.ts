@@ -207,3 +207,26 @@ export function patchDocument(id: string, input: PatchDocumentInput): Promise<Se
 export function getTaskDocument(taskId: string): Promise<SerializedDocument> {
   return request(`/tasks/${taskId}/document`);
 }
+
+export type SerializedMcpToken = {
+  id: string;
+  name: string;
+  created_at: string;
+  revoked_at: string | null;
+};
+
+export type CreateMcpTokenResponse = SerializedMcpToken & {
+  token: string;
+};
+
+export function listMcpTokens(): Promise<SerializedMcpToken[]> {
+  return request('/mcp-tokens');
+}
+
+export function createMcpToken(name: string): Promise<CreateMcpTokenResponse> {
+  return request('/mcp-tokens', { method: 'POST', body: JSON.stringify({ name }) });
+}
+
+export function revokeMcpToken(id: string): Promise<void> {
+  return request(`/mcp-tokens/${id}`, { method: 'DELETE' });
+}

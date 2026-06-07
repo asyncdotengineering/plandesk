@@ -5,6 +5,7 @@ import { createDocumentService, type DocumentService } from './documents.js';
 import { createProjectService, type ProjectService } from './projects.js';
 import { createAgentRunService, type AgentRunService } from './agent-runs.js';
 import { createTaskService, type TaskService } from './tasks.js';
+import { createTokenService, type TokenService } from './tokens.js';
 
 export type ServicesDeps = {
   db: Db;
@@ -18,6 +19,7 @@ export type Services = {
   canvasService: CanvasService;
   documentService: DocumentService;
   agentRunService: AgentRunService;
+  tokenService: TokenService;
 };
 
 export function createServices(deps: ServicesDeps): Services {
@@ -27,6 +29,7 @@ export function createServices(deps: ServicesDeps): Services {
   const canvasService = createCanvasService({ db: deps.db, eventBus });
   const documentService = createDocumentService({ db: deps.db, eventBus });
   const agentRunService = createAgentRunService({ db: deps.db, eventBus });
+  const tokenService = createTokenService({ db: deps.db });
 
   return {
     eventBus,
@@ -35,5 +38,6 @@ export function createServices(deps: ServicesDeps): Services {
     canvasService,
     documentService,
     agentRunService,
+    tokenService,
   };
 }
