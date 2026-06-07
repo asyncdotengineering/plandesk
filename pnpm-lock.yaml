@@ -189,7 +189,23 @@ importers:
         version: 3.2.6(@types/node@25.9.2)(jiti@2.7.0)(jsdom@29.1.1)(lightningcss@1.32.0)(tsx@4.22.4)
 
   packages/plandesk-mcp-client:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.29.0
+        version: 1.29.0(zod@4.4.3)
     devDependencies:
+      '@hono/node-server':
+        specifier: ^2.0.4
+        version: 2.0.4(hono@4.12.23)
+      '@plandesk/api':
+        specifier: workspace:*
+        version: link:../plandesk-api
+      '@plandesk/db':
+        specifier: workspace:*
+        version: link:../plandesk-db
+      '@plandesk/mcp':
+        specifier: workspace:*
+        version: link:../plandesk-mcp
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

@@ -1,0 +1,7 @@
+=== Factory Desk adapter (MCP read-only) ===
+PLANDESK_URL=http://127.0.0.1:49264
+PLANDESK_MCP_TOKEN=<redacted>
+transport=StreamableHTTP /mcp/ Authorization: Bearer
+listProjects() count=1
+- 48a9bf24-805d-4f1f-ad6b-b51ee768388a | Checkout Revamp | created_at=2026-06-07T19:19:02.122Z
+getProject(48a9bf24-805d-4f1f-ad6b-b51ee768388a) summary={"scope":0,"todo":0,"in_progress":0,"done":0,"backlog":0}
