@@ -66,7 +66,9 @@ export function createMcpApp(deps: McpAppDeps): Hono {
     await next();
   });
 
-  app.all('/', async (c) => {
+  // Match both `/mcp` and the RFC §4.3 documented `/mcp/` (trailing slash), so
+  // every MCP client URL form reaches the transport (auth runs in the `*` mw above).
+  app.all('*', async (c) => {
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });
