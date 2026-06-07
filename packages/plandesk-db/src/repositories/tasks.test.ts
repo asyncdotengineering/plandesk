@@ -46,6 +46,13 @@ describe('tasks repository', () => {
     expect(tasks).toHaveLength(2);
   });
 
+  it('lists tasks filtered by status', () => {
+    createTask(db, { projectId, label: 'Todo', status: 'todo' });
+    createTask(db, { projectId, label: 'Done', status: 'done' });
+    expect(listTasks(db, projectId, { status: 'todo' })).toHaveLength(1);
+    expect(listTasks(db, projectId, { status: 'done' })[0]?.status).toBe('done');
+  });
+
   it('rejects an invalid status on create', () => {
     expect(() =>
       createTask(db, {

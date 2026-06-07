@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import { taskStatuses, tasks, type TaskStatus } from '../schema.js';
 
@@ -77,8 +77,20 @@ export function getTask(db: Db, id: string): Task | undefined {
   return db.select().from(tasks).where(eq(tasks.id, id)).get();
 }
 
-export function listTasks(db: Db, projectId: string): Task[] {
-  return db.select().from(tasks).where(eq(tasks.projectId, projectId)).all();
+export type ListTasksOptions = {
+  status?: TaskStatus;
+};
+
+export function listTasks(db: Db, projectId: string, options?: ListTasksOptions): Task[] {
+  const conditions = [eq(tasks.projectId, projectId)];
+  if (options?.status !== undefined) {
+    conditions.push(eq(tasks.status, options.status));
+  }
+  return db
+    .select()
+    .from(tasks)
+    .where(and(...conditions))
+    .all();
 }
 
 export function updateTask(db: Db, id: string, input: TaskUpdate): Task | undefined {
