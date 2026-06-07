@@ -16,6 +16,8 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint && prettier --check .",
+    "validate": "bash scripts/validate.sh",
+    "test:contract": "pnpm test && pnpm validate",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

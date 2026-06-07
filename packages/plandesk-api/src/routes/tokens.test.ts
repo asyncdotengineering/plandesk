@@ -118,7 +118,7 @@ describe('mcp-tokens routes', () => {
     expect(await parseJson(res)).toEqual({ error: 'not_found' });
   });
 
-  it('revoke via REST makes subsequent MCP call return 401', async () => {
+  it('regression: MCP token revoke → subsequent MCP call returns 401', async () => {
     const { app } = createTestAppWithMcp();
     const createRes = await app.request('/api/v1/mcp-tokens', {
       method: 'POST',

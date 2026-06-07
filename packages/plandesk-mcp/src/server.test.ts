@@ -107,7 +107,7 @@ describe('createMcpApp', () => {
     });
   });
 
-  it('returns 401 for revoked token', async () => {
+  it('regression: MCP token revoke → subsequent MCP call returns 401', async () => {
     await withMcpServer(async ({ baseUrl, db }) => {
       const row = createToken(db, { name: 'revoke-me' });
       revokeToken(db, row.id);
