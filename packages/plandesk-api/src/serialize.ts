@@ -1,4 +1,12 @@
-import type { Document, Edge, Project, Task, TaskStatus } from '@plandesk/db';
+import type {
+  AgentRun,
+  AgentRunEvent,
+  Document,
+  Edge,
+  Project,
+  Task,
+  TaskStatus,
+} from '@plandesk/db';
 import { taskStatuses } from '@plandesk/db';
 
 export type TaskStatusSummary = Record<TaskStatus, number>;
@@ -107,5 +115,25 @@ export function serializeEdge(edge: Edge) {
     arrow_direction: edge.arrowDirection,
     style: edge.style,
     created_at: edge.createdAt.toISOString(),
+  };
+}
+
+export function serializeAgentRun(run: AgentRun) {
+  return {
+    id: run.id,
+    project_id: run.projectId,
+    status: run.status,
+    label: run.label,
+    started_at: run.startedAt.toISOString(),
+    completed_at: run.completedAt?.toISOString() ?? null,
+  };
+}
+
+export function serializeAgentRunEvent(event: AgentRunEvent) {
+  return {
+    id: event.id,
+    run_id: event.runId,
+    message: event.message,
+    created_at: event.createdAt.toISOString(),
   };
 }

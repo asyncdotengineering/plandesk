@@ -2,9 +2,28 @@ import { Hono } from 'hono';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import type { Services } from '@plandesk/api';
+import { createCompleteAgentRunHandler } from './tools/complete-agent-run.js';
+import { createCreateDocumentHandler } from './tools/create-document.js';
+import { createCreateEdgeHandler } from './tools/create-edge.js';
+import { createCreateTaskHandler } from './tools/create-task.js';
 import { createGetProjectHandler } from './tools/get-project.js';
 import { createListProjectsHandler } from './tools/list-projects.js';
-import { getProjectInputSchema, listProjectsInputSchema } from './tools/registry.js';
+import { createRecordAgentProgressHandler } from './tools/record-agent-progress.js';
+import {
+  completeAgentRunInputSchema,
+  createDocumentInputSchema,
+  createEdgeInputSchema,
+  createTaskInputSchema,
+  getProjectInputSchema,
+  listProjectsInputSchema,
+  recordAgentProgressInputSchema,
+  startAgentRunInputSchema,
+  updateDocumentInputSchema,
+  updateTaskInputSchema,
+} from './tools/registry.js';
+import { createStartAgentRunHandler } from './tools/start-agent-run.js';
+import { createUpdateDocumentHandler } from './tools/update-document.js';
+import { createUpdateTaskHandler } from './tools/update-task.js';
 
 export type TokenStore = {
   verify(raw: string): { id: string; name: string } | undefined;
@@ -46,6 +65,86 @@ function createMcpServer(services: Services): McpServer {
       annotations: { readOnlyHint: true },
     },
     createGetProjectHandler(services.projectService),
+  );
+
+  server.registerTool(
+    'create_task',
+    {
+      title: 'Create Task',
+      description: 'Create a canvas node and task row',
+      inputSchema: createTaskInputSchema.shape,
+    },
+    createCreateTaskHandler(services.taskService),
+  );
+
+  server.registerTool(
+    'update_task',
+    {
+      title: 'Update Task',
+      description: 'Update task status, label, description, or position',
+      inputSchema: updateTaskInputSchema.shape,
+    },
+    createUpdateTaskHandler(services.taskService),
+  );
+
+  server.registerTool(
+    'create_document',
+    {
+      title: 'Create Document',
+      description: 'Create a document with optional linked task',
+      inputSchema: createDocumentInputSchema.shape,
+    },
+    createCreateDocumentHandler(services.documentService),
+  );
+
+  server.registerTool(
+    'update_document',
+    {
+      title: 'Update Document',
+      description: 'Update document title, body, or status line',
+      inputSchema: updateDocumentInputSchema.shape,
+    },
+    createUpdateDocumentHandler(services.documentService),
+  );
+
+  server.registerTool(
+    'create_edge',
+    {
+      title: 'Create Edge',
+      description: 'Create a canvas edge between two tasks',
+      inputSchema: createEdgeInputSchema.shape,
+    },
+    createCreateEdgeHandler(services.canvasService),
+  );
+
+  server.registerTool(
+    'start_agent_run',
+    {
+      title: 'Start Agent Run',
+      description: 'Begin an external agent session',
+      inputSchema: startAgentRunInputSchema.shape,
+    },
+    createStartAgentRunHandler(services.agentRunService),
+  );
+
+  server.registerTool(
+    'record_agent_progress',
+    {
+      title: 'Record Agent Progress',
+      description: 'Append a progress event to an agent run',
+      inputSchema: recordAgentProgressInputSchema.shape,
+    },
+    createRecordAgentProgressHandler(services.agentRunService),
+  );
+
+  server.registerTool(
+    'complete_agent_run',
+    {
+      title: 'Complete Agent Run',
+      description: 'Close an agent run with completed or failed status',
+      inputSchema: completeAgentRunInputSchema.shape,
+    },
+    createCompleteAgentRunHandler(services.agentRunService),
   );
 
   return server;

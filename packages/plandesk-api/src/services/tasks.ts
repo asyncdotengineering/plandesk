@@ -1,4 +1,5 @@
 import {
+  createTask,
   getProject,
   getTask,
   InvalidTaskStatusError,
@@ -14,6 +15,14 @@ import { serializeTask } from '../serialize.js';
 export type TaskServiceDeps = {
   db: Db;
   eventBus: EventBus;
+};
+
+export type CreateTaskInput = {
+  label: string;
+  status?: TaskStatus;
+  description?: string | null;
+  x?: number;
+  y?: number;
 };
 
 export type UpdateTaskInput = {
@@ -48,6 +57,34 @@ export function createTaskService(deps: TaskServiceDeps) {
           ? listTasks(db, projectId, { status: statusFilter })
           : listTasks(db, projectId);
       return tasks.map(serializeTask);
+    },
+
+    create(projectId: string, input: CreateTaskInput) {
+      if (input.status !== undefined && !isTaskStatus(input.status)) {
+        throw new InvalidTaskStatusError(input.status);
+      }
+
+      const project = getProject(db, projectId);
+      if (!project) {
+        return undefined;
+      }
+
+      const task = createTask(db, {
+        projectId,
+        label: input.label,
+        status: input.status,
+        description: input.description,
+        x: input.x,
+        y: input.y,
+      });
+
+      eventBus.emit({
+        type: 'task_updated',
+        taskId: task.id,
+        projectId,
+      });
+
+      return serializeTask(task);
     },
 
     update(id: string, input: UpdateTaskInput) {

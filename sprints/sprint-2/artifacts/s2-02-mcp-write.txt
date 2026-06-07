@@ -1,0 +1,9 @@
+# S2-02 MCP write tools demo
+baseUrl=http://127.0.0.1:55660
+project_id=ba20e5f8-87d2-4971-af0f-766c73f87eb4
+tools/list count=10
+tools=complete_agent_run,create_document,create_edge,create_task,get_project,list_projects,record_agent_progress,start_agent_run,update_document,update_task
+create_task => {"task":{"id":"154336bf-1c97-44d9-87e0-44c086aa6b0e","project_id":"ba20e5f8-87d2-4971-af0f-766c73f87eb4","label":"Demo task","status":"todo","description":null,"x":0,"y":0,"assignee":null,"due_date":null,"created_at":"2026-06-07T15:00:23.140Z","updated_at":"2026-06-07T15:00:23.140Z"}}
+update_task => {"task":{"id":"154336bf-1c97-44d9-87e0-44c086aa6b0e","project_id":"ba20e5f8-87d2-4971-af0f-766c73f87eb4","label":"Demo task","status":"in_progress","description":null,"x":0,"y":0,"assignee":null,"due_date":null,"created_at":"2026-06-07T15:00:23.140Z","updated_at":"2026-06-07T15:00:23.144Z"}}
+GET /projects/:id/tasks status=in_progress
+SSE chunks=["data: {\"type\":\"task_updated\",\"taskId\":\"154336bf-1c97-44d9-87e0-44c086aa6b0e\",\"projectId\":\"ba20e5f8-87d2-4971-af0f-766c73f87eb4\"}\n\n","data: {\"type\":\"task_updated\",\"taskId\":\"154336bf-1c97-44d9-87e0-44c086aa6b0e\",\"projectId\":\"ba20e5f8-87d2-4971-af0f-766c73f87eb4\"}\n\n"]

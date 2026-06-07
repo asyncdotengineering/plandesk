@@ -9,6 +9,8 @@ export * from './repositories/tasks.js';
 export * from './repositories/edges.js';
 export * from './repositories/documents.js';
 export * from './repositories/tokens.js';
+export * from './repositories/agent-runs.js';
+export * from './repositories/agent-run-events.js';
 export { seed, FIXTURE_PROJECT_ID } from './seed.js';
 export * from './schema.js';
 

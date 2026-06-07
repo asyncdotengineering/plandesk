@@ -77,6 +77,43 @@ describe('taskService', () => {
     );
   });
 
+  it('creates a task and emits task_updated', () => {
+    const bus = createEventBus();
+    const service = createTaskService({ db, eventBus: bus });
+    const received: TaskUpdatedEvent[] = [];
+    bus.subscribe((event) => {
+      if (event.type === 'task_updated') {
+        received.push(event);
+      }
+    });
+
+    const created = service.create(projectId, {
+      label: 'New task',
+      status: 'todo',
+      x: 5,
+      y: 6,
+    });
+    expect(created).toMatchObject({
+      project_id: projectId,
+      label: 'New task',
+      status: 'todo',
+      x: 5,
+      y: 6,
+    });
+    expect(created).toBeDefined();
+    if (!created) {
+      throw new Error('expected created task');
+    }
+    expect(received).toEqual([{ type: 'task_updated', taskId: created.id, projectId }]);
+  });
+
+  it('returns undefined when creating a task for a missing project', () => {
+    const service = createService();
+    expect(
+      service.create('00000000-0000-4000-8000-000000009999', { label: 'Ghost' }),
+    ).toBeUndefined();
+  });
+
   it('returns undefined when updating a missing task', () => {
     const service = createService();
     expect(

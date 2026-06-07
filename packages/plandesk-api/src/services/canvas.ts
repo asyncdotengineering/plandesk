@@ -85,6 +85,36 @@ export function createCanvasService(deps: CanvasServiceDeps) {
       return buildCanvas(projectId, project);
     },
 
+    createEdge(
+      projectId: string,
+      input: { fromTaskId: string; toTaskId: string; label?: string | null; style?: string | null },
+    ) {
+      const project = getProject(db, projectId);
+      if (!project) {
+        return undefined;
+      }
+
+      const taskIds = new Set(listTasks(db, projectId).map((task) => task.id));
+      if (!taskIds.has(input.fromTaskId)) {
+        throw new InvalidCanvasError('Edge references missing from task');
+      }
+      if (!taskIds.has(input.toTaskId)) {
+        throw new InvalidCanvasError('Edge references missing to task');
+      }
+
+      const edge = createEdge(db, {
+        projectId,
+        fromTaskId: input.fromTaskId,
+        toTaskId: input.toTaskId,
+        label: input.label ?? null,
+        style: input.style ?? null,
+      });
+
+      eventBus.emit({ type: 'canvas_updated', projectId });
+
+      return serializeEdge(edge);
+    },
+
     putLayout(projectId: string, payload: PutCanvasLayoutInput) {
       const project = getProject(db, projectId);
       if (!project) {

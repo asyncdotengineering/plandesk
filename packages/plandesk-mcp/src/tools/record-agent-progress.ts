@@ -1,0 +1,22 @@
+import type { AgentRunService } from '@plandesk/api';
+import { InvalidAgentRunError } from '@plandesk/api';
+import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
+
+export function createRecordAgentProgressHandler(
+  agentRunService: AgentRunService,
+): (args: { run_id: string; message: string }) => ToolResult {
+  return (args) => {
+    try {
+      const event = agentRunService.recordProgress(args.run_id, args.message);
+      if (!event) {
+        return toolNotFound();
+      }
+      return toolSuccess('event', event);
+    } catch (error) {
+      if (error instanceof InvalidAgentRunError) {
+        return toolInvalidArgument();
+      }
+      throw error;
+    }
+  };
+}

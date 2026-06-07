@@ -3,16 +3,18 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { getRequestListener } from '@hono/node-server';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { createApp, createEventBus, createServices } from '@plandesk/api';
+import { createApp, createEventBus, createServices, type PlankDeskEvent } from '@plandesk/api';
 import {
   createDb,
   createProject,
+  createTask,
   createToken,
   migrate,
   revokeToken,
   verifyToken,
   type Db,
 } from '@plandesk/db';
+import { v1ToolNames } from './tools/registry.js';
 import { createMcpApp } from './server.js';
 
 function createTestTokenStore(db: Db) {
@@ -24,7 +26,14 @@ function createTestTokenStore(db: Db) {
 }
 
 async function withMcpServer(
-  run: (ctx: { baseUrl: string; db: Db; token: string; projectId: string }) => Promise<void>,
+  run: (ctx: {
+    baseUrl: string;
+    db: Db;
+    token: string;
+    projectId: string;
+    app: ReturnType<typeof createApp>;
+    eventBus: ReturnType<typeof createEventBus>;
+  }) => Promise<void>,
 ): Promise<void> {
   const db = createDb(':memory:');
   migrate(db);
@@ -54,7 +63,7 @@ async function withMcpServer(
   const baseUrl = `http://127.0.0.1:${String(address.port)}`;
 
   try {
-    await run({ baseUrl, db, token, projectId: project.id });
+    await run({ baseUrl, db, token, projectId: project.id, app, eventBus });
   } finally {
     await new Promise<void>((resolve, reject) => {
       server.close((err) => {
@@ -111,13 +120,24 @@ describe('createMcpApp', () => {
     });
   });
 
+  it('cmd:mcp_list_tools lists all v1 tools', async () => {
+    await withMcpServer(async ({ baseUrl, token }) => {
+      const client = await connectClient(baseUrl, token);
+      const tools = await client.listTools();
+      const names = tools.tools.map((tool) => tool.name).sort();
+      expect(names).toEqual([...v1ToolNames].sort());
+      expect(names.length).toBeGreaterThanOrEqual(8);
+      await client.close();
+    });
+  });
+
   it('lists read tools and get_project returns snake_case project detail', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId }) => {
       const client = await connectClient(baseUrl, token);
 
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
-      expect(names).toEqual(['get_project', 'list_projects']);
+      expect(names).toEqual([...v1ToolNames].sort());
 
       const listed = await client.callTool({ name: 'list_projects', arguments: {} });
       const listContent = listed.content as Array<{ type: string; text?: string }>;
@@ -140,6 +160,67 @@ describe('createMcpApp', () => {
       expect(detailPayload.project.id).toBe(projectId);
       expect(detailPayload.project.summary).toBeTruthy();
 
+      await client.close();
+    });
+  });
+
+  it('test:mcp_update_task updates via MCP, REST reflects change, SSE fires', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db, app, eventBus }) => {
+      const task = createTask(db, { projectId, label: 'MCP task', status: 'todo' });
+      const received: PlankDeskEvent[] = [];
+      eventBus.subscribe((event) => {
+        received.push(event);
+      });
+
+      const client = await connectClient(baseUrl, token);
+      const result = await client.callTool({
+        name: 'update_task',
+        arguments: { task_id: task.id, status: 'in_progress' },
+      });
+      expect(result.isError).not.toBe(true);
+
+      const tasksRes = await app.request(`/api/v1/projects/${projectId}/tasks`);
+      expect(tasksRes.status).toBe(200);
+      const tasks = (await tasksRes.json()) as Array<{ id: string; status: string }>;
+      expect(tasks.find((row) => row.id === task.id)?.status).toBe('in_progress');
+
+      expect(received).toContainEqual({
+        type: 'task_updated',
+        taskId: task.id,
+        projectId,
+      });
+
+      await client.close();
+    });
+  });
+
+  it('update_task returns tool error for missing task', async () => {
+    await withMcpServer(async ({ baseUrl, token }) => {
+      const client = await connectClient(baseUrl, token);
+      const result = await client.callTool({
+        name: 'update_task',
+        arguments: {
+          task_id: '00000000-0000-4000-8000-000000009999',
+          status: 'done',
+        },
+      });
+      expect(result.isError).toBe(true);
+      await client.close();
+    });
+  });
+
+  it('update_task returns invalid_argument for bad status', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+      const task = createTask(db, { projectId, label: 'Bad status' });
+      const client = await connectClient(baseUrl, token);
+      const result = await client.callTool({
+        name: 'update_task',
+        arguments: { task_id: task.id, status: 'invalid' },
+      });
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const text = content[0]?.type === 'text' ? (content[0].text ?? '') : '';
+      expect(text).toMatch(/invalid/i);
       await client.close();
     });
   });

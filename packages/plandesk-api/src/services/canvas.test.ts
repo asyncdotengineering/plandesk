@@ -146,6 +146,44 @@ describe('canvasService', () => {
     ).toThrow(InvalidCanvasError);
   });
 
+  it('createEdge adds an edge and emits canvas_updated', () => {
+    const bus = createEventBus();
+    const service = createCanvasService({ db, eventBus: bus });
+    const a = createTask(db, { projectId, label: 'A' });
+    const b = createTask(db, { projectId, label: 'B' });
+    const received: Array<{ type: string; projectId: string }> = [];
+    bus.subscribe((event) => {
+      if (event.type === 'canvas_updated') {
+        received.push(event);
+      }
+    });
+
+    const edge = service.createEdge(projectId, {
+      fromTaskId: a.id,
+      toTaskId: b.id,
+      label: 'blocks',
+    });
+    expect(edge).toMatchObject({
+      from_task_id: a.id,
+      to_task_id: b.id,
+      label: 'blocks',
+    });
+    expect(received).toEqual([{ type: 'canvas_updated', projectId }]);
+  });
+
+  it('createEdge rejects tasks outside the project', () => {
+    const service = createService();
+    const otherProjectId = createProject(db, { name: 'Other' }).id;
+    const foreign = createTask(db, { projectId: otherProjectId, label: 'Foreign' });
+    const local = createTask(db, { projectId, label: 'Local' });
+    expect(() =>
+      service.createEdge(projectId, {
+        fromTaskId: foreign.id,
+        toTaskId: local.id,
+      }),
+    ).toThrow(InvalidCanvasError);
+  });
+
   it('requires label for new nodes', () => {
     const service = createService();
     expect(() =>

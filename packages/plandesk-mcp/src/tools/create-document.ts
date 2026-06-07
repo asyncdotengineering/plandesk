@@ -1,0 +1,33 @@
+import type { DocumentService } from '@plandesk/api';
+import { InvalidDocumentError } from '@plandesk/api';
+import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
+
+export function createCreateDocumentHandler(
+  documentService: DocumentService,
+): (args: {
+  project_id: string;
+  title: string;
+  body?: string;
+  linked_task_id?: string;
+  parent_id?: string;
+}) => ToolResult {
+  return (args) => {
+    try {
+      const document = documentService.create(args.project_id, {
+        title: args.title,
+        ...(args.body !== undefined ? { body: args.body } : {}),
+        ...(args.linked_task_id !== undefined ? { linkedTaskId: args.linked_task_id } : {}),
+        ...(args.parent_id !== undefined ? { parentId: args.parent_id } : {}),
+      });
+      if (!document) {
+        return toolNotFound();
+      }
+      return toolSuccess('document', document);
+    } catch (error) {
+      if (error instanceof InvalidDocumentError) {
+        return toolInvalidArgument();
+      }
+      throw error;
+    }
+  };
+}
