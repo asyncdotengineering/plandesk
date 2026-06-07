@@ -1,0 +1,22 @@
+=== migrate() on fresh :memory: database ===
+Tables after migrate:
+  - __drizzle_migrations
+  - agent_run_events
+  - agent_runs
+  - document_comments
+  - documents
+  - edges
+  - mcp_tokens
+  - projects
+  - tasks
+
+=== seed() fixture ===
+Projects after seed: [
+  {
+    id: '00000000-0000-4000-8000-000000000001',
+    name: 'Fixture Project'
+  }
+]
+
+=== second migrate() (idempotent) ===
+OK — no error
