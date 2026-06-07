@@ -8,8 +8,12 @@
       "import": "./dist/index.js"
     }
   },
+  "bin": {
+    "plandesk": "./bin/plandesk"
+  },
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -19,5 +23,10 @@
   "devDependencies": {
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.4",
+    "@plandesk/api": "workspace:*",
+    "@plandesk/db": "workspace:*"
   }
 }

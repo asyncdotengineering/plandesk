@@ -17,7 +17,12 @@
     "lint": "eslint src"
   },
   "devDependencies": {
+    "@plandesk/db": "workspace:*",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.4",
+    "hono": "^4.12.23"
   }
 }

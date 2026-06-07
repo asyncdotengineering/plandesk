@@ -74,7 +74,17 @@ importers:
         version: 3.2.6(@types/node@25.9.2)(jiti@2.7.0)(jsdom@29.1.1)(lightningcss@1.32.0)(tsx@4.22.4)
 
   packages/plandesk-api:
+    dependencies:
+      '@hono/node-server':
+        specifier: ^2.0.4
+        version: 2.0.4(hono@4.12.23)
+      hono:
+        specifier: ^4.12.23
+        version: 4.12.23
     devDependencies:
+      '@plandesk/db':
+        specifier: workspace:*
+        version: link:../plandesk-db
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -83,6 +93,16 @@ importers:
         version: 3.2.6(@types/node@25.9.2)(jiti@2.7.0)(jsdom@29.1.1)(lightningcss@1.32.0)(tsx@4.22.4)
 
   packages/plandesk-cli:
+    dependencies:
+      '@hono/node-server':
+        specifier: ^2.0.4
+        version: 2.0.4(hono@4.12.23)
+      '@plandesk/api':
+        specifier: workspace:*
+        version: link:../plandesk-api
+      '@plandesk/db':
+        specifier: workspace:*
+        version: link:../plandesk-db
     devDependencies:
       typescript:
         specifier: ^6.0.3
@@ -925,6 +945,12 @@ packages:
     peerDependenciesMeta:
       '@noble/hashes':
         optional: true
+
+  '@hono/node-server@2.0.4':
+    resolution: {integrity: sha512-Ut3y0dMMPWy6bZ2kVfx25EOVbZlm15dhF4mOsezMlhpNHy+4MkU1qN9Y6lnruYi4wPmFzimGX2X7LF/FwHli4A==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      hono: ^4
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -1904,6 +1930,10 @@ packages:
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
     engines: {node: '>=8'}
+
+  hono@4.12.23:
+    resolution: {integrity: sha512-eIaZ9qDgu7XV0pxOCrg7/WhnQ6Ivm22UcxhXx/A3dcbqbbYgBEkc6e/J/s7j2tS96zoB0S9VBdLwQNCWwUo4LA==}
+    engines: {node: '>=16.9.0'}
 
   html-encoding-sniffer@6.0.0:
     resolution: {integrity: sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==}
@@ -3150,6 +3180,10 @@ snapshots:
 
   '@exodus/bytes@1.15.1': {}
 
+  '@hono/node-server@2.0.4(hono@4.12.23)':
+    dependencies:
+      hono: 4.12.23
+
   '@humanfs/core@0.19.2':
     dependencies:
       '@humanfs/types': 0.15.0
@@ -4048,6 +4082,8 @@ snapshots:
   globals@14.0.0: {}
 
   has-flag@4.0.0: {}
+
+  hono@4.12.23: {}
 
   html-encoding-sniffer@6.0.0:
     dependencies:

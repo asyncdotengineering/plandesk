@@ -1,0 +1,15 @@
+$ plandesk init --data-dir /var/folders/j5/7dkmn95d0_9b5fdnfsmpjs580000gn/T/tmp.DuCzZtAP84
+Initialized workspace at /var/folders/j5/7dkmn95d0_9b5fdnfsmpjs580000gn/T/tmp.DuCzZtAP84/workspace.db
+
+$ ls /var/folders/j5/7dkmn95d0_9b5fdnfsmpjs580000gn/T/tmp.DuCzZtAP84
+total 168
+drwx------@   3 mithushancj  staff     96 Jun  7 19:40 .
+drwx------@ 644 mithushancj  staff  20608 Jun  7 19:40 ..
+-rw-r--r--@   1 mithushancj  staff  86016 Jun  7 19:40 workspace.db
+
+$ plandesk serve --data-dir /var/folders/j5/7dkmn95d0_9b5fdnfsmpjs580000gn/T/tmp.DuCzZtAP84 --port 3847 &
+Plan Desk → http://127.0.0.1:3847
+
+$ curl -sf http://127.0.0.1:3847/api/v1/health | jq '.ok'
+true
+

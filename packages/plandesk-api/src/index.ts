@@ -1,3 +1,7 @@
+export { createApp, type AppDeps } from './server.js';
+export { healthRouter } from './routes/health.js';
+export { mountStatic } from './static.js';
+
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
