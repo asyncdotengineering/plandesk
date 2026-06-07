@@ -18,13 +18,23 @@ pnpm --filter @plandesk/docs build    # static site in apps/docs/dist/
 ## Quickstart
 
 ```bash
-pnpm install && pnpm build
-export PATH="$PWD/packages/plandesk-cli/bin:$PATH"
+npm i -g @plandesk/cli
 plandesk init
 plandesk serve
 ```
 
 Open [http://127.0.0.1:3847](http://127.0.0.1:3847).
+
+**From source (contributors):**
+
+```bash
+git clone https://github.com/asyncdotengineering/plandesk
+cd plandesk
+pnpm install && pnpm build
+export PATH="$PWD/packages/plandesk-cli/bin:$PATH"
+plandesk init
+plandesk serve
+```
 
 ## Development
 

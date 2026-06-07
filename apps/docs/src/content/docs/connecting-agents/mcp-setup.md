@@ -7,14 +7,15 @@ Connect Claude Code or Codex to a running Plan Desk server so agents can read pr
 
 ## Prerequisites
 
-1. Plan Desk is built and serving:
+1. Plan Desk is installed and serving:
 
    ```bash
-   pnpm install && pnpm build
-   export PATH="$PWD/packages/plandesk-cli/bin:$PATH"
+   npm i -g @plandesk/cli
    plandesk init
    plandesk serve
    ```
+
+   **From source (contributors):** clone [asyncdotengineering/plandesk](https://github.com/asyncdotengineering/plandesk), run `pnpm install && pnpm build`, add `packages/plandesk-cli/bin` to `PATH`, then `plandesk init && plandesk serve`.
 
 2. At least one project exists (create in the UI or `plandesk import --in examples/checkout-revamp.json`).
 
@@ -120,4 +121,4 @@ plandesk doctor --repo .           # + binding, token, MCP tool list
 
 ## Factory Desk
 
-Programmatic access without Claude/Codex: use `packages/plandesk-mcp-client` with `PLANDESK_URL` and `PLANDESK_MCP_TOKEN`.
+Programmatic access without Claude/Codex: install `@plandesk/mcp-client` from npm (or use `packages/plandesk-mcp-client` from a cloned repo) with `PLANDESK_URL` and `PLANDESK_MCP_TOKEN`.

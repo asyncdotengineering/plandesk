@@ -12,16 +12,24 @@ export default defineConfig({
         {
           icon: 'github',
           label: 'GitHub',
-          href: 'https://github.com/plan-desk/plandesk',
+          href: 'https://github.com/asyncdotengineering/plandesk',
         },
       ],
       editLink: {
-        baseUrl: 'https://github.com/plan-desk/plandesk/edit/main/apps/docs/',
+        baseUrl: 'https://github.com/asyncdotengineering/plandesk/edit/main/apps/docs/',
       },
       sidebar: [
         {
           label: 'Getting Started',
-          items: [{ slug: 'index' }, { slug: 'getting-started/quickstart' }],
+          items: [
+            { slug: 'index' },
+            { slug: 'getting-started/quickstart' },
+            { slug: 'getting-started/first-project' },
+          ],
+        },
+        {
+          label: 'Guides',
+          items: [{ slug: 'guides/plan-and-execute' }],
         },
         {
           label: 'Self-Hosting',

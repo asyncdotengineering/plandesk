@@ -8,7 +8,6 @@ description: Bind a codebase to a Plan Desk project with commit-safe MCP wiring.
 With `plandesk serve` running, from a codebase you want bound to a Plan Desk project:
 
 ```bash
-export PATH="$PWD/../plandesk/packages/plandesk-cli/bin:$PATH"   # adjust if needed
 plandesk connect --project "Checkout Revamp"
 ```
 

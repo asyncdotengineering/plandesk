@@ -15,6 +15,20 @@ packages/plandesk-cli/      plandesk binary (init, serve, connect, …)
 packages/plandesk-mcp-client/  Factory Desk / programmatic MCP consumer
 ```
 
+## Published npm packages
+
+Core packages ship under the `@plandesk/*` scope on npm (currently `0.1.1`):
+
+| Package                | Purpose                                           |
+| ---------------------- | ------------------------------------------------- |
+| `@plandesk/cli`        | `plandesk` binary; bundles the web UI for `serve` |
+| `@plandesk/api`        | Hono REST + SSE server                            |
+| `@plandesk/db`         | SQLite schema + migrations                        |
+| `@plandesk/mcp`        | MCP server (10 tools)                             |
+| `@plandesk/mcp-client` | Programmatic MCP consumer                         |
+
+Install with `npm i -g @plandesk/cli` to run Plan Desk without cloning the repo.
+
 ## Service-layer single source of truth
 
 Task status, canvas node positions, and document content all flow through the API/DB layer. The board view and canvas read the same task rows — there is no separate board state.

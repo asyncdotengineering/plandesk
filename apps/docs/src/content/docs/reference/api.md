@@ -58,4 +58,4 @@ At session start, list tools before calling them. Resolve the project from `.pla
 
 ## Factory Desk
 
-Programmatic access without Claude/Codex: use `packages/plandesk-mcp-client` with `PLANDESK_URL` and `PLANDESK_MCP_TOKEN`.
+Programmatic access without Claude/Codex: install `@plandesk/mcp-client` from npm (or use `packages/plandesk-mcp-client` from a cloned repo) with `PLANDESK_URL` and `PLANDESK_MCP_TOKEN`.

@@ -17,6 +17,8 @@ Plan Desk is a graph-native planning app you run on your machine: map dependenci
 
 ## Next steps
 
-- [Quickstart](/getting-started/quickstart/) — install, build, init, serve, open the UI
+- [Quickstart](/getting-started/quickstart/) — install from npm, init, serve, open the UI
+- [Your first project](/getting-started/first-project/) — plan on the canvas, attach specs, use the board
+- [Plan & execute a project](/guides/plan-and-execute/) — connect an agent and work from the live plan
 - [Self-host with Docker](/self-hosting/docker/) — run on `0.0.0.0` with auth
 - [Connect an agent](/connecting-agents/mcp-setup/) — wire Claude Code or Codex via MCP

@@ -3,6 +3,14 @@ title: CLI Reference
 description: plandesk commands — init, serve, token, export, import, connect, disconnect, doctor.
 ---
 
+Install the CLI globally from npm (Node ≥ 20):
+
+```bash
+npm i -g @plandesk/cli
+```
+
+This provides the `plandesk` binary and bundles the web UI. All commands below assume a global install. Contributors running from a cloned repo can use `packages/plandesk-cli/bin/plandesk` instead.
+
 ```
 plandesk init [--data-dir <dir>]
 plandesk serve [--port 3847] [--host <addr>] [--data-dir <dir>]
