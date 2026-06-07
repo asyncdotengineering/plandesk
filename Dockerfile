@@ -10,13 +10,16 @@ RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
 COPY packages ./packages
 COPY apps ./apps
 
 RUN pnpm install --frozen-lockfile
 RUN pnpm build
-RUN pnpm prune --prod
+# NOTE: `pnpm prune --prod` is intentionally NOT used — in this workspace it
+# deletes the per-package node_modules/@plandesk/* symlinks, which breaks
+# `@plandesk/db` resolution at runtime. We accept a slightly larger image to
+# keep workspace resolution intact (still one slim, non-root container).
 
 FROM node:22-slim AS runtime
 
@@ -27,19 +30,14 @@ RUN groupadd --system plandesk \
 
 WORKDIR /app
 
+# Copy the root store (node_modules/.pnpm) and the full package trees. Each
+# package's node_modules holds pnpm workspace symlinks (@plandesk/* + deps)
+# that resolve into the root .pnpm store — cherry-picking only dist/ breaks
+# `@plandesk/db` resolution at runtime. Dev deps were already pruned above.
 COPY --from=build --chown=plandesk:plandesk /app/node_modules ./node_modules
 COPY --from=build --chown=plandesk:plandesk /app/package.json ./package.json
 COPY --from=build --chown=plandesk:plandesk /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=build --chown=plandesk:plandesk /app/packages/plandesk-cli/dist ./packages/plandesk-cli/dist
-COPY --from=build --chown=plandesk:plandesk /app/packages/plandesk-cli/bin ./packages/plandesk-cli/bin
-COPY --from=build --chown=plandesk:plandesk /app/packages/plandesk-cli/package.json ./packages/plandesk-cli/package.json
-COPY --from=build --chown=plandesk:plandesk /app/packages/plandesk-api/dist ./packages/plandesk-api/dist
-COPY --from=build --chown=plandesk:plandesk /app/packages/plandesk-api/package.json ./packages/plandesk-api/package.json
-COPY --from=build --chown=plandesk:plandesk /app/packages/plandesk-db/dist ./packages/plandesk-db/dist
-COPY --from=build --chown=plandesk:plandesk /app/packages/plandesk-db/drizzle ./packages/plandesk-db/drizzle
-COPY --from=build --chown=plandesk:plandesk /app/packages/plandesk-db/package.json ./packages/plandesk-db/package.json
-COPY --from=build --chown=plandesk:plandesk /app/packages/plandesk-mcp/dist ./packages/plandesk-mcp/dist
-COPY --from=build --chown=plandesk:plandesk /app/packages/plandesk-mcp/package.json ./packages/plandesk-mcp/package.json
+COPY --from=build --chown=plandesk:plandesk /app/packages ./packages
 COPY --from=build --chown=plandesk:plandesk /app/apps/plandesk-web/dist ./apps/plandesk-web/dist
 
 ENV NODE_ENV=production
