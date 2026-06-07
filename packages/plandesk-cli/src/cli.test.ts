@@ -3,9 +3,18 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BIND_HOST, DEFAULT_PORT, parseArgs, resolveDataDir, workspaceDbPath } from './args.js';
+import {
+  DEFAULT_BIND_HOST,
+  DEFAULT_PORT,
+  isLoopbackHost,
+  parseArgs,
+  resolveAuthPassword,
+  resolveBindHost,
+  resolveDataDir,
+  workspaceDbPath,
+} from './args.js';
 import { runInit } from './init.js';
-import { createListenErrorHandler, startServer } from './serve.js';
+import { createListenErrorHandler, startServer, validateServeBind } from './serve.js';
 
 describe('parseArgs', () => {
   it('parses init with data-dir override', () => {
@@ -22,12 +31,23 @@ describe('parseArgs', () => {
     });
   });
 
-  it('parses serve with port and data-dir', () => {
+  it('parses serve with port, host, and data-dir', () => {
     expect(
-      parseArgs(['node', 'plandesk', 'serve', '--port', '4000', '--data-dir', '/tmp/ws']),
+      parseArgs([
+        'node',
+        'plandesk',
+        'serve',
+        '--port',
+        '4000',
+        '--host',
+        '0.0.0.0',
+        '--data-dir',
+        '/tmp/ws',
+      ]),
     ).toEqual({
       command: 'serve',
       port: 4000,
+      host: '0.0.0.0',
       dataDir: '/tmp/ws',
     });
   });
@@ -39,7 +59,72 @@ describe('parseArgs', () => {
 
 describe('bind host', () => {
   it('defaults serve bind host to loopback', () => {
-    expect(BIND_HOST).toBe('127.0.0.1');
+    expect(DEFAULT_BIND_HOST).toBe('127.0.0.1');
+    expect(resolveBindHost()).toBe('127.0.0.1');
+  });
+
+  it('honors --host over PLANDESK_HOST', () => {
+    vi.stubEnv('PLANDESK_HOST', '192.168.1.5');
+    expect(resolveBindHost('0.0.0.0')).toBe('0.0.0.0');
+    vi.unstubAllEnvs();
+  });
+
+  it('reads PLANDESK_HOST when --host is absent', () => {
+    vi.stubEnv('PLANDESK_HOST', '0.0.0.0');
+    expect(resolveBindHost()).toBe('0.0.0.0');
+    vi.unstubAllEnvs();
+  });
+
+  it('classifies loopback hosts', () => {
+    expect(isLoopbackHost('127.0.0.1')).toBe(true);
+    expect(isLoopbackHost('localhost')).toBe(true);
+    expect(isLoopbackHost('::1')).toBe(true);
+    expect(isLoopbackHost('0.0.0.0')).toBe(false);
+    expect(isLoopbackHost('192.168.1.1')).toBe(false);
+  });
+});
+
+describe('validateServeBind', () => {
+  it('refuses non-loopback bind without PLANDESK_AUTH_PASSWORD', () => {
+    vi.stubEnv('PLANDESK_AUTH_PASSWORD', '');
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    let exitCode = 0;
+    const exit = ((code: number) => {
+      exitCode = code;
+      throw new Error('exit');
+    }) as (code: number) => never;
+
+    expect(() => {
+      validateServeBind({ port: 3847, host: '0.0.0.0' }, exit);
+    }).toThrow('exit');
+
+    expect(exitCode).toBe(1);
+    expect(stderr.mock.calls.flat().join('')).toContain('PLANDESK_AUTH_PASSWORD');
+    stderr.mockRestore();
+    vi.unstubAllEnvs();
+  });
+
+  it('allows non-loopback bind when PLANDESK_AUTH_PASSWORD is set', () => {
+    vi.stubEnv('PLANDESK_AUTH_PASSWORD', 'secret');
+    expect(validateServeBind({ port: 3847, host: '0.0.0.0' })).toEqual({
+      host: '0.0.0.0',
+      authPassword: 'secret',
+    });
+    vi.unstubAllEnvs();
+  });
+});
+
+describe('resolveAuthPassword', () => {
+  it('returns undefined when unset', () => {
+    vi.stubEnv('PLANDESK_AUTH_PASSWORD', '');
+    expect(resolveAuthPassword()).toBeUndefined();
+    vi.unstubAllEnvs();
+  });
+
+  it('reads PLANDESK_AUTH_PASSWORD', () => {
+    vi.stubEnv('PLANDESK_AUTH_PASSWORD', 'secret');
+    expect(resolveAuthPassword()).toBe('secret');
+    vi.unstubAllEnvs();
   });
 });
 
@@ -91,7 +176,7 @@ describe('startServer', () => {
     runInit(dataDir);
     const port = await new Promise<number>((resolve) => {
       const probe = createServer();
-      probe.listen(0, BIND_HOST, () => {
+      probe.listen(0, DEFAULT_BIND_HOST, () => {
         const address = probe.address();
         if (address !== null && typeof address !== 'object') {
           throw new Error('expected TCP address');
@@ -107,7 +192,7 @@ describe('startServer', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const res = await fetch(`http://${BIND_HOST}:${String(port)}/api/v1/health`);
+    const res = await fetch(`http://${DEFAULT_BIND_HOST}:${String(port)}/api/v1/health`);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
 
@@ -119,7 +204,7 @@ describe('startServer', () => {
     runInit(dataDir);
     const port = await new Promise<number>((resolve) => {
       const blocker = createServer();
-      blocker.listen(0, BIND_HOST, () => {
+      blocker.listen(0, DEFAULT_BIND_HOST, () => {
         const address = blocker.address();
         if (address !== null && typeof address !== 'object') {
           throw new Error('expected TCP address');
@@ -156,5 +241,11 @@ describe('startServer', () => {
 describe('resolveDataDir', () => {
   it('uses override when provided', () => {
     expect(resolveDataDir('/tmp/custom')).toBe('/tmp/custom');
+  });
+
+  it('reads PLANDESK_DATA_DIR when override is absent', () => {
+    vi.stubEnv('PLANDESK_DATA_DIR', '/data');
+    expect(resolveDataDir()).toBe('/data');
+    vi.unstubAllEnvs();
   });
 });

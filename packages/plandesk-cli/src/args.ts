@@ -2,7 +2,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 export const DEFAULT_PORT = 3847;
-export const BIND_HOST = '127.0.0.1';
+export const DEFAULT_BIND_HOST = '127.0.0.1';
 export const WORKSPACE_DB = 'workspace.db';
 
 export function defaultDataDir(): string {
@@ -14,14 +14,45 @@ export function workspaceDbPath(dataDir: string): string {
 }
 
 export function resolveDataDir(override?: string): string {
-  return override ?? defaultDataDir();
+  if (override !== undefined) {
+    return override;
+  }
+  const fromEnv = process.env['PLANDESK_DATA_DIR'];
+  if (fromEnv !== undefined && fromEnv.trim() !== '') {
+    return fromEnv;
+  }
+  return defaultDataDir();
+}
+
+export function isLoopbackHost(host: string): boolean {
+  const normalized = host.trim().toLowerCase();
+  return normalized === '127.0.0.1' || normalized === 'localhost' || normalized === '::1';
+}
+
+export function resolveBindHost(flagHost?: string): string {
+  if (flagHost !== undefined && flagHost.trim() !== '') {
+    return flagHost.trim();
+  }
+  const fromEnv = process.env['PLANDESK_HOST'];
+  if (fromEnv !== undefined && fromEnv.trim() !== '') {
+    return fromEnv.trim();
+  }
+  return DEFAULT_BIND_HOST;
+}
+
+export function resolveAuthPassword(): string | undefined {
+  const password = process.env['PLANDESK_AUTH_PASSWORD'];
+  if (password === undefined || password.length === 0) {
+    return undefined;
+  }
+  return password;
 }
 
 export type ConnectAgent = 'claude' | 'codex' | 'both' | 'detect';
 
 export type ParsedArgs =
   | { command: 'init'; dataDir?: string }
-  | { command: 'serve'; port: number; dataDir?: string }
+  | { command: 'serve'; port: number; dataDir?: string; host?: string }
   | { command: 'token'; subcommand: 'create'; name: string; dataDir?: string }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
@@ -114,7 +145,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   if (command === 'serve') {
     const port = parsePort(flagString(flags, 'port')) ?? DEFAULT_PORT;
-    return { command: 'serve', port, dataDir };
+    return { command: 'serve', port, dataDir, host: flagString(flags, 'host') };
   }
 
   if (command === 'token') {
@@ -182,7 +213,7 @@ export function usage(): string {
 
 Usage:
   plandesk init [--data-dir <dir>]
-  plandesk serve [--port ${String(DEFAULT_PORT)}] [--data-dir <dir>]
+  plandesk serve [--port ${String(DEFAULT_PORT)}] [--host <addr>] [--data-dir <dir>]
   plandesk token create --name <name> [--data-dir <dir>]
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]
@@ -191,9 +222,10 @@ Usage:
   plandesk doctor [--data-dir <dir>] [--repo <dir>]
 
 Options:
-  --data-dir  Workspace directory (default: ~/.plandesk)
+  --data-dir  Workspace directory (default: ~/.plandesk, or PLANDESK_DATA_DIR)
   --repo      Target repository directory (default: cwd)
   --port      HTTP port for serve (default: ${String(DEFAULT_PORT)})
+  --host      Bind address (default: 127.0.0.1, or PLANDESK_HOST)
   --project   Project id or name for connect/export
   --url       Plan Desk server URL for connect (default: http://127.0.0.1:${String(DEFAULT_PORT)})
   --token     MCP token for connect

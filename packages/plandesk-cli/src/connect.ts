@@ -15,7 +15,7 @@ import {
   TOKEN_ENV_VAR,
   type PlanDeskConfig,
 } from './connect-artifacts.js';
-import { BIND_HOST, DEFAULT_PORT } from './args.js';
+import { DEFAULT_BIND_HOST, DEFAULT_PORT } from './args.js';
 
 export type ProjectSummary = {
   id: string;
@@ -59,7 +59,7 @@ export class ConnectError extends Error {
 }
 
 function defaultServerUrl(): string {
-  return `http://${BIND_HOST}:${String(DEFAULT_PORT)}`;
+  return `http://${DEFAULT_BIND_HOST}:${String(DEFAULT_PORT)}`;
 }
 
 function readOptionalFile(path: string): string | undefined {

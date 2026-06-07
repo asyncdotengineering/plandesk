@@ -34,7 +34,7 @@ export async function main(argv: string[] = process.argv): Promise<number> {
       return 0;
     }
     case 'serve':
-      runServe({ port: parsed.port, dataDir: parsed.dataDir });
+      runServe({ port: parsed.port, dataDir: parsed.dataDir, host: parsed.host });
       return 0;
     case 'token': {
       try {

@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+sprints
+.handoff
+*.db
+.turbo
+**/.turbo
+.env
+.env.*

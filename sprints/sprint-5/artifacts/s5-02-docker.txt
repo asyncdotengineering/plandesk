@@ -1,0 +1,37 @@
+S5-02 Docker self-host — demo artifact
+======================================
+Date: 2026-06-08
+Environment: Docker CLI 26.1.3 present; Docker daemon NOT running (OrbStack socket unreachable)
+
+Static validation (passed)
+--------------------------
+$ PLANDESK_AUTH_PASSWORD=demo docker compose config
+→ Single service `plandesk`, port 3847:3847, volume `plandesk-data:/data`
+→ Env: PLANDESK_HOST=0.0.0.0, PLANDESK_AUTH_PASSWORD, PLANDESK_DATA_DIR=/data
+
+$ pnpm build && pnpm test && pnpm lint
+→ All green (REQ-6 host/auth tests included)
+
+Docker build (not run — daemon down)
+------------------------------------
+$ docker build -t plandesk .
+→ ERROR: Cannot connect to the Docker daemon at unix:///Users/mithushancj/.orbstack/run/docker.sock
+
+Runtime command (when Docker daemon is available)
+-------------------------------------------------
+export PLANDESK_AUTH_PASSWORD='choose-a-strong-password'
+docker build -t plandesk .
+docker compose up -d
+curl -u plandesk:"$PLANDESK_AUTH_PASSWORD" http://127.0.0.1:3847/api/v1/health
+# → {"ok":true}
+open http://127.0.0.1:3847/   # browser prompts for Basic auth (user: plandesk)
+
+Security checks
+---------------
+$ plandesk serve --host 0.0.0.0
+→ Error: binding to a non-loopback address requires PLANDESK_AUTH_PASSWORD
+
+$ curl http://127.0.0.1:<port>/api/v1/health  (with auth enabled, no creds)
+→ 401 {"error":"unauthorized"}
+
+MCP Bearer auth unchanged — /mcp/ skips Basic auth gate.

@@ -1,0 +1,15 @@
+services:
+  plandesk:
+    build: .
+    ports:
+      - '3847:3847'
+    environment:
+      PLANDESK_HOST: '0.0.0.0'
+      PLANDESK_AUTH_PASSWORD: ${PLANDESK_AUTH_PASSWORD:?Set PLANDESK_AUTH_PASSWORD in .env or the environment}
+      PLANDESK_DATA_DIR: /data
+    volumes:
+      - plandesk-data:/data
+    restart: unless-stopped
+
+volumes:
+  plandesk-data:

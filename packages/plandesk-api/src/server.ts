@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { Db } from '@plandesk/db';
+import { createAuthMiddleware } from './auth.js';
 import { healthRouter } from './routes/health.js';
 import { createProjectsRouter } from './routes/projects.js';
 import { createTasksRouter } from './routes/tasks.js';
@@ -17,6 +18,7 @@ export type AppDeps = {
   eventBus?: EventBus;
   services?: Services;
   mcp?: Hono;
+  authPassword?: string;
 };
 
 export function createApp(deps: AppDeps): Hono {
@@ -32,6 +34,10 @@ export function createApp(deps: AppDeps): Hono {
   } = services;
 
   const app = new Hono();
+
+  if (deps.authPassword !== undefined && deps.authPassword.length > 0) {
+    app.use('*', createAuthMiddleware(deps.authPassword));
+  }
 
   app.route('/api/v1', healthRouter);
   app.route('/api/v1', createProjectsRouter(projectService, taskService));

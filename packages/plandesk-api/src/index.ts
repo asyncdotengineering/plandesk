@@ -1,4 +1,5 @@
 export { createApp, type AppDeps } from './server.js';
+export { createAuthMiddleware } from './auth.js';
 export { healthRouter } from './routes/health.js';
 export { mountStatic } from './static.js';
 export { createServices, type Services, type ServicesDeps } from './services/index.js';
