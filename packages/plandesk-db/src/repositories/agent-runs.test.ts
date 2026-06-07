@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb } from '../client.js';
 import { migrate } from '../migrate.js';
 import { createProject } from './projects.js';
-import { createAgentRun, getAgentRun, updateAgentRunStatus } from './agent-runs.js';
+import { createAgentRun, getAgentRun, listAgentRuns, updateAgentRunStatus } from './agent-runs.js';
 
 describe('agent runs repository', () => {
   const db = createDb(':memory:');
@@ -26,6 +26,13 @@ describe('agent runs repository', () => {
 
   it('returns undefined for a missing run', () => {
     expect(getAgentRun(db, '00000000-0000-4000-8000-000000009999')).toBeUndefined();
+  });
+
+  it('lists runs for a project', () => {
+    const first = createAgentRun(db, { projectId, label: 'First' });
+    const second = createAgentRun(db, { projectId, label: 'Second' });
+    expect(listAgentRuns(db, projectId)).toEqual([first, second]);
+    expect(listAgentRuns(db, '00000000-0000-4000-8000-000000009999')).toEqual([]);
   });
 
   it('updates status and completed_at', () => {

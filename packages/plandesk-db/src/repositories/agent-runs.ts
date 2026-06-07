@@ -9,12 +9,19 @@ export type NewAgentRun = {
   projectId: string;
   label?: string | null;
   id?: string;
+  status?: AgentRunStatus;
+  startedAt?: Date;
+  completedAt?: Date | null;
 };
 
 export type AgentRunStatusUpdate = {
   status: AgentRunStatus;
   completedAt?: Date | null;
 };
+
+export function listAgentRuns(db: DbClient, projectId: string): AgentRun[] {
+  return db.select().from(agentRuns).where(eq(agentRuns.projectId, projectId)).all();
+}
 
 export function createAgentRun(db: DbClient, input: NewAgentRun): AgentRun {
   const id = input.id ?? randomUUID();
@@ -24,10 +31,10 @@ export function createAgentRun(db: DbClient, input: NewAgentRun): AgentRun {
     .values({
       id,
       projectId: input.projectId,
-      status: 'running',
+      status: input.status ?? 'running',
       label: input.label ?? null,
-      startedAt: now,
-      completedAt: null,
+      startedAt: input.startedAt ?? now,
+      completedAt: input.completedAt ?? null,
     })
     .returning()
     .all();

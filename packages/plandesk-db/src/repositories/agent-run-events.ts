@@ -9,6 +9,7 @@ export type NewAgentRunEvent = {
   runId: string;
   message: string;
   id?: string;
+  createdAt?: Date;
 };
 
 export function createAgentRunEvent(db: DbClient, input: NewAgentRunEvent): AgentRunEvent {
@@ -20,7 +21,7 @@ export function createAgentRunEvent(db: DbClient, input: NewAgentRunEvent): Agen
       id,
       runId: input.runId,
       message: input.message,
-      createdAt: now,
+      createdAt: input.createdAt ?? now,
     })
     .returning()
     .all();
