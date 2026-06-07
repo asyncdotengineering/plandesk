@@ -6,11 +6,11 @@
 
 ## Active sprint
 
-**Sprint number:** `0`
-**Sprint name:** Foundations
+**Sprint number:** `1`
+**Sprint name:** Backend core (REST + SSE)
 **Status:** `not-started`
-**Goal:** `pnpm build` is green and `plandesk serve` binds `127.0.0.1:3847` serving `GET /api/v1/health → {ok:true}` against a migrated SQLite workspace with all RFC §4.4 tables.
-**WBS section:** [`sprints/WBS.md` § Sprint 0](./WBS.md)
+**Goal:** A client can CRUD projects/tasks, round-trip a canvas of nodes + labeled edges, link a document to a task, and receive an SSE `task_updated` within 500 ms of a PATCH — all through one service layer that is the single SSOT.
+**WBS section:** [`sprints/WBS.md` § Sprint 1](./WBS.md)
 
 ## Build branch
 
@@ -20,30 +20,32 @@ Every sprint session — manager and IC — works **on this branch only**. This 
 
 At session start: `git checkout main`.
 
-## Load-bearing reading for sprint 0
+## Load-bearing reading for sprint 1
 
-The session running sprint 0 must read these in this order before delegating any story:
+The session running sprint 1 must read these in this order before delegating any story:
 
-1. `sprints/WBS.md` — full read; this is the plan.
-2. `sprints/SESSION_KICKOFF_PROMPT.md` — the loop you are running.
-3. `../plandesk-rfc/README.md` — RFC index + guiding principles + ship sequence.
-4. `../plandesk-rfc/02-requirements-interfaces.md` — §3 requirements, §4 interfaces (REST/MCP/CLI/data model/frontend/§4.7 connect), §5 architecture. **Load-bearing for S0:** §4.4 (data model), §5.1 (monorepo layout), §4.1 (CLI).
-5. `../plandesk-rfc/03-pseudocode-blueprint.md` — §6.1 (server boot), §7 code blueprint.
-6. `../plandesk-rfc/04-tasks-validation.md` — §8 C1/C2 chunk grounding, §9 validation.
+1. `sprints/sprint-0/HANDOFF.md` — **read first**; state of the world + critical conventions.
+2. `sprints/WBS.md` § Sprint 1 + § 1.2 DoD.
+3. `sprints/SESSION_KICKOFF_PROMPT.md` — the loop you are running.
+4. `../plandesk-rfc/02-requirements-interfaces.md` — §4.2 (REST), **§4.7 (canvas-concurrency fix — critical for S1-02)**, §3 REQ-1/2/3/4/5/9.
+5. `../plandesk-rfc/03-pseudocode-blueprint.md` — §6.2 (canvas save), §6.4 (doc create), §7.1 (Hono+SSE), §7.2 (update_task).
+6. `../plandesk-rfc/04-tasks-validation.md` — §9.1 tests (canvas_roundtrip, doc_link, sse_task_update).
+7. `sprints/sprint-0/WARMDOWN.md` — conventions (service-layer SSOT, timestamps).
 
 ## Last completed sprint
 
-`(none — project not started)`
+`0 — Foundations`
 
 ## Last completed at
 
-`(none)`
+`2026-06-07`
 
 ## Sprint history
 
 | Sprint | Status | Completed at | Warmdown |
 |--------|--------|--------------|----------|
-| 0 | not-started | — | — |
+| 0 | ✅ complete | 2026-06-07 | [sprint-0/WARMDOWN.md](./sprint-0/WARMDOWN.md) |
+| 1 | not-started | — | — |
 
 When a sprint completes, append a row here from `WARMDOWN.md`.
 
