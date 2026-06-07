@@ -1,0 +1,16 @@
+S6-03 docs walkthrough — verified 2026-06-08
+
+Followed README quickstart verbatim (with PATH export for dev bin):
+
+  pnpm install && pnpm build
+  export PATH="$PWD/packages/plandesk-cli/bin:$PATH"
+  plandesk init --data-dir <temp>
+  plandesk serve --port <ephemeral> --data-dir <temp>
+
+Results:
+  GET /api/v1/health → {"ok":true}
+  GET / → 200 (SPA served)
+  plandesk import --in examples/checkout-revamp.json → project UUID returned
+
+Docs written: README.md, docs/mcp-setup.md, docs/skills/plandesk-mcp.md, CHANGELOG.md (v1.0.0).
+CLI reference matches packages/plandesk-cli/src/args.ts usage().
