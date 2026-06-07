@@ -32,5 +32,24 @@
     "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
-  }
+  },
+  "description": "Plan Desk persistence layer (Drizzle + SQLite schema, migrations, repositories).",
+  "license": "MIT",
+  "author": "asyncdotengineering",
+  "homepage": "https://plandesk-docs.pages.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asyncdotengineering/plandesk.git",
+    "directory": "packages/plandesk-db"
+  },
+  "keywords": [
+    "plan-desk",
+    "planning",
+    "canvas",
+    "mcp",
+    "agents",
+    "local-first",
+    "kanban",
+    "tasks"
+  ]
 }

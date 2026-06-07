@@ -32,5 +32,10 @@
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
     "vitest": "^3.2.6"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asyncdotengineering/plandesk.git"
   }
 }

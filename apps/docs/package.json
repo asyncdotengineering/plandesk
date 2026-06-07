@@ -15,5 +15,10 @@
   },
   "devDependencies": {
     "typescript": "^6.0.3"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asyncdotengineering/plandesk.git"
   }
 }

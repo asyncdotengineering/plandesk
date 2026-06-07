@@ -30,5 +30,24 @@
     "@plandesk/mcp": "workspace:*",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
-  }
+  },
+  "description": "Plan Desk MCP client SDK — connect to a Plan Desk server over MCP.",
+  "license": "MIT",
+  "author": "asyncdotengineering",
+  "homepage": "https://plandesk-docs.pages.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asyncdotengineering/plandesk.git",
+    "directory": "packages/plandesk-mcp-client"
+  },
+  "keywords": [
+    "plan-desk",
+    "planning",
+    "canvas",
+    "mcp",
+    "agents",
+    "local-first",
+    "kanban",
+    "tasks"
+  ]
 }

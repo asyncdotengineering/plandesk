@@ -34,5 +34,24 @@
     "@plandesk/api": "workspace:*",
     "@plandesk/db": "workspace:*",
     "@plandesk/mcp": "workspace:*"
-  }
+  },
+  "description": "Plan Desk CLI — run a local-first planning workspace (canvas + docs + tasks + board + MCP). Provides the `plandesk` command.",
+  "license": "MIT",
+  "author": "asyncdotengineering",
+  "homepage": "https://plandesk-docs.pages.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asyncdotengineering/plandesk.git",
+    "directory": "packages/plandesk-cli"
+  },
+  "keywords": [
+    "plan-desk",
+    "planning",
+    "canvas",
+    "mcp",
+    "agents",
+    "local-first",
+    "kanban",
+    "tasks"
+  ]
 }

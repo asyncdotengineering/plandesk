@@ -30,5 +30,24 @@
   "dependencies": {
     "@hono/node-server": "^2.0.4",
     "hono": "^4.12.23"
-  }
+  },
+  "description": "Plan Desk REST + SSE API and service layer (local-first planning workspace).",
+  "license": "MIT",
+  "author": "asyncdotengineering",
+  "homepage": "https://plandesk-docs.pages.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asyncdotengineering/plandesk.git",
+    "directory": "packages/plandesk-api"
+  },
+  "keywords": [
+    "plan-desk",
+    "planning",
+    "canvas",
+    "mcp",
+    "agents",
+    "local-first",
+    "kanban",
+    "tasks"
+  ]
 }
