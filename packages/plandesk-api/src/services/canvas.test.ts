@@ -8,11 +8,17 @@ import {
   listEdges,
   migrate,
 } from '@plandesk/db';
+import { createEventBus } from '../events.js';
 import { createCanvasService, InvalidCanvasError } from './canvas.js';
 
 describe('canvasService', () => {
   const db = createDb(':memory:');
+  const eventBus = createEventBus();
   let projectId = '';
+
+  function createService() {
+    return createCanvasService({ db, eventBus });
+  }
 
   beforeEach(() => {
     migrate(db);
@@ -23,7 +29,7 @@ describe('canvasService', () => {
   });
 
   it('returns canvas nodes, edges, and layout', () => {
-    const service = createCanvasService({ db });
+    const service = createService();
     const task = createTask(db, { projectId, label: 'Node', x: 10, y: 20 });
     createEdge(db, {
       projectId,
@@ -44,7 +50,7 @@ describe('canvasService', () => {
   });
 
   it('putLayout creates nodes and reconciles edges', () => {
-    const service = createCanvasService({ db });
+    const service = createService();
     const nodeA = '11111111-1111-4111-8111-111111111111';
     const nodeB = '22222222-2222-4222-8222-222222222222';
     const nodeC = '33333333-3333-4333-8333-333333333333';
@@ -79,7 +85,7 @@ describe('canvasService', () => {
   });
 
   it('putLayout updates only x/y for existing nodes', () => {
-    const service = createCanvasService({ db });
+    const service = createService();
     const task = createTask(db, {
       projectId,
       label: 'Original',
@@ -103,7 +109,7 @@ describe('canvasService', () => {
   });
 
   it('deletes edges removed from the payload', () => {
-    const service = createCanvasService({ db });
+    const service = createService();
     const a = createTask(db, { projectId, label: 'A' });
     const b = createTask(db, { projectId, label: 'B' });
     const stale = createEdge(db, {
@@ -126,7 +132,7 @@ describe('canvasService', () => {
   });
 
   it('rejects edges referencing missing tasks', () => {
-    const service = createCanvasService({ db });
+    const service = createService();
     expect(() =>
       service.putLayout(projectId, {
         nodes: [],
@@ -141,7 +147,7 @@ describe('canvasService', () => {
   });
 
   it('requires label for new nodes', () => {
-    const service = createCanvasService({ db });
+    const service = createService();
     expect(() =>
       service.putLayout(projectId, {
         nodes: [{ x: 1, y: 2 }],

@@ -14,9 +14,11 @@ import {
   type SerializedDocument,
   type SerializedDocumentTree,
 } from '../serialize.js';
+import type { EventBus } from '../events.js';
 
 export type DocumentServiceDeps = {
   db: Db;
+  eventBus: EventBus;
 };
 
 export type CreateDocumentInput = {
@@ -57,7 +59,7 @@ function assertParentInProject(db: Db, projectId: string, parentId: string): voi
 }
 
 export function createDocumentService(deps: DocumentServiceDeps) {
-  const { db } = deps;
+  const { db, eventBus } = deps;
 
   return {
     listTree(projectId: string): SerializedDocumentTree[] | undefined {
@@ -89,6 +91,12 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         statusLine: input.statusLine,
         parentId: input.parentId,
         linkedTaskId: input.linkedTaskId,
+      });
+
+      eventBus.emit({
+        type: 'document_created',
+        documentId: document.id,
+        projectId,
       });
 
       return serializeDocument(document);

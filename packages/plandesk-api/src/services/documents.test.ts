@@ -1,10 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, createDocument, createProject, createTask, migrate } from '@plandesk/db';
+import { createEventBus } from '../events.js';
 import { createDocumentService, InvalidDocumentError } from './documents.js';
 
 describe('documentService', () => {
   const db = createDb(':memory:');
+  const eventBus = createEventBus();
   let projectId = '';
+
+  function createService() {
+    return createDocumentService({ db, eventBus });
+  }
 
   beforeEach(() => {
     migrate(db);
@@ -15,7 +21,7 @@ describe('documentService', () => {
   });
 
   it('creates a document with structured content', () => {
-    const service = createDocumentService({ db });
+    const service = createService();
     const task = createTask(db, { projectId, label: 'Task' });
     const document = service.create(projectId, {
       title: 'Spec',
@@ -35,7 +41,7 @@ describe('documentService', () => {
   });
 
   it('returns nested document tree', () => {
-    const service = createDocumentService({ db });
+    const service = createService();
     const parent = createDocument(db, { projectId, title: 'Parent' });
     createDocument(db, { projectId, title: 'Child', parentId: parent.id });
 
@@ -48,7 +54,7 @@ describe('documentService', () => {
   });
 
   it('rejects cross-project task link on create', () => {
-    const service = createDocumentService({ db });
+    const service = createService();
     const otherProjectId = createProject(db, { name: 'Other' }).id;
     const foreignTask = createTask(db, { projectId: otherProjectId, label: 'Foreign' });
 
@@ -61,7 +67,7 @@ describe('documentService', () => {
   });
 
   it('rejects cross-project task link on update', () => {
-    const service = createDocumentService({ db });
+    const service = createService();
     const document = createDocument(db, { projectId, title: 'Doc' });
     const otherProjectId = createProject(db, { name: 'Other' }).id;
     const foreignTask = createTask(db, { projectId: otherProjectId, label: 'Foreign' });
@@ -74,7 +80,7 @@ describe('documentService', () => {
   });
 
   it('gets document linked to a task', () => {
-    const service = createDocumentService({ db });
+    const service = createService();
     const task = createTask(db, { projectId, label: 'Task' });
     const document = createDocument(db, {
       projectId,
@@ -87,7 +93,7 @@ describe('documentService', () => {
   });
 
   it('updates a document and bumps updated_at', () => {
-    const service = createDocumentService({ db });
+    const service = createService();
     const created = service.create(projectId, { title: 'Before', body: 'v1' });
     expect(created).toBeDefined();
     if (!created) {

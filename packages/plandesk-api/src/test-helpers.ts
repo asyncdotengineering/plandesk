@@ -1,11 +1,17 @@
 import { createDb, migrate, type Db } from '@plandesk/db';
 import type { Hono } from 'hono';
+import { createEventBus, type EventBus } from './events.js';
 import { createApp } from './server.js';
 
-export function createTestApp(): { app: Hono; db: Db } {
+export function createTestApp(opts?: { eventBus?: EventBus }): {
+  app: Hono;
+  db: Db;
+  eventBus: EventBus;
+} {
   const db = createDb(':memory:');
   migrate(db);
-  return { app: createApp({ db }), db };
+  const eventBus = opts?.eventBus ?? createEventBus();
+  return { app: createApp({ db, eventBus }), db, eventBus };
 }
 
 export async function parseJson<T>(response: Response): Promise<T> {

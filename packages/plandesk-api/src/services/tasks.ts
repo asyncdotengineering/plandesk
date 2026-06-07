@@ -8,10 +8,12 @@ import {
   type Db,
   type TaskStatus,
 } from '@plandesk/db';
+import type { EventBus } from '../events.js';
 import { serializeTask } from '../serialize.js';
 
 export type TaskServiceDeps = {
   db: Db;
+  eventBus: EventBus;
 };
 
 export type UpdateTaskInput = {
@@ -27,7 +29,7 @@ export type ListTasksFilter = {
 };
 
 export function createTaskService(deps: TaskServiceDeps) {
-  const { db } = deps;
+  const { db, eventBus } = deps;
 
   return {
     listByProject(projectId: string, filter: ListTasksFilter = {}) {
@@ -62,6 +64,12 @@ export function createTaskService(deps: TaskServiceDeps) {
       if (!task) {
         return undefined;
       }
+
+      eventBus.emit({
+        type: 'task_updated',
+        taskId: task.id,
+        projectId: task.projectId,
+      });
 
       return serializeTask(task);
     },

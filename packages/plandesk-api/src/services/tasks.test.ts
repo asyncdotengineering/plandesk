@@ -7,11 +7,17 @@ import {
   listTasks,
   migrate,
 } from '@plandesk/db';
+import { createEventBus, type TaskUpdatedEvent } from '../events.js';
 import { createTaskService } from './tasks.js';
 
 describe('taskService', () => {
   const db = createDb(':memory:');
+  const eventBus = createEventBus();
   let projectId = '';
+
+  function createService() {
+    return createTaskService({ db, eventBus });
+  }
 
   beforeEach(() => {
     migrate(db);
@@ -21,7 +27,7 @@ describe('taskService', () => {
   });
 
   it('lists tasks for a project with optional status filter', () => {
-    const service = createTaskService({ db });
+    const service = createService();
     createTask(db, { projectId, label: 'Todo', status: 'todo' });
     createTask(db, { projectId, label: 'Done', status: 'done' });
 
@@ -32,19 +38,19 @@ describe('taskService', () => {
   });
 
   it('returns undefined when the project is missing', () => {
-    const service = createTaskService({ db });
+    const service = createService();
     expect(service.listByProject('00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
   it('rejects an invalid status filter', () => {
-    const service = createTaskService({ db });
+    const service = createService();
     expect(() => service.listByProject(projectId, { status: 'invalid' })).toThrow(
       InvalidTaskStatusError,
     );
   });
 
   it('updates a task and bumps updated_at in serialized output', () => {
-    const service = createTaskService({ db });
+    const service = createService();
     const created = createTask(db, { projectId, label: 'Before', status: 'todo' });
     const updated = service.update(created.id, {
       status: 'in_progress',
@@ -72,9 +78,24 @@ describe('taskService', () => {
   });
 
   it('returns undefined when updating a missing task', () => {
-    const service = createTaskService({ db });
+    const service = createService();
     expect(
       service.update('00000000-0000-4000-8000-000000009999', { status: 'done' }),
     ).toBeUndefined();
+  });
+
+  it('emits task_updated after a successful update', () => {
+    const bus = createEventBus();
+    const service = createTaskService({ db, eventBus: bus });
+    const created = createTask(db, { projectId, label: 'Emit', status: 'todo' });
+    const received: TaskUpdatedEvent[] = [];
+    bus.subscribe((event) => {
+      if (event.type === 'task_updated') {
+        received.push(event);
+      }
+    });
+
+    service.update(created.id, { status: 'done' });
+    expect(received).toEqual([{ type: 'task_updated', taskId: created.id, projectId }]);
   });
 });
