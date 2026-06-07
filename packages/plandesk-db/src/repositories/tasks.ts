@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
-import type { Db } from '../client.js';
+import type { DbClient } from '../client.js';
 import { taskStatuses, tasks, type TaskStatus } from '../schema.js';
 
 export type Task = typeof tasks.$inferSelect;
@@ -44,7 +44,7 @@ function assertTaskStatus(status: string): asserts status is TaskStatus {
   }
 }
 
-export function createTask(db: Db, input: NewTask): Task {
+export function createTask(db: DbClient, input: NewTask): Task {
   const status = input.status ?? 'todo';
   assertTaskStatus(status);
   const now = new Date();
@@ -73,7 +73,7 @@ export function createTask(db: Db, input: NewTask): Task {
   return row;
 }
 
-export function getTask(db: Db, id: string): Task | undefined {
+export function getTask(db: DbClient, id: string): Task | undefined {
   return db.select().from(tasks).where(eq(tasks.id, id)).get();
 }
 
@@ -81,7 +81,7 @@ export type ListTasksOptions = {
   status?: TaskStatus;
 };
 
-export function listTasks(db: Db, projectId: string, options?: ListTasksOptions): Task[] {
+export function listTasks(db: DbClient, projectId: string, options?: ListTasksOptions): Task[] {
   const conditions = [eq(tasks.projectId, projectId)];
   if (options?.status !== undefined) {
     conditions.push(eq(tasks.status, options.status));
@@ -93,7 +93,7 @@ export function listTasks(db: Db, projectId: string, options?: ListTasksOptions)
     .all();
 }
 
-export function updateTask(db: Db, id: string, input: TaskUpdate): Task | undefined {
+export function updateTask(db: DbClient, id: string, input: TaskUpdate): Task | undefined {
   if (input.status !== undefined) {
     assertTaskStatus(input.status);
   }

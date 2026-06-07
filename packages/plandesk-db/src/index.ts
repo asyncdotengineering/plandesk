@@ -2,10 +2,11 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export { createDb, type Db } from './client.js';
+export { createDb, type Db, type DbClient, type DbTx } from './client.js';
 export { migrate } from './migrate.js';
 export * from './repositories/projects.js';
 export * from './repositories/tasks.js';
+export * from './repositories/edges.js';
 export { seed, FIXTURE_PROJECT_ID } from './seed.js';
 export * from './schema.js';
 

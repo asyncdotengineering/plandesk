@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import type { Db } from '../client.js';
+import type { DbClient } from '../client.js';
 import { projects } from '../schema.js';
 
 export type Project = typeof projects.$inferSelect;
@@ -13,9 +13,10 @@ export type NewProject = {
 export type ProjectUpdate = {
   name?: string;
   description?: string | null;
+  canvasLayout?: string | null;
 };
 
-export function createProject(db: Db, input: NewProject): Project {
+export function createProject(db: DbClient, input: NewProject): Project {
   const now = new Date();
   const id = input.id ?? randomUUID();
   const rows = db
@@ -36,15 +37,15 @@ export function createProject(db: Db, input: NewProject): Project {
   return row;
 }
 
-export function getProject(db: Db, id: string): Project | undefined {
+export function getProject(db: DbClient, id: string): Project | undefined {
   return db.select().from(projects).where(eq(projects.id, id)).get();
 }
 
-export function listProjects(db: Db): Project[] {
+export function listProjects(db: DbClient): Project[] {
   return db.select().from(projects).all();
 }
 
-export function updateProject(db: Db, id: string, input: ProjectUpdate): Project | undefined {
+export function updateProject(db: DbClient, id: string, input: ProjectUpdate): Project | undefined {
   const now = new Date();
   const rows = db
     .update(projects)

@@ -1,4 +1,4 @@
-import type { Project, Task, TaskStatus } from '@plandesk/db';
+import type { Edge, Project, Task, TaskStatus } from '@plandesk/db';
 import { taskStatuses } from '@plandesk/db';
 
 export type TaskStatusSummary = Record<TaskStatus, number>;
@@ -37,5 +37,18 @@ export function serializeTask(task: Task) {
     due_date: task.dueDate?.toISOString() ?? null,
     created_at: task.createdAt.toISOString(),
     updated_at: task.updatedAt.toISOString(),
+  };
+}
+
+export function serializeEdge(edge: Edge) {
+  return {
+    id: edge.id,
+    project_id: edge.projectId,
+    from_task_id: edge.fromTaskId,
+    to_task_id: edge.toTaskId,
+    label: edge.label,
+    arrow_direction: edge.arrowDirection,
+    style: edge.style,
+    created_at: edge.createdAt.toISOString(),
   };
 }

@@ -8,6 +8,13 @@
       "when": 1780841051342,
       "tag": "0000_gifted_stephen_strange",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1780842259022,
+      "tag": "0001_thankful_lizard",
+      "breakpoints": true
     }
   ]
 }

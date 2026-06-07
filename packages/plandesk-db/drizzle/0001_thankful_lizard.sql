@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `canvas_layout` text;
