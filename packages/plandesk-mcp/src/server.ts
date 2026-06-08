@@ -8,10 +8,12 @@ import { createCreateEdgeHandler } from './tools/create-edge.js';
 import { createCreateProjectHandler } from './tools/create-project.js';
 import { createCreateTaskHandler } from './tools/create-task.js';
 import { createGetDocumentHandler } from './tools/get-document.js';
+import { createGetNextTaskHandler } from './tools/get-next-task.js';
 import { createGetProjectHandler } from './tools/get-project.js';
 import { createListDocumentsHandler } from './tools/list-documents.js';
 import { createListProjectsHandler } from './tools/list-projects.js';
 import { createRecordAgentProgressHandler } from './tools/record-agent-progress.js';
+import { createScaffoldProjectFromPlanHandler } from './tools/scaffold-project-from-plan.js';
 import {
   completeAgentRunInputSchema,
   createDocumentInputSchema,
@@ -19,10 +21,12 @@ import {
   createProjectInputSchema,
   createTaskInputSchema,
   getDocumentInputSchema,
+  getNextTaskInputSchema,
   getProjectInputSchema,
   listDocumentsInputSchema,
   listProjectsInputSchema,
   recordAgentProgressInputSchema,
+  scaffoldProjectFromPlanInputSchema,
   startAgentRunInputSchema,
   updateDocumentInputSchema,
   updateTaskInputSchema,
@@ -183,6 +187,28 @@ function createMcpServer(services: Services): McpServer {
       inputSchema: completeAgentRunInputSchema.shape,
     },
     createCompleteAgentRunHandler(services.agentRunService),
+  );
+
+  server.registerTool(
+    'scaffold_project_from_plan',
+    {
+      title: 'Scaffold Project From Plan',
+      description:
+        'Create a project with tasks, dependency edges, and linked documents in one atomic call',
+      inputSchema: scaffoldProjectFromPlanInputSchema.shape,
+    },
+    createScaffoldProjectFromPlanHandler(services.projectService),
+  );
+
+  server.registerTool(
+    'get_next_task',
+    {
+      title: 'Get Next Task',
+      description: 'Return the next actionable todo task whose prerequisites are all done',
+      inputSchema: getNextTaskInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createGetNextTaskHandler(services.taskService),
   );
 
   return server;

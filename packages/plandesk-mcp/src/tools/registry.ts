@@ -76,6 +76,47 @@ export const completeAgentRunInputSchema = z.object({
   status: z.enum(['completed', 'failed']),
 });
 
+export const scaffoldProjectFromPlanInputSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  tasks: z
+    .array(
+      z.object({
+        key: z.string().min(1),
+        label: z.string().min(1),
+        status: z.enum(taskStatuses).optional(),
+        description: z.string().optional(),
+        x: z.number().optional(),
+        y: z.number().optional(),
+      }),
+    )
+    .min(1),
+  edges: z
+    .array(
+      z.object({
+        from: z.string().min(1),
+        to: z.string().min(1),
+        label: z.string().optional(),
+        style: z.string().optional(),
+      }),
+    )
+    .optional(),
+  documents: z
+    .array(
+      z.object({
+        title: z.string().min(1),
+        body: z.string().optional(),
+        status_line: z.string().optional(),
+        link_to: z.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
+export const getNextTaskInputSchema = z.object({
+  project_id: z.string().uuid(),
+});
+
 export const v1ToolNames = [
   'list_projects',
   'get_project',
@@ -90,6 +131,8 @@ export const v1ToolNames = [
   'start_agent_run',
   'record_agent_progress',
   'complete_agent_run',
+  'scaffold_project_from_plan',
+  'get_next_task',
 ] as const;
 
 export type V1ToolName = (typeof v1ToolNames)[number];
@@ -108,4 +151,6 @@ export const v1ToolSchemas = {
   start_agent_run: startAgentRunInputSchema,
   record_agent_progress: recordAgentProgressInputSchema,
   complete_agent_run: completeAgentRunInputSchema,
+  scaffold_project_from_plan: scaffoldProjectFromPlanInputSchema,
+  get_next_task: getNextTaskInputSchema,
 } as const;

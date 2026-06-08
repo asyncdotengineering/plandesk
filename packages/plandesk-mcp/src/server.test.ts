@@ -6,10 +6,12 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { createApp, createEventBus, createServices, type PlankDeskEvent } from '@plandesk/api';
 import {
   createDb,
+  createEdge,
   createProject,
   createTask,
   createToken,
   createDocument,
+  listTasks,
   migrate,
   revokeToken,
   verifyToken,
@@ -127,7 +129,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(13);
+      expect(names).toHaveLength(15);
       await client.close();
     });
   });
@@ -298,6 +300,122 @@ describe('createMcpApp', () => {
       };
       expect(listPayload.documents.some((entry) => entry.id === doc.id)).toBe(true);
 
+      await client.close();
+    });
+  });
+
+  it('scaffold_project_from_plan creates project atomically via MCP', async () => {
+    await withMcpServer(async ({ baseUrl, token, db, eventBus }) => {
+      const received: PlankDeskEvent[] = [];
+      eventBus.subscribe((event) => {
+        received.push(event);
+      });
+
+      const client = await connectClient(baseUrl, token);
+      const result = await client.callTool({
+        name: 'scaffold_project_from_plan',
+        arguments: {
+          name: 'MCP Scaffold',
+          description: 'one shot',
+          tasks: [
+            { key: 'setup', label: 'Setup', status: 'done' },
+            { key: 'build', label: 'Build' },
+          ],
+          edges: [{ from: 'setup', to: 'build', label: 'blocks' }],
+          documents: [{ title: 'Plan', body: '# Plan', link_to: 'build' }],
+        },
+      });
+      expect(result.isError).not.toBe(true);
+
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const text = content[0]?.type === 'text' ? (content[0].text ?? '{}') : '{}';
+      const payload = JSON.parse(text) as {
+        scaffold: {
+          project: { id: string; name: string };
+          counts: { tasks: number; edges: number; documents: number };
+          key_to_id: Record<string, string>;
+          tasks: Array<{ x: number; y: number }>;
+        };
+      };
+      expect(payload.scaffold.project.name).toBe('MCP Scaffold');
+      expect(payload.scaffold.counts).toEqual({ tasks: 2, edges: 1, documents: 1 });
+      expect(payload.scaffold.key_to_id.setup).toBeTruthy();
+      expect(payload.scaffold.tasks[1]).toMatchObject({ x: 240, y: 0 });
+      expect(listTasks(db, payload.scaffold.project.id)).toHaveLength(2);
+      expect(received.some((e) => e.type === 'canvas_updated')).toBe(true);
+      expect(received.filter((e) => e.type === 'document_created')).toHaveLength(1);
+
+      await client.close();
+    });
+  });
+
+  it('scaffold_project_from_plan returns invalid_argument for duplicate keys', async () => {
+    await withMcpServer(async ({ baseUrl, token }) => {
+      const client = await connectClient(baseUrl, token);
+      const result = await client.callTool({
+        name: 'scaffold_project_from_plan',
+        arguments: {
+          name: 'Bad',
+          tasks: [
+            { key: 'dup', label: 'One' },
+            { key: 'dup', label: 'Two' },
+          ],
+        },
+      });
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const text = content[0]?.type === 'text' ? (content[0].text ?? '') : '';
+      expect(text).toMatch(/invalid_argument/i);
+      await client.close();
+    });
+  });
+
+  it('get_next_task returns actionable task and blocked context', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+      const actionable = createTask(db, { projectId, label: 'Actionable', status: 'todo' });
+      const prerequisite = createTask(db, { projectId, label: 'Prerequisite', status: 'todo' });
+      const blocked = createTask(db, { projectId, label: 'Blocked', status: 'todo' });
+      createEdge(db, {
+        projectId,
+        fromTaskId: prerequisite.id,
+        toTaskId: blocked.id,
+        label: 'blocks',
+      });
+
+      const client = await connectClient(baseUrl, token);
+      const result = await client.callTool({
+        name: 'get_next_task',
+        arguments: { project_id: projectId },
+      });
+      expect(result.isError).not.toBe(true);
+
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const text = content[0]?.type === 'text' ? (content[0].text ?? '{}') : '{}';
+      const payload = JSON.parse(text) as {
+        next: {
+          reason: string;
+          next_task: { id: string; label: string } | null;
+          blocked: Array<{ task: { id: string }; waiting_on: Array<{ id: string }> }>;
+        };
+      };
+      expect(payload.next.reason).toBe('ok');
+      expect(payload.next.next_task?.id).toBe(actionable.id);
+      expect(payload.next.blocked).toHaveLength(1);
+      expect(payload.next.blocked[0]?.task.id).toBe(blocked.id);
+      expect(payload.next.blocked[0]?.waiting_on.map((task) => task.id)).toEqual([prerequisite.id]);
+
+      await client.close();
+    });
+  });
+
+  it('get_next_task returns not_found for missing project', async () => {
+    await withMcpServer(async ({ baseUrl, token }) => {
+      const client = await connectClient(baseUrl, token);
+      const result = await client.callTool({
+        name: 'get_next_task',
+        arguments: { project_id: '00000000-0000-4000-8000-000000009999' },
+      });
+      expect(result.isError).toBe(true);
       await client.close();
     });
   });

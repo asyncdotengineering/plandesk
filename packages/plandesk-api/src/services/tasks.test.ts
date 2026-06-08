@@ -172,4 +172,72 @@ describe('taskService', () => {
     const page = service.listByProject(projectId, {}, { limit: 1, offset: 1 });
     expect(page).toHaveLength(1);
   });
+
+  it('returns undefined for nextActionable when project is missing', () => {
+    const service = createService();
+    expect(service.nextActionable('00000000-0000-4000-8000-000000009999')).toBeUndefined();
+  });
+
+  it('returns no_tasks when project has no tasks', () => {
+    const service = createService();
+    expect(service.nextActionable(projectId)).toEqual({
+      next_task: null,
+      reason: 'no_tasks',
+      blocked: [],
+    });
+  });
+
+  it('returns no_todo_tasks when all tasks are done', () => {
+    const service = createService();
+    createTask(db, { projectId, label: 'Done', status: 'done' });
+    expect(service.nextActionable(projectId)).toEqual({
+      next_task: null,
+      reason: 'no_todo_tasks',
+      blocked: [],
+    });
+  });
+
+  it('returns the first actionable todo by creation order', () => {
+    const service = createService();
+    const a = createTask(db, { projectId, label: 'A', status: 'done' });
+    const b = createTask(db, { projectId, label: 'B', status: 'todo' });
+    createTask(db, { projectId, label: 'C', status: 'todo' });
+    createEdge(db, { projectId, fromTaskId: a.id, toTaskId: b.id, label: 'blocks' });
+
+    const result = service.nextActionable(projectId);
+    expect(result?.reason).toBe('ok');
+    expect(result?.next_task?.id).toBe(b.id);
+    expect(result?.blocked).toEqual([]);
+  });
+
+  it('returns all_blocked when every todo has unfinished prerequisites', () => {
+    const service = createService();
+    const a = createTask(db, { projectId, label: 'A', status: 'todo' });
+    const b = createTask(db, { projectId, label: 'B', status: 'todo' });
+    createEdge(db, { projectId, fromTaskId: a.id, toTaskId: b.id, label: 'blocks' });
+    createEdge(db, { projectId, fromTaskId: b.id, toTaskId: a.id, label: 'blocks' });
+
+    const result = service.nextActionable(projectId);
+    expect(result?.next_task).toBeNull();
+    expect(result?.reason).toBe('all_blocked');
+    expect(result?.blocked).toHaveLength(2);
+    expect(result?.blocked[0]?.task.id).toBe(a.id);
+    expect(result?.blocked[0]?.waiting_on.map((task) => task.id)).toEqual([b.id]);
+    expect(result?.blocked[1]?.task.id).toBe(b.id);
+    expect(result?.blocked[1]?.waiting_on.map((task) => task.id)).toEqual([a.id]);
+  });
+
+  it('treats depends_on edges with reversed prerequisite direction', () => {
+    const service = createService();
+    const a = createTask(db, { projectId, label: 'A', status: 'todo' });
+    const b = createTask(db, { projectId, label: 'B', status: 'todo' });
+    createEdge(db, { projectId, fromTaskId: b.id, toTaskId: a.id, label: 'depends_on' });
+
+    const result = service.nextActionable(projectId);
+    expect(result?.reason).toBe('ok');
+    expect(result?.next_task?.id).toBe(a.id);
+    expect(result?.blocked).toHaveLength(1);
+    expect(result?.blocked[0]?.task.id).toBe(b.id);
+    expect(result?.blocked[0]?.waiting_on.map((task) => task.id)).toEqual([a.id]);
+  });
 });

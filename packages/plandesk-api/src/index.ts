@@ -12,6 +12,7 @@ export type { AgentRunService } from './services/agent-runs.js';
 export { InvalidDocumentError } from './services/documents.js';
 export { InvalidCanvasError } from './services/canvas.js';
 export { InvalidAgentRunError } from './services/agent-runs.js';
+export { InvalidScaffoldError } from './services/projects.js';
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
