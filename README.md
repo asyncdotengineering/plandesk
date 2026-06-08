@@ -4,6 +4,16 @@
 
 Plan Desk is a graph-native planning app you run on your machine: map dependencies on a flow canvas, attach specs to nodes, track status on a board, and let Claude Code or Codex read and update the plan over MCP. Data stays in a local SQLite workspace; export/import keeps projects portable.
 
+## Set up with your coding agent
+
+Let your agent wire Plan Desk into the current repo. From your project folder, paste into Claude Code (or Codex):
+
+```text
+Read https://plandesk-docs.pages.dev/start.md then set up Plan Desk for this project.
+```
+
+It installs the CLI, starts the local server, creates or binds a project, and verifies — scoped to your folder, no secrets committed. Then a fresh session plans and builds from the live graph. Walkthrough: [From idea to development with Claude Code](https://plandesk-docs.pages.dev/guides/idea-to-development/).
+
 ## Documentation
 
 📖 **[plandesk-docs.pages.dev](https://plandesk-docs.pages.dev)** — hosted documentation: quickstart, Docker self-hosting, MCP/agent setup, CLI reference, API, architecture, and validation.
