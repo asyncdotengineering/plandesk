@@ -1,0 +1,155 @@
+---
+import Default from '@astrojs/starlight/components/PageTitle.astro';
+
+// Raw markdown URL for the current page (served by src/pages/[...slug].md.ts).
+const path = Astro.url.pathname.replace(/\/+$/, '');
+const mdPath = path ? `${path}.md` : '/llms.txt';
+const absolute = new URL(mdPath, Astro.site ?? Astro.url.origin).href;
+const ask = `Read ${absolute} and help me understand and use it.`;
+const chatgpt = `https://chatgpt.com/?hl=en&q=${encodeURIComponent(ask)}`;
+const claude = `https://claude.ai/new?q=${encodeURIComponent(ask)}`;
+---
+
+<div class="pd-title-row">
+  <Default />
+  <details class="pd-copy">
+    <summary>
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14">
+        <path
+          fill="currentColor"
+          d="M5.5 1.5A1.5 1.5 0 0 0 4 3v8a1.5 1.5 0 0 0 1.5 1.5h6A1.5 1.5 0 0 0 13 11V5.62a1.5 1.5 0 0 0-.44-1.06l-2.62-2.62a1.5 1.5 0 0 0-1.06-.44H5.5Zm-3 3A1.5 1.5 0 0 0 1 6v8A1.5 1.5 0 0 0 2.5 15.5h6A1.5 1.5 0 0 0 10 14H5.5A2.5 2.5 0 0 1 3 11.5V4.5Z"
+        ></path>
+      </svg>
+      <span>Copy page</span>
+      <svg class="chev" aria-hidden="true" viewBox="0 0 16 16" width="12" height="12">
+        <path fill="currentColor" d="m4 6 4 4 4-4H4Z"></path>
+      </svg>
+    </summary>
+    <ul class="pd-menu">
+      <li><button type="button" class="pd-copy-md" data-md={mdPath}>Copy as Markdown</button></li>
+      <li><a href={mdPath}>View as Markdown</a></li>
+      <li><a href={chatgpt} target="_blank" rel="noopener noreferrer">Open in ChatGPT ↗</a></li>
+      <li><a href={claude} target="_blank" rel="noopener noreferrer">Open in Claude ↗</a></li>
+    </ul>
+  </details>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('.pd-copy-md').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const url = btn.dataset.md;
+      if (!url) return;
+      try {
+        const res = await fetch(url);
+        const text = await res.text();
+        await navigator.clipboard.writeText(text);
+        const label = btn.textContent;
+        btn.textContent = 'Copied ✓';
+        const menu = btn.closest('details');
+        window.setTimeout(() => {
+          btn.textContent = label;
+          menu?.removeAttribute('open');
+        }, 1400);
+      } catch {
+        /* clipboard blocked — no-op */
+      }
+    });
+  });
+
+  // Close any open menu when clicking outside it.
+  document.addEventListener('click', (event) => {
+    document.querySelectorAll<HTMLDetailsElement>('details.pd-copy[open]').forEach((d) => {
+      if (!d.contains(event.target as Node)) d.removeAttribute('open');
+    });
+  });
+</script>
+
+<style>
+  .pd-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .pd-title-row > :global(*:first-child) {
+    flex: 1;
+    min-width: 0;
+  }
+  .pd-copy {
+    position: relative;
+    flex-shrink: 0;
+    margin-top: 0.35rem;
+  }
+  .pd-copy summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    list-style: none;
+    cursor: pointer;
+    padding: 0.4rem 0.7rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    color: var(--sl-color-gray-2);
+    background: var(--sl-color-bg);
+    user-select: none;
+    white-space: nowrap;
+  }
+  .pd-copy summary::-webkit-details-marker {
+    display: none;
+  }
+  .pd-copy summary:hover {
+    color: var(--sl-color-white);
+    border-color: var(--sl-color-gray-4);
+  }
+  .pd-copy[open] .chev {
+    transform: rotate(180deg);
+  }
+  .chev {
+    transition: transform 0.15s ease;
+  }
+  .pd-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.35rem);
+    z-index: 30;
+    min-width: 12rem;
+    margin: 0;
+    padding: 0.3rem;
+    list-style: none;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.6rem;
+    background: var(--sl-color-bg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+  .pd-menu li {
+    margin: 0;
+  }
+  .pd-menu a,
+  .pd-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    box-sizing: border-box;
+    padding: 0.5rem 0.6rem;
+    border: none;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: var(--sl-color-gray-1);
+    font-size: var(--sl-text-sm);
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .pd-menu a:hover,
+  .pd-menu button:hover {
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-white);
+  }
+  @media (max-width: 50rem) {
+    .pd-copy summary span {
+      display: none;
+    }
+  }
+</style>
