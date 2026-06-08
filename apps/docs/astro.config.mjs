@@ -22,7 +22,7 @@ export default defineConfig({
         {
           label: 'Getting Started',
           items: [
-            { slug: 'index' },
+            { slug: 'introduction' },
             { slug: 'getting-started/quickstart' },
             { slug: 'getting-started/first-project' },
           ],

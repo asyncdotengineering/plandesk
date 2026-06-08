@@ -1,0 +1,566 @@
+---
+const SITE = 'https://plandesk-docs.pages.dev';
+const GITHUB = 'https://github.com/asyncdotengineering/plandesk';
+const PROMPT = `Read ${SITE}/start.md then set up Plan Desk for this project.`;
+
+const planCode = `// One MCP call turns an idea into a plan
+scaffold_project_from_plan({
+  name: "Rate limiting",
+  tasks: [
+    { key: "design",  label: "Design rate-limit strategy",  status: "scope" },
+    { key: "mw",      label: "Add token-bucket middleware", status: "todo"  },
+    { key: "store",   label: "Wire Redis counter store",    status: "todo"  },
+    { key: "rollout", label: "Roll out behind a flag",      status: "todo"  },
+  ],
+  edges: [
+    { from: "design", to: "mw",      label: "blocks"     },
+    { from: "mw",     to: "store",   label: "blocks"     },
+    { from: "store",  to: "rollout", label: "depends_on" },
+  ],
+  documents: [{ title: "Design: rate limiting", link_to: "design" }],
+})`;
+
+const connectCode = `$ plandesk connect --project "Rate limiting"
+
+  writes  .plandesk/config.json   project binding
+          .plandesk/skill.md      agent conventions
+          .plandesk/token         (gitignored)
+          .mcp.json               MCP server entry
+          CLAUDE.md               @.plandesk/skill.md
+
+  ✓ connected — start a new agent session`;
+
+const buildCode = `// The agent works the graph in dependency order
+get_next_task({ project_id })
+→ {
+    next_task: { label: "Add token-bucket middleware", status: "todo" },
+    reason: "ok",
+    blocked: [{ task: "Wire Redis counter store",
+                waiting_on: ["Add token-bucket middleware"] }],
+  }
+
+update_task({ task_id, status: "done" })  // canvas + board update live`;
+
+const features = [
+  { t: 'Dependency canvas', d: 'Map work as a directed graph with labeled edges — what blocks what is explicit, not buried in a list.' },
+  { t: 'Specs on nodes', d: 'Attach a document to any task. Agents read the spec before they touch a line of code.' },
+  { t: 'Board', d: 'A kanban view that shares one source of truth with the canvas. Move a card, the graph updates.' },
+  { t: 'MCP — 18 tools', d: 'Agents scaffold whole plans, pick the next unblocked task, and update status live over MCP.' },
+  { t: 'Comments loop', d: 'Leave feedback on a doc in the UI; the agent pulls it, addresses it, and resolves it — live.' },
+  { t: 'Local-first', d: 'Runs on your machine over SQLite. No cloud, no lock-in. Lossless JSON export/import.' },
+];
+
+const steps = [
+  { n: '01', t: 'Plan', d: 'Sketch the graph on the canvas, or have your agent scaffold it from a one-line idea.' },
+  { n: '02', t: 'Connect', d: 'plandesk connect binds the repo over MCP — commit-safe, no secrets committed.' },
+  { n: '03', t: 'Build', d: 'The agent loops get_next_task → code → done, in dependency order, live on the canvas.' },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Plan Desk — The agent-native planning workspace</title>
+    <meta
+      name="description"
+      content="Local-first planning workspace: map work as a dependency graph, attach specs, and let Claude Code or Codex plan and build from it over MCP."
+    />
+    <link rel="icon" href="/favicon.svg" />
+    <meta property="og:title" content="Plan Desk — The agent-native planning workspace" />
+    <meta
+      property="og:description"
+      content="Map work as a dependency graph and let your coding agent plan and build from it over MCP. Local-first."
+    />
+    <meta property="og:type" content="website" />
+  </head>
+  <body>
+    <div class="grid-bg">
+      <header class="nav wrap">
+        <a class="brand" href="/">
+          <span class="logo"></span>
+          Plan&nbsp;Desk
+        </a>
+        <nav class="nav-links">
+          <a href="/introduction/">Docs</a>
+          <a href="/guides/idea-to-development/">Guides</a>
+          <a href="/reference/api/">API</a>
+          <a href={GITHUB} aria-label="GitHub" class="gh">GitHub ↗</a>
+        </nav>
+      </header>
+
+      <main class="wrap">
+        <section class="hero">
+          <p class="eyebrow">Local-first · MCP-native · open source</p>
+          <h1>The agent-native<br />planning workspace.</h1>
+          <p class="sub">
+            Not a kanban board. Map work as a dependency graph, attach specs to nodes, and let
+            Claude Code or Codex plan and build from it over MCP — running on your machine.
+          </p>
+
+          <div class="cta-row">
+            <button id="copyPrompt" class="btn btn-primary" data-prompt={PROMPT}>
+              <span class="dot"></span>
+              <span class="label">Copy setup prompt</span>
+            </button>
+            <a class="btn btn-ghost" href="/getting-started/quickstart/">View documentation</a>
+          </div>
+          <code class="prompt-line">{PROMPT}</code>
+        </section>
+
+        <section class="showcase">
+          <div class="tabs" role="tablist">
+            <button class="tab active" data-tab="plan">scaffold_project_from_plan</button>
+            <button class="tab" data-tab="connect">plandesk&nbsp;connect</button>
+            <button class="tab" data-tab="build">get_next_task</button>
+          </div>
+          <pre class="panel active" data-panel="plan"><code>{planCode}</code></pre>
+          <pre class="panel" data-panel="connect"><code>{connectCode}</code></pre>
+          <pre class="panel" data-panel="build"><code>{buildCode}</code></pre>
+        </section>
+
+        <section class="steps">
+          {
+            steps.map((s) => (
+              <div class="step">
+                <span class="step-n">{s.n}</span>
+                <h3>{s.t}</h3>
+                <p>{s.d}</p>
+              </div>
+            ))
+          }
+        </section>
+
+        <section class="features">
+          <h2 class="section-title">Everything is one connected plan.</h2>
+          <div class="grid">
+            {
+              features.map((f) => (
+                <div class="card">
+                  <h3>{f.t}</h3>
+                  <p>{f.d}</p>
+                </div>
+              ))
+            }
+          </div>
+        </section>
+
+        <section class="cta-band">
+          <h2>Point your agent at it.</h2>
+          <p>From your project folder, paste the prompt into Claude Code or Codex.</p>
+          <div class="cta-row center">
+            <button id="copyPrompt2" class="btn btn-primary" data-prompt={PROMPT}>
+              <span class="dot"></span>
+              <span class="label">Copy setup prompt</span>
+            </button>
+            <a class="btn btn-ghost" href="/guides/idea-to-development/">Read the walkthrough</a>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer wrap">
+        <span>Plan Desk — local-first planning for you and your agents.</span>
+        <nav class="foot-links">
+          <a href="/getting-started/quickstart/">Quickstart</a>
+          <a href="/reference/api/">API</a>
+          <a href="https://www.npmjs.com/package/@plandesk/cli">npm</a>
+          <a href={GITHUB}>GitHub</a>
+          <span class="muted">MIT</span>
+        </nav>
+      </footer>
+    </div>
+
+    <script>
+      function wireCopy(id: string) {
+        const btn = document.getElementById(id) as HTMLButtonElement | null;
+        if (!btn) return;
+        const label = btn.querySelector('.label');
+        btn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(btn.dataset.prompt ?? '');
+            if (label) {
+              const prev = label.textContent;
+              label.textContent = 'Copied ✓';
+              window.setTimeout(() => {
+                label.textContent = prev;
+              }, 1600);
+            }
+          } catch {
+            /* clipboard blocked — no-op */
+          }
+        });
+      }
+      wireCopy('copyPrompt');
+      wireCopy('copyPrompt2');
+
+      document.querySelectorAll<HTMLButtonElement>('.tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+          document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
+          tab.classList.add('active');
+          const panel = document.querySelector(`.panel[data-panel="${tab.dataset.tab}"]`);
+          panel?.classList.add('active');
+        });
+      });
+    </script>
+
+    <style is:global>
+      :root {
+        --ink: #0a0a0a;
+        --ink-2: #3f3f46;
+        --muted: #71717a;
+        --line: #e7e7e9;
+        --bg: #ffffff;
+        --accent: #1d4ed8;
+        --radius: 12px;
+        --max: 1080px;
+        --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+        --sans:
+          'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+          sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: var(--sans);
+        color: var(--ink);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+        line-height: 1.5;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .grid-bg {
+        min-height: 100vh;
+        background-color: var(--bg);
+        background-image:
+          linear-gradient(rgba(10, 10, 10, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(10, 10, 10, 0.04) 1px, transparent 1px);
+        background-size: 34px 34px;
+      }
+      .wrap {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      /* nav */
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 68px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        font-size: 1.05rem;
+        letter-spacing: -0.01em;
+      }
+      .logo {
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        background: var(--ink);
+        box-shadow:
+          5px 0 0 -1px var(--bg),
+          5px 0 0 0 var(--ink),
+          0 5px 0 -1px var(--bg),
+          0 5px 0 0 var(--ink);
+        transform: translateY(-2px) scale(0.8);
+      }
+      .nav-links {
+        display: flex;
+        gap: 26px;
+        align-items: center;
+        font-size: 0.92rem;
+        color: var(--ink-2);
+      }
+      .nav-links a:hover {
+        color: var(--ink);
+      }
+      .nav-links .gh {
+        color: var(--muted);
+      }
+
+      /* hero */
+      .hero {
+        padding: 96px 0 64px;
+        max-width: 760px;
+      }
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin: 0 0 22px;
+        letter-spacing: 0.02em;
+      }
+      h1 {
+        font-size: clamp(2.6rem, 6vw, 4.4rem);
+        line-height: 1.02;
+        letter-spacing: -0.035em;
+        font-weight: 800;
+        margin: 0 0 22px;
+      }
+      .sub {
+        font-size: clamp(1.05rem, 2vw, 1.25rem);
+        color: var(--ink-2);
+        max-width: 620px;
+        margin: 0 0 34px;
+      }
+      .cta-row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .cta-row.center {
+        justify-content: center;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        height: 46px;
+        padding: 0 22px;
+        border-radius: 999px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition:
+          transform 0.06s ease,
+          background 0.15s ease,
+          border-color 0.15s ease;
+      }
+      .btn:active {
+        transform: translateY(1px);
+      }
+      .btn-primary {
+        background: var(--ink);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        background: #232326;
+      }
+      .btn-ghost {
+        background: #fff;
+        color: var(--ink);
+        border-color: var(--line);
+      }
+      .btn-ghost:hover {
+        border-color: #c9c9cf;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #4ade80;
+        box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.25);
+      }
+      .prompt-line {
+        display: inline-block;
+        margin-top: 20px;
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        color: var(--muted);
+        background: #fafafa;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 9px 13px;
+        max-width: 100%;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+
+      /* showcase */
+      .showcase {
+        margin: 8px 0 88px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(10, 10, 10, 0.03);
+        overflow: hidden;
+      }
+      .tabs {
+        display: flex;
+        gap: 2px;
+        border-bottom: 1px solid var(--line);
+        background: #fafafa;
+        overflow-x: auto;
+      }
+      .tab {
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        color: var(--muted);
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 14px 18px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .tab:hover {
+        color: var(--ink-2);
+      }
+      .tab.active {
+        color: var(--ink);
+        background: #fff;
+        border-bottom-color: var(--accent);
+      }
+      .panel {
+        display: none;
+        margin: 0;
+        padding: 22px 24px;
+        font-family: var(--mono);
+        font-size: 0.85rem;
+        line-height: 1.65;
+        color: #18181b;
+        overflow-x: auto;
+        tab-size: 2;
+      }
+      .panel.active {
+        display: block;
+      }
+      .panel code {
+        font-family: inherit;
+        white-space: pre;
+      }
+
+      /* steps */
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin: 0 0 88px;
+      }
+      .step {
+        border-left: 2px solid var(--line);
+        padding: 4px 0 4px 18px;
+      }
+      .step-n {
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        color: var(--accent);
+      }
+      .step h3 {
+        margin: 8px 0 6px;
+        font-size: 1.1rem;
+        letter-spacing: -0.01em;
+      }
+      .step p {
+        margin: 0;
+        color: var(--ink-2);
+        font-size: 0.95rem;
+      }
+
+      /* features */
+      .section-title {
+        font-size: clamp(1.6rem, 3.5vw, 2.3rem);
+        letter-spacing: -0.03em;
+        font-weight: 800;
+        margin: 0 0 28px;
+      }
+      .features {
+        margin-bottom: 88px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #fff;
+        padding: 22px;
+        transition: border-color 0.15s ease;
+      }
+      .card:hover {
+        border-color: #d4d4d8;
+      }
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 1.02rem;
+        letter-spacing: -0.01em;
+      }
+      .card p {
+        margin: 0;
+        color: var(--ink-2);
+        font-size: 0.92rem;
+      }
+
+      /* cta band */
+      .cta-band {
+        text-align: center;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fafafa;
+        padding: 56px 24px;
+        margin-bottom: 72px;
+      }
+      .cta-band h2 {
+        font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+        letter-spacing: -0.03em;
+        font-weight: 800;
+        margin: 0 0 8px;
+      }
+      .cta-band p {
+        color: var(--ink-2);
+        margin: 0 0 24px;
+      }
+
+      /* footer */
+      .footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding-top: 28px;
+        padding-bottom: 48px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+      .foot-links {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+      }
+      .foot-links a:hover {
+        color: var(--ink);
+      }
+      .foot-links .muted {
+        color: var(--muted);
+      }
+
+      @media (max-width: 760px) {
+        .steps,
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .hero {
+          padding: 64px 0 48px;
+        }
+        .nav-links {
+          gap: 16px;
+        }
+        .nav-links a:not(.gh) {
+          display: none;
+        }
+      }
+    </style>
+  </body>
+</html>
