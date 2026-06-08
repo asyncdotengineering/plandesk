@@ -3,7 +3,7 @@ import starlight from '@astrojs/starlight';
 import starlightLlmsTxt from 'starlight-llms-txt';
 
 export default defineConfig({
-  site: 'https://plandesk-docs.pages.dev',
+  site: 'https://plandesk.asyncdot.com',
   integrations: [
     starlight({
       title: 'Plan Desk',
@@ -28,7 +28,7 @@ export default defineConfig({
           description:
             'Plan Desk is a local-first, self-hostable planning workspace: a flow canvas of task nodes with labeled dependency edges, specs attached to nodes, a board, and an MCP server (18 tools) that coding agents use to scaffold plans, pick the next task, and update status live.',
           details:
-            'Set up for an agent in one prompt: "Read https://plandesk-docs.pages.dev/start.md then set up Plan Desk for this project." Published on npm as @plandesk/cli.',
+            'Set up for an agent in one prompt: "Read https://plandesk.asyncdot.com/start.md then set up Plan Desk for this project." Published on npm as @plandesk/cli.',
         }),
       ],
       social: [

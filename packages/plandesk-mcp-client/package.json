@@ -34,7 +34,7 @@
   "description": "Plan Desk MCP client SDK — connect to a Plan Desk server over MCP.",
   "license": "MIT",
   "author": "asyncdotengineering",
-  "homepage": "https://plandesk-docs.pages.dev",
+  "homepage": "https://plandesk.asyncdot.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/asyncdotengineering/plandesk.git",

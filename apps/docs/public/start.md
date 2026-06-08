@@ -8,7 +8,7 @@ fresh session where the Plan Desk tools are live.
 Plan Desk is a local-first planning workspace: a flow canvas of task nodes with
 labeled dependency edges, specs attached to nodes, a board, and an MCP server (18
 tools) agents use to read and update the plan. Data lives in a local SQLite file.
-Docs: https://plandesk-docs.pages.dev
+Docs: https://plandesk.asyncdot.com
 
 **This is a two-phase setup. Read all of it before running anything.**
 
@@ -38,8 +38,8 @@ Docs: https://plandesk-docs.pages.dev
 Before acting, read the conventions you'll be expected to follow and inspect the
 repo so your naming fits:
 
-1. Fetch the agent conventions: https://plandesk-docs.pages.dev/connecting-agents/skill/
-2. Skim the end-to-end workflow: https://plandesk-docs.pages.dev/guides/idea-to-development/
+1. Fetch the agent conventions: https://plandesk.asyncdot.com/connecting-agents/skill/
+2. Skim the end-to-end workflow: https://plandesk.asyncdot.com/guides/idea-to-development/
 3. Inspect the current folder — language, package manager, and the project's
    purpose (e.g. read `README.md`, `package.json`) — so you can suggest a sensible
    project name and, later, a useful plan.
@@ -136,7 +136,7 @@ executes it. A good first prompt for the user to run there:
 > then `done` → `record_agent_progress`. Pull my feedback with `list_comments` and
 > `resolve_comment` when addressed. Don't delete tasks.
 
-See https://plandesk-docs.pages.dev/guides/idea-to-development/ for the full loop.
+See https://plandesk.asyncdot.com/guides/idea-to-development/ for the full loop.
 
 ---
 

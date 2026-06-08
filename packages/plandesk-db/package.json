@@ -36,7 +36,7 @@
   "description": "Plan Desk persistence layer (Drizzle + SQLite schema, migrations, repositories).",
   "license": "MIT",
   "author": "asyncdotengineering",
-  "homepage": "https://plandesk-docs.pages.dev",
+  "homepage": "https://plandesk.asyncdot.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/asyncdotengineering/plandesk.git",
