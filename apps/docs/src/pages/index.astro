@@ -79,7 +79,13 @@ const steps = [
     <div class="grid-bg">
       <header class="nav wrap">
         <a class="brand" href="/">
-          <span class="logo"></span>
+          <svg class="logo" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <rect x="1.5" y="1.5" width="29" height="29" rx="7" fill="#0a0a0a"></rect>
+            <path d="M11.5 12.5 20.5 19.5" stroke="#fff" stroke-width="2" stroke-linecap="round"
+            ></path>
+            <circle cx="11" cy="12" r="3.4" fill="#fff"></circle>
+            <circle cx="21" cy="20" r="3.4" fill="#fff"></circle>
+          </svg>
           Plan&nbsp;Desk
         </a>
         <nav class="nav-links">
@@ -269,16 +275,9 @@ const steps = [
         letter-spacing: -0.01em;
       }
       .logo {
-        width: 18px;
-        height: 18px;
-        border-radius: 5px;
-        background: var(--ink);
-        box-shadow:
-          5px 0 0 -1px var(--bg),
-          5px 0 0 0 var(--ink),
-          0 5px 0 -1px var(--bg),
-          0 5px 0 0 var(--ink);
-        transform: translateY(-2px) scale(0.8);
+        width: 22px;
+        height: 22px;
+        flex-shrink: 0;
       }
       .nav-links {
         display: flex;

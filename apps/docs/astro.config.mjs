@@ -9,8 +9,18 @@ export default defineConfig({
       title: 'Plan Desk',
       description:
         'Local-first, self-hostable planning workspace — canvas, docs-on-nodes, tasks, board, and MCP for agent workflows.',
+      logo: { src: './src/assets/logo.svg' },
+      customCss: ['./src/styles/docs-theme.css'],
+      head: [
+        {
+          tag: 'script',
+          content:
+            "document.documentElement.setAttribute('data-theme','light');try{localStorage.setItem('starlight-theme','light')}catch(e){}",
+        },
+      ],
       components: {
         PageTitle: './src/components/PageTitle.astro',
+        ThemeSelect: './src/components/ThemeSelect.astro',
       },
       plugins: [
         starlightLlmsTxt({

@@ -1,0 +1,106 @@
+/*
+ * Plan Desk docs theme — coherent with the landing page (src/pages/index.astro).
+ * Light-only, brand blue accent, Inter typography, tight bold headings.
+ * The brand tokens are applied to every theme state (light + dark) so the docs
+ * are effectively light-only, matching the landing and removing the dark toggle.
+ */
+
+:root,
+:root[data-theme='light'],
+:root[data-theme='dark'] {
+  color-scheme: light;
+
+  /* Brand accent (blue) */
+  --sl-color-accent-low: #dbe4ff;
+  --sl-color-accent: #1d4ed8;
+  --sl-color-accent-high: #1e3a8a;
+  --sl-color-text-accent: #1d4ed8;
+
+  /* Ink + grays — match the landing palette */
+  --sl-color-white: #0a0a0a; /* highest-contrast text / headings */
+  --sl-color-gray-1: #18181b;
+  --sl-color-gray-2: #3f3f46;
+  --sl-color-gray-3: #52525b;
+  --sl-color-gray-4: #a1a1aa;
+  --sl-color-gray-5: #e7e7e9;
+  --sl-color-gray-6: #f4f4f5;
+  --sl-color-gray-7: #fafafa;
+  --sl-color-black: #ffffff;
+
+  --sl-color-text: #3f3f46;
+  --sl-color-text-invert: #ffffff;
+
+  /* Surfaces */
+  --sl-color-bg: #ffffff;
+  --sl-color-bg-nav: rgba(255, 255, 255, 0.85);
+  --sl-color-bg-sidebar: #ffffff;
+  --sl-color-bg-inline-code: #f4f4f5;
+
+  /* Hairlines */
+  --sl-color-hairline: #ececef;
+  --sl-color-hairline-light: #f1f1f3;
+  --sl-color-hairline-shade: #e7e7e9;
+
+  /* Typography — same stack as the landing */
+  --sl-font:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Frosted, hairline-bottomed header like the landing nav */
+.header {
+  border-bottom: 1px solid var(--sl-color-hairline);
+  backdrop-filter: blur(8px);
+}
+
+/* Bold, tight headings to echo the landing's display type */
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+h1#_top {
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+.sl-markdown-content h2 {
+  margin-top: 2.2rem;
+}
+
+/* Site title — charcoal, like the landing wordmark (accent is for active nav only) */
+.site-title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--sl-color-white);
+}
+
+/* Force the light Shiki theme even if the html attribute says dark, so fenced
+   code blocks never render dark on the light page. */
+:root[data-theme='dark'] .astro-code,
+:root[data-theme='dark'] .astro-code span {
+  color: var(--shiki-light) !important;
+  background-color: var(--shiki-light-bg) !important;
+  font-style: var(--shiki-light-font-style) !important;
+  font-weight: var(--shiki-light-font-weight) !important;
+  text-decoration: var(--shiki-light-text-decoration) !important;
+}
+
+/* Softer, rounder code + cards */
+.sl-markdown-content :not(pre) > code {
+  border-radius: 0.35rem;
+}
+.sl-markdown-content pre {
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 0.6rem;
+}
+
+/* Sidebar: soft blue-tint active state (not a solid block) */
+:root .sidebar a[aria-current='page'],
+:root .sidebar a[aria-current='page']:hover {
+  color: var(--sl-color-accent);
+  background-color: var(--sl-color-accent-low);
+  font-weight: 600;
+}
+
+/* Tables match the landing's hairline grid */
+.sl-markdown-content th,
+.sl-markdown-content td {
+  border-color: var(--sl-color-hairline);
+}
