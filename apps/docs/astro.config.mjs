@@ -29,7 +29,7 @@ export default defineConfig({
         },
         {
           label: 'Guides',
-          items: [{ slug: 'guides/plan-and-execute' }],
+          items: [{ slug: 'guides/idea-to-development' }, { slug: 'guides/plan-and-execute' }],
         },
         {
           label: 'Self-Hosting',

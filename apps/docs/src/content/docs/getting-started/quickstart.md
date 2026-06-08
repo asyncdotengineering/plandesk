@@ -43,6 +43,7 @@ The command prints the new project UUID. Open it in the UI, then run `plandesk c
 ## Next steps
 
 - [Your first project](/getting-started/first-project/) — plan on the canvas, attach specs, use the board
+- [From idea to development with Claude Code](/guides/idea-to-development/) — let Claude plan it, then build it from the live plan
 - [Plan & execute a project](/guides/plan-and-execute/) — connect an agent and work from the live plan
 
 ## Development
