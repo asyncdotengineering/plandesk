@@ -58,6 +58,71 @@ describe('useSseInvalidation task_updated', () => {
   });
 });
 
+describe('useSseInvalidation comment events', () => {
+  beforeEach(() => {
+    eventSources.length = 0;
+    vi.stubGlobal('EventSource', MockEventSource);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('invalidates documentComments query on comment_created', () => {
+    const queryClient = new QueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    function wrapper({ children }: { children: ReactNode }) {
+      return createElement(QueryClientProvider, { client: queryClient }, children);
+    }
+
+    renderHook(
+      () => {
+        useSseInvalidation();
+      },
+      { wrapper },
+    );
+
+    dispatchSse({
+      type: 'comment_created',
+      commentId: 'cmt-1',
+      documentId: 'doc-1',
+      projectId: 'proj-1',
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: queryKeys.documentComments('doc-1'),
+    });
+  });
+
+  it('invalidates documentComments query on comment_updated', () => {
+    const queryClient = new QueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    function wrapper({ children }: { children: ReactNode }) {
+      return createElement(QueryClientProvider, { client: queryClient }, children);
+    }
+
+    renderHook(
+      () => {
+        useSseInvalidation();
+      },
+      { wrapper },
+    );
+
+    dispatchSse({
+      type: 'comment_updated',
+      commentId: 'cmt-1',
+      documentId: 'doc-1',
+      projectId: 'proj-1',
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: queryKeys.documentComments('doc-1'),
+    });
+  });
+});
+
 describe('useSseInvalidation agent_run events', () => {
   beforeEach(() => {
     eventSources.length = 0;

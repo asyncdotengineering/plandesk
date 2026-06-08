@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  createComment,
   createDocument,
   createMcpToken,
   createProject,
   createTask,
+  deleteComment,
   deleteDocument,
   deleteEdge,
   deleteProject,
@@ -13,18 +15,22 @@ import {
   getProject,
   getTaskDocument,
   listAgentRuns,
+  listDocumentComments,
   listDocuments,
   listMcpTokens,
   listProjects,
   listTasks,
+  patchComment,
   patchDocument,
   patchProject,
   patchTask,
   putCanvas,
   revokeMcpToken,
+  type CreateCommentInput,
   type CreateDocumentInput,
   type CreateProjectInput,
   type CreateTaskInput,
+  type PatchCommentInput,
   type PatchDocumentInput,
   type PatchProjectInput,
   type PatchTaskInput,
@@ -40,6 +46,7 @@ export const queryKeys = {
   canvas: (projectId: string) => ['projects', projectId, 'canvas'] as const,
   documents: (projectId: string) => ['projects', projectId, 'documents'] as const,
   document: (id: string) => ['documents', id] as const,
+  documentComments: (documentId: string) => ['documents', documentId, 'comments'] as const,
   taskDocument: (taskId: string) => ['tasks', taskId, 'document'] as const,
   mcpTokens: ['mcp-tokens'] as const,
   agentRuns: (projectId: string) => ['projects', projectId, 'agent-runs'] as const,
@@ -193,6 +200,44 @@ export function useDeleteDocument() {
     mutationFn: ({ id }: { id: string; projectId: string }) => deleteDocument(id),
     onSuccess: (_result, { projectId }) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.documents(projectId) });
+    },
+  });
+}
+
+export function useDocumentComments(documentId: string) {
+  return useQuery({
+    queryKey: queryKeys.documentComments(documentId),
+    queryFn: () => listDocumentComments(documentId, { includeResolved: true }),
+  });
+}
+
+export function useCreateComment(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateCommentInput) => createComment(documentId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.documentComments(documentId) });
+    },
+  });
+}
+
+export function usePatchComment(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: PatchCommentInput }) =>
+      patchComment(id, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.documentComments(documentId) });
+    },
+  });
+}
+
+export function useDeleteComment(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteComment(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.documentComments(documentId) });
     },
   });
 }

@@ -133,6 +133,18 @@ export type PatchDocumentInput = {
   linked_task_id?: string | null;
 };
 
+export type SerializedComment = {
+  id: string;
+  document_id: string;
+  passage: string | null;
+  body: string;
+  resolved: boolean;
+  created_at: string;
+};
+
+export type CreateCommentInput = { body: string; passage?: string | null };
+export type PatchCommentInput = { body?: string; resolved?: boolean };
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -242,6 +254,36 @@ export function patchDocument(id: string, input: PatchDocumentInput): Promise<Se
 
 export function deleteDocument(id: string): Promise<void> {
   return request(`/documents/${id}`, { method: 'DELETE' });
+}
+
+export function listDocumentComments(
+  documentId: string,
+  opts?: { includeResolved?: boolean },
+): Promise<SerializedComment[]> {
+  const params = new URLSearchParams();
+  if (opts?.includeResolved === true) {
+    params.set('include_resolved', 'true');
+  }
+  const query = params.toString();
+  return request(`/documents/${documentId}/comments${query ? `?${query}` : ''}`);
+}
+
+export function createComment(
+  documentId: string,
+  input: CreateCommentInput,
+): Promise<SerializedComment> {
+  return request(`/documents/${documentId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function patchComment(id: string, input: PatchCommentInput): Promise<SerializedComment> {
+  return request(`/comments/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function deleteComment(id: string): Promise<void> {
+  return request(`/comments/${id}`, { method: 'DELETE' });
 }
 
 export function deleteEdge(projectId: string, edgeId: string): Promise<void> {

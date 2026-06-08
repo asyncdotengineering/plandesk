@@ -1,5 +1,6 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { CommentsPanel } from '../components/docs/CommentsPanel.js';
 import { DocumentEditor, type DocumentEditorMode } from '../components/docs/DocumentEditor.js';
 import { useDeleteDocument, useDocument, usePatchDocument, useProject } from '../lib/queries.js';
 
@@ -84,25 +85,30 @@ function DocumentPage() {
           Save failed: {patchDocument.error.message}
         </p>
       ) : null}
-      <DocumentEditor
-        document={document}
-        mode={mode}
-        isSaving={patchDocument.isPending}
-        isDeleting={deleteDocument.isPending}
-        onSave={(input) => {
-          patchDocument.mutate({ id: docId, input });
-        }}
-        onDelete={() => {
-          deleteDocument.mutate(
-            { id: docId, projectId: id },
-            {
-              onSuccess: () => {
-                void navigate({ to: '/projects/$id/overview', params: { id } });
-              },
-            },
-          );
-        }}
-      />
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <DocumentEditor
+            document={document}
+            mode={mode}
+            isSaving={patchDocument.isPending}
+            isDeleting={deleteDocument.isPending}
+            onSave={(input) => {
+              patchDocument.mutate({ id: docId, input });
+            }}
+            onDelete={() => {
+              deleteDocument.mutate(
+                { id: docId, projectId: id },
+                {
+                  onSuccess: () => {
+                    void navigate({ to: '/projects/$id/overview', params: { id } });
+                  },
+                },
+              );
+            }}
+          />
+        </div>
+        <CommentsPanel documentId={docId} projectId={id} />
+      </div>
     </section>
   );
 }
