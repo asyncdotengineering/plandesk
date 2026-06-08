@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import type { Services } from '@plandesk/api';
+import { createAddCommentHandler } from './tools/add-comment.js';
 import { createCompleteAgentRunHandler } from './tools/complete-agent-run.js';
 import { createCreateDocumentHandler } from './tools/create-document.js';
 import { createCreateEdgeHandler } from './tools/create-edge.js';
@@ -10,9 +11,11 @@ import { createCreateTaskHandler } from './tools/create-task.js';
 import { createGetDocumentHandler } from './tools/get-document.js';
 import { createGetNextTaskHandler } from './tools/get-next-task.js';
 import { createGetProjectHandler } from './tools/get-project.js';
+import { createListCommentsHandler } from './tools/list-comments.js';
 import { createListDocumentsHandler } from './tools/list-documents.js';
 import { createListProjectsHandler } from './tools/list-projects.js';
 import { createRecordAgentProgressHandler } from './tools/record-agent-progress.js';
+import { createResolveCommentHandler } from './tools/resolve-comment.js';
 import { createScaffoldProjectFromPlanHandler } from './tools/scaffold-project-from-plan.js';
 import {
   completeAgentRunInputSchema,
@@ -21,11 +24,14 @@ import {
   createProjectInputSchema,
   createTaskInputSchema,
   getDocumentInputSchema,
+  addCommentInputSchema,
   getNextTaskInputSchema,
   getProjectInputSchema,
+  listCommentsInputSchema,
   listDocumentsInputSchema,
   listProjectsInputSchema,
   recordAgentProgressInputSchema,
+  resolveCommentInputSchema,
   scaffoldProjectFromPlanInputSchema,
   startAgentRunInputSchema,
   updateDocumentInputSchema,
@@ -209,6 +215,37 @@ function createMcpServer(services: Services): McpServer {
       annotations: { readOnlyHint: true },
     },
     createGetNextTaskHandler(services.taskService),
+  );
+
+  server.registerTool(
+    'list_comments',
+    {
+      title: 'List Comments',
+      description: 'List unresolved document comments for a project or document',
+      inputSchema: listCommentsInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListCommentsHandler(services.commentService, services.documentService),
+  );
+
+  server.registerTool(
+    'add_comment',
+    {
+      title: 'Add Comment',
+      description: 'Leave a suggestion on a document',
+      inputSchema: addCommentInputSchema.shape,
+    },
+    createAddCommentHandler(services.commentService),
+  );
+
+  server.registerTool(
+    'resolve_comment',
+    {
+      title: 'Resolve Comment',
+      description: 'Mark document feedback as addressed',
+      inputSchema: resolveCommentInputSchema.shape,
+    },
+    createResolveCommentHandler(services.commentService),
   );
 
   return server;

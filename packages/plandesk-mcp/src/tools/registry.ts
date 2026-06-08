@@ -117,6 +117,22 @@ export const getNextTaskInputSchema = z.object({
   project_id: z.string().uuid(),
 });
 
+export const listCommentsInputSchema = z.object({
+  project_id: z.string().uuid(),
+  document_id: z.string().uuid().optional(),
+  include_resolved: z.boolean().optional(),
+});
+
+export const addCommentInputSchema = z.object({
+  document_id: z.string().uuid(),
+  body: z.string().min(1),
+  passage: z.string().optional(),
+});
+
+export const resolveCommentInputSchema = z.object({
+  comment_id: z.string().uuid(),
+});
+
 export const v1ToolNames = [
   'list_projects',
   'get_project',
@@ -133,6 +149,9 @@ export const v1ToolNames = [
   'complete_agent_run',
   'scaffold_project_from_plan',
   'get_next_task',
+  'list_comments',
+  'add_comment',
+  'resolve_comment',
 ] as const;
 
 export type V1ToolName = (typeof v1ToolNames)[number];
@@ -153,4 +172,7 @@ export const v1ToolSchemas = {
   complete_agent_run: completeAgentRunInputSchema,
   scaffold_project_from_plan: scaffoldProjectFromPlanInputSchema,
   get_next_task: getNextTaskInputSchema,
+  list_comments: listCommentsInputSchema,
+  add_comment: addCommentInputSchema,
+  resolve_comment: resolveCommentInputSchema,
 } as const;

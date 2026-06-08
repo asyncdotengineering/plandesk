@@ -15,6 +15,20 @@ export type DocumentCreatedEvent = {
   projectId: string;
 };
 
+export type CommentCreatedEvent = {
+  type: 'comment_created';
+  commentId: string;
+  documentId: string;
+  projectId: string;
+};
+
+export type CommentUpdatedEvent = {
+  type: 'comment_updated';
+  commentId: string;
+  documentId: string;
+  projectId: string;
+};
+
 export type AgentRunStartedEvent = {
   type: 'agent_run_started';
   runId: string;
@@ -37,6 +51,8 @@ export type PlankDeskEvent =
   | TaskUpdatedEvent
   | CanvasUpdatedEvent
   | DocumentCreatedEvent
+  | CommentCreatedEvent
+  | CommentUpdatedEvent
   | AgentRunStartedEvent
   | AgentRunProgressEvent
   | AgentRunCompletedEvent;

@@ -2,6 +2,7 @@ import type {
   AgentRun,
   AgentRunEvent,
   Document,
+  DocumentComment,
   Edge,
   Project,
   Task,
@@ -106,6 +107,26 @@ export function serializeDocument(document: Document): SerializedDocument {
     linked_task_id: document.linkedTaskId,
     created_at: document.createdAt.toISOString(),
     updated_at: document.updatedAt.toISOString(),
+  };
+}
+
+export type SerializedComment = {
+  id: string;
+  document_id: string;
+  passage: string | null;
+  body: string;
+  resolved: boolean;
+  created_at: string;
+};
+
+export function serializeComment(comment: DocumentComment): SerializedComment {
+  return {
+    id: comment.id,
+    document_id: comment.documentId,
+    passage: comment.passage,
+    body: comment.body,
+    resolved: comment.resolved,
+    created_at: comment.createdAt.toISOString(),
   };
 }
 

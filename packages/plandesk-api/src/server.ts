@@ -5,6 +5,7 @@ import { healthRouter } from './routes/health.js';
 import { createProjectsRouter } from './routes/projects.js';
 import { createTasksRouter } from './routes/tasks.js';
 import { createCanvasRouter } from './routes/canvas.js';
+import { createCommentsRouter } from './routes/comments.js';
 import { createDocumentsRouter } from './routes/documents.js';
 import type { EventBus } from './events.js';
 import { createEventsRouter } from './routes/events.js';
@@ -29,6 +30,7 @@ export function createApp(deps: AppDeps): Hono {
     taskService,
     canvasService,
     documentService,
+    commentService,
     agentRunService,
     tokenService,
   } = services;
@@ -44,6 +46,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createTasksRouter(taskService));
   app.route('/api/v1', createCanvasRouter(canvasService));
   app.route('/api/v1', createDocumentsRouter(documentService));
+  app.route('/api/v1', createCommentsRouter(commentService));
   app.route('/api/v1', createTokensRouter(tokenService));
   app.route('/api/v1', createAgentRunsRouter(agentRunService));
   app.route('/api/v1', createEventsRouter(eventBus));

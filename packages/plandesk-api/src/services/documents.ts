@@ -1,5 +1,6 @@
 import {
   createDocument as dbCreateDocument,
+  deleteCommentsByDocumentId,
   deleteDocument as dbDeleteDocument,
   detachDocumentChildren,
   getDocument as dbGetDocument,
@@ -163,6 +164,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
 
       db.transaction((tx) => {
         detachDocumentChildren(tx, id);
+        deleteCommentsByDocumentId(tx, id);
         dbDeleteDocument(tx, id);
       });
 

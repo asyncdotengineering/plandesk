@@ -11,7 +11,9 @@ import {
   createTask,
   createToken,
   createDocument,
+  createDocumentComment,
   listTasks,
+  updateDocumentComment,
   migrate,
   revokeToken,
   verifyToken,
@@ -129,7 +131,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(15);
+      expect(names).toHaveLength(18);
       await client.close();
     });
   });
@@ -414,6 +416,111 @@ describe('createMcpApp', () => {
       const result = await client.callTool({
         name: 'get_next_task',
         arguments: { project_id: '00000000-0000-4000-8000-000000009999' },
+      });
+      expect(result.isError).toBe(true);
+      await client.close();
+    });
+  });
+
+  it('list_comments, add_comment, and resolve_comment work via MCP', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db, eventBus }) => {
+      const received: PlankDeskEvent[] = [];
+      eventBus.subscribe((event) => {
+        received.push(event);
+      });
+
+      const doc = createDocument(db, { projectId, title: 'Review doc' });
+      const resolved = createDocumentComment(db, { documentId: doc.id, body: 'Already done' });
+      updateDocumentComment(db, resolved.id, { resolved: true });
+      const open = createDocumentComment(db, { documentId: doc.id, body: 'Still open' });
+
+      const client = await connectClient(baseUrl, token);
+
+      const listed = await client.callTool({
+        name: 'list_comments',
+        arguments: { project_id: projectId },
+      });
+      expect(listed.isError).not.toBe(true);
+      const listContent = listed.content as Array<{ type: string; text?: string }>;
+      const listText = listContent[0]?.type === 'text' ? (listContent[0].text ?? '[]') : '[]';
+      const listPayload = JSON.parse(listText) as {
+        comments: Array<{ id: string; body: string; resolved: boolean }>;
+      };
+      expect(listPayload.comments).toHaveLength(1);
+      expect(listPayload.comments[0]?.id).toBe(open.id);
+      expect(listPayload.comments[0]?.resolved).toBe(false);
+
+      const added = await client.callTool({
+        name: 'add_comment',
+        arguments: { document_id: doc.id, body: 'Agent suggestion', passage: '§3' },
+      });
+      expect(added.isError).not.toBe(true);
+      const addedContent = added.content as Array<{ type: string; text?: string }>;
+      const addedText = addedContent[0]?.type === 'text' ? (addedContent[0].text ?? '{}') : '{}';
+      const addedPayload = JSON.parse(addedText) as {
+        comment: { id: string; body: string; passage: string | null };
+      };
+      expect(addedPayload.comment.body).toBe('Agent suggestion');
+      expect(addedPayload.comment.passage).toBe('§3');
+      expect(received.some((e) => e.type === 'comment_created')).toBe(true);
+
+      const resolvedResult = await client.callTool({
+        name: 'resolve_comment',
+        arguments: { comment_id: addedPayload.comment.id },
+      });
+      expect(resolvedResult.isError).not.toBe(true);
+      const resolvedContent = resolvedResult.content as Array<{ type: string; text?: string }>;
+      const resolvedText =
+        resolvedContent[0]?.type === 'text' ? (resolvedContent[0].text ?? '{}') : '{}';
+      const resolvedPayload = JSON.parse(resolvedText) as {
+        comment: { resolved: boolean };
+      };
+      expect(resolvedPayload.comment.resolved).toBe(true);
+
+      await client.close();
+    });
+  });
+
+  it('list_comments rejects cross-project document_id', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+      const otherProject = createProject(db, { name: 'Other project' });
+      const foreignDoc = createDocument(db, { projectId: otherProject.id, title: 'Foreign' });
+
+      const client = await connectClient(baseUrl, token);
+      const result = await client.callTool({
+        name: 'list_comments',
+        arguments: { project_id: projectId, document_id: foreignDoc.id },
+      });
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const text = content[0]?.type === 'text' ? (content[0].text ?? '') : '';
+      expect(text).toMatch(/invalid_argument/i);
+      await client.close();
+    });
+  });
+
+  it('add_comment returns invalid_argument for empty body', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+      const doc = createDocument(db, { projectId, title: 'Doc' });
+      const client = await connectClient(baseUrl, token);
+      const result = await client.callTool({
+        name: 'add_comment',
+        arguments: { document_id: doc.id, body: '   ' },
+      });
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const text = content[0]?.type === 'text' ? (content[0].text ?? '') : '';
+      expect(text).toMatch(/invalid_argument/i);
+      await client.close();
+    });
+  });
+
+  it('resolve_comment returns not_found for missing comment', async () => {
+    await withMcpServer(async ({ baseUrl, token }) => {
+      const client = await connectClient(baseUrl, token);
+      const result = await client.callTool({
+        name: 'resolve_comment',
+        arguments: { comment_id: '00000000-0000-4000-8000-000000009999' },
       });
       expect(result.isError).toBe(true);
       await client.close();

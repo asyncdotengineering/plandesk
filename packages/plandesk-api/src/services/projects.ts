@@ -6,6 +6,7 @@ import {
   createTask,
   deleteAgentRun,
   deleteAgentRunEventsByRunId,
+  deleteCommentsByProjectId,
   deleteDocumentsByProjectId,
   deleteEdgesByProjectId,
   deleteProject as dbDeleteProject,
@@ -194,6 +195,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
         }
         deleteEdgesByProjectId(tx, id);
         clearDocumentParentRefsByProject(tx, id);
+        deleteCommentsByProjectId(tx, id);
         deleteDocumentsByProjectId(tx, id);
         deleteTasksByProjectId(tx, id);
         dbDeleteProject(tx, id);

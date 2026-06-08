@@ -1,6 +1,7 @@
 import type { Db } from '@plandesk/db';
 import { createEventBus, type EventBus } from '../events.js';
 import { createCanvasService, type CanvasService } from './canvas.js';
+import { createCommentService, type CommentService } from './comments.js';
 import { createDocumentService, type DocumentService } from './documents.js';
 import { createProjectService, type ProjectService } from './projects.js';
 import { createAgentRunService, type AgentRunService } from './agent-runs.js';
@@ -18,6 +19,7 @@ export type Services = {
   taskService: TaskService;
   canvasService: CanvasService;
   documentService: DocumentService;
+  commentService: CommentService;
   agentRunService: AgentRunService;
   tokenService: TokenService;
 };
@@ -28,6 +30,7 @@ export function createServices(deps: ServicesDeps): Services {
   const taskService = createTaskService({ db: deps.db, eventBus });
   const canvasService = createCanvasService({ db: deps.db, eventBus });
   const documentService = createDocumentService({ db: deps.db, eventBus });
+  const commentService = createCommentService({ db: deps.db, eventBus });
   const agentRunService = createAgentRunService({ db: deps.db, eventBus });
   const tokenService = createTokenService({ db: deps.db });
 
@@ -37,6 +40,7 @@ export function createServices(deps: ServicesDeps): Services {
     taskService,
     canvasService,
     documentService,
+    commentService,
     agentRunService,
     tokenService,
   };
