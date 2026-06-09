@@ -66,8 +66,13 @@ description: REST endpoints and MCP tools exposed by Plan Desk v1.
 | `start_agent_run`            | Begin external agent session                         |
 | `record_agent_progress`      | Append progress event                                |
 | `complete_agent_run`         | Close run (completed or failed)                      |
+| `publish_project`            | Register + first-push a project to a sync server     |
+| `sync_push`                  | Push the allow-list projection to shares             |
+| `sync_pull`                  | Fetch participant submissions into the triage inbox  |
+| `list_submissions`           | List pulled submissions (triage inbox)               |
+| `triage_submission`          | Accept a submission → real task (or reject)          |
 
-18 tools in total. At session start, list tools before calling them. Resolve the project from `.plandesk/config.json` when present — do not guess IDs. To stand up a whole plan at once use `scaffold_project_from_plan`; to execute it, loop `get_next_task` → `update_task`. There is no delete tool by design — resolve comments rather than deleting them.
+23 tools in total. The last five are the [collaboration tier](/reference/collaboration/) — sharing a project with a client or team. At session start, list tools before calling them. Resolve the project from `.plandesk/config.json` when present — do not guess IDs. To stand up a whole plan at once use `scaffold_project_from_plan`; to execute it, loop `get_next_task` → `update_task`. There is no delete tool by design — resolve comments rather than deleting them.
 
 ### Error cases
 

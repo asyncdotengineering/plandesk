@@ -1,6 +1,6 @@
 ---
 title: CLI Reference
-description: plandesk commands — init, serve, token, export, import, connect, disconnect, doctor.
+description: plandesk commands — init, serve, token, export, import, connect, disconnect, doctor, and the collaboration tier (publish, push, pull, sync, share, deploy).
 ---
 
 Install the CLI globally from npm (Node ≥ 20):
@@ -20,6 +20,14 @@ plandesk import --in <file.json> [--data-dir <dir>]
 plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
 plandesk disconnect [--repo <dir>]
 plandesk doctor [--data-dir <dir>] [--repo <dir>]
+
+# Collaboration (share a project with a client or team)
+plandesk publish --remote <url> [--project <id>] [--sync-token <t>] [--repo <dir>]
+plandesk push [--project <id>] [--repo <dir>]
+plandesk pull [--project <id>] [--repo <dir>]
+plandesk sync --watch [--project <id>] [--repo <dir>]
+plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>]
+plandesk deploy [target]
 ```
 
 ## Commands
@@ -32,6 +40,21 @@ plandesk doctor [--data-dir <dir>] [--repo <dir>]
 | `export` / `import`      | Lossless `plandesk-export-v1` JSON round-trip                       |
 | `connect` / `disconnect` | Bind / unbind a repo to a project + agent configs                   |
 | `doctor`                 | Check DB health; with `--repo`, validate binding + MCP reachability |
+
+## Collaboration
+
+Share a planned project with a client or another team over a read-only live portal, and take their issues back into your plan. Full walkthrough: [Plan → share → build with your team](/guides/plan-share-build/); architecture: [Collaboration & sync](/reference/collaboration/).
+
+| Command        | Purpose                                                                           |
+| -------------- | --------------------------------------------------------------------------------- |
+| `deploy`       | List deploy guides; `deploy <target>` prints one for a coding agent to run        |
+| `publish`      | Register a project with a sync server + first push (writes git-ignored token)     |
+| `push`         | Push the allow-list projection for each active share                              |
+| `pull`         | Fetch participant submissions into the local triage inbox                         |
+| `sync --watch` | Stream local changes to the portal (~2s) so participants see status live          |
+| `share create` | Mint a participant share (token shown once); prints the `<portal>/p/<token>` link |
+
+`share create` flags: `--public` (open named-join) or `--invite a@b,c@d` (invite-only); `--allow-submit` (let the audience file issues); `--expires 30d` (`h`/`d`/`w`). The sync token lives only in git-ignored `.plandesk/sync-token` (or `PLANDESK_SYNC_TOKEN`); participant tokens are stored hashed.
 
 ## Options
 

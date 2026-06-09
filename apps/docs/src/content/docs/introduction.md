@@ -22,7 +22,7 @@ The agent installs the CLI, starts the local server, creates or binds a project,
 - **Canvas** — directed labeled edges between task nodes
 - **Docs on nodes** — attach specs to tasks; open a node to reach its primary doc in one click
 - **Board** — kanban view sharing the same task status as the canvas (single source of truth)
-- **MCP** — 18 tools for agents to scaffold plans, pick the next task, read/write tasks, docs, comments, and agent runs
+- **MCP** — 23 tools for agents to scaffold plans, pick the next task, read/write tasks, docs, comments, and agent runs
 - **Portable data** — lossless `plandesk-export-v1` JSON export/import
 
 ## Next steps

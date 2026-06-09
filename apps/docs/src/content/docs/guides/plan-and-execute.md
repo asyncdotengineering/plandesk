@@ -74,7 +74,7 @@ Open Claude Code or Codex in the bound repo and point it at Plan Desk. Example p
 
 > Use Plan Desk MCP. Inspect this project, read the tasks, documents, and edges. Start an agent run. Pick the next `todo` task that isn't blocked, explain the relevant files, make the smallest safe change, update the task to `in_progress` then `done`, record progress, and complete the run. Do not delete tasks.
 
-The agent works through Plan Desk's 18 MCP tools and resolves the project from `.plandesk/config.json` — no guessing IDs. Two make the loop tight:
+The agent works through Plan Desk's 23 MCP tools and resolves the project from `.plandesk/config.json` — no guessing IDs. Two make the loop tight:
 
 - **`get_next_task`** returns the next actionable `todo` task — one whose prerequisite tasks are all `done` — plus the blocked tasks and what each is waiting on. The agent loops `get_next_task` → read the linked doc → `update_task` to `in_progress` → do the work → `update_task` to `done`, until nothing actionable remains. No need to eyeball the graph for what's unblocked.
 - **`scaffold_project_from_plan`** lets the agent stand up an entire plan — project, tasks, dependency edges, and linked spec docs — in one atomic call (see _Plan with an agent_ below).
