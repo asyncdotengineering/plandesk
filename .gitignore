@@ -11,6 +11,9 @@ coverage/
 .handoff/
 sprints/
 plandesk-manager-notes.md
+*-manager-notes.md
+*-implementation-notes.md
+*-scratchpad.md
 
 # bundled SPA (build artifact, generated at pack time)
 packages/plandesk-api/web/
