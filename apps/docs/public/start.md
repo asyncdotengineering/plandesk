@@ -6,9 +6,10 @@ plan work on a graph and have an agent execute it over MCP — then hand off to 
 fresh session where the Plan Desk tools are live.
 
 Plan Desk is a local-first planning workspace: a flow canvas of task nodes with
-labeled dependency edges, specs attached to nodes, a board, and an MCP server (18
+labeled dependency edges, specs attached to nodes, a board, and an MCP server (23
 tools) agents use to read and update the plan. Data lives in a local SQLite file.
-Docs: https://plandesk.asyncdot.com
+Docs: https://plandesk.asyncdot.com — or, once the CLI is installed (step 2), run
+`plandesk help` for a crash course and the exact docs to read.
 
 **This is a two-phase setup. Read all of it before running anything.**
 
@@ -49,6 +50,9 @@ repo so your naming fits:
 ```bash
 # Install if missing (Node >= 20)
 plandesk --version || npm i -g @plandesk/cli
+
+# Orient yourself (and the user) — a crash course + the docs to read, from the CLI:
+plandesk help
 
 # Initialize the local workspace DB (idempotent; ~/.plandesk/workspace.db)
 plandesk init
@@ -123,8 +127,9 @@ Confirm all of:
 Setup is done. Tell the user, verbatim:
 
 > Plan Desk is connected to this repo. **Start a new agent session here** so the Plan
-> Desk MCP tools load (you'll see 18 tools). Make sure `PLANDESK_MCP_TOKEN` is
+> Desk MCP tools load (you'll see 23 tools). Make sure `PLANDESK_MCP_TOKEN` is
 > exported in that session: `export PLANDESK_MCP_TOKEN="$(cat .plandesk/token)"`.
+> Anytime, run `plandesk help` for a refresher and the docs worth reading.
 
 Then, in that fresh session, the agent turns the repo's goals into a plan and
 executes it. A good first prompt for the user to run there:
