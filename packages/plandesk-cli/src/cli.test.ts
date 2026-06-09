@@ -28,6 +28,15 @@ describe('parseArgs', () => {
     expect(parseArgs(['node', 'plandesk', 'serve'])).toEqual({
       command: 'serve',
       port: DEFAULT_PORT,
+      strictPort: false,
+    });
+  });
+
+  it('parses serve with --strict-port', () => {
+    expect(parseArgs(['node', 'plandesk', 'serve', '--strict-port'])).toEqual({
+      command: 'serve',
+      port: DEFAULT_PORT,
+      strictPort: true,
     });
   });
 
@@ -49,6 +58,7 @@ describe('parseArgs', () => {
       port: 4000,
       host: '0.0.0.0',
       dataDir: '/tmp/ws',
+      strictPort: false,
     });
   });
 
@@ -199,10 +209,8 @@ describe('startServer', () => {
     rmSync(dataDir, { recursive: true, force: true });
   });
 
-  it('exits 1 when the port is already in use', async () => {
-    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-busy-'));
-    runInit(dataDir);
-    const port = await new Promise<number>((resolve) => {
+  async function blockedPort(): Promise<number> {
+    return new Promise<number>((resolve) => {
       const blocker = createServer();
       blocker.listen(0, DEFAULT_BIND_HOST, () => {
         const address = blocker.address();
@@ -213,26 +221,49 @@ describe('startServer', () => {
       });
       servers.push(blocker);
     });
+  }
+
+  it('rotates to the next free port when the requested port is in use', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-rotate-'));
+    runInit(dataDir);
+    const port = await blockedPort();
 
     let exitCode = 0;
     const exit = ((code: number) => {
       exitCode = code;
     }) as (code: number) => never;
 
-    startServer({ port, dataDir }, exit);
+    const server = startServer({ port, dataDir }, exit);
+    servers.push(server);
 
-    await expect(
-      new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => {
-          if (exitCode === 1) {
-            resolve();
-            return;
-          }
-          reject(new Error(`expected exit 1, got ${String(exitCode)}`));
-        }, 200);
-        timer.unref();
-      }),
-    ).resolves.toBeUndefined();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    const address = server.address();
+    const boundPort = typeof address === 'object' && address !== null ? address.port : 0;
+    expect(exitCode).toBe(0);
+    expect(boundPort).not.toBe(port);
+    expect(boundPort).toBeGreaterThan(port);
+
+    const res = await fetch(`http://${DEFAULT_BIND_HOST}:${String(boundPort)}/api/v1/health`);
+    expect(res.status).toBe(200);
+
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  it('exits 1 in strict-port mode when the port is in use', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-strict-'));
+    runInit(dataDir);
+    const port = await blockedPort();
+
+    let exitCode = 0;
+    const exit = ((code: number) => {
+      exitCode = code;
+    }) as (code: number) => never;
+
+    startServer({ port, dataDir, strictPort: true }, exit);
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(exitCode).toBe(1);
 
     rmSync(dataDir, { recursive: true, force: true });
   });

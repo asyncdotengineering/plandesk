@@ -44,7 +44,7 @@ These fail loudly with the exact next step — here's what each means:
 
 ## The server
 
-**`port already in use`** (on `serve` or the sync server). Something's already on that port. Use a different one — `plandesk serve --port 3850`, or `PORT=3850` for the sync server — or stop the other process (`lsof -i :3847`).
+**Port already in use.** `plandesk serve` **auto-rotates** to the next free port (3847 → 3848 → …, Vite/Expo-style) and prints the URL it actually started on — so it just works. One caveat: an agent you connected with `plandesk connect` expects the original port (3847); if `serve` rotated, either stop the other process on 3847 or reconnect with `--url http://127.0.0.1:<actual-port>`. Use `plandesk serve --strict-port` to fail instead of rotating. The **sync server** does not rotate — give it a free `PORT` explicitly.
 
 **Binding to a non-loopback host is refused.** Serving on anything other than `127.0.0.1`/`localhost` requires a password: set `PLANDESK_AUTH_PASSWORD` before `plandesk serve --host 0.0.0.0`.
 

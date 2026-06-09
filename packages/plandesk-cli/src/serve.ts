@@ -16,7 +16,11 @@ export type ServeOptions = {
   dataDir?: string;
   host?: string;
   authPassword?: string;
+  strictPort?: boolean;
 };
+
+/** How many sequential ports to try before giving up (Vite/Expo-style rotation). */
+export const PORT_ROTATE_ATTEMPTS = 20;
 
 export type ExitFn = (code: number) => never;
 
@@ -74,12 +78,44 @@ export function startServer(options: ServeOptions, exit: ExitFn = defaultExit): 
   const server = createServer((req, res) => {
     void getRequestListener(app.fetch)(req, res);
   });
-  server.on('error', createListenErrorHandler(options.port, exit));
-  server.listen(options.port, host, () => {
+
+  const logListening = (): void => {
     const address = server.address();
-    const port = typeof address === 'object' && address !== null ? address.port : options.port;
-    process.stdout.write(`Plan Desk → http://${host}:${String(port)}\n`);
+    const boundPort = typeof address === 'object' && address !== null ? address.port : options.port;
+    process.stdout.write(`Plan Desk → http://${host}:${String(boundPort)}\n`);
+    if (boundPort !== options.port) {
+      process.stdout.write(
+        `Note: port ${String(options.port)} was in use — started on ${String(boundPort)}. ` +
+          `An agent connected via 'plandesk connect' expects ${String(options.port)} and won't reach this instance; ` +
+          `stop the other server, or reconnect with --url http://${host}:${String(boundPort)}.\n`,
+      );
+    }
+  };
+
+  // Strict mode: bind the requested port or fail (Vite's strictPort).
+  if (options.strictPort === true) {
+    server.on('error', createListenErrorHandler(options.port, exit));
+    server.listen(options.port, host, logListening);
+    return server;
+  }
+
+  // Default: rotate to the next free port (Vite/Expo-style).
+  let attempt = 0;
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code !== 'EADDRINUSE') {
+      throw err;
+    }
+    attempt += 1;
+    if (attempt >= PORT_ROTATE_ATTEMPTS) {
+      const last = options.port + PORT_ROTATE_ATTEMPTS - 1;
+      process.stderr.write(`Error: ports ${String(options.port)}-${String(last)} are all in use\n`);
+      exit(1);
+      return;
+    }
+    server.listen(options.port + attempt, host);
   });
+  server.once('listening', logListening);
+  server.listen(options.port, host);
 
   return server;
 }

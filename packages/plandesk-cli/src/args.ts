@@ -52,7 +52,7 @@ export type ConnectAgent = 'claude' | 'codex' | 'both' | 'detect';
 
 export type ParsedArgs =
   | { command: 'init'; dataDir?: string }
-  | { command: 'serve'; port: number; dataDir?: string; host?: string }
+  | { command: 'serve'; port: number; dataDir?: string; host?: string; strictPort: boolean }
   | { command: 'token'; subcommand: 'create'; name: string; dataDir?: string }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
@@ -169,7 +169,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   if (command === 'serve') {
     const port = parsePort(flagString(flags, 'port')) ?? DEFAULT_PORT;
-    return { command: 'serve', port, dataDir, host: flagString(flags, 'host') };
+    return {
+      command: 'serve',
+      port,
+      dataDir,
+      host: flagString(flags, 'host'),
+      strictPort: flags['strict-port'] === true,
+    };
   }
 
   if (command === 'token') {
@@ -307,7 +313,7 @@ export function usage(): string {
 
 Usage:
   plandesk init [--data-dir <dir>]
-  plandesk serve [--port ${String(DEFAULT_PORT)}] [--host <addr>] [--data-dir <dir>]
+  plandesk serve [--port ${String(DEFAULT_PORT)}] [--strict-port] [--host <addr>] [--data-dir <dir>]
   plandesk token create --name <name> [--data-dir <dir>]
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]

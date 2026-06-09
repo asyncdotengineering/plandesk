@@ -13,7 +13,7 @@ This provides the `plandesk` binary and bundles the web UI. All commands below a
 
 ```
 plandesk init [--data-dir <dir>]
-plandesk serve [--port 3847] [--host <addr>] [--data-dir <dir>]
+plandesk serve [--port 3847] [--strict-port] [--host <addr>] [--data-dir <dir>]
 plandesk token create --name <name> [--data-dir <dir>]
 plandesk export --project <id> --out <file.json> [--data-dir <dir>]
 plandesk import --in <file.json> [--data-dir <dir>]
@@ -58,19 +58,20 @@ Share a planned project with a client or another team over a read-only live port
 
 ## Options
 
-| Flag         | Default                 | Purpose                                   |
-| ------------ | ----------------------- | ----------------------------------------- |
-| `--data-dir` | `~/.plandesk`           | Workspace directory (`PLANDESK_DATA_DIR`) |
-| `--repo`     | cwd                     | Target repository directory               |
-| `--port`     | `3847`                  | HTTP port for serve                       |
-| `--host`     | `127.0.0.1`             | Bind address (`PLANDESK_HOST`)            |
-| `--project`  | —                       | Project id or name for connect/export     |
-| `--url`      | `http://127.0.0.1:3847` | Plan Desk server URL for connect          |
-| `--token`    | —                       | MCP token for connect                     |
-| `--agent`    | detect                  | Agent config target for connect           |
-| `--print`    | —                       | Dry-run connect without writing files     |
-| `--out`      | —                       | Output file for export                    |
-| `--in`       | —                       | Input file for import                     |
+| Flag            | Default                 | Purpose                                                                    |
+| --------------- | ----------------------- | -------------------------------------------------------------------------- |
+| `--data-dir`    | `~/.plandesk`           | Workspace directory (`PLANDESK_DATA_DIR`)                                  |
+| `--repo`        | cwd                     | Target repository directory                                                |
+| `--port`        | `3847`                  | Preferred HTTP port for serve (auto-rotates to the next free port if busy) |
+| `--strict-port` | —                       | Fail instead of rotating when the port is in use                           |
+| `--host`        | `127.0.0.1`             | Bind address (`PLANDESK_HOST`)                                             |
+| `--project`     | —                       | Project id or name for connect/export                                      |
+| `--url`         | `http://127.0.0.1:3847` | Plan Desk server URL for connect                                           |
+| `--token`       | —                       | MCP token for connect                                                      |
+| `--agent`       | detect                  | Agent config target for connect                                            |
+| `--print`       | —                       | Dry-run connect without writing files                                      |
+| `--out`         | —                       | Output file for export                                                     |
+| `--in`          | —                       | Input file for import                                                      |
 
 ## Environment variables
 
