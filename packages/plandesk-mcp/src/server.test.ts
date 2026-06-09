@@ -540,8 +540,8 @@ describe('createMcpApp', () => {
 
   it('publish_project round-trips sync loop through triage accept', async () => {
     const syncDb = createSyncDb(':memory:');
-    migrateSyncServer(syncDb);
-    const { token: syncToken } = createSyncToken(syncDb, { label: 'mcp-test' });
+    await migrateSyncServer(syncDb);
+    const { token: syncToken } = await createSyncToken(syncDb, { label: 'mcp-test' });
     const syncApp = createSyncServer({ db: syncDb });
     const syncServer = createServer((req, res) => {
       void getRequestListener(syncApp.fetch)(req, res);

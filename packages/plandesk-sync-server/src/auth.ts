@@ -16,9 +16,12 @@ export function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
 }
 
-export function verifySyncToken(db: SyncDbClient, raw: string): { id: string } | undefined {
+export async function verifySyncToken(
+  db: SyncDbClient,
+  raw: string,
+): Promise<{ id: string } | undefined> {
   const tokenHash = hashToken(raw);
-  const row = db
+  const row = await db
     .select({ id: syncTokens.id })
     .from(syncTokens)
     .where(and(eq(syncTokens.tokenHash, tokenHash), isNull(syncTokens.revokedAt)))
@@ -27,10 +30,13 @@ export function verifySyncToken(db: SyncDbClient, raw: string): { id: string } |
   return row ?? undefined;
 }
 
-export function verifyShareToken(db: SyncDbClient, raw: string): HostedShare | undefined {
+export async function verifyShareToken(
+  db: SyncDbClient,
+  raw: string,
+): Promise<HostedShare | undefined> {
   const tokenHash = hashToken(raw);
   const now = new Date();
-  const row = db
+  const row = await db
     .select()
     .from(hostedShares)
     .where(
@@ -55,15 +61,16 @@ function isShareActive(share: HostedShare): boolean {
   return true;
 }
 
-export function createParticipantSession(
+export async function createParticipantSession(
   db: SyncDbClient,
   input: { shareId: string; name: string; email?: string },
-): { participant: Participant; token: string } {
+): Promise<{ participant: Participant; token: string }> {
   const id = randomUUID();
   const token = `plandesk_pt_${randomBytes(32).toString('base64url')}`;
   const sessionTokenHash = hashToken(token);
 
-  db.insert(participants)
+  await db
+    .insert(participants)
     .values({
       id,
       shareId: input.shareId,
@@ -74,7 +81,7 @@ export function createParticipantSession(
     })
     .run();
 
-  const participant = db.select().from(participants).where(eq(participants.id, id)).get();
+  const participant = await db.select().from(participants).where(eq(participants.id, id)).get();
   if (participant === undefined) {
     throw new Error('failed to create participant');
   }
@@ -82,12 +89,12 @@ export function createParticipantSession(
   return { participant, token };
 }
 
-export function verifyParticipantSession(
+export async function verifyParticipantSession(
   db: SyncDbClient,
   raw: string,
-): { participant: Participant; share: HostedShare } | undefined {
+): Promise<{ participant: Participant; share: HostedShare } | undefined> {
   const sessionTokenHash = hashToken(raw);
-  const participant = db
+  const participant = await db
     .select()
     .from(participants)
     .where(and(eq(participants.sessionTokenHash, sessionTokenHash), isNull(participants.revokedAt)))
@@ -97,7 +104,7 @@ export function verifyParticipantSession(
     return undefined;
   }
 
-  const share = db
+  const share = await db
     .select()
     .from(hostedShares)
     .where(eq(hostedShares.id, participant.shareId))
@@ -110,7 +117,7 @@ export function verifyParticipantSession(
   return { participant, share };
 }
 
-export function logActivity(
+export async function logActivity(
   db: SyncDbClient,
   input: {
     shareId: string;
@@ -118,8 +125,9 @@ export function logActivity(
     action: ActivityAction;
     detail?: string;
   },
-): void {
-  db.insert(activityLog)
+): Promise<void> {
+  await db
+    .insert(activityLog)
     .values({
       id: randomUUID(),
       shareId: input.shareId,
@@ -131,12 +139,16 @@ export function logActivity(
     .run();
 }
 
-export function createSyncToken(db: SyncDbClient, input: { label: string }): { token: string } {
+export async function createSyncToken(
+  db: SyncDbClient,
+  input: { label: string },
+): Promise<{ token: string }> {
   const id = randomUUID();
   const token = `plandesk_sync_${randomBytes(32).toString('base64url')}`;
   const tokenHash = hashToken(token);
 
-  db.insert(syncTokens)
+  await db
+    .insert(syncTokens)
     .values({
       id,
       tokenHash,

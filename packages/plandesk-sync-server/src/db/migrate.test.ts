@@ -1,5 +1,6 @@
+import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { createSyncDb } from './client.js';
+import { createSyncDb, type SyncDb } from './client.js';
 import { migrate } from './migrate.js';
 
 const EXPECTED_TABLES = [
@@ -11,36 +12,35 @@ const EXPECTED_TABLES = [
   'sync_tokens',
 ] as const;
 
-function listTables(db: ReturnType<typeof createSyncDb>): string[] {
-  const rows = db.$client
-    .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-    .all() as { name: string }[];
+async function listTables(db: SyncDb): Promise<string[]> {
+  const rows = await db.all<{ name: string }>(
+    sql`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`,
+  );
   return rows.map((row) => row.name);
 }
 
 describe('migrate', () => {
-  it('creates all hosted tables on a fresh database', () => {
+  it('creates all hosted tables on a fresh database', async () => {
     const db = createSyncDb(':memory:');
-    migrate(db);
-    const tables = listTables(db);
+    await migrate(db);
+    const tables = await listTables(db);
     for (const table of EXPECTED_TABLES) {
       expect(tables).toContain(table);
     }
   });
 
-  it('is idempotent when run twice', () => {
+  it('is idempotent when run twice', async () => {
     const db = createSyncDb(':memory:');
-    migrate(db);
-    const afterFirst = listTables(db);
-    expect(() => {
-      migrate(db);
-    }).not.toThrow();
-    expect(listTables(db)).toEqual(afterFirst);
+    await migrate(db);
+    const afterFirst = await listTables(db);
+    await expect(migrate(db)).resolves.toBeUndefined();
+    expect(await listTables(db)).toEqual(afterFirst);
   });
 
-  it('adds mode and invited_emails columns to hosted_shares', () => {
+  it('adds mode and invited_emails columns to hosted_shares', async () => {
     const db = createSyncDb(':memory:');
-    db.$client.exec(`
+    await db.run(
+      sql.raw(`
       CREATE TABLE hosted_shares (
         id TEXT PRIMARY KEY NOT NULL,
         project_global_id TEXT NOT NULL,
@@ -52,12 +52,11 @@ describe('migrate', () => {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
-    `);
-    migrate(db);
+    `),
+    );
+    await migrate(db);
 
-    const columns = db.$client.prepare('PRAGMA table_info(hosted_shares)').all() as Array<{
-      name: string;
-    }>;
+    const columns = await db.all<{ name: string }>(sql.raw('PRAGMA table_info(hosted_shares)'));
     const names = columns.map((column) => column.name);
     expect(names).toContain('mode');
     expect(names).toContain('invited_emails');

@@ -7,6 +7,6 @@ const port = Number(process.env['PORT'] ?? 3848);
 const dbPath = process.env['SYNC_DB_PATH'] ?? './sync.db';
 
 const db = createSyncDb(dbPath);
-migrate(db);
+await migrate(db);
 
 serve({ fetch: createSyncServer({ db }).fetch, port });

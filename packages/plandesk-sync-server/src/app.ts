@@ -88,7 +88,7 @@ type SubmissionBody = {
   task_ref?: string;
 };
 
-function verifyParticipantSessionForShare(
+async function verifyParticipantSessionForShare(
   db: SyncDb,
   shareToken: string,
   sessionRaw: string | undefined,
@@ -96,7 +96,7 @@ function verifyParticipantSessionForShare(
   if (sessionRaw === undefined) {
     return undefined;
   }
-  const session = verifyParticipantSession(db, sessionRaw);
+  const session = await verifyParticipantSession(db, sessionRaw);
   if (session === undefined) {
     return undefined;
   }
@@ -122,7 +122,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
 
   app.put('/api/sync/v1/projects/:gid/projection', async (c) => {
     const raw = extractBearerToken(c.req.header('Authorization'));
-    if (raw === undefined || verifySyncToken(deps.db, raw) === undefined) {
+    if (raw === undefined || (await verifySyncToken(deps.db, raw)) === undefined) {
       return c.json({ error: 'unauthorized' }, 401);
     }
 
@@ -140,7 +140,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     const mode: ShareMode = body.share.mode ?? 'invite';
     const invitedEmailsJson = JSON.stringify((body.share.invited_emails ?? []).map(normalizeEmail));
 
-    const existing = deps.db
+    const existing = await deps.db
       .select({ id: hostedShares.id })
       .from(hostedShares)
       .where(eq(hostedShares.tokenHash, body.share.token_hash))
@@ -149,7 +149,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     let shareId: string;
     if (existing !== undefined) {
       shareId = existing.id;
-      deps.db
+      await deps.db
         .update(hostedShares)
         .set({
           projectGlobalId: gid,
@@ -165,7 +165,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
         .run();
     } else {
       shareId = randomUUID();
-      deps.db
+      await deps.db
         .insert(hostedShares)
         .values({
           id: shareId,
@@ -182,7 +182,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
         .run();
     }
 
-    const blobExisting = deps.db
+    const blobExisting = await deps.db
       .select({ id: projectionBlobs.id })
       .from(projectionBlobs)
       .where(eq(projectionBlobs.shareId, shareId))
@@ -190,7 +190,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
 
     const viewJson = JSON.stringify(body.view);
     if (blobExisting !== undefined) {
-      deps.db
+      await deps.db
         .update(projectionBlobs)
         .set({
           version: body.version,
@@ -200,7 +200,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
         .where(eq(projectionBlobs.shareId, shareId))
         .run();
     } else {
-      deps.db
+      await deps.db
         .insert(projectionBlobs)
         .values({
           id: randomUUID(),
@@ -217,9 +217,9 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     return c.json({ ok: true });
   });
 
-  app.get('/api/sync/v1/projects/:gid/submissions', (c) => {
+  app.get('/api/sync/v1/projects/:gid/submissions', async (c) => {
     const raw = extractBearerToken(c.req.header('Authorization'));
-    if (raw === undefined || verifySyncToken(deps.db, raw) === undefined) {
+    if (raw === undefined || (await verifySyncToken(deps.db, raw)) === undefined) {
       return c.json({ error: 'unauthorized' }, 401);
     }
 
@@ -232,7 +232,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
       conditions.push(gt(submissions.createdAt, since));
     }
 
-    const rows = deps.db
+    const rows = await deps.db
       .select({
         id: submissions.id,
         shareId: submissions.shareId,
@@ -276,7 +276,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
 
   app.post('/api/sync/v1/projects/:gid/submissions/:id/ack', async (c) => {
     const raw = extractBearerToken(c.req.header('Authorization'));
-    if (raw === undefined || verifySyncToken(deps.db, raw) === undefined) {
+    if (raw === undefined || (await verifySyncToken(deps.db, raw)) === undefined) {
       return c.json({ error: 'unauthorized' }, 401);
     }
 
@@ -294,7 +294,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     const gid = c.req.param('gid');
     const submissionId = c.req.param('id');
 
-    const row = deps.db
+    const row = await deps.db
       .select({ id: submissions.id })
       .from(submissions)
       .innerJoin(hostedShares, eq(submissions.shareId, hostedShares.id))
@@ -305,7 +305,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
       return c.json({ error: 'not_found' }, 404);
     }
 
-    deps.db
+    await deps.db
       .update(submissions)
       .set({ status: body.status })
       .where(eq(submissions.id, submissionId))
@@ -314,14 +314,14 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     return c.json({ ok: true });
   });
 
-  app.post('/api/sync/v1/shares/:token/revoke', (c) => {
+  app.post('/api/sync/v1/shares/:token/revoke', async (c) => {
     const raw = extractBearerToken(c.req.header('Authorization'));
-    if (raw === undefined || verifySyncToken(deps.db, raw) === undefined) {
+    if (raw === undefined || (await verifySyncToken(deps.db, raw)) === undefined) {
       return c.json({ error: 'unauthorized' }, 401);
     }
 
     const shareToken = c.req.param('token');
-    const share = deps.db
+    const share = await deps.db
       .select({ id: hostedShares.id })
       .from(hostedShares)
       .where(eq(hostedShares.tokenHash, hashToken(shareToken)))
@@ -331,7 +331,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
       return c.json({ error: 'not_found' }, 404);
     }
 
-    deps.db
+    await deps.db
       .update(hostedShares)
       .set({ revokedAt: new Date(), updatedAt: new Date() })
       .where(eq(hostedShares.id, share.id))
@@ -340,9 +340,9 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     return c.json({ ok: true });
   });
 
-  app.get('/api/portal/v1/shares/:token/events', (c) => {
+  app.get('/api/portal/v1/shares/:token/events', async (c) => {
     const shareToken = c.req.param('token');
-    const share = verifyShareToken(deps.db, shareToken);
+    const share = await verifyShareToken(deps.db, shareToken);
     if (share === undefined) {
       return c.json({ error: 'unauthorized' }, 401);
     }
@@ -391,9 +391,9 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     });
   });
 
-  app.get('/api/portal/v1/shares/:token/meta', (c) => {
+  app.get('/api/portal/v1/shares/:token/meta', async (c) => {
     const shareToken = c.req.param('token');
-    const share = verifyShareToken(deps.db, shareToken);
+    const share = await verifyShareToken(deps.db, shareToken);
     if (share === undefined) {
       return c.json({ error: 'unauthorized' }, 401);
     }
@@ -406,7 +406,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
 
   app.post('/api/portal/v1/shares/:token/join', async (c) => {
     const shareToken = c.req.param('token');
-    const share = verifyShareToken(deps.db, shareToken);
+    const share = await verifyShareToken(deps.db, shareToken);
     if (share === undefined) {
       return c.json({ error: 'unauthorized' }, 401);
     }
@@ -427,13 +427,13 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
       return c.json({ error: 'email_not_invited' }, 403);
     }
 
-    const { participant, token: sessionToken } = createParticipantSession(deps.db, {
+    const { participant, token: sessionToken } = await createParticipantSession(deps.db, {
       shareId: share.id,
       name,
       email: body.email,
     });
 
-    logActivity(deps.db, {
+    await logActivity(deps.db, {
       shareId: share.id,
       participantId: participant.id,
       action: 'join',
@@ -448,15 +448,15 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     });
   });
 
-  app.get('/api/portal/v1/shares/:token/view', (c) => {
+  app.get('/api/portal/v1/shares/:token/view', async (c) => {
     const shareToken = c.req.param('token');
     const sessionRaw = extractBearerToken(c.req.header('Authorization'));
-    const session = verifyParticipantSessionForShare(deps.db, shareToken, sessionRaw);
+    const session = await verifyParticipantSessionForShare(deps.db, shareToken, sessionRaw);
     if (session === undefined) {
       return c.json({ error: 'unauthorized' }, 401);
     }
 
-    const blob = deps.db
+    const blob = await deps.db
       .select()
       .from(projectionBlobs)
       .where(eq(projectionBlobs.shareId, session.share.id))
@@ -466,7 +466,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
       return c.json({ error: 'not_found' }, 404);
     }
 
-    logActivity(deps.db, {
+    await logActivity(deps.db, {
       shareId: session.share.id,
       participantId: session.participant.id,
       action: 'view',
@@ -485,7 +485,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
   app.post('/api/portal/v1/shares/:token/submissions', async (c) => {
     const shareToken = c.req.param('token');
     const sessionRaw = extractBearerToken(c.req.header('Authorization'));
-    const session = verifyParticipantSessionForShare(deps.db, shareToken, sessionRaw);
+    const session = await verifyParticipantSessionForShare(deps.db, shareToken, sessionRaw);
     if (session === undefined) {
       return c.json({ error: 'unauthorized' }, 401);
     }
@@ -509,16 +509,18 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
 
     const oneMinuteAgo = new Date(Date.now() - 60_000);
     const recentCount =
-      deps.db
-        .select({ count: count() })
-        .from(submissions)
-        .where(
-          and(
-            eq(submissions.participantId, session.participant.id),
-            gt(submissions.createdAt, oneMinuteAgo),
-          ),
-        )
-        .get()?.count ?? 0;
+      (
+        await deps.db
+          .select({ count: count() })
+          .from(submissions)
+          .where(
+            and(
+              eq(submissions.participantId, session.participant.id),
+              gt(submissions.createdAt, oneMinuteAgo),
+            ),
+          )
+          .get()
+      )?.count ?? 0;
 
     if (recentCount >= 10) {
       return c.json({ error: 'rate_limited' }, 429);
@@ -530,7 +532,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     const severity = body.severity?.trim() === '' ? null : (body.severity?.trim() ?? null);
     const taskRef = body.task_ref?.trim() === '' ? null : (body.task_ref?.trim() ?? null);
 
-    deps.db
+    await deps.db
       .insert(submissions)
       .values({
         id: submissionId,
@@ -545,7 +547,7 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
       })
       .run();
 
-    logActivity(deps.db, {
+    await logActivity(deps.db, {
       shareId: session.share.id,
       participantId: session.participant.id,
       action: 'submit',
@@ -566,15 +568,15 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     );
   });
 
-  app.get('/api/portal/v1/shares/:token/submissions', (c) => {
+  app.get('/api/portal/v1/shares/:token/submissions', async (c) => {
     const shareToken = c.req.param('token');
     const sessionRaw = extractBearerToken(c.req.header('Authorization'));
-    const session = verifyParticipantSessionForShare(deps.db, shareToken, sessionRaw);
+    const session = await verifyParticipantSessionForShare(deps.db, shareToken, sessionRaw);
     if (session === undefined) {
       return c.json({ error: 'unauthorized' }, 401);
     }
 
-    const rows = deps.db
+    const rows = await deps.db
       .select({
         id: submissions.id,
         title: submissions.title,

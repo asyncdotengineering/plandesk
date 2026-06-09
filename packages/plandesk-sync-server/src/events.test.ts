@@ -34,10 +34,10 @@ const sampleView = {
   progress: { todo: 1, in_progress: 0, done: 0 },
 };
 
-function createTestApp() {
+async function createTestApp() {
   const db = createSyncDb(':memory:');
-  migrate(db);
-  const { token: syncToken } = createSyncToken(db, { label: 'test' });
+  await migrate(db);
+  const { token: syncToken } = await createSyncToken(db, { label: 'test' });
   const notifier = createShareNotifier();
   const app = createSyncServer({ db, notifier });
   return { app, db, syncToken, notifier };
@@ -72,7 +72,7 @@ async function pushProjection(
 
 describe('GET /api/portal/v1/shares/:token/events', () => {
   it('receives projection_updated within 500 ms of PUT projection', async () => {
-    const { app, syncToken } = createTestApp();
+    const { app, syncToken } = await createTestApp();
     const shareToken = generateShareToken();
     await pushProjection(app, syncToken, shareToken);
 
@@ -133,13 +133,13 @@ describe('GET /api/portal/v1/shares/:token/events', () => {
   });
 
   it('returns 401 for invalid share token', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request(`/api/portal/v1/shares/${generateShareToken()}/events`);
     expect(res.status).toBe(401);
   });
 
   it('unsubscribes on disconnect without leaking listeners', async () => {
-    const { app, syncToken, notifier } = createTestApp();
+    const { app, syncToken, notifier } = await createTestApp();
     const shareToken = generateShareToken();
     await pushProjection(app, syncToken, shareToken);
 

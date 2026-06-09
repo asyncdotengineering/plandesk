@@ -21,13 +21,13 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "better-sqlite3": "^12.10.0",
+    "@libsql/client": "^0.15.9",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.23"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250609.0",
     "@hono/node-server": "^2.0.4",
-    "@types/better-sqlite3": "^7.6.13",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   },

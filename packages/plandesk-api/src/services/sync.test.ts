@@ -363,8 +363,8 @@ async function startTestSyncServer(): Promise<{
   close: () => void;
 }> {
   const syncDb = createSyncDb(':memory:');
-  migrateSyncServer(syncDb);
-  const { token: syncToken } = createSyncToken(syncDb, { label: 'api-test' });
+  await migrateSyncServer(syncDb);
+  const { token: syncToken } = await createSyncToken(syncDb, { label: 'api-test' });
   const app = createSyncServer({ db: syncDb });
   const server: Server = createServer((req, res) => {
     void getRequestListener(app.fetch)(req, res);
