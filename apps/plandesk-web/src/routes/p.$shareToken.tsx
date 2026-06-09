@@ -74,7 +74,17 @@ function PortalRoutePage() {
     return <p>Shared project not found.</p>;
   }
 
-  return <PortalPage view={data} />;
+  return (
+    <PortalPage
+      view={data}
+      shareToken={shareToken}
+      sessionToken={session}
+      onUnauthorized={() => {
+        clearPortalSession(shareToken);
+        setSession(null);
+      }}
+    />
+  );
 }
 
 export const Route = createFileRoute('/p/$shareToken')({

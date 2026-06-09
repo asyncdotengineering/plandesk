@@ -1,18 +1,37 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { capabilitiesFromShare } from '../../lib/capabilities.js';
 import { sanitizeHtml } from '../../lib/sanitize.js';
-import type { ClientView } from '../../lib/portal.js';
+import type { ClientView, PortalSubmission } from '../../lib/portal.js';
 import { PortalBoard } from './PortalBoard.js';
+import { SubmissionsList, submissionsQueryKey } from './SubmissionsList.js';
+import { SubmitIssue } from './SubmitIssue.js';
 
 type PortalPageProps = {
   view: ClientView;
+  shareToken: string;
+  sessionToken: string;
+  onUnauthorized: () => void;
 };
 
 function formatStatusLabel(status: string): string {
   return status.replace(/_/g, ' ');
 }
 
-export function PortalPage({ view }: PortalPageProps) {
+export function PortalPage({ view, shareToken, sessionToken, onUnauthorized }: PortalPageProps) {
+  const queryClient = useQueryClient();
+  const caps = capabilitiesFromShare(view.share.permissions);
+  const canSubmit = caps.includes('submit');
   const taskLabelById = new Map(view.tasks.map((task) => [task.id, task.label]));
   const progressEntries = Object.entries(view.progress);
+
+  function handleSubmitted(submission: PortalSubmission) {
+    const key = submissionsQueryKey(shareToken, sessionToken);
+    queryClient.setQueryData<PortalSubmission[]>(key, (existing) => [
+      submission,
+      ...(existing ?? []),
+    ]);
+    void queryClient.invalidateQueries({ queryKey: key });
+  }
 
   return (
     <article data-portal-view>
@@ -104,7 +123,7 @@ export function PortalPage({ view }: PortalPageProps) {
       ) : null}
 
       {view.documents.length > 0 ? (
-        <section aria-label="Documents">
+        <section style={{ marginBottom: '1.5rem' }} aria-label="Documents">
           <h2 style={{ fontSize: '1rem' }}>Documents</h2>
           <div style={{ display: 'grid', gap: '1.25rem' }}>
             {view.documents.map((doc) => (
@@ -129,6 +148,22 @@ export function PortalPage({ view }: PortalPageProps) {
             ))}
           </div>
         </section>
+      ) : null}
+
+      {canSubmit ? (
+        <>
+          <SubmitIssue
+            shareToken={shareToken}
+            sessionToken={sessionToken}
+            onSubmitted={handleSubmitted}
+            onUnauthorized={onUnauthorized}
+          />
+          <SubmissionsList
+            shareToken={shareToken}
+            sessionToken={sessionToken}
+            onUnauthorized={onUnauthorized}
+          />
+        </>
       ) : null}
     </article>
   );

@@ -7,13 +7,17 @@ import { capabilitiesFromShare } from './lib/capabilities.js';
 import type { ClientView } from './lib/portal.js';
 import {
   PortalNotReadyError,
+  PortalRateLimitedError,
+  PortalSubmitForbiddenError,
   PortalUnauthorizedError,
   clearPortalSession,
   fetchClientView,
   fetchShareMeta,
   joinShare,
+  listMySubmissions,
   loadPortalSession,
   savePortalSession,
+  submitIssue,
 } from './lib/portal.js';
 import { routeTree } from './routeTree.gen.js';
 
@@ -24,6 +28,8 @@ vi.mock('./lib/portal.js', async (importOriginal) => {
     joinShare: vi.fn(),
     fetchShareMeta: vi.fn(),
     fetchClientView: vi.fn(),
+    submitIssue: vi.fn(),
+    listMySubmissions: vi.fn(),
     loadPortalSession: vi.fn(),
     savePortalSession: vi.fn(),
     clearPortalSession: vi.fn(),
@@ -74,6 +80,31 @@ const sampleView: ClientView = {
   },
 };
 
+const submitEnabledView: ClientView = {
+  ...sampleView,
+  share: {
+    ...sampleView.share,
+    permissions: { read: true, submit: true },
+  },
+};
+
+function renderPortalPage(view: ClientView, onUnauthorized = vi.fn()) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <PortalPage
+        view={view}
+        shareToken="test-token"
+        sessionToken="session-abc"
+        onUnauthorized={onUnauthorized}
+      />
+    </QueryClientProvider>,
+  );
+}
+
 class MockEventSource {
   onmessage: ((event: MessageEvent) => void) | null = null;
   close(): void {}
@@ -106,6 +137,8 @@ beforeEach(() => {
     mode: 'public',
   });
   vi.mocked(fetchClientView).mockReset();
+  vi.mocked(submitIssue).mockReset();
+  vi.mocked(listMySubmissions).mockResolvedValue([]);
   vi.mocked(savePortalSession).mockReset();
   vi.mocked(clearPortalSession).mockReset();
 });
@@ -126,7 +159,7 @@ describe('capabilitiesFromShare', () => {
 
 describe('PortalPage', () => {
   it('renders project, task, progress, and document content without write controls', () => {
-    render(<PortalPage view={sampleView} />);
+    renderPortalPage(sampleView);
 
     expect(screen.getByRole('heading', { name: 'Portal Project' })).toBeTruthy();
     expect(screen.getByText('Ship portal')).toBeTruthy();
@@ -142,6 +175,114 @@ describe('PortalPage', () => {
     expect(screen.queryByRole('button', { name: /save/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /edit/i })).toBeNull();
     expect(screen.queryByText('+ Add task')).toBeNull();
+    expect(screen.queryByLabelText('Report an issue')).toBeNull();
+    expect(screen.queryByLabelText('Your reported issues')).toBeNull();
+  });
+
+  it('hides submit UI when the share does not grant submit', () => {
+    renderPortalPage(sampleView);
+
+    expect(screen.queryByRole('button', { name: 'Report an issue' })).toBeNull();
+    expect(listMySubmissions).not.toHaveBeenCalled();
+  });
+
+  it('shows submit UI when the share grants submit', async () => {
+    renderPortalPage(submitEnabledView);
+
+    expect(screen.getByLabelText('Report an issue')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Report an issue' })).toBeTruthy();
+
+    await waitFor(() => {
+      expect(listMySubmissions).toHaveBeenCalledWith('test-token', 'session-abc');
+    });
+
+    expect(screen.getByLabelText('Your reported issues')).toBeTruthy();
+
+    await waitFor(() => {
+      expect(screen.getByText("You haven't reported anything yet.")).toBeTruthy();
+    });
+  });
+
+  it('submits an issue and lists it after success', async () => {
+    const createdSubmission = {
+      id: 'sub-1',
+      title: 'Broken export',
+      severity: 'high',
+      status: 'pending',
+      created_at: '2026-06-09T12:00:00.000Z',
+    };
+    vi.mocked(submitIssue).mockResolvedValue(createdSubmission);
+    vi.mocked(listMySubmissions).mockResolvedValueOnce([]).mockResolvedValue([createdSubmission]);
+
+    renderPortalPage(submitEnabledView);
+
+    await waitFor(() => {
+      expect(screen.getByText("You haven't reported anything yet.")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Report an issue' }));
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Broken export' } });
+    fireEvent.change(screen.getByLabelText('Description'), {
+      target: { value: 'Export fails on Safari' },
+    });
+    fireEvent.change(screen.getByLabelText(/Severity/), { target: { value: 'high' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => {
+      expect(submitIssue).toHaveBeenCalledWith('test-token', 'session-abc', {
+        title: 'Broken export',
+        body: 'Export fails on Safari',
+        severity: 'high',
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Reported ✓')).toBeTruthy();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Broken export')).toBeTruthy();
+    });
+
+    expect(screen.getByText('pending')).toBeTruthy();
+  });
+
+  it('shows rate-limit messaging on 429', async () => {
+    vi.mocked(submitIssue).mockRejectedValue(new PortalRateLimitedError());
+
+    renderPortalPage(submitEnabledView);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Report an issue' })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Report an issue' }));
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Too many' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("You're sending these too fast — try again in a moment."),
+      ).toBeTruthy();
+    });
+  });
+
+  it('hides the submit form on forbidden response', async () => {
+    vi.mocked(submitIssue).mockRejectedValue(new PortalSubmitForbiddenError());
+
+    renderPortalPage(submitEnabledView);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Report an issue' })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Report an issue' }));
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Blocked' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Report an issue')).toBeNull();
+    });
   });
 });
 
