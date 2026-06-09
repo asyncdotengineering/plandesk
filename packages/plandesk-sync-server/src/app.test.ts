@@ -220,4 +220,21 @@ describe('createSyncServer', () => {
     expect(syncRows[0]?.token_hash).toBe(hashToken(syncToken));
     expect(syncRows[0]?.token_hash).not.toBe(syncToken);
   });
+
+  it('portal endpoints send CORS headers; sync endpoints do not', async () => {
+    const { app, syncToken } = createTestApp();
+    const shareToken = generateShareToken();
+    await pushProjection(app, syncToken, 'gid-1', shareToken);
+
+    const portalRes = await app.request(`/api/portal/v1/shares/${shareToken}/view`, {
+      headers: { Origin: 'http://localhost:5174' },
+    });
+    expect(portalRes.headers.get('access-control-allow-origin')).toBe('*');
+
+    const syncRes = await app.request('/api/sync/v1/projects/gid-1/projection', {
+      method: 'OPTIONS',
+      headers: { Origin: 'http://localhost:5174' },
+    });
+    expect(syncRes.headers.get('access-control-allow-origin')).toBeNull();
+  });
 });

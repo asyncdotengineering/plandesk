@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { hashToken, verifyShareToken, verifySyncToken } from './auth.js';
 import type { SyncDb } from './db/client.js';
 import { hostedShares, projectionBlobs } from './db/schema.js';
@@ -37,6 +38,12 @@ function parseExpiresAt(value: string | null): Date | null {
 
 export function createSyncServer(deps: SyncServerDeps): Hono {
   const app = new Hono();
+
+  // The portal is a browser app that may reach this server cross-origin (always
+  // in dev; in prod whenever the portal bundle and the portal API differ in
+  // origin). The capability lives in the URL token, not a cookie, so a wildcard
+  // origin is safe here. The /api/sync/* routes are server-to-server — no CORS.
+  app.use('/api/portal/*', cors());
 
   app.put('/api/sync/v1/projects/:gid/projection', async (c) => {
     const raw = extractBearerToken(c.req.header('Authorization'));
