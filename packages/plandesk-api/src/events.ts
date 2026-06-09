@@ -47,6 +47,11 @@ export type AgentRunCompletedEvent = {
   projectId: string;
 };
 
+export type SubmissionsPulledEvent = {
+  type: 'submissions_pulled';
+  projectId: string;
+};
+
 export type PlankDeskEvent =
   | TaskUpdatedEvent
   | CanvasUpdatedEvent
@@ -55,7 +60,8 @@ export type PlankDeskEvent =
   | CommentUpdatedEvent
   | AgentRunStartedEvent
   | AgentRunProgressEvent
-  | AgentRunCompletedEvent;
+  | AgentRunCompletedEvent
+  | SubmissionsPulledEvent;
 
 export type EventListener = (event: PlankDeskEvent) => void;
 

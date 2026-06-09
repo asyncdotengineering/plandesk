@@ -9,7 +9,9 @@ import {
   deleteCommentsByProjectId,
   deleteDocumentsByProjectId,
   deleteEdgesByProjectId,
+  deleteShareSubmissionsByProjectId,
   deleteSharesByProjectId,
+  deleteSyncStateByProjectId,
   deleteProject as dbDeleteProject,
   deleteTasksByProjectId,
   getProject as dbGetProject,
@@ -199,6 +201,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
         deleteCommentsByProjectId(tx, id);
         deleteDocumentsByProjectId(tx, id);
         deleteTasksByProjectId(tx, id);
+        deleteShareSubmissionsByProjectId(tx, id);
+        deleteSyncStateByProjectId(tx, id);
         deleteSharesByProjectId(tx, id);
         dbDeleteProject(tx, id);
       });

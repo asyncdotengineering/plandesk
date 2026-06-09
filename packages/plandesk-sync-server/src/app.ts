@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, count, desc, eq, gt } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import {
@@ -11,7 +11,7 @@ import {
   verifySyncToken,
 } from './auth.js';
 import type { SyncDb } from './db/client.js';
-import { hostedShares, projectionBlobs, submissions } from './db/schema.js';
+import { hostedShares, participants, projectionBlobs, submissions } from './db/schema.js';
 
 export type SyncServerDeps = {
   db: SyncDb;
@@ -209,6 +209,56 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     }
 
     return c.json({ ok: true });
+  });
+
+  app.get('/api/sync/v1/projects/:gid/submissions', (c) => {
+    const raw = extractBearerToken(c.req.header('Authorization'));
+    if (raw === undefined || verifySyncToken(deps.db, raw) === undefined) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+
+    const gid = c.req.param('gid');
+    const sinceRaw = c.req.query('since');
+    const since = sinceRaw !== undefined && sinceRaw !== '' ? new Date(sinceRaw) : undefined;
+
+    const conditions = [eq(hostedShares.projectGlobalId, gid)];
+    if (since !== undefined && !Number.isNaN(since.getTime())) {
+      conditions.push(gt(submissions.createdAt, since));
+    }
+
+    const rows = deps.db
+      .select({
+        id: submissions.id,
+        shareId: submissions.shareId,
+        participantId: participants.id,
+        participantName: participants.name,
+        title: submissions.title,
+        body: submissions.body,
+        severity: submissions.severity,
+        taskRef: submissions.taskRef,
+        status: submissions.status,
+        createdAt: submissions.createdAt,
+      })
+      .from(submissions)
+      .innerJoin(hostedShares, eq(submissions.shareId, hostedShares.id))
+      .innerJoin(participants, eq(submissions.participantId, participants.id))
+      .where(and(...conditions))
+      .orderBy(asc(submissions.createdAt))
+      .all();
+
+    return c.json(
+      rows.map((row) => ({
+        id: row.id,
+        share_id: row.shareId,
+        participant: { id: row.participantId, name: row.participantName },
+        title: row.title,
+        body: row.body,
+        severity: row.severity,
+        task_ref: row.taskRef,
+        status: row.status,
+        created_at: row.createdAt.toISOString(),
+      })),
+    );
   });
 
   app.post('/api/sync/v1/shares/:token/revoke', (c) => {

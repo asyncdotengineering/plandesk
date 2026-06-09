@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDb, createProject, getShare, listShares, migrate } from '@plandesk/db';
 import { createEventBus } from '../events.js';
 import { createProjectService } from './projects.js';
 import { createShareService, InvalidShareError, serializeShare } from './share.js';
+import { createSyncService } from './sync.js';
 
 describe('shareService', () => {
   const db = createDb(':memory:');
@@ -10,8 +11,14 @@ describe('shareService', () => {
 
   beforeEach(() => {
     migrate(db);
+    db.$client.exec('DELETE FROM share_submissions');
+    db.$client.exec('DELETE FROM sync_state');
     db.$client.exec('DELETE FROM shares');
     db.$client.exec('DELETE FROM projects');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   function createService() {
@@ -129,5 +136,43 @@ describe('shareService', () => {
     expect(listShares(db, project.id)).toHaveLength(1);
     expect(projectService.delete(project.id)).toBe(true);
     expect(listShares(db, project.id)).toHaveLength(0);
+  });
+
+  it('cascade deletes pulled submissions when a project is deleted', async () => {
+    const projectService = createProjectService({ db, eventBus });
+    const project = createProject(db, { name: 'Cascade submissions' });
+    const syncService = createSyncService({ db, eventBus });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify([
+            {
+              id: 'sub-cascade',
+              share_id: 'hosted-share-1',
+              participant: { id: 'p1', name: 'Alex' },
+              title: 'Gone',
+              body: null,
+              severity: null,
+              task_ref: null,
+              status: 'pending',
+              created_at: '2026-01-15T12:00:00.000Z',
+            },
+          ]),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      ),
+    );
+
+    await syncService.pull(project.id, {
+      serverUrl: 'https://sync.example',
+      globalProjectId: 'gid-1',
+      syncToken: 'plandesk_sync_test',
+    });
+    expect(syncService.listTriage(project.id)).toHaveLength(1);
+
+    expect(projectService.delete(project.id)).toBe(true);
+    expect(syncService.listTriage(project.id)).toHaveLength(0);
   });
 });

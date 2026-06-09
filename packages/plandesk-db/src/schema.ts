@@ -144,3 +144,31 @@ export const shares = sqliteTable('shares', {
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
 });
+
+export const shareSubmissionStatuses = ['pending', 'accepted', 'rejected'] as const;
+export type ShareSubmissionStatus = (typeof shareSubmissionStatuses)[number];
+
+export const shareSubmissions = sqliteTable('share_submissions', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id')
+    .notNull()
+    .references(() => projects.id),
+  hostedShareId: text('hosted_share_id').notNull(),
+  participantName: text('participant_name').notNull(),
+  title: text('title').notNull(),
+  body: text('body'),
+  severity: text('severity'),
+  taskRef: text('task_ref'),
+  status: text('status', { enum: shareSubmissionStatuses }).notNull().default('pending'),
+  linkedTaskId: text('linked_task_id').references(() => tasks.id),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  pulledAt: integer('pulled_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
+export const syncState = sqliteTable('sync_state', {
+  projectId: text('project_id')
+    .primaryKey()
+    .references(() => projects.id),
+  pullCursor: text('pull_cursor'),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+});

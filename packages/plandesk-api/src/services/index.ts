@@ -8,6 +8,7 @@ import { createAgentRunService, type AgentRunService } from './agent-runs.js';
 import { createTaskService, type TaskService } from './tasks.js';
 import { createTokenService, type TokenService } from './tokens.js';
 import { createShareService, type ShareService } from './share.js';
+import { createSyncService, type SyncService } from './sync.js';
 
 export type ServicesDeps = {
   db: Db;
@@ -24,6 +25,7 @@ export type Services = {
   agentRunService: AgentRunService;
   tokenService: TokenService;
   shareService: ShareService;
+  syncService: SyncService;
 };
 
 export function createServices(deps: ServicesDeps): Services {
@@ -36,6 +38,7 @@ export function createServices(deps: ServicesDeps): Services {
   const agentRunService = createAgentRunService({ db: deps.db, eventBus });
   const tokenService = createTokenService({ db: deps.db });
   const shareService = createShareService({ db: deps.db, eventBus });
+  const syncService = createSyncService({ db: deps.db, eventBus });
 
   return {
     eventBus,
@@ -47,5 +50,6 @@ export function createServices(deps: ServicesDeps): Services {
     agentRunService,
     tokenService,
     shareService,
+    syncService,
   };
 }

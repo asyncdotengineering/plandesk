@@ -11,6 +11,7 @@ export * from './repositories/documents.js';
 export * from './repositories/document-comments.js';
 export * from './repositories/tokens.js';
 export * from './repositories/shares.js';
+export * from './repositories/share-submissions.js';
 export * from './repositories/agent-runs.js';
 export * from './repositories/agent-run-events.js';
 export * from './portability.js';

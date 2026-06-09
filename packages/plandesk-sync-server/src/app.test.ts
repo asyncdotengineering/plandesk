@@ -641,6 +641,96 @@ describe('POST /submissions', () => {
   });
 });
 
+async function ownerPullSubmissions(
+  app: ReturnType<typeof createSyncServer>,
+  syncToken: string,
+  gid: string,
+  since?: string,
+) {
+  const url =
+    since !== undefined
+      ? `/api/sync/v1/projects/${gid}/submissions?since=${encodeURIComponent(since)}`
+      : `/api/sync/v1/projects/${gid}/submissions`;
+  return app.request(url, {
+    headers: { Authorization: `Bearer ${syncToken}` },
+  });
+}
+
+describe('GET /api/sync/v1/projects/:gid/submissions', () => {
+  it('returns all project submissions with participant names', async () => {
+    const { app, syncToken } = createTestApp();
+    const shareTokenA = generateShareToken();
+    const shareTokenB = generateShareToken();
+    await pushProjection(app, syncToken, 'gid-1', shareTokenA, sampleView, 1, {
+      permissions: { read: true, submit: true },
+    });
+    await pushProjection(app, syncToken, 'gid-1', shareTokenB, sampleView, 1, {
+      permissions: { read: true, submit: true },
+    });
+
+    const joinA = await joinShare(app, shareTokenA, 'Alex');
+    const { session_token: sessionA } = (await joinA.json()) as { session_token: string };
+    const joinB = await joinShare(app, shareTokenB, 'Blake');
+    const { session_token: sessionB } = (await joinB.json()) as { session_token: string };
+
+    await submitIssue(app, shareTokenA, sessionA, { title: 'Alex issue' });
+    await submitIssue(app, shareTokenB, sessionB, { title: 'Blake issue' });
+
+    const res = await ownerPullSubmissions(app, syncToken, 'gid-1');
+    expect(res.status).toBe(200);
+    const rows = (await res.json()) as Array<{
+      title: string;
+      participant: { name: string };
+      share_id: string;
+    }>;
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.title).sort()).toEqual(['Alex issue', 'Blake issue']);
+    expect(rows.map((row) => row.participant.name).sort()).toEqual(['Alex', 'Blake']);
+    expect(rows.every((row) => typeof row.share_id === 'string')).toBe(true);
+  });
+
+  it('respects since filter', async () => {
+    const { app, db, syncToken } = createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+
+    const firstRes = await submitIssue(app, shareToken, session_token, { title: 'First' });
+    const { submission: first } = (await firstRes.json()) as {
+      submission: { id: string; created_at: string };
+    };
+
+    const firstRow = db.select().from(submissions).where(eq(submissions.id, first.id)).get();
+    expect(firstRow).toBeDefined();
+    if (firstRow === undefined) {
+      throw new Error('expected first submission');
+    }
+
+    await submitIssue(app, shareToken, session_token, { title: 'Second' });
+
+    const res = await ownerPullSubmissions(
+      app,
+      syncToken,
+      'gid-1',
+      firstRow.createdAt.toISOString(),
+    );
+    expect(res.status).toBe(200);
+    const rows = (await res.json()) as Array<{ title: string }>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.title).toBe('Second');
+  });
+
+  it('returns 401 without sync token', async () => {
+    const { app } = createTestApp();
+    const res = await app.request('/api/sync/v1/projects/gid-1/submissions');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 401 for invalid sync token', async () => {
+    const { app } = createTestApp();
+    const res = await ownerPullSubmissions(app, 'plandesk_sync_invalid', 'gid-1');
+    expect(res.status).toBe(401);
+  });
+});
+
 describe('GET /submissions', () => {
   it('returns only the calling participant submissions', async () => {
     const { app, syncToken } = createTestApp();
