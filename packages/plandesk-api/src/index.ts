@@ -20,6 +20,7 @@ export {
   InvalidTriageError,
   SyncUnavailableError,
   SyncUnauthorizedError,
+  type SyncRemote,
 } from './services/sync.js';
 
 import { readFileSync } from 'node:fs';

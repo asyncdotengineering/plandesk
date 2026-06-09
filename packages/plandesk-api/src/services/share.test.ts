@@ -143,7 +143,13 @@ describe('shareService', () => {
     const projectService = createProjectService({ db, eventBus });
     const project = createProject(db, { name: 'Cascade submissions' });
     const taskService = createTaskService({ db, eventBus });
-    const syncService = createSyncService({ db, eventBus, taskService });
+    const shareServiceForSync = createShareService({ db, eventBus });
+    const syncService = createSyncService({
+      db,
+      eventBus,
+      taskService,
+      shareService: shareServiceForSync,
+    });
 
     vi.stubGlobal(
       'fetch',

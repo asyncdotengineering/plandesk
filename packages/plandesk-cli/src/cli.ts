@@ -10,7 +10,12 @@ import { runImport, InvalidImportFileError } from './import.js';
 import { formatDoctorReport, runDoctor } from './doctor.js';
 import { ConnectError, formatConnectPrint, formatConnectSummary, runConnect } from './connect.js';
 import { formatDisconnectSummary, runDisconnect } from './disconnect.js';
+import { formatPublishSummary, runPublish } from './publish.js';
+import { formatPushSummary, runPush } from './push.js';
+import { formatPullSummary, runPull } from './pull.js';
+import { SyncConfigError } from './sync.js';
 import { CORRUPT_DB_HINT, CorruptWorkspaceError, openWorkspace } from './workspace.js';
+import { SyncUnauthorizedError, SyncUnavailableError } from '@plandesk/api';
 
 function reportCorruptDb(): number {
   process.stderr.write(`${CORRUPT_DB_HINT}\n`);
@@ -122,6 +127,77 @@ export async function main(argv: string[] = process.argv): Promise<number> {
         if (err instanceof CorruptWorkspaceError) {
           process.stderr.write(`${err.message}\n`);
           return 2;
+        }
+        throw err;
+      }
+    }
+    case 'publish': {
+      try {
+        const repoDir = resolveRepoDir(parsed.repoDir);
+        const { db } = openWorkspace(parsed.dataDir);
+        const result = await runPublish(db, {
+          repoDir,
+          projectId: parsed.projectId,
+          remoteUrl: parsed.remoteUrl,
+          syncToken: parsed.syncToken,
+        });
+        process.stdout.write(formatPublishSummary(result));
+        return 0;
+      } catch (err) {
+        if (err instanceof CorruptWorkspaceError) {
+          return reportCorruptDb();
+        }
+        if (
+          err instanceof SyncConfigError ||
+          err instanceof SyncUnauthorizedError ||
+          err instanceof SyncUnavailableError
+        ) {
+          process.stderr.write(`${err.message}\n`);
+          return 1;
+        }
+        throw err;
+      }
+    }
+    case 'push': {
+      try {
+        const repoDir = resolveRepoDir(parsed.repoDir);
+        const { db } = openWorkspace(parsed.dataDir);
+        const result = await runPush(db, { repoDir, projectId: parsed.projectId });
+        process.stdout.write(formatPushSummary(result));
+        return 0;
+      } catch (err) {
+        if (err instanceof CorruptWorkspaceError) {
+          return reportCorruptDb();
+        }
+        if (
+          err instanceof SyncConfigError ||
+          err instanceof SyncUnauthorizedError ||
+          err instanceof SyncUnavailableError
+        ) {
+          process.stderr.write(`${err.message}\n`);
+          return 1;
+        }
+        throw err;
+      }
+    }
+    case 'pull': {
+      try {
+        const repoDir = resolveRepoDir(parsed.repoDir);
+        const { db } = openWorkspace(parsed.dataDir);
+        const result = await runPull(db, { repoDir, projectId: parsed.projectId });
+        process.stdout.write(formatPullSummary(result));
+        return 0;
+      } catch (err) {
+        if (err instanceof CorruptWorkspaceError) {
+          return reportCorruptDb();
+        }
+        if (
+          err instanceof SyncConfigError ||
+          err instanceof SyncUnauthorizedError ||
+          err instanceof SyncUnavailableError
+        ) {
+          process.stderr.write(`${err.message}\n`);
+          return 1;
         }
         throw err;
       }

@@ -67,6 +67,16 @@ export type ParsedArgs =
     }
   | { command: 'disconnect'; repoDir?: string }
   | { command: 'doctor'; dataDir?: string; repoDir?: string }
+  | {
+      command: 'publish';
+      repoDir?: string;
+      projectId?: string;
+      remoteUrl: string;
+      syncToken?: string;
+      dataDir?: string;
+    }
+  | { command: 'push'; repoDir?: string; projectId?: string; dataDir?: string }
+  | { command: 'pull'; repoDir?: string; projectId?: string; dataDir?: string }
   | { command: 'help' }
   | { command: 'unknown'; name: string };
 
@@ -205,6 +215,39 @@ export function parseArgs(argv: string[]): ParsedArgs {
     return { command: 'doctor', dataDir, repoDir: flagString(flags, 'repo') };
   }
 
+  if (command === 'publish') {
+    const remoteUrl = flagString(flags, 'remote');
+    if (remoteUrl === undefined || remoteUrl.trim() === '') {
+      return { command: 'unknown', name: 'publish (missing --remote)' };
+    }
+    return {
+      command: 'publish',
+      repoDir: flagString(flags, 'repo'),
+      projectId: flagString(flags, 'project'),
+      remoteUrl,
+      syncToken: flagString(flags, 'sync-token'),
+      dataDir,
+    };
+  }
+
+  if (command === 'push') {
+    return {
+      command: 'push',
+      repoDir: flagString(flags, 'repo'),
+      projectId: flagString(flags, 'project'),
+      dataDir,
+    };
+  }
+
+  if (command === 'pull') {
+    return {
+      command: 'pull',
+      repoDir: flagString(flags, 'repo'),
+      projectId: flagString(flags, 'project'),
+      dataDir,
+    };
+  }
+
   return { command: 'unknown', name: command };
 }
 
@@ -220,6 +263,9 @@ Usage:
   plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
   plandesk disconnect [--repo <dir>]
   plandesk doctor [--data-dir <dir>] [--repo <dir>]
+  plandesk publish --remote <url> [--project <id>] [--sync-token <t>] [--repo <dir>] [--data-dir <dir>]
+  plandesk push [--project <id>] [--repo <dir>] [--data-dir <dir>]
+  plandesk pull [--project <id>] [--repo <dir>] [--data-dir <dir>]
 
 Options:
   --data-dir  Workspace directory (default: ~/.plandesk, or PLANDESK_DATA_DIR)
@@ -233,5 +279,7 @@ Options:
   --print     Dry-run connect without writing files
   --out       Output file for export
   --in        Input file for import
+  --remote    Sync server URL for publish
+  --sync-token  Sync token for publish (default: PLANDESK_SYNC_TOKEN or .plandesk/sync-token)
 `;
 }

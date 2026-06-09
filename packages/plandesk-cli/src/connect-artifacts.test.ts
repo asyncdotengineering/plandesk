@@ -6,6 +6,7 @@ import {
   buildMcpServerEntry,
   buildSentinelBlock,
   buildSkillMarkdown,
+  GITIGNORE_SYNC_TOKEN_LINE,
   GITIGNORE_TOKEN_LINE,
   insertSentinelBlock,
   mergeMcpJson,
@@ -30,6 +31,29 @@ describe('connect artifacts', () => {
       serverUrl: 'http://127.0.0.1:3847',
       projectId: 'proj-1',
       projectName: 'Checkout Revamp',
+    });
+  });
+
+  it('preserves optional sync section without sync token', () => {
+    const json = buildConfigJson({
+      serverUrl: 'http://127.0.0.1:3847',
+      projectId: 'proj-1',
+      projectName: 'Checkout Revamp',
+      sync: {
+        serverUrl: 'https://sync.example',
+        globalProjectId: 'gid-123',
+      },
+    });
+    expect(json).not.toContain('plandesk_sync_');
+    expect(parseConfigJson(json)).toEqual({
+      version: 'plandesk-connect-v1',
+      serverUrl: 'http://127.0.0.1:3847',
+      projectId: 'proj-1',
+      projectName: 'Checkout Revamp',
+      sync: {
+        serverUrl: 'https://sync.example',
+        globalProjectId: 'gid-123',
+      },
     });
   });
 
@@ -93,6 +117,9 @@ describe('connect artifacts', () => {
     const twice = appendGitignoreLine(once, GITIGNORE_TOKEN_LINE);
     expect(twice).toBe(once);
     expect(twice.split('\n').filter((line) => line === GITIGNORE_TOKEN_LINE).length).toBe(1);
+    const withSync = appendGitignoreLine(once, GITIGNORE_SYNC_TOKEN_LINE);
+    expect(withSync).toContain(GITIGNORE_SYNC_TOKEN_LINE);
+    expect(appendGitignoreLine(withSync, GITIGNORE_SYNC_TOKEN_LINE)).toBe(withSync);
   });
 
   it('ships RFC skill template verbatim', () => {

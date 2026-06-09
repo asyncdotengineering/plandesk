@@ -38,7 +38,7 @@ export function createServices(deps: ServicesDeps): Services {
   const agentRunService = createAgentRunService({ db: deps.db, eventBus });
   const tokenService = createTokenService({ db: deps.db });
   const shareService = createShareService({ db: deps.db, eventBus });
-  const syncService = createSyncService({ db: deps.db, eventBus, taskService });
+  const syncService = createSyncService({ db: deps.db, eventBus, taskService, shareService });
 
   return {
     eventBus,

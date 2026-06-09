@@ -2,13 +2,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createDb,
   createProject,
+  createTask,
   getPullCursor,
   getSubmission,
   listSubmissions,
   listTasks,
   migrate,
 } from '@plandesk/db';
+import { createServer, type Server } from 'node:http';
+import { getRequestListener } from '@hono/node-server';
+import {
+  createSyncDb,
+  createSyncServer,
+  createSyncToken,
+  migrate as migrateSyncServer,
+} from '@plandesk/sync-server';
 import { createEventBus, type PlankDeskEvent } from '../events.js';
+import { createShareService } from './share.js';
 import { createTaskService } from './tasks.js';
 import {
   createSyncService,
@@ -43,12 +53,14 @@ describe('syncService', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
   function createService() {
     const taskService = createTaskService({ db, eventBus });
-    return createSyncService({ db, eventBus, taskService });
+    const shareService = createShareService({ db, eventBus });
+    return createSyncService({ db, eventBus, taskService, shareService });
   }
 
   const remote = {
@@ -164,7 +176,8 @@ describe('syncService', () => {
     const project = createProject(db, { name: 'Events' });
     const bus = createEventBus();
     const taskService = createTaskService({ db, eventBus: bus });
-    const service = createSyncService({ db, eventBus: bus, taskService });
+    const shareService = createShareService({ db, eventBus: bus });
+    const service = createSyncService({ db, eventBus: bus, taskService, shareService });
     const received: PlankDeskEvent[] = [];
     bus.subscribe((event) => {
       received.push(event);
@@ -341,5 +354,174 @@ describe('syncService', () => {
     await expect(service.triage('missing', 'accept', remote)).rejects.toBeInstanceOf(
       InvalidTriageError,
     );
+  });
+});
+
+async function startTestSyncServer(): Promise<{
+  serverUrl: string;
+  syncToken: string;
+  close: () => void;
+}> {
+  const syncDb = createSyncDb(':memory:');
+  migrateSyncServer(syncDb);
+  const { token: syncToken } = createSyncToken(syncDb, { label: 'api-test' });
+  const app = createSyncServer({ db: syncDb });
+  const server: Server = createServer((req, res) => {
+    void getRequestListener(app.fetch)(req, res);
+  });
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      resolve();
+    });
+  });
+
+  const address = server.address();
+  if (address === null || typeof address !== 'object') {
+    throw new Error('expected TCP address');
+  }
+
+  return {
+    serverUrl: `http://127.0.0.1:${String(address.port)}`,
+    syncToken,
+    close: () => {
+      server.close();
+    },
+  };
+}
+
+describe('syncService push', () => {
+  const db = createDb(':memory:');
+  const eventBus = createEventBus();
+  const servers: Array<{ close: () => void }> = [];
+
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    migrate(db);
+    db.$client.exec('DELETE FROM share_submissions');
+    db.$client.exec('DELETE FROM sync_state');
+    db.$client.exec('DELETE FROM shares');
+    db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM projects');
+  });
+
+  afterEach(() => {
+    while (servers.length > 0) {
+      servers.pop()?.close();
+    }
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function createService() {
+    const taskService = createTaskService({ db, eventBus });
+    const shareService = createShareService({ db, eventBus });
+    return createSyncService({ db, eventBus, taskService, shareService });
+  }
+
+  it('publishProject round-trips projection to portal view', async () => {
+    const syncServer = await startTestSyncServer();
+    servers.push(syncServer);
+
+    const service = createService();
+    const shareService = createShareService({ db, eventBus });
+    const project = createProject(db, { name: 'Push Project' });
+    createTask(db, { projectId: project.id, label: 'Visible task' });
+    const created = shareService.createShare(project.id, {
+      audienceName: 'Client',
+      mode: 'public',
+      permissions: { read: true, submit: false },
+    });
+    if (!created) {
+      throw new Error('expected share');
+    }
+
+    const { globalProjectId } = await service.publishProject(project.id, {
+      serverUrl: syncServer.serverUrl,
+      syncToken: syncServer.syncToken,
+    });
+
+    const joinRes = await fetch(
+      `${syncServer.serverUrl}/api/portal/v1/shares/${created.token}/join`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Alex' }),
+      },
+    );
+    expect(joinRes.status).toBe(200);
+    const joinBody = (await joinRes.json()) as { session_token: string };
+
+    const viewRes = await fetch(
+      `${syncServer.serverUrl}/api/portal/v1/shares/${created.token}/view`,
+      { headers: { Authorization: `Bearer ${joinBody.session_token}` } },
+    );
+    expect(viewRes.status).toBe(200);
+    const view = (await viewRes.json()) as {
+      project: { name: string };
+      tasks: Array<{ label: string }>;
+    };
+    expect(view.project.name).toBe('Push Project');
+    expect(view.tasks.map((task) => task.label)).toContain('Visible task');
+
+    const second = await service.push(project.id, {
+      serverUrl: syncServer.serverUrl,
+      globalProjectId,
+      syncToken: syncServer.syncToken,
+    });
+    expect(second.pushed).toBe(1);
+  });
+
+  it('push skips revoked shares', async () => {
+    const syncServer = await startTestSyncServer();
+    servers.push(syncServer);
+
+    const service = createService();
+    const shareService = createShareService({ db, eventBus });
+    const project = createProject(db, { name: 'Revoked push' });
+    const active = shareService.createShare(project.id, {
+      audienceName: 'Active',
+      mode: 'public',
+    });
+    const revoked = shareService.createShare(project.id, {
+      audienceName: 'Revoked',
+      mode: 'public',
+    });
+    if (!active || !revoked) {
+      throw new Error('expected shares');
+    }
+    shareService.revokeShare(revoked.share.id);
+
+    const { globalProjectId } = await service.publishProject(project.id, {
+      serverUrl: syncServer.serverUrl,
+      syncToken: syncServer.syncToken,
+    });
+
+    const pushed = await service.push(project.id, {
+      serverUrl: syncServer.serverUrl,
+      globalProjectId,
+      syncToken: syncServer.syncToken,
+    });
+    expect(pushed.pushed).toBe(1);
+  });
+
+  it('throws SyncUnauthorizedError on bad sync token without mutating local state', async () => {
+    const syncServer = await startTestSyncServer();
+    servers.push(syncServer);
+
+    const service = createService();
+    const shareService = createShareService({ db, eventBus });
+    const project = createProject(db, { name: 'Bad token' });
+    shareService.createShare(project.id, { audienceName: 'Client', mode: 'public' });
+
+    await expect(
+      service.push(project.id, {
+        serverUrl: syncServer.serverUrl,
+        globalProjectId: 'gid-bad',
+        syncToken: 'bad-sync-token',
+      }),
+    ).rejects.toBeInstanceOf(SyncUnauthorizedError);
+    expect(listSubmissions(db, project.id)).toHaveLength(0);
   });
 });

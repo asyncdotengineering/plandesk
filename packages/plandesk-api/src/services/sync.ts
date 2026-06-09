@@ -1,16 +1,21 @@
+import { randomUUID } from 'node:crypto';
 import {
   getPullCursor,
+  getShare,
   getSubmission,
   listSubmissions,
+  parseSharePermissions,
   setPullCursor,
   setSubmissionStatus,
   upsertSubmission,
   type Db,
+  type Share,
   type ShareSubmission,
   type ShareSubmissionStatus,
   type TaskStatus,
 } from '@plandesk/db';
 import type { EventBus } from '../events.js';
+import type { ShareService } from './share.js';
 import type { TaskService } from './tasks.js';
 
 export class SyncUnavailableError extends Error {
@@ -88,7 +93,19 @@ export type SyncServiceDeps = {
   db: Db;
   eventBus: EventBus;
   taskService: TaskService;
+  shareService: ShareService;
 };
+
+function parseInvitedEmails(raw: string | null): string[] {
+  if (raw === null || raw === '') {
+    return [];
+  }
+  const parsed = JSON.parse(raw) as unknown;
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+  return parsed.filter((value): value is string => typeof value === 'string');
+}
 
 function buildDesc(submission: ShareSubmission): string | null {
   const footer = `Reported by ${submission.participantName} (client) via Plan Desk`;
@@ -125,10 +142,87 @@ async function ackSubmission(
   }
 }
 
+async function pushProjection(remote: SyncRemote, share: Share, view: unknown): Promise<void> {
+  const base = remote.serverUrl.replace(/\/$/, '');
+  const url = `${base}/api/sync/v1/projects/${encodeURIComponent(remote.globalProjectId)}/projection`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${remote.syncToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        share: {
+          token_hash: share.tokenHash,
+          audience_name: share.audienceName,
+          permissions: parseSharePermissions(share),
+          mode: share.mode,
+          invited_emails: parseInvitedEmails(share.invitedEmails),
+          expires_at: share.expiresAt?.toISOString() ?? null,
+        },
+        version: Date.now(),
+        view,
+      }),
+    });
+  } catch {
+    throw new SyncUnavailableError();
+  }
+
+  if (response.status === 401) {
+    throw new SyncUnauthorizedError();
+  }
+  if (!response.ok) {
+    throw new SyncUnavailableError(`sync server returned ${String(response.status)}`);
+  }
+}
+
 export function createSyncService(deps: SyncServiceDeps) {
-  const { db, eventBus, taskService } = deps;
+  const { db, eventBus, taskService, shareService } = deps;
 
   return {
+    async push(projectId: string, remote: SyncRemote): Promise<{ pushed: number }> {
+      const shares = shareService.listShares(projectId);
+      if (shares === undefined) {
+        throw new SyncUnavailableError('project not found');
+      }
+
+      const active = shares.filter((share) => share.revoked_at === null);
+      let pushed = 0;
+
+      for (const serialized of active) {
+        const shareRow = getShare(db, serialized.id);
+        if (shareRow === undefined) {
+          continue;
+        }
+
+        const view = shareService.buildClientView(projectId, serialized.id);
+        if (view === undefined) {
+          continue;
+        }
+
+        await pushProjection(remote, shareRow, view);
+        pushed += 1;
+      }
+
+      return { pushed };
+    },
+
+    async publishProject(
+      projectId: string,
+      input: { serverUrl: string; syncToken: string },
+    ): Promise<{ globalProjectId: string; pushed: number }> {
+      const globalProjectId = randomUUID();
+      const { pushed } = await this.push(projectId, {
+        serverUrl: input.serverUrl,
+        globalProjectId,
+        syncToken: input.syncToken,
+      });
+      return { globalProjectId, pushed };
+    },
+
     async pull(projectId: string, remote: SyncRemote): Promise<{ pulled: number }> {
       const cursor = getPullCursor(db, projectId);
       const base = remote.serverUrl.replace(/\/$/, '');

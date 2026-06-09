@@ -125,6 +125,9 @@ importers:
       '@plandesk/db':
         specifier: workspace:*
         version: link:../plandesk-db
+      '@plandesk/sync-server':
+        specifier: workspace:*
+        version: link:../plandesk-sync-server
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -150,6 +153,9 @@ importers:
         specifier: workspace:*
         version: link:../plandesk-mcp
     devDependencies:
+      '@plandesk/sync-server':
+        specifier: workspace:*
+        version: link:../plandesk-sync-server
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

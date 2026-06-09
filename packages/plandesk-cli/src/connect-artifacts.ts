@@ -5,14 +5,22 @@ export const SENTINEL_START = '<!-- plandesk:start -->';
 export const SENTINEL_END = '<!-- plandesk:end -->';
 export const SENTINEL_INCLUDE = '@.plandesk/skill.md';
 export const TOKEN_ENV_VAR = 'PLANDESK_MCP_TOKEN';
+export const SYNC_TOKEN_ENV_VAR = 'PLANDESK_SYNC_TOKEN';
 export const GITIGNORE_TOKEN_LINE = '.plandesk/token';
+export const GITIGNORE_SYNC_TOKEN_LINE = '.plandesk/sync-token';
 export const MCP_SERVER_KEY = 'plandesk';
+
+export type PlanDeskSyncConfig = {
+  serverUrl: string;
+  globalProjectId: string;
+};
 
 export type PlanDeskConfig = {
   version: typeof PLANDESK_CONNECT_VERSION;
   serverUrl: string;
   projectId: string;
   projectName: string;
+  sync?: PlanDeskSyncConfig;
 };
 
 export type McpJson = {
@@ -42,6 +50,7 @@ export function buildConfigJson(input: {
   serverUrl: string;
   projectId: string;
   projectName: string;
+  sync?: PlanDeskSyncConfig;
 }): string {
   const config: PlanDeskConfig = {
     version: PLANDESK_CONNECT_VERSION,
@@ -49,7 +58,30 @@ export function buildConfigJson(input: {
     projectId: input.projectId,
     projectName: input.projectName,
   };
+  if (input.sync !== undefined) {
+    config.sync = {
+      serverUrl: normalizeServerUrl(input.sync.serverUrl),
+      globalProjectId: input.sync.globalProjectId,
+    };
+  }
   return `${JSON.stringify(config, null, 2)}\n`;
+}
+
+function parseSyncConfig(raw: unknown): PlanDeskSyncConfig | undefined {
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+  if (typeof raw !== 'object') {
+    throw new Error('invalid config.json sync section');
+  }
+  const sync = raw as Partial<PlanDeskSyncConfig>;
+  if (typeof sync.serverUrl !== 'string' || typeof sync.globalProjectId !== 'string') {
+    throw new Error('invalid config.json sync section');
+  }
+  return {
+    serverUrl: normalizeServerUrl(sync.serverUrl),
+    globalProjectId: sync.globalProjectId,
+  };
 }
 
 export function parseConfigJson(content: string): PlanDeskConfig {
@@ -64,12 +96,17 @@ export function parseConfigJson(content: string): PlanDeskConfig {
   ) {
     throw new Error('invalid config.json shape');
   }
-  return {
+  const config: PlanDeskConfig = {
     version: PLANDESK_CONNECT_VERSION,
     serverUrl: normalizeServerUrl(parsed.serverUrl),
     projectId: parsed.projectId,
     projectName: parsed.projectName,
   };
+  const sync = parseSyncConfig(parsed.sync);
+  if (sync !== undefined) {
+    config.sync = sync;
+  }
+  return config;
 }
 
 export function buildMcpServerEntry(serverUrl: string): NonNullable<McpJson['mcpServers']>[string] {
