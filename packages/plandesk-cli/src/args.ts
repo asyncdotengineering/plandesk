@@ -77,6 +77,7 @@ export type ParsedArgs =
     }
   | { command: 'push'; repoDir?: string; projectId?: string; dataDir?: string }
   | { command: 'pull'; repoDir?: string; projectId?: string; dataDir?: string }
+  | { command: 'sync'; watch: boolean; repoDir?: string; projectId?: string; dataDir?: string }
   | { command: 'help' }
   | { command: 'unknown'; name: string };
 
@@ -248,6 +249,16 @@ export function parseArgs(argv: string[]): ParsedArgs {
     };
   }
 
+  if (command === 'sync') {
+    return {
+      command: 'sync',
+      watch: flags['watch'] === true,
+      repoDir: flagString(flags, 'repo'),
+      projectId: flagString(flags, 'project'),
+      dataDir,
+    };
+  }
+
   return { command: 'unknown', name: command };
 }
 
@@ -266,6 +277,7 @@ Usage:
   plandesk publish --remote <url> [--project <id>] [--sync-token <t>] [--repo <dir>] [--data-dir <dir>]
   plandesk push [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk pull [--project <id>] [--repo <dir>] [--data-dir <dir>]
+  plandesk sync --watch [--project <id>] [--repo <dir>] [--data-dir <dir>]
 
 Options:
   --data-dir  Workspace directory (default: ~/.plandesk, or PLANDESK_DATA_DIR)

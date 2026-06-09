@@ -98,6 +98,16 @@ export type SyncServiceDeps = {
   shareService: ShareService;
 };
 
+export type WatchPushController = {
+  onChange(): void;
+  dispose(): void;
+};
+
+export type WatchPushOptions = {
+  debounceMs?: number;
+  onPushError?: (err: unknown) => void;
+};
+
 function parseInvitedEmails(raw: string | null): string[] {
   if (raw === null || raw === '') {
     return [];
@@ -179,6 +189,47 @@ async function pushProjection(remote: SyncRemote, share: Share, view: unknown): 
   if (!response.ok) {
     throw new SyncUnavailableError(`sync server returned ${String(response.status)}`);
   }
+}
+
+function createWatchPush(
+  push: (projectId: string, remote: SyncRemote) => Promise<{ pushed: number }>,
+  projectId: string,
+  remote: SyncRemote,
+  opts?: WatchPushOptions,
+): WatchPushController {
+  const debounceMs = opts?.debounceMs ?? 1500;
+  const onPushError =
+    opts?.onPushError ??
+    ((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`sync watch push failed: ${message}`);
+    });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let disposed = false;
+
+  const runPush = () => {
+    timer = undefined;
+    void push(projectId, remote).catch(onPushError);
+  };
+
+  return {
+    onChange() {
+      if (disposed) {
+        return;
+      }
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(runPush, debounceMs);
+    },
+    dispose() {
+      disposed = true;
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+    },
+  };
 }
 
 export function createSyncService(deps: SyncServiceDeps) {
@@ -366,6 +417,10 @@ export function createSyncService(deps: SyncServiceDeps) {
       eventBus.emit({ type: 'submissions_pulled', projectId });
       await ackSubmission(remote, submissionId, 'rejected');
       return serializeSubmission(updated);
+    },
+
+    watchPush(projectId: string, remote: SyncRemote, opts?: WatchPushOptions): WatchPushController {
+      return createWatchPush((id, rem) => this.push(id, rem), projectId, remote, opts);
     },
   };
 }

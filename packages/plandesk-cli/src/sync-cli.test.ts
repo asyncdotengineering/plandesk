@@ -115,6 +115,29 @@ describe('parseArgs publish/push/pull', () => {
     });
   });
 
+  it('parses sync --watch with project and repo', () => {
+    expect(
+      parseArgs([
+        'node',
+        'plandesk',
+        'sync',
+        '--watch',
+        '--project',
+        'proj-1',
+        '--repo',
+        '/tmp/repo',
+        '--data-dir',
+        '/tmp/ws',
+      ]),
+    ).toEqual({
+      command: 'sync',
+      watch: true,
+      projectId: 'proj-1',
+      repoDir: '/tmp/repo',
+      dataDir: '/tmp/ws',
+    });
+  });
+
   it('parses push and pull with project and repo', () => {
     expect(
       parseArgs([

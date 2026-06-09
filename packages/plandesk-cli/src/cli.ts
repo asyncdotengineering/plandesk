@@ -14,6 +14,7 @@ import { formatPublishSummary, runPublish } from './publish.js';
 import { formatPushSummary, runPush } from './push.js';
 import { formatPullSummary, runPull } from './pull.js';
 import { SyncConfigError } from './sync.js';
+import { LocalServerUnreachableError, runWatch, SseDisconnectedError } from './watch.js';
 import { CORRUPT_DB_HINT, CorruptWorkspaceError, openWorkspace } from './workspace.js';
 import { SyncUnauthorizedError, SyncUnavailableError } from '@plandesk/api';
 
@@ -195,6 +196,33 @@ export async function main(argv: string[] = process.argv): Promise<number> {
           err instanceof SyncConfigError ||
           err instanceof SyncUnauthorizedError ||
           err instanceof SyncUnavailableError
+        ) {
+          process.stderr.write(`${err.message}\n`);
+          return 1;
+        }
+        throw err;
+      }
+    }
+    case 'sync': {
+      if (!parsed.watch) {
+        process.stderr.write('sync requires --watch\n');
+        return 1;
+      }
+      try {
+        const repoDir = resolveRepoDir(parsed.repoDir);
+        const { db } = openWorkspace(parsed.dataDir);
+        await runWatch(db, { repoDir, projectId: parsed.projectId });
+        return 0;
+      } catch (err) {
+        if (err instanceof CorruptWorkspaceError) {
+          return reportCorruptDb();
+        }
+        if (
+          err instanceof SyncConfigError ||
+          err instanceof SyncUnauthorizedError ||
+          err instanceof SyncUnavailableError ||
+          err instanceof LocalServerUnreachableError ||
+          err instanceof SseDisconnectedError
         ) {
           process.stderr.write(`${err.message}\n`);
           return 1;

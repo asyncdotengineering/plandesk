@@ -394,6 +394,11 @@ describe('syncService push', () => {
   const db = createDb(':memory:');
   const eventBus = createEventBus();
   const servers: Array<{ close: () => void }> = [];
+  const remote = {
+    serverUrl: 'https://sync.example',
+    globalProjectId: 'gid-1',
+    syncToken: 'plandesk_sync_test',
+  };
 
   beforeEach(() => {
     vi.unstubAllGlobals();
@@ -504,6 +509,69 @@ describe('syncService push', () => {
       syncToken: syncServer.syncToken,
     });
     expect(pushed.pushed).toBe(1);
+  });
+
+  it('watchPush coalesces rapid onChange calls into one debounced push', async () => {
+    vi.useFakeTimers();
+    const project = createProject(db, { name: 'Watch' });
+    const service = createService();
+    const pushSpy = vi.spyOn(service, 'push').mockResolvedValue({ pushed: 1 });
+
+    const watcher = service.watchPush(project.id, remote, { debounceMs: 1500 });
+    watcher.onChange();
+    watcher.onChange();
+    watcher.onChange();
+
+    expect(pushSpy).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+    expect(pushSpy).toHaveBeenCalledWith(project.id, remote);
+
+    watcher.dispose();
+    vi.useRealTimers();
+  });
+
+  it('watchPush dispose cancels a pending push', async () => {
+    vi.useFakeTimers();
+    const project = createProject(db, { name: 'Watch dispose' });
+    const service = createService();
+    const pushSpy = vi.spyOn(service, 'push').mockResolvedValue({ pushed: 1 });
+
+    const watcher = service.watchPush(project.id, remote, { debounceMs: 1500 });
+    watcher.onChange();
+    watcher.dispose();
+    await vi.advanceTimersByTimeAsync(1500);
+
+    expect(pushSpy).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('watchPush tolerates push errors and schedules the next push', async () => {
+    vi.useFakeTimers();
+    const project = createProject(db, { name: 'Watch errors' });
+    const service = createService();
+    const pushSpy = vi
+      .spyOn(service, 'push')
+      .mockRejectedValueOnce(new SyncUnavailableError('down'))
+      .mockResolvedValueOnce({ pushed: 1 });
+    const onPushError = vi.fn();
+
+    const watcher = service.watchPush(project.id, remote, {
+      debounceMs: 1500,
+      onPushError,
+    });
+    watcher.onChange();
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+    expect(onPushError).toHaveBeenCalledTimes(1);
+    expect(onPushError.mock.calls[0]?.[0]).toBeInstanceOf(SyncUnavailableError);
+
+    watcher.onChange();
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(pushSpy).toHaveBeenCalledTimes(2);
+
+    watcher.dispose();
+    vi.useRealTimers();
   });
 
   it('throws SyncUnauthorizedError on bad sync token without mutating local state', async () => {
