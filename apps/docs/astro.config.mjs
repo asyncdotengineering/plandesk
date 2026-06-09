@@ -53,6 +53,7 @@ export default defineConfig({
         {
           label: 'Guides',
           items: [
+            { slug: 'guides/start-with-an-idea' },
             { slug: 'guides/research-plan-build-share' },
             { slug: 'guides/idea-to-development' },
             { slug: 'guides/plan-and-execute' },
