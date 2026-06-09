@@ -70,6 +70,7 @@ export default defineConfig({
             { slug: 'connecting-agents/mcp-setup' },
             { slug: 'connecting-agents/connect' },
             { slug: 'connecting-agents/skill' },
+            { slug: 'connecting-agents/mcporter' },
           ],
         },
         {
