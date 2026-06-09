@@ -78,6 +78,19 @@ export type ParsedArgs =
   | { command: 'push'; repoDir?: string; projectId?: string; dataDir?: string }
   | { command: 'pull'; repoDir?: string; projectId?: string; dataDir?: string }
   | { command: 'sync'; watch: boolean; repoDir?: string; projectId?: string; dataDir?: string }
+  | {
+      command: 'share';
+      subcommand: 'create';
+      audience: string;
+      public: boolean;
+      invite?: string;
+      expires?: string;
+      allowSubmit: boolean;
+      repoDir?: string;
+      projectId?: string;
+      dataDir?: string;
+    }
+  | { command: 'deploy'; target?: string }
   | { command: 'help' }
   | { command: 'unknown'; name: string };
 
@@ -259,6 +272,33 @@ export function parseArgs(argv: string[]): ParsedArgs {
     };
   }
 
+  if (command === 'share') {
+    const subcommand = positional[1];
+    if (subcommand === 'create') {
+      const audience = flagString(flags, 'audience');
+      if (audience === undefined || audience.trim() === '') {
+        return { command: 'unknown', name: 'share create (missing --audience)' };
+      }
+      return {
+        command: 'share',
+        subcommand: 'create',
+        audience,
+        public: flags['public'] === true,
+        invite: flagString(flags, 'invite'),
+        expires: flagString(flags, 'expires'),
+        allowSubmit: flags['allow-submit'] === true,
+        repoDir: flagString(flags, 'repo'),
+        projectId: flagString(flags, 'project'),
+        dataDir,
+      };
+    }
+    return { command: 'unknown', name: 'share' };
+  }
+
+  if (command === 'deploy') {
+    return { command: 'deploy', target: positional[1] };
+  }
+
   return { command: 'unknown', name: command };
 }
 
@@ -278,6 +318,8 @@ Usage:
   plandesk push [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk pull [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk sync --watch [--project <id>] [--repo <dir>] [--data-dir <dir>]
+  plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>] [--repo <dir>] [--data-dir <dir>]
+  plandesk deploy [target]   # list deploy guides, or print one for your coding agent: plandesk deploy cloudflare | claude
 
 Options:
   --data-dir  Workspace directory (default: ~/.plandesk, or PLANDESK_DATA_DIR)

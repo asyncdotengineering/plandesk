@@ -203,6 +203,115 @@ describe('CLI publish/push/pull', () => {
     return { dataDir, repoDir, projectId: project.id };
   }
 
+  it('share create mints a participant token and stores only its hash', async () => {
+    const { dataDir, repoDir, projectId } = makeWorkspace();
+
+    const { code, stdout } = await captureIo(() =>
+      main([
+        'node',
+        'plandesk',
+        'share',
+        'create',
+        '--audience',
+        'Acme Corp',
+        '--public',
+        '--allow-submit',
+        '--repo',
+        repoDir,
+        '--data-dir',
+        dataDir,
+      ]),
+    );
+
+    expect(code).toBe(0);
+    expect(stdout).toContain('Share created for "Acme Corp" (public)');
+    const tokenMatch = /plandesk_share_[A-Za-z0-9_-]+/.exec(stdout);
+    expect(tokenMatch).not.toBeNull();
+    const token = tokenMatch?.[0] ?? '';
+
+    const { db } = openWorkspace(dataDir);
+    const { shareService } = createServices({ db });
+    const shares = shareService.listShares(projectId) ?? [];
+    expect(shares).toHaveLength(1);
+    expect(shares[0]?.audience_name).toBe('Acme Corp');
+    expect(shares[0]?.mode).toBe('public');
+    expect(shares[0]?.permissions).toEqual({ read: true, submit: true });
+    // the plaintext token is never persisted — only its sha256 hash
+    expect(JSON.stringify(shares)).not.toContain(token);
+  });
+
+  it('share create rejects a missing audience', async () => {
+    const { dataDir, repoDir } = makeWorkspace();
+    const { code, stderr } = await captureIo(() =>
+      main(['node', 'plandesk', 'share', 'create', '--repo', repoDir, '--data-dir', dataDir]),
+    );
+    expect(code).toBe(1);
+    expect(stderr).toContain('Unknown command: share create (missing --audience)');
+  });
+
+  it('share create rejects an invalid --expires', async () => {
+    const { dataDir, repoDir } = makeWorkspace();
+    const { code, stderr } = await captureIo(() =>
+      main([
+        'node',
+        'plandesk',
+        'share',
+        'create',
+        '--audience',
+        'Acme',
+        '--expires',
+        'soon',
+        '--repo',
+        repoDir,
+        '--data-dir',
+        dataDir,
+      ]),
+    );
+    expect(code).toBe(1);
+    expect(stderr).toContain('Invalid --expires');
+  });
+
+  it('a share created via the CLI is pushable to the sync server', async () => {
+    const syncServer = await startTestSyncServer();
+    servers.push(syncServer);
+    const { dataDir, repoDir } = makeWorkspace();
+
+    const create = await captureIo(() =>
+      main([
+        'node',
+        'plandesk',
+        'share',
+        'create',
+        '--audience',
+        'Acme Corp',
+        '--public',
+        '--repo',
+        repoDir,
+        '--data-dir',
+        dataDir,
+      ]),
+    );
+    expect(create.code).toBe(0);
+
+    const publish = await captureIo(() =>
+      main([
+        'node',
+        'plandesk',
+        'publish',
+        '--remote',
+        syncServer.serverUrl,
+        '--sync-token',
+        syncServer.syncToken,
+        '--repo',
+        repoDir,
+        '--data-dir',
+        dataDir,
+      ]),
+    );
+    expect(publish.code).toBe(0);
+    expect(publish.stdout).toContain('pushed 1 share(s)');
+  });
+
   it('publish writes sync config and gitignored sync-token', async () => {
     const syncServer = await startTestSyncServer();
     servers.push(syncServer);

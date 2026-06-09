@@ -89,6 +89,14 @@ function loadConfig(repoDir: string): PlanDeskConfig {
   return parseConfigJson(content);
 }
 
+export function resolveProjectId(options: { repoDir: string; projectId?: string }): string {
+  const projectId = options.projectId ?? loadConfig(options.repoDir).projectId;
+  if (projectId.trim() === '') {
+    throw new SyncConfigError('Project id is required. Use --project or plandesk connect.');
+  }
+  return projectId;
+}
+
 export function resolveSyncRemote(options: {
   repoDir: string;
   projectId?: string;

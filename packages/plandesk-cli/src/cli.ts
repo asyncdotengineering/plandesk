@@ -13,10 +13,19 @@ import { formatDisconnectSummary, runDisconnect } from './disconnect.js';
 import { formatPublishSummary, runPublish } from './publish.js';
 import { formatPushSummary, runPush } from './push.js';
 import { formatPullSummary, runPull } from './pull.js';
+import { formatShareCreateSummary, InvalidShareArgsError, runShareCreate } from './share.js';
+import {
+  DeploySpecUnavailableError,
+  fetchDeploySpec,
+  formatDeployIndex,
+  formatPipeTip,
+  formatUnknownTarget,
+  isKnownTarget,
+} from './deploy.js';
 import { SyncConfigError } from './sync.js';
 import { LocalServerUnreachableError, runWatch, SseDisconnectedError } from './watch.js';
 import { CORRUPT_DB_HINT, CorruptWorkspaceError, openWorkspace } from './workspace.js';
-import { SyncUnauthorizedError, SyncUnavailableError } from '@plandesk/api';
+import { InvalidShareError, SyncUnauthorizedError, SyncUnavailableError } from '@plandesk/api';
 
 function reportCorruptDb(): number {
   process.stderr.write(`${CORRUPT_DB_HINT}\n`);
@@ -224,6 +233,60 @@ export async function main(argv: string[] = process.argv): Promise<number> {
           err instanceof LocalServerUnreachableError ||
           err instanceof SseDisconnectedError
         ) {
+          process.stderr.write(`${err.message}\n`);
+          return 1;
+        }
+        throw err;
+      }
+    }
+    case 'share': {
+      try {
+        const repoDir = resolveRepoDir(parsed.repoDir);
+        const { db } = openWorkspace(parsed.dataDir);
+        const result = runShareCreate(db, {
+          repoDir,
+          projectId: parsed.projectId,
+          audienceName: parsed.audience,
+          public: parsed.public,
+          invite: parsed.invite,
+          expires: parsed.expires,
+          allowSubmit: parsed.allowSubmit,
+        });
+        process.stdout.write(formatShareCreateSummary(result));
+        return 0;
+      } catch (err) {
+        if (err instanceof CorruptWorkspaceError) {
+          return reportCorruptDb();
+        }
+        if (
+          err instanceof SyncConfigError ||
+          err instanceof InvalidShareArgsError ||
+          err instanceof InvalidShareError
+        ) {
+          process.stderr.write(`${err.message}\n`);
+          return 1;
+        }
+        throw err;
+      }
+    }
+    case 'deploy': {
+      if (parsed.target === undefined) {
+        process.stdout.write(formatDeployIndex());
+        return 0;
+      }
+      if (!isKnownTarget(parsed.target)) {
+        process.stderr.write(formatUnknownTarget(parsed.target));
+        return 1;
+      }
+      try {
+        const spec = await fetchDeploySpec(parsed.target);
+        process.stdout.write(spec.endsWith('\n') ? spec : `${spec}\n`);
+        if (process.stdout.isTTY) {
+          process.stderr.write(formatPipeTip(parsed.target));
+        }
+        return 0;
+      } catch (err) {
+        if (err instanceof DeploySpecUnavailableError) {
           process.stderr.write(`${err.message}\n`);
           return 1;
         }
