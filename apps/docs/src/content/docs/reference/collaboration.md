@@ -3,8 +3,8 @@ title: Collaboration & sync (architecture)
 description: How Plan Desk shares a project with external clients and teams — a local-first core plus a hosted, edge-deployable sync tier.
 ---
 
-:::caution[Preview — in development]
-Client collaboration is **built and verified but not yet in the released CLI** (`@plandesk/*` 0.3.0 is the local-first core only). This page explains the architecture; the design lives in [`rfcs/client-collaboration-sync/`](https://github.com/asyncdotengineering/plandesk/tree/main/rfcs/client-collaboration-sync). Multi-tenancy (org isolation) is the remaining gated phase.
+:::note[Shipped in 0.4.0 — single-tenant]
+Client collaboration ships in `@plandesk/*` **0.4.0** (Phases 1–5: portal, join, intake, pull→triage, live status-back, plus `plandesk deploy` / `share create`). This page explains the architecture; the design lives in [`rfcs/client-collaboration-sync/`](https://github.com/asyncdotengineering/plandesk/tree/main/rfcs/client-collaboration-sync). A deployment is **single-tenant** today — multi-tenancy (org isolation, Phase 6) is the remaining gated phase.
 :::
 
 Plan Desk stays local-first while letting you share a project — read-only and live — with an external client or another team, and take their issues back into your plan. It does this with **two cleanly separated planes**.
@@ -56,6 +56,5 @@ The handler and query code are identical across both; only the client factory di
 ## What's not here yet
 
 - **Multi-tenancy** — today a deployment is single-tenant (one team / one self-hosted instance). Org isolation with fail-closed tenant scoping and intra-org project ACLs is the gated final phase.
-- **Release** — the collaboration CLI commands and the sync server are not in the published `@plandesk/cli` yet.
 
 See [The Skill](/connecting-agents/skill/) for how an agent already drives the planning loop, and the [REST + MCP API](/reference/api/) for the current 23 tools.

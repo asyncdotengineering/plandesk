@@ -58,19 +58,20 @@ pnpm metrics        # v1 performance targets
 
 ## Roadmap
 
-### Shipped (`@plandesk/*` 0.3.0)
+### Shipped (`@plandesk/*` 0.4.0)
 
-Local-first planning workspace: flow canvas with labeled dependency edges, specs on nodes, kanban board, 18→23 MCP tools (incl. `scaffold_project_from_plan`, `get_next_task`, document comments), lossless export/import, Docker self-hosting.
+Local-first planning workspace: flow canvas with labeled dependency edges, specs on nodes, kanban board, 23 MCP tools (incl. `scaffold_project_from_plan`, `get_next_task`, document comments), lossless export/import, Docker self-hosting — plus the Client Collaboration tier below.
 
-### In development — Client Collaboration (on `main`, not yet released)
+### Shipped in 0.4.0 — Client Collaboration
 
-Share a project with an external client or another team and collaborate two-way, without giving up local-first authoring. Full design in [`rfcs/client-collaboration-sync/`](rfcs/client-collaboration-sync/). **Phases 1–5 are implemented and verified** (the complete client-facing + owner + agent + live loop):
+Share a project with an external client or another team and collaborate two-way, without giving up local-first authoring. Full design in [`rfcs/client-collaboration-sync/`](rfcs/client-collaboration-sync/). **Phases 1–5 ship the complete client-facing + owner + agent + live loop:**
 
 - **Read-only portal** — a guest opens a share link and sees a curated, **allow-list** projection of the plan (graph + board + shared docs). Internal data is structurally absent, never filtered.
 - **Named join + identity** — Zoom-style "enter your name" join → scoped, session-gated view; invite-scoped or public; append-only activity/audit log.
 - **Moderated issue intake** — guests file bugs into a **proposal inbox** that never touches the source of truth; the owner pulls and triages.
-- **Pull → triage → task** — `plandesk pull` brings submissions into a local triage inbox; **accept** creates a real task via the normal write path (so the agent can `get_next_task` it); status acks back to the guest. Driven by CLI (`publish`/`push`/`pull`/`sync --watch`) and 5 MCP tools.
+- **Pull → triage → task** — `plandesk pull` brings submissions into a local triage inbox; **accept** creates a real task via the normal write path (so the agent can `get_next_task` it); status acks back to the guest. Driven by CLI (`publish`/`push`/`pull`/`sync --watch`/`share create`) and 5 MCP tools.
 - **Live status-back** — a change on the owner's canvas propagates to the guest's portal in ~2s over SSE, no reload.
+- **Agent-assisted deploy** — `plandesk deploy cloudflare | claude` hands a coding agent a hosted, grounded runbook that stands up your own sync server on Cloudflare Workers + D1 + Pages. See [Collaboration & sync](https://plandesk.asyncdot.com/reference/collaboration/).
 
 ### Pending — Phase 6: multi-tenant hardening
 
@@ -80,7 +81,8 @@ What turns the collaboration tier into a true multi-tenant product. **Not yet bu
 - **Fail-closed tenant scoping** — every hosted query carries an `org_id` or throws; the raw DB client is unreachable outside the scoping module, so "forgot the `WHERE org_id`" cannot compile.
 - **Intra-org project silos** — membership ACL so teams in one org only see projects they're shared into.
 - **Per-audience revocation / expiry** — revoking one share invalidates its cached projection + open SSE without touching siblings.
-- **Agent-assisted self-deploy** — `plandesk deploy` detects local tooling (wrangler / flyctl / docker), provisions the hosted sync server, and wires the tokens.
+
+(Agent-assisted self-deploy shipped in 0.4.0 as `plandesk deploy` — a hosted connector-spec an agent runs, not a bundled provisioner; see [RFC Delta 06](rfcs/client-collaboration-sync/06-c21-deploy-connector-delta.md).)
 
 Smaller follow-ups: magic-link invite verification (current invite check trusts the typed email), cross-instance SSE pub/sub for multi-replica deploys, and `sync --watch` auto-reconnect.
 
