@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  crashCourse,
   DEFAULT_BIND_HOST,
   DEFAULT_PORT,
   isLoopbackHost,
@@ -62,8 +63,26 @@ describe('parseArgs', () => {
     });
   });
 
-  it('returns help for empty argv', () => {
-    expect(parseArgs(['node', 'plandesk'])).toEqual({ command: 'help' });
+  it('returns help (crash course) for empty argv', () => {
+    expect(parseArgs(['node', 'plandesk'])).toEqual({ command: 'help', full: false });
+  });
+
+  it('returns full help with --commands', () => {
+    expect(parseArgs(['node', 'plandesk', 'help', '--commands'])).toEqual({
+      command: 'help',
+      full: true,
+    });
+  });
+});
+
+describe('crashCourse', () => {
+  it('orients both humans and agents with real doc links', () => {
+    const out = crashCourse();
+    expect(out).toContain('https://plandesk.asyncdot.com/start.md');
+    expect(out).toContain('READ THESE');
+    expect(out).toContain('plandesk connect');
+    expect(out).toContain('Agents:'); // explicit instruction to fetch the links
+    expect(out).toContain('plandesk help --commands');
   });
 });
 

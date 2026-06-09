@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { cwd } from 'node:process';
 import { runInit } from './init.js';
-import { parseArgs, usage } from './args.js';
+import { crashCourse, parseArgs, usage } from './args.js';
 import { runServe } from './serve.js';
 import { runTokenCreate } from './token.js';
 import { runExport, ProjectNotFoundError } from './export.js';
@@ -41,7 +41,7 @@ export async function main(argv: string[] = process.argv): Promise<number> {
 
   switch (parsed.command) {
     case 'help':
-      process.stdout.write(usage());
+      process.stdout.write(parsed.full ? usage() : crashCourse());
       return 0;
     case 'init': {
       const dbPath = runInit(parsed.dataDir);

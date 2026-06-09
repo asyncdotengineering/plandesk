@@ -12,6 +12,7 @@ npm i -g @plandesk/cli
 This provides the `plandesk` binary and bundles the web UI. All commands below assume a global install. Contributors running from a cloned repo can use `packages/plandesk-cli/bin/plandesk` instead.
 
 ```
+plandesk help [--commands]
 plandesk init [--data-dir <dir>]
 plandesk serve [--port 3847] [--strict-port] [--host <addr>] [--data-dir <dir>]
 plandesk token create --name <name> [--data-dir <dir>]
@@ -32,14 +33,15 @@ plandesk deploy [target]
 
 ## Commands
 
-| Command                  | Purpose                                                             |
-| ------------------------ | ------------------------------------------------------------------- |
-| `init`                   | Create workspace DB and run migrations                              |
-| `serve`                  | Start REST + SSE + MCP + web UI (default `127.0.0.1:3847`)          |
-| `token create`           | Create MCP bearer token (shown once)                                |
-| `export` / `import`      | Lossless `plandesk-export-v1` JSON round-trip                       |
-| `connect` / `disconnect` | Bind / unbind a repo to a project + agent configs                   |
-| `doctor`                 | Check DB health; with `--repo`, validate binding + MCP reachability |
+| Command                  | Purpose                                                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `help`                   | A crash course (orientation + key commands + doc links) for humans and agents; `help --commands` prints the full grammar |
+| `init`                   | Create workspace DB and run migrations                                                                                   |
+| `serve`                  | Start REST + SSE + MCP + web UI (default `127.0.0.1:3847`)                                                               |
+| `token create`           | Create MCP bearer token (shown once)                                                                                     |
+| `export` / `import`      | Lossless `plandesk-export-v1` JSON round-trip                                                                            |
+| `connect` / `disconnect` | Bind / unbind a repo to a project + agent configs                                                                        |
+| `doctor`                 | Check DB health; with `--repo`, validate binding + MCP reachability                                                      |
 
 ## Collaboration
 

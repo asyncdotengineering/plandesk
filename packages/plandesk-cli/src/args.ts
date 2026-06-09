@@ -91,7 +91,7 @@ export type ParsedArgs =
       dataDir?: string;
     }
   | { command: 'deploy'; target?: string }
-  | { command: 'help' }
+  | { command: 'help'; full: boolean }
   | { command: 'unknown'; name: string };
 
 function parseFlags(args: string[]): {
@@ -158,7 +158,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     command === '--help' ||
     flags['help'] === true
   ) {
-    return { command: 'help' };
+    return { command: 'help', full: flags['commands'] === true || flags['full'] === true };
   }
 
   const dataDir = flagString(flags, 'data-dir');
@@ -330,7 +330,8 @@ Usage:
 Options:
   --data-dir  Workspace directory (default: ~/.plandesk, or PLANDESK_DATA_DIR)
   --repo      Target repository directory (default: cwd)
-  --port      HTTP port for serve (default: ${String(DEFAULT_PORT)})
+  --port      HTTP port for serve (default: ${String(DEFAULT_PORT)}; auto-rotates if busy)
+  --strict-port  Fail instead of rotating when the serve port is in use
   --host      Bind address (default: 127.0.0.1, or PLANDESK_HOST)
   --project   Project id or name for connect/export
   --url       Plan Desk server URL for connect (default: http://127.0.0.1:${String(DEFAULT_PORT)})
@@ -341,5 +342,44 @@ Options:
   --in        Input file for import
   --remote    Sync server URL for publish
   --sync-token  Sync token for publish (default: PLANDESK_SYNC_TOKEN or .plandesk/sync-token)
+`;
+}
+
+export function crashCourse(): string {
+  return `plandesk — local-first planning for you and your coding agent
+
+WHAT IT IS
+  A graph of tasks (dependency edges + specs) you run on your own machine. You and
+  your agent read and write the same plan over MCP; every change is live. You can
+  optionally share a read-only, live view of a plan with a client or another team.
+
+GET STARTED
+  npm i -g @plandesk/cli
+  plandesk init && plandesk serve            # UI at http://127.0.0.1:${String(DEFAULT_PORT)}
+  Then, from your project folder, paste into Claude Code or Codex:
+    Read https://plandesk.asyncdot.com/start.md then set up Plan Desk for this project.
+
+THE CORE LOOP  (you + your agent)
+  plandesk connect --project "<name>"        # bind this repo to a project
+  agent: scaffold_project_from_plan → loop get_next_task → update_task → done
+  Steer by commenting on docs; the agent reads and resolves them. All live.
+
+SHARE WITH YOUR TEAM  (optional)
+  plandesk deploy cloudflare | claude        # agent stands up your sync server
+  plandesk share create --audience "Acme" --public --allow-submit
+  plandesk push                              # they watch live + file issues; you triage
+
+READ THESE  (.md — fetchable by humans and agents; read before you act)
+  Setup, paste-and-go ....... https://plandesk.asyncdot.com/start.md
+  Start with just an idea ... https://plandesk.asyncdot.com/guides/start-with-an-idea.md
+  Hands-on build loop ....... https://plandesk.asyncdot.com/guides/idea-to-development.md
+  Share with a team ......... https://plandesk.asyncdot.com/guides/plan-share-build.md
+  Every command + flag ...... https://plandesk.asyncdot.com/reference/cli.md
+  Architecture + security ... https://plandesk.asyncdot.com/reference/collaboration.md
+  Fix a problem ............. https://plandesk.asyncdot.com/reference/troubleshooting.md
+  Everything, one file ...... https://plandesk.asyncdot.com/llms-full.txt
+
+  Agents: fetch the links above to learn the conventions before changing a plan.
+  Full command grammar: plandesk help --commands
 `;
 }
