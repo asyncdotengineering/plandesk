@@ -22,13 +22,13 @@ The load-bearing invariant: **a participant never writes to the source of truth,
 
 ## Navigation
 
-| Part | Sections | Contents |
-|------|----------|----------|
-| [01-problem-background](./01-problem-background.md) | 1–2 | Problem statement, current-state grounding, rejected alternatives |
-| [02-requirements-interfaces](./02-requirements-interfaces.md) | 3–5 | REQ-1..REQ-15, interface specs, architecture, schema, token taxonomy |
-| [03-pseudocode-blueprint](./03-pseudocode-blueprint.md) | 6–7 | Publish/push/join/submit/pull/triage flows; tenant-scoping blueprint |
-| [04-tasks-validation](./04-tasks-validation.md) | 8–9 | Phased WBS (6 phases), validation contract, isolation & leak tests |
-| [05-security-rollback-open-qs](./05-security-rollback-open-qs.md) | 10–12 | Threat/privacy model, rollback, open questions (with proposals) |
+| Part                                                              | Sections | Contents                                                             |
+| ----------------------------------------------------------------- | -------- | -------------------------------------------------------------------- |
+| [01-problem-background](./01-problem-background.md)               | 1–2      | Problem statement, current-state grounding, rejected alternatives    |
+| [02-requirements-interfaces](./02-requirements-interfaces.md)     | 3–5      | REQ-1..REQ-15, interface specs, architecture, schema, token taxonomy |
+| [03-pseudocode-blueprint](./03-pseudocode-blueprint.md)           | 6–7      | Publish/push/join/submit/pull/triage flows; tenant-scoping blueprint |
+| [04-tasks-validation](./04-tasks-validation.md)                   | 8–9      | Phased WBS (6 phases), validation contract, isolation & leak tests   |
+| [05-security-rollback-open-qs](./05-security-rollback-open-qs.md) | 10–12    | Threat/privacy model, rollback, open questions (with proposals)      |
 
 ## The six phases (each a vertical slice)
 

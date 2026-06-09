@@ -32,7 +32,7 @@ This feature introduces Plan Desk's first untrusted-input, multi-tenant, publicl
 
 ## 10.5 Transport & deploy
 
-- HTTPS only on the hosted surface; the local authoring surface stays bound to `127.0.0.1` (REQ-13) — the portal is the *only* publicly reachable surface.
+- HTTPS only on the hosted surface; the local authoring surface stays bound to `127.0.0.1` (REQ-13) — the portal is the _only_ publicly reachable surface.
 - Self-deploy provisions least-privilege store credentials; the bootstrap sync token is shown once and stored gitignored.
 
 # 11. Rollback and Abort Criteria

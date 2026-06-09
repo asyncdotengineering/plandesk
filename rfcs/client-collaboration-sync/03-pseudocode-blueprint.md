@@ -135,10 +135,16 @@ export function tenantScoped(principal: Principal | undefined) {
   return {
     projects: {
       get: (gid: string) =>
-        db.select().from(projects).where(and(eq(projects.globalId, gid), eq(projects.orgId, principal.orgId))).get(),
+        db
+          .select()
+          .from(projects)
+          .where(and(eq(projects.globalId, gid), eq(projects.orgId, principal.orgId)))
+          .get(),
       // ...every method folds the org predicate in; there is no raw `db` exported from this module
     },
-    submissions: { /* ... org-scoped ... */ },
+    submissions: {
+      /* ... org-scoped ... */
+    },
     // ...
   };
 }
@@ -155,14 +161,34 @@ export function buildClientView(db: Db, projectId: string, share: Share): Client
   const policy = share.policy; // which tasks/docs are shared, which fields
   const sharedTasks = listTasks(db, projectId)
     .filter((t) => policy.includesTask(t))
-    .map((t) => ({ id: t.id, label: t.label, status: t.status, due_date: iso(t.dueDate), position: { x: t.x, y: t.y } }));
+    .map((t) => ({
+      id: t.id,
+      label: t.label,
+      status: t.status,
+      due_date: iso(t.dueDate),
+      position: { x: t.x, y: t.y },
+    }));
   const ids = new Set(sharedTasks.map((t) => t.id));
-  const edges = listEdges(db, projectId).filter((e) => ids.has(e.fromTaskId) && ids.has(e.toTaskId))
+  const edges = listEdges(db, projectId)
+    .filter((e) => ids.has(e.fromTaskId) && ids.has(e.toTaskId))
     .map((e) => ({ from: e.fromTaskId, to: e.toTaskId, label: e.label }));
-  const docs = listDocuments(db, projectId).filter((d) => policy.sharesDoc(d.id))
-    .map((d) => ({ id: d.id, title: d.title, body_html: sanitize(d.body), updated_at: iso(d.updatedAt) }));
+  const docs = listDocuments(db, projectId)
+    .filter((d) => policy.sharesDoc(d.id))
+    .map((d) => ({
+      id: d.id,
+      title: d.title,
+      body_html: sanitize(d.body),
+      updated_at: iso(d.updatedAt),
+    }));
   // agent runs, internal comments, tokens, assignees: NEVER referenced here — not filtered, absent.
-  return { project: projMeta(project), tasks: sharedTasks, edges, documents: docs, progress: summarize(sharedTasks), share: shareMeta(share) };
+  return {
+    project: projMeta(project),
+    tasks: sharedTasks,
+    edges,
+    documents: docs,
+    progress: summarize(sharedTasks),
+    share: shareMeta(share),
+  };
 }
 ```
 
@@ -171,7 +197,9 @@ export function buildClientView(db: Db, projectId: string, share: Share): Client
 ```ts
 // apps/plandesk-web/src/lib/capabilities.ts
 // The session (owner | member | participant) yields capabilities; the UI reads them for affordances ONLY.
-export function useCapabilities(): Capability[] { /* from /api/v1/session or portal session */ }
+export function useCapabilities(): Capability[] {
+  /* from /api/v1/session or portal session */
+}
 
 // e.g. a board column shows "+ Add issue" iff caps.includes('submit'); edit handles iff caps.includes('write').
 // The server rejects any call the caps don't cover — the client never decides security.
