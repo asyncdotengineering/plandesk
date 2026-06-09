@@ -62,7 +62,7 @@ export default defineConfig({
         },
         {
           label: 'Self-Hosting',
-          items: [{ slug: 'self-hosting/docker' }],
+          items: [{ slug: 'self-hosting/docker' }, { slug: 'self-hosting/sync-server' }],
         },
         {
           label: 'Connecting Agents',
@@ -79,6 +79,7 @@ export default defineConfig({
             { slug: 'reference/api' },
             { slug: 'reference/architecture' },
             { slug: 'reference/collaboration' },
+            { slug: 'reference/troubleshooting' },
             { slug: 'reference/validation-metrics' },
           ],
         },
