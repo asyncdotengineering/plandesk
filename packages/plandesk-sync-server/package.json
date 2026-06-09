@@ -1,0 +1,51 @@
+{
+  "name": "@plandesk/sync-server",
+  "version": "0.3.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.js",
+    "!dist/**/*.test.js.map",
+    "!dist/**/*.test.d.ts",
+    "!dist/**/*.test.d.ts.map"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.12.23"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^2.0.4",
+    "@types/better-sqlite3": "^7.6.13",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.6"
+  },
+  "description": "Plan Desk hosted sync server — projection store and portal read endpoints.",
+  "license": "MIT",
+  "author": "asyncdotengineering",
+  "homepage": "https://plandesk.asyncdot.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asyncdotengineering/plandesk.git",
+    "directory": "packages/plandesk-sync-server"
+  },
+  "keywords": [
+    "plan-desk",
+    "planning",
+    "sync",
+    "collaboration",
+    "local-first",
+    "portal"
+  ]
+}

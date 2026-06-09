@@ -232,6 +232,31 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/debug@4.1.13)(@types/node@25.9.2)(jiti@2.7.0)(jsdom@29.1.1)(lightningcss@1.32.0)(tsx@4.22.4)
 
+  packages/plandesk-sync-server:
+    dependencies:
+      better-sqlite3:
+        specifier: ^12.10.0
+        version: 12.10.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@types/better-sqlite3@7.6.13)(better-sqlite3@12.10.0)
+      hono:
+        specifier: ^4.12.23
+        version: 4.12.23
+    devDependencies:
+      '@hono/node-server':
+        specifier: ^2.0.4
+        version: 2.0.4(hono@4.12.23)
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/debug@4.1.13)(@types/node@25.9.2)(jiti@2.7.0)(jsdom@29.1.1)(lightningcss@1.32.0)(tsx@4.22.4)
+
 packages:
 
   '@asamuzakjp/css-color@5.1.11':
