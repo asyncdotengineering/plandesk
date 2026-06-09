@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, count, desc, eq, gt } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { streamSSE } from 'hono/streaming';
 import {
   createParticipantSession,
   hashToken,
@@ -12,9 +13,11 @@ import {
 } from './auth.js';
 import type { SyncDb } from './db/client.js';
 import { hostedShares, participants, projectionBlobs, submissions } from './db/schema.js';
+import { createShareNotifier, type ShareNotifier } from './notifier.js';
 
 export type SyncServerDeps = {
   db: SyncDb;
+  notifier?: ShareNotifier;
 };
 
 type ShareMode = 'invite' | 'public';
@@ -109,6 +112,7 @@ function parseSharePermissions(permissionsJson: string): SharePermissions {
 
 export function createSyncServer(deps: SyncServerDeps): Hono {
   const app = new Hono();
+  const notifier = deps.notifier ?? createShareNotifier();
 
   // The portal is a browser app that may reach this server cross-origin (always
   // in dev; in prod whenever the portal bundle and the portal API differ in
@@ -207,6 +211,8 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
         })
         .run();
     }
+
+    notifier.notify(shareId);
 
     return c.json({ ok: true });
   });
@@ -332,6 +338,57 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
       .run();
 
     return c.json({ ok: true });
+  });
+
+  app.get('/api/portal/v1/shares/:token/events', (c) => {
+    const shareToken = c.req.param('token');
+    const share = verifyShareToken(deps.db, shareToken);
+    if (share === undefined) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+
+    return streamSSE(c, async (stream) => {
+      let active = true;
+      const unsub = notifier.subscribe(share.id, () => {
+        void stream.writeSSE({ data: JSON.stringify({ type: 'projection_updated' }) });
+      });
+
+      const cleanup = () => {
+        if (!active) {
+          return;
+        }
+        active = false;
+        clearInterval(keepAlive);
+        unsub();
+      };
+
+      await stream.write(': connected\n\n');
+
+      const keepAlive = setInterval(() => {
+        if (active) {
+          void stream.write(': keep-alive\n\n');
+        }
+      }, 25_000);
+
+      c.req.raw.signal.addEventListener('abort', cleanup, { once: true });
+      stream.onAbort(cleanup);
+
+      await new Promise<void>((resolve) => {
+        if (c.req.raw.signal.aborted) {
+          cleanup();
+          resolve();
+          return;
+        }
+        c.req.raw.signal.addEventListener(
+          'abort',
+          () => {
+            cleanup();
+            resolve();
+          },
+          { once: true },
+        );
+      });
+    });
   });
 
   app.get('/api/portal/v1/shares/:token/meta', (c) => {
