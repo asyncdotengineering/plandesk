@@ -261,6 +261,53 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     );
   });
 
+  const ackStatuses = ['accepted', 'rejected', 'in_progress', 'done'] as const;
+  type AckStatus = (typeof ackStatuses)[number];
+
+  function isAckStatus(value: string | undefined): value is AckStatus {
+    return value !== undefined && (ackStatuses as readonly string[]).includes(value);
+  }
+
+  app.post('/api/sync/v1/projects/:gid/submissions/:id/ack', async (c) => {
+    const raw = extractBearerToken(c.req.header('Authorization'));
+    if (raw === undefined || verifySyncToken(deps.db, raw) === undefined) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+
+    let body: { status?: string };
+    try {
+      body = await c.req.json<{ status?: string }>();
+    } catch {
+      return c.json({ error: 'invalid_json' }, 400);
+    }
+
+    if (!isAckStatus(body.status)) {
+      return c.json({ error: 'invalid_status' }, 400);
+    }
+
+    const gid = c.req.param('gid');
+    const submissionId = c.req.param('id');
+
+    const row = deps.db
+      .select({ id: submissions.id })
+      .from(submissions)
+      .innerJoin(hostedShares, eq(submissions.shareId, hostedShares.id))
+      .where(and(eq(submissions.id, submissionId), eq(hostedShares.projectGlobalId, gid)))
+      .get();
+
+    if (row === undefined) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+
+    deps.db
+      .update(submissions)
+      .set({ status: body.status })
+      .where(eq(submissions.id, submissionId))
+      .run();
+
+    return c.json({ ok: true });
+  });
+
   app.post('/api/sync/v1/shares/:token/revoke', (c) => {
     const raw = extractBearerToken(c.req.header('Authorization'));
     if (raw === undefined || verifySyncToken(deps.db, raw) === undefined) {

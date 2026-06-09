@@ -1,13 +1,17 @@
 import {
   getPullCursor,
+  getSubmission,
   listSubmissions,
   setPullCursor,
+  setSubmissionStatus,
   upsertSubmission,
   type Db,
   type ShareSubmission,
   type ShareSubmissionStatus,
+  type TaskStatus,
 } from '@plandesk/db';
 import type { EventBus } from '../events.js';
+import type { TaskService } from './tasks.js';
 
 export class SyncUnavailableError extends Error {
   constructor(message = 'sync server unavailable') {
@@ -20,6 +24,13 @@ export class SyncUnauthorizedError extends Error {
   constructor(message = 'sync token unauthorized') {
     super(message);
     this.name = 'SyncUnauthorizedError';
+  }
+}
+
+export class InvalidTriageError extends Error {
+  constructor(message = 'submission not found') {
+    super(message);
+    this.name = 'InvalidTriageError';
   }
 }
 
@@ -76,10 +87,46 @@ export function serializeSubmission(row: ShareSubmission): SerializedSubmission 
 export type SyncServiceDeps = {
   db: Db;
   eventBus: EventBus;
+  taskService: TaskService;
 };
 
+function buildDesc(submission: ShareSubmission): string | null {
+  const footer = `Reported by ${submission.participantName} (client) via Plan Desk`;
+  if (submission.body === null || submission.body === '') {
+    return footer;
+  }
+  return `${submission.body}\n\n${footer}`;
+}
+
+async function ackSubmission(
+  remote: SyncRemote,
+  submissionId: string,
+  status: string,
+): Promise<void> {
+  const base = remote.serverUrl.replace(/\/$/, '');
+  const url = `${base}/api/sync/v1/projects/${encodeURIComponent(remote.globalProjectId)}/submissions/${encodeURIComponent(submissionId)}/ack`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${remote.syncToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status }),
+    });
+  } catch {
+    throw new SyncUnavailableError();
+  }
+
+  if (!response.ok) {
+    throw new SyncUnavailableError(`sync server returned ${String(response.status)}`);
+  }
+}
+
 export function createSyncService(deps: SyncServiceDeps) {
-  const { db, eventBus } = deps;
+  const { db, eventBus, taskService } = deps;
 
   return {
     async pull(projectId: string, remote: SyncRemote): Promise<{ pulled: number }> {
@@ -148,6 +195,56 @@ export function createSyncService(deps: SyncServiceDeps) {
 
     listTriage(projectId: string, status?: ShareSubmissionStatus): SerializedSubmission[] {
       return listSubmissions(db, projectId, status).map(serializeSubmission);
+    },
+
+    async triage(
+      submissionId: string,
+      action: 'accept' | 'reject',
+      remote: SyncRemote,
+      asTask?: { label?: string; status?: TaskStatus; description?: string },
+    ): Promise<SerializedSubmission> {
+      const submission = getSubmission(db, submissionId);
+      if (submission === undefined) {
+        throw new InvalidTriageError();
+      }
+
+      if (submission.status !== 'pending') {
+        return serializeSubmission(submission);
+      }
+
+      const projectId = submission.projectId;
+
+      if (action === 'accept') {
+        const task = taskService.create(projectId, {
+          label: asTask?.label ?? submission.title,
+          status: asTask?.status ?? 'todo',
+          description: asTask?.description ?? buildDesc(submission),
+        });
+        if (task === undefined) {
+          throw new InvalidTriageError('project not found');
+        }
+
+        const updated = setSubmissionStatus(db, submissionId, {
+          status: 'accepted',
+          linkedTaskId: task.id,
+        });
+        if (updated === undefined) {
+          throw new InvalidTriageError();
+        }
+
+        eventBus.emit({ type: 'submissions_pulled', projectId });
+        await ackSubmission(remote, submissionId, 'accepted');
+        return serializeSubmission(updated);
+      }
+
+      const updated = setSubmissionStatus(db, submissionId, { status: 'rejected' });
+      if (updated === undefined) {
+        throw new InvalidTriageError();
+      }
+
+      eventBus.emit({ type: 'submissions_pulled', projectId });
+      await ackSubmission(remote, submissionId, 'rejected');
+      return serializeSubmission(updated);
     },
   };
 }

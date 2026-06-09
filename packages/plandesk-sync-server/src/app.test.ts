@@ -704,7 +704,13 @@ describe('GET /api/sync/v1/projects/:gid/submissions', () => {
       throw new Error('expected first submission');
     }
 
-    await submitIssue(app, shareToken, session_token, { title: 'Second' });
+    const secondRes = await submitIssue(app, shareToken, session_token, { title: 'Second' });
+    const { submission: second } = (await secondRes.json()) as { submission: { id: string } };
+    const laterCreatedAt = new Date(firstRow.createdAt.getTime() + 1);
+    db.update(submissions)
+      .set({ createdAt: laterCreatedAt })
+      .where(eq(submissions.id, second.id))
+      .run();
 
     const res = await ownerPullSubmissions(
       app,
@@ -728,6 +734,77 @@ describe('GET /api/sync/v1/projects/:gid/submissions', () => {
     const { app } = createTestApp();
     const res = await ownerPullSubmissions(app, 'plandesk_sync_invalid', 'gid-1');
     expect(res.status).toBe(401);
+  });
+});
+
+async function ackSubmission(
+  app: ReturnType<typeof createSyncServer>,
+  syncToken: string,
+  gid: string,
+  submissionId: string,
+  status: string,
+) {
+  return app.request(`/api/sync/v1/projects/${gid}/submissions/${submissionId}/ack`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${syncToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ status }),
+  });
+}
+
+describe('POST /api/sync/v1/projects/:gid/submissions/:id/ack', () => {
+  it('updates submission status and participant own-view reflects it', async () => {
+    const { app, syncToken } = createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+
+    const submitRes = await submitIssue(app, shareToken, session_token, { title: 'Ack me' });
+    const { submission } = (await submitRes.json()) as { submission: { id: string } };
+
+    const ackRes = await ackSubmission(app, syncToken, 'gid-1', submission.id, 'accepted');
+    expect(ackRes.status).toBe(200);
+    expect(await ackRes.json()).toEqual({ ok: true });
+
+    const listRes = await listSubmissions(app, shareToken, session_token);
+    const rows = (await listRes.json()) as Array<{ id: string; status: string }>;
+    expect(rows.find((row) => row.id === submission.id)?.status).toBe('accepted');
+  });
+
+  it('returns 401 without sync token', async () => {
+    const { app } = createTestApp();
+    const res = await app.request('/api/sync/v1/projects/gid-1/submissions/sub-1/ack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'accepted' }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 for invalid status', async () => {
+    const { app, syncToken } = createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+    const submitRes = await submitIssue(app, shareToken, session_token, { title: 'Bad ack' });
+    const { submission } = (await submitRes.json()) as { submission: { id: string } };
+
+    const res = await ackSubmission(app, syncToken, 'gid-1', submission.id, 'bogus');
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 for unknown submission in project', async () => {
+    const { app, syncToken } = createTestApp();
+    const res = await ackSubmission(app, syncToken, 'gid-1', 'missing-submission', 'accepted');
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 404 when submission belongs to a different project', async () => {
+    const { app, syncToken } = createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+    const submitRes = await submitIssue(app, shareToken, session_token, { title: 'Wrong gid' });
+    const { submission } = (await submitRes.json()) as { submission: { id: string } };
+
+    const res = await ackSubmission(app, syncToken, 'gid-other', submission.id, 'accepted');
+    expect(res.status).toBe(404);
   });
 });
 

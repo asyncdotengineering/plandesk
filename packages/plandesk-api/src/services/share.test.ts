@@ -4,6 +4,7 @@ import { createEventBus } from '../events.js';
 import { createProjectService } from './projects.js';
 import { createShareService, InvalidShareError, serializeShare } from './share.js';
 import { createSyncService } from './sync.js';
+import { createTaskService } from './tasks.js';
 
 describe('shareService', () => {
   const db = createDb(':memory:');
@@ -141,7 +142,8 @@ describe('shareService', () => {
   it('cascade deletes pulled submissions when a project is deleted', async () => {
     const projectService = createProjectService({ db, eventBus });
     const project = createProject(db, { name: 'Cascade submissions' });
-    const syncService = createSyncService({ db, eventBus });
+    const taskService = createTaskService({ db, eventBus });
+    const syncService = createSyncService({ db, eventBus, taskService });
 
     vi.stubGlobal(
       'fetch',
