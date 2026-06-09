@@ -6,4 +6,4 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "plandesk-sync"
-database_id = "PLACEHOLDER"
+database_id = "0fb300c4-681f-4286-91f4-f6e804238899"
