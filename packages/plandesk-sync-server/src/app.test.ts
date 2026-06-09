@@ -1,11 +1,23 @@
 import { randomBytes } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { createSyncToken, hashToken } from './auth.js';
+import { createSyncToken, hashToken, seedSyncToken, verifySyncToken } from './auth.js';
 import { createSyncServer } from './app.js';
 import { createSyncDb } from './db/client.js';
 import { migrate } from './db/migrate.js';
 import { activityLog, hostedShares, projectionBlobs, submissions } from './db/schema.js';
+
+describe('seedSyncToken (self-host bootstrap)', () => {
+  it('seeds an owner token once and authenticates it; second call is a no-op', async () => {
+    const db = createSyncDb(':memory:');
+    await migrate(db);
+    const raw = 'plandesk_sync_bootstrap-example';
+
+    expect(await seedSyncToken(db, raw)).toBe(true);
+    expect(await verifySyncToken(db, raw)).toBeDefined();
+    expect(await seedSyncToken(db, raw)).toBe(false); // idempotent
+  });
+});
 
 function generateShareToken(): string {
   return `plandesk_share_${randomBytes(32).toString('base64url')}`;

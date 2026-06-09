@@ -4,6 +4,7 @@ export { migrate } from './db/migrate.js';
 export {
   createParticipantSession,
   createSyncToken,
+  seedSyncToken,
   hashToken,
   logActivity,
   verifyParticipantSession,

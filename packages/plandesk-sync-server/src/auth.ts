@@ -159,3 +159,24 @@ export async function createSyncToken(
 
   return { token };
 }
+
+/**
+ * Seed an owner sync token from a raw token (self-hosted bootstrap). Idempotent:
+ * returns false if a token with this hash already exists, true if it was inserted.
+ */
+export async function seedSyncToken(db: SyncDbClient, rawToken: string): Promise<boolean> {
+  const tokenHash = hashToken(rawToken);
+  const existing = await db
+    .select({ id: syncTokens.id })
+    .from(syncTokens)
+    .where(eq(syncTokens.tokenHash, tokenHash))
+    .get();
+  if (existing !== undefined) {
+    return false;
+  }
+  await db
+    .insert(syncTokens)
+    .values({ id: randomUUID(), tokenHash, label: 'bootstrap', createdAt: new Date() })
+    .run();
+  return true;
+}

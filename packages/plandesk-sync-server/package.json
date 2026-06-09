@@ -1,12 +1,15 @@
 {
   "name": "@plandesk/sync-server",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
+  },
+  "bin": {
+    "plandesk-sync-server": "./dist/server.js"
   },
   "files": [
     "dist",
@@ -20,13 +23,13 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@hono/node-server": "^2.0.4",
     "@libsql/client": "^0.15.9",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.23"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250609.0",
-    "@hono/node-server": "^2.0.4",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   },
