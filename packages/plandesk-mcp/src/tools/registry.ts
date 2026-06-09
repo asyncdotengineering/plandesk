@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { taskStatuses } from '@plandesk/db';
+import { shareSubmissionStatuses, taskStatuses } from '@plandesk/db';
 
 export const listProjectsInputSchema = z.object({});
 
@@ -133,6 +133,37 @@ export const resolveCommentInputSchema = z.object({
   comment_id: z.string().uuid(),
 });
 
+export const publishProjectInputSchema = z.object({
+  project_id: z.string().uuid(),
+  server_url: z.string().url(),
+  sync_token: z.string().min(1),
+});
+
+export const syncPushInputSchema = z.object({
+  project_id: z.string().uuid(),
+});
+
+export const syncPullInputSchema = z.object({
+  project_id: z.string().uuid(),
+});
+
+export const listSubmissionsInputSchema = z.object({
+  project_id: z.string().uuid(),
+  status: z.enum(shareSubmissionStatuses).optional(),
+});
+
+export const triageSubmissionInputSchema = z.object({
+  submission_id: z.string().uuid(),
+  action: z.enum(['accept', 'reject']),
+  as_task: z
+    .object({
+      label: z.string().optional(),
+      status: z.enum(taskStatuses).optional(),
+      description: z.string().optional(),
+    })
+    .optional(),
+});
+
 export const v1ToolNames = [
   'list_projects',
   'get_project',
@@ -152,6 +183,11 @@ export const v1ToolNames = [
   'list_comments',
   'add_comment',
   'resolve_comment',
+  'publish_project',
+  'sync_push',
+  'sync_pull',
+  'list_submissions',
+  'triage_submission',
 ] as const;
 
 export type V1ToolName = (typeof v1ToolNames)[number];
@@ -175,4 +211,9 @@ export const v1ToolSchemas = {
   list_comments: listCommentsInputSchema,
   add_comment: addCommentInputSchema,
   resolve_comment: resolveCommentInputSchema,
+  publish_project: publishProjectInputSchema,
+  sync_push: syncPushInputSchema,
+  sync_pull: syncPullInputSchema,
+  list_submissions: listSubmissionsInputSchema,
+  triage_submission: triageSubmissionInputSchema,
 } as const;

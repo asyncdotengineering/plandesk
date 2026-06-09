@@ -15,8 +15,13 @@ import { createListCommentsHandler } from './tools/list-comments.js';
 import { createListDocumentsHandler } from './tools/list-documents.js';
 import { createListProjectsHandler } from './tools/list-projects.js';
 import { createRecordAgentProgressHandler } from './tools/record-agent-progress.js';
+import { createListSubmissionsHandler } from './tools/list-submissions.js';
+import { createPublishProjectHandler } from './tools/publish-project.js';
 import { createResolveCommentHandler } from './tools/resolve-comment.js';
 import { createScaffoldProjectFromPlanHandler } from './tools/scaffold-project-from-plan.js';
+import { createSyncPullHandler } from './tools/sync-pull.js';
+import { createSyncPushHandler } from './tools/sync-push.js';
+import { createTriageSubmissionHandler } from './tools/triage-submission.js';
 import {
   completeAgentRunInputSchema,
   createDocumentInputSchema,
@@ -30,10 +35,15 @@ import {
   listCommentsInputSchema,
   listDocumentsInputSchema,
   listProjectsInputSchema,
+  listSubmissionsInputSchema,
+  publishProjectInputSchema,
   recordAgentProgressInputSchema,
   resolveCommentInputSchema,
   scaffoldProjectFromPlanInputSchema,
   startAgentRunInputSchema,
+  syncPullInputSchema,
+  syncPushInputSchema,
+  triageSubmissionInputSchema,
   updateDocumentInputSchema,
   updateTaskInputSchema,
 } from './tools/registry.js';
@@ -246,6 +256,60 @@ function createMcpServer(services: Services): McpServer {
       inputSchema: resolveCommentInputSchema.shape,
     },
     createResolveCommentHandler(services.commentService),
+  );
+
+  server.registerTool(
+    'publish_project',
+    {
+      title: 'Publish Project',
+      description: 'Register the project on the sync server and store the remote credentials',
+      inputSchema: publishProjectInputSchema.shape,
+    },
+    createPublishProjectHandler(services.syncService),
+  );
+
+  server.registerTool(
+    'sync_push',
+    {
+      title: 'Sync Push',
+      description: 'Push client projections to the hosted sync server',
+      inputSchema: syncPushInputSchema.shape,
+    },
+    createSyncPushHandler(services.syncService),
+  );
+
+  server.registerTool(
+    'sync_pull',
+    {
+      title: 'Sync Pull',
+      description: 'Pull participant submissions into the local triage inbox',
+      inputSchema: syncPullInputSchema.shape,
+    },
+    createSyncPullHandler(services.syncService),
+  );
+
+  server.registerTool(
+    'list_submissions',
+    {
+      title: 'List Submissions',
+      description: 'List pulled participant submissions for triage',
+      inputSchema: listSubmissionsInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListSubmissionsHandler(
+      services.syncService,
+      (projectId) => services.projectService.get(projectId) !== undefined,
+    ),
+  );
+
+  server.registerTool(
+    'triage_submission',
+    {
+      title: 'Triage Submission',
+      description: 'Accept or reject a participant submission',
+      inputSchema: triageSubmissionInputSchema.shape,
+    },
+    createTriageSubmissionHandler(services.syncService),
   );
 
   return server;

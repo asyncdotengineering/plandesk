@@ -21,6 +21,7 @@ export {
   SyncUnavailableError,
   SyncUnauthorizedError,
   type SyncRemote,
+  type SyncService,
 } from './services/sync.js';
 
 import { readFileSync } from 'node:fs';

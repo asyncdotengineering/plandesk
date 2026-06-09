@@ -11,6 +11,7 @@ import {
   deleteEdgesByProjectId,
   deleteShareSubmissionsByProjectId,
   deleteSharesByProjectId,
+  deleteSyncRemoteByProjectId,
   deleteSyncStateByProjectId,
   deleteProject as dbDeleteProject,
   deleteTasksByProjectId,
@@ -203,6 +204,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
         deleteTasksByProjectId(tx, id);
         deleteShareSubmissionsByProjectId(tx, id);
         deleteSyncStateByProjectId(tx, id);
+        deleteSyncRemoteByProjectId(tx, id);
         deleteSharesByProjectId(tx, id);
         dbDeleteProject(tx, id);
       });

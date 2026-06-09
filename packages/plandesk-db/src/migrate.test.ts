@@ -16,6 +16,7 @@ const EXPECTED_TABLES = [
   'shares',
   'share_submissions',
   'sync_state',
+  'sync_remotes',
   '__drizzle_migrations',
 ] as const;
 
@@ -75,6 +76,9 @@ describe('migrate', () => {
     expect(getProject(db, FIXTURE_PROJECT_ID)?.name).toBe('Fixture Project');
 
     migrateDown(db, 1);
+    expect(listTables(db)).not.toContain('sync_remotes');
+
+    migrateDown(db, 1);
     expect(listTables(db)).not.toContain('share_submissions');
     expect(listTables(db)).not.toContain('sync_state');
 
@@ -89,6 +93,7 @@ describe('migrate', () => {
     expect(listTables(db)).toContain('shares');
     expect(listTables(db)).toContain('share_submissions');
     expect(listTables(db)).toContain('sync_state');
+    expect(listTables(db)).toContain('sync_remotes');
     expect(getProject(db, FIXTURE_PROJECT_ID)?.name).toBe('Fixture Project');
 
     migrateDownAll(db);

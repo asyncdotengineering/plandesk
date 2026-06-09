@@ -172,3 +172,19 @@ export const syncState = sqliteTable('sync_state', {
   pullCursor: text('pull_cursor'),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
+
+export const syncRemotes = sqliteTable('sync_remotes', {
+  projectId: text('project_id')
+    .primaryKey()
+    .references(() => projects.id),
+  serverUrl: text('server_url').notNull(),
+  globalProjectId: text('global_project_id').notNull(),
+  // local-first: outbound credential, not hashed
+  syncToken: text('sync_token').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+});

@@ -11,6 +11,7 @@ type MigrationJournal = {
 };
 
 const DOWN_SQL: Record<string, string[]> = {
+  '0004_striped_sumo': ['DROP TABLE IF EXISTS `sync_remotes`;'],
   '0003_real_fallen_one': [
     'DROP TABLE IF EXISTS `sync_state`;',
     'DROP TABLE IF EXISTS `share_submissions`;',

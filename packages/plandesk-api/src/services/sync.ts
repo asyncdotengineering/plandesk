@@ -2,11 +2,13 @@ import { randomUUID } from 'node:crypto';
 import {
   getPullCursor,
   getShare,
-  getSubmission,
+  getSubmission as dbGetSubmission,
+  getSyncRemote,
   listSubmissions,
   parseSharePermissions,
   setPullCursor,
   setSubmissionStatus,
+  setSyncRemote,
   upsertSubmission,
   type Db,
   type Share,
@@ -291,13 +293,38 @@ export function createSyncService(deps: SyncServiceDeps) {
       return listSubmissions(db, projectId, status).map(serializeSubmission);
     },
 
+    getSubmission(submissionId: string): SerializedSubmission | undefined {
+      const submission = dbGetSubmission(db, submissionId);
+      return submission === undefined ? undefined : serializeSubmission(submission);
+    },
+
+    setRemote(projectId: string, remote: SyncRemote): void {
+      setSyncRemote(db, projectId, {
+        serverUrl: remote.serverUrl,
+        globalProjectId: remote.globalProjectId,
+        syncToken: remote.syncToken,
+      });
+    },
+
+    getRemote(projectId: string): SyncRemote | undefined {
+      const row = getSyncRemote(db, projectId);
+      if (row === undefined) {
+        return undefined;
+      }
+      return {
+        serverUrl: row.serverUrl,
+        globalProjectId: row.globalProjectId,
+        syncToken: row.syncToken,
+      };
+    },
+
     async triage(
       submissionId: string,
       action: 'accept' | 'reject',
       remote: SyncRemote,
       asTask?: { label?: string; status?: TaskStatus; description?: string },
     ): Promise<SerializedSubmission> {
-      const submission = getSubmission(db, submissionId);
+      const submission = dbGetSubmission(db, submissionId);
       if (submission === undefined) {
         throw new InvalidTriageError();
       }
