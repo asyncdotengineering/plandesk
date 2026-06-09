@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { createSyncDb } from './client.js';
 import { migrate } from './migrate.js';
 
-const EXPECTED_TABLES = ['sync_tokens', 'hosted_shares', 'projection_blobs'] as const;
+const EXPECTED_TABLES = [
+  'activity_log',
+  'hosted_shares',
+  'participants',
+  'projection_blobs',
+  'sync_tokens',
+] as const;
 
 function listTables(db: ReturnType<typeof createSyncDb>): string[] {
   const rows = db.$client

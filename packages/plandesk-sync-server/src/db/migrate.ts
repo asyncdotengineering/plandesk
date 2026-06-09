@@ -32,6 +32,27 @@ CREATE TABLE IF NOT EXISTS projection_blobs (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS projection_blobs_share_id_unique ON projection_blobs (share_id);
+
+CREATE TABLE IF NOT EXISTS participants (
+  id TEXT PRIMARY KEY NOT NULL,
+  share_id TEXT NOT NULL REFERENCES hosted_shares(id),
+  name TEXT NOT NULL,
+  email TEXT,
+  session_token_hash TEXT NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)),
+  revoked_at INTEGER
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS participants_session_token_hash_unique ON participants (session_token_hash);
+
+CREATE TABLE IF NOT EXISTS activity_log (
+  id TEXT PRIMARY KEY NOT NULL,
+  share_id TEXT NOT NULL REFERENCES hosted_shares(id),
+  participant_id TEXT REFERENCES participants(id),
+  action TEXT NOT NULL,
+  detail TEXT,
+  created_at INTEGER NOT NULL DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer))
+);
 `;
 
 export function migrate(db: SyncDb): void {

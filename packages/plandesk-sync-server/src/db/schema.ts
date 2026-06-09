@@ -49,4 +49,37 @@ export const projectionBlobs = sqliteTable(
   (table) => [uniqueIndex('projection_blobs_share_id_unique').on(table.shareId)],
 );
 
+export const participants = sqliteTable(
+  'participants',
+  {
+    id: text('id').primaryKey(),
+    shareId: text('share_id')
+      .notNull()
+      .references(() => hostedShares.id),
+    name: text('name').notNull(),
+    email: text('email'),
+    sessionTokenHash: text('session_token_hash').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+    revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [uniqueIndex('participants_session_token_hash_unique').on(table.sessionTokenHash)],
+);
+
+export const activityLog = sqliteTable('activity_log', {
+  id: text('id').primaryKey(),
+  shareId: text('share_id')
+    .notNull()
+    .references(() => hostedShares.id),
+  participantId: text('participant_id').references(() => participants.id),
+  action: text('action').notNull(),
+  detail: text('detail'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+});
+
 export type HostedShare = typeof hostedShares.$inferSelect;
+export type Participant = typeof participants.$inferSelect;
+export type ActivityLogEntry = typeof activityLog.$inferSelect;
