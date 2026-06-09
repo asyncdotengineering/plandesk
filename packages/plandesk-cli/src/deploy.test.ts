@@ -71,6 +71,8 @@ describe('plandesk deploy', () => {
     expect(code).toBe(0);
     expect(stdout).toContain('Available deploy guides:');
     expect(stdout).toContain('cloudflare');
+    expect(stdout).toContain('fly');
+    expect(stdout).toContain('docker');
     expect(stdout).toContain('plandesk deploy cloudflare | claude');
   });
 

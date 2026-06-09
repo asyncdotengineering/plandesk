@@ -13,6 +13,16 @@ export const DEPLOY_TARGETS: DeployTarget[] = [
     store: 'Workers + D1',
     summary: 'Edge sync server on Cloudflare Workers + D1, portal on Cloudflare Pages.',
   },
+  {
+    name: 'fly',
+    store: 'Node + libSQL volume',
+    summary: 'Sync server on Fly.io — single machine, auto-stop, SQLite on a volume.',
+  },
+  {
+    name: 'docker',
+    store: 'Node + libSQL',
+    summary: 'Sync server as a Docker container on any host, SQLite on a mounted volume.',
+  },
 ];
 
 export class DeploySpecUnavailableError extends Error {
