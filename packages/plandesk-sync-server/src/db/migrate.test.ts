@@ -7,6 +7,7 @@ const EXPECTED_TABLES = [
   'hosted_shares',
   'participants',
   'projection_blobs',
+  'submissions',
   'sync_tokens',
 ] as const;
 

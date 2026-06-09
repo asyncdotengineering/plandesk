@@ -82,6 +82,25 @@ export const activityLog = sqliteTable('activity_log', {
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
 });
 
+export const submissions = sqliteTable('submissions', {
+  id: text('id').primaryKey(),
+  shareId: text('share_id')
+    .notNull()
+    .references(() => hostedShares.id),
+  participantId: text('participant_id')
+    .notNull()
+    .references(() => participants.id),
+  title: text('title').notNull(),
+  body: text('body'),
+  severity: text('severity'),
+  taskRef: text('task_ref'),
+  status: text('status').notNull().default('pending'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+});
+
 export type HostedShare = typeof hostedShares.$inferSelect;
 export type Participant = typeof participants.$inferSelect;
 export type ActivityLogEntry = typeof activityLog.$inferSelect;
+export type Submission = typeof submissions.$inferSelect;

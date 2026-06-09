@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, count, desc, eq, gt } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import {
@@ -11,7 +11,7 @@ import {
   verifySyncToken,
 } from './auth.js';
 import type { SyncDb } from './db/client.js';
-import { hostedShares, projectionBlobs } from './db/schema.js';
+import { hostedShares, projectionBlobs, submissions } from './db/schema.js';
 
 export type SyncServerDeps = {
   db: SyncDb;
@@ -71,6 +71,40 @@ function parseExpiresAt(value: string | null): Date | null {
     return null;
   }
   return new Date(value);
+}
+
+type SharePermissions = {
+  read?: boolean;
+  submit?: boolean;
+};
+
+type SubmissionBody = {
+  title?: string;
+  body?: string;
+  severity?: string;
+  task_ref?: string;
+};
+
+function verifyParticipantSessionForShare(
+  db: SyncDb,
+  shareToken: string,
+  sessionRaw: string | undefined,
+) {
+  if (sessionRaw === undefined) {
+    return undefined;
+  }
+  const session = verifyParticipantSession(db, sessionRaw);
+  if (session === undefined) {
+    return undefined;
+  }
+  if (hashToken(shareToken) !== session.share.tokenHash) {
+    return undefined;
+  }
+  return session;
+}
+
+function parseSharePermissions(permissionsJson: string): SharePermissions {
+  return JSON.parse(permissionsJson) as SharePermissions;
 }
 
 export function createSyncServer(deps: SyncServerDeps): Hono {
@@ -263,16 +297,8 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
   app.get('/api/portal/v1/shares/:token/view', (c) => {
     const shareToken = c.req.param('token');
     const sessionRaw = extractBearerToken(c.req.header('Authorization'));
-    if (sessionRaw === undefined) {
-      return c.json({ error: 'unauthorized' }, 401);
-    }
-
-    const session = verifyParticipantSession(deps.db, sessionRaw);
+    const session = verifyParticipantSessionForShare(deps.db, shareToken, sessionRaw);
     if (session === undefined) {
-      return c.json({ error: 'unauthorized' }, 401);
-    }
-
-    if (hashToken(shareToken) !== session.share.tokenHash) {
       return c.json({ error: 'unauthorized' }, 401);
     }
 
@@ -293,13 +319,129 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     });
 
     const view = JSON.parse(blob.viewJson) as Record<string, unknown>;
-    const permissions = JSON.parse(session.share.permissions) as Record<string, unknown>;
+    const permissions = parseSharePermissions(session.share.permissions);
 
     return c.json({
       ...view,
       audience_name: session.share.audienceName,
       permissions,
     });
+  });
+
+  app.post('/api/portal/v1/shares/:token/submissions', async (c) => {
+    const shareToken = c.req.param('token');
+    const sessionRaw = extractBearerToken(c.req.header('Authorization'));
+    const session = verifyParticipantSessionForShare(deps.db, shareToken, sessionRaw);
+    if (session === undefined) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+
+    const permissions = parseSharePermissions(session.share.permissions);
+    if (permissions.submit !== true) {
+      return c.json({ error: 'submit_not_permitted' }, 403);
+    }
+
+    let body: SubmissionBody;
+    try {
+      body = await c.req.json<SubmissionBody>();
+    } catch {
+      return c.json({ error: 'invalid_json' }, 400);
+    }
+
+    const title = body.title?.trim() ?? '';
+    if (title === '') {
+      return c.json({ error: 'title_required' }, 400);
+    }
+
+    const oneMinuteAgo = new Date(Date.now() - 60_000);
+    const recentCount =
+      deps.db
+        .select({ count: count() })
+        .from(submissions)
+        .where(
+          and(
+            eq(submissions.participantId, session.participant.id),
+            gt(submissions.createdAt, oneMinuteAgo),
+          ),
+        )
+        .get()?.count ?? 0;
+
+    if (recentCount >= 10) {
+      return c.json({ error: 'rate_limited' }, 429);
+    }
+
+    const submissionId = randomUUID();
+    const now = new Date();
+    const bodyText = body.body?.trim() === '' ? null : (body.body?.trim() ?? null);
+    const severity = body.severity?.trim() === '' ? null : (body.severity?.trim() ?? null);
+    const taskRef = body.task_ref?.trim() === '' ? null : (body.task_ref?.trim() ?? null);
+
+    deps.db
+      .insert(submissions)
+      .values({
+        id: submissionId,
+        shareId: session.share.id,
+        participantId: session.participant.id,
+        title,
+        body: bodyText,
+        severity,
+        taskRef,
+        status: 'pending',
+        createdAt: now,
+      })
+      .run();
+
+    logActivity(deps.db, {
+      shareId: session.share.id,
+      participantId: session.participant.id,
+      action: 'submit',
+      detail: submissionId,
+    });
+
+    return c.json(
+      {
+        submission: {
+          id: submissionId,
+          title,
+          severity,
+          status: 'pending',
+          created_at: now.toISOString(),
+        },
+      },
+      201,
+    );
+  });
+
+  app.get('/api/portal/v1/shares/:token/submissions', (c) => {
+    const shareToken = c.req.param('token');
+    const sessionRaw = extractBearerToken(c.req.header('Authorization'));
+    const session = verifyParticipantSessionForShare(deps.db, shareToken, sessionRaw);
+    if (session === undefined) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+
+    const rows = deps.db
+      .select({
+        id: submissions.id,
+        title: submissions.title,
+        severity: submissions.severity,
+        status: submissions.status,
+        createdAt: submissions.createdAt,
+      })
+      .from(submissions)
+      .where(eq(submissions.participantId, session.participant.id))
+      .orderBy(desc(submissions.createdAt))
+      .all();
+
+    return c.json(
+      rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        severity: row.severity,
+        status: row.status,
+        created_at: row.createdAt.toISOString(),
+      })),
+    );
   });
 
   return app;

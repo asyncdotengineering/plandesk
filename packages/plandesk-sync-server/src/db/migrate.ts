@@ -55,6 +55,18 @@ CREATE TABLE IF NOT EXISTS activity_log (
   detail TEXT,
   created_at INTEGER NOT NULL DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer))
 );
+
+CREATE TABLE IF NOT EXISTS submissions (
+  id TEXT PRIMARY KEY NOT NULL,
+  share_id TEXT NOT NULL REFERENCES hosted_shares(id),
+  participant_id TEXT NOT NULL REFERENCES participants(id),
+  title TEXT NOT NULL,
+  body TEXT,
+  severity TEXT,
+  task_ref TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at INTEGER NOT NULL DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer))
+);
 `;
 
 function columnExists(db: SyncDb, table: string, column: string): boolean {

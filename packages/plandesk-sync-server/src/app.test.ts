@@ -5,7 +5,7 @@ import { createSyncToken, hashToken } from './auth.js';
 import { createSyncServer } from './app.js';
 import { createSyncDb } from './db/client.js';
 import { migrate } from './db/migrate.js';
-import { activityLog, hostedShares, projectionBlobs } from './db/schema.js';
+import { activityLog, hostedShares, projectionBlobs, submissions } from './db/schema.js';
 
 function generateShareToken(): string {
   return `plandesk_share_${randomBytes(32).toString('base64url')}`;
@@ -32,6 +32,7 @@ type SharePushOptions = {
   invited_emails?: string[];
   audience_name?: string;
   expires_at?: string | null;
+  permissions?: { read: boolean; submit: boolean };
 };
 
 async function pushProjection(
@@ -55,7 +56,7 @@ async function pushProjection(
         audience_name: shareOptions.audience_name ?? 'Acme Corp',
         mode: shareOptions.mode ?? 'public',
         invited_emails: shareOptions.invited_emails,
-        permissions: { read: true, submit: false },
+        permissions: shareOptions.permissions ?? { read: true, submit: false },
         expires_at: shareOptions.expires_at ?? null,
       },
       version,
@@ -90,6 +91,43 @@ async function viewWithSession(
   return app.request(`/api/portal/v1/shares/${shareToken}/view`, {
     headers: { Authorization: `Bearer ${sessionToken}`, ...extraHeaders },
   });
+}
+
+async function submitIssue(
+  app: ReturnType<typeof createSyncServer>,
+  shareToken: string,
+  sessionToken: string,
+  body: { title: string; body?: string; severity?: string; task_ref?: string },
+) {
+  return app.request(`/api/portal/v1/shares/${shareToken}/submissions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${sessionToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+async function listSubmissions(
+  app: ReturnType<typeof createSyncServer>,
+  shareToken: string,
+  sessionToken: string,
+) {
+  return app.request(`/api/portal/v1/shares/${shareToken}/submissions`, {
+    headers: { Authorization: `Bearer ${sessionToken}` },
+  });
+}
+
+async function setupSubmitShare(app: ReturnType<typeof createSyncServer>, syncToken: string) {
+  const shareToken = generateShareToken();
+  await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
+    mode: 'public',
+    permissions: { read: true, submit: true },
+  });
+  const joinRes = await joinShare(app, shareToken, 'Alex');
+  const { session_token } = (await joinRes.json()) as { session_token: string };
+  return { shareToken, session_token };
 }
 
 describe('createSyncServer', () => {
@@ -489,6 +527,206 @@ describe('GET /meta', () => {
     const { app } = createTestApp();
     const res = await fetchShareMeta(app, generateShareToken());
     expect(res.status).toBe(401);
+  });
+});
+
+describe('POST /submissions', () => {
+  it('creates a pending submission with submit permission', async () => {
+    const { app, db, syncToken } = createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+
+    const res = await submitIssue(app, shareToken, session_token, {
+      title: 'Broken button',
+      body: 'Click does nothing',
+      severity: 'high',
+      task_ref: 't1',
+    });
+    expect(res.status).toBe(201);
+    const payload = (await res.json()) as {
+      submission: {
+        id: string;
+        title: string;
+        severity: string;
+        status: string;
+        created_at: string;
+      };
+    };
+    expect(payload.submission.title).toBe('Broken button');
+    expect(payload.submission.severity).toBe('high');
+    expect(payload.submission.status).toBe('pending');
+    expect(payload.submission.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+
+    const row = db
+      .select()
+      .from(submissions)
+      .where(eq(submissions.id, payload.submission.id))
+      .get();
+    expect(row?.status).toBe('pending');
+    expect(row?.body).toBe('Click does nothing');
+    expect(row?.taskRef).toBe('t1');
+  });
+
+  it('returns 400 for empty title', async () => {
+    const { app, syncToken } = createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+
+    const res = await submitIssue(app, shareToken, session_token, { title: '   ' });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'title_required' });
+  });
+
+  it('returns 401 without participant session', async () => {
+    const { app, syncToken } = createTestApp();
+    const { shareToken } = await setupSubmitShare(app, syncToken);
+
+    const res = await submitIssue(app, shareToken, '', { title: 'Bug' });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 401 when session belongs to a different share', async () => {
+    const { app, syncToken } = createTestApp();
+    const shareTokenA = generateShareToken();
+    const shareTokenB = generateShareToken();
+    await pushProjection(app, syncToken, 'gid-1', shareTokenA, sampleView, 1, {
+      permissions: { read: true, submit: true },
+    });
+    await pushProjection(app, syncToken, 'gid-2', shareTokenB, sampleView, 1, {
+      permissions: { read: true, submit: true },
+    });
+
+    const joinRes = await joinShare(app, shareTokenA, 'Alex');
+    const { session_token } = (await joinRes.json()) as { session_token: string };
+
+    const res = await submitIssue(app, shareTokenB, session_token, { title: 'Bug' });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 when share lacks submit permission', async () => {
+    const { app, syncToken } = createTestApp();
+    const shareToken = generateShareToken();
+    await pushProjection(app, syncToken, 'gid-1', shareToken);
+    const joinRes = await joinShare(app, shareToken, 'Alex');
+    const { session_token } = (await joinRes.json()) as { session_token: string };
+
+    const res = await submitIssue(app, shareToken, session_token, { title: 'Bug' });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: 'submit_not_permitted' });
+  });
+
+  it('returns 429 when rate limit exceeded', async () => {
+    const { app, syncToken } = createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+
+    for (let i = 0; i < 10; i += 1) {
+      const res = await submitIssue(app, shareToken, session_token, {
+        title: `Issue ${String(i)}`,
+      });
+      expect(res.status).toBe(201);
+    }
+
+    const limited = await submitIssue(app, shareToken, session_token, { title: 'One too many' });
+    expect(limited.status).toBe(429);
+    expect(await limited.json()).toEqual({ error: 'rate_limited' });
+  });
+
+  it('logs submit activity', async () => {
+    const { app, db, syncToken } = createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+
+    const res = await submitIssue(app, shareToken, session_token, { title: 'Bug' });
+    const { submission } = (await res.json()) as { submission: { id: string } };
+
+    const submitEntry = db.select().from(activityLog).where(eq(activityLog.action, 'submit')).get();
+    expect(submitEntry?.detail).toBe(submission.id);
+  });
+});
+
+describe('GET /submissions', () => {
+  it('returns only the calling participant submissions', async () => {
+    const { app, syncToken } = createTestApp();
+    const shareToken = generateShareToken();
+    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
+      permissions: { read: true, submit: true },
+    });
+
+    const joinAlex = await joinShare(app, shareToken, 'Alex');
+    const { session_token: alexSession } = (await joinAlex.json()) as { session_token: string };
+    const joinBlake = await joinShare(app, shareToken, 'Blake');
+    const { session_token: blakeSession } = (await joinBlake.json()) as { session_token: string };
+
+    await submitIssue(app, shareToken, alexSession, { title: 'Alex issue' });
+    await submitIssue(app, shareToken, blakeSession, { title: 'Blake issue' });
+
+    const alexList = (await listSubmissions(app, shareToken, alexSession).then((r) =>
+      r.json(),
+    )) as Array<{
+      title: string;
+    }>;
+    expect(alexList).toHaveLength(1);
+    expect(alexList[0]?.title).toBe('Alex issue');
+
+    const blakeList = (await listSubmissions(app, shareToken, blakeSession).then((r) =>
+      r.json(),
+    )) as Array<{
+      title: string;
+    }>;
+    expect(blakeList).toHaveLength(1);
+    expect(blakeList[0]?.title).toBe('Blake issue');
+  });
+
+  it('returns 401 without participant session', async () => {
+    const { app, syncToken } = createTestApp();
+    const { shareToken } = await setupSubmitShare(app, syncToken);
+
+    const res = await app.request(`/api/portal/v1/shares/${shareToken}/submissions`);
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('submission_not_task', () => {
+  it('submitting an issue leaves the projection blob unchanged', async () => {
+    const { app, db, syncToken } = createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+
+    const share = db
+      .select({ id: hostedShares.id })
+      .from(hostedShares)
+      .where(eq(hostedShares.tokenHash, hashToken(shareToken)))
+      .get();
+    expect(share).toBeDefined();
+    if (share === undefined) {
+      throw new Error('expected share row');
+    }
+
+    const before = db
+      .select()
+      .from(projectionBlobs)
+      .where(eq(projectionBlobs.shareId, share.id))
+      .get();
+    expect(before).toBeDefined();
+    if (before === undefined) {
+      throw new Error('expected projection blob');
+    }
+
+    const res = await submitIssue(app, shareToken, session_token, {
+      title: 'Should not mutate plan',
+      body: 'proposal only',
+    });
+    expect(res.status).toBe(201);
+
+    const after = db
+      .select()
+      .from(projectionBlobs)
+      .where(eq(projectionBlobs.shareId, share.id))
+      .get();
+    expect(after).toBeDefined();
+    if (after === undefined) {
+      throw new Error('expected projection blob after submit');
+    }
+
+    expect(after.viewJson).toBe(before.viewJson);
+    expect(after.version).toBe(before.version);
+    expect(after.updatedAt.getTime()).toBe(before.updatedAt.getTime());
   });
 });
 
