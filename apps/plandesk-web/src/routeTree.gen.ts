@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsMcpRouteImport } from './routes/settings.mcp'
+import { Route as PShareTokenRouteImport } from './routes/p.$shareToken'
 import { Route as ProjectsIdOverviewRouteImport } from './routes/projects.$id.overview'
 import { Route as ProjectsIdFlowRouteImport } from './routes/projects.$id.flow'
 import { Route as ProjectsIdBoardRouteImport } from './routes/projects.$id.board'
@@ -24,6 +25,11 @@ const IndexRoute = IndexRouteImport.update({
 const SettingsMcpRoute = SettingsMcpRouteImport.update({
   id: '/settings/mcp',
   path: '/settings/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PShareTokenRoute = PShareTokenRouteImport.update({
+  id: '/p/$shareToken',
+  path: '/p/$shareToken',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsIdOverviewRoute = ProjectsIdOverviewRouteImport.update({
@@ -50,6 +56,7 @@ const ProjectsIdDocumentsDocIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/p/$shareToken': typeof PShareTokenRoute
   '/settings/mcp': typeof SettingsMcpRoute
   '/projects/$id/board': typeof ProjectsIdBoardRoute
   '/projects/$id/flow': typeof ProjectsIdFlowRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/p/$shareToken': typeof PShareTokenRoute
   '/settings/mcp': typeof SettingsMcpRoute
   '/projects/$id/board': typeof ProjectsIdBoardRoute
   '/projects/$id/flow': typeof ProjectsIdFlowRoute
@@ -67,6 +75,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/p/$shareToken': typeof PShareTokenRoute
   '/settings/mcp': typeof SettingsMcpRoute
   '/projects/$id/board': typeof ProjectsIdBoardRoute
   '/projects/$id/flow': typeof ProjectsIdFlowRoute
@@ -77,6 +86,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/p/$shareToken'
     | '/settings/mcp'
     | '/projects/$id/board'
     | '/projects/$id/flow'
@@ -85,6 +95,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/p/$shareToken'
     | '/settings/mcp'
     | '/projects/$id/board'
     | '/projects/$id/flow'
@@ -93,6 +104,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/p/$shareToken'
     | '/settings/mcp'
     | '/projects/$id/board'
     | '/projects/$id/flow'
@@ -102,6 +114,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PShareTokenRoute: typeof PShareTokenRoute
   SettingsMcpRoute: typeof SettingsMcpRoute
   ProjectsIdBoardRoute: typeof ProjectsIdBoardRoute
   ProjectsIdFlowRoute: typeof ProjectsIdFlowRoute
@@ -123,6 +136,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/mcp'
       fullPath: '/settings/mcp'
       preLoaderRoute: typeof SettingsMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/p/$shareToken': {
+      id: '/p/$shareToken'
+      path: '/p/$shareToken'
+      fullPath: '/p/$shareToken'
+      preLoaderRoute: typeof PShareTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects/$id/overview': {
@@ -158,6 +178,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PShareTokenRoute: PShareTokenRoute,
   SettingsMcpRoute: SettingsMcpRoute,
   ProjectsIdBoardRoute: ProjectsIdBoardRoute,
   ProjectsIdFlowRoute: ProjectsIdFlowRoute,
