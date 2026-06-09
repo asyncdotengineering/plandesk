@@ -1,5 +1,12 @@
-import { useState, type SubmitEvent } from 'react';
-import { PortalJoinError, PortalUnauthorizedError, joinShare } from '../../lib/portal.js';
+import { useEffect, useState, type SubmitEvent } from 'react';
+import {
+  PortalEmailNotInvitedError,
+  PortalJoinError,
+  PortalUnauthorizedError,
+  fetchShareMeta,
+  joinShare,
+  type ShareMeta,
+} from '../../lib/portal.js';
 
 type JoinGateProps = {
   shareToken: string;
@@ -10,11 +17,54 @@ export function JoinGate({ shareToken, onJoined }: JoinGateProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [pending, setPending] = useState(false);
+  const [meta, setMeta] = useState<ShareMeta | null>(null);
+  const [metaLoading, setMetaLoading] = useState(true);
   const [shareError, setShareError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMeta() {
+      setMetaLoading(true);
+      setShareError(null);
+      try {
+        const result = await fetchShareMeta(shareToken);
+        if (!cancelled) {
+          setMeta(result);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          if (error instanceof PortalUnauthorizedError) {
+            setShareError(error.message);
+          } else {
+            setShareError(
+              error instanceof Error ? error.message : 'Something went wrong. Please try again.',
+            );
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setMetaLoading(false);
+        }
+      }
+    }
+
+    void loadMeta();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shareToken]);
+
   const trimmedName = name.trim();
-  const canSubmit = trimmedName.length > 0 && !pending;
+  const trimmedEmail = email.trim();
+  const emailRequired = meta?.mode === 'invite';
+  const canSubmit =
+    trimmedName.length > 0 &&
+    (!emailRequired || trimmedEmail.length > 0) &&
+    !pending &&
+    !metaLoading;
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,12 +79,14 @@ export function JoinGate({ shareToken, onJoined }: JoinGateProps) {
     try {
       const result = await joinShare(shareToken, {
         name: trimmedName,
-        email: email.trim() === '' ? undefined : email.trim(),
+        email: trimmedEmail === '' ? undefined : trimmedEmail,
       });
       onJoined(result.session_token);
     } catch (error) {
       if (error instanceof PortalUnauthorizedError) {
         setShareError(error.message);
+      } else if (error instanceof PortalEmailNotInvitedError) {
+        setFieldError(error.message);
       } else if (error instanceof PortalJoinError) {
         setFieldError(error.message);
       } else {
@@ -73,9 +125,15 @@ export function JoinGate({ shareToken, onJoined }: JoinGateProps) {
         >
           Plan Desk
         </p>
-        <h1 style={{ margin: 0, fontSize: '1.25rem' }}>Join shared project</h1>
+        <h1 style={{ margin: 0, fontSize: '1.25rem' }}>
+          {meta?.audience_name ?? 'Join shared project'}
+        </h1>
         <p style={{ margin: '0.5rem 0 0', color: '#6b7280', fontSize: '0.875rem' }}>
-          Enter your name to view this read-only plan.
+          {metaLoading
+            ? 'Loading share details…'
+            : emailRequired
+              ? 'Enter your name and invited email to view this read-only plan.'
+              : 'Enter your name to view this read-only plan.'}
         </p>
       </header>
 
@@ -102,6 +160,7 @@ export function JoinGate({ shareToken, onJoined }: JoinGateProps) {
             }}
             autoComplete="name"
             required
+            disabled={metaLoading || shareError !== null}
             style={{
               padding: '0.5rem 0.75rem',
               borderRadius: 6,
@@ -109,7 +168,7 @@ export function JoinGate({ shareToken, onJoined }: JoinGateProps) {
               fontSize: '0.9375rem',
             }}
           />
-          {fieldError !== null ? (
+          {fieldError !== null && !emailRequired ? (
             <span role="alert" style={{ color: '#b91c1c', fontSize: '0.8125rem' }}>
               {fieldError}
             </span>
@@ -118,7 +177,8 @@ export function JoinGate({ shareToken, onJoined }: JoinGateProps) {
 
         <label style={{ display: 'grid', gap: '0.375rem', fontSize: '0.875rem' }}>
           <span>
-            Email <span style={{ color: '#9ca3af' }}>(optional)</span>
+            {emailRequired ? 'Invited email' : 'Email'}{' '}
+            {!emailRequired ? <span style={{ color: '#9ca3af' }}>(optional)</span> : null}
           </span>
           <input
             type="email"
@@ -128,6 +188,8 @@ export function JoinGate({ shareToken, onJoined }: JoinGateProps) {
               setEmail(event.target.value);
             }}
             autoComplete="email"
+            required={emailRequired}
+            disabled={metaLoading || shareError !== null}
             style={{
               padding: '0.5rem 0.75rem',
               borderRadius: 6,
@@ -135,20 +197,30 @@ export function JoinGate({ shareToken, onJoined }: JoinGateProps) {
               fontSize: '0.9375rem',
             }}
           />
+          {emailRequired ? (
+            <span style={{ color: '#6b7280', fontSize: '0.8125rem' }}>
+              Use the email your invite was sent to.
+            </span>
+          ) : null}
+          {fieldError !== null && emailRequired ? (
+            <span role="alert" style={{ color: '#b91c1c', fontSize: '0.8125rem' }}>
+              {fieldError}
+            </span>
+          ) : null}
         </label>
 
         <button
           type="submit"
-          disabled={!canSubmit}
+          disabled={!canSubmit || shareError !== null}
           style={{
             padding: '0.625rem 1rem',
             borderRadius: 6,
             border: 'none',
-            background: canSubmit ? '#1e40af' : '#9ca3af',
+            background: canSubmit && shareError === null ? '#1e40af' : '#9ca3af',
             color: '#fff',
             fontWeight: 600,
             fontSize: '0.9375rem',
-            cursor: canSubmit ? 'pointer' : 'not-allowed',
+            cursor: canSubmit && shareError === null ? 'pointer' : 'not-allowed',
           }}
         >
           {pending ? 'Joining…' : 'Join'}

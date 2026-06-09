@@ -20,6 +20,8 @@ export const hostedShares = sqliteTable(
     projectGlobalId: text('project_global_id').notNull(),
     tokenHash: text('token_hash').notNull(),
     audienceName: text('audience_name').notNull(),
+    mode: text('mode').notNull().default('invite'),
+    invitedEmails: text('invited_emails'),
     permissions: text('permissions').notNull(),
     expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
     revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),

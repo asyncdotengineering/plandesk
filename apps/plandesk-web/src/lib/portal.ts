@@ -67,6 +67,18 @@ export class PortalJoinError extends Error {
   }
 }
 
+export class PortalEmailNotInvitedError extends Error {
+  constructor() {
+    super("That email isn't on the invite list for this share.");
+    this.name = 'PortalEmailNotInvitedError';
+  }
+}
+
+export type ShareMeta = {
+  audience_name: string;
+  mode: 'invite' | 'public';
+};
+
 export function loadPortalSession(shareToken: string): string | null {
   if (!isBrowserStorageAvailable()) {
     return null;
@@ -106,6 +118,22 @@ function normalizePortalResponse(raw: PortalViewResponse): ClientView {
   };
 }
 
+export async function fetchShareMeta(shareToken: string): Promise<ShareMeta> {
+  const response = await fetch(
+    `${SYNC_BASE}/api/portal/v1/shares/${encodeURIComponent(shareToken)}/meta`,
+  );
+
+  if (response.status === 401) {
+    throw new PortalUnauthorizedError();
+  }
+
+  if (!response.ok) {
+    throw new Error(`Portal error ${String(response.status)}: ${await response.text()}`);
+  }
+
+  return (await response.json()) as ShareMeta;
+}
+
 export async function joinShare(
   shareToken: string,
   input: { name: string; email?: string },
@@ -127,6 +155,14 @@ export async function joinShare(
     const body = (await response.json()) as { error?: string };
     if (body.error === 'name_required') {
       throw new PortalJoinError('Name is required.');
+    }
+    throw new PortalJoinError('Unable to join. Please check your details and try again.');
+  }
+
+  if (response.status === 403) {
+    const body = (await response.json()) as { error?: string };
+    if (body.error === 'email_not_invited') {
+      throw new PortalEmailNotInvitedError();
     }
     throw new PortalJoinError('Unable to join. Please check your details and try again.');
   }

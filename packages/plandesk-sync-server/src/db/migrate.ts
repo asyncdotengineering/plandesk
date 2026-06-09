@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS hosted_shares (
   project_global_id TEXT NOT NULL,
   token_hash TEXT NOT NULL,
   audience_name TEXT NOT NULL,
+  mode TEXT NOT NULL DEFAULT 'invite',
+  invited_emails TEXT,
   permissions TEXT NOT NULL,
   expires_at INTEGER,
   revoked_at INTEGER,
@@ -55,6 +57,21 @@ CREATE TABLE IF NOT EXISTS activity_log (
 );
 `;
 
+function columnExists(db: SyncDb, table: string, column: string): boolean {
+  const rows = db.$client.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  return rows.some((row) => row.name === column);
+}
+
+function migrateHostedSharesColumns(db: SyncDb): void {
+  if (!columnExists(db, 'hosted_shares', 'mode')) {
+    db.$client.exec("ALTER TABLE hosted_shares ADD COLUMN mode TEXT NOT NULL DEFAULT 'invite'");
+  }
+  if (!columnExists(db, 'hosted_shares', 'invited_emails')) {
+    db.$client.exec('ALTER TABLE hosted_shares ADD COLUMN invited_emails TEXT');
+  }
+}
+
 export function migrate(db: SyncDb): void {
   db.$client.exec(MIGRATION_SQL);
+  migrateHostedSharesColumns(db);
 }

@@ -10,6 +10,7 @@ import {
   PortalUnauthorizedError,
   clearPortalSession,
   fetchClientView,
+  fetchShareMeta,
   joinShare,
   loadPortalSession,
   savePortalSession,
@@ -21,6 +22,7 @@ vi.mock('./lib/portal.js', async (importOriginal) => {
   return {
     ...actual,
     joinShare: vi.fn(),
+    fetchShareMeta: vi.fn(),
     fetchClientView: vi.fn(),
     loadPortalSession: vi.fn(),
     savePortalSession: vi.fn(),
@@ -99,6 +101,10 @@ beforeEach(() => {
   vi.stubGlobal('EventSource', MockEventSource);
   vi.mocked(loadPortalSession).mockReturnValue(null);
   vi.mocked(joinShare).mockReset();
+  vi.mocked(fetchShareMeta).mockResolvedValue({
+    audience_name: 'Acme Corp',
+    mode: 'public',
+  });
   vi.mocked(fetchClientView).mockReset();
   vi.mocked(savePortalSession).mockReset();
   vi.mocked(clearPortalSession).mockReset();
@@ -144,7 +150,7 @@ describe('Portal route', () => {
     renderPortalRoute();
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Join shared project' })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'Acme Corp' })).toBeTruthy();
     });
 
     expect(screen.getByLabelText('Name')).toBeTruthy();
@@ -177,7 +183,7 @@ describe('Portal route', () => {
     renderPortalRoute();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Name')).toBeTruthy();
+      expect(screen.getByLabelText('Name')).not.toHaveProperty('disabled', true);
     });
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Alex' } });
@@ -211,7 +217,7 @@ describe('Portal route', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Join shared project' })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'Acme Corp' })).toBeTruthy();
     });
   });
 

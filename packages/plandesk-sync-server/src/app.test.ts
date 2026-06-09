@@ -27,6 +27,13 @@ const sampleView = {
   progress: { todo: 1, in_progress: 0, done: 0 },
 };
 
+type SharePushOptions = {
+  mode?: 'invite' | 'public';
+  invited_emails?: string[];
+  audience_name?: string;
+  expires_at?: string | null;
+};
+
 async function pushProjection(
   app: ReturnType<typeof createSyncServer>,
   syncToken: string,
@@ -34,6 +41,7 @@ async function pushProjection(
   shareToken: string,
   view: unknown = sampleView,
   version = 1,
+  shareOptions: SharePushOptions = { mode: 'public' },
 ) {
   return app.request(`/api/sync/v1/projects/${gid}/projection`, {
     method: 'PUT',
@@ -44,14 +52,20 @@ async function pushProjection(
     body: JSON.stringify({
       share: {
         token_hash: hashToken(shareToken),
-        audience_name: 'Acme Corp',
+        audience_name: shareOptions.audience_name ?? 'Acme Corp',
+        mode: shareOptions.mode ?? 'public',
+        invited_emails: shareOptions.invited_emails,
         permissions: { read: true, submit: false },
-        expires_at: null,
+        expires_at: shareOptions.expires_at ?? null,
       },
       version,
       view,
     }),
   });
+}
+
+async function fetchShareMeta(app: ReturnType<typeof createSyncServer>, shareToken: string) {
+  return app.request(`/api/portal/v1/shares/${shareToken}/meta`);
 }
 
 async function joinShare(
@@ -374,6 +388,107 @@ describe('POST /join', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]?.action).toBe('join');
     expect(entries[0]?.participantId).toBe(participant.id);
+  });
+
+  it('invite mode rejects join without email (403)', async () => {
+    const { app, syncToken } = createTestApp();
+    const shareToken = generateShareToken();
+    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
+      mode: 'invite',
+      invited_emails: ['alex@acme.com'],
+    });
+
+    const res = await joinShare(app, shareToken, 'Alex');
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: 'email_not_invited' });
+  });
+
+  it('invite mode rejects non-invited email (403)', async () => {
+    const { app, syncToken } = createTestApp();
+    const shareToken = generateShareToken();
+    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
+      mode: 'invite',
+      invited_emails: ['alex@acme.com'],
+    });
+
+    const res = await joinShare(app, shareToken, 'Alex', 'other@acme.com');
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: 'email_not_invited' });
+  });
+
+  it('invite mode accepts invited email (case-insensitive)', async () => {
+    const { app, syncToken } = createTestApp();
+    const shareToken = generateShareToken();
+    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
+      mode: 'invite',
+      invited_emails: ['Alex@Acme.com'],
+    });
+
+    const res = await joinShare(app, shareToken, 'Alex', '  alex@acme.com  ');
+    expect(res.status).toBe(200);
+  });
+
+  it('public mode allows join without email', async () => {
+    const { app, syncToken } = createTestApp();
+    const shareToken = generateShareToken();
+    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
+      mode: 'public',
+    });
+
+    const res = await joinShare(app, shareToken, 'Alex');
+    expect(res.status).toBe(200);
+  });
+
+  it('defaults to invite mode with empty invited list when mode omitted on push', async () => {
+    const { app, syncToken } = createTestApp();
+    const shareToken = generateShareToken();
+
+    const putRes = await app.request('/api/sync/v1/projects/gid-1/projection', {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${syncToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        share: {
+          token_hash: hashToken(shareToken),
+          audience_name: 'Acme Corp',
+          permissions: { read: true, submit: false },
+          expires_at: null,
+        },
+        version: 1,
+        view: sampleView,
+      }),
+    });
+    expect(putRes.status).toBe(200);
+
+    const metaRes = await fetchShareMeta(app, shareToken);
+    expect(metaRes.status).toBe(200);
+    expect(await metaRes.json()).toEqual({ audience_name: 'Acme Corp', mode: 'invite' });
+
+    const joinRes = await joinShare(app, shareToken, 'Alex', 'anyone@acme.com');
+    expect(joinRes.status).toBe(403);
+  });
+});
+
+describe('GET /meta', () => {
+  it('returns audience_name and mode for valid token', async () => {
+    const { app, syncToken } = createTestApp();
+    const shareToken = generateShareToken();
+    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
+      mode: 'invite',
+      invited_emails: ['alex@acme.com'],
+    });
+
+    const res = await fetchShareMeta(app, shareToken);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ audience_name: 'Acme Corp', mode: 'invite' });
+  });
+
+  it('returns 401 for invalid token', async () => {
+    const { app } = createTestApp();
+    const res = await fetchShareMeta(app, generateShareToken());
+    expect(res.status).toBe(401);
   });
 });
 

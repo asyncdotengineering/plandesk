@@ -17,16 +17,46 @@ export type SyncServerDeps = {
   db: SyncDb;
 };
 
+type ShareMode = 'invite' | 'public';
+
 type ProjectionPushBody = {
   share: {
     token_hash: string;
     audience_name: string;
+    mode?: ShareMode;
+    invited_emails?: string[];
     permissions: Record<string, unknown>;
     expires_at: string | null;
   };
   version: number;
   view: unknown;
 };
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function parseInvitedEmails(raw: string | null): string[] {
+  if (raw === null || raw === '') {
+    return [];
+  }
+  const parsed = JSON.parse(raw) as unknown;
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+  return parsed.filter((value): value is string => typeof value === 'string').map(normalizeEmail);
+}
+
+function isEmailInvited(
+  share: { invitedEmails: string | null },
+  email: string | undefined,
+): boolean {
+  if (email === undefined || email.trim() === '') {
+    return false;
+  }
+  const normalized = normalizeEmail(email);
+  return parseInvitedEmails(share.invitedEmails).includes(normalized);
+}
 
 function extractBearerToken(header: string | undefined): string | undefined {
   if (header === undefined) {
@@ -69,6 +99,8 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     const now = new Date();
     const expiresAt = parseExpiresAt(body.share.expires_at);
     const permissionsJson = JSON.stringify(body.share.permissions);
+    const mode: ShareMode = body.share.mode ?? 'invite';
+    const invitedEmailsJson = JSON.stringify((body.share.invited_emails ?? []).map(normalizeEmail));
 
     const existing = deps.db
       .select({ id: hostedShares.id })
@@ -84,6 +116,8 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
         .set({
           projectGlobalId: gid,
           audienceName: body.share.audience_name,
+          mode,
+          invitedEmails: invitedEmailsJson,
           permissions: permissionsJson,
           expiresAt,
           revokedAt: null,
@@ -100,6 +134,8 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
           projectGlobalId: gid,
           tokenHash: body.share.token_hash,
           audienceName: body.share.audience_name,
+          mode,
+          invitedEmails: invitedEmailsJson,
           permissions: permissionsJson,
           expiresAt,
           createdAt: now,
@@ -167,6 +203,19 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     return c.json({ ok: true });
   });
 
+  app.get('/api/portal/v1/shares/:token/meta', (c) => {
+    const shareToken = c.req.param('token');
+    const share = verifyShareToken(deps.db, shareToken);
+    if (share === undefined) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+
+    return c.json({
+      audience_name: share.audienceName,
+      mode: share.mode as ShareMode,
+    });
+  });
+
   app.post('/api/portal/v1/shares/:token/join', async (c) => {
     const shareToken = c.req.param('token');
     const share = verifyShareToken(deps.db, shareToken);
@@ -184,6 +233,10 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     const name = body.name?.trim() ?? '';
     if (name === '') {
       return c.json({ error: 'name_required' }, 400);
+    }
+
+    if (share.mode === 'invite' && !isEmailInvited(share, body.email)) {
+      return c.json({ error: 'email_not_invited' }, 403);
     }
 
     const { participant, token: sessionToken } = createParticipantSession(deps.db, {
