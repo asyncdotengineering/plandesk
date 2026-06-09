@@ -72,6 +72,7 @@ export default defineConfig({
             { slug: 'reference/cli' },
             { slug: 'reference/api' },
             { slug: 'reference/architecture' },
+            { slug: 'reference/collaboration' },
             { slug: 'reference/validation-metrics' },
           ],
         },
