@@ -19,7 +19,7 @@ part: 02-requirements-interfaces
 - **REQ-9 (Global project identity).** On publish, a project receives a stable global ID assigned by the hosted server. Local↔hosted sync references the global ID. The mapping and sync token are stored in `.plandesk/config.json` (token gitignored). Re-publish is idempotent.
 - **REQ-10 (Git-remote sync).** Sync is explicit `push`/`pull` exposed as CLI commands and MCP tools, plus an optional `--watch` daemon for live outbound. `pull` is idempotent: submissions are append-only events keyed by `(participant, submission_id)`; there is no two-way merge of the source of truth.
 - **REQ-11 (Lifecycle).** Shares and tokens support expiry and revocation. Revocation is immediate: the next participant request fails and any cached projection for that share is invalidated. Revoking one audience MUST NOT affect another.
-- **REQ-12 (Portable, self-deployable server).** The hosted sync server is a single portable deployable artifact. Agent-assisted self-deploy MUST be supported: target selection, local-tooling detection (`wrangler`/`flyctl`/`docker`), provisioning, and token wiring. Cross-org isolation MAY be satisfied by separate deployments.
+- **REQ-12 (Portable, self-deployable server).** The hosted sync server is a single portable deployable artifact. Agent-assisted self-deploy MUST be supported: target selection, local-tooling detection (`wrangler`/`flyctl`/`docker`), provisioning, and token wiring. **Refined by [Delta 06](06-c21-deploy-connector-delta.md): agent-assisted via a hosted deploy-spec registry, not a bundled imperative provisioner — the CLI fetches+prints a spec, the agent executes it.** Cross-org isolation MAY be satisfied by separate deployments.
 - **REQ-13 (Local-first preserved).** Local authoring and agent execution MUST remain fully functional offline. Sync is additive; the local tool MUST NOT depend on the hosted server to author or execute.
 - **REQ-14 (No regression).** The existing single-user REST behavior, the 18 MCP tools, the service-layer-as-sole-write-path invariant, and the SSE taxonomy MUST be preserved.
 - **REQ-15 (Minimal participant PII).** The hosted server stores the minimum participant data needed for attribution (name, optional email, session). PII is encryptable at rest and subject to per-share retention/expiry.
@@ -102,7 +102,7 @@ plandesk pull [--project <id>]                       # fetch submissions into tr
 plandesk sync --watch [--project <id>]               # live outbound daemon
 plandesk share create --project <id> --audience "Acme" [--invite a@b.com] [--public] [--expires 30d]
 plandesk share list|revoke ...
-plandesk deploy [--target cloudflare|fly|docker]     # agent-assisted self-deploy of the sync server
+plandesk deploy [cloudflare|fly|docker] [--print]    # fetch the hosted deploy spec for a coding agent (| claude); see Delta 06
 ```
 
 # 5. Architecture and System Dependencies
