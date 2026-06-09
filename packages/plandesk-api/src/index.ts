@@ -15,6 +15,7 @@ export { InvalidCommentError } from './services/comments.js';
 export { InvalidCanvasError } from './services/canvas.js';
 export { InvalidAgentRunError } from './services/agent-runs.js';
 export { InvalidScaffoldError } from './services/projects.js';
+export { InvalidShareError } from './services/share.js';
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

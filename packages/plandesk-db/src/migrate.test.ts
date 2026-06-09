@@ -13,6 +13,7 @@ const EXPECTED_TABLES = [
   'agent_runs',
   'agent_run_events',
   'mcp_tokens',
+  'shares',
   '__drizzle_migrations',
 ] as const;
 
@@ -72,10 +73,14 @@ describe('migrate', () => {
     expect(getProject(db, FIXTURE_PROJECT_ID)?.name).toBe('Fixture Project');
 
     migrateDown(db, 1);
+    expect(listTables(db)).not.toContain('shares');
+
+    migrateDown(db, 1);
     expect(hasColumn(db, 'projects', 'canvas_layout')).toBe(false);
 
     migrate(db);
     expect(hasColumn(db, 'projects', 'canvas_layout')).toBe(true);
+    expect(listTables(db)).toContain('shares');
     expect(getProject(db, FIXTURE_PROJECT_ID)?.name).toBe('Fixture Project');
 
     migrateDownAll(db);

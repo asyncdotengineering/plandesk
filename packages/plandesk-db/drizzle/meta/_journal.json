@@ -15,6 +15,13 @@
       "when": 1780842259022,
       "tag": "0001_thankful_lizard",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1780985150347,
+      "tag": "0002_outgoing_charles_xavier",
+      "breakpoints": true
     }
   ]
 }

@@ -11,6 +11,7 @@ type MigrationJournal = {
 };
 
 const DOWN_SQL: Record<string, string[]> = {
+  '0002_outgoing_charles_xavier': ['DROP TABLE IF EXISTS `shares`;'],
   '0001_thankful_lizard': ['ALTER TABLE `projects` DROP COLUMN `canvas_layout`;'],
   '0000_gifted_stephen_strange': [
     'DROP TABLE IF EXISTS `agent_run_events`;',

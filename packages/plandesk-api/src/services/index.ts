@@ -7,6 +7,7 @@ import { createProjectService, type ProjectService } from './projects.js';
 import { createAgentRunService, type AgentRunService } from './agent-runs.js';
 import { createTaskService, type TaskService } from './tasks.js';
 import { createTokenService, type TokenService } from './tokens.js';
+import { createShareService, type ShareService } from './share.js';
 
 export type ServicesDeps = {
   db: Db;
@@ -22,6 +23,7 @@ export type Services = {
   commentService: CommentService;
   agentRunService: AgentRunService;
   tokenService: TokenService;
+  shareService: ShareService;
 };
 
 export function createServices(deps: ServicesDeps): Services {
@@ -33,6 +35,7 @@ export function createServices(deps: ServicesDeps): Services {
   const commentService = createCommentService({ db: deps.db, eventBus });
   const agentRunService = createAgentRunService({ db: deps.db, eventBus });
   const tokenService = createTokenService({ db: deps.db });
+  const shareService = createShareService({ db: deps.db, eventBus });
 
   return {
     eventBus,
@@ -43,5 +46,6 @@ export function createServices(deps: ServicesDeps): Services {
     commentService,
     agentRunService,
     tokenService,
+    shareService,
   };
 }

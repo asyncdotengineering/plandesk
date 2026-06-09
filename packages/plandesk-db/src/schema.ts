@@ -123,3 +123,24 @@ export const mcpTokens = sqliteTable('mcp_tokens', {
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
   revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
 });
+
+export const shareModes = ['invite', 'public'] as const;
+export type ShareMode = (typeof shareModes)[number];
+
+export const shares = sqliteTable('shares', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id')
+    .notNull()
+    .references(() => projects.id),
+  audienceName: text('audience_name').notNull(),
+  mode: text('mode', { enum: shareModes }).notNull().default('invite'),
+  tokenHash: text('token_hash').notNull(),
+  permissions: text('permissions').notNull(),
+  policy: text('policy').notNull(),
+  invitedEmails: text('invited_emails'),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
+  revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+});
