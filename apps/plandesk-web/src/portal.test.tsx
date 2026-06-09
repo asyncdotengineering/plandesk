@@ -1,11 +1,32 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PortalPage } from './components/portal/PortalPage.js';
 import { capabilitiesFromShare } from './lib/capabilities.js';
 import type { ClientView } from './lib/portal.js';
+import {
+  PortalNotReadyError,
+  PortalUnauthorizedError,
+  clearPortalSession,
+  fetchClientView,
+  joinShare,
+  loadPortalSession,
+  savePortalSession,
+} from './lib/portal.js';
 import { routeTree } from './routeTree.gen.js';
+
+vi.mock('./lib/portal.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./lib/portal.js')>();
+  return {
+    ...actual,
+    joinShare: vi.fn(),
+    fetchClientView: vi.fn(),
+    loadPortalSession: vi.fn(),
+    savePortalSession: vi.fn(),
+    clearPortalSession: vi.fn(),
+  };
+});
 
 const sampleView: ClientView = {
   project: {
@@ -56,9 +77,7 @@ class MockEventSource {
   close(): void {}
 }
 
-function renderPortalRoute(fetchImpl: typeof fetch) {
-  vi.stubGlobal('fetch', fetchImpl);
-
+function renderPortalRoute() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -78,6 +97,11 @@ function renderPortalRoute(fetchImpl: typeof fetch) {
 
 beforeEach(() => {
   vi.stubGlobal('EventSource', MockEventSource);
+  vi.mocked(loadPortalSession).mockReturnValue(null);
+  vi.mocked(joinShare).mockReset();
+  vi.mocked(fetchClientView).mockReset();
+  vi.mocked(savePortalSession).mockReset();
+  vi.mocked(clearPortalSession).mockReset();
 });
 
 afterEach(() => {
@@ -116,57 +140,91 @@ describe('PortalPage', () => {
 });
 
 describe('Portal route', () => {
-  it('renders unauthorized state for revoked or invalid share links', async () => {
-    renderPortalRoute(
-      vi.fn().mockResolvedValue({
-        ok: false,
-        status: 401,
-        text: () => Promise.resolve('unauthorized'),
-      }),
-    );
+  it('renders the join gate when no session is stored', async () => {
+    renderPortalRoute();
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Link unavailable' })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'Join shared project' })).toBeTruthy();
     });
 
-    expect(
-      screen.getByText('This share link is invalid, expired, or has been revoked.'),
-    ).toBeTruthy();
+    expect(screen.getByLabelText('Name')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Join' })).toBeTruthy();
+    expect(fetchClientView).not.toHaveBeenCalled();
+  });
+
+  it('does not call joinShare when name is empty', async () => {
+    renderPortalRoute();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Join' })).toBeTruthy();
+    });
+
+    const joinButton = screen.getByRole('button', { name: 'Join' });
+    expect(joinButton).toHaveProperty('disabled', true);
+
+    fireEvent.click(joinButton);
+    expect(joinShare).not.toHaveBeenCalled();
+  });
+
+  it('loads the read-only view after a successful join', async () => {
+    vi.mocked(joinShare).mockResolvedValue({
+      session_token: 'session-abc',
+      participant: { id: 'p1', name: 'Alex' },
+      share: { audience_name: 'Acme Corp', permissions: { read: true, submit: false } },
+    });
+    vi.mocked(fetchClientView).mockResolvedValue(sampleView);
+
+    renderPortalRoute();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Name')).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Alex' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Join' }));
+
+    await waitFor(() => {
+      expect(joinShare).toHaveBeenCalledWith('test-token', { name: 'Alex' });
+    });
+
+    await waitFor(() => {
+      expect(savePortalSession).toHaveBeenCalledWith('test-token', 'session-abc');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Portal Project' })).toBeTruthy();
+    });
+
+    expect(fetchClientView).toHaveBeenCalledWith('test-token', 'session-abc');
+    expect(screen.getByText('Ship portal')).toBeTruthy();
+    expect(screen.getByText('Shared scope details')).toBeTruthy();
+  });
+
+  it('clears the session and shows the join gate when the view returns unauthorized', async () => {
+    vi.mocked(loadPortalSession).mockReturnValue('stale-session');
+    vi.mocked(fetchClientView).mockRejectedValue(new PortalUnauthorizedError());
+
+    renderPortalRoute();
+
+    await waitFor(() => {
+      expect(clearPortalSession).toHaveBeenCalledWith('test-token');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Join shared project' })).toBeTruthy();
+    });
   });
 
   it('renders not-ready state when projection is missing', async () => {
-    renderPortalRoute(
-      vi.fn().mockResolvedValue({
-        ok: false,
-        status: 404,
-        text: () => Promise.resolve('not_found'),
-      }),
-    );
+    vi.mocked(loadPortalSession).mockReturnValue('session-abc');
+    vi.mocked(fetchClientView).mockRejectedValue(new PortalNotReadyError());
+
+    renderPortalRoute();
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Not published yet' })).toBeTruthy();
     });
 
     expect(screen.getByText('This project has not been published to the portal yet.')).toBeTruthy();
-  });
-
-  it('hydrates from GET /api/portal/v1/shares/:token/view', async () => {
-    renderPortalRoute(
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(sampleView),
-      }),
-    );
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Portal Project' })).toBeTruthy();
-    });
-
-    expect(screen.getByText('Ship portal')).toBeTruthy();
-    expect(screen.getByText('Shared scope details')).toBeTruthy();
-
-    const [calledUrl] = vi.mocked(fetch).mock.calls[0] ?? [];
-    expect(calledUrl).toBe('/api/portal/v1/shares/test-token/view');
   });
 });

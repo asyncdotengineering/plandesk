@@ -22,12 +22,29 @@ export type ClientView = {
   };
 };
 
+export type JoinShareResult = {
+  session_token: string;
+  participant: { id: string; name: string };
+  share: {
+    audience_name: string;
+    permissions: { read: boolean; submit: boolean };
+  };
+};
+
 type PortalViewResponse = ClientView & {
   audience_name?: string;
   permissions?: { read: boolean; submit: boolean };
 };
 
 const SYNC_BASE = import.meta.env.VITE_SYNC_URL ?? '';
+
+function portalSessionKey(shareToken: string): string {
+  return `plandesk_portal_session_${shareToken}`;
+}
+
+function isBrowserStorageAvailable(): boolean {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+}
 
 export class PortalUnauthorizedError extends Error {
   constructor() {
@@ -41,6 +58,34 @@ export class PortalNotReadyError extends Error {
     super('This project has not been published to the portal yet.');
     this.name = 'PortalNotReadyError';
   }
+}
+
+export class PortalJoinError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PortalJoinError';
+  }
+}
+
+export function loadPortalSession(shareToken: string): string | null {
+  if (!isBrowserStorageAvailable()) {
+    return null;
+  }
+  return window.localStorage.getItem(portalSessionKey(shareToken));
+}
+
+export function savePortalSession(shareToken: string, token: string): void {
+  if (!isBrowserStorageAvailable()) {
+    return;
+  }
+  window.localStorage.setItem(portalSessionKey(shareToken), token);
+}
+
+export function clearPortalSession(shareToken: string): void {
+  if (!isBrowserStorageAvailable()) {
+    return;
+  }
+  window.localStorage.removeItem(portalSessionKey(shareToken));
 }
 
 function normalizePortalResponse(raw: PortalViewResponse): ClientView {
@@ -61,9 +106,47 @@ function normalizePortalResponse(raw: PortalViewResponse): ClientView {
   };
 }
 
-export async function fetchClientView(shareToken: string): Promise<ClientView> {
+export async function joinShare(
+  shareToken: string,
+  input: { name: string; email?: string },
+): Promise<JoinShareResult> {
+  const response = await fetch(
+    `${SYNC_BASE}/api/portal/v1/shares/${encodeURIComponent(shareToken)}/join`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+
+  if (response.status === 401) {
+    throw new PortalUnauthorizedError();
+  }
+
+  if (response.status === 400) {
+    const body = (await response.json()) as { error?: string };
+    if (body.error === 'name_required') {
+      throw new PortalJoinError('Name is required.');
+    }
+    throw new PortalJoinError('Unable to join. Please check your details and try again.');
+  }
+
+  if (!response.ok) {
+    throw new Error(`Portal error ${String(response.status)}: ${await response.text()}`);
+  }
+
+  return (await response.json()) as JoinShareResult;
+}
+
+export async function fetchClientView(
+  shareToken: string,
+  sessionToken: string,
+): Promise<ClientView> {
   const response = await fetch(
     `${SYNC_BASE}/api/portal/v1/shares/${encodeURIComponent(shareToken)}/view`,
+    {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    },
   );
 
   if (response.status === 401) {
