@@ -12,9 +12,8 @@
     "dist",
     "web",
     "!dist/**/*.test.js",
-    "!dist/**/*.test.js.map",
     "!dist/**/*.test.d.ts",
-    "!dist/**/*.test.d.ts.map"
+    "!dist/**/*.map"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
