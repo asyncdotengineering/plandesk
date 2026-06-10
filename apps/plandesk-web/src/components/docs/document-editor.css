@@ -1,0 +1,6 @@
+.document-editor-content img,
+.document-reader-content img,
+.portal-document-content img {
+  max-width: 100%;
+  height: auto;
+}

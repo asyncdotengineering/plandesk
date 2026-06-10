@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { capabilitiesFromShare } from '../../lib/capabilities.js';
 import { sanitizeHtml } from '../../lib/sanitize.js';
+import '../docs/document-editor.css';
 import type { ClientView, PortalSubmission } from '../../lib/portal.js';
 import { PortalBoard } from './PortalBoard.js';
 import { SubmissionsList, submissionsQueryKey } from './SubmissionsList.js';

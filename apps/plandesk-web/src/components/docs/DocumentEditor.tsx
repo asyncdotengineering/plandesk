@@ -1,8 +1,35 @@
+import Image from '@tiptap/extension-image';
+import type { EditorView } from '@tiptap/pm/view';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { PatchDocumentInput, SerializedDocument } from '../../lib/api.js';
 import { sanitizeHtml } from '../../lib/sanitize.js';
+import './document-editor.css';
+
+function insertImageFiles(view: EditorView, files: FileList | null | undefined, pos?: number) {
+  const imageType = view.state.schema.nodes.image;
+  if (imageType === undefined) {
+    return false;
+  }
+  const images = Array.from(files ?? []).filter((file) => file.type.startsWith('image/'));
+  for (const file of images) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') {
+        return;
+      }
+      const node = imageType.create({ src: reader.result, alt: file.name });
+      const tr =
+        pos === undefined
+          ? view.state.tr.replaceSelectionWith(node)
+          : view.state.tr.insert(Math.min(pos, view.state.doc.content.size), node);
+      view.dispatch(tr);
+    };
+    reader.readAsDataURL(file);
+  }
+  return images.length > 0;
+}
 
 export type DocumentEditorMode = 'reader' | 'editor';
 
@@ -27,12 +54,20 @@ export function DocumentEditor({
   const [statusLine, setStatusLine] = useState(document.status_line ?? '');
 
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [StarterKit, Image.configure({ allowBase64: true })],
     content: document.body ?? '',
     editable: mode === 'editor',
     editorProps: {
       attributes: {
         class: 'document-editor-content',
+      },
+      handlePaste: (view, event) => insertImageFiles(view, event.clipboardData?.files),
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) {
+          return false;
+        }
+        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+        return insertImageFiles(view, event.dataTransfer?.files, pos);
       },
     },
   });
@@ -194,6 +229,8 @@ export function DocumentEditor({
 type ToolbarEditor = NonNullable<ReturnType<typeof useEditor>>;
 
 function DocumentToolbar({ editor }: { editor: ToolbarEditor }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const buttonStyle = (active: boolean): CSSProperties => ({
     padding: '0.25rem 0.5rem',
     borderRadius: 4,
@@ -241,6 +278,24 @@ function DocumentToolbar({ editor }: { editor: ToolbarEditor }) {
       >
         List
       </button>
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        style={buttonStyle(false)}
+      >
+        Image
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        aria-label="Insert image"
+        style={{ display: 'none' }}
+        onChange={(event) => {
+          insertImageFiles(editor.view, event.target.files);
+          event.target.value = '';
+        }}
+      />
     </div>
   );
 }

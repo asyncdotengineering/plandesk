@@ -63,6 +63,9 @@ importers:
       '@tanstack/react-router':
         specifier: ^1.170.15
         version: 1.170.15(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@tiptap/extension-image':
+        specifier: ^3.26.0
+        version: 3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))
       '@tiptap/pm':
         specifier: ^3.26.0
         version: 3.26.0
@@ -243,6 +246,9 @@ importers:
 
   packages/plandesk-sync-server:
     dependencies:
+      '@hono/node-server':
+        specifier: ^2.0.4
+        version: 2.0.4(hono@4.12.23)
       '@libsql/client':
         specifier: ^0.15.9
         version: 0.15.15
@@ -256,9 +262,6 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4.20250609.0
         version: 4.20260609.1
-      '@hono/node-server':
-        specifier: ^2.0.4
-        version: 2.0.4(hono@4.12.23)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1916,6 +1919,11 @@ packages:
     peerDependencies:
       '@tiptap/core': 3.26.0
       '@tiptap/pm': 3.26.0
+
+  '@tiptap/extension-image@3.26.0':
+    resolution: {integrity: sha512-vinrbKa9Awmlb/UPpnes1pezL+ZeUC2v7XczZyNbggvcHKhlVkuXZIKytFQDXEYOTaKYzYE8B/Gz098PiJ9NYQ==}
+    peerDependencies:
+      '@tiptap/core': 3.26.0
 
   '@tiptap/extension-italic@3.26.0':
     resolution: {integrity: sha512-s8oFpH+0xmhvY19f452/2dExO3p1tjxh761g6cg4irwEUNUEAJKF2VLcjiaeOhNJ+pmnQYxb+VSkwkXvO+7vHQ==}
@@ -6236,6 +6244,10 @@ snapshots:
     dependencies:
       '@tiptap/core': 3.26.0(@tiptap/pm@3.26.0)
       '@tiptap/pm': 3.26.0
+
+  '@tiptap/extension-image@3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))':
+    dependencies:
+      '@tiptap/core': 3.26.0(@tiptap/pm@3.26.0)
 
   '@tiptap/extension-italic@3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))':
     dependencies:
