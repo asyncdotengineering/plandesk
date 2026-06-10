@@ -39,6 +39,16 @@ Every non-trivial task should have a linked document.
 
 Write a short spec: problem statement, acceptance criteria, references. The doc opens at `/projects/:id/documents/:docId`; you can edit or **delete** it there. Linked docs stay reachable in one click from the canvas — for teammates and agents alike.
 
+### Add images
+
+Specs often need a screenshot, mockup, or diagram. The editor accepts images three ways:
+
+- Click **Image** in the toolbar and pick a file.
+- **Paste** an image from the clipboard — the usual screenshot flow.
+- **Drag and drop** an image file into the editor; it lands where you drop it.
+
+Images are embedded inline in the document body (as base64 data URLs), not stored as separate files. That means they travel everywhere the doc goes — export/import, sync, the share portal, and agents reading the doc over MCP — with no extra storage to configure. Keep pasted screenshots reasonably sized; very large images make the document itself large.
+
 ## Rename and clean up
 
 From the project **Overview** you can **rename** the project or **delete** it (which removes its tasks, edges, and documents). Deletes confirm first.
