@@ -30,6 +30,7 @@ describe('checkout-revamp dogfood fixture', () => {
     db.$client.exec('DELETE FROM agent_run_events');
     db.$client.exec('DELETE FROM agent_runs');
     db.$client.exec('DELETE FROM documents');
+    db.$client.exec('DELETE FROM notes');
     db.$client.exec('DELETE FROM edges');
     db.$client.exec('DELETE FROM tasks');
     db.$client.exec('DELETE FROM projects');

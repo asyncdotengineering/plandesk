@@ -138,7 +138,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(23);
+      expect(names).toHaveLength(27);
       await client.close();
     });
   });
@@ -308,6 +308,80 @@ describe('createMcpApp', () => {
         documents: Array<{ id: string; title: string }>;
       };
       expect(listPayload.documents.some((entry) => entry.id === doc.id)).toBe(true);
+
+      await client.close();
+    });
+  });
+
+  it('create_note, list_notes, get_note, and update_note work via MCP', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, eventBus }) => {
+      const received: PlankDeskEvent[] = [];
+      eventBus.subscribe((event) => {
+        received.push(event);
+      });
+
+      const client = await connectClient(baseUrl, token);
+
+      const created = await client.callTool({
+        name: 'create_note',
+        arguments: { project_id: projectId, title: 'Findings', body: '## Heading\n\nbody text' },
+      });
+      expect(created.isError).not.toBe(true);
+      const createdContent = created.content as Array<{ type: string; text?: string }>;
+      const createdText =
+        createdContent[0]?.type === 'text' ? (createdContent[0].text ?? '{}') : '{}';
+      const createdPayload = JSON.parse(createdText) as {
+        note: { id: string; project_id: string; title: string; body: string | null };
+      };
+      expect(createdPayload.note.title).toBe('Findings');
+      expect(createdPayload.note.project_id).toBe(projectId);
+      // Markdown body is converted to rich-text HTML.
+      expect(createdPayload.note.body).toContain('<h2>');
+      expect(received.some((e) => e.type === 'note_created')).toBe(true);
+      const noteId = createdPayload.note.id;
+
+      const listed = await client.callTool({
+        name: 'list_notes',
+        arguments: { project_id: projectId },
+      });
+      const listContent = listed.content as Array<{ type: string; text?: string }>;
+      const listText = listContent[0]?.type === 'text' ? (listContent[0].text ?? '{}') : '{}';
+      const listPayload = JSON.parse(listText) as { notes: Array<{ id: string }> };
+      expect(listPayload.notes.some((n) => n.id === noteId)).toBe(true);
+
+      const got = await client.callTool({ name: 'get_note', arguments: { note_id: noteId } });
+      const gotContent = got.content as Array<{ type: string; text?: string }>;
+      const gotText = gotContent[0]?.type === 'text' ? (gotContent[0].text ?? '{}') : '{}';
+      expect((JSON.parse(gotText) as { note: { id: string } }).note.id).toBe(noteId);
+
+      const updated = await client.callTool({
+        name: 'update_note',
+        arguments: { note_id: noteId, title: 'Renamed' },
+      });
+      const updatedContent = updated.content as Array<{ type: string; text?: string }>;
+      const updatedText =
+        updatedContent[0]?.type === 'text' ? (updatedContent[0].text ?? '{}') : '{}';
+      expect((JSON.parse(updatedText) as { note: { title: string } }).note.title).toBe('Renamed');
+
+      await client.close();
+    });
+  });
+
+  it('create_note returns not_found for missing project and invalid_argument for blank title', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId }) => {
+      const client = await connectClient(baseUrl, token);
+
+      const missing = await client.callTool({
+        name: 'create_note',
+        arguments: { project_id: '00000000-0000-4000-8000-000000009999', title: 'Orphan' },
+      });
+      expect(missing.isError).toBe(true);
+
+      const blank = await client.callTool({
+        name: 'create_note',
+        arguments: { project_id: projectId, title: '   ' },
+      });
+      expect(blank.isError).toBe(true);
 
       await client.close();
     });

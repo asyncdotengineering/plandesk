@@ -4,12 +4,14 @@ import { createAgentRunEvent } from './repositories/agent-run-events.js';
 import { createAgentRun } from './repositories/agent-runs.js';
 import { createDocument } from './repositories/documents.js';
 import { createEdge } from './repositories/edges.js';
+import { createNote } from './repositories/notes.js';
 import { createProject, getProject, updateProject } from './repositories/projects.js';
 import { createTask } from './repositories/tasks.js';
 import { listAgentRunEvents } from './repositories/agent-run-events.js';
 import { listAgentRuns } from './repositories/agent-runs.js';
 import { listDocuments } from './repositories/documents.js';
 import { listEdges } from './repositories/edges.js';
+import { listNotes } from './repositories/notes.js';
 import { listTasks } from './repositories/tasks.js';
 import type { AgentRunStatus, TaskStatus } from './schema.js';
 
@@ -52,6 +54,12 @@ export type PlandeskExportV1Document = {
   linked_task_id: string | null;
 };
 
+export type PlandeskExportV1Note = {
+  id: string;
+  title: string;
+  body: string | null;
+};
+
 export type PlandeskExportV1AgentRunEvent = {
   message: string;
   created_at: string;
@@ -72,6 +80,7 @@ export type PlandeskExportV1 = {
   tasks: PlandeskExportV1Task[];
   edges: PlandeskExportV1Edge[];
   documents: PlandeskExportV1Document[];
+  notes: PlandeskExportV1Note[];
   agent_runs: PlandeskExportV1AgentRun[];
 };
 
@@ -81,6 +90,8 @@ export type PlandeskExportInput = {
   tasks: PlandeskExportV1Task[];
   edges: PlandeskExportV1Edge[];
   documents: PlandeskExportV1Document[];
+  // Optional for backward compatibility with exports written before notes existed.
+  notes?: PlandeskExportV1Note[];
   agent_runs: PlandeskExportV1AgentRun[];
 };
 
@@ -138,6 +149,7 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
   const tasks = listTasks(db, projectId);
   const edges = listEdges(db, projectId);
   const documents = listDocuments(db, projectId);
+  const notes = listNotes(db, projectId);
   const runs = listAgentRuns(db, projectId);
 
   return {
@@ -174,6 +186,11 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
       status_line: document.statusLine,
       parent_id: document.parentId,
       linked_task_id: document.linkedTaskId,
+    })),
+    notes: notes.map((note) => ({
+      id: note.id,
+      title: note.title,
+      body: note.body,
     })),
     agent_runs: runs.map((run) => ({
       id: run.id,
@@ -256,6 +273,14 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
         statusLine: document.status_line,
         parentId: remapId(documentIdMap, document.parent_id),
         linkedTaskId: remapId(taskIdMap, document.linked_task_id),
+      });
+    }
+
+    for (const note of data.notes ?? []) {
+      createNote(tx, {
+        projectId: project.id,
+        title: note.title,
+        body: note.body,
       });
     }
 

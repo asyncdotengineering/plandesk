@@ -126,7 +126,7 @@ Confirm all of:
 Setup is done. Tell the user, verbatim:
 
 > Plan Desk is connected to this repo. **Start a new agent session here** so the Plan
-> Desk MCP tools load (you'll see 23 tools). The token is read from
+> Desk MCP tools load (you'll see 27 tools). The token is read from
 > `.plandesk/token` automatically — no export needed.
 > Anytime, run `plandesk help` for a refresher and the docs worth reading.
 

@@ -59,6 +59,10 @@ description: REST endpoints and MCP tools exposed by Plan Desk v1.
 | `update_document`            | Patch title/body/status line                         |
 | `get_document`               | Fetch a document by id                               |
 | `list_documents`             | Project documents as a tree                          |
+| `create_note`                | Create a free-form project note (Markdown body)      |
+| `update_note`                | Patch a note's title or body                         |
+| `get_note`                   | Fetch a note by id                                   |
+| `list_notes`                 | Project working notes                                |
 | `create_edge`                | Labeled dependency between tasks                     |
 | `list_comments`              | Open (or all) document comments for a project        |
 | `add_comment`                | Leave a comment on a document                        |
@@ -72,7 +76,7 @@ description: REST endpoints and MCP tools exposed by Plan Desk v1.
 | `list_submissions`           | List pulled submissions (triage inbox)               |
 | `triage_submission`          | Accept a submission → real task (or reject)          |
 
-23 tools in total. The last five are the [collaboration tier](/reference/collaboration/) — sharing a project with a client or team. At session start, list tools before calling them. Resolve the project from `.plandesk/config.json` when present — do not guess IDs. To stand up a whole plan at once use `scaffold_project_from_plan`; to execute it, loop `get_next_task` → `update_task`. There is no delete tool by design — resolve comments rather than deleting them.
+27 tools in total. The last five are the [collaboration tier](/reference/collaboration/) — sharing a project with a client or team. At session start, list tools before calling them. Resolve the project from `.plandesk/config.json` when present — do not guess IDs. To stand up a whole plan at once use `scaffold_project_from_plan`; to execute it, loop `get_next_task` → `update_task`. There is no delete tool by design — resolve comments rather than deleting them.
 
 ### Error cases
 

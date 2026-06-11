@@ -2,6 +2,14 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [cli 0.6.0 · mcp 0.6.0 · api 0.6.0 · db 0.5.0] — 2026-06-11
+
+### Added
+
+- **Project notes** — free-form, project-scoped working notes with a rich-text (TipTap) editor and titles, kept separate from formal documents (notes are flat, not task-linked, and not part of the client share). New "Notes" tab per project lists notes and opens an editor/reader; create, edit, and delete from the UI. Notes are included in lossless export/import.
+- **Note MCP tools** — `create_note`, `update_note`, `get_note`, and `list_notes` let agents capture and revise working notes for a project (Markdown bodies render as rich text). No `delete_note` — agents don't delete, by design. MCP tool count is now 27.
+- **`notes` table** — added via migration `0005`; existing workspaces migrate automatically on `plandesk serve` (no data touched). Re-run `plandesk connect` to pick up the skill's new Notes guidance.
+
 ## [cli 0.5.0 · mcp 0.5.0 · api 0.5.0] — 2026-06-11
 
 ### Added

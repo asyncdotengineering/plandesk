@@ -48,7 +48,7 @@ For a Docker or remote sync host, use the reachable origin (e.g. `http://your-ho
 
 ```bash
 npx mcporter list                  # lists configured servers — you should see "plandesk"
-npx mcporter list plandesk         # prints TypeScript-style signatures for all 23 tools
+npx mcporter list plandesk         # prints TypeScript-style signatures for all 27 tools
 npx mcporter list plandesk --brief # compact one-line-per-tool view
 ```
 
@@ -93,5 +93,5 @@ npx mcporter emit-ts plandesk --mode client --out src/plandesk-client.ts
 ## See also
 
 - [MCP Setup](/connecting-agents/mcp-setup/) — connect Claude Code / Codex (full agent sessions)
-- [REST + MCP API](/reference/api/) — all 23 tools and their purposes
+- [REST + MCP API](/reference/api/) — all 27 tools and their purposes
 - [The Skill](/connecting-agents/skill/) — the conventions agents follow

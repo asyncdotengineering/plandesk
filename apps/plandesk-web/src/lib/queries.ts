@@ -3,35 +3,42 @@ import {
   createComment,
   createDocument,
   createMcpToken,
+  createNote,
   createProject,
   createTask,
   deleteComment,
   deleteDocument,
   deleteEdge,
+  deleteNote,
   deleteProject,
   deleteTask,
   getCanvas,
   getDocument,
+  getNote,
   getProject,
   getTaskDocument,
   listAgentRuns,
   listDocumentComments,
   listDocuments,
   listMcpTokens,
+  listNotes,
   listProjects,
   listTasks,
   patchComment,
   patchDocument,
+  patchNote,
   patchProject,
   patchTask,
   putCanvas,
   revokeMcpToken,
   type CreateCommentInput,
   type CreateDocumentInput,
+  type CreateNoteInput,
   type CreateProjectInput,
   type CreateTaskInput,
   type PatchCommentInput,
   type PatchDocumentInput,
+  type PatchNoteInput,
   type PatchProjectInput,
   type PatchTaskInput,
   type PutCanvasInput,
@@ -46,6 +53,8 @@ export const queryKeys = {
   canvas: (projectId: string) => ['projects', projectId, 'canvas'] as const,
   documents: (projectId: string) => ['projects', projectId, 'documents'] as const,
   document: (id: string) => ['documents', id] as const,
+  notes: (projectId: string) => ['projects', projectId, 'notes'] as const,
+  note: (id: string) => ['notes', id] as const,
   documentComments: (documentId: string) => ['documents', documentId, 'comments'] as const,
   taskDocument: (taskId: string) => ['tasks', taskId, 'document'] as const,
   mcpTokens: ['mcp-tokens'] as const,
@@ -200,6 +209,51 @@ export function useDeleteDocument() {
     mutationFn: ({ id }: { id: string; projectId: string }) => deleteDocument(id),
     onSuccess: (_result, { projectId }) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.documents(projectId) });
+    },
+  });
+}
+
+export function useNotes(projectId: string) {
+  return useQuery({
+    queryKey: queryKeys.notes(projectId),
+    queryFn: () => listNotes(projectId),
+  });
+}
+
+export function useCreateNote(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateNoteInput) => createNote(projectId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notes(projectId) });
+    },
+  });
+}
+
+export function useNote(id: string) {
+  return useQuery({
+    queryKey: queryKeys.note(id),
+    queryFn: () => getNote(id),
+  });
+}
+
+export function usePatchNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: PatchNoteInput }) => patchNote(id, input),
+    onSuccess: (note) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.note(note.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notes(note.project_id) });
+    },
+  });
+}
+
+export function useDeleteNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string; projectId: string }) => deleteNote(id),
+    onSuccess: (_result, { projectId }) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notes(projectId) });
     },
   });
 }

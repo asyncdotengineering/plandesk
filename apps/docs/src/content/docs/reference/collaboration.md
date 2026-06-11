@@ -57,4 +57,4 @@ The handler and query code are identical across both; only the client factory di
 
 - **Multi-tenancy** — today a deployment is single-tenant (one team / one self-hosted instance). Org isolation with fail-closed tenant scoping and intra-org project ACLs is the gated final phase.
 
-See [The Skill](/connecting-agents/skill/) for how an agent already drives the planning loop, and the [REST + MCP API](/reference/api/) for the current 23 tools.
+See [The Skill](/connecting-agents/skill/) for how an agent already drives the planning loop, and the [REST + MCP API](/reference/api/) for the current 27 tools.

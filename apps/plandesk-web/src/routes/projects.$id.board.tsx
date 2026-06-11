@@ -45,6 +45,9 @@ function ProjectBoardPage() {
         >
           Board
         </Link>
+        <Link to="/projects/$id/notes" params={{ id }} style={{ color: '#555' }}>
+          Notes
+        </Link>
       </nav>
       <h1 style={{ marginTop: 0 }}>{project.name} — Board</h1>
       {status !== undefined ? (

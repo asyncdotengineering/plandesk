@@ -77,6 +77,21 @@ export const documents = sqliteTable('documents', {
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
 });
 
+export const notes = sqliteTable('notes', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id')
+    .notNull()
+    .references(() => projects.id),
+  title: text('title').notNull(),
+  body: text('body'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+});
+
 export const documentComments = sqliteTable('document_comments', {
   id: text('id').primaryKey(),
   documentId: text('document_id')

@@ -88,7 +88,7 @@ No export is needed — `connect` generates the token, writes it to `.plandesk/t
 
 MCP tool lists load at session start. After adding or changing the server, **start a new Claude Code or Codex session**.
 
-Verify tools are available — you should see 23 Plan Desk tools (see [REST + MCP API](/reference/api/)).
+Verify tools are available — you should see 27 Plan Desk tools (see [REST + MCP API](/reference/api/)).
 
 ## Step 4 — Add agent conventions (skill)
 

@@ -12,6 +12,7 @@ import { createAgentRunEvent } from './repositories/agent-run-events.js';
 import { createAgentRun, updateAgentRunStatus } from './repositories/agent-runs.js';
 import { createDocument } from './repositories/documents.js';
 import { createEdge } from './repositories/edges.js';
+import { createNote } from './repositories/notes.js';
 import { createProject, updateProject } from './repositories/projects.js';
 import { createTask } from './repositories/tasks.js';
 
@@ -39,6 +40,10 @@ type ComparableExport = {
     status_line: string | null;
     parent_title: string | null;
     linked_task_label: string | null;
+  }>;
+  notes: Array<{
+    title: string;
+    body: string | null;
   }>;
   agent_runs: Array<{
     status: string;
@@ -96,6 +101,12 @@ function toComparable(exported: PlandeskExportV1): ComparableExport {
           document.linked_task_id === null
             ? null
             : (taskLabelById.get(document.linked_task_id) ?? document.linked_task_id),
+      })),
+    notes: [...exported.notes]
+      .sort((a, b) => a.title.localeCompare(b.title))
+      .map((note) => ({
+        title: note.title,
+        body: note.body,
       })),
     agent_runs: [...exported.agent_runs].map((run) => ({
       status: run.status,
@@ -168,6 +179,17 @@ function buildFixtureProject(db: ReturnType<typeof createDb>): string {
     linkedTaskId: design.id,
   });
 
+  createNote(db, {
+    projectId: project.id,
+    title: 'Working notes',
+    body: '<p>Remember to check the rate limits</p>',
+  });
+  createNote(db, {
+    projectId: project.id,
+    title: 'Open questions',
+    body: null,
+  });
+
   const run = createAgentRun(db, {
     projectId: project.id,
     id: '11111111-1111-4111-8111-111111111111',
@@ -191,6 +213,7 @@ describe('export/import portability', () => {
     db.$client.exec('DELETE FROM agent_run_events');
     db.$client.exec('DELETE FROM agent_runs');
     db.$client.exec('DELETE FROM documents');
+    db.$client.exec('DELETE FROM notes');
     db.$client.exec('DELETE FROM edges');
     db.$client.exec('DELETE FROM tasks');
     db.$client.exec('DELETE FROM projects');
@@ -221,6 +244,8 @@ describe('export/import portability', () => {
     expect(reExported.tasks).toHaveLength(exported.tasks.length);
     expect(reExported.edges).toHaveLength(exported.edges.length);
     expect(reExported.documents).toHaveLength(exported.documents.length);
+    expect(reExported.notes).toHaveLength(exported.notes.length);
+    expect(reExported.notes).toHaveLength(2);
     expect(reExported.agent_runs).toHaveLength(exported.agent_runs.length);
     expect(reExported.agent_runs[0]?.events).toHaveLength(
       exported.agent_runs[0]?.events.length ?? 0,

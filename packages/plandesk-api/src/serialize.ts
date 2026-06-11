@@ -4,6 +4,7 @@ import type {
   Document,
   DocumentComment,
   Edge,
+  Note,
   Project,
   Task,
   TaskStatus,
@@ -107,6 +108,26 @@ export function serializeDocument(document: Document): SerializedDocument {
     linked_task_id: document.linkedTaskId,
     created_at: document.createdAt.toISOString(),
     updated_at: document.updatedAt.toISOString(),
+  };
+}
+
+export type SerializedNote = {
+  id: string;
+  project_id: string;
+  title: string;
+  body: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export function serializeNote(note: Note): SerializedNote {
+  return {
+    id: note.id,
+    project_id: note.projectId,
+    title: note.title,
+    body: note.body,
+    created_at: note.createdAt.toISOString(),
+    updated_at: note.updatedAt.toISOString(),
   };
 }
 

@@ -33,6 +33,9 @@ function ProjectFlowPage() {
         <Link to="/projects/$id/board" params={{ id }} style={{ color: '#555' }}>
           Board
         </Link>
+        <Link to="/projects/$id/notes" params={{ id }} style={{ color: '#555' }}>
+          Notes
+        </Link>
       </nav>
       <h1 style={{ marginTop: 0 }}>{project.name} — Flow</h1>
       {status !== undefined ? (

@@ -8,6 +8,7 @@ export * from './repositories/projects.js';
 export * from './repositories/tasks.js';
 export * from './repositories/edges.js';
 export * from './repositories/documents.js';
+export * from './repositories/notes.js';
 export * from './repositories/document-comments.js';
 export * from './repositories/tokens.js';
 export * from './repositories/shares.js';

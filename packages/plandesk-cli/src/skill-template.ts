@@ -1,6 +1,6 @@
 export const PLANDESK_SKILL_TEMPLATE = `---
 name: plandesk
-description: Plan Desk planning conventions. Use when planning projects, features, or RFCs; creating or updating Plan Desk tasks, documents, and edges; executing a plan with get_next_task; or reading and resolving Plan Desk comments.
+description: Plan Desk planning conventions. Use when planning projects, features, or RFCs; creating or updating Plan Desk tasks, documents, notes, and edges; executing a plan with get_next_task; or reading and resolving Plan Desk comments.
 ---
 
 # Plan Desk MCP Instructions
@@ -55,6 +55,20 @@ existing plan; use \`scaffold_project_from_plan\` to build a new one.
 - Include a \`Status:\` line near the top: "Ready to implement",
   "Open — requires investigation", "Ready for review", or "Superseded".
 - After creating a document, link it to its primary task in the same step.
+
+## Notes
+
+Notes are free-form working notes scoped to the project — findings, context,
+scratch reasoning, anything worth referring back to later. They are distinct
+from documents: notes are not linked to tasks, not nested, and not part of the
+formal plan or client share. Reach for a note when the content is for working
+memory rather than a deliverable spec.
+
+- \`list_notes\` (by \`project_id\`) to see existing notes; \`get_note\` to read one.
+- \`create_note\` to capture a new note (give it a clear \`title\`); \`update_note\`
+  to revise the title or body.
+- Write bodies as well-structured Markdown — \`##\` headings, bullet lists, blank
+  lines between paragraphs. Bodies render as rich text in the UI.
 
 ## Edges
 - Connect related tasks with labeled edges. Prefer the vocabulary:
@@ -119,7 +133,7 @@ People leave comments on documents in the UI to give you feedback or direction.
 - Create non-trivial tasks without a description.
 - Set a task to \`in_progress\` at creation.
 - Skip the duplicate check before creating a task.
-- Delete Plan Desk tasks or documents (there is no delete tool by design).
+- Delete Plan Desk tasks, documents, or notes (there is no delete tool by design).
 - Leave open document comments unaddressed — read them with \`list_comments\` and
   \`resolve_comment\` once handled (resolving replaces deleting).
 - Leave an agent run open at session end.

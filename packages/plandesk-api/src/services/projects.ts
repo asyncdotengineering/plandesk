@@ -8,6 +8,7 @@ import {
   deleteAgentRunEventsByRunId,
   deleteCommentsByProjectId,
   deleteDocumentsByProjectId,
+  deleteNotesByProjectId,
   deleteEdgesByProjectId,
   deleteShareSubmissionsByProjectId,
   deleteSharesByProjectId,
@@ -201,6 +202,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
         clearDocumentParentRefsByProject(tx, id);
         deleteCommentsByProjectId(tx, id);
         deleteDocumentsByProjectId(tx, id);
+        deleteNotesByProjectId(tx, id);
         deleteTasksByProjectId(tx, id);
         deleteShareSubmissionsByProjectId(tx, id);
         deleteSyncStateByProjectId(tx, id);

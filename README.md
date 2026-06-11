@@ -60,7 +60,7 @@ pnpm metrics        # v1 performance targets
 
 ### Shipped (`@plandesk/*` 0.4.0)
 
-Local-first planning workspace: flow canvas with labeled dependency edges, specs on nodes, kanban board, 23 MCP tools (incl. `scaffold_project_from_plan`, `get_next_task`, document comments), lossless export/import, Docker self-hosting — plus the Client Collaboration tier below.
+Local-first planning workspace: flow canvas with labeled dependency edges, specs on nodes, kanban board, project notes, 27 MCP tools (incl. `scaffold_project_from_plan`, `get_next_task`, document comments), lossless export/import, Docker self-hosting — plus the Client Collaboration tier below.
 
 ### Shipped in 0.4.0 — Client Collaboration
 

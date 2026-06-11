@@ -7,6 +7,7 @@ import { createTasksRouter } from './routes/tasks.js';
 import { createCanvasRouter } from './routes/canvas.js';
 import { createCommentsRouter } from './routes/comments.js';
 import { createDocumentsRouter } from './routes/documents.js';
+import { createNotesRouter } from './routes/notes.js';
 import type { EventBus } from './events.js';
 import { createEventsRouter } from './routes/events.js';
 import { createTokensRouter } from './routes/tokens.js';
@@ -30,6 +31,7 @@ export function createApp(deps: AppDeps): Hono {
     taskService,
     canvasService,
     documentService,
+    noteService,
     commentService,
     agentRunService,
     tokenService,
@@ -46,6 +48,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createTasksRouter(taskService));
   app.route('/api/v1', createCanvasRouter(canvasService));
   app.route('/api/v1', createDocumentsRouter(documentService));
+  app.route('/api/v1', createNotesRouter(noteService));
   app.route('/api/v1', createCommentsRouter(commentService));
   app.route('/api/v1', createTokensRouter(tokenService));
   app.route('/api/v1', createAgentRunsRouter(agentRunService));

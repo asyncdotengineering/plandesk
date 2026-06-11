@@ -4,6 +4,9 @@ import { shareSubmissionStatuses, taskStatuses } from '@plandesk/db';
 const DOCUMENT_BODY_DESCRIPTION =
   'Document body in Markdown (rendered as rich text). Structure it well: `##` headings, bullet lists, fenced code blocks, and blank lines between paragraphs. HTML is also accepted.';
 
+const NOTE_BODY_DESCRIPTION =
+  'Note body in Markdown (rendered as rich text). Notes are free-form working notes scoped to the project — use them for findings, context, or anything worth referring back to. HTML is also accepted.';
+
 export const listProjectsInputSchema = z.object({});
 
 export const createProjectInputSchema = z.object({
@@ -53,6 +56,26 @@ export const getDocumentInputSchema = z.object({
 });
 
 export const listDocumentsInputSchema = z.object({
+  project_id: z.string().uuid(),
+});
+
+export const createNoteInputSchema = z.object({
+  project_id: z.string().uuid(),
+  title: z.string().min(1),
+  body: z.string().optional().describe(NOTE_BODY_DESCRIPTION),
+});
+
+export const updateNoteInputSchema = z.object({
+  note_id: z.string().uuid(),
+  title: z.string().min(1).optional(),
+  body: z.string().optional().describe(NOTE_BODY_DESCRIPTION),
+});
+
+export const getNoteInputSchema = z.object({
+  note_id: z.string().uuid(),
+});
+
+export const listNotesInputSchema = z.object({
   project_id: z.string().uuid(),
 });
 
@@ -177,6 +200,10 @@ export const v1ToolNames = [
   'update_document',
   'get_document',
   'list_documents',
+  'create_note',
+  'update_note',
+  'get_note',
+  'list_notes',
   'create_edge',
   'start_agent_run',
   'record_agent_progress',
@@ -205,6 +232,10 @@ export const v1ToolSchemas = {
   update_document: updateDocumentInputSchema,
   get_document: getDocumentInputSchema,
   list_documents: listDocumentsInputSchema,
+  create_note: createNoteInputSchema,
+  update_note: updateNoteInputSchema,
+  get_note: getNoteInputSchema,
+  list_notes: listNotesInputSchema,
   create_edge: createEdgeInputSchema,
   start_agent_run: startAgentRunInputSchema,
   record_agent_progress: recordAgentProgressInputSchema,

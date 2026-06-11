@@ -29,6 +29,18 @@ export type CommentUpdatedEvent = {
   projectId: string;
 };
 
+export type NoteCreatedEvent = {
+  type: 'note_created';
+  noteId: string;
+  projectId: string;
+};
+
+export type NoteUpdatedEvent = {
+  type: 'note_updated';
+  noteId: string;
+  projectId: string;
+};
+
 export type AgentRunStartedEvent = {
   type: 'agent_run_started';
   runId: string;
@@ -58,6 +70,8 @@ export type PlankDeskEvent =
   | DocumentCreatedEvent
   | CommentCreatedEvent
   | CommentUpdatedEvent
+  | NoteCreatedEvent
+  | NoteUpdatedEvent
   | AgentRunStartedEvent
   | AgentRunProgressEvent
   | AgentRunCompletedEvent

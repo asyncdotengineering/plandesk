@@ -41,6 +41,11 @@ Checks the workspace DB, the binding, the token, and that the MCP server lists i
 
 ## Version notes
 
+### 0.6.x
+
+- **Project notes** — a new per-project **Notes** tab holds free-form, rich-text working notes, separate from documents (notes are flat, not linked to tasks, and not part of the client share). The `notes` table is added by migration `0005` and applies automatically when the upgraded server starts — your data is untouched and no manual step is needed.
+- **Note MCP tools** — agents gain `create_note`, `update_note`, `get_note`, and `list_notes` (there is no `delete_note` — agents don't delete, by design). The MCP server now lists **27 tools**. Re-run `plandesk connect` and start a new agent session so the tools and the skill's new Notes section reload.
+
 ### 0.5.x
 
 - **Zero-setup token** — `.mcp.json` no longer uses a static `Authorization: Bearer ${PLANDESK_MCP_TOKEN}` header (which warned when the env var was unset). The regenerated entry reads `.plandesk/token` automatically via a `headersHelper`; you can stop exporting `PLANDESK_MCP_TOKEN` (it still works as an override). **Re-running `connect` is required** to migrate the old entry.

@@ -8,6 +8,10 @@ import { createCreateDocumentHandler } from './tools/create-document.js';
 import { createCreateEdgeHandler } from './tools/create-edge.js';
 import { createCreateProjectHandler } from './tools/create-project.js';
 import { createCreateTaskHandler } from './tools/create-task.js';
+import { createCreateNoteHandler } from './tools/create-note.js';
+import { createUpdateNoteHandler } from './tools/update-note.js';
+import { createGetNoteHandler } from './tools/get-note.js';
+import { createListNotesHandler } from './tools/list-notes.js';
 import { createGetDocumentHandler } from './tools/get-document.js';
 import { createGetNextTaskHandler } from './tools/get-next-task.js';
 import { createGetProjectHandler } from './tools/get-project.js';
@@ -29,6 +33,10 @@ import {
   createProjectInputSchema,
   createTaskInputSchema,
   getDocumentInputSchema,
+  createNoteInputSchema,
+  updateNoteInputSchema,
+  getNoteInputSchema,
+  listNotesInputSchema,
   addCommentInputSchema,
   getNextTaskInputSchema,
   getProjectInputSchema,
@@ -165,6 +173,50 @@ function createMcpServer(services: Services): McpServer {
       annotations: { readOnlyHint: true },
     },
     createListDocumentsHandler(services.documentService),
+  );
+
+  server.registerTool(
+    'create_note',
+    {
+      title: 'Create Note',
+      description:
+        'Create a free-form project note. Notes are working notes scoped to the project (findings, context, anything worth referring back to) — not formal documents. Write the body as well-structured Markdown; it is rendered as rich text.',
+      inputSchema: createNoteInputSchema.shape,
+    },
+    createCreateNoteHandler(services.noteService),
+  );
+
+  server.registerTool(
+    'update_note',
+    {
+      title: 'Update Note',
+      description:
+        'Update a project note title or body. Write the body as well-structured Markdown; it is rendered as rich text.',
+      inputSchema: updateNoteInputSchema.shape,
+    },
+    createUpdateNoteHandler(services.noteService),
+  );
+
+  server.registerTool(
+    'get_note',
+    {
+      title: 'Get Note',
+      description: 'Get a project note by id',
+      inputSchema: getNoteInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createGetNoteHandler(services.noteService),
+  );
+
+  server.registerTool(
+    'list_notes',
+    {
+      title: 'List Notes',
+      description: 'List the working notes for a project',
+      inputSchema: listNotesInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListNotesHandler(services.noteService),
   );
 
   server.registerTool(

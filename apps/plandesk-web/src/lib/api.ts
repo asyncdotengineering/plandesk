@@ -133,6 +133,25 @@ export type PatchDocumentInput = {
   linked_task_id?: string | null;
 };
 
+export type SerializedNote = {
+  id: string;
+  project_id: string;
+  title: string;
+  body: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateNoteInput = {
+  title: string;
+  body?: string | null;
+};
+
+export type PatchNoteInput = {
+  title?: string;
+  body?: string | null;
+};
+
 export type SerializedComment = {
   id: string;
   document_id: string;
@@ -254,6 +273,29 @@ export function patchDocument(id: string, input: PatchDocumentInput): Promise<Se
 
 export function deleteDocument(id: string): Promise<void> {
   return request(`/documents/${id}`, { method: 'DELETE' });
+}
+
+export function listNotes(projectId: string): Promise<SerializedNote[]> {
+  return request(`/projects/${projectId}/notes`);
+}
+
+export function createNote(projectId: string, input: CreateNoteInput): Promise<SerializedNote> {
+  return request(`/projects/${projectId}/notes`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getNote(id: string): Promise<SerializedNote> {
+  return request(`/notes/${id}`);
+}
+
+export function patchNote(id: string, input: PatchNoteInput): Promise<SerializedNote> {
+  return request(`/notes/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function deleteNote(id: string): Promise<void> {
+  return request(`/notes/${id}`, { method: 'DELETE' });
 }
 
 export function listDocumentComments(

@@ -33,6 +33,18 @@ type CommentUpdatedEvent = {
   projectId: string;
 };
 
+type NoteCreatedEvent = {
+  type: 'note_created';
+  noteId: string;
+  projectId: string;
+};
+
+type NoteUpdatedEvent = {
+  type: 'note_updated';
+  noteId: string;
+  projectId: string;
+};
+
 type AgentRunStartedEvent = {
   type: 'agent_run_started';
   runId: string;
@@ -57,6 +69,8 @@ type PlankDeskEvent =
   | DocumentCreatedEvent
   | CommentCreatedEvent
   | CommentUpdatedEvent
+  | NoteCreatedEvent
+  | NoteUpdatedEvent
   | AgentRunStartedEvent
   | AgentRunProgressEvent
   | AgentRunCompletedEvent;
@@ -72,6 +86,8 @@ function isPlankDeskEvent(value: unknown): value is PlankDeskEvent {
     type === 'document_created' ||
     type === 'comment_created' ||
     type === 'comment_updated' ||
+    type === 'note_created' ||
+    type === 'note_updated' ||
     type === 'agent_run_started' ||
     type === 'agent_run_progress' ||
     type === 'agent_run_completed'
@@ -117,6 +133,11 @@ export function useSseInvalidation() {
           void queryClient.invalidateQueries({
             queryKey: queryKeys.documentComments(event.documentId),
           });
+          break;
+        case 'note_created':
+        case 'note_updated':
+          void queryClient.invalidateQueries({ queryKey: queryKeys.notes(event.projectId) });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.note(event.noteId) });
           break;
         case 'agent_run_started':
         case 'agent_run_progress':
