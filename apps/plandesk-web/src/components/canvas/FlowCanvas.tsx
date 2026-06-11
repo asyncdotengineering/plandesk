@@ -31,6 +31,7 @@ import {
   type TaskNodeData,
 } from './canvas-map.js';
 import { LabeledEdge } from './LabeledEdge.js';
+import { layoutNodes } from './layout.js';
 import { TaskDetail } from './TaskDetail.js';
 import { registerTaskNodeCallbacks, TaskNode } from './TaskNode.js';
 import { useCanvasSync } from './useCanvasSync.js';
@@ -126,6 +127,34 @@ function AddTaskPanel({ projectId }: { projectId: string }) {
   );
 }
 
+function ArrangePanel({ onArrange }: { onArrange: () => void }) {
+  const { fitView } = useReactFlow();
+
+  return (
+    <Panel position="top-right">
+      <button
+        type="button"
+        onClick={() => {
+          onArrange();
+          void fitView({ padding: 0.2, duration: 300 });
+        }}
+        style={{
+          padding: '0.375rem 0.75rem',
+          borderRadius: 6,
+          border: '1px solid #d1d5db',
+          background: '#fff',
+          fontWeight: 600,
+          fontSize: '0.875rem',
+          cursor: 'pointer',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+        }}
+      >
+        Auto-arrange
+      </button>
+    </Panel>
+  );
+}
+
 export function FlowCanvas({ projectId }: FlowCanvasProps) {
   const { data: canvas, isLoading, error } = useCanvas(projectId);
   const { data: documents } = useDocuments(projectId);
@@ -207,6 +236,14 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
   const handleNodeDragStop = useCallback(() => {
     onNodeDragStop();
   }, [onNodeDragStop]);
+
+  const handleAutoArrange = useCallback(() => {
+    setNodes((current) => {
+      const arranged = layoutNodes(current, edges);
+      saveWithState(arranged, edges);
+      return arranged;
+    });
+  }, [setNodes, edges, saveWithState]);
 
   const handleSelectionChange = useCallback((params: OnSelectionChangeParams) => {
     const nodeId = params.nodes[0]?.id ?? null;
@@ -363,6 +400,7 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
           <Background />
           <Controls />
           <AddTaskPanel projectId={projectId} />
+          <ArrangePanel onArrange={handleAutoArrange} />
         </ReactFlow>
       </div>
     </div>

@@ -53,7 +53,6 @@ export function TaskNode({ id, data }: NodeProps<Node<TaskNodeData>>) {
 
   return (
     <div
-      className="nodrag"
       style={{
         minWidth: 160,
         padding: '0.75rem 1rem',
@@ -61,6 +60,7 @@ export function TaskNode({ id, data }: NodeProps<Node<TaskNodeData>>) {
         border: '1px solid #d1d5db',
         background: '#fff',
         boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+        cursor: 'grab',
       }}
     >
       <Handle type="target" position={Position.Top} />
@@ -74,6 +74,7 @@ export function TaskNode({ id, data }: NodeProps<Node<TaskNodeData>>) {
       >
         {editing ? (
           <input
+            className="nodrag"
             type="text"
             value={labelDraft}
             autoFocus
@@ -102,6 +103,7 @@ export function TaskNode({ id, data }: NodeProps<Node<TaskNodeData>>) {
           />
         ) : (
           <button
+            className="nodrag"
             type="button"
             onClick={() => {
               setEditing(true);
@@ -123,6 +125,7 @@ export function TaskNode({ id, data }: NodeProps<Node<TaskNodeData>>) {
           </button>
         )}
         <button
+          className="nodrag"
           type="button"
           onClick={handleDelete}
           aria-label="Delete task"
@@ -141,6 +144,7 @@ export function TaskNode({ id, data }: NodeProps<Node<TaskNodeData>>) {
         </button>
       </div>
       <select
+        className="nodrag"
         value={data.status}
         onChange={(event) => {
           taskNodeCallbacks?.onPatchStatus(id, event.target.value as TaskStatus);
@@ -164,7 +168,7 @@ export function TaskNode({ id, data }: NodeProps<Node<TaskNodeData>>) {
         ))}
       </select>
       {data.documentId !== undefined ? (
-        <div style={{ marginTop: '0.5rem' }}>
+        <div className="nodrag" style={{ marginTop: '0.5rem' }}>
           <OpenDocLink projectId={data.projectId} documentId={data.documentId} />
         </div>
       ) : null}
