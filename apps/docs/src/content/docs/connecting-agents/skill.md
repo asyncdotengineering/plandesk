@@ -84,6 +84,24 @@ Edge direction drives sequencing: `from → to` with most labels (`blocks`,
 `feeds`, `enables`, …) means `from` finishes before `to`; `depends_on` reverses
 it (`from depends_on to` ⇒ `to` first). Add edges so dependencies sequence right.
 
+## Keeping the board true
+
+The board is only useful when it matches reality. Two standing rules:
+
+- **Atomic status updates** — flip a task's status in the same step as the work
+  event it reflects, never in a batch at the end: `update_task` to
+  `in_progress` the moment you start, `done` the moment the work is verified,
+  back to `todo` (or `scope`) if you stop without finishing. At any instant the
+  board should show what is actually happening right now.
+- **Reconcile against reality** — at the start of a session, after any long
+  break, and before reporting a plan finished, sweep the whole board against
+  the actual state of the work: recent commits, the working tree, what is
+  verifiably built and shipped. Fix every mismatch with `update_task` — work
+  that is done but not `done`, tasks `in_progress` that nobody is working on,
+  planned tasks the code shows are already built or obsolete. Note non-obvious
+  corrections in the task description or a document comment so the drift and
+  its fix are traceable.
+
 ## Comments
 
 People leave comments on documents in the UI to give you feedback or direction.
@@ -104,6 +122,9 @@ People leave comments on documents in the UI to give you feedback or direction.
 ## Never do
 
 - Guess or hardcode IDs.
+- Batch status updates for the end of a session — statuses change atomically
+  as the work happens.
+- Leave a task `in_progress` that nobody is actively working on.
 - Reference line numbers in tasks or documents.
 - Create non-trivial tasks without a description.
 - Set a task to `in_progress` at creation.
