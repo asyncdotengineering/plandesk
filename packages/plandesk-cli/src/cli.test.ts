@@ -73,6 +73,11 @@ describe('parseArgs', () => {
       full: true,
     });
   });
+
+  it('parses version as command and flag', () => {
+    expect(parseArgs(['node', 'plandesk', 'version'])).toEqual({ command: 'version' });
+    expect(parseArgs(['node', 'plandesk', '--version'])).toEqual({ command: 'version' });
+  });
 });
 
 describe('crashCourse', () => {

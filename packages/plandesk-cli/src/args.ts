@@ -92,6 +92,7 @@ export type ParsedArgs =
     }
   | { command: 'deploy'; target?: string }
   | { command: 'help'; full: boolean }
+  | { command: 'version' }
   | { command: 'unknown'; name: string };
 
 function parseFlags(args: string[]): {
@@ -151,6 +152,10 @@ function parsePort(raw: string | undefined): number | undefined {
 export function parseArgs(argv: string[]): ParsedArgs {
   const { positional, flags } = parseFlags(argv.slice(2));
   const command = positional[0];
+
+  if (command === 'version' || flags['version'] === true) {
+    return { command: 'version' };
+  }
 
   if (
     command === undefined ||
@@ -326,6 +331,7 @@ Usage:
   plandesk sync --watch [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk deploy [target]   # list deploy guides, or print one for your coding agent: plandesk deploy cloudflare | claude
+  plandesk version           # print the installed CLI version (also: --version)
 
 Options:
   --data-dir  Workspace directory (default: ~/.plandesk, or PLANDESK_DATA_DIR)
@@ -376,6 +382,7 @@ READ THESE  (.md — fetchable by humans and agents; read before you act)
   Share with a team ......... https://plandesk.asyncdot.com/guides/plan-share-build.md
   Every command + flag ...... https://plandesk.asyncdot.com/reference/cli.md
   Architecture + security ... https://plandesk.asyncdot.com/reference/collaboration.md
+  Upgrade an old setup ...... https://plandesk.asyncdot.com/reference/upgrading.md
   Fix a problem ............. https://plandesk.asyncdot.com/reference/troubleshooting.md
   Everything, one file ...... https://plandesk.asyncdot.com/llms-full.txt
 

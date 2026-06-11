@@ -80,6 +80,7 @@ export default defineConfig({
             { slug: 'reference/api' },
             { slug: 'reference/architecture' },
             { slug: 'reference/collaboration' },
+            { slug: 'reference/upgrading' },
             { slug: 'reference/troubleshooting' },
             { slug: 'reference/validation-metrics' },
           ],

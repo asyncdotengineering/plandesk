@@ -40,8 +40,9 @@ plandesk deploy [target]
 | `serve`                  | Start REST + SSE + MCP + web UI (default `127.0.0.1:3847`)                                                               |
 | `token create`           | Create MCP bearer token (shown once)                                                                                     |
 | `export` / `import`      | Lossless `plandesk-export-v1` JSON round-trip                                                                            |
-| `connect` / `disconnect` | Bind / unbind a repo to a project + agent configs                                                                        |
+| `connect` / `disconnect` | Bind / unbind a repo to a project + agent configs; re-run `connect` after upgrading to regenerate artifacts              |
 | `doctor`                 | Check DB health; with `--repo`, validate binding + MCP reachability                                                      |
+| `version`                | Print the installed CLI version (also `--version`); see [Upgrading](/reference/upgrading/)                              |
 
 ## Collaboration
 

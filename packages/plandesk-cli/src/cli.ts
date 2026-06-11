@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cwd } from 'node:process';
 import { runInit } from './init.js';
@@ -43,6 +43,13 @@ export async function main(argv: string[] = process.argv): Promise<number> {
     case 'help':
       process.stdout.write(parsed.full ? usage() : crashCourse());
       return 0;
+    case 'version': {
+      const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+        version: string;
+      };
+      process.stdout.write(`${pkg.version}\n`);
+      return 0;
+    }
     case 'init': {
       const dbPath = runInit(parsed.dataDir);
       process.stdout.write(`Initialized workspace at ${dbPath}\n`);
