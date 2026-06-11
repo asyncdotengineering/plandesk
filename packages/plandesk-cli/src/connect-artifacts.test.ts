@@ -1,8 +1,13 @@
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PLANDESK_SKILL_TEMPLATE } from './skill-template.js';
 import {
   appendGitignoreLine,
   buildConfigJson,
+  buildHeadersHelper,
   buildMcpServerEntry,
   buildSentinelBlock,
   buildSkillMarkdown,
@@ -57,7 +62,7 @@ describe('connect artifacts', () => {
     });
   });
 
-  it('merges mcp.json with env-var token reference', () => {
+  it('merges mcp.json with a token-file headersHelper', () => {
     const existing = JSON.stringify({
       mcpServers: {
         other: { type: 'http', url: 'http://example.test/mcp/' },
@@ -65,15 +70,41 @@ describe('connect artifacts', () => {
     });
     const merged = mergeMcpJson(existing, 'http://127.0.0.1:3847');
     expect(merged).not.toContain('plandesk_mcp_');
-    expect(merged).toContain(`\${${TOKEN_ENV_VAR}}`);
     const parsed = JSON.parse(merged) as {
-      mcpServers: Record<string, { url: string; headers: Record<string, string> }>;
+      mcpServers: Record<string, { url: string; headers?: Record<string, string>; headersHelper?: string }>;
     };
     expect(parsed.mcpServers.plandesk?.url).toBe('http://127.0.0.1:3847/mcp/');
     expect(parsed.mcpServers.other?.url).toBe('http://example.test/mcp/');
-    expect(buildMcpServerEntry('http://127.0.0.1:3847/').headers?.Authorization).toBe(
-      `Bearer \${${TOKEN_ENV_VAR}}`,
-    );
+    const entry = buildMcpServerEntry('http://127.0.0.1:3847/');
+    expect(entry.headers).toBeUndefined();
+    expect(entry.headersHelper).toContain('.plandesk/token');
+    expect(entry.headersHelper).toContain(`\${${TOKEN_ENV_VAR}:-`);
+  });
+
+  it('headersHelper resolves the token from a parent directory and honors the env override', () => {
+    const helper = buildHeadersHelper();
+    const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-helper-'));
+    try {
+      mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
+      mkdirSync(join(repoDir, 'nested', 'deep'), { recursive: true });
+      writeFileSync(join(repoDir, '.plandesk', 'token'), 'plandesk_mcp_helper_token\n', 'utf8');
+      const fromFile = execFileSync('sh', ['-c', helper], {
+        cwd: join(repoDir, 'nested', 'deep'),
+        encoding: 'utf8',
+        env: { ...process.env, [TOKEN_ENV_VAR]: '' },
+      });
+      expect(JSON.parse(fromFile)).toEqual({
+        Authorization: 'Bearer plandesk_mcp_helper_token',
+      });
+      const fromEnv = execFileSync('sh', ['-c', helper], {
+        cwd: join(repoDir, 'nested', 'deep'),
+        encoding: 'utf8',
+        env: { ...process.env, [TOKEN_ENV_VAR]: 'override-token' },
+      });
+      expect(JSON.parse(fromEnv)).toEqual({ Authorization: 'Bearer override-token' });
+    } finally {
+      rmSync(repoDir, { recursive: true, force: true });
+    }
   });
 
   it('removes only the plandesk mcp entry', () => {

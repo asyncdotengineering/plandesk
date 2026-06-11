@@ -66,9 +66,9 @@ codex mcp add --transport http plandesk http://127.0.0.1:3847/mcp/ \
   --header "Authorization: Bearer plandesk_mcp_…"
 ```
 
-### Env-var token (commit-safe)
+### Token-file helper (commit-safe, zero setup)
 
-For teams sharing repo config without committing secrets, use [`plandesk connect`](/connecting-agents/connect/) — it writes `.mcp.json` with:
+For teams sharing repo config without committing secrets, use [`plandesk connect`](/connecting-agents/connect/) — it writes `.mcp.json` with a `headersHelper` that reads the gitignored `.plandesk/token` at connection time:
 
 ```json
 {
@@ -76,19 +76,13 @@ For teams sharing repo config without committing secrets, use [`plandesk connect
     "plandesk": {
       "type": "http",
       "url": "http://127.0.0.1:3847/mcp/",
-      "headers": {
-        "Authorization": "Bearer ${PLANDESK_MCP_TOKEN}"
-      }
+      "headersHelper": "… reads .plandesk/token (or $PLANDESK_MCP_TOKEN if set) …"
     }
   }
 }
 ```
 
-Export before each session:
-
-```bash
-export PLANDESK_MCP_TOKEN="$(cat .plandesk/token)"
-```
+No export is needed — `connect` generates the token, writes it to `.plandesk/token` (gitignored), and the helper picks it up automatically. Set `PLANDESK_MCP_TOKEN` only to override the file.
 
 ## Step 3 — Start a new agent session
 

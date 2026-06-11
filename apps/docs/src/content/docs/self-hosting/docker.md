@@ -27,4 +27,4 @@ Data persists in the `plandesk-data` Docker volume (`PLANDESK_DATA_DIR=/data` in
 | `PLANDESK_DATA_DIR`      | `~/.plandesk` | Workspace directory                        |
 | `PLANDESK_HOST`          | `127.0.0.1`   | Bind address                               |
 | `PLANDESK_AUTH_PASSWORD` | (unset)       | Required when binding non-loopback         |
-| `PLANDESK_MCP_TOKEN`     | (unset)       | Bearer token for `.mcp.json` env expansion |
+| `PLANDESK_MCP_TOKEN`     | (unset)       | Overrides the token read from `.plandesk/token` |

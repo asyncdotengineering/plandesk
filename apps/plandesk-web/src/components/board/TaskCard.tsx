@@ -1,43 +1,43 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { useEffect, useState, type CSSProperties, type MouseEvent } from 'react';
+import { useRef, type CSSProperties, type MouseEvent } from 'react';
 import type { SerializedTask } from '../../lib/api.js';
 
 type TaskCardProps = {
   task: SerializedTask;
   isDragging?: boolean;
-  onPatchLabel: (taskId: string, label: string) => void;
+  onOpen: (taskId: string) => void;
   onDelete: (taskId: string) => void;
 };
 
-export function TaskCard({ task, isDragging = false, onPatchLabel, onDelete }: TaskCardProps) {
+const DRAG_CLICK_TOLERANCE_PX = 5;
+
+export function TaskCard({ task, isDragging = false, onOpen, onDelete }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: task.id,
     data: { status: task.status },
   });
-  const [editing, setEditing] = useState(false);
-  const [labelDraft, setLabelDraft] = useState(task.label);
-
-  useEffect(() => {
-    setLabelDraft(task.label);
-  }, [task.label]);
-
-  const commitLabel = () => {
-    const trimmed = labelDraft.trim();
-    if (trimmed === '' || trimmed === task.label) {
-      setLabelDraft(task.label);
-      setEditing(false);
-      return;
-    }
-    onPatchLabel(task.id, trimmed);
-    setEditing(false);
-  };
+  const pointerDownPosition = useRef<{ x: number; y: number } | null>(null);
 
   const handleDelete = (event: MouseEvent) => {
     event.stopPropagation();
     if (confirm('Delete this task?')) {
       onDelete(task.id);
     }
+  };
+
+  // A drag releases a click on the same element; only open when the pointer
+  // barely moved between press and release.
+  const handleClick = (event: MouseEvent) => {
+    const start = pointerDownPosition.current;
+    if (
+      start !== null &&
+      (Math.abs(event.clientX - start.x) > DRAG_CLICK_TOLERANCE_PX ||
+        Math.abs(event.clientY - start.y) > DRAG_CLICK_TOLERANCE_PX)
+    ) {
+      return;
+    }
+    onOpen(task.id);
   };
 
   const style: CSSProperties = {
@@ -47,66 +47,27 @@ export function TaskCard({ task, isDragging = false, onPatchLabel, onDelete }: T
     border: '1px solid #d1d5db',
     background: '#fff',
     boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.12)' : '0 1px 2px rgba(0,0,0,0.06)',
-    cursor: editing ? 'default' : 'grab',
+    cursor: isDragging ? 'grabbing' : 'pointer',
     opacity: isDragging ? 0.5 : 1,
     touchAction: 'none',
   };
 
   return (
-    <div ref={setNodeRef} data-task-id={task.id} data-task-status={task.status} style={style}>
+    <div
+      ref={setNodeRef}
+      data-task-id={task.id}
+      data-task-status={task.status}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onPointerDown={(event) => {
+        pointerDownPosition.current = { x: event.clientX, y: event.clientY };
+        listeners?.onPointerDown?.(event);
+      }}
+      onClick={handleClick}
+    >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.25rem' }}>
-        <div style={{ flex: 1 }} {...(editing ? {} : listeners)} {...(editing ? {} : attributes)}>
-          {editing ? (
-            <input
-              type="text"
-              value={labelDraft}
-              autoFocus
-              onChange={(event) => {
-                setLabelDraft(event.target.value);
-              }}
-              onBlur={commitLabel}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  commitLabel();
-                }
-                if (event.key === 'Escape') {
-                  setLabelDraft(task.label);
-                  setEditing(false);
-                }
-              }}
-              aria-label="Task label"
-              style={{
-                width: '100%',
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                border: '1px solid #93c5fd',
-                borderRadius: 4,
-                padding: '0.125rem 0.375rem',
-              }}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setEditing(true);
-              }}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                fontWeight: 600,
-                lineHeight: 1.3,
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                cursor: 'text',
-                fontSize: 'inherit',
-                color: 'inherit',
-              }}
-            >
-              {task.label}
-            </button>
-          )}
-        </div>
+        <div style={{ flex: 1, fontWeight: 600, lineHeight: 1.3 }}>{task.label}</div>
         <button
           type="button"
           onClick={handleDelete}

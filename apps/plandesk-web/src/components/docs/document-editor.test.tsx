@@ -122,4 +122,17 @@ describe('DocumentEditor', () => {
     expect(screen.getByText('Safe')).toBeTruthy();
     expect(document.querySelector('script')).toBeNull();
   });
+
+  it('renders legacy markdown bodies as rich text in reader mode', () => {
+    const markdownDoc: SerializedDocument = {
+      ...sampleDocument,
+      body: '## Hosts\n\n- one\n- two\n\nA paragraph.',
+    };
+
+    render(<DocumentEditor document={markdownDoc} mode="reader" onSave={vi.fn()} />);
+
+    const reader = document.querySelector('.document-reader-content');
+    expect(reader?.querySelector('h2')?.textContent).toBe('Hosts');
+    expect(reader?.querySelectorAll('li')).toHaveLength(2);
+  });
 });

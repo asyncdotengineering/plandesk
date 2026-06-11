@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { shareSubmissionStatuses, taskStatuses } from '@plandesk/db';
 
+const DOCUMENT_BODY_DESCRIPTION =
+  'Document body in Markdown (rendered as rich text). Structure it well: `##` headings, bullet lists, fenced code blocks, and blank lines between paragraphs. HTML is also accepted.';
+
 export const listProjectsInputSchema = z.object({});
 
 export const createProjectInputSchema = z.object({
@@ -33,7 +36,7 @@ export const updateTaskInputSchema = z.object({
 export const createDocumentInputSchema = z.object({
   project_id: z.string().uuid(),
   title: z.string().min(1),
-  body: z.string().optional(),
+  body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
   linked_task_id: z.string().uuid().optional(),
   parent_id: z.string().uuid().optional(),
 });
@@ -41,7 +44,7 @@ export const createDocumentInputSchema = z.object({
 export const updateDocumentInputSchema = z.object({
   document_id: z.string().uuid(),
   title: z.string().optional(),
-  body: z.string().optional(),
+  body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
   status_line: z.string().optional(),
 });
 
@@ -105,7 +108,7 @@ export const scaffoldProjectFromPlanInputSchema = z.object({
     .array(
       z.object({
         title: z.string().min(1),
-        body: z.string().optional(),
+        body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
         status_line: z.string().optional(),
         link_to: z.string().optional(),
       }),

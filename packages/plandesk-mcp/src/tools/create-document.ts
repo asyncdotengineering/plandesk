@@ -1,5 +1,6 @@
 import type { DocumentService } from '@plandesk/api';
 import { InvalidDocumentError } from '@plandesk/api';
+import { ensureHtmlBody } from './markdown.js';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createCreateDocumentHandler(
@@ -15,7 +16,7 @@ export function createCreateDocumentHandler(
     try {
       const document = documentService.create(args.project_id, {
         title: args.title,
-        ...(args.body !== undefined ? { body: args.body } : {}),
+        ...(args.body !== undefined ? { body: ensureHtmlBody(args.body) } : {}),
         ...(args.linked_task_id !== undefined ? { linkedTaskId: args.linked_task_id } : {}),
         ...(args.parent_id !== undefined ? { parentId: args.parent_id } : {}),
       });

@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { capabilitiesFromShare } from '../../lib/capabilities.js';
+import { bodyToHtml } from '../../lib/markdown.js';
 import { sanitizeHtml } from '../../lib/sanitize.js';
 import '../docs/document-editor.css';
 import type { ClientView, PortalSubmission } from '../../lib/portal.js';
@@ -133,7 +134,7 @@ export function PortalPage({ view, shareToken, sessionToken, onUnauthorized }: P
                 {doc.body_html !== null && doc.body_html !== '' ? (
                   <div
                     className="portal-document-content"
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(doc.body_html) }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyToHtml(doc.body_html)) }}
                     style={{
                       lineHeight: 1.6,
                       padding: '1rem',

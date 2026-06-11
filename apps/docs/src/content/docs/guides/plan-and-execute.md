@@ -36,19 +36,17 @@ plandesk connect --project "Checkout Revamp"
 
 `connect` writes commit-safe project binding and MCP wiring:
 
-| Path                      | Committed? | Purpose                                       |
-| ------------------------- | ---------- | --------------------------------------------- |
-| `.plandesk/config.json`   | yes        | Pins repo → project (`projectId`, server URL) |
-| `.plandesk/skill.md`      | yes        | Agent conventions                             |
-| `.plandesk/token`         | no         | Raw MCP bearer token (gitignored)             |
-| `.mcp.json`               | yes        | MCP entry using `${PLANDESK_MCP_TOKEN}`       |
-| `CLAUDE.md` / `AGENTS.md` | yes        | Idempotent include of `@.plandesk/skill.md`   |
+| Path                      | Committed? | Purpose                                            |
+| ------------------------- | ---------- | -------------------------------------------------- |
+| `.plandesk/config.json`   | yes        | Pins repo → project (`projectId`, server URL)      |
+| `.plandesk/skill.md`      | yes        | Agent conventions                                  |
+| `.plandesk/token`         | no         | Raw MCP bearer token (gitignored)                  |
+| `.claude/skills/plandesk/` / `.agents/skills/plandesk/` | yes | Skill symlinks → `.plandesk/skill.md` |
+| `.mcp.json`               | yes        | MCP entry; `headersHelper` reads `.plandesk/token` |
+| `CLAUDE.md` / `AGENTS.md` | yes        | Idempotent include of `@.plandesk/skill.md`        |
 
-Before each agent session:
-
-```bash
-export PLANDESK_MCP_TOKEN="$(cat .plandesk/token)"
-```
+The token is generated for you and read from `.plandesk/token` automatically —
+no export needed (set `PLANDESK_MCP_TOKEN` only to override).
 
 Start a **new** Claude Code or Codex session so MCP tools reload.
 

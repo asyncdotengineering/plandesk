@@ -4,6 +4,7 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { PatchDocumentInput, SerializedDocument } from '../../lib/api.js';
+import { bodyToHtml } from '../../lib/markdown.js';
 import { sanitizeHtml } from '../../lib/sanitize.js';
 import './document-editor.css';
 
@@ -55,7 +56,7 @@ export function DocumentEditor({
 
   const editor = useEditor({
     extensions: [StarterKit, Image.configure({ allowBase64: true })],
-    content: document.body ?? '',
+    content: bodyToHtml(document.body ?? ''),
     editable: mode === 'editor',
     editorProps: {
       attributes: {
@@ -83,7 +84,7 @@ export function DocumentEditor({
 
   useEffect(() => {
     const current = editor.getHTML();
-    const next = document.body ?? '';
+    const next = bodyToHtml(document.body ?? '');
     if (current !== next) {
       editor.commands.setContent(next, { emitUpdate: false });
     }
@@ -201,7 +202,7 @@ export function DocumentEditor({
       {mode === 'reader' ? (
         <div
           className="document-reader-content"
-          dangerouslySetInnerHTML={{ __html: sanitizeHtml(document.body ?? '') }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyToHtml(document.body ?? '')) }}
           style={{
             lineHeight: 1.6,
             padding: '1rem',

@@ -1,10 +1,18 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import {
   appendGitignoreLine,
-  buildCodexCommandMarkdown,
+  buildCommandMarkdown,
   buildConfigJson,
   buildSkillMarkdown,
   GITIGNORE_TOKEN_LINE,
@@ -12,6 +20,8 @@ import {
   normalizeServerUrl,
   parseConfigJson,
   insertSentinelBlock,
+  SKILL_DIRS,
+  SKILL_SYMLINK_TARGET,
   TOKEN_ENV_VAR,
   type PlanDeskConfig,
 } from './connect-artifacts.js';
@@ -38,6 +48,7 @@ export type ConnectArtifact = {
   path: string;
   content: string;
   action: 'create' | 'update' | 'delete';
+  symlinkTarget?: string;
 };
 
 export type ConnectResult = {
@@ -45,7 +56,7 @@ export type ConnectResult = {
   serverUrl: string;
   artifacts: ConnectArtifact[];
   tokenCreated: boolean;
-  exportLine: string;
+  tokenLine: string;
 };
 
 export class ConnectError extends Error {
@@ -294,6 +305,16 @@ function buildArtifacts(
     action: existsSync(join(plandeskDir, 'skill.md')) ? 'update' : 'create',
   });
 
+  for (const skillDir of SKILL_DIRS) {
+    const linkPath = join(options.repoDir, skillDir, 'SKILL.md');
+    artifacts.push({
+      path: linkPath,
+      content: buildSkillMarkdown(),
+      action: lstatSync(linkPath, { throwIfNoEntry: false }) === undefined ? 'create' : 'update',
+      symlinkTarget: SKILL_SYMLINK_TARGET,
+    });
+  }
+
   artifacts.push({
     path: join(plandeskDir, 'token'),
     content: `${token}\n`,
@@ -316,6 +337,13 @@ function buildArtifacts(
       action: existsSync(claudePath) ? 'update' : 'create',
     });
 
+    const claudeCommandPath = join(options.repoDir, '.claude', 'commands', 'plandesk.md');
+    artifacts.push({
+      path: claudeCommandPath,
+      content: buildCommandMarkdown(),
+      action: existsSync(claudeCommandPath) ? 'update' : 'create',
+    });
+
     const agentsPath = join(options.repoDir, 'AGENTS.md');
     if (existsSync(agentsPath)) {
       artifacts.push({
@@ -330,7 +358,7 @@ function buildArtifacts(
     const codexPath = join(options.repoDir, '.codex', 'commands', 'plandesk.md');
     artifacts.push({
       path: codexPath,
-      content: buildCodexCommandMarkdown(),
+      content: buildCommandMarkdown(),
       action: existsSync(codexPath) ? 'update' : 'create',
     });
   }
@@ -348,7 +376,17 @@ function buildArtifacts(
 function writeArtifacts(artifacts: ConnectArtifact[]): void {
   for (const artifact of artifacts) {
     mkdirSync(dirname(artifact.path), { recursive: true });
-    writeFileSync(artifact.path, artifact.content, 'utf8');
+    if (artifact.symlinkTarget === undefined) {
+      writeFileSync(artifact.path, artifact.content, 'utf8');
+      continue;
+    }
+    rmSync(artifact.path, { force: true });
+    try {
+      symlinkSync(artifact.symlinkTarget, artifact.path);
+    } catch {
+      // Symlinks unavailable (e.g. unprivileged Windows) — write a copy.
+      writeFileSync(artifact.path, artifact.content, 'utf8');
+    }
   }
 }
 
@@ -366,13 +404,17 @@ export function formatConnectPrint(result: ConnectResult): string {
   lines.push(`server: ${result.serverUrl}`);
   lines.push('');
   for (const artifact of result.artifacts) {
+    if (artifact.symlinkTarget !== undefined) {
+      lines.push(`--- ${artifact.action.toUpperCase()} ${artifact.path} -> ${artifact.symlinkTarget}`);
+      continue;
+    }
     lines.push(`--- ${artifact.action.toUpperCase()} ${artifact.path}`);
     lines.push(redactArtifactContent(artifact.path, artifact.content));
     if (!artifact.content.endsWith('\n')) {
       lines.push('');
     }
   }
-  lines.push(`export ${TOKEN_ENV_VAR}=…`);
+  lines.push(`Token is read from .plandesk/token automatically (set ${TOKEN_ENV_VAR} to override).`);
   lines.push('Start a new agent session to refresh MCP tools.');
   return `${lines.join('\n')}\n`;
 }
@@ -382,9 +424,13 @@ export function formatConnectSummary(result: ConnectResult): string {
   lines.push(`Connected ${result.project.name} (${result.project.id})`);
   lines.push(`server: ${result.serverUrl}`);
   for (const artifact of result.artifacts) {
-    lines.push(`${artifact.action}: ${artifact.path}`);
+    lines.push(
+      artifact.symlinkTarget === undefined
+        ? `${artifact.action}: ${artifact.path}`
+        : `${artifact.action}: ${artifact.path} -> ${artifact.symlinkTarget}`,
+    );
   }
-  lines.push(result.exportLine);
+  lines.push(result.tokenLine);
   lines.push('Start a new agent session to refresh MCP tools.');
   return `${lines.join('\n')}\n`;
 }
@@ -408,7 +454,7 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
     serverUrl,
     artifacts,
     tokenCreated: created,
-    exportLine: `export ${TOKEN_ENV_VAR}=<token in .plandesk/token>`,
+    tokenLine: `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`,
   };
 
   if (options.print === true) {

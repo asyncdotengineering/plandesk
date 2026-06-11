@@ -9,6 +9,7 @@ import {
 import { useMemo, useState } from 'react';
 import type { SerializedTask, TaskStatus } from '../../lib/api.js';
 import { useCreateTask, useDeleteTask, usePatchTask } from '../../lib/queries.js';
+import { TaskDetail } from '../canvas/TaskDetail.js';
 import { BoardColumn } from './BoardColumn.js';
 import { boardColumnOrder, groupTasksByStatus } from './board-utils.js';
 import { TaskCard } from './TaskCard.js';
@@ -26,6 +27,7 @@ export function Board({ projectId, tasks }: BoardProps) {
   const patchTask = usePatchTask();
   const deleteTask = useDeleteTask();
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -35,6 +37,8 @@ export function Board({ projectId, tasks }: BoardProps) {
 
   const activeTask =
     activeTaskId !== null ? tasks.find((task) => task.id === activeTaskId) : undefined;
+  const selectedTask =
+    selectedTaskId !== null ? tasks.find((task) => task.id === selectedTaskId) : undefined;
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveTaskId(String(event.active.id));
@@ -49,16 +53,15 @@ export function Board({ projectId, tasks }: BoardProps) {
     createTask.mutate({ label, status });
   };
 
-  const handlePatchLabel = (taskId: string, label: string) => {
-    patchTask.mutate({ id: taskId, input: { label } });
-  };
-
   const handleDeleteTask = (taskId: string) => {
+    if (selectedTaskId === taskId) {
+      setSelectedTaskId(null);
+    }
     deleteTask.mutate({ id: taskId, projectId });
   };
 
   return (
-    <div>
+    <div style={{ position: 'relative' }}>
       {isUpdating ? (
         <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: 0 }}>Updating task…</p>
       ) : null}
@@ -78,7 +81,7 @@ export function Board({ projectId, tasks }: BoardProps) {
               tasks={grouped[status]}
               activeTaskId={activeTaskId}
               onAddTask={handleAddTask}
-              onPatchLabel={handlePatchLabel}
+              onOpenTask={setSelectedTaskId}
               onDeleteTask={handleDeleteTask}
               isAdding={createTask.isPending}
             />
@@ -89,12 +92,42 @@ export function Board({ projectId, tasks }: BoardProps) {
             <TaskCard
               task={activeTask}
               isDragging
-              onPatchLabel={handlePatchLabel}
+              onOpen={() => undefined}
               onDelete={handleDeleteTask}
             />
           ) : null}
         </DragOverlay>
       </DndContext>
+      {selectedTask !== undefined ? (
+        <TaskDetail
+          taskId={selectedTask.id}
+          data={{
+            label: selectedTask.label,
+            status: selectedTask.status,
+            projectId,
+            description: selectedTask.description,
+            assignee: selectedTask.assignee,
+            dueDate: selectedTask.due_date,
+          }}
+          isSaving={patchTask.isPending}
+          onPatch={(input) => {
+            patchTask.mutate({ id: selectedTask.id, input });
+          }}
+          onDelete={() => {
+            deleteTask.mutate(
+              { id: selectedTask.id, projectId },
+              {
+                onSuccess: () => {
+                  setSelectedTaskId(null);
+                },
+              },
+            );
+          }}
+          onClose={() => {
+            setSelectedTaskId(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

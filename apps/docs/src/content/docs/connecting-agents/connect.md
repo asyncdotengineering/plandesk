@@ -15,22 +15,29 @@ plandesk connect --project "Checkout Revamp"
 
 `connect` is idempotent — safe to re-run:
 
-| Path                          | Committed?          | Purpose                                                    |
-| ----------------------------- | ------------------- | ---------------------------------------------------------- |
-| `.plandesk/config.json`       | yes                 | Pins repo → project (`projectId`, server URL)              |
-| `.plandesk/skill.md`          | yes                 | Agent conventions ([The Skill](/connecting-agents/skill/)) |
-| `.plandesk/token`             | **no** (gitignored) | Raw MCP bearer token                                       |
-| `.mcp.json`                   | yes                 | MCP server entry using `${PLANDESK_MCP_TOKEN}`             |
-| `CLAUDE.md` / `AGENTS.md`     | yes                 | Sentinel block `@.plandesk/skill.md`                       |
-| `.codex/commands/plandesk.md` | yes                 | Codex command → skill file                                 |
+| Path                                                             | Committed?          | Purpose                                                    |
+| ---------------------------------------------------------------- | ------------------- | ---------------------------------------------------------- |
+| `.plandesk/config.json`                                          | yes                 | Pins repo → project (`projectId`, server URL)              |
+| `.plandesk/skill.md`                                             | yes                 | Agent conventions ([The Skill](/connecting-agents/skill/)) |
+| `.plandesk/token`                                                | **no** (gitignored) | Raw MCP bearer token                                       |
+| `.claude/skills/plandesk/SKILL.md` / `.agents/skills/plandesk/SKILL.md` | yes          | Symlinks → `.plandesk/skill.md` (skill discovery)          |
+| `.mcp.json`                                                      | yes                 | MCP server entry with a `headersHelper` that reads the token |
+| `CLAUDE.md` / `AGENTS.md`                                        | yes                 | Sentinel block `@.plandesk/skill.md`                       |
+| `.codex/commands/plandesk.md`                                    | yes                 | Codex command → skill file                                 |
 
 ## Workflow
 
 1. Resolves the project (by id or name).
 2. Creates or reuses an MCP token in `.plandesk/token` (gitignored).
 3. Writes `.plandesk/config.json` (committed project binding).
-4. Merges the `plandesk` entry into `.mcp.json`.
-5. Inserts an idempotent sentinel block in `CLAUDE.md` (and `AGENTS.md` if present):
+4. Merges the `plandesk` entry into `.mcp.json`. The entry uses a
+   `headersHelper` that reads `.plandesk/token` at connection time, so the
+   token works with **zero manual setup** — no `export` needed. Set
+   `PLANDESK_MCP_TOKEN` only if you want to override the file.
+5. Symlinks the skill into `.claude/skills/plandesk/` and
+   `.agents/skills/plandesk/` (created if missing) so agents discover it as a
+   skill.
+6. Inserts an idempotent sentinel block in `CLAUDE.md` (and `AGENTS.md` if present):
 
    ```markdown
    <!-- plandesk:start -->
@@ -40,17 +47,10 @@ plandesk connect --project "Checkout Revamp"
    <!-- plandesk:end -->
    ```
 
-6. Writes `.codex/commands/plandesk.md` for Codex.
+7. Writes `.codex/commands/plandesk.md` for Codex.
 
-## Before each agent session
-
-Source the token before starting an agent session:
-
-```bash
-export PLANDESK_MCP_TOKEN="$(cat .plandesk/token)"
-```
-
-Start a **new** agent session so MCP tools reload.
+After connecting, start a **new** agent session so MCP tools reload. No token
+export is required.
 
 ## Options
 

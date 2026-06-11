@@ -95,12 +95,11 @@ Or have the user create one in the UI at http://127.0.0.1:3847.
 
 ```bash
 # Writes .plandesk/config.json (binding), .plandesk/skill.md (agent conventions),
-# .plandesk/token (gitignored), .mcp.json (uses ${PLANDESK_MCP_TOKEN}),
-# and an idempotent @.plandesk/skill.md include in CLAUDE.md / AGENTS.md.
+# .plandesk/token (gitignored), .mcp.json (a headersHelper reads the token file
+# automatically — no export needed), skill symlinks in .claude/skills/plandesk/
+# and .agents/skills/plandesk/, and an idempotent @.plandesk/skill.md include
+# in CLAUDE.md / AGENTS.md.
 plandesk connect --project "<PROJECT NAME>"
-
-# Make the token available to MCP clients this session forward:
-export PLANDESK_MCP_TOKEN="$(cat .plandesk/token)"
 ```
 
 `connect` is idempotent and commit-safe: everything it writes is safe to commit
@@ -118,7 +117,7 @@ Confirm all of:
 - [ ] `plandesk --version` prints a version (CLI installed)
 - [ ] `curl http://127.0.0.1:3847/api/v1/projects` returns JSON (server reachable)
 - [ ] `.plandesk/config.json` exists and has a `projectId`
-- [ ] `.mcp.json` has a `plandesk` server entry using `${PLANDESK_MCP_TOKEN}`
+- [ ] `.mcp.json` has a `plandesk` server entry with a `headersHelper` reading `.plandesk/token`
 - [ ] `CLAUDE.md` (and `AGENTS.md` if present) contains the `@.plandesk/skill.md` include
 - [ ] `.plandesk/token` is gitignored and **not** staged for commit
 
@@ -127,8 +126,8 @@ Confirm all of:
 Setup is done. Tell the user, verbatim:
 
 > Plan Desk is connected to this repo. **Start a new agent session here** so the Plan
-> Desk MCP tools load (you'll see 23 tools). Make sure `PLANDESK_MCP_TOKEN` is
-> exported in that session: `export PLANDESK_MCP_TOKEN="$(cat .plandesk/token)"`.
+> Desk MCP tools load (you'll see 23 tools). The token is read from
+> `.plandesk/token` automatically — no export needed.
 > Anytime, run `plandesk help` for a refresher and the docs worth reading.
 
 Then, in that fresh session, the agent turns the repo's goals into a plan and

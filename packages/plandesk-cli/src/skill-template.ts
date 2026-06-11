@@ -1,4 +1,9 @@
-export const PLANDESK_SKILL_TEMPLATE = `# Plan Desk MCP Instructions
+export const PLANDESK_SKILL_TEMPLATE = `---
+name: plandesk
+description: Plan Desk planning conventions. Use when planning projects, features, or RFCs; creating or updating Plan Desk tasks, documents, and edges; executing a plan with get_next_task; or reading and resolving Plan Desk comments.
+---
+
+# Plan Desk MCP Instructions
 
 ## Setup
 At the start of any session where Plan Desk may be used, list the available
@@ -43,6 +48,9 @@ existing plan; use \`scaffold_project_from_plan\` to build a new one.
   above what they block.
 
 ## Documents
+- Write bodies as well-structured Markdown — \`##\` headings, bullet lists,
+  fenced code blocks, and blank lines between paragraphs. Bodies render as
+  rich text in the UI; a wall of unbroken text is unreadable for people.
 - Title prefix: \`Investigation:\`, \`Scope:\`, \`Design:\`, or \`Fix:\`.
 - Include a \`Status:\` line near the top: "Ready to implement",
   "Open — requires investigation", "Ready for review", or "Superseded".

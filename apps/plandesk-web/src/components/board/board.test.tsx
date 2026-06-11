@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createTask,
@@ -166,6 +166,48 @@ describe('Board', () => {
     for (const column of columns) {
       expect(column.textContent).toContain('+ Add task');
     }
+  });
+
+  it('clicking a card opens the task detail panel; close dismisses it', async () => {
+    renderBoard([makeTask('t1', 'Plan sprint', 'scope')]);
+
+    fireEvent.click(screen.getByText('Plan sprint'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Task details')).toBeTruthy();
+    });
+    expect(screen.getByLabelText<HTMLInputElement>('Label').value).toBe('Plan sprint');
+    expect(screen.getByLabelText('Description')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('Close task details'));
+    expect(screen.queryByLabelText('Task details')).toBeNull();
+  });
+
+  it('saving the detail panel patches the task', async () => {
+    renderBoard([makeTask('t1', 'Plan sprint', 'scope')]);
+
+    fireEvent.click(screen.getByText('Plan sprint'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Task details')).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Plan sprint v2' } });
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Details here' } });
+    fireEvent.click(screen.getByText('Save details'));
+
+    await waitFor(() => {
+      const patchCall = vi
+        .mocked(fetch)
+        .mock.calls.find(([, init]) => init?.method === 'PATCH');
+      expect(patchCall).toBeTruthy();
+      const rawBody = patchCall?.[1]?.body;
+      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<
+        string,
+        unknown
+      >;
+      expect(body.label).toBe('Plan sprint v2');
+      expect(body.description).toBe('Details here');
+    });
   });
 
   it('createTask posts with label and column status', async () => {

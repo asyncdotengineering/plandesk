@@ -1,6 +1,7 @@
 import type { ProjectService } from '@plandesk/api';
 import { InvalidScaffoldError } from '@plandesk/api';
 import { InvalidTaskStatusError, type TaskStatus } from '@plandesk/db';
+import { ensureHtmlBody } from './markdown.js';
 import { toolInvalidArgument, toolSuccess, type ToolResult } from './result.js';
 
 type ScaffoldArgs = {
@@ -58,7 +59,7 @@ export function createScaffoldProjectFromPlanHandler(
           ? {
               documents: args.documents.map((doc) => ({
                 title: doc.title,
-                ...(doc.body !== undefined ? { body: doc.body } : {}),
+                ...(doc.body !== undefined ? { body: ensureHtmlBody(doc.body) } : {}),
                 ...(doc.status_line !== undefined ? { statusLine: doc.status_line } : {}),
                 ...(doc.link_to !== undefined ? { linkTo: doc.link_to } : {}),
               })),

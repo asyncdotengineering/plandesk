@@ -30,9 +30,13 @@ export type McpJson = {
       type: string;
       url: string;
       headers?: Record<string, string>;
+      headersHelper?: string;
     }
   >;
 };
+
+export const SKILL_DIRS = ['.claude/skills/plandesk', '.agents/skills/plandesk'] as const;
+export const SKILL_SYMLINK_TARGET = '../../../.plandesk/skill.md';
 
 export function buildSentinelBlock(): string {
   return `${SENTINEL_START}\n${SENTINEL_INCLUDE}\n${SENTINEL_END}`;
@@ -109,13 +113,21 @@ export function parseConfigJson(content: string): PlanDeskConfig {
   return config;
 }
 
+// Resolves the token at connection time with zero user setup: prefer the
+// env var override, else walk up from $PWD to the repo's .plandesk/token
+// (the helper's cwd is wherever the agent was launched, not the repo root).
+export function buildHeadersHelper(): string {
+  return (
+    'd="$PWD"; while [ "$d" != "/" ] && [ ! -f "$d/.plandesk/token" ]; do d="${d%/*}"; [ -n "$d" ] || d="/"; done; ' +
+    `printf '{"Authorization":"Bearer %s"}' "\${${TOKEN_ENV_VAR}:-$(cat "$d/.plandesk/token" 2>/dev/null)}"`
+  );
+}
+
 export function buildMcpServerEntry(serverUrl: string): NonNullable<McpJson['mcpServers']>[string] {
   return {
     type: 'http',
     url: buildMcpUrl(serverUrl),
-    headers: {
-      Authorization: `Bearer \${${TOKEN_ENV_VAR}}`,
-    },
+    headersHelper: buildHeadersHelper(),
   };
 }
 
@@ -201,7 +213,7 @@ export function buildSkillMarkdown(): string {
   return `${PLANDESK_SKILL_TEMPLATE}\n`;
 }
 
-export function buildCodexCommandMarkdown(): string {
+export function buildCommandMarkdown(): string {
   return `# Plan Desk
 
 @.plandesk/skill.md
@@ -212,6 +224,9 @@ export function committedPaths(repoDir: string): string[] {
   return [
     `${repoDir}/.plandesk/config.json`,
     `${repoDir}/.plandesk/skill.md`,
+    `${repoDir}/.claude/skills/plandesk/SKILL.md`,
+    `${repoDir}/.agents/skills/plandesk/SKILL.md`,
+    `${repoDir}/.claude/commands/plandesk.md`,
     `${repoDir}/.mcp.json`,
     `${repoDir}/CLAUDE.md`,
     `${repoDir}/AGENTS.md`,

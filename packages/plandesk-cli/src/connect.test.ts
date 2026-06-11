@@ -1,5 +1,5 @@
 import { createServer, type Server } from 'node:http';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -119,8 +119,20 @@ describe('runConnect', () => {
       expect(existsSync(join(repoDir, '.plandesk', 'token'))).toBe(true);
       expect(readFileSync(join(repoDir, '.plandesk', 'token'), 'utf8').trim()).toBe(token);
       expect(committedContents(repoDir)).not.toContain('plandesk_mcp_');
-      expect(readFileSync(join(repoDir, '.mcp.json'), 'utf8')).toContain('${PLANDESK_MCP_TOKEN}');
+      const mcpJson = readFileSync(join(repoDir, '.mcp.json'), 'utf8');
+      expect(mcpJson).toContain('headersHelper');
+      expect(mcpJson).toContain('.plandesk/token');
       expect(readFileSync(join(repoDir, 'CLAUDE.md'), 'utf8')).toContain(SENTINEL_START);
+      expect(readFileSync(join(repoDir, '.claude/commands/plandesk.md'), 'utf8')).toContain(
+        '@.plandesk/skill.md',
+      );
+      for (const skillDir of ['.claude/skills/plandesk', '.agents/skills/plandesk']) {
+        const linkPath = join(repoDir, skillDir, 'SKILL.md');
+        expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+        const linked = readFileSync(linkPath, 'utf8');
+        expect(linked).toContain('name: plandesk');
+        expect(linked).toBe(readFileSync(join(repoDir, '.plandesk', 'skill.md'), 'utf8'));
+      }
       expect(readFileSync(join(repoDir, '.gitignore'), 'utf8')).toContain('.plandesk/token');
       expect(
         parseConfigJson(readFileSync(join(repoDir, '.plandesk/config.json'), 'utf8')).projectId,
@@ -195,8 +207,15 @@ describe('runConnect', () => {
       expect(removed.removed.length).toBeGreaterThan(0);
       expect(existsSync(join(repoDir, '.plandesk'))).toBe(false);
       expect(existsSync(join(repoDir, '.codex/commands/plandesk.md'))).toBe(false);
+      expect(existsSync(join(repoDir, '.claude/commands/plandesk.md'))).toBe(false);
       expect(existsSync(join(repoDir, 'CLAUDE.md'))).toBe(false);
       expect(existsSync(join(repoDir, '.mcp.json'))).toBe(false);
+      expect(lstatSync(join(repoDir, '.claude/skills/plandesk'), { throwIfNoEntry: false })).toBe(
+        undefined,
+      );
+      expect(lstatSync(join(repoDir, '.agents/skills/plandesk'), { throwIfNoEntry: false })).toBe(
+        undefined,
+      );
     });
   });
 

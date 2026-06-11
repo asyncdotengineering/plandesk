@@ -20,6 +20,7 @@
     "@tiptap/starter-kit": "^3.26.0",
     "@xyflow/react": "^12.11.0",
     "isomorphic-dompurify": "^3.16.0",
+    "marked": "^18.0.5",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },

@@ -13,22 +13,34 @@ type TaskDetailProps = {
     due_date?: string | null;
   }) => void;
   onDelete: () => void;
+  onClose?: () => void;
   isSaving?: boolean;
 };
 
-export function TaskDetail({ taskId, data, onPatch, onDelete, isSaving = false }: TaskDetailProps) {
+export function TaskDetail({
+  taskId,
+  data,
+  onPatch,
+  onDelete,
+  onClose,
+  isSaving = false,
+}: TaskDetailProps) {
+  const [label, setLabel] = useState(data.label);
   const [description, setDescription] = useState(data.description ?? '');
   const [assignee, setAssignee] = useState(data.assignee ?? '');
   const [dueDate, setDueDate] = useState(data.dueDate !== null ? data.dueDate.slice(0, 10) : '');
 
   useEffect(() => {
+    setLabel(data.label);
     setDescription(data.description ?? '');
     setAssignee(data.assignee ?? '');
     setDueDate(data.dueDate !== null ? data.dueDate.slice(0, 10) : '');
-  }, [taskId, data.description, data.assignee, data.dueDate]);
+  }, [taskId, data.label, data.description, data.assignee, data.dueDate]);
 
   const handleSave = () => {
+    const trimmedLabel = label.trim();
     onPatch({
+      ...(trimmedLabel !== '' && trimmedLabel !== data.label ? { label: trimmedLabel } : {}),
       description: description.trim() === '' ? null : description,
       assignee: assignee.trim() === '' ? null : assignee.trim(),
       due_date: dueDate === '' ? null : `${dueDate}T00:00:00.000Z`,
@@ -57,9 +69,59 @@ export function TaskDetail({ taskId, data, onPatch, onDelete, isSaving = false }
         boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
       }}
     >
-      <h3 style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', color: '#374151' }}>
-        Task details
-      </h3>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '0.75rem',
+        }}
+      >
+        <h3 style={{ margin: 0, fontSize: '0.875rem', color: '#374151' }}>Task details</h3>
+        {onClose !== undefined ? (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close task details"
+            style={{
+              border: 'none',
+              background: 'none',
+              color: '#9ca3af',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
+
+      <label
+        htmlFor={`task-label-${taskId}`}
+        style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}
+      >
+        Label
+      </label>
+      <input
+        id={`task-label-${taskId}`}
+        type="text"
+        value={label}
+        onChange={(event) => {
+          setLabel(event.target.value);
+        }}
+        style={{
+          width: '100%',
+          marginBottom: '0.75rem',
+          padding: '0.5rem',
+          borderRadius: 6,
+          border: '1px solid #d1d5db',
+          fontSize: '0.875rem',
+          fontWeight: 600,
+          boxSizing: 'border-box',
+        }}
+      />
 
       <label
         htmlFor={`task-desc-${taskId}`}

@@ -127,7 +127,8 @@ function createMcpServer(services: Services): McpServer {
     'create_document',
     {
       title: 'Create Document',
-      description: 'Create a document with optional linked task',
+      description:
+        'Create a document with optional linked task. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
       inputSchema: createDocumentInputSchema.shape,
     },
     createCreateDocumentHandler(services.documentService),
@@ -137,7 +138,8 @@ function createMcpServer(services: Services): McpServer {
     'update_document',
     {
       title: 'Update Document',
-      description: 'Update document title, body, or status line',
+      description:
+        'Update document title, body, or status line. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
       inputSchema: updateDocumentInputSchema.shape,
     },
     createUpdateDocumentHandler(services.documentService),

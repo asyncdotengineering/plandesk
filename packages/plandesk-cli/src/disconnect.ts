@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { removeMcpServerEntry, removeSentinelBlock } from './connect-artifacts.js';
+import { removeMcpServerEntry, removeSentinelBlock, SKILL_DIRS } from './connect-artifacts.js';
 
 export type DisconnectOptions = {
   repoDir: string;
@@ -25,6 +25,14 @@ export function runDisconnect(options: DisconnectOptions): DisconnectResult {
   if (existsSync(plandeskDir)) {
     rmSync(plandeskDir, { recursive: true, force: true });
     removed.push(plandeskDir);
+  }
+
+  for (const skillDir of SKILL_DIRS) {
+    const dirPath = join(repoDir, skillDir);
+    if (lstatSync(dirPath, { throwIfNoEntry: false }) !== undefined) {
+      rmSync(dirPath, { recursive: true, force: true });
+      removed.push(dirPath);
+    }
   }
 
   const mcpPath = join(repoDir, '.mcp.json');
@@ -56,10 +64,14 @@ export function runDisconnect(options: DisconnectOptions): DisconnectResult {
     }
   }
 
-  const codexPath = join(repoDir, '.codex', 'commands', 'plandesk.md');
-  if (existsSync(codexPath)) {
-    unlinkSync(codexPath);
-    removed.push(codexPath);
+  for (const commandPath of [
+    join(repoDir, '.codex', 'commands', 'plandesk.md'),
+    join(repoDir, '.claude', 'commands', 'plandesk.md'),
+  ]) {
+    if (existsSync(commandPath)) {
+      unlinkSync(commandPath);
+      removed.push(commandPath);
+    }
   }
 
   return { removed };

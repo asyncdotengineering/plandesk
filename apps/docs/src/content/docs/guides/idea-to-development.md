@@ -62,11 +62,7 @@ cd /path/to/your/api-repo
 plandesk connect --project "Add rate limiting to our public API"
 ```
 
-This writes `.plandesk/config.json` (the project binding), `.plandesk/skill.md` (the conventions Claude follows), a git-ignored `.plandesk/token`, an `.mcp.json` using `${PLANDESK_MCP_TOKEN}`, and an idempotent `@.plandesk/skill.md` include in `CLAUDE.md`. See [plandesk connect](/connecting-agents/connect/).
-
-```bash
-export PLANDESK_MCP_TOKEN="$(cat .plandesk/token)"
-```
+This writes `.plandesk/config.json` (the project binding), `.plandesk/skill.md` (the conventions Claude follows), a git-ignored `.plandesk/token`, an `.mcp.json` whose `headersHelper` reads that token automatically (no export needed), skill symlinks in `.claude/skills/plandesk/` and `.agents/skills/plandesk/`, and an idempotent `@.plandesk/skill.md` include in `CLAUDE.md`. See [plandesk connect](/connecting-agents/connect/).
 
 Start a **new** Claude Code session in the repo. It now knows the project without being told, and the skill file teaches it the build loop, dependency vocabulary, and the comments workflow.
 

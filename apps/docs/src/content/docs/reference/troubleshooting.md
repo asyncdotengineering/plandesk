@@ -9,7 +9,7 @@ Most issues are one of a handful of things. Find your symptom; each fix is the r
 
 **Claude Code doesn't show Plan Desk's tools.** The MCP server is registered per session — adding it doesn't affect the running one. Start a **new** Claude Code session after `claude mcp add`. Verify with `claude mcp list`, and confirm Plan Desk is serving (`plandesk serve` running, UI reachable at `http://127.0.0.1:3847`). If the token is wrong you'll get auth errors — recreate it with `plandesk token create` and re-add the server with the new `Authorization: Bearer …` header.
 
-**The agent can't find or resolve the project.** From the repo, run `plandesk connect --project "<name>"` so `.plandesk/config.json` exists, then `export PLANDESK_MCP_TOKEN="$(cat .plandesk/token)"`, then start a **new** session. The skill file and binding let the agent resolve the project without being told the id.
+**The agent can't find or resolve the project.** From the repo, run `plandesk connect --project "<name>"` so `.plandesk/config.json` exists, then start a **new** session — `.mcp.json` reads the token from `.plandesk/token` automatically. The skill file and binding let the agent resolve the project without being told the id.
 
 **`doctor` to diagnose.** `plandesk doctor --repo .` checks DB health, the binding, and MCP reachability in one shot. Run it first when something's off.
 

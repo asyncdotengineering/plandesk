@@ -9,7 +9,7 @@ type BoardColumnProps = {
   tasks: SerializedTask[];
   activeTaskId: string | null;
   onAddTask: (status: TaskStatus, label: string) => void;
-  onPatchLabel: (taskId: string, label: string) => void;
+  onOpenTask: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
   isAdding?: boolean;
 };
@@ -19,7 +19,7 @@ export function BoardColumn({
   tasks,
   activeTaskId,
   onAddTask,
-  onPatchLabel,
+  onOpenTask,
   onDeleteTask,
   isAdding = false,
 }: BoardColumnProps) {
@@ -93,7 +93,7 @@ export function BoardColumn({
             key={task.id}
             task={task}
             isDragging={activeTaskId === task.id}
-            onPatchLabel={onPatchLabel}
+            onOpen={onOpenTask}
             onDelete={onDeleteTask}
           />
         ))}
