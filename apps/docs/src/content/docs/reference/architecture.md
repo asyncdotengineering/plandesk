@@ -41,7 +41,7 @@ The UI subscribes to `GET /api/v1/events` for task, canvas, and agent-run change
 
 ## Data model
 
-SQLite workspace at `~/.plandesk/workspace.db`:
+SQLite workspace at `.plandesk/workspace.db` (project-local; `plandesk serve` walks up from cwd to find it, falls back to `~/.plandesk/workspace.db`):
 
 - `projects` — project metadata
 - `tasks` — canvas nodes + board status (`scope` | `todo` | `in_progress` | `done` | `backlog`)
@@ -58,7 +58,7 @@ SQLite workspace at `~/.plandesk/workspace.db`:
 
 ## Repo binding
 
-`plandesk connect` writes `<repo>/.plandesk/` (project binding) — distinct from `~/.plandesk/` (server data dir). See [plandesk connect](/connecting-agents/connect/).
+`plandesk connect` writes `<repo>/.plandesk/` (config, skill, token). `plandesk init` also creates the workspace DB there (`<repo>/.plandesk/workspace.db`), so the same directory serves as both the binding and the data dir for project-scoped workspaces. See [plandesk connect](/connecting-agents/connect/).
 
 ## Product design
 

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,11 +7,13 @@ import {
   crashCourse,
   DEFAULT_BIND_HOST,
   DEFAULT_PORT,
+  findLocalPlandeskDir,
   isLoopbackHost,
   parseArgs,
   resolveAuthPassword,
   resolveBindHost,
   resolveDataDir,
+  resolveInitDataDir,
   workspaceDbPath,
 } from './args.js';
 import { runInit } from './init.js';
@@ -92,9 +94,9 @@ describe('crashCourse', () => {
 });
 
 describe('bind host', () => {
-  it('defaults serve bind host to loopback', () => {
-    expect(DEFAULT_BIND_HOST).toBe('127.0.0.1');
-    expect(resolveBindHost()).toBe('127.0.0.1');
+  it('defaults serve bind host to all interfaces', () => {
+    expect(DEFAULT_BIND_HOST).toBe('0.0.0.0');
+    expect(resolveBindHost()).toBe('0.0.0.0');
   });
 
   it('honors --host over PLANDESK_HOST', () => {
@@ -119,26 +121,16 @@ describe('bind host', () => {
 });
 
 describe('validateServeBind', () => {
-  it('refuses non-loopback bind without PLANDESK_AUTH_PASSWORD', () => {
+  it('allows non-loopback bind without a password (open LAN access)', () => {
     vi.stubEnv('PLANDESK_AUTH_PASSWORD', '');
-    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    let exitCode = 0;
-    const exit = ((code: number) => {
-      exitCode = code;
-      throw new Error('exit');
-    }) as (code: number) => never;
-
-    expect(() => {
-      validateServeBind({ port: 3847, host: '0.0.0.0' }, exit);
-    }).toThrow('exit');
-
-    expect(exitCode).toBe(1);
-    expect(stderr.mock.calls.flat().join('')).toContain('PLANDESK_AUTH_PASSWORD');
-    stderr.mockRestore();
+    expect(validateServeBind({ port: 3847, host: '0.0.0.0' })).toEqual({
+      host: '0.0.0.0',
+      authPassword: undefined,
+    });
     vi.unstubAllEnvs();
   });
 
-  it('allows non-loopback bind when PLANDESK_AUTH_PASSWORD is set', () => {
+  it('passes authPassword when PLANDESK_AUTH_PASSWORD is set', () => {
     vi.stubEnv('PLANDESK_AUTH_PASSWORD', 'secret');
     expect(validateServeBind({ port: 3847, host: '0.0.0.0' })).toEqual({
       host: '0.0.0.0',
@@ -226,7 +218,7 @@ describe('startServer', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const res = await fetch(`http://${DEFAULT_BIND_HOST}:${String(port)}/api/v1/health`);
+    const res = await fetch(`http://127.0.0.1:${String(port)}/api/v1/health`);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
 
@@ -268,7 +260,7 @@ describe('startServer', () => {
     expect(boundPort).not.toBe(port);
     expect(boundPort).toBeGreaterThan(port);
 
-    const res = await fetch(`http://${DEFAULT_BIND_HOST}:${String(boundPort)}/api/v1/health`);
+    const res = await fetch(`http://127.0.0.1:${String(boundPort)}/api/v1/health`);
     expect(res.status).toBe(200);
 
     rmSync(dataDir, { recursive: true, force: true });
@@ -302,5 +294,68 @@ describe('resolveDataDir', () => {
     vi.stubEnv('PLANDESK_DATA_DIR', '/data');
     expect(resolveDataDir()).toBe('/data');
     vi.unstubAllEnvs();
+  });
+
+  it('finds local .plandesk/ dir when present', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-resolve-'));
+    const plandeskDir = join(tmpDir, '.plandesk');
+    mkdirSync(plandeskDir);
+    try {
+      expect(resolveDataDir(undefined, tmpDir)).toBe(plandeskDir);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('findLocalPlandeskDir', () => {
+  it('returns undefined when no .plandesk/ exists in the tree', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-find-'));
+    try {
+      expect(findLocalPlandeskDir(tmpDir)).toBeUndefined();
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('finds .plandesk/ in the given directory', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-find-'));
+    const plandeskDir = join(tmpDir, '.plandesk');
+    mkdirSync(plandeskDir);
+    try {
+      expect(findLocalPlandeskDir(tmpDir)).toBe(plandeskDir);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('finds .plandesk/ in a parent directory', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-find-'));
+    const plandeskDir = join(tmpDir, '.plandesk');
+    const child = join(tmpDir, 'sub', 'deep');
+    mkdirSync(plandeskDir);
+    mkdirSync(child, { recursive: true });
+    try {
+      expect(findLocalPlandeskDir(child)).toBe(plandeskDir);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('resolveInitDataDir', () => {
+  it('uses override when provided', () => {
+    expect(resolveInitDataDir('/tmp/custom')).toBe('/tmp/custom');
+  });
+
+  it('reads PLANDESK_DATA_DIR when override is absent', () => {
+    vi.stubEnv('PLANDESK_DATA_DIR', '/data');
+    expect(resolveInitDataDir()).toBe('/data');
+    vi.unstubAllEnvs();
+  });
+
+  it('defaults to .plandesk/ in cwd (not ~/.plandesk)', () => {
+    const result = resolveInitDataDir();
+    expect(result).toBe(join(process.cwd(), '.plandesk'));
   });
 });

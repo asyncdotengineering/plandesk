@@ -1,19 +1,46 @@
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 export const DEFAULT_PORT = 3847;
-export const DEFAULT_BIND_HOST = '127.0.0.1';
+export const DEFAULT_BIND_HOST = '0.0.0.0';
 export const WORKSPACE_DB = 'workspace.db';
+export const PLANDESK_DIR = '.plandesk';
 
 export function defaultDataDir(): string {
-  return join(homedir(), '.plandesk');
+  return join(homedir(), PLANDESK_DIR);
 }
 
 export function workspaceDbPath(dataDir: string): string {
   return join(dataDir, WORKSPACE_DB);
 }
 
-export function resolveDataDir(override?: string): string {
+/**
+ * Walk up from startDir looking for a .plandesk/ directory.
+ * Returns the first one found, or undefined if none exists in the tree.
+ */
+export function findLocalPlandeskDir(startDir: string): string | undefined {
+  let dir = startDir;
+  for (;;) {
+    const candidate = join(dir, PLANDESK_DIR);
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) {
+      return undefined;
+    }
+    dir = parent;
+  }
+}
+
+/**
+ * Resolve the data directory for commands that read an existing workspace
+ * (serve, token, export, import, etc.).
+ * Priority: explicit override → PLANDESK_DATA_DIR env → nearest .plandesk/ walking
+ * up from startDir (defaults to cwd) → ~/.plandesk global fallback.
+ */
+export function resolveDataDir(override?: string, startDir?: string): string {
   if (override !== undefined) {
     return override;
   }
@@ -21,7 +48,27 @@ export function resolveDataDir(override?: string): string {
   if (fromEnv !== undefined && fromEnv.trim() !== '') {
     return fromEnv;
   }
+  const local = findLocalPlandeskDir(startDir ?? process.cwd());
+  if (local !== undefined) {
+    return local;
+  }
   return defaultDataDir();
+}
+
+/**
+ * Resolve the data directory for `plandesk init`, which always creates locally
+ * in the current directory rather than walking up or falling back to ~/.plandesk.
+ * Priority: explicit override → PLANDESK_DATA_DIR env → .plandesk/ in cwd.
+ */
+export function resolveInitDataDir(override?: string): string {
+  if (override !== undefined) {
+    return override;
+  }
+  const fromEnv = process.env['PLANDESK_DATA_DIR'];
+  if (fromEnv !== undefined && fromEnv.trim() !== '') {
+    return fromEnv;
+  }
+  return join(process.cwd(), PLANDESK_DIR);
 }
 
 export function isLoopbackHost(host: string): boolean {
@@ -334,11 +381,11 @@ Usage:
   plandesk version           # print the installed CLI version (also: --version)
 
 Options:
-  --data-dir  Workspace directory (default: ~/.plandesk, or PLANDESK_DATA_DIR)
+  --data-dir  Workspace directory (default: nearest .plandesk/ walking up from cwd, then PLANDESK_DATA_DIR, then ~/.plandesk)
   --repo      Target repository directory (default: cwd)
   --port      HTTP port for serve (default: ${String(DEFAULT_PORT)}; auto-rotates if busy)
   --strict-port  Fail instead of rotating when the serve port is in use
-  --host      Bind address (default: 127.0.0.1, or PLANDESK_HOST)
+  --host      Bind address (default: 0.0.0.0 — all interfaces; set PLANDESK_HOST to override)
   --project   Project id or name for connect/export
   --url       Plan Desk server URL for connect (default: http://127.0.0.1:${String(DEFAULT_PORT)})
   --token     MCP token for connect

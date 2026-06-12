@@ -2,6 +2,14 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [cli 0.7.0] — 2026-06-13
+
+### Changed
+
+- **Project-local database** — `plandesk init` now creates `.plandesk/workspace.db` in the current directory instead of the global `~/.plandesk/workspace.db`. Every project gets its own database, isolated from other projects on the same machine. `plandesk serve` (and `token`, `export`, `import`) walks up from cwd to find the nearest `.plandesk/` directory automatically — running `serve` from a connected repo just picks up the right database without any flags. Falls back to `~/.plandesk` only when no `.plandesk/` exists anywhere in the directory tree (backward compatible for existing global workspaces). The startup log now prints the resolved database path so it is always clear which database you are hitting.
+- **Default bind host is now `0.0.0.0`** — `plandesk serve` binds to all interfaces by default, so other devices on the same local network (phone, tablet, another laptop) can reach the UI at your machine's LAN IP without any flags. Previously defaulted to `127.0.0.1` (loopback only). Override with `--host 127.0.0.1` or `PLANDESK_HOST` to restrict to loopback.
+- **`PLANDESK_AUTH_PASSWORD` is now optional for non-loopback binding** — setting a password still enables HTTP auth on the UI and REST API, but it is no longer required to start the server. This removes the friction for local-network use on a trusted LAN. For internet-facing deployments (Docker, Fly, etc.) setting a password is still strongly recommended.
+
 ## [cli 0.6.0 · mcp 0.6.0 · api 0.6.0 · db 0.5.0] — 2026-06-11
 
 ### Added

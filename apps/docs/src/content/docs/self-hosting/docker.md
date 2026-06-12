@@ -12,9 +12,9 @@ docker compose up --build
 
 Open [http://127.0.0.1:3847](http://127.0.0.1:3847).
 
-## Auth required for non-loopback bind
+## Securing the server
 
-Docker sets `PLANDESK_HOST=0.0.0.0`. You must set `PLANDESK_AUTH_PASSWORD` (via `.env` or the environment) or the server refuses to start. Loopback dev (`plandesk serve` on `127.0.0.1`) does not require a password.
+Docker sets `PLANDESK_HOST=0.0.0.0`. For any internet-facing deployment, set `PLANDESK_AUTH_PASSWORD` to enable HTTP auth on the UI and REST API. Without it, the server is open — fine on a trusted LAN, not for a public host.
 
 ## Data persistence
 
@@ -24,7 +24,7 @@ Data persists in the `plandesk-data` Docker volume (`PLANDESK_DATA_DIR=/data` in
 
 | Variable                 | Default       | Purpose                                    |
 | ------------------------ | ------------- | ------------------------------------------ |
-| `PLANDESK_DATA_DIR`      | `~/.plandesk` | Workspace directory                        |
-| `PLANDESK_HOST`          | `127.0.0.1`   | Bind address                               |
-| `PLANDESK_AUTH_PASSWORD` | (unset)       | Required when binding non-loopback         |
+| `PLANDESK_DATA_DIR`      | `/data` (Docker) | Workspace directory                     |
+| `PLANDESK_HOST`          | `0.0.0.0`     | Bind address                               |
+| `PLANDESK_AUTH_PASSWORD` | (unset)       | Enables HTTP auth; recommended for public hosts |
 | `PLANDESK_MCP_TOKEN`     | (unset)       | Overrides the token read from `.plandesk/token` |

@@ -30,18 +30,10 @@ const defaultExit: ExitFn = (code) => {
 
 export function validateServeBind(
   options: ServeOptions,
-  exit: ExitFn = defaultExit,
+  _exit: ExitFn = defaultExit,
 ): { host: string; authPassword?: string } {
   const host = resolveBindHost(options.host);
   const authPassword = options.authPassword ?? resolveAuthPassword();
-
-  if (!isLoopbackHost(host) && authPassword === undefined) {
-    process.stderr.write(
-      'Error: binding to a non-loopback address requires PLANDESK_AUTH_PASSWORD\n',
-    );
-    exit(1);
-  }
-
   return { host, authPassword };
 }
 
@@ -62,7 +54,8 @@ export function createListenErrorHandler(
 export function startServer(options: ServeOptions, exit: ExitFn = defaultExit): Server {
   const { host, authPassword } = validateServeBind(options, exit);
   const dataDir = resolveDataDir(options.dataDir);
-  const db = createDb(workspaceDbPath(dataDir));
+  const dbPath = workspaceDbPath(dataDir);
+  const db = createDb(dbPath);
   migrate(db);
 
   const eventBus = createEventBus();
@@ -82,7 +75,7 @@ export function startServer(options: ServeOptions, exit: ExitFn = defaultExit): 
   const logListening = (): void => {
     const address = server.address();
     const boundPort = typeof address === 'object' && address !== null ? address.port : options.port;
-    process.stdout.write(`Plan Desk → http://${host}:${String(boundPort)}\n`);
+    process.stdout.write(`Plan Desk → http://${host}:${String(boundPort)}  (db: ${dbPath})\n`);
     if (boundPort !== options.port) {
       process.stdout.write(
         `Note: port ${String(options.port)} was in use — started on ${String(boundPort)}. ` +

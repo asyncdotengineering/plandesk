@@ -37,7 +37,7 @@ plandesk deploy [target]
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | `help`                   | A crash course (orientation + key commands + doc links) for humans and agents; `help --commands` prints the full grammar |
 | `init`                   | Create workspace DB and run migrations                                                                                   |
-| `serve`                  | Start REST + SSE + MCP + web UI (default `127.0.0.1:3847`)                                                               |
+| `serve`                  | Start REST + SSE + MCP + web UI (default `0.0.0.0:3847`, all interfaces)                                                 |
 | `token create`           | Create MCP bearer token (shown once)                                                                                     |
 | `export` / `import`      | Lossless `plandesk-export-v1` JSON round-trip                                                                            |
 | `connect` / `disconnect` | Bind / unbind a repo to a project + agent configs; re-run `connect` after upgrading to regenerate artifacts              |
@@ -63,11 +63,11 @@ Share a planned project with a client or another team over a read-only live port
 
 | Flag            | Default                 | Purpose                                                                    |
 | --------------- | ----------------------- | -------------------------------------------------------------------------- |
-| `--data-dir`    | `~/.plandesk`           | Workspace directory (`PLANDESK_DATA_DIR`)                                  |
+| `--data-dir`    | nearest `.plandesk/` walking up from cwd, then `PLANDESK_DATA_DIR`, then `~/.plandesk` | Workspace directory |
 | `--repo`        | cwd                     | Target repository directory                                                |
 | `--port`        | `3847`                  | Preferred HTTP port for serve (auto-rotates to the next free port if busy) |
 | `--strict-port` | —                       | Fail instead of rotating when the port is in use                           |
-| `--host`        | `127.0.0.1`             | Bind address (`PLANDESK_HOST`)                                             |
+| `--host`        | `0.0.0.0`               | Bind address (`PLANDESK_HOST`)                                             |
 | `--project`     | —                       | Project id or name for connect/export                                      |
 | `--url`         | `http://127.0.0.1:3847` | Plan Desk server URL for connect                                           |
 | `--token`       | —                       | MCP token for connect                                                      |
@@ -80,9 +80,9 @@ Share a planned project with a client or another team over a read-only live port
 
 | Variable                 | Default       | Purpose                                    |
 | ------------------------ | ------------- | ------------------------------------------ |
-| `PLANDESK_DATA_DIR`      | `~/.plandesk` | Workspace directory                        |
-| `PLANDESK_HOST`          | `127.0.0.1`   | Bind address                               |
-| `PLANDESK_AUTH_PASSWORD` | (unset)       | Required when binding non-loopback         |
+| `PLANDESK_DATA_DIR`      | (see `--data-dir`) | Workspace directory override          |
+| `PLANDESK_HOST`          | `0.0.0.0`     | Bind address                               |
+| `PLANDESK_AUTH_PASSWORD` | (unset)       | When set, enables HTTP basic auth on the UI and REST API |
 | `PLANDESK_MCP_TOKEN`     | (unset)       | Overrides the token read from `.plandesk/token` |
 
 ## Validation and metrics

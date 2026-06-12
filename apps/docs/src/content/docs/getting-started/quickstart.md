@@ -15,7 +15,7 @@ plandesk serve
 
 Open [http://127.0.0.1:3847](http://127.0.0.1:3847). Create a project in the UI, or import the dogfood fixture below.
 
-The workspace database defaults to `~/.plandesk/workspace.db`. Override with `--data-dir` or `PLANDESK_DATA_DIR`.
+The workspace database is created in `.plandesk/workspace.db` inside the current directory (`plandesk init` always creates it locally). `plandesk serve` walks up from cwd to find the nearest `.plandesk/`, so running it from any subdirectory of the project just works. Override with `--data-dir` or `PLANDESK_DATA_DIR`.
 
 ## Install from source (contributors)
 
