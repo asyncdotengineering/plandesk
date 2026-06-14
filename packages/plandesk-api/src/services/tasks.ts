@@ -72,6 +72,14 @@ export function createTaskService(deps: TaskServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
+    get(id: string) {
+      const task = getTask(db, id);
+      if (!task) {
+        return undefined;
+      }
+      return serializeTask(task);
+    },
+
     listByProject(
       projectId: string,
       filter: ListTasksFilter = {},

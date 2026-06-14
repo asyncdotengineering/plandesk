@@ -15,6 +15,8 @@ import { createListNotesHandler } from './tools/list-notes.js';
 import { createGetDocumentHandler } from './tools/get-document.js';
 import { createGetNextTaskHandler } from './tools/get-next-task.js';
 import { createGetProjectHandler } from './tools/get-project.js';
+import { createGetTaskHandler } from './tools/get-task.js';
+import { createListTasksHandler } from './tools/list-tasks.js';
 import { createListCommentsHandler } from './tools/list-comments.js';
 import { createListDocumentsHandler } from './tools/list-documents.js';
 import { createListProjectsHandler } from './tools/list-projects.js';
@@ -33,6 +35,8 @@ import {
   createProjectInputSchema,
   createTaskInputSchema,
   getDocumentInputSchema,
+  getTaskInputSchema,
+  listTasksInputSchema,
   createNoteInputSchema,
   updateNoteInputSchema,
   getNoteInputSchema,
@@ -279,6 +283,29 @@ function createMcpServer(services: Services): McpServer {
       annotations: { readOnlyHint: true },
     },
     createGetNextTaskHandler(services.taskService),
+  );
+
+  server.registerTool(
+    'get_task',
+    {
+      title: 'Get Task',
+      description: 'Get a single task by ID including its current status, label, and description',
+      inputSchema: getTaskInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createGetTaskHandler(services.taskService),
+  );
+
+  server.registerTool(
+    'list_tasks',
+    {
+      title: 'List Tasks',
+      description:
+        'List all tasks for a project, optionally filtered by status. Use this to reconcile the board against reality.',
+      inputSchema: listTasksInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListTasksHandler(services.taskService),
   );
 
   server.registerTool(
