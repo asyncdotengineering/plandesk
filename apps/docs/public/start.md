@@ -72,15 +72,19 @@ curl -fsS "$(plandesk url)/api/v1/projects" >/dev/null 2>&1 \
   || echo "No server yet — start one (next step)"
 ```
 
-If no server is running, the user must run a **long-lived** server. Ask them to run
-this in a **separate terminal** (recommended), then continue once it's up:
+If no server is running, start it backgrounded so setup can continue without user
+intervention:
 
 ```bash
-plandesk serve        # serves UI + API + MCP — run 'plandesk url' after start for the address
+plandesk serve >/tmp/plandesk.log 2>&1 &
+sleep 2
+curl -fsS "$(plandesk url)/api/v1/projects" >/dev/null 2>&1 \
+  && echo "server up" \
+  || (echo "server not ready yet, waiting..."; sleep 3; curl -fsS "$(plandesk url)/api/v1/projects" >/dev/null 2>&1 && echo "server up" || echo "FAILED — check /tmp/plandesk.log")
 ```
 
-(If the user prefers, you may start it backgrounded — `plandesk serve >/tmp/plandesk.log 2>&1 &` —
-but warn them it stops when this session's shell exits; a dedicated terminal is better.)
+Tell the user it's running in the background and that `plandesk serve` in a dedicated
+terminal is better for persistent use (it won't stop when this session exits).
 
 ## 3. Create or select the project
 
