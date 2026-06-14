@@ -6,7 +6,7 @@ plan work on a graph and have an agent execute it over MCP — then hand off to 
 fresh session where the Plan Desk tools are live.
 
 Plan Desk is a local-first planning workspace: a flow canvas of task nodes with
-labeled dependency edges, specs attached to nodes, a board, and an MCP server (23
+labeled dependency edges, specs attached to nodes, a board, and an MCP server (29
 tools) agents use to read and update the plan. Data lives in a local SQLite file.
 Docs: https://plandesk.asyncdot.com — or, once the CLI is installed (step 2), run
 `plandesk help` for a crash course and the exact docs to read.
@@ -57,8 +57,8 @@ plandesk help
 # Initialize the local workspace DB (idempotent; ~/.plandesk/workspace.db)
 plandesk init
 
-# Is a server already running on the default port?
-curl -fsS http://127.0.0.1:3847/api/v1/projects >/dev/null 2>&1 \
+# Is a server already running on this project's port?
+curl -fsS "$(plandesk url)/api/v1/projects" >/dev/null 2>&1 \
   && echo "Plan Desk server is up" \
   || echo "No server yet — start one (next step)"
 ```
@@ -67,7 +67,7 @@ If no server is running, the user must run a **long-lived** server. Ask them to 
 this in a **separate terminal** (recommended), then continue once it's up:
 
 ```bash
-plandesk serve        # serves UI + API + MCP at http://127.0.0.1:3847
+plandesk serve        # serves UI + API + MCP — run 'plandesk url' after start for the address
 ```
 
 (If the user prefers, you may start it backgrounded — `plandesk serve >/tmp/plandesk.log 2>&1 &` —
@@ -84,12 +84,12 @@ Default new-project name = this folder's name.
 To create a new project (REST is open on the local single-user server):
 
 ```bash
-curl -fsS -X POST http://127.0.0.1:3847/api/v1/projects \
+curl -fsS -X POST "$(plandesk url)/api/v1/projects" \
   -H 'content-type: application/json' \
   -d '{"name":"<PROJECT NAME>","description":"<one line>"}'
 ```
 
-Or have the user create one in the UI at http://127.0.0.1:3847.
+Or have the user create one in the UI at the address printed by `plandesk url`.
 
 ## 4. Bind this repo to the project
 
@@ -115,7 +115,7 @@ plandesk doctor --repo .
 Confirm all of:
 
 - [ ] `plandesk --version` prints a version (CLI installed)
-- [ ] `curl http://127.0.0.1:3847/api/v1/projects` returns JSON (server reachable)
+- [ ] `curl "$(plandesk url)/api/v1/projects"` returns JSON (server reachable)
 - [ ] `.plandesk/config.json` exists and has a `projectId`
 - [ ] `.mcp.json` has a `plandesk` server entry with a `headersHelper` reading `.plandesk/token`
 - [ ] `CLAUDE.md` (and `AGENTS.md` if present) contains the `@.plandesk/skill.md` include
@@ -126,7 +126,7 @@ Confirm all of:
 Setup is done. Tell the user, verbatim:
 
 > Plan Desk is connected to this repo. **Start a new agent session here** so the Plan
-> Desk MCP tools load (you'll see 27 tools). The token is read from
+> Desk MCP tools load (you'll see 29 tools). The token is read from
 > `.plandesk/token` automatically — no export needed.
 > Anytime, run `plandesk help` for a refresher and the docs worth reading.
 

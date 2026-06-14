@@ -17,6 +17,7 @@ import {
   workspaceDbPath,
 } from './args.js';
 import { runInit } from './init.js';
+import { readServerInfo, readWorkspaceJson } from './connect-artifacts.js';
 import { createListenErrorHandler, startServer, validateServeBind } from './serve.js';
 
 describe('parseArgs', () => {
@@ -27,10 +28,10 @@ describe('parseArgs', () => {
     });
   });
 
-  it('parses serve with default port', () => {
+  it('parses serve with default port (no flag → undefined, resolved from workspace.json in cli.ts)', () => {
     expect(parseArgs(['node', 'plandesk', 'serve'])).toEqual({
       command: 'serve',
-      port: DEFAULT_PORT,
+      port: undefined,
       strictPort: false,
     });
   });
@@ -38,8 +39,26 @@ describe('parseArgs', () => {
   it('parses serve with --strict-port', () => {
     expect(parseArgs(['node', 'plandesk', 'serve', '--strict-port'])).toEqual({
       command: 'serve',
-      port: DEFAULT_PORT,
+      port: undefined,
       strictPort: true,
+    });
+  });
+
+  it('parses url command', () => {
+    expect(parseArgs(['node', 'plandesk', 'url'])).toEqual({
+      command: 'url',
+      repoDir: undefined,
+      lan: false,
+    });
+    expect(parseArgs(['node', 'plandesk', 'url', '--lan'])).toEqual({
+      command: 'url',
+      repoDir: undefined,
+      lan: true,
+    });
+    expect(parseArgs(['node', 'plandesk', 'url', '--repo', '/tmp/repo'])).toEqual({
+      command: 'url',
+      repoDir: '/tmp/repo',
+      lan: false,
     });
   });
 
@@ -155,13 +174,27 @@ describe('resolveAuthPassword', () => {
 });
 
 describe('runInit', () => {
-  it('creates a migrated workspace.db in the data dir', () => {
+  it('creates a migrated workspace.db and assigns a port in workspace.json', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-init-'));
     try {
-      const dbPath = runInit(dataDir);
+      const dbPath = await runInit(dataDir);
       expect(dbPath).toBe(workspaceDbPath(dataDir));
-      const db = runInit(dataDir);
-      expect(db).toBe(dbPath);
+      const ws = readWorkspaceJson(dataDir);
+      expect(ws).toBeDefined();
+      expect(ws?.port).toBeGreaterThanOrEqual(3400);
+      expect(ws?.port).toBeLessThanOrEqual(3499);
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it('is idempotent: second init preserves the assigned port', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-init-idem-'));
+    try {
+      await runInit(dataDir);
+      const firstPort = readWorkspaceJson(dataDir)?.port;
+      await runInit(dataDir);
+      expect(readWorkspaceJson(dataDir)?.port).toBe(firstPort);
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }
@@ -197,9 +230,9 @@ describe('startServer', () => {
     }
   });
 
-  it('responds to health on loopback', async () => {
+  it('responds to health on loopback and writes server.json', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-'));
-    runInit(dataDir);
+    await runInit(dataDir);
     const port = await new Promise<number>((resolve) => {
       const probe = createServer();
       probe.listen(0, DEFAULT_BIND_HOST, () => {
@@ -222,6 +255,14 @@ describe('startServer', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
 
+    const info = readServerInfo(dataDir);
+    expect(info?.port).toBe(port);
+    expect(info?.pid).toBe(process.pid);
+
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    servers.splice(servers.indexOf(server), 1);
+    expect(readServerInfo(dataDir)).toBeUndefined();
+
     rmSync(dataDir, { recursive: true, force: true });
   });
 
@@ -241,7 +282,7 @@ describe('startServer', () => {
 
   it('rotates to the next free port when the requested port is in use', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-rotate-'));
-    runInit(dataDir);
+    await runInit(dataDir);
     const port = await blockedPort();
 
     let exitCode = 0;
@@ -268,7 +309,7 @@ describe('startServer', () => {
 
   it('exits 1 in strict-port mode when the port is in use', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-strict-'));
-    runInit(dataDir);
+    await runInit(dataDir);
     const port = await blockedPort();
 
     let exitCode = 0;

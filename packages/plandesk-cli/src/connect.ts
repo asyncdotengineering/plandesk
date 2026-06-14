@@ -15,17 +15,20 @@ import {
   buildCommandMarkdown,
   buildConfigJson,
   buildSkillMarkdown,
+  GITIGNORE_SERVER_INFO_LINE,
   GITIGNORE_TOKEN_LINE,
   mergeMcpJson,
   normalizeServerUrl,
   parseConfigJson,
+  readServerInfo,
+  readWorkspaceJson,
   insertSentinelBlock,
   SKILL_DIRS,
   SKILL_SYMLINK_TARGET,
   TOKEN_ENV_VAR,
   type PlanDeskConfig,
 } from './connect-artifacts.js';
-import { DEFAULT_BIND_HOST, DEFAULT_PORT } from './args.js';
+import { DEFAULT_PORT } from './args.js';
 
 export type ProjectSummary = {
   id: string;
@@ -69,8 +72,17 @@ export class ConnectError extends Error {
   }
 }
 
-function defaultServerUrl(): string {
-  return `http://${DEFAULT_BIND_HOST}:${String(DEFAULT_PORT)}`;
+function resolveDefaultServerUrl(repoDir: string): string {
+  const plandeskDir = join(repoDir, '.plandesk');
+  const serverInfo = readServerInfo(plandeskDir);
+  if (serverInfo !== undefined) {
+    return `http://127.0.0.1:${String(serverInfo.port)}`;
+  }
+  const workspaceJson = readWorkspaceJson(plandeskDir);
+  if (workspaceJson !== undefined) {
+    return `http://127.0.0.1:${String(workspaceJson.port)}`;
+  }
+  return `http://127.0.0.1:${String(DEFAULT_PORT)}`;
 }
 
 function readOptionalFile(path: string): string | undefined {
@@ -364,9 +376,12 @@ function buildArtifacts(
   }
 
   const gitignorePath = join(options.repoDir, '.gitignore');
+  const currentGitignore = readOptionalFile(gitignorePath);
+  const withToken = appendGitignoreLine(currentGitignore, GITIGNORE_TOKEN_LINE);
+  const withServerInfo = appendGitignoreLine(withToken, GITIGNORE_SERVER_INFO_LINE);
   artifacts.push({
     path: gitignorePath,
-    content: appendGitignoreLine(readOptionalFile(gitignorePath), GITIGNORE_TOKEN_LINE),
+    content: withServerInfo,
     action: existsSync(gitignorePath) ? 'update' : 'create',
   });
 
@@ -436,7 +451,7 @@ export function formatConnectSummary(result: ConnectResult): string {
 }
 
 export async function runConnect(options: ConnectOptions): Promise<ConnectResult> {
-  const serverUrl = normalizeServerUrl(options.url ?? defaultServerUrl());
+  const serverUrl = normalizeServerUrl(options.url ?? resolveDefaultServerUrl(options.repoDir));
   const configPath = join(options.repoDir, '.plandesk', 'config.json');
   const existingConfigContent = readOptionalFile(configPath);
   const existingConfig =

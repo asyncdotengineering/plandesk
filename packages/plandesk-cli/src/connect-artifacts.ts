@@ -1,3 +1,5 @@
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { PLANDESK_SKILL_TEMPLATE } from './skill-template.js';
 
 export const PLANDESK_CONNECT_VERSION = 'plandesk-connect-v1';
@@ -218,6 +220,91 @@ export function buildCommandMarkdown(): string {
 
 @.plandesk/skill.md
 `;
+}
+
+export const GITIGNORE_SERVER_INFO_LINE = '.plandesk/server.json';
+
+// --- workspace.json — committed, written by `plandesk init`, stores the assigned port ---
+
+export const WORKSPACE_JSON_VERSION = 'plandesk-workspace-v1';
+
+export type WorkspaceJson = {
+  version: typeof WORKSPACE_JSON_VERSION;
+  port: number;
+};
+
+export function readWorkspaceJson(plandeskDir: string): WorkspaceJson | undefined {
+  const path = join(plandeskDir, 'workspace.json');
+  if (!existsSync(path)) {
+    return undefined;
+  }
+  try {
+    const raw = JSON.parse(readFileSync(path, 'utf8')) as Partial<WorkspaceJson>;
+    if (raw.version !== WORKSPACE_JSON_VERSION || typeof raw.port !== 'number') {
+      return undefined;
+    }
+    return { version: WORKSPACE_JSON_VERSION, port: raw.port };
+  } catch {
+    return undefined;
+  }
+}
+
+export function writeWorkspaceJson(plandeskDir: string, port: number): void {
+  const workspace: WorkspaceJson = { version: WORKSPACE_JSON_VERSION, port };
+  writeFileSync(join(plandeskDir, 'workspace.json'), `${JSON.stringify(workspace, null, 2)}\n`, 'utf8');
+}
+
+// --- server.json — gitignored, written by `plandesk serve` after bind, deleted on exit ---
+
+export type ServerInfo = {
+  port: number;
+  pid: number;
+  host: string;
+  startedAt: string;
+};
+
+export function isPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function readServerInfo(plandeskDir: string): ServerInfo | undefined {
+  const path = join(plandeskDir, 'server.json');
+  if (!existsSync(path)) {
+    return undefined;
+  }
+  try {
+    const raw = JSON.parse(readFileSync(path, 'utf8')) as Partial<ServerInfo>;
+    if (
+      typeof raw.port !== 'number' ||
+      typeof raw.pid !== 'number' ||
+      typeof raw.host !== 'string' ||
+      typeof raw.startedAt !== 'string'
+    ) {
+      return undefined;
+    }
+    if (!isPidAlive(raw.pid)) {
+      return undefined;
+    }
+    return { port: raw.port, pid: raw.pid, host: raw.host, startedAt: raw.startedAt };
+  } catch {
+    return undefined;
+  }
+}
+
+export function writeServerInfo(plandeskDir: string, info: ServerInfo): void {
+  const tmpPath = join(plandeskDir, 'server.json.tmp');
+  const finalPath = join(plandeskDir, 'server.json');
+  writeFileSync(tmpPath, `${JSON.stringify(info, null, 2)}\n`, 'utf8');
+  renameSync(tmpPath, finalPath);
+}
+
+export function deleteServerInfo(plandeskDir: string): void {
+  rmSync(join(plandeskDir, 'server.json'), { force: true });
 }
 
 export function committedPaths(repoDir: string): string[] {

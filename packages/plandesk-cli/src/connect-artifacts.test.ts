@@ -11,16 +11,24 @@ import {
   buildMcpServerEntry,
   buildSentinelBlock,
   buildSkillMarkdown,
+  deleteServerInfo,
+  GITIGNORE_SERVER_INFO_LINE,
   GITIGNORE_SYNC_TOKEN_LINE,
   GITIGNORE_TOKEN_LINE,
   insertSentinelBlock,
+  isPidAlive,
   mergeMcpJson,
   parseConfigJson,
+  readServerInfo,
+  readWorkspaceJson,
   removeMcpServerEntry,
   removeSentinelBlock,
   SENTINEL_END,
   SENTINEL_START,
   TOKEN_ENV_VAR,
+  writeServerInfo,
+  writeWorkspaceJson,
+  WORKSPACE_JSON_VERSION,
 } from './connect-artifacts.js';
 
 describe('connect artifacts', () => {
@@ -151,6 +159,78 @@ describe('connect artifacts', () => {
     const withSync = appendGitignoreLine(once, GITIGNORE_SYNC_TOKEN_LINE);
     expect(withSync).toContain(GITIGNORE_SYNC_TOKEN_LINE);
     expect(appendGitignoreLine(withSync, GITIGNORE_SYNC_TOKEN_LINE)).toBe(withSync);
+    const withServerInfo = appendGitignoreLine(once, GITIGNORE_SERVER_INFO_LINE);
+    expect(withServerInfo).toContain(GITIGNORE_SERVER_INFO_LINE);
+    expect(appendGitignoreLine(withServerInfo, GITIGNORE_SERVER_INFO_LINE)).toBe(withServerInfo);
+  });
+
+  describe('workspace.json helpers', () => {
+    it('round-trips write and read', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'plandesk-ws-'));
+      try {
+        expect(readWorkspaceJson(dir)).toBeUndefined();
+        writeWorkspaceJson(dir, 3401);
+        const ws = readWorkspaceJson(dir);
+        expect(ws).toEqual({ version: WORKSPACE_JSON_VERSION, port: 3401 });
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('returns undefined for missing or malformed file', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'plandesk-ws-bad-'));
+      try {
+        writeFileSync(join(dir, 'workspace.json'), '{"version":"old","port":3401}', 'utf8');
+        expect(readWorkspaceJson(dir)).toBeUndefined();
+        writeFileSync(join(dir, 'workspace.json'), 'not json', 'utf8');
+        expect(readWorkspaceJson(dir)).toBeUndefined();
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('server.json helpers', () => {
+    it('isPidAlive returns true for own PID and false for a dead PID', () => {
+      expect(isPidAlive(process.pid)).toBe(true);
+      expect(isPidAlive(999999999)).toBe(false);
+    });
+
+    it('round-trips writeServerInfo and readServerInfo with a live PID', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'plandesk-srv-'));
+      try {
+        expect(readServerInfo(dir)).toBeUndefined();
+        writeServerInfo(dir, { port: 3401, pid: process.pid, host: '0.0.0.0', startedAt: '2026-01-01T00:00:00.000Z' });
+        const info = readServerInfo(dir);
+        expect(info?.port).toBe(3401);
+        expect(info?.pid).toBe(process.pid);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('readServerInfo returns undefined when PID is dead', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'plandesk-srv-dead-'));
+      try {
+        writeServerInfo(dir, { port: 3401, pid: 999999999, host: '0.0.0.0', startedAt: '2026-01-01T00:00:00.000Z' });
+        expect(readServerInfo(dir)).toBeUndefined();
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('deleteServerInfo removes the file and is idempotent', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'plandesk-srv-del-'));
+      try {
+        writeServerInfo(dir, { port: 3401, pid: process.pid, host: '0.0.0.0', startedAt: '2026-01-01T00:00:00.000Z' });
+        expect(readServerInfo(dir)).toBeDefined();
+        deleteServerInfo(dir);
+        expect(readServerInfo(dir)).toBeUndefined();
+        expect(() => deleteServerInfo(dir)).not.toThrow();
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
   });
 
   it('ships RFC skill template verbatim', () => {

@@ -109,15 +109,15 @@ describe('CLI export/import/doctor', () => {
     }
   });
 
-  function makeWorkspace(): string {
+  async function makeWorkspace(): Promise<string> {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-cli-'));
     tempDirs.push(dataDir);
-    runInit(dataDir);
+    await runInit(dataDir);
     return dataDir;
   }
 
   it('exports a project to plandesk-export-v1 JSON', async () => {
-    const dataDir = makeWorkspace();
+    const dataDir = await makeWorkspace();
     const { db } = openWorkspace(dataDir);
     const project = createProject(db, { name: 'CLI Export Project' });
     createTask(db, { projectId: project.id, label: 'Task A' });
@@ -144,7 +144,7 @@ describe('CLI export/import/doctor', () => {
   });
 
   it('exits 1 when export project is unknown', async () => {
-    const dataDir = makeWorkspace();
+    const dataDir = await makeWorkspace();
     const outPath = join(dataDir, 'missing.json');
     const { code, stderr } = await captureIo(() =>
       main([
@@ -165,7 +165,7 @@ describe('CLI export/import/doctor', () => {
   });
 
   it('round-trips export then import via CLI', async () => {
-    const dataDir = makeWorkspace();
+    const dataDir = await makeWorkspace();
     const { db } = openWorkspace(dataDir);
     const project = createProject(db, { name: 'Round Trip' });
     createTask(db, { projectId: project.id, label: 'Alpha' });
@@ -205,7 +205,7 @@ describe('CLI export/import/doctor', () => {
   });
 
   it('exits 1 when import file has unsupported version', async () => {
-    const dataDir = makeWorkspace();
+    const dataDir = await makeWorkspace();
     const inPath = join(dataDir, 'bad-version.json');
     writeFileSync(
       inPath,
@@ -228,7 +228,7 @@ describe('CLI export/import/doctor', () => {
   });
 
   it('exits 1 when import file has invalid JSON', async () => {
-    const dataDir = makeWorkspace();
+    const dataDir = await makeWorkspace();
     const inPath = join(dataDir, 'bad-json.json');
     writeFileSync(inPath, '{not json');
 
@@ -241,7 +241,7 @@ describe('CLI export/import/doctor', () => {
   });
 
   it('reports healthy workspace via doctor', async () => {
-    const dataDir = makeWorkspace();
+    const dataDir = await makeWorkspace();
     const { db } = openWorkspace(dataDir);
     const project = createProject(db, { name: 'Doctor Project' });
     createTask(db, { projectId: project.id, label: 'Check' });
@@ -258,7 +258,7 @@ describe('CLI export/import/doctor', () => {
   });
 
   it('exits 2 when database is corrupt', async () => {
-    const dataDir = makeWorkspace();
+    const dataDir = await makeWorkspace();
     writeFileSync(workspaceDbPath(dataDir), 'this is not a sqlite database');
 
     const { code, stderr } = await captureIo(() =>
@@ -270,7 +270,7 @@ describe('CLI export/import/doctor', () => {
   });
 
   it('exits 2 on export when database is corrupt', async () => {
-    const dataDir = makeWorkspace();
+    const dataDir = await makeWorkspace();
     writeFileSync(workspaceDbPath(dataDir), 'corrupt-bytes');
 
     const { code, stderr } = await captureIo(() =>
@@ -292,7 +292,7 @@ describe('CLI export/import/doctor', () => {
   });
 
   it('token create still works', async () => {
-    const dataDir = makeWorkspace();
+    const dataDir = await makeWorkspace();
     const { code, stdout } = await captureIo(() =>
       main(['node', 'plandesk', 'token', 'create', '--name', 'cli-test', '--data-dir', dataDir]),
     );

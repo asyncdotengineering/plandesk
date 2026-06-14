@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import { cwd } from 'node:process';
 import { runInit } from './init.js';
-import { crashCourse, parseArgs, usage } from './args.js';
+import { crashCourse, DEFAULT_PORT, findLocalPlandeskDir, parseArgs, resolveDataDir, usage } from './args.js';
+import { readServerInfo, readWorkspaceJson } from './connect-artifacts.js';
 import { runServe } from './serve.js';
 import { runTokenCreate } from './token.js';
 import { runExport, ProjectNotFoundError } from './export.js';
@@ -36,6 +38,18 @@ function resolveRepoDir(repoDir?: string): string {
   return repoDir ?? cwd();
 }
 
+function getLanIp(): string | undefined {
+  const nets = networkInterfaces();
+  for (const list of Object.values(nets)) {
+    for (const net of list ?? []) {
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return undefined;
+}
+
 export async function main(argv: string[] = process.argv): Promise<number> {
   const parsed = parseArgs(argv);
 
@@ -51,18 +65,27 @@ export async function main(argv: string[] = process.argv): Promise<number> {
       return 0;
     }
     case 'init': {
-      const dbPath = runInit(parsed.dataDir);
+      const dbPath = await runInit(parsed.dataDir);
       process.stdout.write(`Initialized workspace at ${dbPath}\n`);
       return 0;
     }
-    case 'serve':
-      runServe({
-        port: parsed.port,
-        dataDir: parsed.dataDir,
-        host: parsed.host,
-        strictPort: parsed.strictPort,
-      });
+    case 'serve': {
+      const dataDir = resolveDataDir(parsed.dataDir);
+      const workspacePort = readWorkspaceJson(dataDir)?.port;
+      const port = parsed.port ?? workspacePort ?? DEFAULT_PORT;
+      runServe({ port, dataDir: parsed.dataDir, host: parsed.host, strictPort: parsed.strictPort });
       return 0;
+    }
+    case 'url': {
+      const repoDir = resolveRepoDir(parsed.repoDir);
+      const plandeskDir = findLocalPlandeskDir(repoDir) ?? join(repoDir, '.plandesk');
+      const serverInfo = readServerInfo(plandeskDir);
+      const workspaceJson = readWorkspaceJson(plandeskDir);
+      const port = serverInfo?.port ?? workspaceJson?.port ?? DEFAULT_PORT;
+      const host = parsed.lan ? (getLanIp() ?? '127.0.0.1') : '127.0.0.1';
+      process.stdout.write(`http://${host}:${String(port)}\n`);
+      return 0;
+    }
     case 'token': {
       try {
         const { db } = openWorkspace(parsed.dataDir);

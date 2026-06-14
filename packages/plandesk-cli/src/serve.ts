@@ -10,6 +10,7 @@ import {
   resolveDataDir,
   workspaceDbPath,
 } from './args.js';
+import { deleteServerInfo, writeServerInfo } from './connect-artifacts.js';
 
 export type ServeOptions = {
   port: number;
@@ -75,6 +76,12 @@ export function startServer(options: ServeOptions, exit: ExitFn = defaultExit): 
   const logListening = (): void => {
     const address = server.address();
     const boundPort = typeof address === 'object' && address !== null ? address.port : options.port;
+    writeServerInfo(dataDir, {
+      port: boundPort,
+      pid: process.pid,
+      host,
+      startedAt: new Date().toISOString(),
+    });
     process.stdout.write(`Plan Desk → http://${host}:${String(boundPort)}  (db: ${dbPath})\n`);
     if (boundPort !== options.port) {
       process.stdout.write(
@@ -84,6 +91,10 @@ export function startServer(options: ServeOptions, exit: ExitFn = defaultExit): 
       );
     }
   };
+
+  server.once('close', () => {
+    deleteServerInfo(dataDir);
+  });
 
   // Strict mode: bind the requested port or fail (Vite's strictPort).
   if (options.strictPort === true) {
@@ -114,5 +125,25 @@ export function startServer(options: ServeOptions, exit: ExitFn = defaultExit): 
 }
 
 export function runServe(options: ServeOptions): Server {
-  return startServer(options);
+  const server = startServer(options);
+  const dataDir = resolveDataDir(options.dataDir);
+
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    deleteServerInfo(dataDir);
+  };
+
+  process.once('exit', cleanup);
+  process.once('SIGINT', () => {
+    cleanup();
+    process.exit(0);
+  });
+  process.once('SIGTERM', () => {
+    cleanup();
+    process.exit(0);
+  });
+
+  return server;
 }

@@ -99,7 +99,8 @@ export type ConnectAgent = 'claude' | 'codex' | 'both' | 'detect';
 
 export type ParsedArgs =
   | { command: 'init'; dataDir?: string }
-  | { command: 'serve'; port: number; dataDir?: string; host?: string; strictPort: boolean }
+  | { command: 'serve'; port?: number; dataDir?: string; host?: string; strictPort: boolean }
+  | { command: 'url'; repoDir?: string; lan: boolean }
   | { command: 'token'; subcommand: 'create'; name: string; dataDir?: string }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
@@ -220,14 +221,17 @@ export function parseArgs(argv: string[]): ParsedArgs {
   }
 
   if (command === 'serve') {
-    const port = parsePort(flagString(flags, 'port')) ?? DEFAULT_PORT;
     return {
       command: 'serve',
-      port,
+      port: parsePort(flagString(flags, 'port')),
       dataDir,
       host: flagString(flags, 'host'),
       strictPort: flags['strict-port'] === true,
     };
+  }
+
+  if (command === 'url') {
+    return { command: 'url', repoDir: flagString(flags, 'repo'), lan: flags['lan'] === true };
   }
 
   if (command === 'token') {
@@ -365,7 +369,8 @@ export function usage(): string {
 
 Usage:
   plandesk init [--data-dir <dir>]
-  plandesk serve [--port ${String(DEFAULT_PORT)}] [--strict-port] [--host <addr>] [--data-dir <dir>]
+  plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>]
+  plandesk url [--repo <dir>] [--lan]
   plandesk token create --name <name> [--data-dir <dir>]
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]
@@ -383,8 +388,9 @@ Usage:
 Options:
   --data-dir  Workspace directory (default: nearest .plandesk/ walking up from cwd, then PLANDESK_DATA_DIR, then ~/.plandesk)
   --repo      Target repository directory (default: cwd)
-  --port      HTTP port for serve (default: ${String(DEFAULT_PORT)}; auto-rotates if busy)
+  --port      HTTP port for serve (default: workspace.json port → ${String(DEFAULT_PORT)}; auto-rotates if busy)
   --strict-port  Fail instead of rotating when the serve port is in use
+  --lan       (url) print the LAN-accessible URL instead of loopback
   --host      Bind address (default: 0.0.0.0 — all interfaces; set PLANDESK_HOST to override)
   --project   Project id or name for connect/export
   --url       Plan Desk server URL for connect (default: http://127.0.0.1:${String(DEFAULT_PORT)})
@@ -408,7 +414,7 @@ WHAT IT IS
 
 GET STARTED
   npm i -g @plandesk/cli
-  plandesk init && plandesk serve            # UI at http://127.0.0.1:${String(DEFAULT_PORT)}
+  plandesk init && plandesk serve            # UI at $(plandesk url) — port auto-assigned in 3400–3499
   Then, from your project folder, paste into Claude Code or Codex:
     Read https://plandesk.asyncdot.com/start.md then set up Plan Desk for this project.
 

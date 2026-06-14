@@ -184,11 +184,11 @@ describe('CLI publish/push/pull', () => {
     vi.unstubAllEnvs();
   });
 
-  function makeWorkspace(): { dataDir: string; repoDir: string; projectId: string } {
+  async function makeWorkspace(): Promise<{ dataDir: string; repoDir: string; projectId: string }> {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-sync-cli-ws-'));
     const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-sync-cli-repo-'));
     tempDirs.push(dataDir, repoDir);
-    runInit(dataDir);
+    await runInit(dataDir);
     const { db } = openWorkspace(dataDir);
     const project = createProject(db, { name: 'Sync CLI' });
     mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
@@ -204,7 +204,7 @@ describe('CLI publish/push/pull', () => {
   }
 
   it('share create mints a participant token and stores only its hash', async () => {
-    const { dataDir, repoDir, projectId } = makeWorkspace();
+    const { dataDir, repoDir, projectId } = await makeWorkspace();
 
     const { code, stdout } = await captureIo(() =>
       main([
@@ -241,7 +241,7 @@ describe('CLI publish/push/pull', () => {
   });
 
   it('share create rejects a missing audience', async () => {
-    const { dataDir, repoDir } = makeWorkspace();
+    const { dataDir, repoDir } = await makeWorkspace();
     const { code, stderr } = await captureIo(() =>
       main(['node', 'plandesk', 'share', 'create', '--repo', repoDir, '--data-dir', dataDir]),
     );
@@ -250,7 +250,7 @@ describe('CLI publish/push/pull', () => {
   });
 
   it('share create rejects an invalid --expires', async () => {
-    const { dataDir, repoDir } = makeWorkspace();
+    const { dataDir, repoDir } = await makeWorkspace();
     const { code, stderr } = await captureIo(() =>
       main([
         'node',
@@ -274,7 +274,7 @@ describe('CLI publish/push/pull', () => {
   it('a share created via the CLI is pushable to the sync server', async () => {
     const syncServer = await startTestSyncServer();
     servers.push(syncServer);
-    const { dataDir, repoDir } = makeWorkspace();
+    const { dataDir, repoDir } = await makeWorkspace();
 
     const create = await captureIo(() =>
       main([
@@ -315,7 +315,7 @@ describe('CLI publish/push/pull', () => {
   it('publish writes sync config and gitignored sync-token', async () => {
     const syncServer = await startTestSyncServer();
     servers.push(syncServer);
-    const { dataDir, repoDir, projectId } = makeWorkspace();
+    const { dataDir, repoDir, projectId } = await makeWorkspace();
     const { db } = openWorkspace(dataDir);
     const { shareService } = createServices({ db });
     shareService.createShare(projectId, { audienceName: 'Client', mode: 'public' });
@@ -360,7 +360,7 @@ describe('CLI publish/push/pull', () => {
   it('push resolves config and pushes shares', async () => {
     const syncServer = await startTestSyncServer();
     servers.push(syncServer);
-    const { dataDir, repoDir, projectId } = makeWorkspace();
+    const { dataDir, repoDir, projectId } = await makeWorkspace();
     const { db } = openWorkspace(dataDir);
     const { shareService } = createServices({ db });
     shareService.createShare(projectId, { audienceName: 'Client', mode: 'public' });
@@ -395,7 +395,7 @@ describe('CLI publish/push/pull', () => {
   it('pull resolves config and reports triage count', async () => {
     const syncServer = await startTestSyncServer();
     servers.push(syncServer);
-    const { dataDir, repoDir, projectId } = makeWorkspace();
+    const { dataDir, repoDir, projectId } = await makeWorkspace();
 
     const publish = await captureIo(() =>
       main([

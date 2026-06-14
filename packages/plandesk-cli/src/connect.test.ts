@@ -133,7 +133,9 @@ describe('runConnect', () => {
         expect(linked).toContain('name: plandesk');
         expect(linked).toBe(readFileSync(join(repoDir, '.plandesk', 'skill.md'), 'utf8'));
       }
-      expect(readFileSync(join(repoDir, '.gitignore'), 'utf8')).toContain('.plandesk/token');
+      const gitignore = readFileSync(join(repoDir, '.gitignore'), 'utf8');
+      expect(gitignore).toContain('.plandesk/token');
+      expect(gitignore).toContain('.plandesk/server.json');
       expect(
         parseConfigJson(readFileSync(join(repoDir, '.plandesk/config.json'), 'utf8')).projectId,
       ).toBe(projectId);
