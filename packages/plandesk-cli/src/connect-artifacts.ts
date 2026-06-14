@@ -307,6 +307,10 @@ export function deleteServerInfo(plandeskDir: string): void {
   rmSync(join(plandeskDir, 'server.json'), { force: true });
 }
 
+export function resolveEffectivePort(plandeskDir: string, defaultPort: number): number {
+  return readServerInfo(plandeskDir)?.port ?? readWorkspaceJson(plandeskDir)?.port ?? defaultPort;
+}
+
 export function committedPaths(repoDir: string): string[] {
   return [
     `${repoDir}/.plandesk/config.json`,

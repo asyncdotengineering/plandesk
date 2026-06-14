@@ -128,22 +128,13 @@ export function runServe(options: ServeOptions): Server {
   const server = startServer(options);
   const dataDir = resolveDataDir(options.dataDir);
 
-  let cleaned = false;
-  const cleanup = () => {
-    if (cleaned) return;
-    cleaned = true;
+  const shutdown = () => {
     deleteServerInfo(dataDir);
+    process.exit(0);
   };
 
-  process.once('exit', cleanup);
-  process.once('SIGINT', () => {
-    cleanup();
-    process.exit(0);
-  });
-  process.once('SIGTERM', () => {
-    cleanup();
-    process.exit(0);
-  });
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
 
   return server;
 }

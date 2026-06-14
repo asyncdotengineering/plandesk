@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { cwd } from 'node:process';
 import { runInit } from './init.js';
 import { crashCourse, DEFAULT_PORT, findLocalPlandeskDir, parseArgs, resolveDataDir, usage } from './args.js';
-import { readServerInfo, readWorkspaceJson } from './connect-artifacts.js';
+import { readWorkspaceJson, resolveEffectivePort } from './connect-artifacts.js';
 import { runServe } from './serve.js';
 import { runTokenCreate } from './token.js';
 import { runExport, ProjectNotFoundError } from './export.js';
@@ -79,9 +79,7 @@ export async function main(argv: string[] = process.argv): Promise<number> {
     case 'url': {
       const repoDir = resolveRepoDir(parsed.repoDir);
       const plandeskDir = findLocalPlandeskDir(repoDir) ?? join(repoDir, '.plandesk');
-      const serverInfo = readServerInfo(plandeskDir);
-      const workspaceJson = readWorkspaceJson(plandeskDir);
-      const port = serverInfo?.port ?? workspaceJson?.port ?? DEFAULT_PORT;
+      const port = resolveEffectivePort(plandeskDir, DEFAULT_PORT);
       const host = parsed.lan ? (getLanIp() ?? '127.0.0.1') : '127.0.0.1';
       process.stdout.write(`http://${host}:${String(port)}\n`);
       return 0;

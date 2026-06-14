@@ -20,8 +20,7 @@ import {
   mergeMcpJson,
   normalizeServerUrl,
   parseConfigJson,
-  readServerInfo,
-  readWorkspaceJson,
+  resolveEffectivePort,
   insertSentinelBlock,
   SKILL_DIRS,
   SKILL_SYMLINK_TARGET,
@@ -74,15 +73,7 @@ export class ConnectError extends Error {
 
 function resolveDefaultServerUrl(repoDir: string): string {
   const plandeskDir = join(repoDir, '.plandesk');
-  const serverInfo = readServerInfo(plandeskDir);
-  if (serverInfo !== undefined) {
-    return `http://127.0.0.1:${String(serverInfo.port)}`;
-  }
-  const workspaceJson = readWorkspaceJson(plandeskDir);
-  if (workspaceJson !== undefined) {
-    return `http://127.0.0.1:${String(workspaceJson.port)}`;
-  }
-  return `http://127.0.0.1:${String(DEFAULT_PORT)}`;
+  return `http://127.0.0.1:${String(resolveEffectivePort(plandeskDir, DEFAULT_PORT))}`;
 }
 
 function readOptionalFile(path: string): string | undefined {
