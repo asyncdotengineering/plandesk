@@ -46,7 +46,8 @@ So far it's all been talk. Plan Desk is where the idea gets a body: a plan you a
 You don't have to install anything by hand. Paste this and let Claude do the setup:
 
 ```text
-Read https://plandesk.asyncdot.com/start.md then set up Plan Desk for this project.
+Run this in bash: curl -fsSL https://plandesk.asyncdot.com/start.md | cat
+Then follow the instructions to set up Plan Desk for this project.
 ```
 
 Claude installs Plan Desk, starts it up, and connects itself to it — scoped to the folder you're working in (if you don't have one yet, ask it to make one). If it ever needs you to run a command, it'll hand you the exact thing to paste. When it's done, it'll give you a link (it looks like `http://127.0.0.1:3847`) — that's your board, running on your own computer.

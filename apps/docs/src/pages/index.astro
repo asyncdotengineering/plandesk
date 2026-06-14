@@ -1,7 +1,7 @@
 ---
 const SITE = 'https://plandesk.asyncdot.com';
 const GITHUB = 'https://github.com/asyncdotengineering/plandesk';
-const PROMPT = `Read ${SITE}/start.md then set up Plan Desk for this project.`;
+const PROMPT = `Run this in bash: curl -fsSL ${SITE}/start.md | cat\nThen follow the instructions to set up Plan Desk for this project.`;
 
 const planCode = `// One MCP call turns an idea into a plan
 scaffold_project_from_plan({

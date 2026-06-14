@@ -12,7 +12,8 @@ Plan Desk is a graph-native planning app you run on your machine: map dependenci
 Don't want to read docs? Point your agent at the setup runbook and let it wire Plan Desk into the current repo for you. Paste this into Claude Code (or Codex) **from your project folder**:
 
 ```text
-Read https://plandesk.asyncdot.com/start.md then set up Plan Desk for this project.
+Run this in bash: curl -fsSL https://plandesk.asyncdot.com/start.md | cat
+Then follow the instructions to set up Plan Desk for this project.
 ```
 
 The agent installs the CLI, starts the local server, creates or binds a project, and verifies — scoped to your folder, no secrets committed. Then start a fresh session and it plans and builds from the live graph. Walkthrough: [From idea to development with Claude Code](/guides/idea-to-development/).
