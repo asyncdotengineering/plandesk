@@ -45,10 +45,13 @@ repo so your naming fits:
    purpose (e.g. read `README.md`, `package.json`) — so you can suggest a sensible
    project name and, later, a useful plan.
 
-## 2. Install the CLI and start the server
+## 2. Install / upgrade the CLI and start the server
+
+**Run this even if the CLI is already installed** — the version on disk may be outdated
+and missing commands this guide requires (e.g. `plandesk url`).
 
 ```bash
-# Install or upgrade to latest (Node >= 20)
+# Upgrade or install — always run this, do not skip (Node >= 20)
 npm i -g @plandesk/cli@latest
 
 # Orient yourself (and the user) — a crash course + the docs to read, from the CLI:
