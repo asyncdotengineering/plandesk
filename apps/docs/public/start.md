@@ -36,14 +36,15 @@ Docs: https://plandesk.asyncdot.com — or, once the CLI is installed (step 2), 
 
 ## 1. Gather context
 
-Before acting, read the conventions you'll be expected to follow and inspect the
-repo so your naming fits:
+Inspect the repo so your naming and plan fit:
 
-1. Fetch the agent conventions: https://plandesk.asyncdot.com/connecting-agents/skill/
-2. Skim the end-to-end workflow: https://plandesk.asyncdot.com/guides/idea-to-development/
-3. Inspect the current folder — language, package manager, and the project's
+1. Inspect the current folder — language, package manager, and the project's
    purpose (e.g. read `README.md`, `package.json`) — so you can suggest a sensible
    project name and, later, a useful plan.
+
+Agent conventions and the end-to-end workflow are available after the CLI is
+installed: run `plandesk help` in step 2, and read `.plandesk/skill.md` after
+`plandesk connect` in step 4.
 
 ## 2. Install / upgrade the CLI and start the server
 
