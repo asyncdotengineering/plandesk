@@ -2,6 +2,16 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [cli 0.8.0 · mcp 0.7.0 · api 0.7.0] — 2026-06-14
+
+### Added
+
+- **Per-project port assignment** — `plandesk init` probes the `3400–3499` range and stores a free port in `.plandesk/workspace.json`. `plandesk serve` reads this port automatically, so each project runs on its own port without collision when multiple projects are active on the same machine.
+- **Runtime port file** — `plandesk serve` writes `.plandesk/server.json` (gitignored) with the actual bound port and PID on startup, and deletes it on clean exit. PID-liveness filtering means a stale entry from a crashed process is ignored automatically.
+- **`plandesk url` command** — prints the server URL for this project's `.plandesk/` dir: prefers `server.json` (live port), falls back to `workspace.json` (assigned port), then the default. `--lan` substitutes the first external IPv4 address for use in scripts or remote agents. Use `$(plandesk url)` instead of hardcoding `http://127.0.0.1:3847` in agent prompts and `start.md` scripts.
+- **`get_task` MCP tool** — point read for a single task by ID. Useful for agents reconciling board state without listing everything.
+- **`list_tasks` MCP tool** — lists all tasks for a project, optionally filtered by `status`. MCP tool count is now 29.
+
 ## [cli 0.7.0] — 2026-06-13
 
 ### Changed
