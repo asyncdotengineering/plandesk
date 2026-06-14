@@ -48,8 +48,8 @@ repo so your naming fits:
 ## 2. Install the CLI and start the server
 
 ```bash
-# Install if missing (Node >= 20)
-plandesk --version || npm i -g @plandesk/cli
+# Install or upgrade to latest (Node >= 20)
+npm i -g @plandesk/cli@latest
 
 # Orient yourself (and the user) — a crash course + the docs to read, from the CLI:
 plandesk help
