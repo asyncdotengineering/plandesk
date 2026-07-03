@@ -2,7 +2,7 @@
 
 All notable changes to Plan Desk are documented here.
 
-## [Unreleased]
+## [cli 0.9.1] — 2026-07-03
 
 ### Added
 
