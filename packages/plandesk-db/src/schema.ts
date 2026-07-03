@@ -1,5 +1,13 @@
 import { sql } from 'drizzle-orm';
-import { integer, real, sqliteTable, text, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
+import {
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+  type AnySQLiteColumn,
+} from 'drizzle-orm/sqlite-core';
 
 export const taskStatuses = ['scope', 'todo', 'in_progress', 'done', 'backlog'] as const;
 export type TaskStatus = (typeof taskStatuses)[number];
@@ -59,6 +67,21 @@ export const edges = sqliteTable('edges', {
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
 });
 
+export const folders = sqliteTable('folders', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id')
+    .notNull()
+    .references(() => projects.id),
+  name: text('name').notNull(),
+  parentFolderId: text('parent_folder_id').references((): AnySQLiteColumn => folders.id),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+});
+
 export const documents = sqliteTable('documents', {
   id: text('id').primaryKey(),
   projectId: text('project_id')
@@ -68,6 +91,7 @@ export const documents = sqliteTable('documents', {
   body: text('body'),
   statusLine: text('status_line'),
   parentId: text('parent_id').references((): AnySQLiteColumn => documents.id),
+  folderId: text('folder_id').references(() => folders.id),
   linkedTaskId: text('linked_task_id').references(() => tasks.id),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
@@ -91,6 +115,35 @@ export const notes = sqliteTable('notes', {
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
 });
+
+export const tags = sqliteTable(
+  'tags',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    name: text('name').notNull(),
+    color: text('color'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  },
+  (table) => [uniqueIndex('tags_project_id_name_unique').on(table.projectId, table.name)],
+);
+
+export const taskTags = sqliteTable(
+  'task_tags',
+  {
+    taskId: text('task_id')
+      .notNull()
+      .references(() => tasks.id),
+    tagId: text('tag_id')
+      .notNull()
+      .references(() => tags.id),
+  },
+  (table) => [primaryKey({ columns: [table.taskId, table.tagId] })],
+);
 
 export const documentComments = sqliteTable('document_comments', {
   id: text('id').primaryKey(),

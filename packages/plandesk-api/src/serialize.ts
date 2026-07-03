@@ -4,8 +4,10 @@ import type {
   Document,
   DocumentComment,
   Edge,
+  Folder,
   Note,
   Project,
+  Tag,
   Task,
   TaskStatus,
 } from '@plandesk/db';
@@ -65,7 +67,25 @@ export function serializeProjectDetail(project: Project, summary: TaskStatusSumm
   };
 }
 
-export function serializeTask(task: Task) {
+export type SerializedTag = {
+  id: string;
+  project_id: string;
+  name: string;
+  color: string | null;
+  created_at: string;
+};
+
+export function serializeTag(tag: Tag): SerializedTag {
+  return {
+    id: tag.id,
+    project_id: tag.projectId,
+    name: tag.name,
+    color: tag.color,
+    created_at: tag.createdAt.toISOString(),
+  };
+}
+
+export function serializeTask(task: Task, tags?: Tag[]) {
   return {
     id: task.id,
     project_id: task.projectId,
@@ -78,6 +98,7 @@ export function serializeTask(task: Task) {
     due_date: task.dueDate?.toISOString() ?? null,
     created_at: task.createdAt.toISOString(),
     updated_at: task.updatedAt.toISOString(),
+    ...(tags !== undefined ? { tags: tags.map(serializeTag) } : {}),
   };
 }
 
@@ -88,6 +109,7 @@ export type SerializedDocument = {
   body: string | null;
   status_line: string | null;
   parent_id: string | null;
+  folder_id: string | null;
   linked_task_id: string | null;
   created_at: string;
   updated_at: string;
@@ -105,6 +127,7 @@ export function serializeDocument(document: Document): SerializedDocument {
     body: document.body,
     status_line: document.statusLine,
     parent_id: document.parentId,
+    folder_id: document.folderId,
     linked_task_id: document.linkedTaskId,
     created_at: document.createdAt.toISOString(),
     updated_at: document.updatedAt.toISOString(),
@@ -176,6 +199,87 @@ export function buildDocumentTree(documents: Document[]): SerializedDocumentTree
   }
 
   return roots;
+}
+
+export type SerializedFolder = {
+  id: string;
+  project_id: string;
+  name: string;
+  parent_folder_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export function serializeFolder(folder: Folder): SerializedFolder {
+  return {
+    id: folder.id,
+    project_id: folder.projectId,
+    name: folder.name,
+    parent_folder_id: folder.parentFolderId,
+    created_at: folder.createdAt.toISOString(),
+    updated_at: folder.updatedAt.toISOString(),
+  };
+}
+
+export type SerializedFolderTree = SerializedFolder & {
+  folders: SerializedFolderTree[];
+  documents: SerializedDocumentTree[];
+};
+
+export type SerializedDocumentFolderTree = {
+  folders: SerializedFolderTree[];
+  documents: SerializedDocumentTree[];
+};
+
+export function buildFolderTree(
+  folders: Folder[],
+  documents: Document[],
+): SerializedDocumentFolderTree {
+  const folderNodes = new Map<string, SerializedFolderTree>();
+  for (const folder of folders) {
+    folderNodes.set(folder.id, { ...serializeFolder(folder), folders: [], documents: [] });
+  }
+
+  const rootFolders: SerializedFolderTree[] = [];
+  for (const folder of folders) {
+    const node = folderNodes.get(folder.id);
+    if (!node) {
+      continue;
+    }
+    const parent = folder.parentFolderId === null ? undefined : folderNodes.get(folder.parentFolderId);
+    if (parent) {
+      parent.folders.push(node);
+    } else {
+      rootFolders.push(node);
+    }
+  }
+
+  const documentsByFolder = new Map<string | null, Document[]>();
+  for (const document of documents) {
+    const key =
+      document.folderId !== null && folderNodes.has(document.folderId) ? document.folderId : null;
+    const group = documentsByFolder.get(key);
+    if (group) {
+      group.push(document);
+    } else {
+      documentsByFolder.set(key, [document]);
+    }
+  }
+
+  for (const [folderId, group] of documentsByFolder) {
+    if (folderId === null) {
+      continue;
+    }
+    const node = folderNodes.get(folderId);
+    if (node) {
+      node.documents = buildDocumentTree(group);
+    }
+  }
+
+  return {
+    folders: rootFolders,
+    documents: buildDocumentTree(documentsByFolder.get(null) ?? []),
+  };
 }
 
 export function serializeEdge(edge: Edge) {

@@ -90,6 +90,42 @@ export function TaskCard({ task, isDragging = false, onOpen, onDelete }: TaskCar
           {task.assignee}
         </div>
       ) : null}
+      {task.tags !== undefined && task.tags.length > 0 ? (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.375rem' }}>
+          {task.tags.map((tag) => (
+            <span
+              key={tag.id}
+              data-tag-chip={tag.name}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                fontSize: '0.6875rem',
+                fontWeight: 500,
+                color: '#374151',
+                background: '#f3f4f6',
+                border: '1px solid #e5e7eb',
+                borderRadius: 999,
+                padding: '0.0625rem 0.5rem',
+              }}
+            >
+              {tag.color !== null ? (
+                <span
+                  aria-hidden
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: tag.color,
+                    flexShrink: 0,
+                  }}
+                />
+              ) : null}
+              {tag.name}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

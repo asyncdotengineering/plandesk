@@ -29,6 +29,23 @@ export type CommentUpdatedEvent = {
   projectId: string;
 };
 
+export type FolderCreatedEvent = {
+  type: 'folder_created';
+  folderId: string;
+  projectId: string;
+};
+
+export type FolderUpdatedEvent = {
+  type: 'folder_updated';
+  folderId: string;
+  projectId: string;
+};
+
+export type TagUpdatedEvent = {
+  type: 'tag_updated';
+  projectId: string;
+};
+
 export type NoteCreatedEvent = {
   type: 'note_created';
   noteId: string;
@@ -66,10 +83,13 @@ export type SubmissionsPulledEvent = {
 
 export type PlankDeskEvent =
   | TaskUpdatedEvent
+  | TagUpdatedEvent
   | CanvasUpdatedEvent
   | DocumentCreatedEvent
   | CommentCreatedEvent
   | CommentUpdatedEvent
+  | FolderCreatedEvent
+  | FolderUpdatedEvent
   | NoteCreatedEvent
   | NoteUpdatedEvent
   | AgentRunStartedEvent

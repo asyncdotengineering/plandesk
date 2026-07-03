@@ -8,6 +8,11 @@ type TaskUpdatedEvent = {
   projectId: string;
 };
 
+type TagUpdatedEvent = {
+  type: 'tag_updated';
+  projectId: string;
+};
+
 type CanvasUpdatedEvent = {
   type: 'canvas_updated';
   projectId: string;
@@ -30,6 +35,18 @@ type CommentUpdatedEvent = {
   type: 'comment_updated';
   commentId: string;
   documentId: string;
+  projectId: string;
+};
+
+type FolderCreatedEvent = {
+  type: 'folder_created';
+  folderId: string;
+  projectId: string;
+};
+
+type FolderUpdatedEvent = {
+  type: 'folder_updated';
+  folderId: string;
   projectId: string;
 };
 
@@ -65,10 +82,13 @@ type AgentRunCompletedEvent = {
 
 type PlankDeskEvent =
   | TaskUpdatedEvent
+  | TagUpdatedEvent
   | CanvasUpdatedEvent
   | DocumentCreatedEvent
   | CommentCreatedEvent
   | CommentUpdatedEvent
+  | FolderCreatedEvent
+  | FolderUpdatedEvent
   | NoteCreatedEvent
   | NoteUpdatedEvent
   | AgentRunStartedEvent
@@ -82,10 +102,13 @@ function isPlankDeskEvent(value: unknown): value is PlankDeskEvent {
   const type = value.type;
   return (
     type === 'task_updated' ||
+    type === 'tag_updated' ||
     type === 'canvas_updated' ||
     type === 'document_created' ||
     type === 'comment_created' ||
     type === 'comment_updated' ||
+    type === 'folder_created' ||
+    type === 'folder_updated' ||
     type === 'note_created' ||
     type === 'note_updated' ||
     type === 'agent_run_started' ||
@@ -118,8 +141,15 @@ export function useSseInvalidation() {
         case 'task_updated':
           void queryClient.invalidateQueries({ queryKey: queryKeys.project(event.projectId) });
           void queryClient.invalidateQueries({ queryKey: queryKeys.tasks(event.projectId) });
+          // task mutations can auto-create tags by name
+          void queryClient.invalidateQueries({ queryKey: queryKeys.tags(event.projectId) });
           void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(event.projectId) });
           void queryClient.invalidateQueries({ queryKey: queryKeys.taskDocument(event.taskId) });
+          break;
+        case 'tag_updated':
+          void queryClient.invalidateQueries({ queryKey: queryKeys.tags(event.projectId) });
+          // renames/deletes change the tag chips embedded in task payloads
+          void queryClient.invalidateQueries({ queryKey: queryKeys.tasks(event.projectId) });
           break;
         case 'canvas_updated':
           void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(event.projectId) });
@@ -133,6 +163,11 @@ export function useSseInvalidation() {
           void queryClient.invalidateQueries({
             queryKey: queryKeys.documentComments(event.documentId),
           });
+          break;
+        case 'folder_created':
+        case 'folder_updated':
+          void queryClient.invalidateQueries({ queryKey: queryKeys.folders(event.projectId) });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.documents(event.projectId) });
           break;
         case 'note_created':
         case 'note_updated':

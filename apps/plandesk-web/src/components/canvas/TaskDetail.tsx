@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { TaskStatus } from '../../lib/api.js';
+import type { SerializedTag, TaskStatus } from '../../lib/api.js';
 import type { TaskNodeData } from './canvas-map.js';
 
 type TaskDetailProps = {
@@ -15,6 +15,11 @@ type TaskDetailProps = {
   onDelete: () => void;
   onClose?: () => void;
   isSaving?: boolean;
+  // Tag editing is rendered only when these are provided (board detail panel).
+  tags?: SerializedTag[];
+  tagSuggestions?: string[];
+  onAddTag?: (name: string) => void;
+  onRemoveTag?: (name: string) => void;
 };
 
 export function TaskDetail({
@@ -24,17 +29,23 @@ export function TaskDetail({
   onDelete,
   onClose,
   isSaving = false,
+  tags,
+  tagSuggestions = [],
+  onAddTag,
+  onRemoveTag,
 }: TaskDetailProps) {
   const [label, setLabel] = useState(data.label);
   const [description, setDescription] = useState(data.description ?? '');
   const [assignee, setAssignee] = useState(data.assignee ?? '');
   const [dueDate, setDueDate] = useState(data.dueDate !== null ? data.dueDate.slice(0, 10) : '');
+  const [newTag, setNewTag] = useState('');
 
   useEffect(() => {
     setLabel(data.label);
     setDescription(data.description ?? '');
     setAssignee(data.assignee ?? '');
     setDueDate(data.dueDate !== null ? data.dueDate.slice(0, 10) : '');
+    setNewTag('');
   }, [taskId, data.label, data.description, data.assignee, data.dueDate]);
 
   const handleSave = () => {
@@ -196,6 +207,135 @@ export function TaskDetail({
           boxSizing: 'border-box',
         }}
       />
+
+      {onAddTag !== undefined && onRemoveTag !== undefined ? (
+        <>
+          <label
+            htmlFor={`task-tag-input-${taskId}`}
+            style={{
+              display: 'block',
+              fontSize: '0.75rem',
+              color: '#6b7280',
+              marginBottom: '0.25rem',
+            }}
+          >
+            Tags
+          </label>
+          {tags !== undefined && tags.length > 0 ? (
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.25rem',
+                marginBottom: '0.375rem',
+              }}
+            >
+              {tags.map((tag) => (
+                <span
+                  key={tag.id}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    color: '#374151',
+                    background: '#f3f4f6',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 999,
+                    padding: '0.125rem 0.25rem 0.125rem 0.5rem',
+                  }}
+                >
+                  {tag.color !== null ? (
+                    <span
+                      aria-hidden
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: '50%',
+                        background: tag.color,
+                        flexShrink: 0,
+                      }}
+                    />
+                  ) : null}
+                  {tag.name}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onRemoveTag(tag.name);
+                    }}
+                    aria-label={`Remove tag ${tag.name}`}
+                    style={{
+                      border: 'none',
+                      background: 'none',
+                      color: '#9ca3af',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      lineHeight: 1,
+                      padding: '0 0.125rem',
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const trimmed = newTag.trim();
+              if (trimmed === '') {
+                return;
+              }
+              onAddTag(trimmed);
+              setNewTag('');
+            }}
+            style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.75rem' }}
+          >
+            <input
+              id={`task-tag-input-${taskId}`}
+              type="text"
+              value={newTag}
+              onChange={(event) => {
+                setNewTag(event.target.value);
+              }}
+              placeholder="Add tag"
+              list={`task-tag-options-${taskId}`}
+              style={{
+                flex: 1,
+                padding: '0.375rem 0.5rem',
+                borderRadius: 6,
+                border: '1px solid #d1d5db',
+                fontSize: '0.8125rem',
+                boxSizing: 'border-box',
+                minWidth: 0,
+              }}
+            />
+            <datalist id={`task-tag-options-${taskId}`}>
+              {tagSuggestions.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
+            <button
+              type="submit"
+              disabled={newTag.trim() === ''}
+              style={{
+                padding: '0.375rem 0.625rem',
+                borderRadius: 6,
+                border: '1px solid #d1d5db',
+                background: '#fff',
+                color: '#374151',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Add tag
+            </button>
+          </form>
+        </>
+      ) : null}
 
       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
         <button

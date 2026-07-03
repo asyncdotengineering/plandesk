@@ -1,6 +1,6 @@
 {
   "name": "@plandesk/mcp",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "type": "module",
   "exports": {
     ".": {
@@ -33,7 +33,7 @@
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   },
-  "description": "Plan Desk MCP server — Streamable HTTP tools for agents to read and write the plan.",
+  "description": "Plan Desk MCP server \u2014 Streamable HTTP tools for agents to read and write the plan.",
   "license": "MIT",
   "author": "asyncdotengineering",
   "homepage": "https://plandesk.asyncdot.com",

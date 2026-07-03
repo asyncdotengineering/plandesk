@@ -9,7 +9,10 @@ const EXPECTED_TABLES = [
   'tasks',
   'edges',
   'documents',
+  'folders',
   'notes',
+  'tags',
+  'task_tags',
   'document_comments',
   'agent_runs',
   'agent_run_events',
@@ -77,6 +80,15 @@ describe('migrate', () => {
     expect(getProject(db, FIXTURE_PROJECT_ID)?.name).toBe('Fixture Project');
 
     migrateDown(db, 1);
+    expect(listTables(db)).not.toContain('tags');
+    expect(listTables(db)).not.toContain('task_tags');
+    expect(listTables(db)).toContain('folders');
+
+    migrateDown(db, 1);
+    expect(listTables(db)).not.toContain('folders');
+    expect(hasColumn(db, 'documents', 'folder_id')).toBe(false);
+
+    migrateDown(db, 1);
     expect(listTables(db)).not.toContain('notes');
 
     migrateDown(db, 1);
@@ -99,6 +111,10 @@ describe('migrate', () => {
     expect(listTables(db)).toContain('sync_state');
     expect(listTables(db)).toContain('sync_remotes');
     expect(listTables(db)).toContain('notes');
+    expect(listTables(db)).toContain('folders');
+    expect(hasColumn(db, 'documents', 'folder_id')).toBe(true);
+    expect(listTables(db)).toContain('tags');
+    expect(listTables(db)).toContain('task_tags');
     expect(getProject(db, FIXTURE_PROJECT_ID)?.name).toBe('Fixture Project');
 
     migrateDownAll(db);

@@ -5,7 +5,10 @@ export type ToolResult = {
 };
 
 export function toolSuccess(key: string, value: unknown): ToolResult {
-  const payload = { [key]: value };
+  return toolSuccessPayload({ [key]: value });
+}
+
+export function toolSuccessPayload(payload: Record<string, unknown>): ToolResult {
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(payload) }],
     structuredContent: payload,

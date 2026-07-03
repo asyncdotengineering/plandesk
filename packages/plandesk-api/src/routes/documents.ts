@@ -7,6 +7,7 @@ type CreateDocumentBody = {
   body?: string | null;
   status_line?: string | null;
   parent_id?: string | null;
+  folder_id?: string | null;
   linked_task_id?: string | null;
   linkedTaskId?: string | null;
   linkedNodeId?: string | null;
@@ -17,6 +18,7 @@ type UpdateDocumentBody = {
   body?: string | null;
   status_line?: string | null;
   parent_id?: string | null;
+  folder_id?: string | null;
   linked_task_id?: string | null;
   linkedTaskId?: string | null;
   linkedNodeId?: string | null;
@@ -66,6 +68,7 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
         body: body.body,
         statusLine: body.status_line,
         parentId: body.parent_id,
+        folderId: body.folder_id,
         linkedTaskId: resolveLinkedTaskId(body),
       });
 
@@ -100,6 +103,7 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
         ...(body.body !== undefined ? { body: body.body } : {}),
         ...(body.status_line !== undefined ? { statusLine: body.status_line } : {}),
         ...(body.parent_id !== undefined ? { parentId: body.parent_id } : {}),
+        ...(body.folder_id !== undefined ? { folderId: body.folder_id } : {}),
         ...(linkedTaskId !== undefined ? { linkedTaskId } : {}),
       });
 

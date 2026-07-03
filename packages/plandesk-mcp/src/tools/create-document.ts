@@ -11,6 +11,7 @@ export function createCreateDocumentHandler(
   body?: string;
   linked_task_id?: string;
   parent_id?: string;
+  folder_id?: string;
 }) => ToolResult {
   return (args) => {
     try {
@@ -19,6 +20,7 @@ export function createCreateDocumentHandler(
         ...(args.body !== undefined ? { body: ensureHtmlBody(args.body) } : {}),
         ...(args.linked_task_id !== undefined ? { linkedTaskId: args.linked_task_id } : {}),
         ...(args.parent_id !== undefined ? { parentId: args.parent_id } : {}),
+        ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
       });
       if (!document) {
         return toolNotFound();

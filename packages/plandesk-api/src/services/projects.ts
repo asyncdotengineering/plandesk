@@ -1,5 +1,6 @@
 import {
   clearDocumentParentRefsByProject,
+  clearFolderParentRefsByProject,
   createDocument,
   createEdge,
   createProject as dbCreateProject,
@@ -8,10 +9,12 @@ import {
   deleteAgentRunEventsByRunId,
   deleteCommentsByProjectId,
   deleteDocumentsByProjectId,
+  deleteFoldersByProjectId,
   deleteNotesByProjectId,
   deleteEdgesByProjectId,
   deleteShareSubmissionsByProjectId,
   deleteSharesByProjectId,
+  deleteTagsByProjectId,
   deleteSyncRemoteByProjectId,
   deleteSyncStateByProjectId,
   deleteProject as dbDeleteProject,
@@ -202,7 +205,10 @@ export function createProjectService(deps: ProjectServiceDeps) {
         clearDocumentParentRefsByProject(tx, id);
         deleteCommentsByProjectId(tx, id);
         deleteDocumentsByProjectId(tx, id);
+        clearFolderParentRefsByProject(tx, id);
+        deleteFoldersByProjectId(tx, id);
         deleteNotesByProjectId(tx, id);
+        deleteTagsByProjectId(tx, id);
         deleteTasksByProjectId(tx, id);
         deleteShareSubmissionsByProjectId(tx, id);
         deleteSyncStateByProjectId(tx, id);
@@ -288,7 +294,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
       return {
         project: serializeProject(project),
-        tasks: taskRows.map(serializeTask),
+        tasks: taskRows.map((task) => serializeTask(task)),
         edges: edgeRows.map(serializeEdge),
         documents: documentRows.map(serializeDocument),
         key_to_id: Object.fromEntries(keyToId),

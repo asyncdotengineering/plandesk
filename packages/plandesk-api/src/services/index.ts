@@ -3,9 +3,11 @@ import { createEventBus, type EventBus } from '../events.js';
 import { createCanvasService, type CanvasService } from './canvas.js';
 import { createCommentService, type CommentService } from './comments.js';
 import { createDocumentService, type DocumentService } from './documents.js';
+import { createFolderService, type FolderService } from './folders.js';
 import { createNoteService, type NoteService } from './notes.js';
 import { createProjectService, type ProjectService } from './projects.js';
 import { createAgentRunService, type AgentRunService } from './agent-runs.js';
+import { createTagService, type TagService } from './tags.js';
 import { createTaskService, type TaskService } from './tasks.js';
 import { createTokenService, type TokenService } from './tokens.js';
 import { createShareService, type ShareService } from './share.js';
@@ -20,8 +22,10 @@ export type Services = {
   eventBus: EventBus;
   projectService: ProjectService;
   taskService: TaskService;
+  tagService: TagService;
   canvasService: CanvasService;
   documentService: DocumentService;
+  folderService: FolderService;
   noteService: NoteService;
   commentService: CommentService;
   agentRunService: AgentRunService;
@@ -34,8 +38,10 @@ export function createServices(deps: ServicesDeps): Services {
   const eventBus = deps.eventBus ?? createEventBus();
   const projectService = createProjectService({ db: deps.db, eventBus });
   const taskService = createTaskService({ db: deps.db, eventBus });
+  const tagService = createTagService({ db: deps.db, eventBus });
   const canvasService = createCanvasService({ db: deps.db, eventBus });
   const documentService = createDocumentService({ db: deps.db, eventBus });
+  const folderService = createFolderService({ db: deps.db, eventBus });
   const noteService = createNoteService({ db: deps.db, eventBus });
   const commentService = createCommentService({ db: deps.db, eventBus });
   const agentRunService = createAgentRunService({ db: deps.db, eventBus });
@@ -47,8 +53,10 @@ export function createServices(deps: ServicesDeps): Services {
     eventBus,
     projectService,
     taskService,
+    tagService,
     canvasService,
     documentService,
+    folderService,
     noteService,
     commentService,
     agentRunService,

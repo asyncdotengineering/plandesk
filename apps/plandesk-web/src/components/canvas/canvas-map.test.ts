@@ -77,6 +77,7 @@ describe('canvas-map', () => {
         body: null,
         status_line: null,
         parent_id: null,
+        folder_id: null,
         linked_task_id: sampleTask.id,
         created_at: '2026-06-07T00:00:00.000Z',
         updated_at: '2026-06-07T00:00:00.000Z',

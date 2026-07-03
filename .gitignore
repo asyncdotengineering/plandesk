@@ -17,3 +17,5 @@ plandesk-manager-notes.md
 
 # bundled SPA (build artifact, generated at pack time)
 packages/plandesk-api/web/
+.plandesk/server.json
+.plandesk/workspace.db

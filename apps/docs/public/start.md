@@ -6,7 +6,7 @@ plan work on a graph and have an agent execute it over MCP — then hand off to 
 fresh session where the Plan Desk tools are live.
 
 Plan Desk is a local-first planning workspace: a flow canvas of task nodes with
-labeled dependency edges, specs attached to nodes, a board, and an MCP server (29
+labeled dependency edges, specs attached to nodes, a board, and an MCP server (32
 tools) agents use to read and update the plan. Data lives in a local SQLite file.
 Docs: https://plandesk.asyncdot.com — or, once the CLI is installed (step 2), run
 `plandesk help` for a crash course and the exact docs to read.
@@ -119,7 +119,25 @@ plandesk connect --project "<PROJECT NAME>"
 **except** `.plandesk/token`, which it gitignores for you. Confirm `.plandesk/token`
 appears in `.gitignore`.
 
-## 5. Verify the setup
+## 5. Scaffold the factory workspace
+
+```bash
+# Writes .agents/ — the repo's agent operating policy: factory.md (how delegated
+# work cycles run against the plan), protocol.md (deterministic worker dispatch),
+# workers/ (one file per agent CLI with an availability probe), lanes.md (risk
+# gates), verifiers/ — plus a /factory command adapter. Authored files are
+# created once and never overwritten; re-running only refreshes the adapters.
+plandesk factory init
+```
+
+This makes the repo's agent policy portable: it travels with `git clone`, works
+with whichever agent CLIs each machine has (workers are probed, never assumed),
+and keeps every gate visible on the board. Skip only if the user says they just
+want planning with no agent execution. Note: both `connect` and `factory init`
+refuse to run in global config directories (`~/.claude`, `~/.codex`, ...) — agent
+config belongs to the project, not the machine.
+
+## 6. Verify the setup
 
 ```bash
 plandesk doctor --repo .
@@ -133,13 +151,14 @@ Confirm all of:
 - [ ] `.mcp.json` has a `plandesk` server entry with a `headersHelper` reading `.plandesk/token`
 - [ ] `CLAUDE.md` (and `AGENTS.md` if present) contains the `@.plandesk/skill.md` include
 - [ ] `.plandesk/token` is gitignored and **not** staged for commit
+- [ ] `.agents/factory/factory.md` exists (factory scaffold; unless the user opted out)
 
-## 6. Hand off to a planning session
+## 7. Hand off to a planning session
 
 Setup is done. Tell the user, verbatim:
 
 > Plan Desk is connected to this repo. **Start a new agent session here** so the Plan
-> Desk MCP tools load (you'll see 29 tools). The token is read from
+> Desk MCP tools load (you'll see 32 tools). The token is read from
 > `.plandesk/token` automatically — no export needed.
 > Anytime, run `plandesk help` for a refresher and the docs worth reading.
 
@@ -157,6 +176,6 @@ See https://plandesk.asyncdot.com/guides/idea-to-development/ for the full loop.
 
 ---
 
-**Done when:** the verify checklist in step 5 passes and you've given the user the
-hand-off instructions in step 6. Do not claim success until `plandesk doctor --repo .`
+**Done when:** the verify checklist in step 6 passes and you've given the user the
+hand-off instructions in step 7. Do not claim success until `plandesk doctor --repo .`
 is clean and `.plandesk/config.json` has a real `projectId`.

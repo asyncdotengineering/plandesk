@@ -2,6 +2,30 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [cli 0.9.0 · mcp 0.8.0 · api 0.8.0 · db 0.6.0 · sync-server 0.5.0] — 2026-07-03
+
+### Added
+
+- **`plandesk factory init`** — scaffolds a project-local, harness-neutral agent factory workspace under `.agents/`: `factory.md` (the work-cycle contract), `protocol.md` (deterministic dispatch + result contract: probe → command template → result JSON whose claimed commands the engine re-runs; exit codes are authoritative), `workers/` (one file per worker CLI — claude, codex, cursor, grok, opencode — each with an availability `probe` and a `{prompt_file}` command template, so nothing assumes what is installed on a given machine), `lanes.md` (risk-lane policy), `verifiers/` (fast per-change checks, exit 0 = pass), a gitignored `runs/` zone for machine state, plus generated `/factory` command adapters for Claude Code and Codex. Authored policy files are created once and never overwritten on re-run (`skip`); adapters refresh every run. `--print` dry-runs, `--repo` targets another directory. Format rules documented in the new [Factory workspace](https://plandesk.asyncdot.com/reference/factory/) reference: one required `type` frontmatter field, identity from the file path, permissive consumers.
+
+- **Document folders (#7)** — organize documents into nested folders: `folder` entity with cycle-safe re-parenting, documents carry an optional `folder_id`, new MCP tools `create_folder` / `update_folder`, `list_documents` returns the folder tree and filters by `folder_id`, and the documents panel renders a collapsible tree with create/rename/move (folder deletion re-homes children — nothing is orphaned). Folders round-trip through export/import.
+- **Task tags (#8)** — label and filter the board: `tag` entity (name unique per project, optional color) with a task↔tag join, `create_task`/`update_task` accept `tags` (update replaces the set; unknown names auto-create), `list_tasks`/`get_next_task` filter by tags (OR semantics), new `list_tags` tool, tag chips + multi-select OR filter on the board, rename propagates everywhere, delete cascades the join. Tags round-trip through export/import.
+- **MCP tool count is now 32** (was 29): + `create_folder`, `update_folder`, `list_tags`.
+
+### Fixed
+
+- **No more stray `workspace.db`** (#4) — commands that read a workspace (`export`, `publish`, `push`, `pull`, `share`, `token`) no longer auto-create an empty database when none exists; they fail with guidance that names the connect binding's server when one is present. Only `plandesk init` creates a workspace.
+- **Unknown share token returns 404** (#4) — the sync server's `GET /shares/:token/meta` now answers 404 for a nonexistent share (was 401), matching the deploy guide's documented sanity check.
+- **Deploy guide works for CLI-only installs** (#4) — explicit step-0 clone-at-matching-tag for users without a source checkout, and all remote `wrangler d1 execute` commands are non-interactive (`-y`).
+- **MCP publish flow is discoverable** (#4) — `sync_push` / `publish_project` errors and descriptions now point at the CLI deploy/publish happy path.
+- **Stale docs corrected** (#5) — MCP tool counts unified (the API reference was missing `get_task`/`list_tasks` entirely), and `plandesk help` no longer contradicts itself about the port default (per-project 3400–3499 vs the 3847 legacy fallback).
+
+### Changed
+
+- **`serve` binds `127.0.0.1` by default** (#5) — a single-user local tool must not expose its token-gated API to the whole LAN silently. LAN exposure is an explicit opt-in: `--host 0.0.0.0` or `PLANDESK_HOST`. (Reverses the 0.7.0 default.)
+- **`start.md` scaffolds the factory by default** — the standard agent setup now runs `plandesk factory init` as step 5, so every connected repo gets its portable `.agents/` operating policy unless the user opts out.
+- **Global-directory guard** — `plandesk connect` and `plandesk factory init` now refuse to write into your home directory or a global agent-config directory (`~/.claude`, `~/.codex`, `~/.agents`, `~/.config`, `~/.plandesk`). Agent artifacts written there (e.g. a `CLAUDE.md` include in `~/.claude`) leak into every project on the machine. `factory init --force` overrides deliberately.
+
 ## [cli 0.8.0 · mcp 0.7.0 · api 0.7.0] — 2026-06-14
 
 ### Added
