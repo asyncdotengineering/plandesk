@@ -6,6 +6,8 @@ import { createAddCommentHandler } from './tools/add-comment.js';
 import { createCompleteAgentRunHandler } from './tools/complete-agent-run.js';
 import { createCreateDocumentHandler } from './tools/create-document.js';
 import { createCreateEdgeHandler } from './tools/create-edge.js';
+import { createCreateFolderHandler } from './tools/create-folder.js';
+import { createUpdateFolderHandler } from './tools/update-folder.js';
 import { createCreateProjectHandler } from './tools/create-project.js';
 import { createCreateTaskHandler } from './tools/create-task.js';
 import { createCreateNoteHandler } from './tools/create-note.js';
@@ -32,6 +34,8 @@ import {
   completeAgentRunInputSchema,
   createDocumentInputSchema,
   createEdgeInputSchema,
+  createFolderInputSchema,
+  updateFolderInputSchema,
   createProjectInputSchema,
   createTaskInputSchema,
   getDocumentInputSchema,
@@ -172,11 +176,34 @@ function createMcpServer(services: Services): McpServer {
     'list_documents',
     {
       title: 'List Documents',
-      description: 'List documents for a project as a tree',
+      description:
+        'List documents for a project as a folder tree (folders with nested documents, plus root documents). Pass folder_id to list only the documents inside one folder.',
       inputSchema: listDocumentsInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
     createListDocumentsHandler(services.documentService),
+  );
+
+  server.registerTool(
+    'create_folder',
+    {
+      title: 'Create Folder',
+      description:
+        'Create a document folder, optionally nested under a parent folder. Folders organize documents; documents reference them via folder_id.',
+      inputSchema: createFolderInputSchema.shape,
+    },
+    createCreateFolderHandler(services.folderService),
+  );
+
+  server.registerTool(
+    'update_folder',
+    {
+      title: 'Update Folder',
+      description:
+        'Rename a folder or re-parent it (pass parent_folder_id null to move it to the project root). Re-parenting that would create a cycle is rejected.',
+      inputSchema: updateFolderInputSchema.shape,
+    },
+    createUpdateFolderHandler(services.folderService),
   );
 
   server.registerTool(
