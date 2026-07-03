@@ -43,6 +43,13 @@
       "when": 1781173322436,
       "tag": "0005_bouncy_selene",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1783062139493,
+      "tag": "0006_abnormal_bloodstorm",
+      "breakpoints": true
     }
   ]
 }

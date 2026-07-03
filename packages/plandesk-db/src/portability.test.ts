@@ -14,6 +14,7 @@ import { createDocument } from './repositories/documents.js';
 import { createEdge } from './repositories/edges.js';
 import { createNote } from './repositories/notes.js';
 import { createProject, updateProject } from './repositories/projects.js';
+import { createTag, setTaskTags } from './repositories/tags.js';
 import { createTask } from './repositories/tasks.js';
 
 type ComparableExport = {
@@ -26,6 +27,11 @@ type ComparableExport = {
     y: number;
     assignee: string | null;
     due_date: string | null;
+    tag_names: string[];
+  }>;
+  tags: Array<{
+    name: string;
+    color: string | null;
   }>;
   edges: Array<{
     from_label: string;
@@ -55,6 +61,7 @@ type ComparableExport = {
 function toComparable(exported: PlandeskExportV1): ComparableExport {
   const taskLabelById = new Map(exported.tasks.map((task) => [task.id, task.label]));
   const documentTitleById = new Map(exported.documents.map((doc) => [doc.id, doc.title]));
+  const tagNameById = new Map(exported.tags.map((tag) => [tag.id, tag.name]));
 
   return {
     project: exported.project,
@@ -68,7 +75,11 @@ function toComparable(exported: PlandeskExportV1): ComparableExport {
         y: task.y,
         assignee: task.assignee,
         due_date: task.due_date,
+        tag_names: (task.tag_ids ?? []).map((id) => tagNameById.get(id) ?? id).sort(),
       })),
+    tags: [...exported.tags]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((tag) => ({ name: tag.name, color: tag.color })),
     edges: [...exported.edges]
       .sort((a, b) => {
         const fromA = taskLabelById.get(a.from_task_id) ?? '';
@@ -143,6 +154,11 @@ function buildFixtureProject(db: ReturnType<typeof createDb>): string {
     y: 200,
   });
 
+  const backend = createTag(db, { projectId: project.id, name: 'backend', color: '#2563eb' });
+  const urgent = createTag(db, { projectId: project.id, name: 'urgent', color: null });
+  setTaskTags(db, design.id, [backend.id, urgent.id]);
+  setTaskTags(db, build.id, [backend.id]);
+
   createEdge(db, {
     projectId: project.id,
     id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
@@ -214,6 +230,8 @@ describe('export/import portability', () => {
     db.$client.exec('DELETE FROM agent_runs');
     db.$client.exec('DELETE FROM documents');
     db.$client.exec('DELETE FROM notes');
+    db.$client.exec('DELETE FROM task_tags');
+    db.$client.exec('DELETE FROM tags');
     db.$client.exec('DELETE FROM edges');
     db.$client.exec('DELETE FROM tasks');
     db.$client.exec('DELETE FROM projects');
@@ -242,6 +260,8 @@ describe('export/import portability', () => {
 
     expect(importedComparable).toEqual(sourceComparable);
     expect(reExported.tasks).toHaveLength(exported.tasks.length);
+    expect(reExported.tags).toHaveLength(exported.tags.length);
+    expect(reExported.tags).toHaveLength(2);
     expect(reExported.edges).toHaveLength(exported.edges.length);
     expect(reExported.documents).toHaveLength(exported.documents.length);
     expect(reExported.notes).toHaveLength(exported.notes.length);
