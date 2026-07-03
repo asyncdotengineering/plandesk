@@ -11,6 +11,7 @@ export type NewDocument = {
   body?: string | null;
   statusLine?: string | null;
   parentId?: string | null;
+  folderId?: string | null;
   linkedTaskId?: string | null;
   id?: string;
 };
@@ -20,6 +21,7 @@ export type DocumentUpdate = {
   body?: string | null;
   statusLine?: string | null;
   parentId?: string | null;
+  folderId?: string | null;
   linkedTaskId?: string | null;
 };
 
@@ -35,6 +37,7 @@ export function createDocument(db: DbClient, input: NewDocument): Document {
       body: input.body ?? null,
       statusLine: input.statusLine ?? null,
       parentId: input.parentId ?? null,
+      folderId: input.folderId ?? null,
       linkedTaskId: input.linkedTaskId ?? null,
       createdAt: now,
       updatedAt: now,
@@ -55,6 +58,7 @@ export function getDocument(db: DbClient, id: string): Document | undefined {
 export type ListDocumentsOptions = {
   limit?: number;
   offset?: number;
+  folderId?: string;
 };
 
 export function listDocuments(
@@ -62,7 +66,11 @@ export function listDocuments(
   projectId: string,
   options?: ListDocumentsOptions,
 ): Document[] {
-  let query = db.select().from(documents).where(eq(documents.projectId, projectId)).$dynamic();
+  const where =
+    options?.folderId !== undefined
+      ? and(eq(documents.projectId, projectId), eq(documents.folderId, options.folderId))
+      : eq(documents.projectId, projectId);
+  let query = db.select().from(documents).where(where).$dynamic();
   if (options?.limit !== undefined) {
     query = query.limit(options.limit);
   }
