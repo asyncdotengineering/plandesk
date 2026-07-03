@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { globalDirRefusalReason } from './connect-artifacts.js';
+import { globalDirRefusalReason, insertFactorySentinelBlock } from './connect-artifacts.js';
 import { resolveAgents } from './connect.js';
 
 export class FactoryError extends Error {
@@ -330,6 +330,25 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
       path: file.path,
       content: file.content,
       action: existsSync(file.path) ? 'skip' : 'create',
+    });
+  }
+
+  // Always-on policy include: workflow.md + factory.md are POLICY — they must
+  // ride in default context to gate behavior (a pointer the agent may not
+  // follow is not a gate). Managed sentinel block, regenerated idempotently.
+  const claudeMdPath = join(repoDir, 'CLAUDE.md');
+  const existingClaudeMd = existsSync(claudeMdPath) ? readFileSync(claudeMdPath, 'utf8') : '';
+  artifacts.push({
+    path: claudeMdPath,
+    content: insertFactorySentinelBlock(existingClaudeMd),
+    action: existsSync(claudeMdPath) ? 'update' : 'create',
+  });
+  const agentsMdPath = join(repoDir, 'AGENTS.md');
+  if (existsSync(agentsMdPath)) {
+    artifacts.push({
+      path: agentsMdPath,
+      content: insertFactorySentinelBlock(readFileSync(agentsMdPath, 'utf8')),
+      action: 'update',
     });
   }
 

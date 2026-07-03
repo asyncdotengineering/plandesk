@@ -74,6 +74,7 @@ describe('runFactoryInit', () => {
       '.agents/factory/workers/opencode.md',
       '.claude/commands/factory.md',
       '.codex/commands/factory.md',
+      'CLAUDE.md',
     ];
     for (const rel of expected) {
       expect(existsSync(join(repo, rel)), rel).toBe(true);
@@ -149,6 +150,35 @@ describe('runFactoryInit', () => {
     const summary = formatFactoryInitSummary(result);
     expect(summary).toContain(`Factory workspace ready at ${join(repo, '.agents')}`);
     expect(summary).toContain('create:');
+  });
+});
+
+describe('always-on policy include', () => {
+  it('inserts an idempotent factory sentinel block into CLAUDE.md', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    writeFileSync(join(repo, 'CLAUDE.md'), '# My repo\n', 'utf8');
+    runFactoryInit({ repoDir: repo });
+    const first = readFileSync(join(repo, 'CLAUDE.md'), 'utf8');
+    expect(first).toContain('# My repo');
+    expect(first).toContain('<!-- plandesk-factory:start -->');
+    expect(first).toContain('@.agents/factory/workflow.md');
+    expect(first).toContain('@.agents/factory/factory.md');
+
+    runFactoryInit({ repoDir: repo });
+    const second = readFileSync(join(repo, 'CLAUDE.md'), 'utf8');
+    expect(second).toBe(first);
+    expect(second.match(/plandesk-factory:start/g)).toHaveLength(1);
+  });
+
+  it('updates AGENTS.md when present, never creates it', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    writeFileSync(join(repo, 'AGENTS.md'), '# Agents\n', 'utf8');
+    runFactoryInit({ repoDir: repo });
+    expect(readFileSync(join(repo, 'AGENTS.md'), 'utf8')).toContain('plandesk-factory:start');
+
+    const bare = makeTempDir('plandesk-factory-');
+    runFactoryInit({ repoDir: bare });
+    expect(existsSync(join(bare, 'AGENTS.md'))).toBe(false);
   });
 });
 

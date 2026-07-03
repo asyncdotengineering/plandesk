@@ -162,7 +162,7 @@ Two layers, deliberately separate:
 
 `workflow.md` is yours after the scaffold — `factory init` never overwrites it. Common edits: a different intake ritual, extra finishing passes (lint or review commands), a repo-specific definition of done, cadence notes for scheduled runs.
 
-The always-on agent conventions (`.plandesk/skill.md`, included from the repo's `CLAUDE.md`) carry a one-line pointer: *if `workflow.md` exists, follow it when executing the plan* — so orchestrators discover the program without its full text riding into every session. The `/factory` command loads both files on demand.
+**Policy is always-on; data is on-demand.** `factory init` manages its own include block in the repo's `CLAUDE.md` (and `AGENTS.md` when present) loading `workflow.md` + `factory.md` — policy must ride in default context to gate behavior; a pointer an agent may not follow is not a gate. Dispatch data (`protocol.md`, `workers/`, `lanes.md`, `verifiers/`) stays on-demand, read at dispatch and gate time. The `/factory` command re-loads the policy explicitly, and the agent conventions keep a fallback pointer.
 
 ## The cycle
 

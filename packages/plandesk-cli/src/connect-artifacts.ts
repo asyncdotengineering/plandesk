@@ -179,6 +179,38 @@ export function removeMcpServerEntry(existingContent: string): string | undefine
   return `${JSON.stringify(doc, null, 2)}\n`;
 }
 
+// Factory policy rides always-on next to the plandesk conventions: workflow.md
+// and factory.md change agent behavior at every decision point (a pointer the
+// agent may not follow is not a gate). Dispatch DATA (protocol, workers, lanes,
+// verifiers) stays on-demand — it is read at dispatch/gate time.
+export const FACTORY_SENTINEL_START = '<!-- plandesk-factory:start -->';
+export const FACTORY_SENTINEL_END = '<!-- plandesk-factory:end -->';
+export const FACTORY_SENTINEL_INCLUDES = ['@.agents/factory/workflow.md', '@.agents/factory/factory.md'];
+
+export function buildFactorySentinelBlock(): string {
+  return `${FACTORY_SENTINEL_START}\n${FACTORY_SENTINEL_INCLUDES.join('\n')}\n${FACTORY_SENTINEL_END}`;
+}
+
+export function insertBlock(content: string, block: string, start: string, end: string): string {
+  const startIdx = content.indexOf(start);
+  const endIdx = content.indexOf(end);
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    const before = content.slice(0, startIdx).replace(/\n+$/, '');
+    const after = content.slice(endIdx + end.length).replace(/^\n+/, '');
+    const parts = [before, block, after].filter((part) => part.length > 0);
+    return `${parts.join('\n\n')}\n`;
+  }
+  if (content.length === 0) {
+    return `${block}\n`;
+  }
+  const base = content.replace(/\n+$/, '');
+  return `${base}\n\n${block}\n`;
+}
+
+export function insertFactorySentinelBlock(content: string): string {
+  return insertBlock(content, buildFactorySentinelBlock(), FACTORY_SENTINEL_START, FACTORY_SENTINEL_END);
+}
+
 export function insertSentinelBlock(content: string): string {
   const block = buildSentinelBlock();
   const startIdx = content.indexOf(SENTINEL_START);

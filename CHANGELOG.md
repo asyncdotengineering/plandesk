@@ -6,6 +6,7 @@ All notable changes to Plan Desk are documented here.
 
 ### Added
 
+- **Factory policy is always-on** — `factory init` now manages a `<!-- plandesk-factory -->` include block in the repo's `CLAUDE.md`/`AGENTS.md` loading `workflow.md` + `factory.md`, so the orchestrator's program and contract ride in default context (policy gates behavior; dispatch data — protocol, workers, lanes, verifiers — stays on-demand). Idempotent; the global-dir guard still applies.
 - **`workflow.md` in the factory scaffold** — the orchestrator's session program (orient → intake → execute → finish), shipped as an editable default alongside the `factory.md` per-item contract. The generated agent conventions now carry a one-line pointer ("if `.agents/factory/workflow.md` exists, follow it when executing the plan"), and the `/factory` command loads both files. Authored/create-once like all factory policy; re-run `plandesk connect` to pick up the pointer in existing repos.
 
 ## [cli 0.9.0 · mcp 0.8.0 · api 0.8.0 · db 0.6.0 · sync-server 0.5.0] — 2026-07-03
