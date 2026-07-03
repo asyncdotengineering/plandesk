@@ -6,15 +6,31 @@ import {
   deleteTask,
   patchProject,
   patchTask,
+  type SerializedTag,
   type SerializedTask,
 } from '../../lib/api.js';
 import { Board } from './Board.js';
-import { groupTasksByStatus, resolveDropStatus } from './board-utils.js';
+import { filterTasksByAnyTag, groupTasksByStatus, resolveDropStatus } from './board-utils.js';
 import { statusFromDragEnd } from './useBoardDnd.js';
 
 const projectId = 'proj-1';
 
-function makeTask(id: string, label: string, status: SerializedTask['status']): SerializedTask {
+function makeTag(id: string, name: string, color: string | null = null): SerializedTag {
+  return {
+    id,
+    project_id: projectId,
+    name,
+    color,
+    created_at: '2026-06-07T00:00:00.000Z',
+  };
+}
+
+function makeTask(
+  id: string,
+  label: string,
+  status: SerializedTask['status'],
+  tags: SerializedTag[] = [],
+): SerializedTask {
   return {
     id,
     project_id: projectId,
@@ -27,6 +43,7 @@ function makeTask(id: string, label: string, status: SerializedTask['status']): 
     due_date: null,
     created_at: '2026-06-07T00:00:00.000Z',
     updated_at: '2026-06-07T00:00:00.000Z',
+    tags,
   };
 }
 
@@ -134,6 +151,34 @@ describe('board utils', () => {
 
     expect(result).toBeNull();
   });
+
+  it('filterTasksByAnyTag uses OR semantics across selected tags', () => {
+    const a = makeTag('tag-a', 'a');
+    const b = makeTag('tag-b', 'b');
+    const tasks = [
+      makeTask('t1', 'Has a', 'todo', [a]),
+      makeTask('t2', 'Has b', 'todo', [b]),
+      makeTask('t3', 'Has both', 'todo', [a, b]),
+      makeTask('t4', 'Untagged', 'todo'),
+    ];
+
+    expect(filterTasksByAnyTag(tasks, [])).toHaveLength(4);
+    expect(filterTasksByAnyTag(tasks, ['tag-a']).map((task) => task.id)).toEqual(['t1', 't3']);
+    // OR: matching ANY selected tag keeps the task
+    expect(filterTasksByAnyTag(tasks, ['tag-a', 'tag-b']).map((task) => task.id)).toEqual([
+      't1',
+      't2',
+      't3',
+    ]);
+    expect(filterTasksByAnyTag(tasks, ['missing'])).toHaveLength(0);
+  });
+
+  it('filterTasksByAnyTag treats tasks without a tags payload as unmatched', () => {
+    const bare = { ...makeTask('t1', 'No tags field', 'todo') };
+    delete (bare as { tags?: SerializedTag[] }).tags;
+    expect(filterTasksByAnyTag([bare], ['tag-a'])).toHaveLength(0);
+    expect(filterTasksByAnyTag([bare], [])).toHaveLength(1);
+  });
 });
 
 describe('Board', () => {
@@ -207,6 +252,107 @@ describe('Board', () => {
       >;
       expect(body.label).toBe('Plan sprint v2');
       expect(body.description).toBe('Details here');
+    });
+  });
+
+  it('renders tag chips on task cards', async () => {
+    const tasks = [
+      makeTask('t1', 'Tagged card', 'todo', [makeTag('tag-a', 'backend', '#2563eb')]),
+    ];
+    const { container } = renderBoard(tasks);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tagged card')).toBeTruthy();
+    });
+    const chip = container.querySelector('[data-tag-chip="backend"]');
+    expect(chip).toBeTruthy();
+    expect(chip?.textContent).toContain('backend');
+  });
+
+  it('tag filter control shows only tasks matching ANY selected tag; clear restores', async () => {
+    const a = makeTag('tag-a', 'frontend');
+    const b = makeTag('tag-b', 'backend');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+        if (typeof path === 'string' && path.endsWith('/tags') && init?.method === undefined) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve([a, b]),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve([]),
+        });
+      }),
+    );
+
+    renderBoard([
+      makeTask('t1', 'Frontend task', 'todo', [a]),
+      makeTask('t2', 'Backend task', 'todo', [b]),
+      makeTask('t3', 'Untagged task', 'todo'),
+    ]);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Filter by tag')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'frontend' }));
+    expect(screen.getByText('Frontend task')).toBeTruthy();
+    expect(screen.queryByText('Backend task')).toBeNull();
+    expect(screen.queryByText('Untagged task')).toBeNull();
+
+    // selecting a second tag widens the match (OR semantics)
+    fireEvent.click(screen.getByRole('button', { name: 'backend' }));
+    expect(screen.getByText('Frontend task')).toBeTruthy();
+    expect(screen.getByText('Backend task')).toBeTruthy();
+    expect(screen.queryByText('Untagged task')).toBeNull();
+
+    fireEvent.click(screen.getByText('Clear filter'));
+    expect(screen.getByText('Untagged task')).toBeTruthy();
+  });
+
+  it('adding a tag from the detail panel patches the full replacement set', async () => {
+    renderBoard([makeTask('t1', 'Tagged card', 'todo', [makeTag('tag-a', 'backend')])]);
+
+    fireEvent.click(screen.getByText('Tagged card'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Task details')).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByLabelText('Tags'), { target: { value: 'urgent' } });
+    fireEvent.click(screen.getByText('Add tag'));
+
+    await waitFor(() => {
+      const patchCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PATCH');
+      expect(patchCall).toBeTruthy();
+      const rawBody = patchCall?.[1]?.body;
+      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as { tags?: string[] };
+      expect(body.tags).toEqual(['backend', 'urgent']);
+    });
+  });
+
+  it('removing a tag from the detail panel patches the remaining set', async () => {
+    renderBoard([
+      makeTask('t1', 'Tagged card', 'todo', [makeTag('tag-a', 'backend'), makeTag('tag-b', 'urgent')]),
+    ]);
+
+    fireEvent.click(screen.getByText('Tagged card'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Task details')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByLabelText('Remove tag backend'));
+
+    await waitFor(() => {
+      const patchCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PATCH');
+      expect(patchCall).toBeTruthy();
+      const rawBody = patchCall?.[1]?.body;
+      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as { tags?: string[] };
+      expect(body.tags).toEqual(['urgent']);
     });
   });
 

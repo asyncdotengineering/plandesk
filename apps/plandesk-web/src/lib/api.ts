@@ -27,6 +27,14 @@ export type SerializedProjectDetail = SerializedProject & {
   summary: TaskStatusSummary;
 };
 
+export type SerializedTag = {
+  id: string;
+  project_id: string;
+  name: string;
+  color: string | null;
+  created_at: string;
+};
+
 export type SerializedTask = {
   id: string;
   project_id: string;
@@ -39,6 +47,8 @@ export type SerializedTask = {
   due_date: string | null;
   created_at: string;
   updated_at: string;
+  // Present on task endpoints; canvas nodes omit it.
+  tags?: SerializedTag[];
 };
 
 export type SerializedEdge = {
@@ -100,6 +110,8 @@ export type CreateTaskInput = {
   y?: number;
   assignee?: string | null;
   due_date?: string | null;
+  // Sets the task's tags by name; unknown names are auto-created.
+  tags?: string[];
 };
 
 export type PatchTaskInput = {
@@ -110,6 +122,18 @@ export type PatchTaskInput = {
   y?: number;
   assignee?: string | null;
   due_date?: string | null;
+  // Replaces the task's FULL tag set by name; unknown names are auto-created.
+  tags?: string[];
+};
+
+export type CreateTagInput = {
+  name: string;
+  color?: string | null;
+};
+
+export type PatchTagInput = {
+  name?: string;
+  color?: string | null;
 };
 
 export type PatchProjectInput = {
@@ -228,6 +252,27 @@ export function patchTask(id: string, input: PatchTaskInput): Promise<Serialized
 
 export function deleteTask(id: string): Promise<void> {
   return request(`/tasks/${id}`, { method: 'DELETE' });
+}
+
+export function listTags(projectId: string): Promise<SerializedTag[]> {
+  return request(`/projects/${projectId}/tags`);
+}
+
+export function createTag(projectId: string, input: CreateTagInput): Promise<SerializedTag> {
+  return request(`/projects/${projectId}/tags`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+// Renaming propagates to every task carrying the tag (single tag row).
+export function patchTag(id: string, input: PatchTagInput): Promise<SerializedTag> {
+  return request(`/tags/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+// Deleting a tag removes it from all its tasks (cascade on the join table).
+export function deleteTag(id: string): Promise<void> {
+  return request(`/tags/${id}`, { method: 'DELETE' });
 }
 
 export function patchProject(id: string, input: PatchProjectInput): Promise<SerializedProject> {
