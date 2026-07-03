@@ -61,6 +61,7 @@ describe('runFactoryInit', () => {
 
     const expected = [
       '.agents/index.md',
+      '.agents/factory/workflow.md',
       '.agents/factory/factory.md',
       '.agents/factory/protocol.md',
       '.agents/factory/lanes.md',
@@ -78,6 +79,10 @@ describe('runFactoryInit', () => {
       expect(existsSync(join(repo, rel)), rel).toBe(true);
     }
     expect(result.artifacts.every((a) => a.action === 'create')).toBe(true);
+
+    const workflowDoc = readFileSync(join(repo, '.agents/factory/workflow.md'), 'utf8');
+    expect(workflowDoc.startsWith('---\ntype: workflow\n')).toBe(true);
+    expect(workflowDoc).toContain('shipped default');
 
     const factoryDoc = readFileSync(join(repo, '.agents/factory/factory.md'), 'utf8');
     expect(factoryDoc.startsWith('---\ntype: factory\n')).toBe(true);
@@ -152,7 +157,7 @@ describe('buildFactoryArtifacts', () => {
     const repo = makeTempDir('plandesk-factory-');
     const artifacts = buildFactoryArtifacts(repo);
     expect(existsSync(join(repo, '.agents'))).toBe(false);
-    expect(artifacts.length).toBeGreaterThanOrEqual(12);
+    expect(artifacts.length).toBeGreaterThanOrEqual(13);
   });
 });
 

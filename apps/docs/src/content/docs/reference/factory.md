@@ -17,6 +17,7 @@ Agent config written into global directories (`~/.claude`, `~/.codex`) leaks int
 .agents/
 ├─ index.md                    # progressive disclosure: what lives here
 └─ factory/
+   ├─ workflow.md              # the orchestrator's session program (type: workflow)
    ├─ factory.md               # the contract: how a work cycle runs (type: factory)
    ├─ protocol.md              # deterministic dispatch + result contract (type: protocol)
    ├─ workers/                 # one file per worker CLI (type: worker)
@@ -35,7 +36,7 @@ Agent config written into global directories (`~/.claude`, `~/.codex`) leaks int
 
 Two zones with different ownership:
 
-- **Authored policy** (`index.md`, `factory.md`, `protocol.md`, `workers/*`, `lanes.md`, `verifiers/*`) — scaffolded **once**, then yours. Re-running `factory init` never overwrites them (`skip` in the summary). Edit them, commit them; they are the repository's operating policy.
+- **Authored policy** (`index.md`, `workflow.md`, `factory.md`, `protocol.md`, `workers/*`, `lanes.md`, `verifiers/*`) — scaffolded **once**, then yours. Re-running `factory init` never overwrites them (`skip` in the summary). Edit them, commit them; they are the repository's operating policy.
 - **Generated adapters** (`.claude/commands/factory.md`, `.codex/commands/factory.md`) — one-line includes, refreshed on every run.
 - **Transient state** (`factory/runs/`) — machine output such as `metrics.jsonl`; gitignored by the scaffold.
 
@@ -151,6 +152,15 @@ Releasing a task (`scope` → `todo`) works two ways today:
 - **Agents** technically can call `update_task` with `status: "todo"` — the API does not restrict transitions. The enforcement in the current design is at *read* time: `get_next_task` never returns unreleased work, and the factory contract instructs the supervisor to treat release as human-owned.
 
 In other words: the release gate is mechanism-enforced for *pulling* work and convention-enforced for *promoting* it. If your policy needs hard human-only release (e.g. regulated repos), keep `update_task`-driven promotion out of your supervisor's contract — and watch the changelog: token-scoped transition rules are a candidate hardening.
+
+## The workflow vs. the contract
+
+Two layers, deliberately separate:
+
+- **`workflow.md` — the session program.** What an orchestrating agent does from "work on this repo" to the final report: orient (reconcile the board, read comments), intake (scaffold a plan, assign lanes, stop at the release gate), execute (loop the cycle), finish (report, leave the board true). This is a **shipped default that you are expected to rewrite** — different repos work differently, and this file is where that difference lives.
+- **`factory.md` — the per-item contract.** What one work cycle must do and what counts as done. Stable across most repos.
+
+The always-on agent conventions (`.plandesk/skill.md`, included from the repo's `CLAUDE.md`) carry a one-line pointer: *if `workflow.md` exists, follow it when executing the plan* — so orchestrators discover the program without its full text riding into every session. The `/factory` command loads both files on demand.
 
 ## The cycle
 
