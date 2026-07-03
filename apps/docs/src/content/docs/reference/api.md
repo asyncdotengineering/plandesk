@@ -53,16 +53,21 @@ description: REST endpoints and MCP tools exposed by Plan Desk v1.
 | `create_project`             | Create a new project                                 |
 | `scaffold_project_from_plan` | Create a project + tasks + edges + docs in one call  |
 | `get_next_task`              | Next actionable `todo` task (prerequisites all done) |
-| `create_task`                | Add canvas node + task row                           |
-| `update_task`                | Status, label, description, position                 |
+| `create_task`                | Add canvas node + task row (optional `tags`)         |
+| `update_task`                | Status, label, description, position, `tags` (replaces set) |
+| `get_task`                   | Fetch a single task by id                            |
+| `list_tasks`                 | Project tasks, filterable by status and tags (OR)    |
 | `create_document`            | Markdown body; optional link to task                 |
 | `update_document`            | Patch title/body/status line                         |
 | `get_document`               | Fetch a document by id                               |
-| `list_documents`             | Project documents as a tree                          |
+| `list_documents`             | Project documents as a tree; filter by `folder_id`   |
+| `create_folder`              | Create a document folder (optionally nested)         |
+| `update_folder`              | Rename / re-parent a folder (cycles rejected)        |
 | `create_note`                | Create a free-form project note (Markdown body)      |
 | `update_note`                | Patch a note's title or body                         |
 | `get_note`                   | Fetch a note by id                                   |
 | `list_notes`                 | Project working notes                                |
+| `list_tags`                  | Project tags (id, name, color)                       |
 | `create_edge`                | Labeled dependency between tasks                     |
 | `list_comments`              | Open (or all) document comments for a project        |
 | `add_comment`                | Leave a comment on a document                        |
@@ -76,7 +81,7 @@ description: REST endpoints and MCP tools exposed by Plan Desk v1.
 | `list_submissions`           | List pulled submissions (triage inbox)               |
 | `triage_submission`          | Accept a submission → real task (or reject)          |
 
-27 tools in total. The last five are the [collaboration tier](/reference/collaboration/) — sharing a project with a client or team. At session start, list tools before calling them. Resolve the project from `.plandesk/config.json` when present — do not guess IDs. To stand up a whole plan at once use `scaffold_project_from_plan`; to execute it, loop `get_next_task` → `update_task`. There is no delete tool by design — resolve comments rather than deleting them.
+32 tools in total. The last five are the [collaboration tier](/reference/collaboration/) — sharing a project with a client or team. At session start, list tools before calling them. Resolve the project from `.plandesk/config.json` when present — do not guess IDs. To stand up a whole plan at once use `scaffold_project_from_plan`; to execute it, loop `get_next_task` → `update_task`. There is no delete tool by design — resolve comments rather than deleting them.
 
 ### Error cases
 

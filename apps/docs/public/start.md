@@ -6,7 +6,7 @@ plan work on a graph and have an agent execute it over MCP — then hand off to 
 fresh session where the Plan Desk tools are live.
 
 Plan Desk is a local-first planning workspace: a flow canvas of task nodes with
-labeled dependency edges, specs attached to nodes, a board, and an MCP server (29
+labeled dependency edges, specs attached to nodes, a board, and an MCP server (32
 tools) agents use to read and update the plan. Data lives in a local SQLite file.
 Docs: https://plandesk.asyncdot.com — or, once the CLI is installed (step 2), run
 `plandesk help` for a crash course and the exact docs to read.
@@ -158,7 +158,7 @@ Confirm all of:
 Setup is done. Tell the user, verbatim:
 
 > Plan Desk is connected to this repo. **Start a new agent session here** so the Plan
-> Desk MCP tools load (you'll see 29 tools). The token is read from
+> Desk MCP tools load (you'll see 32 tools). The token is read from
 > `.plandesk/token` automatically — no export needed.
 > Anytime, run `plandesk help` for a refresher and the docs worth reading.
 
