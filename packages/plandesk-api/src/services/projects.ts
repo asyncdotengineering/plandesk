@@ -1,5 +1,6 @@
 import {
   clearDocumentParentRefsByProject,
+  clearFolderParentRefsByProject,
   createDocument,
   createEdge,
   createProject as dbCreateProject,
@@ -8,6 +9,7 @@ import {
   deleteAgentRunEventsByRunId,
   deleteCommentsByProjectId,
   deleteDocumentsByProjectId,
+  deleteFoldersByProjectId,
   deleteNotesByProjectId,
   deleteEdgesByProjectId,
   deleteShareSubmissionsByProjectId,
@@ -202,6 +204,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
         clearDocumentParentRefsByProject(tx, id);
         deleteCommentsByProjectId(tx, id);
         deleteDocumentsByProjectId(tx, id);
+        clearFolderParentRefsByProject(tx, id);
+        deleteFoldersByProjectId(tx, id);
         deleteNotesByProjectId(tx, id);
         deleteTasksByProjectId(tx, id);
         deleteShareSubmissionsByProjectId(tx, id);
