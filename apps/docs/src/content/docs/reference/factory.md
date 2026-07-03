@@ -160,6 +160,8 @@ Two layers, deliberately separate:
 - **`workflow.md` — the session program.** What an orchestrating agent does from "work on this repo" to the final report: orient (reconcile the board, read comments), intake (scaffold a plan, assign lanes, stop at the release gate), execute (loop the cycle), finish (report, leave the board true). This is a **shipped default that you are expected to rewrite** — different repos work differently, and this file is where that difference lives.
 - **`factory.md` — the per-item contract.** What one work cycle must do and what counts as done. Stable across most repos.
 
+`workflow.md` is yours after the scaffold — `factory init` never overwrites it. Common edits: a different intake ritual, extra finishing passes (lint or review commands), a repo-specific definition of done, cadence notes for scheduled runs.
+
 The always-on agent conventions (`.plandesk/skill.md`, included from the repo's `CLAUDE.md`) carry a one-line pointer: *if `workflow.md` exists, follow it when executing the plan* — so orchestrators discover the program without its full text riding into every session. The `/factory` command loads both files on demand.
 
 ## The cycle

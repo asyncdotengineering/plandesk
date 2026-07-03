@@ -41,7 +41,7 @@ Harness-neutral agent artifacts for this repository, discovered by path.
 Consumers must tolerate unknown types, unknown frontmatter keys, and links to
 not-yet-written files.
 
-- [factory/workflow.md](factory/workflow.md) - the orchestrator's session program (shipped default; edit it)
+- [factory/workflow.md](factory/workflow.md) - the orchestrator's session program (shipped default)
 - [factory/factory.md](factory/factory.md) - the factory contract: how delegated agent work cycles run here
 - [factory/protocol.md](factory/protocol.md) - the deterministic dispatch + result contract for worker CLIs
 - [factory/workers/](factory/workers/) - one file per worker: probe (is it installed?) + command template
@@ -262,12 +262,12 @@ type: workflow
 version: 1
 ---
 
-# Orchestrator workflow (shipped default — edit me)
+# Orchestrator workflow
 
 The session program for an agent asked to work this repository: what happens
 from "work on this repo" to the final report. [factory.md](factory.md) governs
-each work item; this file governs the session. It is a shipped default —
-rewrite it to fit how this repository actually works.
+each work item; this file governs the session. Shipped default — this file is
+owned by the repository (see the Factory workspace docs for customizing).
 
 ## 1. Orient
 
@@ -295,12 +295,6 @@ rewrite it to fit how this repository actually works.
 
 - \`complete_agent_run\`. Report at diff level: what shipped, what is gated on
   a human, what failed and why. Leave the board true.
-
-## Customizing
-
-This file is yours — \`factory init\` never overwrites it. Common edits: a
-different intake ritual, extra finishing passes (lint, review commands), a
-repo-specific definition of done, cadence notes for scheduled runs.
 `;
 }
 

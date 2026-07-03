@@ -82,7 +82,7 @@ describe('runFactoryInit', () => {
 
     const workflowDoc = readFileSync(join(repo, '.agents/factory/workflow.md'), 'utf8');
     expect(workflowDoc.startsWith('---\ntype: workflow\n')).toBe(true);
-    expect(workflowDoc).toContain('shipped default');
+    expect(workflowDoc).toContain('Shipped default');
 
     const factoryDoc = readFileSync(join(repo, '.agents/factory/factory.md'), 'utf8');
     expect(factoryDoc.startsWith('---\ntype: factory\n')).toBe(true);
