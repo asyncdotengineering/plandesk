@@ -138,7 +138,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(29);
+      expect(names).toHaveLength(31);
       await client.close();
     });
   });
@@ -308,6 +308,151 @@ describe('createMcpApp', () => {
         documents: Array<{ id: string; title: string }>;
       };
       expect(listPayload.documents.some((entry) => entry.id === doc.id)).toBe(true);
+
+      await client.close();
+    });
+  });
+
+  it('create_folder, update_folder, and folder-aware documents work via MCP', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, eventBus }) => {
+      const received: PlankDeskEvent[] = [];
+      eventBus.subscribe((event) => {
+        received.push(event);
+      });
+
+      const client = await connectClient(baseUrl, token);
+
+      const createdFolder = await client.callTool({
+        name: 'create_folder',
+        arguments: { project_id: projectId, name: 'Specs' },
+      });
+      expect(createdFolder.isError).not.toBe(true);
+      const createdFolderContent = createdFolder.content as Array<{ type: string; text?: string }>;
+      const createdFolderText =
+        createdFolderContent[0]?.type === 'text' ? (createdFolderContent[0].text ?? '{}') : '{}';
+      const createdFolderPayload = JSON.parse(createdFolderText) as {
+        folder: { id: string; project_id: string; name: string; parent_folder_id: string | null };
+      };
+      expect(createdFolderPayload.folder.name).toBe('Specs');
+      expect(createdFolderPayload.folder.project_id).toBe(projectId);
+      expect(createdFolderPayload.folder.parent_folder_id).toBeNull();
+      expect(received.some((e) => e.type === 'folder_created')).toBe(true);
+      const folderId = createdFolderPayload.folder.id;
+
+      const createdChild = await client.callTool({
+        name: 'create_folder',
+        arguments: { project_id: projectId, name: 'Archive', parent_folder_id: folderId },
+      });
+      const createdChildContent = createdChild.content as Array<{ type: string; text?: string }>;
+      const createdChildText =
+        createdChildContent[0]?.type === 'text' ? (createdChildContent[0].text ?? '{}') : '{}';
+      const childPayload = JSON.parse(createdChildText) as {
+        folder: { id: string; parent_folder_id: string | null };
+      };
+      expect(childPayload.folder.parent_folder_id).toBe(folderId);
+      const childId = childPayload.folder.id;
+
+      const renamed = await client.callTool({
+        name: 'update_folder',
+        arguments: { folder_id: childId, name: 'Old specs' },
+      });
+      const renamedContent = renamed.content as Array<{ type: string; text?: string }>;
+      const renamedText =
+        renamedContent[0]?.type === 'text' ? (renamedContent[0].text ?? '{}') : '{}';
+      expect((JSON.parse(renamedText) as { folder: { name: string } }).folder.name).toBe(
+        'Old specs',
+      );
+      expect(received.some((e) => e.type === 'folder_updated')).toBe(true);
+
+      const cycle = await client.callTool({
+        name: 'update_folder',
+        arguments: { folder_id: folderId, parent_folder_id: childId },
+      });
+      expect(cycle.isError).toBe(true);
+      const cycleContent = cycle.content as Array<{ type: string; text?: string }>;
+      const cycleText = cycleContent[0]?.type === 'text' ? (cycleContent[0].text ?? '{}') : '{}';
+      expect((JSON.parse(cycleText) as { error: string }).error).toBe('invalid_argument');
+
+      const createdDoc = await client.callTool({
+        name: 'create_document',
+        arguments: { project_id: projectId, title: 'In folder', folder_id: folderId },
+      });
+      expect(createdDoc.isError).not.toBe(true);
+      const createdDocContent = createdDoc.content as Array<{ type: string; text?: string }>;
+      const createdDocText =
+        createdDocContent[0]?.type === 'text' ? (createdDocContent[0].text ?? '{}') : '{}';
+      const docPayload = JSON.parse(createdDocText) as {
+        document: { id: string; folder_id: string | null };
+      };
+      expect(docPayload.document.folder_id).toBe(folderId);
+      const docId = docPayload.document.id;
+
+      await client.callTool({
+        name: 'create_document',
+        arguments: { project_id: projectId, title: 'At root' },
+      });
+
+      const filtered = await client.callTool({
+        name: 'list_documents',
+        arguments: { project_id: projectId, folder_id: folderId },
+      });
+      const filteredContent = filtered.content as Array<{ type: string; text?: string }>;
+      const filteredText =
+        filteredContent[0]?.type === 'text' ? (filteredContent[0].text ?? '{}') : '{}';
+      const filteredPayload = JSON.parse(filteredText) as {
+        documents: Array<{ id: string; title: string }>;
+      };
+      expect(filteredPayload.documents.map((entry) => entry.id)).toEqual([docId]);
+
+      const tree = await client.callTool({
+        name: 'list_documents',
+        arguments: { project_id: projectId },
+      });
+      const treeContent = tree.content as Array<{ type: string; text?: string }>;
+      const treeText = treeContent[0]?.type === 'text' ? (treeContent[0].text ?? '{}') : '{}';
+      const treePayload = JSON.parse(treeText) as {
+        documents: Array<{ title: string }>;
+        folders: Array<{
+          id: string;
+          name: string;
+          folders: Array<{ name: string }>;
+          documents: Array<{ id: string }>;
+        }>;
+      };
+      expect(treePayload.documents.some((entry) => entry.title === 'At root')).toBe(true);
+      const specsNode = treePayload.folders.find((entry) => entry.id === folderId);
+      expect(specsNode?.documents.map((entry) => entry.id)).toEqual([docId]);
+      expect(specsNode?.folders.map((entry) => entry.name)).toEqual(['Old specs']);
+
+      const moved = await client.callTool({
+        name: 'update_document',
+        arguments: { document_id: docId, folder_id: null },
+      });
+      const movedContent = moved.content as Array<{ type: string; text?: string }>;
+      const movedText = movedContent[0]?.type === 'text' ? (movedContent[0].text ?? '{}') : '{}';
+      expect(
+        (JSON.parse(movedText) as { document: { folder_id: string | null } }).document.folder_id,
+      ).toBeNull();
+
+      await client.close();
+    });
+  });
+
+  it('create_folder returns not_found for missing project and invalid_argument for blank name', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId }) => {
+      const client = await connectClient(baseUrl, token);
+
+      const missing = await client.callTool({
+        name: 'create_folder',
+        arguments: { project_id: '00000000-0000-4000-8000-000000009999', name: 'Orphan' },
+      });
+      expect(missing.isError).toBe(true);
+
+      const blank = await client.callTool({
+        name: 'create_folder',
+        arguments: { project_id: projectId, name: '   ' },
+      });
+      expect(blank.isError).toBe(true);
 
       await client.close();
     });

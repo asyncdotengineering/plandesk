@@ -33,6 +33,18 @@ type CommentUpdatedEvent = {
   projectId: string;
 };
 
+type FolderCreatedEvent = {
+  type: 'folder_created';
+  folderId: string;
+  projectId: string;
+};
+
+type FolderUpdatedEvent = {
+  type: 'folder_updated';
+  folderId: string;
+  projectId: string;
+};
+
 type NoteCreatedEvent = {
   type: 'note_created';
   noteId: string;
@@ -69,6 +81,8 @@ type PlankDeskEvent =
   | DocumentCreatedEvent
   | CommentCreatedEvent
   | CommentUpdatedEvent
+  | FolderCreatedEvent
+  | FolderUpdatedEvent
   | NoteCreatedEvent
   | NoteUpdatedEvent
   | AgentRunStartedEvent
@@ -86,6 +100,8 @@ function isPlankDeskEvent(value: unknown): value is PlankDeskEvent {
     type === 'document_created' ||
     type === 'comment_created' ||
     type === 'comment_updated' ||
+    type === 'folder_created' ||
+    type === 'folder_updated' ||
     type === 'note_created' ||
     type === 'note_updated' ||
     type === 'agent_run_started' ||
@@ -133,6 +149,11 @@ export function useSseInvalidation() {
           void queryClient.invalidateQueries({
             queryKey: queryKeys.documentComments(event.documentId),
           });
+          break;
+        case 'folder_created':
+        case 'folder_updated':
+          void queryClient.invalidateQueries({ queryKey: queryKeys.folders(event.projectId) });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.documents(event.projectId) });
           break;
         case 'note_created':
         case 'note_updated':

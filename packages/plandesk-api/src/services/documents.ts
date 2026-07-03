@@ -5,17 +5,21 @@ import {
   detachDocumentChildren,
   getDocument as dbGetDocument,
   getDocumentByTask as dbGetDocumentByTask,
+  getFolderByProjectAndId,
   getProject,
   getTask,
   listDocuments as dbListDocuments,
+  listFolders as dbListFolders,
   updateDocument as dbUpdateDocument,
   type Db,
 } from '@plandesk/db';
 import {
   buildDocumentTree,
+  buildFolderTree,
   serializeDocument,
   type PaginationParams,
   type SerializedDocument,
+  type SerializedDocumentFolderTree,
   type SerializedDocumentTree,
 } from '../serialize.js';
 import type { EventBus } from '../events.js';
@@ -30,6 +34,7 @@ export type CreateDocumentInput = {
   body?: string | null;
   statusLine?: string | null;
   parentId?: string | null;
+  folderId?: string | null;
   linkedTaskId?: string | null;
 };
 
@@ -38,6 +43,7 @@ export type UpdateDocumentInput = {
   body?: string | null;
   statusLine?: string | null;
   parentId?: string | null;
+  folderId?: string | null;
   linkedTaskId?: string | null;
 };
 
@@ -62,6 +68,12 @@ function assertParentInProject(db: Db, projectId: string, parentId: string): voi
   }
 }
 
+function assertFolderInProject(db: Db, projectId: string, folderId: string): void {
+  if (!getFolderByProjectAndId(db, projectId, folderId)) {
+    throw new InvalidDocumentError('Folder does not belong to project');
+  }
+}
+
 export function createDocumentService(deps: DocumentServiceDeps) {
   const { db, eventBus } = deps;
 
@@ -75,6 +87,25 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         return undefined;
       }
       return buildDocumentTree(dbListDocuments(db, projectId, pagination));
+    },
+
+    listFolderTree(projectId: string): SerializedDocumentFolderTree | undefined {
+      const project = getProject(db, projectId);
+      if (!project) {
+        return undefined;
+      }
+      return buildFolderTree(dbListFolders(db, projectId), dbListDocuments(db, projectId));
+    },
+
+    listByFolder(projectId: string, folderId: string): SerializedDocumentTree[] | undefined {
+      const project = getProject(db, projectId);
+      if (!project) {
+        return undefined;
+      }
+      if (!getFolderByProjectAndId(db, projectId, folderId)) {
+        return undefined;
+      }
+      return buildDocumentTree(dbListDocuments(db, projectId, { folderId }));
     },
 
     create(projectId: string, input: CreateDocumentInput): SerializedDocument | undefined {
@@ -91,12 +122,17 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         assertParentInProject(db, projectId, input.parentId);
       }
 
+      if (input.folderId !== undefined && input.folderId !== null) {
+        assertFolderInProject(db, projectId, input.folderId);
+      }
+
       const document = dbCreateDocument(db, {
         projectId,
         title: input.title,
         body: input.body,
         statusLine: input.statusLine,
         parentId: input.parentId,
+        folderId: input.folderId,
         linkedTaskId: input.linkedTaskId,
       });
 
@@ -132,6 +168,10 @@ export function createDocumentService(deps: DocumentServiceDeps) {
           throw new InvalidDocumentError('Document cannot be its own parent');
         }
         assertParentInProject(db, existing.projectId, input.parentId);
+      }
+
+      if (input.folderId !== undefined && input.folderId !== null) {
+        assertFolderInProject(db, existing.projectId, input.folderId);
       }
 
       const document = dbUpdateDocument(db, id, input);

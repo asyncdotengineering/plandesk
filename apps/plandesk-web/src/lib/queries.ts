@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createComment,
   createDocument,
+  createFolder,
   createMcpToken,
   createNote,
   createProject,
@@ -9,6 +10,7 @@ import {
   deleteComment,
   deleteDocument,
   deleteEdge,
+  deleteFolder,
   deleteNote,
   deleteProject,
   deleteTask,
@@ -20,12 +22,14 @@ import {
   listAgentRuns,
   listDocumentComments,
   listDocuments,
+  listFolders,
   listMcpTokens,
   listNotes,
   listProjects,
   listTasks,
   patchComment,
   patchDocument,
+  patchFolder,
   patchNote,
   patchProject,
   patchTask,
@@ -33,11 +37,13 @@ import {
   revokeMcpToken,
   type CreateCommentInput,
   type CreateDocumentInput,
+  type CreateFolderInput,
   type CreateNoteInput,
   type CreateProjectInput,
   type CreateTaskInput,
   type PatchCommentInput,
   type PatchDocumentInput,
+  type PatchFolderInput,
   type PatchNoteInput,
   type PatchProjectInput,
   type PatchTaskInput,
@@ -53,6 +59,7 @@ export const queryKeys = {
   canvas: (projectId: string) => ['projects', projectId, 'canvas'] as const,
   documents: (projectId: string) => ['projects', projectId, 'documents'] as const,
   document: (id: string) => ['documents', id] as const,
+  folders: (projectId: string) => ['projects', projectId, 'folders'] as const,
   notes: (projectId: string) => ['projects', projectId, 'notes'] as const,
   note: (id: string) => ['notes', id] as const,
   documentComments: (documentId: string) => ['documents', documentId, 'comments'] as const,
@@ -209,6 +216,48 @@ export function useDeleteDocument() {
     mutationFn: ({ id }: { id: string; projectId: string }) => deleteDocument(id),
     onSuccess: (_result, { projectId }) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.documents(projectId) });
+    },
+  });
+}
+
+export function useFolders(projectId: string) {
+  return useQuery({
+    queryKey: queryKeys.folders(projectId),
+    queryFn: () => listFolders(projectId),
+  });
+}
+
+function invalidateFolderQueries(queryClient: ReturnType<typeof useQueryClient>, projectId: string) {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.folders(projectId) });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.documents(projectId) });
+}
+
+export function useCreateFolder(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateFolderInput) => createFolder(projectId, input),
+    onSuccess: () => {
+      invalidateFolderQueries(queryClient, projectId);
+    },
+  });
+}
+
+export function usePatchFolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: PatchFolderInput }) => patchFolder(id, input),
+    onSuccess: (folder) => {
+      invalidateFolderQueries(queryClient, folder.project_id);
+    },
+  });
+}
+
+export function useDeleteFolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string; projectId: string }) => deleteFolder(id),
+    onSuccess: (_result, { projectId }) => {
+      invalidateFolderQueries(queryClient, projectId);
     },
   });
 }

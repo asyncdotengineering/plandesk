@@ -42,6 +42,11 @@ export const createDocumentInputSchema = z.object({
   body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
   linked_task_id: z.string().uuid().optional(),
   parent_id: z.string().uuid().optional(),
+  folder_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('Folder to place the document in. Omit for the project root.'),
 });
 
 export const updateDocumentInputSchema = z.object({
@@ -49,6 +54,12 @@ export const updateDocumentInputSchema = z.object({
   title: z.string().optional(),
   body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
   status_line: z.string().optional(),
+  folder_id: z
+    .string()
+    .uuid()
+    .nullable()
+    .optional()
+    .describe('Move the document into a folder. Pass null to move it back to the project root.'),
 });
 
 export const getDocumentInputSchema = z.object({
@@ -57,6 +68,34 @@ export const getDocumentInputSchema = z.object({
 
 export const listDocumentsInputSchema = z.object({
   project_id: z.string().uuid(),
+  folder_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('Only list documents inside this folder. Omit for the full folder tree.'),
+});
+
+export const createFolderInputSchema = z.object({
+  project_id: z.string().uuid(),
+  name: z.string().min(1),
+  parent_folder_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('Parent folder for nesting. Omit to create the folder at the project root.'),
+});
+
+export const updateFolderInputSchema = z.object({
+  folder_id: z.string().uuid(),
+  name: z.string().min(1).optional(),
+  parent_folder_id: z
+    .string()
+    .uuid()
+    .nullable()
+    .optional()
+    .describe(
+      'Re-parent the folder. Pass null to move it to the project root. Re-parenting that would create a cycle is rejected.',
+    ),
 });
 
 export const createNoteInputSchema = z.object({
@@ -209,6 +248,8 @@ export const v1ToolNames = [
   'update_document',
   'get_document',
   'list_documents',
+  'create_folder',
+  'update_folder',
   'create_note',
   'update_note',
   'get_note',
@@ -243,6 +284,8 @@ export const v1ToolSchemas = {
   update_document: updateDocumentInputSchema,
   get_document: getDocumentInputSchema,
   list_documents: listDocumentsInputSchema,
+  create_folder: createFolderInputSchema,
+  update_folder: updateFolderInputSchema,
   create_note: createNoteInputSchema,
   update_note: updateNoteInputSchema,
   get_note: getNoteInputSchema,
