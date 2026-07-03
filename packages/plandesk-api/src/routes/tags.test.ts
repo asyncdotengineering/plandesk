@@ -186,9 +186,7 @@ describe('tags routes', () => {
     const orRes = await app.request(`/api/v1/projects/${project.id}/tasks?tag=a&tag=b`);
     expect(orRes.status).toBe(200);
     const orTasks = await parseJson<TaskResponse[]>(orRes);
-    expect(orTasks.map((task) => task.id).sort()).toEqual(
-      [hasA.id, hasB.id, hasBoth.id].sort(),
-    );
+    expect(orTasks.map((task) => task.id).sort()).toEqual([hasA.id, hasB.id, hasBoth.id].sort());
 
     const singleTasks = await parseJson<TaskResponse[]>(
       await app.request(`/api/v1/projects/${project.id}/tasks?tag=a`),

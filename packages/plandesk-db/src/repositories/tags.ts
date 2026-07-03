@@ -68,7 +68,10 @@ export function deleteTag(db: DbClient, id: string): boolean {
 export function deleteTagsByProjectId(db: DbClient, projectId: string): number {
   db.delete(taskTags)
     .where(
-      inArray(taskTags.tagId, db.select({ id: tags.id }).from(tags).where(eq(tags.projectId, projectId))),
+      inArray(
+        taskTags.tagId,
+        db.select({ id: tags.id }).from(tags).where(eq(tags.projectId, projectId)),
+      ),
     )
     .run();
   const result = db.delete(tags).where(eq(tags.projectId, projectId)).run();
@@ -131,7 +134,11 @@ export function listTagsByTaskForProject(db: DbClient, projectId: string): Map<s
 }
 
 // OR semantics: a task matches when it carries ANY of the given tag names.
-export function taskIdsWithAnyTagName(db: DbClient, projectId: string, names: string[]): Set<string> {
+export function taskIdsWithAnyTagName(
+  db: DbClient,
+  projectId: string,
+  names: string[],
+): Set<string> {
   if (names.length === 0) {
     return new Set();
   }

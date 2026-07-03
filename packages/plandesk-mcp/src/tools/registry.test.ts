@@ -22,9 +22,9 @@ describe('tool registry tag schemas', () => {
   });
 
   it('create_task accepts an optional tags string array', () => {
-    expect(
-      createTaskInputSchema.safeParse({ project_id: PROJECT_ID, label: 'T' }).success,
-    ).toBe(true);
+    expect(createTaskInputSchema.safeParse({ project_id: PROJECT_ID, label: 'T' }).success).toBe(
+      true,
+    );
     expect(
       createTaskInputSchema.safeParse({
         project_id: PROJECT_ID,
@@ -52,13 +52,13 @@ describe('tool registry tag schemas', () => {
     expect(
       listTasksInputSchema.safeParse({ project_id: PROJECT_ID, tags: ['a', 'b'] }).success,
     ).toBe(true);
-    expect(
-      listTasksInputSchema.safeParse({ project_id: PROJECT_ID, tags: {} }).success,
-    ).toBe(false);
+    expect(listTasksInputSchema.safeParse({ project_id: PROJECT_ID, tags: {} }).success).toBe(
+      false,
+    );
     expect(getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID }).success).toBe(true);
-    expect(
-      getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID, tags: ['a'] }).success,
-    ).toBe(true);
+    expect(getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID, tags: ['a'] }).success).toBe(
+      true,
+    );
   });
 
   it('list_tags requires a project id', () => {
