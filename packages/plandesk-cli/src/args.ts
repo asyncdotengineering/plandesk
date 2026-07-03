@@ -139,6 +139,7 @@ export type ParsedArgs =
       dataDir?: string;
     }
   | { command: 'deploy'; target?: string }
+  | { command: 'factory'; subcommand: 'init'; repoDir?: string; print: boolean; force: boolean }
   | { command: 'help'; full: boolean }
   | { command: 'version' }
   | { command: 'unknown'; name: string };
@@ -361,6 +362,20 @@ export function parseArgs(argv: string[]): ParsedArgs {
     return { command: 'deploy', target: positional[1] };
   }
 
+  if (command === 'factory') {
+    const subcommand = positional[1];
+    if (subcommand === 'init') {
+      return {
+        command: 'factory',
+        subcommand: 'init',
+        repoDir: flagString(flags, 'repo'),
+        print: flags['print'] === true,
+        force: flags['force'] === true,
+      };
+    }
+    return { command: 'unknown', name: 'factory' };
+  }
+
   return { command: 'unknown', name: command };
 }
 
@@ -383,6 +398,7 @@ Usage:
   plandesk sync --watch [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk deploy [target]   # list deploy guides, or print one for your coding agent: plandesk deploy cloudflare | claude
+  plandesk factory init [--repo <dir>] [--print] [--force]
   plandesk version           # print the installed CLI version (also: --version)
 
 Options:
@@ -396,7 +412,8 @@ Options:
   --url       Plan Desk server URL for connect (default: http://127.0.0.1:${String(DEFAULT_PORT)})
   --token     MCP token for connect
   --agent     Agent config target for connect (default: detect)
-  --print     Dry-run connect without writing files
+  --print     Dry-run connect / factory init without writing files
+  --force     (factory init) scaffold even in a global config directory
   --out       Output file for export
   --in        Input file for import
   --remote    Sync server URL for publish

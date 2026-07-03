@@ -11,6 +11,12 @@ import { runExport, ProjectNotFoundError } from './export.js';
 import { runImport, InvalidImportFileError } from './import.js';
 import { formatDoctorReport, runDoctor } from './doctor.js';
 import { ConnectError, formatConnectPrint, formatConnectSummary, runConnect } from './connect.js';
+import {
+  FactoryError,
+  formatFactoryInitPrint,
+  formatFactoryInitSummary,
+  runFactoryInit,
+} from './factory.js';
 import { formatDisconnectSummary, runDisconnect } from './disconnect.js';
 import { formatPublishSummary, runPublish } from './publish.js';
 import { formatPushSummary, runPush } from './push.js';
@@ -322,6 +328,25 @@ export async function main(argv: string[] = process.argv): Promise<number> {
         if (err instanceof DeploySpecUnavailableError) {
           process.stderr.write(`${err.message}\n`);
           return 1;
+        }
+        throw err;
+      }
+    }
+    case 'factory': {
+      try {
+        const result = runFactoryInit({
+          repoDir: resolveRepoDir(parsed.repoDir),
+          print: parsed.print,
+          force: parsed.force,
+        });
+        process.stdout.write(
+          parsed.print ? formatFactoryInitPrint(result) : formatFactoryInitSummary(result),
+        );
+        return 0;
+      } catch (err) {
+        if (err instanceof FactoryError) {
+          process.stderr.write(`${err.message}\n`);
+          return err.exitCode;
         }
         throw err;
       }

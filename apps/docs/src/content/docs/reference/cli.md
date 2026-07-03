@@ -22,6 +22,7 @@ plandesk import --in <file.json> [--data-dir <dir>]
 plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
 plandesk disconnect [--repo <dir>]
 plandesk doctor [--data-dir <dir>] [--repo <dir>]
+plandesk factory init [--repo <dir>] [--print] [--force]
 
 # Collaboration (share a project with a client or team)
 plandesk publish --remote <url> [--project <id>] [--sync-token <t>] [--repo <dir>]
@@ -44,6 +45,7 @@ plandesk deploy [target]
 | `export` / `import`      | Lossless `plandesk-export-v1` JSON round-trip                                                                            |
 | `connect` / `disconnect` | Bind / unbind a repo to a project + agent configs; re-run `connect` after upgrading to regenerate artifacts              |
 | `doctor`                 | Check DB health; with `--repo`, validate binding + MCP reachability                                                      |
+| `factory init`           | Scaffold the project-local `.agents/` factory workspace (policy files + command adapters); see [Factory workspace](/reference/factory/) |
 | `version`                | Print the installed CLI version (also `--version`); see [Upgrading](/reference/upgrading/)                              |
 
 ## Collaboration
@@ -75,7 +77,8 @@ Share a planned project with a client or another team over a read-only live port
 | `--url`         | from `server.json` → `workspace.json` → `http://127.0.0.1:3847` | Plan Desk server URL for connect  |
 | `--token`       | —                       | MCP token for connect                                                      |
 | `--agent`       | detect                  | Agent config target for connect                                            |
-| `--print`       | —                       | Dry-run connect without writing files                                      |
+| `--print`       | —                       | Dry-run connect / factory init without writing files                       |
+| `--force`       | —                       | `factory init` only: scaffold even in a global config directory            |
 | `--out`         | —                       | Output file for export                                                     |
 | `--in`          | —                       | Input file for import                                                      |
 

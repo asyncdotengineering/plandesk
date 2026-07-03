@@ -1,0 +1,1 @@
+../../../.plandesk/skill.md

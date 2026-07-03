@@ -17,6 +17,7 @@ import {
   buildSkillMarkdown,
   GITIGNORE_SERVER_INFO_LINE,
   GITIGNORE_TOKEN_LINE,
+  globalDirRefusalReason,
   mergeMcpJson,
   normalizeServerUrl,
   parseConfigJson,
@@ -238,7 +239,7 @@ function assertRebindAllowed(
   }
 }
 
-function resolveAgents(repoDir: string, agent: ConnectAgent): { claude: boolean; codex: boolean } {
+export function resolveAgents(repoDir: string, agent: ConnectAgent): { claude: boolean; codex: boolean } {
   if (agent === 'claude') {
     return { claude: true, codex: false };
   }
@@ -442,6 +443,13 @@ export function formatConnectSummary(result: ConnectResult): string {
 }
 
 export async function runConnect(options: ConnectOptions): Promise<ConnectResult> {
+  const globalRefusal = globalDirRefusalReason(options.repoDir);
+  if (globalRefusal !== undefined) {
+    throw new ConnectError(
+      `Refusing to connect ${globalRefusal}: connect writes CLAUDE.md includes and agent config that would leak into every project on this machine. Run from a project repository (or pass --repo <dir>).`,
+    );
+  }
+
   const serverUrl = normalizeServerUrl(options.url ?? resolveDefaultServerUrl(options.repoDir));
   const configPath = join(options.repoDir, '.plandesk', 'config.json');
   const existingConfigContent = readOptionalFile(configPath);

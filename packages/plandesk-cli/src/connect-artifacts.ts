@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { PLANDESK_SKILL_TEMPLATE } from './skill-template.js';
 
 export const PLANDESK_CONNECT_VERSION = 'plandesk-connect-v1';
@@ -42,6 +43,25 @@ export const SKILL_SYMLINK_TARGET = '../../../.plandesk/skill.md';
 
 export function buildSentinelBlock(): string {
   return `${SENTINEL_START}\n${SENTINEL_INCLUDE}\n${SENTINEL_END}`;
+}
+
+// Global agent-config directories: writing repo artifacts (CLAUDE.md includes,
+// .mcp.json, skills) directly into one of these leaks into every project on
+// the machine — e.g. ~/.claude/CLAUDE.md is Claude Code's *global* instructions.
+export const GLOBAL_CONFIG_DIR_NAMES = ['.claude', '.codex', '.agents', '.config', '.plandesk'] as const;
+
+export function globalDirRefusalReason(repoDir: string, home = homedir()): string | undefined {
+  const resolved = resolve(repoDir);
+  const resolvedHome = resolve(home);
+  if (resolved === resolvedHome) {
+    return 'your home directory';
+  }
+  for (const name of GLOBAL_CONFIG_DIR_NAMES) {
+    if (resolved === join(resolvedHome, name)) {
+      return `the global ${name} directory`;
+    }
+  }
+  return undefined;
 }
 
 export function normalizeServerUrl(url: string): string {
