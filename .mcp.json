@@ -2,7 +2,7 @@
   "mcpServers": {
     "plandesk": {
       "type": "http",
-      "url": "http://127.0.0.1:3401/mcp/",
+      "url": "http://127.0.0.1:3400/mcp/",
       "headersHelper": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.plandesk/token\" ]; do d=\"${d%/*}\"; [ -n \"$d\" ] || d=\"/\"; done; printf '{\"Authorization\":\"Bearer %s\"}' \"${PLANDESK_MCP_TOKEN:-$(cat \"$d/.plandesk/token\" 2>/dev/null)}\""
     }
   }
