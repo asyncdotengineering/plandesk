@@ -59,7 +59,17 @@ export type SerializedDocument = {
   body: string | null;
   status_line: string | null;
   parent_id: string | null;
+  folder_id: string | null;
   linked_task_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SerializedFolder = {
+  id: string;
+  project_id: string;
+  name: string;
+  parent_folder_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -122,6 +132,7 @@ export type CreateDocumentInput = {
   body?: string | null;
   status_line?: string | null;
   parent_id?: string | null;
+  folder_id?: string | null;
   linked_task_id?: string | null;
 };
 
@@ -130,7 +141,18 @@ export type PatchDocumentInput = {
   body?: string | null;
   status_line?: string | null;
   parent_id?: string | null;
+  folder_id?: string | null;
   linked_task_id?: string | null;
+};
+
+export type CreateFolderInput = {
+  name: string;
+  parent_folder_id?: string | null;
+};
+
+export type PatchFolderInput = {
+  name?: string;
+  parent_folder_id?: string | null;
 };
 
 export type SerializedNote = {
@@ -273,6 +295,28 @@ export function patchDocument(id: string, input: PatchDocumentInput): Promise<Se
 
 export function deleteDocument(id: string): Promise<void> {
   return request(`/documents/${id}`, { method: 'DELETE' });
+}
+
+export function listFolders(projectId: string): Promise<SerializedFolder[]> {
+  return request(`/projects/${projectId}/folders`);
+}
+
+export function createFolder(
+  projectId: string,
+  input: CreateFolderInput,
+): Promise<SerializedFolder> {
+  return request(`/projects/${projectId}/folders`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function patchFolder(id: string, input: PatchFolderInput): Promise<SerializedFolder> {
+  return request(`/folders/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function deleteFolder(id: string): Promise<void> {
+  return request(`/folders/${id}`, { method: 'DELETE' });
 }
 
 export function listNotes(projectId: string): Promise<SerializedNote[]> {

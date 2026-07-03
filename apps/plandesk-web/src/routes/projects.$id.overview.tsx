@@ -1,10 +1,12 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { taskStatuses } from '../lib/api.js';
+import { DocumentsPanel } from '../components/docs/DocumentsPanel.js';
 import {
   useCreateDocument,
   useDeleteProject,
   useDocuments,
+  useFolders,
   usePatchProject,
   useProject,
   useTasks,
@@ -41,6 +43,7 @@ function ProjectOverviewPage() {
   const { data: project, isLoading, error } = useProject(id);
   const { data: tasks } = useTasks(id);
   const { data: documents } = useDocuments(id);
+  const { data: folders } = useFolders(id);
   const patchProject = usePatchProject();
   const deleteProject = useDeleteProject();
   const createDocument = useCreateDocument(id);
@@ -222,24 +225,14 @@ function ProjectOverviewPage() {
         </button>
       </div>
 
-      {documents !== undefined && documents.length > 0 ? (
-        <>
-          <h2 style={{ fontSize: '1rem' }}>Documents</h2>
-          <ul style={{ listStyle: 'none', padding: 0, marginBottom: '1.5rem' }}>
-            {documents.map((doc) => (
-              <li key={doc.id} style={{ padding: '0.375rem 0' }}>
-                <Link
-                  to="/projects/$id/documents/$docId"
-                  params={{ id, docId: doc.id }}
-                  style={{ color: '#1a56db', textDecoration: 'none' }}
-                >
-                  {doc.title}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : null}
+      <DocumentsPanel
+        projectId={id}
+        documents={documents ?? []}
+        folders={folders ?? []}
+        onOpenDocument={(docId) => {
+          void navigate({ to: '/projects/$id/documents/$docId', params: { id, docId } });
+        }}
+      />
 
       <h2 style={{ fontSize: '1rem' }}>Task status summary</h2>
       <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '0.5rem' }}>
