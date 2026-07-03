@@ -17,6 +17,7 @@ import { createGetNextTaskHandler } from './tools/get-next-task.js';
 import { createGetProjectHandler } from './tools/get-project.js';
 import { createGetTaskHandler } from './tools/get-task.js';
 import { createListTasksHandler } from './tools/list-tasks.js';
+import { createListTagsHandler } from './tools/list-tags.js';
 import { createListCommentsHandler } from './tools/list-comments.js';
 import { createListDocumentsHandler } from './tools/list-documents.js';
 import { createListProjectsHandler } from './tools/list-projects.js';
@@ -37,6 +38,7 @@ import {
   getDocumentInputSchema,
   getTaskInputSchema,
   listTasksInputSchema,
+  listTagsInputSchema,
   createNoteInputSchema,
   updateNoteInputSchema,
   getNoteInputSchema,
@@ -119,7 +121,8 @@ function createMcpServer(services: Services): McpServer {
     'create_task',
     {
       title: 'Create Task',
-      description: 'Create a canvas node and task row',
+      description:
+        'Create a canvas node and task row. Optional `tags` sets the task tags by name; tags that do not exist yet in the project are auto-created.',
       inputSchema: createTaskInputSchema.shape,
     },
     createCreateTaskHandler(services.taskService),
@@ -129,7 +132,8 @@ function createMcpServer(services: Services): McpServer {
     'update_task',
     {
       title: 'Update Task',
-      description: 'Update task status, label, description, or position',
+      description:
+        'Update task status, label, description, position, or tags. `tags` REPLACES the full tag set (auto-creating tags by name that do not exist yet; [] clears all tags); omit it to leave tags unchanged.',
       inputSchema: updateTaskInputSchema.shape,
     },
     createUpdateTaskHandler(services.taskService),
@@ -278,7 +282,8 @@ function createMcpServer(services: Services): McpServer {
     'get_next_task',
     {
       title: 'Get Next Task',
-      description: 'Return the next actionable todo task whose prerequisites are all done',
+      description:
+        'Return the next actionable todo task whose prerequisites are all done. Optional `tags` filter uses OR semantics (only tasks carrying ANY of the given tags are considered); prerequisite completion is still evaluated against all tasks.',
       inputSchema: getNextTaskInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
@@ -301,11 +306,22 @@ function createMcpServer(services: Services): McpServer {
     {
       title: 'List Tasks',
       description:
-        'List all tasks for a project, optionally filtered by status. Use this to reconcile the board against reality.',
+        'List all tasks for a project, optionally filtered by status and/or tags. The `tags` filter uses OR semantics: a task matches if it carries ANY of the given tag names. Use this to reconcile the board against reality.',
       inputSchema: listTasksInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
     createListTasksHandler(services.taskService),
+  );
+
+  server.registerTool(
+    'list_tags',
+    {
+      title: 'List Tags',
+      description: 'List the tags of a project (name, optional color) for labeling tasks',
+      inputSchema: listTagsInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListTagsHandler(services.tagService),
   );
 
   server.registerTool(
