@@ -69,7 +69,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
     const edgeRows = listEdges(db, projectId);
 
     return {
-      nodes: tasks.map(serializeTask),
+      nodes: tasks.map((task) => serializeTask(task)),
       edges: edgeRows.map(serializeEdge),
       layout: serializeLayout(project.canvasLayout),
     };

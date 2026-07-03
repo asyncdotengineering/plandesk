@@ -22,6 +22,19 @@ export function groupTasksByStatus(tasks: SerializedTask[]): Record<TaskStatus, 
   return grouped;
 }
 
+// Multi-tag filter uses OR semantics: a task matches when it carries ANY of
+// the selected tags. An empty selection shows every task.
+export function filterTasksByAnyTag(
+  tasks: SerializedTask[],
+  selectedTagIds: string[],
+): SerializedTask[] {
+  if (selectedTagIds.length === 0) {
+    return tasks;
+  }
+  const selected = new Set(selectedTagIds);
+  return tasks.filter((task) => (task.tags ?? []).some((tag) => selected.has(tag.id)));
+}
+
 export function resolveDropStatus(
   overId: string | number | undefined,
   tasksById: Map<string, SerializedTask>,

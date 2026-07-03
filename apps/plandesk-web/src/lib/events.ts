@@ -8,6 +8,11 @@ type TaskUpdatedEvent = {
   projectId: string;
 };
 
+type TagUpdatedEvent = {
+  type: 'tag_updated';
+  projectId: string;
+};
+
 type CanvasUpdatedEvent = {
   type: 'canvas_updated';
   projectId: string;
@@ -77,6 +82,7 @@ type AgentRunCompletedEvent = {
 
 type PlankDeskEvent =
   | TaskUpdatedEvent
+  | TagUpdatedEvent
   | CanvasUpdatedEvent
   | DocumentCreatedEvent
   | CommentCreatedEvent
@@ -96,6 +102,7 @@ function isPlankDeskEvent(value: unknown): value is PlankDeskEvent {
   const type = value.type;
   return (
     type === 'task_updated' ||
+    type === 'tag_updated' ||
     type === 'canvas_updated' ||
     type === 'document_created' ||
     type === 'comment_created' ||
@@ -134,8 +141,15 @@ export function useSseInvalidation() {
         case 'task_updated':
           void queryClient.invalidateQueries({ queryKey: queryKeys.project(event.projectId) });
           void queryClient.invalidateQueries({ queryKey: queryKeys.tasks(event.projectId) });
+          // task mutations can auto-create tags by name
+          void queryClient.invalidateQueries({ queryKey: queryKeys.tags(event.projectId) });
           void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(event.projectId) });
           void queryClient.invalidateQueries({ queryKey: queryKeys.taskDocument(event.taskId) });
+          break;
+        case 'tag_updated':
+          void queryClient.invalidateQueries({ queryKey: queryKeys.tags(event.projectId) });
+          // renames/deletes change the tag chips embedded in task payloads
+          void queryClient.invalidateQueries({ queryKey: queryKeys.tasks(event.projectId) });
           break;
         case 'canvas_updated':
           void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(event.projectId) });

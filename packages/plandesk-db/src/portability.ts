@@ -7,6 +7,7 @@ import { createEdge } from './repositories/edges.js';
 import { createFolder, listFolders } from './repositories/folders.js';
 import { createNote } from './repositories/notes.js';
 import { createProject, getProject, updateProject } from './repositories/projects.js';
+import { createTag, listTags, listTagsByTaskForProject, setTaskTags } from './repositories/tags.js';
 import { createTask } from './repositories/tasks.js';
 import { listAgentRunEvents } from './repositories/agent-run-events.js';
 import { listAgentRuns } from './repositories/agent-runs.js';
@@ -33,8 +34,16 @@ export type PlandeskExportV1Task = {
   y: number;
   assignee: string | null;
   due_date: string | null;
+  // Optional for backward compatibility with exports written before tags existed.
+  tag_ids?: string[];
   created_at?: string;
   updated_at?: string;
+};
+
+export type PlandeskExportV1Tag = {
+  id: string;
+  name: string;
+  color: string | null;
 };
 
 export type PlandeskExportV1Edge = {
@@ -87,6 +96,7 @@ export type PlandeskExportV1 = {
   version: typeof PLANDESK_EXPORT_VERSION;
   project: PlandeskExportV1Project;
   tasks: PlandeskExportV1Task[];
+  tags: PlandeskExportV1Tag[];
   edges: PlandeskExportV1Edge[];
   folders: PlandeskExportV1Folder[];
   documents: PlandeskExportV1Document[];
@@ -98,6 +108,8 @@ export type PlandeskExportInput = {
   version: string;
   project: PlandeskExportV1Project;
   tasks: PlandeskExportV1Task[];
+  // Optional for backward compatibility with exports written before tags existed.
+  tags?: PlandeskExportV1Tag[];
   edges: PlandeskExportV1Edge[];
   // Optional for backward compatibility with exports written before folders existed.
   folders?: PlandeskExportV1Folder[];
@@ -186,6 +198,8 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
   }
 
   const tasks = listTasks(db, projectId);
+  const tags = listTags(db, projectId);
+  const tagsByTask = listTagsByTaskForProject(db, projectId);
   const edges = listEdges(db, projectId);
   const folders = listFolders(db, projectId);
   const documents = listDocuments(db, projectId);
@@ -208,8 +222,14 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
       y: task.y,
       assignee: task.assignee,
       due_date: task.dueDate?.toISOString() ?? null,
+      tag_ids: (tagsByTask.get(task.id) ?? []).map((tag) => tag.id),
       created_at: task.createdAt.toISOString(),
       updated_at: task.updatedAt.toISOString(),
+    })),
+    tags: tags.map((tag) => ({
+      id: tag.id,
+      name: tag.name,
+      color: tag.color,
     })),
     edges: edges.map((edge) => ({
       id: edge.id,
@@ -259,6 +279,7 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
 
   return db.transaction((tx) => {
     const taskIdMap = new Map<string, string>();
+    const tagIdMap = new Map<string, string>();
     const edgeIdMap = new Map<string, string>();
     const folderIdMap = new Map<string, string>();
     const documentIdMap = new Map<string, string>();
@@ -266,6 +287,9 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
 
     for (const task of data.tasks) {
       taskIdMap.set(task.id, randomUUID());
+    }
+    for (const tag of data.tags ?? []) {
+      tagIdMap.set(tag.id, randomUUID());
     }
     for (const edge of data.edges) {
       edgeIdMap.set(edge.id, randomUUID());
@@ -300,6 +324,27 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
         assignee: task.assignee,
         dueDate: task.due_date ? new Date(task.due_date) : null,
       });
+    }
+
+    for (const tag of data.tags ?? []) {
+      createTag(tx, {
+        id: remapId(tagIdMap, tag.id) ?? tag.id,
+        projectId: project.id,
+        name: tag.name,
+        color: tag.color,
+      });
+    }
+
+    for (const task of data.tasks) {
+      const tagIds = task.tag_ids ?? [];
+      if (tagIds.length === 0) {
+        continue;
+      }
+      setTaskTags(
+        tx,
+        remapId(taskIdMap, task.id) ?? task.id,
+        tagIds.map((tagId) => remapId(tagIdMap, tagId) ?? tagId),
+      );
     }
 
     for (const edge of data.edges) {

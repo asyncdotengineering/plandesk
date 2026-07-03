@@ -138,7 +138,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(31);
+      expect(names).toHaveLength(32);
       await client.close();
     });
   });
@@ -644,6 +644,149 @@ describe('createMcpApp', () => {
         arguments: { project_id: '00000000-0000-4000-8000-000000009999' },
       });
       expect(result.isError).toBe(true);
+      await client.close();
+    });
+  });
+
+  it('create_task sets tags (auto-created by name), update_task replaces the full set, list_tags lists them', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, eventBus }) => {
+      const received: PlankDeskEvent[] = [];
+      eventBus.subscribe((event) => {
+        received.push(event);
+      });
+
+      const client = await connectClient(baseUrl, token);
+
+      const created = await client.callTool({
+        name: 'create_task',
+        arguments: { project_id: projectId, label: 'Tagged', tags: ['backend', 'urgent'] },
+      });
+      expect(created.isError).not.toBe(true);
+      const createdContent = created.content as Array<{ type: string; text?: string }>;
+      const createdText =
+        createdContent[0]?.type === 'text' ? (createdContent[0].text ?? '{}') : '{}';
+      const createdPayload = JSON.parse(createdText) as {
+        task: { id: string; tags: Array<{ id: string; name: string; color: string | null }> };
+      };
+      expect(createdPayload.task.tags.map((tag) => tag.name)).toEqual(['backend', 'urgent']);
+
+      const updated = await client.callTool({
+        name: 'update_task',
+        arguments: { task_id: createdPayload.task.id, tags: ['backend', 'api'] },
+      });
+      expect(updated.isError).not.toBe(true);
+      const updatedContent = updated.content as Array<{ type: string; text?: string }>;
+      const updatedText =
+        updatedContent[0]?.type === 'text' ? (updatedContent[0].text ?? '{}') : '{}';
+      const updatedPayload = JSON.parse(updatedText) as {
+        task: { tags: Array<{ name: string }> };
+      };
+      expect(updatedPayload.task.tags.map((tag) => tag.name)).toEqual(['api', 'backend']);
+
+      const listed = await client.callTool({
+        name: 'list_tags',
+        arguments: { project_id: projectId },
+      });
+      expect(listed.isError).not.toBe(true);
+      const listedContent = listed.content as Array<{ type: string; text?: string }>;
+      const listedText = listedContent[0]?.type === 'text' ? (listedContent[0].text ?? '{}') : '{}';
+      const listedPayload = JSON.parse(listedText) as {
+        tags: Array<{ name: string; project_id: string }>;
+      };
+      // replaced-away tags remain as project tags for reuse
+      expect(listedPayload.tags.map((tag) => tag.name)).toEqual(['api', 'backend', 'urgent']);
+      expect(listedPayload.tags[0]?.project_id).toBe(projectId);
+
+      expect(
+        received.some(
+          (event) => event.type === 'task_updated' && event.taskId === createdPayload.task.id,
+        ),
+      ).toBe(true);
+
+      await client.close();
+    });
+  });
+
+  it('list_tags returns not_found for missing project', async () => {
+    await withMcpServer(async ({ baseUrl, token }) => {
+      const client = await connectClient(baseUrl, token);
+      const result = await client.callTool({
+        name: 'list_tags',
+        arguments: { project_id: '00000000-0000-4000-8000-000000009999' },
+      });
+      expect(result.isError).toBe(true);
+      await client.close();
+    });
+  });
+
+  it('list_tasks and get_next_task tags filters use OR semantics', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, services }) => {
+      const frontend = services.taskService.create(projectId, {
+        label: 'Frontend',
+        tags: ['frontend'],
+      });
+      const backend = services.taskService.create(projectId, {
+        label: 'Backend',
+        tags: ['backend'],
+      });
+      services.taskService.create(projectId, { label: 'Untagged' });
+
+      const client = await connectClient(baseUrl, token);
+
+      const listed = await client.callTool({
+        name: 'list_tasks',
+        arguments: { project_id: projectId, tags: ['frontend', 'backend'] },
+      });
+      const listedContent = listed.content as Array<{ type: string; text?: string }>;
+      const listedText = listedContent[0]?.type === 'text' ? (listedContent[0].text ?? '{}') : '{}';
+      const listedPayload = JSON.parse(listedText) as { tasks: Array<{ id: string }> };
+      expect(listedPayload.tasks.map((task) => task.id).sort()).toEqual(
+        [frontend?.id, backend?.id].sort(),
+      );
+
+      const next = await client.callTool({
+        name: 'get_next_task',
+        arguments: { project_id: projectId, tags: ['backend'] },
+      });
+      const nextContent = next.content as Array<{ type: string; text?: string }>;
+      const nextText = nextContent[0]?.type === 'text' ? (nextContent[0].text ?? '{}') : '{}';
+      const nextPayload = JSON.parse(nextText) as {
+        next: { reason: string; next_task: { id: string } | null };
+      };
+      expect(nextPayload.next.reason).toBe('ok');
+      expect(nextPayload.next.next_task?.id).toBe(backend?.id);
+
+      const noMatch = await client.callTool({
+        name: 'get_next_task',
+        arguments: { project_id: projectId, tags: ['missing'] },
+      });
+      const noMatchContent = noMatch.content as Array<{ type: string; text?: string }>;
+      const noMatchText =
+        noMatchContent[0]?.type === 'text' ? (noMatchContent[0].text ?? '{}') : '{}';
+      const noMatchPayload = JSON.parse(noMatchText) as { next: { reason: string } };
+      expect(noMatchPayload.next.reason).toBe('no_todo_tasks');
+
+      await client.close();
+    });
+  });
+
+  it('create_task and update_task return invalid_argument for blank tag names', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+      const client = await connectClient(baseUrl, token);
+
+      const badCreate = await client.callTool({
+        name: 'create_task',
+        arguments: { project_id: projectId, label: 'Bad', tags: ['  '] },
+      });
+      expect(badCreate.isError).toBe(true);
+
+      const task = createTask(db, { projectId, label: 'Ok' });
+      const badUpdate = await client.callTool({
+        name: 'update_task',
+        arguments: { task_id: task.id, tags: [' '] },
+      });
+      expect(badUpdate.isError).toBe(true);
+
       await client.close();
     });
   });

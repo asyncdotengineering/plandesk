@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
-import { taskStatuses, tasks, type TaskStatus } from '../schema.js';
+import { tags, taskStatuses, taskTags, tasks, type TaskStatus } from '../schema.js';
 
 export type Task = typeof tasks.$inferSelect;
 
@@ -79,6 +79,8 @@ export function getTask(db: DbClient, id: string): Task | undefined {
 
 export type ListTasksOptions = {
   status?: TaskStatus;
+  // OR semantics: keep tasks carrying ANY of the given tag names.
+  tagNames?: string[];
   limit?: number;
   offset?: number;
 };
@@ -87,6 +89,18 @@ export function listTasks(db: DbClient, projectId: string, options?: ListTasksOp
   const conditions = [eq(tasks.projectId, projectId)];
   if (options?.status !== undefined) {
     conditions.push(eq(tasks.status, options.status));
+  }
+  if (options?.tagNames !== undefined && options.tagNames.length > 0) {
+    conditions.push(
+      inArray(
+        tasks.id,
+        db
+          .select({ taskId: taskTags.taskId })
+          .from(taskTags)
+          .innerJoin(tags, eq(taskTags.tagId, tags.id))
+          .where(and(eq(tags.projectId, projectId), inArray(tags.name, options.tagNames))),
+      ),
+    );
   }
   let query = db
     .select()

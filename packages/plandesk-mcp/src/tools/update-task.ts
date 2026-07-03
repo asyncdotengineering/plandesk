@@ -1,4 +1,4 @@
-import type { TaskService } from '@plandesk/api';
+import { InvalidTagError, type TaskService } from '@plandesk/api';
 import { InvalidTaskStatusError, type TaskStatus } from '@plandesk/db';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
@@ -11,6 +11,7 @@ export function createUpdateTaskHandler(
   description?: string;
   x?: number;
   y?: number;
+  tags?: string[];
 }) => ToolResult {
   return (args) => {
     try {
@@ -20,13 +21,14 @@ export function createUpdateTaskHandler(
         ...(args.description !== undefined ? { description: args.description } : {}),
         ...(args.x !== undefined ? { x: args.x } : {}),
         ...(args.y !== undefined ? { y: args.y } : {}),
+        ...(args.tags !== undefined ? { tags: args.tags } : {}),
       });
       if (!task) {
         return toolNotFound();
       }
       return toolSuccess('task', task);
     } catch (error) {
-      if (error instanceof InvalidTaskStatusError) {
+      if (error instanceof InvalidTaskStatusError || error instanceof InvalidTagError) {
         return toolInvalidArgument();
       }
       throw error;

@@ -7,6 +7,12 @@ const DOCUMENT_BODY_DESCRIPTION =
 const NOTE_BODY_DESCRIPTION =
   'Note body in Markdown (rendered as rich text). Notes are free-form working notes scoped to the project — use them for findings, context, or anything worth referring back to. HTML is also accepted.';
 
+const TAGS_SET_DESCRIPTION =
+  'Tag names to set on the task. Replaces the FULL tag set; tags that do not exist yet in the project are auto-created by name. Pass [] to remove all tags.';
+
+const TAGS_FILTER_DESCRIPTION =
+  'Optional tag-name filter with OR semantics: a task matches if it carries ANY of the given tags.';
+
 export const listProjectsInputSchema = z.object({});
 
 export const createProjectInputSchema = z.object({
@@ -25,6 +31,7 @@ export const createTaskInputSchema = z.object({
   description: z.string().optional(),
   x: z.number().optional(),
   y: z.number().optional(),
+  tags: z.array(z.string().min(1)).optional().describe(TAGS_SET_DESCRIPTION),
 });
 
 export const updateTaskInputSchema = z.object({
@@ -34,6 +41,7 @@ export const updateTaskInputSchema = z.object({
   description: z.string().optional(),
   x: z.number().optional(),
   y: z.number().optional(),
+  tags: z.array(z.string().min(1)).optional().describe(TAGS_SET_DESCRIPTION),
 });
 
 export const createDocumentInputSchema = z.object({
@@ -180,6 +188,7 @@ export const scaffoldProjectFromPlanInputSchema = z.object({
 
 export const getNextTaskInputSchema = z.object({
   project_id: z.string().uuid(),
+  tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
 });
 
 export const getTaskInputSchema = z.object({
@@ -189,6 +198,11 @@ export const getTaskInputSchema = z.object({
 export const listTasksInputSchema = z.object({
   project_id: z.string().uuid(),
   status: z.enum(taskStatuses).optional(),
+  tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
+});
+
+export const listTagsInputSchema = z.object({
+  project_id: z.string().uuid(),
 });
 
 export const listCommentsInputSchema = z.object({
@@ -262,6 +276,7 @@ export const v1ToolNames = [
   'get_next_task',
   'get_task',
   'list_tasks',
+  'list_tags',
   'list_comments',
   'add_comment',
   'resolve_comment',
@@ -298,6 +313,7 @@ export const v1ToolSchemas = {
   get_next_task: getNextTaskInputSchema,
   get_task: getTaskInputSchema,
   list_tasks: listTasksInputSchema,
+  list_tags: listTagsInputSchema,
   list_comments: listCommentsInputSchema,
   add_comment: addCommentInputSchema,
   resolve_comment: resolveCommentInputSchema,

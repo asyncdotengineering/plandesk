@@ -4,6 +4,7 @@ import { createAuthMiddleware } from './auth.js';
 import { healthRouter } from './routes/health.js';
 import { createProjectsRouter } from './routes/projects.js';
 import { createTasksRouter } from './routes/tasks.js';
+import { createTagsRouter } from './routes/tags.js';
 import { createCanvasRouter } from './routes/canvas.js';
 import { createCommentsRouter } from './routes/comments.js';
 import { createDocumentsRouter } from './routes/documents.js';
@@ -30,6 +31,7 @@ export function createApp(deps: AppDeps): Hono {
     eventBus,
     projectService,
     taskService,
+    tagService,
     canvasService,
     documentService,
     folderService,
@@ -48,6 +50,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', healthRouter);
   app.route('/api/v1', createProjectsRouter(projectService, taskService));
   app.route('/api/v1', createTasksRouter(taskService));
+  app.route('/api/v1', createTagsRouter(tagService));
   app.route('/api/v1', createCanvasRouter(canvasService));
   app.route('/api/v1', createDocumentsRouter(documentService));
   app.route('/api/v1', createFoldersRouter(folderService));

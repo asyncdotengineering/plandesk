@@ -6,6 +6,7 @@ export { createDb, type Db, type DbClient, type DbTx } from './client.js';
 export { migrate } from './migrate.js';
 export * from './repositories/projects.js';
 export * from './repositories/tasks.js';
+export * from './repositories/tags.js';
 export * from './repositories/edges.js';
 export * from './repositories/documents.js';
 export * from './repositories/folders.js';

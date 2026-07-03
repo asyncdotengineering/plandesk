@@ -7,6 +7,7 @@ import type {
   Folder,
   Note,
   Project,
+  Tag,
   Task,
   TaskStatus,
 } from '@plandesk/db';
@@ -66,7 +67,25 @@ export function serializeProjectDetail(project: Project, summary: TaskStatusSumm
   };
 }
 
-export function serializeTask(task: Task) {
+export type SerializedTag = {
+  id: string;
+  project_id: string;
+  name: string;
+  color: string | null;
+  created_at: string;
+};
+
+export function serializeTag(tag: Tag): SerializedTag {
+  return {
+    id: tag.id,
+    project_id: tag.projectId,
+    name: tag.name,
+    color: tag.color,
+    created_at: tag.createdAt.toISOString(),
+  };
+}
+
+export function serializeTask(task: Task, tags?: Tag[]) {
   return {
     id: task.id,
     project_id: task.projectId,
@@ -79,6 +98,7 @@ export function serializeTask(task: Task) {
     due_date: task.dueDate?.toISOString() ?? null,
     created_at: task.createdAt.toISOString(),
     updated_at: task.updatedAt.toISOString(),
+    ...(tags !== undefined ? { tags: tags.map(serializeTag) } : {}),
   };
 }
 
