@@ -65,6 +65,18 @@ command: codex exec --full-auto < {prompt_file}
 
 `protocol.md` defines the rest of the contract: briefs are written to `runs/brief-<task>.md`; the worker ends by writing `runs/result-<task>.json` (`status`, `claims` of commands run with exit codes, optional blocking `question`); the engine **re-runs the claimed commands** and treats exit codes as authoritative. A `done` with no claims — or a claim that doesn't reproduce — is a failed dispatch. Model output is metadata; no worker grades its own work.
 
+## Installing skills
+
+Plan Desk does not ship a skill installer — use the open ecosystem's CLI, which installs Agent Skills into the same `.agents/skills/` root this scaffold uses (and per-agent adapters for 70+ agents, Claude Code's `.claude/skills/` included):
+
+```bash
+npx skills add <owner>/<repo> --skill <name>   # install into this project
+npx skills find <keyword>                      # search skills.sh
+npx skills update                              # pull newer versions
+```
+
+Skills are portable by format (SKILL.md directories); commit the installed copies so they travel with the repo. One gap to mind: the installer does not check machine dependencies — a skill whose scripts need e.g. `ffmpeg` installs fine on a machine that lacks it. Declare such needs in the skill's frontmatter and verify them before relying on the skill.
+
 ## Verifiers
 
 A verifier is a fast, deterministic per-change check — one file per check under `factory/verifiers/`:
