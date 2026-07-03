@@ -1,6 +1,6 @@
 {
   "name": "@plandesk/sync-server",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "type": "module",
   "exports": {
     ".": {
@@ -33,7 +33,7 @@
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   },
-  "description": "Plan Desk hosted sync server — projection store and portal read endpoints.",
+  "description": "Plan Desk hosted sync server \u2014 projection store and portal read endpoints.",
   "license": "MIT",
   "author": "asyncdotengineering",
   "homepage": "https://plandesk.asyncdot.com",
