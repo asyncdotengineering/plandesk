@@ -81,6 +81,65 @@ enabled: true
 
 `command` runs from the repo root; exit code 0 means pass. The scaffold ships one example (`enabled: false`) so nothing runs until you point it at this repo's real gate.
 
+## Workflow at a glance
+
+```
+   HUMAN (board)          │        SUPERVISOR (agent session)      │   WORKER (IC)
+══════════════════════════╪════════════════════════════════════════╪═══════════════════
+                          │                                        │
+  drag scope ──► todo     │                                        │
+  ┌─────────────────┐     │                                        │
+  │  RELEASE GATE   │═════╪══► 1. get_next_task ◄──────────────┐   │
+  └─────────────────┘     │       (only unblocked todo;        │   │
+                          │        scope is invisible)         │   │
+                          │              ▼                     │   │
+                          │    2. read linked spec doc         │   │
+                          │              ▼                     │   │
+                          │    3. RED GATE: run check          │   │
+                          │       already green? ──────────────┼──► back to scope
+                          │              │ red ✓               │   │  + comment
+                          │              ▼                     │   │
+                          │    4. probe workers/*.md           │   │
+                          │       write runs/brief-<t>.md      │   │
+                          │       run cmd template ════════════╪══►│ does the work
+                          │              │                     │   │      ▼
+                          │              │                 ◄═══╪═══│ runs/result-<t>.json
+                          │              ▼                     │   │ {status, claims[]}
+                          │    5. PROVE: re-run every claim    │   │
+                          │       exit codes authoritative     │   │
+                          │       claim fails? ────────────────┼──► dispatch failed
+                          │              │ verified ✓          │   │
+                          │              ▼                     │   │
+                          │    6. OBSERVE: read the diff       │   │
+                          │              ▼                     │   │
+                          │    7. LANE GATE (lanes.md)         │   │
+                          │      ┌───────┼────────────┐        │   │
+                          │    auto   approve        full      │   │
+  resolve diff comment ◄──╪──────┼──────┘              │       │   │
+  ┌─────────────────┐     │      │              cross-family   │   │
+  │  APPROVE GATE   │═════╪══►   │              review + human │   │
+  └─────────────────┘     │      ▼                     ▼       │   │
+                          │    8. update_task ──► done         │   │
+                          │       append runs/metrics.jsonl    │   │
+                          │              └── next cycle ───────┘   │
+                          │                                        │
+  ┌─────────────────┐     │    loop until nothing actionable       │
+  │   MERGE GATE    │◄════╪═══  verified, reviewed branch          │
+  │  human ships it │     │                                        │
+  └─────────────────┘     │                                        │
+```
+
+Every human touchpoint is a board interaction (drag, resolve, merge), not a chat message. The worker column is stateless — a brief file in, a result file out — which is why any CLI on any machine can fill it. Both failure paths (green-at-start, unreproducible claim) route back through the board instead of dying silently in a session.
+
+## Who can release work?
+
+Releasing a task (`scope` → `todo`) works two ways today:
+
+- **Humans** drag the card between columns on the Board view (five columns: Scope, Todo, In progress, Done, Backlog) — the drop issues the status change, live for every connected agent within ~2s.
+- **Agents** technically can call `update_task` with `status: "todo"` — the API does not restrict transitions. The enforcement in the current design is at *read* time: `get_next_task` never returns unreleased work, and the factory contract instructs the supervisor to treat release as human-owned.
+
+In other words: the release gate is mechanism-enforced for *pulling* work and convention-enforced for *promoting* it. If your policy needs hard human-only release (e.g. regulated repos), keep `update_task`-driven promotion out of your supervisor's contract — and watch the changelog: token-scoped transition rules are a candidate hardening.
+
 ## The cycle
 
 `factory.md` documents the full loop; in short, a supervising agent session works the bound Plan Desk project:
