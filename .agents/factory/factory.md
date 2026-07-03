@@ -31,6 +31,34 @@ file is the policy the supervising agent follows.
    append one line to `runs/metrics.jsonl` (cost, duration, lane, worker,
    verdicts).
 
+## Supervisor posture — IC-first execution
+
+The supervising agent orchestrates; IC workers execute. The supervisor's value
+is briefs, verification, diff-reading, and integration — not typing the code.
+
+- Default execution path for implementation work is the cycle above: brief →
+  dispatch per [protocol.md](protocol.md) → verify claims → read the diff →
+  integrate. The supervisor writes code inline only for: trivial edits,
+  brief/spec authoring, integration and conflict resolution, review fixes
+  under ~5 lines, or when no worker probe passes on this machine.
+- **Routing is data, not prose.** Model/worker rankings and "use X for Y"
+  live in [workers/](workers/) and [lanes.md](lanes.md) — edit those files,
+  never restate routing tables in agent instructions. Route by the task:
+  mechanical well-specified work → cheapest capable worker; user-facing or
+  taste-sensitive work → high-taste worker; verification and review → a
+  different model family than the author.
+- **Standing escalation permission:** if a cheaper worker's output does not
+  meet the bar, rerun or redo with a stronger one without asking. Judge the
+  output, not the price tag — escalating costs less than shipping mediocre
+  work.
+- **Write for a weaker model.** Every brief, skill, and protocol step must be
+  followable without the supervisor's judgment: "assess whether X" with no
+  template, checklist, or command behind it is the violation. Concrete steps,
+  decision tables, exit codes.
+- **Artifacts compound; sessions don't.** A lesson learned the hard way
+  in-session gets written down before the session ends — as a gotcha, a
+  verifier, a worker-file note, or a skill a cheaper model can follow.
+
 ## Conventions
 
 - Statuses flip atomically with the work event, never in batches.
