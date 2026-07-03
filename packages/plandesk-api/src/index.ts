@@ -6,6 +6,7 @@ export { createServices, type Services, type ServicesDeps } from './services/ind
 export { createEventBus, type EventBus, type PlankDeskEvent } from './events.js';
 export type { ProjectService } from './services/projects.js';
 export type { TaskService } from './services/tasks.js';
+export type { TagService } from './services/tags.js';
 export type { CanvasService } from './services/canvas.js';
 export type { DocumentService } from './services/documents.js';
 export type { NoteService } from './services/notes.js';
@@ -13,6 +14,7 @@ export type { CommentService } from './services/comments.js';
 export type { AgentRunService } from './services/agent-runs.js';
 export { InvalidDocumentError } from './services/documents.js';
 export { InvalidNoteError } from './services/notes.js';
+export { InvalidTagError } from './services/tags.js';
 export { InvalidCommentError } from './services/comments.js';
 export { InvalidCanvasError } from './services/canvas.js';
 export { InvalidAgentRunError } from './services/agent-runs.js';
