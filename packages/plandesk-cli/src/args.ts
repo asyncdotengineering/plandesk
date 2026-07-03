@@ -3,7 +3,10 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 export const DEFAULT_PORT = 3847;
-export const DEFAULT_BIND_HOST = '0.0.0.0';
+// Loopback by default: a single-user local tool must not expose its token-gated
+// API to the whole LAN silently. LAN use is an explicit opt-in via --host or
+// PLANDESK_HOST (issue #5).
+export const DEFAULT_BIND_HOST = '127.0.0.1';
 export const WORKSPACE_DB = 'workspace.db';
 export const PLANDESK_DIR = '.plandesk';
 
@@ -407,7 +410,7 @@ Options:
   --port      HTTP port for serve (default: workspace.json port → ${String(DEFAULT_PORT)}; auto-rotates if busy)
   --strict-port  Fail instead of rotating when the serve port is in use
   --lan       (url) print the LAN-accessible URL instead of loopback
-  --host      Bind address (default: 0.0.0.0 — all interfaces; set PLANDESK_HOST to override)
+  --host      Bind address (default: 127.0.0.1 — loopback only; opt into LAN with --host 0.0.0.0 or PLANDESK_HOST)
   --project   Project id or name for connect/export
   --url       Plan Desk server URL for connect (default: http://127.0.0.1:${String(DEFAULT_PORT)})
   --token     MCP token for connect
@@ -431,7 +434,8 @@ WHAT IT IS
 
 GET STARTED
   npm i -g @plandesk/cli
-  plandesk init && plandesk serve            # UI at $(plandesk url) — port auto-assigned in 3400–3499
+  plandesk init && plandesk serve            # UI at $(plandesk url) — init assigns this project a port in
+                                             # 3400–3499; legacy workspaces without one fall back to 3847
   Then, from your project folder, paste into Claude Code or Codex:
     Read https://plandesk.asyncdot.com/start.md then set up Plan Desk for this project.
 

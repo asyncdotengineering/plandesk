@@ -531,10 +531,10 @@ describe('GET /meta', () => {
     expect(await res.json()).toEqual({ audience_name: 'Acme Corp', mode: 'invite' });
   });
 
-  it('returns 401 for invalid token', async () => {
+  it('returns 404 for an unknown share token', async () => {
     const { app } = await createTestApp();
     const res = await fetchShareMeta(app, generateShareToken());
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(404);
   });
 });
 

@@ -11,7 +11,17 @@ You are an AI coding agent deploying Plan Desk's **hosted sync tier** to the use
 
 This is the rendezvous tier only — it holds the curated projections the owner pushes, never the local source of truth. Read [the collaboration architecture](https://plandesk.asyncdot.com/reference/collaboration/) if you need the model.
 
-Work from the **repo root**. Run steps in order. Do not skip the verification step.
+Work from the **repo root of a Plan Desk source checkout**. If the user only has the global CLI (`npm i -g @plandesk/cli`), the deploy assets (`packages/plandesk-sync-server/`, `apps/plandesk-web/`) are **not** on their machine — clone them first, at the tag matching the installed CLI:
+
+```bash
+plandesk version                                      # e.g. 0.9.0
+git clone --depth 1 --branch v$(plandesk version) \
+  https://github.com/asyncdotengineering/plandesk /tmp/plandesk-deploy \
+  || git clone --depth 1 https://github.com/asyncdotengineering/plandesk /tmp/plandesk-deploy
+cd /tmp/plandesk-deploy && pnpm install
+```
+
+Run steps in order. Do not skip the verification step.
 
 ## Read this before you touch anything — secrets are non-negotiable
 
@@ -59,14 +69,14 @@ Copy the `database_id` it prints. Write it into `packages/plandesk-sync-server/w
 ## Step 2 — Apply the schema to remote D1 (idempotent)
 
 ```bash
-wrangler d1 execute plandesk-sync --remote \
+wrangler d1 execute plandesk-sync --remote -y \
   --file packages/plandesk-sync-server/migrations/0001_init.sql
 ```
 
 The migration uses `CREATE TABLE` (not `IF NOT EXISTS`); if it errors because the tables already exist from a prior run, that is fine — the schema is present. Confirm:
 
 ```bash
-wrangler d1 execute plandesk-sync --remote \
+wrangler d1 execute plandesk-sync --remote -y \
   --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
 ```
 
@@ -107,7 +117,7 @@ process.stdout.write(id + " " + hash + "\n");   // id + hash only — never the 
 Take the printed `id` and `hash` and store **only the hash** in D1:
 
 ```bash
-wrangler d1 execute plandesk-sync --remote \
+wrangler d1 execute plandesk-sync --remote -y \
   --command "INSERT INTO sync_tokens (id, token_hash, label) VALUES ('<id>', '<hash>', 'owner');"
 ```
 

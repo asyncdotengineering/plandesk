@@ -395,7 +395,10 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     const shareToken = c.req.param('token');
     const share = await verifyShareToken(deps.db, shareToken);
     if (share === undefined) {
-      return c.json({ error: 'unauthorized' }, 401);
+      // The token IS the identifier: an unknown share is a missing resource,
+      // not a failed authorization (and 404 is what the deploy guide's
+      // sanity check documents).
+      return c.json({ error: 'not_found' }, 404);
     }
 
     return c.json({

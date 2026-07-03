@@ -113,9 +113,9 @@ describe('crashCourse', () => {
 });
 
 describe('bind host', () => {
-  it('defaults serve bind host to all interfaces', () => {
-    expect(DEFAULT_BIND_HOST).toBe('0.0.0.0');
-    expect(resolveBindHost()).toBe('0.0.0.0');
+  it('defaults serve bind host to loopback (LAN is opt-in)', () => {
+    expect(DEFAULT_BIND_HOST).toBe('127.0.0.1');
+    expect(resolveBindHost()).toBe('127.0.0.1');
   });
 
   it('honors --host over PLANDESK_HOST', () => {

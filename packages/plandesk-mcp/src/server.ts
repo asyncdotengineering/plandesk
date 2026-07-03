@@ -343,7 +343,7 @@ function createMcpServer(services: Services): McpServer {
     'publish_project',
     {
       title: 'Publish Project',
-      description: 'Register the project on the sync server and store the remote credentials',
+      description: 'Register the project on the sync server and store the remote credentials. server_url and sync_token come from the CLI deploy flow: `plandesk deploy <target>` provisions the server and writes the token to .plandesk/sync-token; prefer `plandesk publish --remote <url>` which reads both from the repo binding.',
       inputSchema: publishProjectInputSchema.shape,
     },
     createPublishProjectHandler(services.syncService),

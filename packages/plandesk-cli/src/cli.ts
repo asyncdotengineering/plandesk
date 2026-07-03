@@ -32,7 +32,12 @@ import {
 } from './deploy.js';
 import { SyncConfigError } from './sync.js';
 import { LocalServerUnreachableError, runWatch, SseDisconnectedError } from './watch.js';
-import { CORRUPT_DB_HINT, CorruptWorkspaceError, openWorkspace } from './workspace.js';
+import {
+  CORRUPT_DB_HINT,
+  CorruptWorkspaceError,
+  openWorkspace,
+  WorkspaceNotFoundError,
+} from './workspace.js';
 import { InvalidShareError, SyncUnauthorizedError, SyncUnavailableError } from '@plandesk/api';
 
 function reportCorruptDb(): number {
@@ -58,7 +63,18 @@ function getLanIp(): string | undefined {
 
 export async function main(argv: string[] = process.argv): Promise<number> {
   const parsed = parseArgs(argv);
+  try {
+    return await dispatch(parsed);
+  } catch (err) {
+    if (err instanceof WorkspaceNotFoundError) {
+      process.stderr.write(`${err.message}\n`);
+      return 1;
+    }
+    throw err;
+  }
+}
 
+async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
   switch (parsed.command) {
     case 'help':
       process.stdout.write(parsed.full ? usage() : crashCourse());
