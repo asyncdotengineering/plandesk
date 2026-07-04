@@ -36,9 +36,17 @@ type AgentRunEventResponse = { message: string; created_at: string };
 type AgentRunResponse = { status: string; started_at: string; events: AgentRunEventResponse[] };
 type NextTaskResponse = { next_task: { id: string; label: string } | null };
 
+// A hook script must never hang a session on a reachable-but-wedged server
+// (mid-restart, overloaded, black-holed) — fetch has no default timeout, so
+// one is set explicitly; a timeout is just another no-op path via the catch.
+const HOOK_FETCH_TIMEOUT_MS = 2000;
+
 async function fetchJson<T>(url: string, token: string): Promise<T | undefined> {
   try {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(HOOK_FETCH_TIMEOUT_MS),
+    });
     if (!res.ok) {
       return undefined;
     }

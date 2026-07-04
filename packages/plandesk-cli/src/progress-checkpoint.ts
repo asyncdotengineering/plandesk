@@ -2,6 +2,10 @@ import { normalizeServerUrl, resolvePlandeskBinding } from './connect-artifacts.
 
 export const DEFAULT_CHECKPOINT_MESSAGE = 'checkpoint (hook)';
 
+// A hook script must never hang Stop/PreCompact on a reachable-but-wedged
+// server — fetch has no default timeout, so one is set explicitly.
+const HOOK_FETCH_TIMEOUT_MS = 2000;
+
 export type ProgressCheckpointResult = {
   posted: boolean;
 };
@@ -27,6 +31,7 @@ export async function runProgressCheckpoint(
   try {
     const res = await fetch(`${base}/api/v1/projects/${config.projectId}/agent-runs`, {
       headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(HOOK_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) {
       return { posted: false };
@@ -48,6 +53,7 @@ export async function runProgressCheckpoint(
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ message }),
+      signal: AbortSignal.timeout(HOOK_FETCH_TIMEOUT_MS),
     });
     return { posted: res.ok };
   } catch {
