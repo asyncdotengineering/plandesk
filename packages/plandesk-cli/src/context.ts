@@ -75,51 +75,71 @@ function mostRecentEvent(events: AgentRunEventResponse[]): AgentRunEventResponse
   return sorted[sorted.length - 1];
 }
 
+// The linked doc is injected into agent context on every SessionStart (including
+// post-compaction). Cap the body so a large doc (e.g. a full RFC) doesn't re-inflate
+// the context it was just compacted out of.
+const MAX_DOC_BODY_CHARS = 4000;
+
+function capBody(body: string | null): string | null {
+  if (body === null || body.length <= MAX_DOC_BODY_CHARS) {
+    return body;
+  }
+  return `${body.slice(0, MAX_DOC_BODY_CHARS)}\n\n…[truncated — open the linked doc in Plan Desk for the full body]`;
+}
+
 // Reads the bound project's board state for re-anchoring an agent across
 // compaction: the current in_progress task, its linked doc, the most recent
 // agent-run progress message, and (when idle) the next actionable task.
-// Returns {} when the repo isn't bound — an idle no-op, never an error.
+// Returns {} when the repo isn't bound or its config is unreadable — an idle
+// no-op, never an error: a hook must never fail a session start.
 export async function runContext(repoDir: string): Promise<PlanDeskContext | Record<string, never>> {
-  const binding = resolvePlandeskBinding(repoDir);
+  const binding = (() => {
+    try {
+      return resolvePlandeskBinding(repoDir);
+    } catch {
+      return undefined;
+    }
+  })();
   if (!binding) {
     return {};
   }
   const { config, token } = binding;
   const base = normalizeServerUrl(config.serverUrl);
 
-  const tasks = await fetchJson<TaskResponse[]>(
-    `${base}/api/v1/projects/${config.projectId}/tasks?status=in_progress`,
-    token,
-  );
+  // tasks and agent-runs are independent — fetch them together instead of serially.
+  const [tasks, runs] = await Promise.all([
+    fetchJson<TaskResponse[]>(
+      `${base}/api/v1/projects/${config.projectId}/tasks?status=in_progress`,
+      token,
+    ),
+    fetchJson<AgentRunResponse[]>(`${base}/api/v1/projects/${config.projectId}/agent-runs`, token),
+  ]);
+
   const currentTaskRaw = mostRecentlyUpdated(tasks ?? []);
 
+  // The current task's doc and the idle next-task are mutually exclusive — only one runs.
   let currentTask: CurrentTaskSummary | null = null;
   let linkedDoc: LinkedDocSummary | null = null;
+  let nextTask: NextTaskSummary | null = null;
   if (currentTaskRaw) {
-    currentTask = { id: currentTaskRaw.id, label: currentTaskRaw.label, status: currentTaskRaw.status };
+    currentTask = {
+      id: currentTaskRaw.id,
+      label: currentTaskRaw.label,
+      status: currentTaskRaw.status,
+    };
     const doc = await fetchJson<DocumentResponse>(
       `${base}/api/v1/tasks/${currentTaskRaw.id}/document`,
       token,
     );
     if (doc) {
-      linkedDoc = { id: doc.id, title: doc.title, status_line: doc.status_line, body: doc.body };
+      linkedDoc = {
+        id: doc.id,
+        title: doc.title,
+        status_line: doc.status_line,
+        body: capBody(doc.body),
+      };
     }
-  }
-
-  const runs = await fetchJson<AgentRunResponse[]>(
-    `${base}/api/v1/projects/${config.projectId}/agent-runs`,
-    token,
-  );
-  let lastProgress: LastProgressSummary | null = null;
-  // Runs are returned most-recent-first; the last progress message is the
-  // latest event on the most recent run.
-  const latestEvent = runs?.[0] ? mostRecentEvent(runs[0].events) : undefined;
-  if (latestEvent) {
-    lastProgress = { message: latestEvent.message, created_at: latestEvent.created_at };
-  }
-
-  let nextTask: NextTaskSummary | null = null;
-  if (!currentTask) {
+  } else {
     const nextTaskResult = await fetchJson<NextTaskResponse>(
       `${base}/api/v1/projects/${config.projectId}/next-task`,
       token,
@@ -129,5 +149,18 @@ export async function runContext(repoDir: string): Promise<PlanDeskContext | Rec
     }
   }
 
-  return { current_task: currentTask, linked_doc: linkedDoc, last_progress: lastProgress, next_task: nextTask };
+  let lastProgress: LastProgressSummary | null = null;
+  // Runs are returned most-recent-first; the last progress message is the
+  // latest event on the most recent run.
+  const latestEvent = runs?.[0] ? mostRecentEvent(runs[0].events) : undefined;
+  if (latestEvent) {
+    lastProgress = { message: latestEvent.message, created_at: latestEvent.created_at };
+  }
+
+  return {
+    current_task: currentTask,
+    linked_doc: linkedDoc,
+    last_progress: lastProgress,
+    next_task: nextTask,
+  };
 }

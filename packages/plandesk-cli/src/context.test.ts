@@ -158,4 +158,31 @@ describe('runContext', () => {
       next_task: null,
     });
   });
+
+  it('returns {} (never throws) when config.json is malformed', async () => {
+    const repoDir = makeRepo();
+    mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
+    writeFileSync(join(repoDir, '.plandesk', 'config.json'), '{ not valid json', 'utf8');
+    writeFileSync(join(repoDir, '.plandesk', 'token'), 'test-token', 'utf8');
+    await expect(runContext(repoDir)).resolves.toEqual({});
+  });
+
+  it('caps a large linked-doc body so it does not re-inflate the context', async () => {
+    await withTestServer(async ({ baseUrl, db, services, projectId }) => {
+      const repoDir = makeRepo();
+      bindRepo(repoDir, baseUrl, projectId);
+      const task = createTask(db, { projectId, label: 'Big doc task', status: 'in_progress' });
+      const bigBody = 'x'.repeat(9000);
+      services.documentService.create(projectId, {
+        title: 'Design: big',
+        body: bigBody,
+        statusLine: null,
+        linkedTaskId: task.id,
+      });
+
+      const context = (await runContext(repoDir)) as { linked_doc: { body: string } };
+      expect(context.linked_doc.body.length).toBeLessThan(bigBody.length);
+      expect(context.linked_doc.body).toContain('[truncated');
+    });
+  });
 });

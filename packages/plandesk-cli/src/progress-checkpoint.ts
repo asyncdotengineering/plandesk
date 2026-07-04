@@ -20,7 +20,13 @@ export async function runProgressCheckpoint(
   repoDir: string,
   message: string,
 ): Promise<ProgressCheckpointResult> {
-  const binding = resolvePlandeskBinding(repoDir);
+  const binding = (() => {
+    try {
+      return resolvePlandeskBinding(repoDir);
+    } catch {
+      return undefined;
+    }
+  })();
   if (!binding) {
     return { posted: false };
   }
