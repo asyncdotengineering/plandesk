@@ -28,6 +28,7 @@ import {
   listMcpTokens,
   listNotes,
   listProjects,
+  listSubmissions,
   listTags,
   listTasks,
   patchComment,
@@ -39,6 +40,7 @@ import {
   patchTask,
   putCanvas,
   revokeMcpToken,
+  triageSubmission,
   type CreateCommentInput,
   type CreateDocumentInput,
   type CreateFolderInput,
@@ -54,7 +56,9 @@ import {
   type PatchTagInput,
   type PatchTaskInput,
   type PutCanvasInput,
+  type SubmissionStatus,
   type TaskStatus,
+  type TriageSubmissionInput,
 } from './api.js';
 
 export const queryKeys = {
@@ -73,6 +77,8 @@ export const queryKeys = {
   taskDocument: (taskId: string) => ['tasks', taskId, 'document'] as const,
   mcpTokens: ['mcp-tokens'] as const,
   agentRuns: (projectId: string) => ['projects', projectId, 'agent-runs'] as const,
+  submissions: (projectId: string, status?: SubmissionStatus) =>
+    ['projects', projectId, 'submissions', status ?? 'pending'] as const,
 };
 
 export function useProjects() {
@@ -445,5 +451,25 @@ export function useAgentRuns(projectId: string) {
   return useQuery({
     queryKey: queryKeys.agentRuns(projectId),
     queryFn: () => listAgentRuns(projectId),
+  });
+}
+
+export function useSubmissions(projectId: string, status: SubmissionStatus = 'pending') {
+  return useQuery({
+    queryKey: queryKeys.submissions(projectId, status),
+    queryFn: () => listSubmissions(projectId, status),
+  });
+}
+
+export function useTriageSubmission(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: TriageSubmissionInput }) =>
+      triageSubmission(id, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.submissions(projectId) });
+      // accepting creates a new `scope` task
+      invalidateTaskQueries(queryClient, projectId);
+    },
   });
 }

@@ -20,6 +20,9 @@ function ProjectNotesNav({ projectId }: { projectId: string }) {
       >
         Notes
       </Link>
+      <Link to="/projects/$id/inbox" params={{ id: projectId }} style={{ color: '#555' }}>
+        Inbox
+      </Link>
     </nav>
   );
 }

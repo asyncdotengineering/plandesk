@@ -18,6 +18,7 @@ function ProjectNav({ projectId }: { projectId: string }) {
     { label: 'Flow', to: '/projects/$id/flow' as const },
     { label: 'Board', to: '/projects/$id/board' as const },
     { label: 'Notes', to: '/projects/$id/notes' as const },
+    { label: 'Inbox', to: '/projects/$id/inbox' as const },
   ];
 
   return (

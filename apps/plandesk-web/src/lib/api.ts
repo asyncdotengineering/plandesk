@@ -467,3 +467,44 @@ export type SerializedAgentRun = {
 export function listAgentRuns(projectId: string): Promise<SerializedAgentRun[]> {
   return request(`/projects/${projectId}/agent-runs`);
 }
+
+export const submissionStatuses = ['pending', 'accepted', 'rejected'] as const;
+export type SubmissionStatus = (typeof submissionStatuses)[number];
+
+export type SerializedSubmission = {
+  id: string;
+  project_id: string;
+  hosted_share_id: string;
+  participant_name: string;
+  title: string;
+  body: string | null;
+  severity: string | null;
+  task_ref: string | null;
+  status: SubmissionStatus;
+  linked_task_id: string | null;
+  created_at: string;
+  pulled_at: string;
+};
+
+export type TriageSubmissionInput = {
+  action: 'accept' | 'reject';
+  as_task?: { label?: string; description?: string | null };
+  // Reserved for merge-into; not yet honored by the server (see api's
+  // submissions route) — accepted here so the UI wiring doesn't need to
+  // change once the server supports it.
+  link_task_id?: string;
+};
+
+export function listSubmissions(
+  projectId: string,
+  status: SubmissionStatus = 'pending',
+): Promise<SerializedSubmission[]> {
+  return request(`/projects/${projectId}/submissions?status=${status}`);
+}
+
+export function triageSubmission(
+  id: string,
+  input: TriageSubmissionInput,
+): Promise<SerializedSubmission> {
+  return request(`/submissions/${id}/triage`, { method: 'POST', body: JSON.stringify(input) });
+}
