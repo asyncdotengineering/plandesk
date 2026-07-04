@@ -9,7 +9,9 @@ import { resolveAgents } from './connect.js';
 import {
   CURATOR_DIR,
   CURATOR_HOOKS_SETTINGS_SNIPPET_JSON,
+  CURATOR_SKILLS,
   CURATOR_TEMPLATES,
+  buildCuratorSkillAdapter,
 } from './curator-templates.js';
 
 export class FactoryError extends Error {
@@ -398,6 +400,23 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
       content: template.content,
       action: existsSync(path) ? 'skip' : 'create',
       executable: template.executable,
+    });
+  }
+
+  // .claude/skills adapters (F5): the curator skills live canonically under
+  // .agents/curator/ (harness-neutral, path-referenced), but Claude Code only
+  // auto-discovers skills at .claude/skills/<name>/SKILL.md carrying name+description
+  // frontmatter. Generate a discoverable adapter per skill — regenerated each run
+  // ('update') so it never drifts, sourced from the on-disk .agents/ file when the
+  // user has one (else the shipped constant).
+  for (const skill of CURATOR_SKILLS) {
+    const sourcePath = join(curatorDir, `${skill.slug}.md`);
+    const source = existsSync(sourcePath) ? readFileSync(sourcePath, 'utf8') : skill.source;
+    const adapterPath = join(repoDir, '.claude', 'skills', skill.name, 'SKILL.md');
+    artifacts.push({
+      path: adapterPath,
+      content: buildCuratorSkillAdapter(source, skill.name, skill.description),
+      action: existsSync(adapterPath) ? 'update' : 'create',
     });
   }
 

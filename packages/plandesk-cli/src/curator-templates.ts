@@ -681,7 +681,7 @@ export const CURATOR_HOOKS_SETTINGS_SNIPPET_JSON = `{
         "hooks": [
           {
             "type": "command",
-            "command": ".agents/curator/hooks/session-start.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.agents/curator/hooks/session-start.sh"
           }
         ]
       }
@@ -691,7 +691,7 @@ export const CURATOR_HOOKS_SETTINGS_SNIPPET_JSON = `{
         "hooks": [
           {
             "type": "command",
-            "command": ".agents/curator/hooks/checkpoint.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.agents/curator/hooks/checkpoint.sh"
           }
         ]
       }
@@ -701,7 +701,7 @@ export const CURATOR_HOOKS_SETTINGS_SNIPPET_JSON = `{
         "hooks": [
           {
             "type": "command",
-            "command": ".agents/curator/hooks/checkpoint.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.agents/curator/hooks/checkpoint.sh"
           }
         ]
       }
@@ -732,11 +732,13 @@ report — a broken or idle binding must never block a session start, stop, or
 compaction. They assume \`plandesk\` is on \`PATH\` (install with
 \`npm i -g @plandesk/cli\` or \`plandesk connect\` from an existing install).
 
-\`settings.snippet.json\` is the \`.claude/settings.json\` \`hooks\` block a
-project adds to wire these in — merge it into the project's existing
-\`hooks\` key (don't overwrite other hooks already configured there). This is
-not yet wired into \`plandesk factory init\`; until that lands, a human (or a
-future installer) merges the snippet by hand.
+\`plandesk factory init\` wires these in automatically — it merges the
+\`settings.snippet.json\` \`hooks\` block into the project's \`.claude/settings.json\`
+additively (never clobbering hooks you've configured for other events, and never
+duplicating the curator entries on re-run). The snippet file is kept here for
+reference and manual re-application. Hook commands are prefixed with
+\`$CLAUDE_PROJECT_DIR\` so they resolve against the project root regardless of the
+directory Claude Code was launched from.
 `;
 
 export type CuratorTemplate = {
@@ -760,3 +762,68 @@ export const CURATOR_TEMPLATES: CuratorTemplate[] = [
   { relativePath: 'hooks/settings.snippet.json', content: CURATOR_HOOKS_SETTINGS_SNIPPET_JSON },
   { relativePath: 'hooks/README.md', content: CURATOR_HOOKS_README_MD },
 ];
+
+type CuratorSkill = {
+  slug: string;
+  name: string;
+  source: string;
+  description: string;
+};
+
+// The curator skills live canonically under .agents/curator/ with harness-neutral
+// `type: curator-skill` frontmatter. Claude Code only auto-discovers skills under
+// .claude/skills/<name>/SKILL.md carrying `name` + `description` frontmatter, so
+// factory init also generates a discoverable adapter per skill.
+export const CURATOR_SKILLS: CuratorSkill[] = [
+  {
+    slug: 'triage',
+    name: 'curator-triage',
+    source: CURATOR_TRIAGE_MD,
+    description:
+      'Turn raw signal — client submissions, an ungroomed backlog, or a pasted brain-dump — into deduped, house-style Plan Desk tasks in `scope`. Use when asked to triage the backlog or submissions, or to sort a brain-dump into tasks.',
+  },
+  {
+    slug: 'provenance',
+    name: 'curator-provenance',
+    source: CURATOR_PROVENANCE_MD,
+    description:
+      'The provenance convention (sources + reason) every Curator triage decision must carry. Reference when recording why a task exists or was merged.',
+  },
+  {
+    slug: 'automation',
+    name: 'curator-automation',
+    source: CURATOR_AUTOMATION_MD,
+    description:
+      'Wire the Curator triage pass to a schedule and to board events (new submission, task lands in backlog). Use when setting up automatic or unattended triage.',
+  },
+  {
+    slug: 'intake',
+    name: 'curator-intake',
+    source: CURATOR_INTAKE_MD,
+    description:
+      'Turn an idea or an RFC into a scaffolded Plan Desk project — tasks, dependency edges, lanes, and a Design doc — in one scaffold_project_from_plan call. Use when planning a new project or a substantial new initiative onto the board.',
+  },
+  {
+    slug: 'autonomy',
+    name: 'curator-autonomy',
+    source: CURATOR_AUTONOMY_MD,
+    description:
+      "Board-bound, lane-gated autonomy posture for driving this project's Plan Desk board unattended without breaching the human gates. Use when running the board loop autonomously.",
+  },
+];
+
+function stripFrontmatter(md: string): string {
+  const match = md.match(/^---\n[\s\S]*?\n---\n/);
+  return match ? md.slice(match[0].length).replace(/^\n+/, '') : md;
+}
+
+// Build a Claude-Code-discoverable SKILL.md adapter from a curator source file: swap
+// the harness-neutral `type` frontmatter for the `name` + `description` Claude Code
+// reads to decide when to load the skill.
+export function buildCuratorSkillAdapter(
+  source: string,
+  name: string,
+  description: string,
+): string {
+  return `---\nname: ${name}\ndescription: ${description}\n---\n\n${stripFrontmatter(source)}`;
+}

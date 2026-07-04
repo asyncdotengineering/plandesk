@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { globalDirRefusalReason } from './connect-artifacts.js';
-import { CURATOR_TEMPLATES } from './curator-templates.js';
+import { CURATOR_SKILLS, CURATOR_TEMPLATES } from './curator-templates.js';
 import {
   buildFactoryArtifacts,
   FactoryError,
@@ -285,6 +285,34 @@ describe('curator artifacts (F5)', () => {
     expect(printout).toContain(join(repo, '.claude/settings.json'));
     expect(printout).toContain('plandesk progress-checkpoint');
   });
+
+  it('generates discoverable .claude/skills adapters with name+description frontmatter', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    runFactoryInit({ repoDir: repo });
+
+    for (const skill of CURATOR_SKILLS) {
+      const adapterPath = join(repo, '.claude/skills', skill.name, 'SKILL.md');
+      expect(existsSync(adapterPath), skill.name).toBe(true);
+      const content = readFileSync(adapterPath, 'utf8');
+      // Claude Code discovers/triggers on name + description frontmatter — the
+      // harness-neutral `type: curator-skill` frontmatter of the .agents source is gone.
+      expect(content.startsWith(`---\nname: ${skill.name}\ndescription: `)).toBe(true);
+      expect(content).not.toContain('type: curator-skill');
+    }
+  });
+
+  it('regenerates the .claude/skills adapter from an edited .agents source on re-run', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    runFactoryInit({ repoDir: repo });
+
+    const sourcePath = join(repo, '.agents/curator/triage.md');
+    writeFileSync(sourcePath, `${readFileSync(sourcePath, 'utf8')}\n\nEDITED MARKER.\n`, 'utf8');
+    runFactoryInit({ repoDir: repo });
+
+    const adapter = readFileSync(join(repo, '.claude/skills/curator-triage/SKILL.md'), 'utf8');
+    expect(adapter).toContain('EDITED MARKER.');
+    expect(adapter.startsWith('---\nname: curator-triage\ndescription: ')).toBe(true);
+  });
 });
 
 describe('curator hooks settings.json merge (F1 wiring)', () => {
@@ -307,6 +335,11 @@ describe('curator hooks settings.json merge (F1 wiring)', () => {
       '.agents/curator/hooks/session-start.sh',
     );
     expect(JSON.stringify(settings.hooks.Stop)).toContain('.agents/curator/hooks/checkpoint.sh');
+    // Hook commands are prefixed with $CLAUDE_PROJECT_DIR so they resolve against the
+    // project root even when Claude Code is launched from a subdirectory.
+    expect(JSON.stringify(settings.hooks.SessionStart)).toContain(
+      '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/session-start.sh',
+    );
   });
 
   it('merges additively into an existing settings.json without touching unrelated hooks', () => {
