@@ -14,6 +14,7 @@ import { Route as SettingsMcpRouteImport } from './routes/settings.mcp'
 import { Route as PShareTokenRouteImport } from './routes/p.$shareToken'
 import { Route as ProjectsIdOverviewRouteImport } from './routes/projects.$id.overview'
 import { Route as ProjectsIdNotesRouteImport } from './routes/projects.$id.notes'
+import { Route as ProjectsIdInboxRouteImport } from './routes/projects.$id.inbox'
 import { Route as ProjectsIdFlowRouteImport } from './routes/projects.$id.flow'
 import { Route as ProjectsIdBoardRouteImport } from './routes/projects.$id.board'
 import { Route as ProjectsIdNotesIndexRouteImport } from './routes/projects.$id.notes.index'
@@ -43,6 +44,11 @@ const ProjectsIdOverviewRoute = ProjectsIdOverviewRouteImport.update({
 const ProjectsIdNotesRoute = ProjectsIdNotesRouteImport.update({
   id: '/projects/$id/notes',
   path: '/projects/$id/notes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsIdInboxRoute = ProjectsIdInboxRouteImport.update({
+  id: '/projects/$id/inbox',
+  path: '/projects/$id/inbox',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsIdFlowRoute = ProjectsIdFlowRouteImport.update({
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/settings/mcp': typeof SettingsMcpRoute
   '/projects/$id/board': typeof ProjectsIdBoardRoute
   '/projects/$id/flow': typeof ProjectsIdFlowRoute
+  '/projects/$id/inbox': typeof ProjectsIdInboxRoute
   '/projects/$id/notes': typeof ProjectsIdNotesRouteWithChildren
   '/projects/$id/overview': typeof ProjectsIdOverviewRoute
   '/projects/$id/documents/$docId': typeof ProjectsIdDocumentsDocIdRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/settings/mcp': typeof SettingsMcpRoute
   '/projects/$id/board': typeof ProjectsIdBoardRoute
   '/projects/$id/flow': typeof ProjectsIdFlowRoute
+  '/projects/$id/inbox': typeof ProjectsIdInboxRoute
   '/projects/$id/overview': typeof ProjectsIdOverviewRoute
   '/projects/$id/documents/$docId': typeof ProjectsIdDocumentsDocIdRoute
   '/projects/$id/notes/$noteId': typeof ProjectsIdNotesNoteIdRoute
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/settings/mcp': typeof SettingsMcpRoute
   '/projects/$id/board': typeof ProjectsIdBoardRoute
   '/projects/$id/flow': typeof ProjectsIdFlowRoute
+  '/projects/$id/inbox': typeof ProjectsIdInboxRoute
   '/projects/$id/notes': typeof ProjectsIdNotesRouteWithChildren
   '/projects/$id/overview': typeof ProjectsIdOverviewRoute
   '/projects/$id/documents/$docId': typeof ProjectsIdDocumentsDocIdRoute
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/settings/mcp'
     | '/projects/$id/board'
     | '/projects/$id/flow'
+    | '/projects/$id/inbox'
     | '/projects/$id/notes'
     | '/projects/$id/overview'
     | '/projects/$id/documents/$docId'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/settings/mcp'
     | '/projects/$id/board'
     | '/projects/$id/flow'
+    | '/projects/$id/inbox'
     | '/projects/$id/overview'
     | '/projects/$id/documents/$docId'
     | '/projects/$id/notes/$noteId'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/settings/mcp'
     | '/projects/$id/board'
     | '/projects/$id/flow'
+    | '/projects/$id/inbox'
     | '/projects/$id/notes'
     | '/projects/$id/overview'
     | '/projects/$id/documents/$docId'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   SettingsMcpRoute: typeof SettingsMcpRoute
   ProjectsIdBoardRoute: typeof ProjectsIdBoardRoute
   ProjectsIdFlowRoute: typeof ProjectsIdFlowRoute
+  ProjectsIdInboxRoute: typeof ProjectsIdInboxRoute
   ProjectsIdNotesRoute: typeof ProjectsIdNotesRouteWithChildren
   ProjectsIdOverviewRoute: typeof ProjectsIdOverviewRoute
   ProjectsIdDocumentsDocIdRoute: typeof ProjectsIdDocumentsDocIdRoute
@@ -192,6 +205,13 @@ declare module '@tanstack/react-router' {
       path: '/projects/$id/notes'
       fullPath: '/projects/$id/notes'
       preLoaderRoute: typeof ProjectsIdNotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/$id/inbox': {
+      id: '/projects/$id/inbox'
+      path: '/projects/$id/inbox'
+      fullPath: '/projects/$id/inbox'
+      preLoaderRoute: typeof ProjectsIdInboxRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects/$id/flow': {
@@ -252,6 +272,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsMcpRoute: SettingsMcpRoute,
   ProjectsIdBoardRoute: ProjectsIdBoardRoute,
   ProjectsIdFlowRoute: ProjectsIdFlowRoute,
+  ProjectsIdInboxRoute: ProjectsIdInboxRoute,
   ProjectsIdNotesRoute: ProjectsIdNotesRouteWithChildren,
   ProjectsIdOverviewRoute: ProjectsIdOverviewRoute,
   ProjectsIdDocumentsDocIdRoute: ProjectsIdDocumentsDocIdRoute,

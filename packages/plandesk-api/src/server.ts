@@ -14,6 +14,7 @@ import type { EventBus } from './events.js';
 import { createEventsRouter } from './routes/events.js';
 import { createTokensRouter } from './routes/tokens.js';
 import { createAgentRunsRouter } from './routes/agent-runs.js';
+import { createSubmissionsRouter } from './routes/submissions.js';
 import { mountStatic } from './static.js';
 import { createServices, type Services } from './services/index.js';
 
@@ -39,6 +40,7 @@ export function createApp(deps: AppDeps): Hono {
     commentService,
     agentRunService,
     tokenService,
+    syncService,
   } = services;
 
   const app = new Hono();
@@ -58,6 +60,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createCommentsRouter(commentService));
   app.route('/api/v1', createTokensRouter(tokenService));
   app.route('/api/v1', createAgentRunsRouter(agentRunService));
+  app.route('/api/v1', createSubmissionsRouter(syncService, projectService));
   app.route('/api/v1', createEventsRouter(eventBus));
   mountStatic(app);
 
