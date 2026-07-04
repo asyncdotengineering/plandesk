@@ -217,6 +217,22 @@ export type SettingsJson = {
   hooks?: Record<string, unknown[]>;
 };
 
+// Key order must not affect equality here — a linter, formatter, or hand
+// edit reordering an entry's keys is still the same entry, and must still be
+// recognized as a duplicate on rerun.
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(',')}]`;
+  }
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+      a.localeCompare(b),
+    );
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 export function mergeCuratorHooksJson(
   existingContent: string | undefined,
   snippetContent: string,
@@ -231,8 +247,8 @@ export function mergeCuratorHooksJson(
     const existingEntries = hooks[event] ?? [];
     const merged = [...existingEntries];
     for (const entry of snippetEntries) {
-      const entryJson = JSON.stringify(entry);
-      if (!merged.some((candidate) => JSON.stringify(candidate) === entryJson)) {
+      const entryCanonical = canonicalJson(entry);
+      if (!merged.some((candidate) => canonicalJson(candidate) === entryCanonical)) {
         merged.push(entry);
       }
     }
