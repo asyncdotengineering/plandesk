@@ -5,7 +5,6 @@ import {
   SyncUnavailableError,
   SyncUnauthorizedError,
 } from '@plandesk/api';
-import type { TaskStatus } from '@plandesk/db';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createTriageSubmissionHandler(
@@ -13,7 +12,7 @@ export function createTriageSubmissionHandler(
 ): (args: {
   submission_id: string;
   action: 'accept' | 'reject';
-  as_task?: { label?: string; status?: TaskStatus; description?: string };
+  as_task?: { label?: string; description?: string };
   link_task_id?: string;
 }) => Promise<ToolResult> {
   return async (args) => {

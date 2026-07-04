@@ -11,11 +11,8 @@ import type { ProjectService } from '../services/projects.js';
 type TriageBody = {
   action?: string;
   as_task?: { label?: string; description?: string };
-  // Reserved for merge-into (linking the submission to an existing task instead of
-  // creating a new one). syncService.triage() does not support linking yet — that
-  // lands with the Curator's merge-accept work. Until then this is accepted on the
-  // wire (so callers don't need to change) but not forwarded, and accept behaves the
-  // same as a plain accept (creates a new `scope` task).
+  // Merge-into: link the submission to an existing task instead of creating a new one.
+  // Mutually exclusive with as_task; forwarded to syncService.triage().
   link_task_id?: string;
 };
 
@@ -62,14 +59,17 @@ export function createSubmissionsRouter(
     }
 
     try {
-      // Accepting from this dashboard never creates a `todo` task — the human-only
-      // scope -> todo release is structural policy, so the status is always forced
-      // to `scope` regardless of what the caller sent.
+      // Triage never creates a `todo` task — the scope->todo release is the human's own
+      // board action, enforced in syncService.triage(). A merge (link_task_id) links to
+      // an existing task instead of creating one; the two are mutually exclusive, so
+      // only one is forwarded.
+      const linkTaskId = body.action === 'accept' ? body.link_task_id : undefined;
       const result = await syncService.triage(
         submissionId,
         body.action,
         remote,
-        body.action === 'accept' ? { ...body.as_task, status: 'scope' } : undefined,
+        body.action === 'accept' && linkTaskId === undefined ? body.as_task : undefined,
+        linkTaskId,
       );
       return c.json(result);
     } catch (error) {

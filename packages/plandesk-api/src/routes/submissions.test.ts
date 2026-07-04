@@ -159,4 +159,39 @@ describe('submissions routes', () => {
     });
     expect(missingRes.status).toBe(404);
   });
+
+  it('POST triage accept with link_task_id links to an existing task and creates no new task', async () => {
+    const { app, db, services } = createTestAppWithServices();
+    const project = createProject(db, { name: 'Merge' });
+    seedSubmission(db, project.id);
+    services.syncService.setRemote(project.id, remote);
+
+    const existing = services.taskService.create(project.id, {
+      label: 'Existing task',
+      status: 'scope',
+      description: 'already here',
+    });
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 })),
+    );
+
+    const res = await app.request('/api/v1/submissions/sub-1/triage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'accept', link_task_id: existing?.id }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await parseJson<{ status: string; linked_task_id: string | null }>(res);
+    expect(body.status).toBe('accepted');
+    expect(body.linked_task_id).toBe(existing?.id);
+
+    // The merge links to the existing task and does NOT create a duplicate scope task.
+    const scopeRes = await app.request(`/api/v1/projects/${project.id}/tasks?status=scope`);
+    const scopeTasks = await parseJson<Array<{ id: string }>>(scopeRes);
+    expect(scopeTasks).toHaveLength(1);
+    expect(scopeTasks[0]?.id).toBe(existing?.id);
+  });
 });

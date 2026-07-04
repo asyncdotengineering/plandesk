@@ -246,10 +246,12 @@ export const triageSubmissionInputSchema = z.object({
   as_task: z
     .object({
       label: z.string().optional(),
-      status: z.enum(taskStatuses).optional(),
       description: z.string().optional(),
     })
-    .optional(),
+    .optional()
+    .describe(
+      'Draft for a new task created on accept. Accepted submissions always land in `scope` — the human-only scope->todo release is structural, so status is not caller-settable here.',
+    ),
   link_task_id: z
     .string()
     .uuid()

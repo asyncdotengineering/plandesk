@@ -14,7 +14,6 @@ import {
   type Share,
   type ShareSubmission,
   type ShareSubmissionStatus,
-  type TaskStatus,
 } from '@plandesk/db';
 import type { EventBus } from '../events.js';
 import type { ShareService } from './share.js';
@@ -380,7 +379,7 @@ export function createSyncService(deps: SyncServiceDeps) {
       submissionId: string,
       action: 'accept' | 'reject',
       remote: SyncRemote,
-      asTask?: { label?: string; status?: TaskStatus; description?: string },
+      asTask?: { label?: string; description?: string },
       linkTaskId?: string,
     ): Promise<SerializedSubmission> {
       if (asTask !== undefined && linkTaskId !== undefined) {
@@ -393,6 +392,16 @@ export function createSyncService(deps: SyncServiceDeps) {
       }
 
       if (submission.status !== 'pending') {
+        // Idempotent retry recovery: a prior triage may have committed the terminal
+        // status locally but failed to ack the remote (sync server briefly down),
+        // leaving local/remote divergence with no recovery path. Re-ack when the
+        // retry's action matches the recorded outcome; ack is idempotent remotely.
+        if (
+          (action === 'accept' && submission.status === 'accepted') ||
+          (action === 'reject' && submission.status === 'rejected')
+        ) {
+          await ackSubmission(remote, submissionId, submission.status);
+        }
         return serializeSubmission(submission);
       }
 
@@ -420,9 +429,19 @@ export function createSyncService(deps: SyncServiceDeps) {
       }
 
       if (action === 'accept') {
+        // Triage never releases work to `todo`: the scope->todo gate is the human's
+        // own board action. Every accepted submission lands in `scope`, regardless of
+        // caller — enforced here at the single service chokepoint so both the HTTP
+        // route and the MCP tool are covered.
+        //
+        // create + setSubmissionStatus run as two synchronous steps, but the submission
+        // was validated to exist immediately above with no intervening await, so under
+        // better-sqlite3's single-connection sync model the row cannot vanish and
+        // setSubmissionStatus cannot spuriously return undefined. taskService.create
+        // self-transacts, so an outer transaction here is neither possible nor needed.
         const task = taskService.create(projectId, {
           label: asTask?.label ?? submission.title,
-          status: asTask?.status ?? 'todo',
+          status: 'scope',
           description: asTask?.description ?? buildDesc(submission),
         });
         if (task === undefined) {

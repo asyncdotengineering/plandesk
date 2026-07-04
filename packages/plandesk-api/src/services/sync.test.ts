@@ -269,6 +269,9 @@ describe('syncService', () => {
     const tasks = listTasks(db, project.id);
     expect(tasks).toHaveLength(1);
     expect(tasks[0]?.label).toBe('Bug report');
+    // Accept with no as_task (the MCP-style call) must land in `scope`, never `todo` —
+    // the human-only scope->todo gate is enforced at this service chokepoint.
+    expect(tasks[0]?.status).toBe('scope');
     expect(tasks[0]?.description).toContain('Something broke');
     expect(tasks[0]?.description).toContain('Reported by Alex (client) via Plan Desk');
 
@@ -348,6 +351,38 @@ describe('syncService', () => {
 
     expect(listTasks(db, project.id)).toHaveLength(1);
     expect(getSubmission(db, 'sub-remote-1')?.status).toBe('accepted');
+  });
+
+  it('triage retry re-acks after an ack failure (recovers local/remote divergence)', async () => {
+    const project = createProject(db, { name: 'Recover ack' });
+    const service = await pullSubmission(project.id);
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'down' }), { status: 503 }))
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    // First attempt commits `accepted` locally, then the ack fails — local/remote diverge.
+    await expect(service.triage('sub-remote-1', 'accept', remote)).rejects.toBeInstanceOf(
+      SyncUnavailableError,
+    );
+    expect(getSubmission(db, 'sub-remote-1')?.status).toBe('accepted');
+
+    // Retry: the submission is already accepted, so instead of short-circuiting we re-ack
+    // the remote (idempotent) — the recovery path. No duplicate task is created.
+    const result = await service.triage('sub-remote-1', 'accept', remote);
+    expect(result.status).toBe('accepted');
+    expect(listTasks(db, project.id)).toHaveLength(1);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'https://sync.example/api/sync/v1/projects/gid-1/submissions/sub-remote-1/ack',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ status: 'accepted' }) }),
+    );
   });
 
   it('triage throws InvalidTriageError for unknown submission', async () => {
