@@ -95,6 +95,39 @@ describe('parseArgs export/import/doctor', () => {
       name: 'import (missing --in)',
     });
   });
+
+  it('parses context with repo', () => {
+    expect(parseArgs(['node', 'plandesk', 'context', '--json', '--repo', '/tmp/repo'])).toEqual({
+      command: 'context',
+      repoDir: '/tmp/repo',
+    });
+  });
+
+  it('parses progress-checkpoint with message and repo', () => {
+    expect(
+      parseArgs([
+        'node',
+        'plandesk',
+        'progress-checkpoint',
+        '--message',
+        'custom checkpoint',
+        '--repo',
+        '/tmp/repo',
+      ]),
+    ).toEqual({
+      command: 'progress-checkpoint',
+      message: 'custom checkpoint',
+      repoDir: '/tmp/repo',
+    });
+  });
+
+  it('parses progress-checkpoint with no flags', () => {
+    expect(parseArgs(['node', 'plandesk', 'progress-checkpoint'])).toEqual({
+      command: 'progress-checkpoint',
+      message: undefined,
+      repoDir: undefined,
+    });
+  });
 });
 
 describe('CLI export/import/doctor', () => {
@@ -299,5 +332,43 @@ describe('CLI export/import/doctor', () => {
 
     expect(code).toBe(0);
     expect(stdout.trim().length).toBeGreaterThan(10);
+  });
+});
+
+describe('CLI context/progress-checkpoint no-binding smoke test', () => {
+  const tempDirs: string[] = [];
+
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir !== undefined) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  function makeUnboundRepo(): string {
+    const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-unbound-'));
+    tempDirs.push(repoDir);
+    return repoDir;
+  }
+
+  it('context exits 0 and prints {} when the repo has no .plandesk/config.json', async () => {
+    const repoDir = makeUnboundRepo();
+    const { code, stdout } = await captureIo(() =>
+      main(['node', 'plandesk', 'context', '--json', '--repo', repoDir]),
+    );
+
+    expect(code).toBe(0);
+    expect(stdout.trim()).toBe('{}');
+  });
+
+  it('progress-checkpoint exits 0 and no-ops when the repo has no .plandesk/config.json', async () => {
+    const repoDir = makeUnboundRepo();
+    const { code } = await captureIo(() =>
+      main(['node', 'plandesk', 'progress-checkpoint', '--repo', repoDir]),
+    );
+
+    expect(code).toBe(0);
   });
 });

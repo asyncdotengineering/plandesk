@@ -18,6 +18,8 @@ import {
   runFactoryInit,
 } from './factory.js';
 import { formatDisconnectSummary, runDisconnect } from './disconnect.js';
+import { runContext } from './context.js';
+import { DEFAULT_CHECKPOINT_MESSAGE, runProgressCheckpoint } from './progress-checkpoint.js';
 import { formatPublishSummary, runPublish } from './publish.js';
 import { formatPushSummary, runPush } from './push.js';
 import { formatPullSummary, runPull } from './pull.js';
@@ -366,6 +368,17 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         }
         throw err;
       }
+    }
+    case 'context': {
+      const repoDir = resolveRepoDir(parsed.repoDir);
+      const context = await runContext(repoDir);
+      process.stdout.write(`${JSON.stringify(context)}\n`);
+      return 0;
+    }
+    case 'progress-checkpoint': {
+      const repoDir = resolveRepoDir(parsed.repoDir);
+      await runProgressCheckpoint(repoDir, parsed.message ?? DEFAULT_CHECKPOINT_MESSAGE);
+      return 0;
     }
     case 'unknown':
       process.stderr.write(`Unknown command: ${parsed.name}\n\n${usage()}`);

@@ -1,8 +1,11 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { normalizeServerUrl, parseConfigJson, type PlanDeskConfig } from './connect-artifacts.js';
+import {
+  normalizeServerUrl,
+  readPlandeskConfig,
+  readPlandeskToken,
+  type PlanDeskConfig,
+} from './connect-artifacts.js';
 
 export type BindingDoctorReport = {
   present: boolean;
@@ -13,15 +16,6 @@ export type BindingDoctorReport = {
   mcpToolCount: number;
   issues: string[];
 };
-
-function readToken(repoDir: string): string | undefined {
-  const tokenPath = join(repoDir, '.plandesk', 'token');
-  if (!existsSync(tokenPath)) {
-    return undefined;
-  }
-  const token = readFileSync(tokenPath, 'utf8').trim();
-  return token === '' ? undefined : token;
-}
 
 async function listMcpTools(serverUrl: string, token: string): Promise<number> {
   const client = new Client({ name: 'plandesk-doctor', version: '0.0.0' });
@@ -45,10 +39,10 @@ async function listMcpTools(serverUrl: string, token: string): Promise<number> {
 }
 
 export async function runBindingDoctor(repoDir: string): Promise<BindingDoctorReport> {
-  const configPath = join(repoDir, '.plandesk', 'config.json');
   const issues: string[] = [];
 
-  if (!existsSync(configPath)) {
+  const config = readPlandeskConfig(repoDir);
+  if (!config) {
     return {
       present: false,
       serverReachable: false,
@@ -59,8 +53,7 @@ export async function runBindingDoctor(repoDir: string): Promise<BindingDoctorRe
     };
   }
 
-  const config = parseConfigJson(readFileSync(configPath, 'utf8'));
-  const token = readToken(repoDir);
+  const token = readPlandeskToken(repoDir);
   if (token === undefined) {
     issues.push('missing .plandesk/token');
   }
