@@ -143,6 +143,8 @@ export type ParsedArgs =
     }
   | { command: 'deploy'; target?: string }
   | { command: 'factory'; subcommand: 'init'; repoDir?: string; print: boolean; force: boolean }
+  | { command: 'context'; repoDir?: string }
+  | { command: 'progress-checkpoint'; message?: string; repoDir?: string }
   | { command: 'help'; full: boolean }
   | { command: 'version' }
   | { command: 'unknown'; name: string };
@@ -379,6 +381,18 @@ export function parseArgs(argv: string[]): ParsedArgs {
     return { command: 'unknown', name: 'factory' };
   }
 
+  if (command === 'context') {
+    return { command: 'context', repoDir: flagString(flags, 'repo') };
+  }
+
+  if (command === 'progress-checkpoint') {
+    return {
+      command: 'progress-checkpoint',
+      message: flagString(flags, 'message'),
+      repoDir: flagString(flags, 'repo'),
+    };
+  }
+
   return { command: 'unknown', name: command };
 }
 
@@ -402,6 +416,8 @@ Usage:
   plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk deploy [target]   # list deploy guides, or print one for your coding agent: plandesk deploy cloudflare | claude
   plandesk factory init [--repo <dir>] [--print] [--force]
+  plandesk context --json [--repo <dir>]   # bound project's current task/doc/progress, for session hooks
+  plandesk progress-checkpoint [--message <text>] [--repo <dir>]   # post a checkpoint to the running agent run, for Stop/PreCompact hooks
   plandesk version           # print the installed CLI version (also: --version)
 
 Options:
@@ -421,6 +437,7 @@ Options:
   --in        Input file for import
   --remote    Sync server URL for publish
   --sync-token  Sync token for publish (default: PLANDESK_SYNC_TOKEN or .plandesk/sync-token)
+  --message   (progress-checkpoint) checkpoint text (default: "checkpoint (hook)")
 `;
 }
 

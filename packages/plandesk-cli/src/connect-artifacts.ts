@@ -93,6 +93,45 @@ export function buildConfigJson(input: {
   return `${JSON.stringify(config, null, 2)}\n`;
 }
 
+// --- binding resolution — shared by binding-doctor, context, and progress-checkpoint ---
+
+export type PlanDeskBinding = {
+  config: PlanDeskConfig;
+  token: string;
+};
+
+export function readPlandeskConfig(repoDir: string): PlanDeskConfig | undefined {
+  const configPath = join(repoDir, '.plandesk', 'config.json');
+  if (!existsSync(configPath)) {
+    return undefined;
+  }
+  return parseConfigJson(readFileSync(configPath, 'utf8'));
+}
+
+export function readPlandeskToken(repoDir: string): string | undefined {
+  const tokenPath = join(repoDir, '.plandesk', 'token');
+  if (!existsSync(tokenPath)) {
+    return undefined;
+  }
+  const token = readFileSync(tokenPath, 'utf8').trim();
+  return token === '' ? undefined : token;
+}
+
+// Resolves a repo's Plan Desk binding (config + token) for commands that talk to
+// the remote server over HTTP. Returns undefined if the repo isn't connected —
+// callers treat that as an idle no-op, never an error.
+export function resolvePlandeskBinding(repoDir: string): PlanDeskBinding | undefined {
+  const config = readPlandeskConfig(repoDir);
+  if (!config) {
+    return undefined;
+  }
+  const token = readPlandeskToken(repoDir);
+  if (!token) {
+    return undefined;
+  }
+  return { config, token };
+}
+
 function parseSyncConfig(raw: unknown): PlanDeskSyncConfig | undefined {
   if (raw === undefined || raw === null) {
     return undefined;

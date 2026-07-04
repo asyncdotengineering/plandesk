@@ -149,5 +149,13 @@ export function createProjectsRouter(
     }
   });
 
+  router.get('/projects/:id/next-task', (c) => {
+    const result = taskService.nextActionable(c.req.param('id'));
+    if (!result) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json(result);
+  });
+
   return router;
 }

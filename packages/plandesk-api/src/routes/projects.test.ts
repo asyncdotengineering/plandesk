@@ -360,4 +360,38 @@ describe('tasks routes', () => {
     });
     expect(res.status).toBe(404);
   });
+
+  it('GET /projects/:id/next-task returns the next actionable task', async () => {
+    const { app, db } = createTestApp();
+    const project = createProject(db, { name: 'Next task' });
+    const blocker = createTask(db, { projectId: project.id, label: 'Blocker', status: 'todo' });
+    const blocked = createTask(db, { projectId: project.id, label: 'Blocked', status: 'todo' });
+    createEdge(db, {
+      projectId: project.id,
+      fromTaskId: blocker.id,
+      toTaskId: blocked.id,
+      label: 'blocks',
+    });
+
+    const res = await app.request(`/api/v1/projects/${project.id}/next-task`);
+    expect(res.status).toBe(200);
+    const body = await parseJson<{
+      next_task: TaskResponse | null;
+      reason: string;
+      blocked: Array<{ task: TaskResponse; waiting_on: TaskResponse[] }>;
+    }>(res);
+    expect(body.next_task?.id).toBe(blocker.id);
+    expect(body.reason).toBe('ok');
+    expect(body.blocked).toHaveLength(1);
+    expect(body.blocked[0]?.task.id).toBe(blocked.id);
+  });
+
+  it('GET /projects/:id/next-task returns 404 for a missing project', async () => {
+    const { app } = createTestApp();
+    const res = await app.request(
+      '/api/v1/projects/00000000-0000-4000-8000-000000009999/next-task',
+    );
+    expect(res.status).toBe(404);
+    expect(await parseJson(res)).toEqual({ error: 'not_found' });
+  });
 });

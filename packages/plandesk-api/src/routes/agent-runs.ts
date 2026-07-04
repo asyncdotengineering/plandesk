@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import type { AgentRunService } from '../services/agent-runs.js';
+import { InvalidAgentRunError, type AgentRunService } from '../services/agent-runs.js';
 import { parsePaginationParams } from '../serialize.js';
 
 export function createAgentRunsRouter(agentRunService: AgentRunService): Hono {
@@ -15,6 +15,26 @@ export function createAgentRunsRouter(agentRunService: AgentRunService): Hono {
       return c.json({ error: 'not_found' }, 404);
     }
     return c.json(runs);
+  });
+
+  router.post('/agent-runs/:id/progress', async (c) => {
+    const body = await c.req.json<{ message?: string }>();
+    if (typeof body.message !== 'string' || body.message.trim() === '') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+
+    try {
+      const event = agentRunService.recordProgress(c.req.param('id'), body.message);
+      if (!event) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+      return c.json(event, 201);
+    } catch (error) {
+      if (error instanceof InvalidAgentRunError) {
+        return c.json({ error: 'invalid_argument' }, 400);
+      }
+      throw error;
+    }
   });
 
   return router;
