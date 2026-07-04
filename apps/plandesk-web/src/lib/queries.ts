@@ -64,6 +64,7 @@ import {
 export const queryKeys = {
   projects: ['projects'] as const,
   project: (id: string) => ['projects', id] as const,
+  tasksRoot: (projectId: string) => ['projects', projectId, 'tasks'] as const,
   tasks: (projectId: string, status?: TaskStatus) =>
     ['projects', projectId, 'tasks', status ?? 'all'] as const,
   tags: (projectId: string) => ['projects', projectId, 'tags'] as const,
@@ -114,7 +115,9 @@ export function useTasks(projectId: string, filter: { status?: TaskStatus } = {}
 
 function invalidateTaskQueries(queryClient: ReturnType<typeof useQueryClient>, projectId: string) {
   void queryClient.invalidateQueries({ queryKey: queryKeys.project(projectId) });
-  void queryClient.invalidateQueries({ queryKey: queryKeys.tasks(projectId) });
+  // Invalidate the tasks *prefix* (not `…/tasks/all`) so status-scoped lists
+  // (backlog, scope) the inbox reads are refetched — React Query matches by prefix.
+  void queryClient.invalidateQueries({ queryKey: queryKeys.tasksRoot(projectId) });
   // task mutations can auto-create tags by name
   void queryClient.invalidateQueries({ queryKey: queryKeys.tags(projectId) });
   void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(projectId) });
@@ -160,7 +163,9 @@ export function useTags(projectId: string) {
 function invalidateTagQueries(queryClient: ReturnType<typeof useQueryClient>, projectId: string) {
   void queryClient.invalidateQueries({ queryKey: queryKeys.tags(projectId) });
   // renames/deletes change the tag chips embedded in task payloads
-  void queryClient.invalidateQueries({ queryKey: queryKeys.tasks(projectId) });
+  // Invalidate the tasks *prefix* (not `…/tasks/all`) so status-scoped lists
+  // (backlog, scope) the inbox reads are refetched — React Query matches by prefix.
+  void queryClient.invalidateQueries({ queryKey: queryKeys.tasksRoot(projectId) });
 }
 
 export function useCreateTag(projectId: string) {

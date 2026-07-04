@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import type { SerializedSubmission } from '../../lib/api.js';
 import { usePatchTask, useSubmissions, useTasks, useTriageSubmission } from '../../lib/queries.js';
 
@@ -57,6 +57,24 @@ const neutralButtonStyle = {
   color: '#374151',
 };
 
+const severityColors: Record<string, { background: string; color: string }> = {
+  high: { background: '#fef2f2', color: '#b91c1c' },
+  medium: { background: '#fffbeb', color: '#b45309' },
+  low: { background: '#f0fdf4', color: '#15803d' },
+};
+
+function severityBadgeStyle(severity: string): CSSProperties {
+  return {
+    fontSize: '0.6875rem',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.03em',
+    padding: '0.125rem 0.375rem',
+    borderRadius: 4,
+    ...(severityColors[severity] ?? { background: '#f3f4f6', color: '#374151' }),
+  };
+}
+
 function SubmissionRow({
   submission,
   projectId,
@@ -80,8 +98,13 @@ function SubmissionRow({
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
         <strong style={{ fontSize: '0.9375rem' }}>{submission.title}</strong>
-        <span style={{ fontSize: '0.8125rem', color: '#6b7280' }}>
-          {submission.participant_name}
+        <span style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
+          {submission.severity !== null ? (
+            <span style={severityBadgeStyle(submission.severity)}>{submission.severity}</span>
+          ) : null}
+          <span style={{ fontSize: '0.8125rem', color: '#6b7280' }}>
+            {submission.participant_name}
+          </span>
         </span>
       </div>
       {excerpt(submission.body) !== null ? (
@@ -146,10 +169,6 @@ function SubmissionRow({
         >
           Merge into
         </button>
-        <span style={{ fontSize: '0.75rem', color: '#9ca3af', width: '100%' }}>
-          Linking isn&apos;t wired up yet — this still files a new scope task rather than
-          attaching to the id above.
-        </span>
       </div>
     </li>
   );

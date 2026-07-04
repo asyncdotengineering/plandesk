@@ -159,7 +159,7 @@ describe('InboxPanel', () => {
     });
   });
 
-  it('merge-into triages with the typed task id as link_task_id and discloses it is not wired up yet', async () => {
+  it('merge-into triages with the typed task id as link_task_id (no interim disclosure)', async () => {
     const fetchMock = vi.fn(routeFetch);
     vi.stubGlobal('fetch', fetchMock);
 
@@ -169,9 +169,8 @@ describe('InboxPanel', () => {
       expect(screen.getByText('Bug report')).toBeTruthy();
     });
 
-    expect(
-      screen.getByText(/Linking isn.t wired up yet — this still files a new scope task/),
-    ).toBeTruthy();
+    // Linking is wired up now — the interim "not wired up" disclosure must be gone.
+    expect(screen.queryByText(/wired up yet/)).toBeNull();
 
     fireEvent.change(screen.getByPlaceholderText('Existing task id'), {
       target: { value: 'task-existing-1' },
@@ -187,6 +186,17 @@ describe('InboxPanel', () => {
         }),
       );
     });
+  });
+
+  it('shows the submission severity', async () => {
+    vi.stubGlobal('fetch', vi.fn(routeFetch));
+
+    renderInboxPanel();
+
+    await waitFor(() => {
+      expect(screen.getByText('Bug report')).toBeTruthy();
+    });
+    expect(screen.getByText('high')).toBeTruthy();
   });
 
   it('releases a backlog task to scope', async () => {
@@ -209,6 +219,34 @@ describe('InboxPanel', () => {
           body: JSON.stringify({ status: 'scope' }),
         }),
       );
+    });
+  });
+
+  it('refetches the status-scoped lists after a mutation (cache invalidation)', async () => {
+    const fetchMock = vi.fn(routeFetch);
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderInboxPanel();
+
+    await waitFor(() => {
+      expect(screen.getByText('Investigate flaky export')).toBeTruthy();
+    });
+
+    const backlogCalls = () =>
+      fetchMock.mock.calls.filter(
+        ([url, init]) =>
+          typeof url === 'string' &&
+          url.includes('/tasks?status=backlog') &&
+          ((init as RequestInit | undefined)?.method ?? 'GET') === 'GET',
+      ).length;
+    const before = backlogCalls();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Release to scope' }));
+
+    // The mutation invalidates the tasks prefix, so the status-scoped backlog list
+    // refetches. With the old `…/tasks/all` leaf key it would not — the stale-inbox bug.
+    await waitFor(() => {
+      expect(backlogCalls()).toBeGreaterThan(before);
     });
   });
 
