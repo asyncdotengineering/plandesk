@@ -20,8 +20,10 @@ report — a broken or idle binding must never block a session start, stop, or
 compaction. They assume `plandesk` is on `PATH` (install with
 `npm i -g @plandesk/cli` or `plandesk connect` from an existing install).
 
-`settings.snippet.json` is the `.claude/settings.json` `hooks` block a
-project adds to wire these in — merge it into the project's existing
-`hooks` key (don't overwrite other hooks already configured there). This is
-not yet wired into `plandesk factory init`; until that lands, a human (or a
-future installer) merges the snippet by hand.
+`plandesk factory init` wires these in automatically — it merges the
+`settings.snippet.json` `hooks` block into the project's `.claude/settings.json`
+additively (never clobbering hooks you've configured for other events, and never
+duplicating the curator entries on re-run). The snippet file is kept here for
+reference and manual re-application. Hook commands are prefixed with
+`$CLAUDE_PROJECT_DIR` so they resolve against the project root regardless of the
+directory Claude Code was launched from.
