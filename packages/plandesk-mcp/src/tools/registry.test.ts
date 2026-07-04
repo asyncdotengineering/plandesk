@@ -4,6 +4,7 @@ import {
   getNextTaskInputSchema,
   listTagsInputSchema,
   listTasksInputSchema,
+  triageSubmissionInputSchema,
   updateTaskInputSchema,
   v1ToolNames,
   v1ToolSchemas,
@@ -64,6 +65,23 @@ describe('tool registry tag schemas', () => {
   it('list_tags requires a project id', () => {
     expect(listTagsInputSchema.safeParse({ project_id: PROJECT_ID }).success).toBe(true);
     expect(listTagsInputSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('triage_submission accepts an optional link_task_id alongside as_task', () => {
+    expect(
+      triageSubmissionInputSchema.safeParse({
+        submission_id: '00000000-0000-4000-8000-000000000003',
+        action: 'accept',
+        link_task_id: TASK_ID,
+      }).success,
+    ).toBe(true);
+    expect(
+      triageSubmissionInputSchema.safeParse({
+        submission_id: '00000000-0000-4000-8000-000000000003',
+        action: 'accept',
+        link_task_id: 'not-a-uuid',
+      }).success,
+    ).toBe(false);
   });
 
   it('documents replace-set and OR-filter semantics in the tag field descriptions', () => {

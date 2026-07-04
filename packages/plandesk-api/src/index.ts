@@ -24,6 +24,7 @@ export { InvalidScaffoldError } from './services/projects.js';
 export { InvalidShareError } from './services/share.js';
 export {
   InvalidTriageError,
+  InvalidTriageInputError,
   SyncUnavailableError,
   SyncUnauthorizedError,
   type SyncRemote,

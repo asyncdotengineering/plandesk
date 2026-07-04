@@ -250,6 +250,13 @@ export const triageSubmissionInputSchema = z.object({
       description: z.string().optional(),
     })
     .optional(),
+  link_task_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      'Links the submission to an existing task instead of creating a new one via as_task. Mutually exclusive with as_task.',
+    ),
 });
 
 export const v1ToolNames = [

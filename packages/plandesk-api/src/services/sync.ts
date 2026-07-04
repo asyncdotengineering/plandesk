@@ -41,6 +41,13 @@ export class InvalidTriageError extends Error {
   }
 }
 
+export class InvalidTriageInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidTriageInputError';
+  }
+}
+
 export type SyncRemote = {
   serverUrl: string;
   globalProjectId: string;
@@ -374,7 +381,12 @@ export function createSyncService(deps: SyncServiceDeps) {
       action: 'accept' | 'reject',
       remote: SyncRemote,
       asTask?: { label?: string; status?: TaskStatus; description?: string },
+      linkTaskId?: string,
     ): Promise<SerializedSubmission> {
+      if (asTask !== undefined && linkTaskId !== undefined) {
+        throw new InvalidTriageInputError('as_task and link_task_id are mutually exclusive');
+      }
+
       const submission = dbGetSubmission(db, submissionId);
       if (submission === undefined) {
         throw new InvalidTriageError();
@@ -385,6 +397,27 @@ export function createSyncService(deps: SyncServiceDeps) {
       }
 
       const projectId = submission.projectId;
+
+      if (action === 'accept' && linkTaskId !== undefined) {
+        const existingTask = taskService.get(linkTaskId);
+        if (existingTask === undefined || existingTask.project_id !== projectId) {
+          throw new InvalidTriageInputError(
+            'link_task_id does not reference an existing task in this project',
+          );
+        }
+
+        const updated = setSubmissionStatus(db, submissionId, {
+          status: 'accepted',
+          linkedTaskId: linkTaskId,
+        });
+        if (updated === undefined) {
+          throw new InvalidTriageError();
+        }
+
+        eventBus.emit({ type: 'submissions_pulled', projectId });
+        await ackSubmission(remote, submissionId, 'accepted');
+        return serializeSubmission(updated);
+      }
 
       if (action === 'accept') {
         const task = taskService.create(projectId, {

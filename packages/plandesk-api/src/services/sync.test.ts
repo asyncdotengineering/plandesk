@@ -23,6 +23,7 @@ import { createTaskService } from './tasks.js';
 import {
   createSyncService,
   InvalidTriageError,
+  InvalidTriageInputError,
   SyncUnauthorizedError,
   SyncUnavailableError,
 } from './sync.js';
@@ -354,6 +355,125 @@ describe('syncService', () => {
     await expect(service.triage('missing', 'accept', remote)).rejects.toBeInstanceOf(
       InvalidTriageError,
     );
+  });
+
+  it('triage accept-as-merge links an existing task without creating a new one', async () => {
+    const project = createProject(db, { name: 'Merge' });
+    const existingTask = createTask(db, { projectId: project.id, label: 'Existing task' });
+    const service = await pullSubmission(project.id);
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await service.triage(
+      'sub-remote-1',
+      'accept',
+      remote,
+      undefined,
+      existingTask.id,
+    );
+
+    expect(result.status).toBe('accepted');
+    expect(result.linked_task_id).toBe(existingTask.id);
+
+    const tasks = listTasks(db, project.id);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]?.id).toBe(existingTask.id);
+
+    const local = getSubmission(db, 'sub-remote-1');
+    expect(local?.status).toBe('accepted');
+    expect(local?.linkedTaskId).toBe(existingTask.id);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://sync.example/api/sync/v1/projects/gid-1/submissions/sub-remote-1/ack',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ status: 'accepted' }),
+      }),
+    );
+  });
+
+  it('triage rejects when both as_task and link_task_id are provided', async () => {
+    const project = createProject(db, { name: 'Mutually exclusive' });
+    const existingTask = createTask(db, { projectId: project.id, label: 'Existing task' });
+    const service = await pullSubmission(project.id);
+
+    await expect(
+      service.triage(
+        'sub-remote-1',
+        'accept',
+        remote,
+        { label: 'New task' },
+        existingTask.id,
+      ),
+    ).rejects.toBeInstanceOf(InvalidTriageInputError);
+
+    expect(listTasks(db, project.id)).toHaveLength(1);
+    expect(getSubmission(db, 'sub-remote-1')?.status).toBe('pending');
+  });
+
+  it('triage rejects link_task_id for a task that does not exist', async () => {
+    const project = createProject(db, { name: 'Missing link target' });
+    const service = await pullSubmission(project.id);
+
+    await expect(
+      service.triage('sub-remote-1', 'accept', remote, undefined, 'missing-task-id'),
+    ).rejects.toBeInstanceOf(InvalidTriageInputError);
+
+    expect(listTasks(db, project.id)).toHaveLength(0);
+    expect(getSubmission(db, 'sub-remote-1')?.status).toBe('pending');
+  });
+
+  it('triage rejects link_task_id for a task belonging to a different project', async () => {
+    const project = createProject(db, { name: 'Cross-project source' });
+    const otherProject = createProject(db, { name: 'Cross-project other' });
+    const otherTask = createTask(db, { projectId: otherProject.id, label: 'Other project task' });
+    const service = await pullSubmission(project.id);
+
+    await expect(
+      service.triage('sub-remote-1', 'accept', remote, undefined, otherTask.id),
+    ).rejects.toBeInstanceOf(InvalidTriageInputError);
+
+    expect(getSubmission(db, 'sub-remote-1')?.status).toBe('pending');
+  });
+
+  it('triage accept-as-merge re-run is idempotent and does not create an orphan task', async () => {
+    const project = createProject(db, { name: 'Merge idempotent' });
+    const existingTask = createTask(db, { projectId: project.id, label: 'Existing task' });
+    const service = await pullSubmission(project.id);
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    const first = await service.triage(
+      'sub-remote-1',
+      'accept',
+      remote,
+      undefined,
+      existingTask.id,
+    );
+    const second = await service.triage(
+      'sub-remote-1',
+      'accept',
+      remote,
+      undefined,
+      existingTask.id,
+    );
+
+    expect(second).toEqual(first);
+    expect(listTasks(db, project.id)).toHaveLength(1);
   });
 });
 
