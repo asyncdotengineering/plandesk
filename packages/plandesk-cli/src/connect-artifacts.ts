@@ -48,7 +48,13 @@ export function buildSentinelBlock(): string {
 // Global agent-config directories: writing repo artifacts (CLAUDE.md includes,
 // .mcp.json, skills) directly into one of these leaks into every project on
 // the machine — e.g. ~/.claude/CLAUDE.md is Claude Code's *global* instructions.
-export const GLOBAL_CONFIG_DIR_NAMES = ['.claude', '.codex', '.agents', '.config', '.plandesk'] as const;
+export const GLOBAL_CONFIG_DIR_NAMES = [
+  '.claude',
+  '.codex',
+  '.agents',
+  '.config',
+  '.plandesk',
+] as const;
 
 export function globalDirRefusalReason(repoDir: string, home = homedir()): string | undefined {
   const resolved = resolve(repoDir);
@@ -203,6 +209,39 @@ export function mergeMcpJson(existingContent: string | undefined, serverUrl: str
   return `${JSON.stringify(doc, null, 2)}\n`;
 }
 
+// Curator hooks (F1): a `.claude/settings.json` `hooks` block, additively
+// merged from the project-local snippet. Never clobbers a user's existing
+// hooks for OTHER events, and never duplicates the curator entries on rerun —
+// each event's array keeps at most one copy of each snippet entry.
+export type SettingsJson = {
+  hooks?: Record<string, unknown[]>;
+};
+
+export function mergeCuratorHooksJson(
+  existingContent: string | undefined,
+  snippetContent: string,
+): string {
+  const snippet = JSON.parse(snippetContent) as SettingsJson;
+  let doc: SettingsJson = {};
+  if (existingContent !== undefined && existingContent.trim() !== '') {
+    doc = JSON.parse(existingContent) as SettingsJson;
+  }
+  const hooks = doc.hooks ?? {};
+  for (const [event, snippetEntries] of Object.entries(snippet.hooks ?? {})) {
+    const existingEntries = hooks[event] ?? [];
+    const merged = [...existingEntries];
+    for (const entry of snippetEntries) {
+      const entryJson = JSON.stringify(entry);
+      if (!merged.some((candidate) => JSON.stringify(candidate) === entryJson)) {
+        merged.push(entry);
+      }
+    }
+    hooks[event] = merged;
+  }
+  doc.hooks = hooks;
+  return `${JSON.stringify(doc, null, 2)}\n`;
+}
+
 export function removeMcpServerEntry(existingContent: string): string | undefined {
   const doc = JSON.parse(existingContent) as McpJson;
   if (doc.mcpServers === undefined) {
@@ -224,7 +263,10 @@ export function removeMcpServerEntry(existingContent: string): string | undefine
 // verifiers) stays on-demand — it is read at dispatch/gate time.
 export const FACTORY_SENTINEL_START = '<!-- plandesk-factory:start -->';
 export const FACTORY_SENTINEL_END = '<!-- plandesk-factory:end -->';
-export const FACTORY_SENTINEL_INCLUDES = ['@.agents/factory/workflow.md', '@.agents/factory/factory.md'];
+export const FACTORY_SENTINEL_INCLUDES = [
+  '@.agents/factory/workflow.md',
+  '@.agents/factory/factory.md',
+];
 
 export function buildFactorySentinelBlock(): string {
   return `${FACTORY_SENTINEL_START}\n${FACTORY_SENTINEL_INCLUDES.join('\n')}\n${FACTORY_SENTINEL_END}`;
@@ -247,7 +289,12 @@ export function insertBlock(content: string, block: string, start: string, end: 
 }
 
 export function insertFactorySentinelBlock(content: string): string {
-  return insertBlock(content, buildFactorySentinelBlock(), FACTORY_SENTINEL_START, FACTORY_SENTINEL_END);
+  return insertBlock(
+    content,
+    buildFactorySentinelBlock(),
+    FACTORY_SENTINEL_START,
+    FACTORY_SENTINEL_END,
+  );
 }
 
 export function insertSentinelBlock(content: string): string {
@@ -342,7 +389,11 @@ export function readWorkspaceJson(plandeskDir: string): WorkspaceJson | undefine
 
 export function writeWorkspaceJson(plandeskDir: string, port: number): void {
   const workspace: WorkspaceJson = { version: WORKSPACE_JSON_VERSION, port };
-  writeFileSync(join(plandeskDir, 'workspace.json'), `${JSON.stringify(workspace, null, 2)}\n`, 'utf8');
+  writeFileSync(
+    join(plandeskDir, 'workspace.json'),
+    `${JSON.stringify(workspace, null, 2)}\n`,
+    'utf8',
+  );
 }
 
 // --- server.json — gitignored, written by `plandesk serve` after bind, deleted on exit ---

@@ -11,6 +11,8 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs, workspaceDbPath } from './args.js';
 import { main } from './cli.js';
+import { CURATOR_TEMPLATES } from './curator-templates.js';
+import { runFactoryInit } from './factory.js';
 import { runInit } from './init.js';
 import { openWorkspace } from './workspace.js';
 
@@ -288,6 +290,38 @@ describe('CLI export/import/doctor', () => {
     expect(stdout).toContain('migrations: applied');
     expect(stdout).toContain('projects: 1');
     expect(stdout).toContain('tasks: 1');
+  });
+
+  it('reports missing curator artifacts via doctor --repo', async () => {
+    const dataDir = await makeWorkspace();
+    const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-doctor-repo-'));
+    tempDirs.push(repoDir);
+
+    const { code, stdout } = await captureIo(() =>
+      main(['node', 'plandesk', 'doctor', '--data-dir', dataDir, '--repo', repoDir]),
+    );
+
+    expect(code).toBe(0);
+    expect(stdout).toContain(`curator: 0/${String(CURATOR_TEMPLATES.length)} artifacts present`);
+    expect(stdout).toContain('curator-missing:');
+    expect(stdout).toContain('.agents/curator/triage.md');
+  });
+
+  it('reports all curator artifacts present via doctor --repo after factory init', async () => {
+    const dataDir = await makeWorkspace();
+    const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-doctor-repo-'));
+    tempDirs.push(repoDir);
+    runFactoryInit({ repoDir });
+
+    const { code, stdout } = await captureIo(() =>
+      main(['node', 'plandesk', 'doctor', '--data-dir', dataDir, '--repo', repoDir]),
+    );
+
+    expect(code).toBe(0);
+    expect(stdout).toContain(
+      `curator: ${String(CURATOR_TEMPLATES.length)}/${String(CURATOR_TEMPLATES.length)} artifacts present`,
+    );
+    expect(stdout).not.toContain('curator-missing:');
   });
 
   it('exits 2 when database is corrupt', async () => {

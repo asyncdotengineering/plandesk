@@ -17,6 +17,7 @@ import {
   GITIGNORE_TOKEN_LINE,
   insertSentinelBlock,
   isPidAlive,
+  mergeCuratorHooksJson,
   mergeMcpJson,
   parseConfigJson,
   readServerInfo,
@@ -79,7 +80,10 @@ describe('connect artifacts', () => {
     const merged = mergeMcpJson(existing, 'http://127.0.0.1:3847');
     expect(merged).not.toContain('plandesk_mcp_');
     const parsed = JSON.parse(merged) as {
-      mcpServers: Record<string, { url: string; headers?: Record<string, string>; headersHelper?: string }>;
+      mcpServers: Record<
+        string,
+        { url: string; headers?: Record<string, string>; headersHelper?: string }
+      >;
     };
     expect(parsed.mcpServers.plandesk?.url).toBe('http://127.0.0.1:3847/mcp/');
     expect(parsed.mcpServers.other?.url).toBe('http://example.test/mcp/');
@@ -200,7 +204,12 @@ describe('connect artifacts', () => {
       const dir = mkdtempSync(join(tmpdir(), 'plandesk-srv-'));
       try {
         expect(readServerInfo(dir)).toBeUndefined();
-        writeServerInfo(dir, { port: 3401, pid: process.pid, host: '0.0.0.0', startedAt: '2026-01-01T00:00:00.000Z' });
+        writeServerInfo(dir, {
+          port: 3401,
+          pid: process.pid,
+          host: '0.0.0.0',
+          startedAt: '2026-01-01T00:00:00.000Z',
+        });
         const info = readServerInfo(dir);
         expect(info?.port).toBe(3401);
         expect(info?.pid).toBe(process.pid);
@@ -212,7 +221,12 @@ describe('connect artifacts', () => {
     it('readServerInfo returns undefined when PID is dead', () => {
       const dir = mkdtempSync(join(tmpdir(), 'plandesk-srv-dead-'));
       try {
-        writeServerInfo(dir, { port: 3401, pid: 999999999, host: '0.0.0.0', startedAt: '2026-01-01T00:00:00.000Z' });
+        writeServerInfo(dir, {
+          port: 3401,
+          pid: 999999999,
+          host: '0.0.0.0',
+          startedAt: '2026-01-01T00:00:00.000Z',
+        });
         expect(readServerInfo(dir)).toBeUndefined();
       } finally {
         rmSync(dir, { recursive: true, force: true });
@@ -222,7 +236,12 @@ describe('connect artifacts', () => {
     it('deleteServerInfo removes the file and is idempotent', () => {
       const dir = mkdtempSync(join(tmpdir(), 'plandesk-srv-del-'));
       try {
-        writeServerInfo(dir, { port: 3401, pid: process.pid, host: '0.0.0.0', startedAt: '2026-01-01T00:00:00.000Z' });
+        writeServerInfo(dir, {
+          port: 3401,
+          pid: process.pid,
+          host: '0.0.0.0',
+          startedAt: '2026-01-01T00:00:00.000Z',
+        });
         expect(readServerInfo(dir)).toBeDefined();
         deleteServerInfo(dir);
         expect(readServerInfo(dir)).toBeUndefined();
@@ -235,5 +254,59 @@ describe('connect artifacts', () => {
 
   it('ships RFC skill template verbatim', () => {
     expect(buildSkillMarkdown()).toBe(`${PLANDESK_SKILL_TEMPLATE}\n`);
+  });
+
+  describe('mergeCuratorHooksJson', () => {
+    const snippet = JSON.stringify({
+      hooks: {
+        SessionStart: [
+          {
+            matcher: 'startup|resume|compact',
+            hooks: [{ type: 'command', command: '.agents/curator/hooks/session-start.sh' }],
+          },
+        ],
+        Stop: [{ hooks: [{ type: 'command', command: '.agents/curator/hooks/checkpoint.sh' }] }],
+      },
+    });
+
+    it('creates the hooks block when settings.json is absent', () => {
+      const merged = mergeCuratorHooksJson(undefined, snippet);
+      const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
+      expect(parsed.hooks.SessionStart).toHaveLength(1);
+      expect(parsed.hooks.Stop).toHaveLength(1);
+    });
+
+    it('merges additively without touching an unrelated event', () => {
+      const existing = JSON.stringify({
+        hooks: { PostToolUse: [{ hooks: [{ type: 'command', command: 'echo other' }] }] },
+      });
+      const merged = mergeCuratorHooksJson(existing, snippet);
+      const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
+      expect(parsed.hooks.PostToolUse).toEqual([
+        { hooks: [{ type: 'command', command: 'echo other' }] },
+      ]);
+      expect(parsed.hooks.SessionStart).toHaveLength(1);
+      expect(parsed.hooks.Stop).toHaveLength(1);
+    });
+
+    it('is idempotent — merging the same snippet twice does not duplicate entries', () => {
+      const once = mergeCuratorHooksJson(undefined, snippet);
+      const twice = mergeCuratorHooksJson(once, snippet);
+      expect(twice).toBe(once);
+      const parsed = JSON.parse(twice) as { hooks: Record<string, unknown[]> };
+      expect(parsed.hooks.SessionStart).toHaveLength(1);
+      expect(parsed.hooks.Stop).toHaveLength(1);
+    });
+
+    it('keeps a pre-existing entry on the same event alongside the new one', () => {
+      const existing = JSON.stringify({
+        hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'echo mine' }] }] },
+      });
+      const merged = mergeCuratorHooksJson(existing, snippet);
+      const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
+      expect(parsed.hooks.SessionStart).toHaveLength(2);
+      expect(JSON.stringify(parsed.hooks.SessionStart)).toContain('echo mine');
+      expect(JSON.stringify(parsed.hooks.SessionStart)).toContain('session-start.sh');
+    });
   });
 });

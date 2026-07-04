@@ -1,8 +1,17 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { globalDirRefusalReason } from './connect-artifacts.js';
+import { CURATOR_TEMPLATES } from './curator-templates.js';
 import {
   buildFactoryArtifacts,
   FactoryError,
@@ -34,9 +43,7 @@ describe('globalDirRefusalReason', () => {
   it('refuses global agent config directories under home', () => {
     const home = makeTempDir('plandesk-home-');
     for (const name of ['.claude', '.codex', '.agents', '.config', '.plandesk']) {
-      expect(globalDirRefusalReason(join(home, name), home)).toBe(
-        `the global ${name} directory`,
-      );
+      expect(globalDirRefusalReason(join(home, name), home)).toBe(`the global ${name} directory`);
     }
   });
 
@@ -138,10 +145,28 @@ describe('runFactoryInit', () => {
 
     expect(() => runFactoryInit({ repoDir: globalClaude, homeDir: home })).toThrow(FactoryError);
     expect(existsSync(join(globalClaude, '.agents'))).toBe(false);
+    // The guard is all-or-nothing (it throws before buildFactoryArtifacts is
+    // ever called), so proving it covers the curator surface is proving these
+    // never get written either — not a per-file check.
+    for (const template of CURATOR_TEMPLATES) {
+      expect(
+        existsSync(join(globalClaude, '.agents/curator', template.relativePath)),
+        template.relativePath,
+      ).toBe(false);
+    }
+    expect(existsSync(join(globalClaude, '.claude/settings.json'))).toBe(false);
 
     const forced = runFactoryInit({ repoDir: globalClaude, homeDir: home, force: true });
     expect(forced.artifacts.length).toBeGreaterThan(0);
     expect(existsSync(join(globalClaude, '.agents/factory/factory.md'))).toBe(true);
+    // --force lifts the guard for the whole scaffold, curator artifacts included.
+    for (const template of CURATOR_TEMPLATES) {
+      expect(
+        existsSync(join(globalClaude, '.agents/curator', template.relativePath)),
+        template.relativePath,
+      ).toBe(true);
+    }
+    expect(existsSync(join(globalClaude, '.claude/settings.json'))).toBe(true);
   });
 
   it('formats a summary naming skip semantics', () => {
@@ -210,5 +235,153 @@ describe('worker files', () => {
     expect(protocol).toContain('type: protocol');
     expect(protocol).toContain('runs/result-<task>.json');
     expect(protocol).toContain('Exit codes are authoritative');
+  });
+});
+
+describe('curator artifacts (F5)', () => {
+  it('scaffolds all 9 curator artifacts create-if-missing, with hook scripts executable', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    const result = runFactoryInit({ repoDir: repo });
+
+    for (const template of CURATOR_TEMPLATES) {
+      const path = join(repo, '.agents/curator', template.relativePath);
+      expect(existsSync(path), template.relativePath).toBe(true);
+      expect(readFileSync(path, 'utf8'), template.relativePath).toBe(template.content);
+      const artifact = result.artifacts.find((a) => a.path === path);
+      expect(artifact?.action, template.relativePath).toBe('create');
+      if (template.executable === true) {
+        const mode = statSync(path).mode;
+        expect(mode & 0o111, `${template.relativePath} should be executable`).not.toBe(0);
+      }
+    }
+
+    const triage = readFileSync(join(repo, '.agents/curator/triage.md'), 'utf8');
+    expect(triage).toContain('type: curator-skill');
+    expect(triage.startsWith('---\ntype: curator-skill\n')).toBe(true);
+  });
+
+  it('never overwrites a curator artifact the user edited, on re-run', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    runFactoryInit({ repoDir: repo });
+
+    const triagePath = join(repo, '.agents/curator/triage.md');
+    writeFileSync(triagePath, 'my edited triage skill\n', 'utf8');
+
+    const rerun = runFactoryInit({ repoDir: repo });
+    expect(readFileSync(triagePath, 'utf8')).toBe('my edited triage skill\n');
+    const triageArtifact = rerun.artifacts.find((a) => a.path === triagePath);
+    expect(triageArtifact?.action).toBe('skip');
+  });
+
+  it('--print previews all 9 curator artifacts and the settings.json merge', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    const result = runFactoryInit({ repoDir: repo, print: true });
+    expect(existsSync(join(repo, '.agents/curator'))).toBe(false);
+
+    const printout = formatFactoryInitPrint(result);
+    for (const template of CURATOR_TEMPLATES) {
+      expect(printout, template.relativePath).toContain(template.relativePath);
+    }
+    expect(printout).toContain(join(repo, '.claude/settings.json'));
+    expect(printout).toContain('plandesk progress-checkpoint');
+  });
+});
+
+describe('curator hooks settings.json merge (F1 wiring)', () => {
+  it('creates .claude/settings.json with the SessionStart/Stop/PreCompact hooks when absent', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    const result = runFactoryInit({ repoDir: repo });
+    const settingsPath = join(repo, '.claude/settings.json');
+    expect(existsSync(settingsPath)).toBe(true);
+
+    const artifact = result.artifacts.find((a) => a.path === settingsPath);
+    expect(artifact?.action).toBe('create');
+
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
+      hooks: Record<string, unknown[]>;
+    };
+    expect(settings.hooks.SessionStart).toHaveLength(1);
+    expect(settings.hooks.Stop).toHaveLength(1);
+    expect(settings.hooks.PreCompact).toHaveLength(1);
+    expect(JSON.stringify(settings.hooks.SessionStart)).toContain(
+      '.agents/curator/hooks/session-start.sh',
+    );
+    expect(JSON.stringify(settings.hooks.Stop)).toContain('.agents/curator/hooks/checkpoint.sh');
+  });
+
+  it('merges additively into an existing settings.json without touching unrelated hooks', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    mkdirSync(join(repo, '.claude'), { recursive: true });
+    const settingsPath = join(repo, '.claude/settings.json');
+    writeFileSync(
+      settingsPath,
+      JSON.stringify(
+        {
+          hooks: {
+            PostToolUse: [{ hooks: [{ type: 'command', command: 'echo my-hook' }] }],
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const result = runFactoryInit({ repoDir: repo });
+    const artifact = result.artifacts.find((a) => a.path === settingsPath);
+    expect(artifact?.action).toBe('update');
+
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
+      hooks: Record<string, unknown[]>;
+    };
+    // Unrelated hook untouched.
+    expect(settings.hooks.PostToolUse).toEqual([
+      { hooks: [{ type: 'command', command: 'echo my-hook' }] },
+    ]);
+    // Curator hooks added.
+    expect(settings.hooks.SessionStart).toHaveLength(1);
+    expect(settings.hooks.Stop).toHaveLength(1);
+    expect(settings.hooks.PreCompact).toHaveLength(1);
+  });
+
+  it('is idempotent — running factory init twice does not duplicate curator hook entries', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    runFactoryInit({ repoDir: repo });
+    const settingsPath = join(repo, '.claude/settings.json');
+    const first = readFileSync(settingsPath, 'utf8');
+
+    const rerun = runFactoryInit({ repoDir: repo });
+    const second = readFileSync(settingsPath, 'utf8');
+    expect(second).toBe(first);
+
+    const artifact = rerun.artifacts.find((a) => a.path === settingsPath);
+    expect(artifact?.action).toBe('update');
+
+    const settings = JSON.parse(second) as { hooks: Record<string, unknown[]> };
+    expect(settings.hooks.SessionStart).toHaveLength(1);
+    expect(settings.hooks.Stop).toHaveLength(1);
+    expect(settings.hooks.PreCompact).toHaveLength(1);
+  });
+
+  it('preserves a user-added SessionStart hook alongside the curator one on rerun', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    runFactoryInit({ repoDir: repo });
+    const settingsPath = join(repo, '.claude/settings.json');
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
+      hooks: Record<string, unknown[]>;
+    };
+    settings.hooks.SessionStart = [
+      ...(settings.hooks.SessionStart ?? []),
+      { hooks: [{ type: 'command', command: 'echo user-hook' }] },
+    ];
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+
+    runFactoryInit({ repoDir: repo });
+    const after = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
+      hooks: Record<string, unknown[]>;
+    };
+    expect(after.hooks.SessionStart).toHaveLength(2);
+    expect(JSON.stringify(after.hooks.SessionStart)).toContain('echo user-hook');
+    expect(JSON.stringify(after.hooks.SessionStart)).toContain('session-start.sh');
   });
 });

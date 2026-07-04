@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { createDb, migrate, type Db } from '@plandesk/db';
 import { resolveDataDir, workspaceDbPath } from './args.js';
 import {
@@ -5,6 +7,7 @@ import {
   runBindingDoctor,
   type BindingDoctorReport,
 } from './binding-doctor.js';
+import { CURATOR_DIR, CURATOR_TEMPLATES } from './curator-templates.js';
 import { CorruptWorkspaceError, isDbCorruptionError } from './workspace.js';
 
 const EXPECTED_TABLES = [
@@ -30,7 +33,31 @@ export type DoctorReport = {
   taskCount: number;
   issues: string[];
   binding?: BindingDoctorReport;
+  curator?: CuratorDoctorReport;
 };
+
+export type CuratorDoctorReport = {
+  present: number;
+  total: number;
+  missing: string[];
+};
+
+// Curator artifact adoption is informational, not a health failure — most
+// repos haven't scaffolded the Curator RFC's files and that's not a problem.
+function curatorArtifactReport(repoDir: string): CuratorDoctorReport {
+  const missing: string[] = [];
+  for (const template of CURATOR_TEMPLATES) {
+    const path = join(repoDir, CURATOR_DIR, template.relativePath);
+    if (!existsSync(path)) {
+      missing.push(join(CURATOR_DIR, template.relativePath));
+    }
+  }
+  return {
+    present: CURATOR_TEMPLATES.length - missing.length,
+    total: CURATOR_TEMPLATES.length,
+    missing,
+  };
+}
 
 function listTables(db: Db): string[] {
   const rows = db.$client
@@ -88,11 +115,13 @@ export async function runDoctor(dataDirOverride?: string, repoDir?: string): Pro
   const taskCount = tables.includes('tasks') ? countRows(db, 'tasks') : 0;
 
   let binding: BindingDoctorReport | undefined;
+  let curator: CuratorDoctorReport | undefined;
   if (repoDir !== undefined) {
     binding = await runBindingDoctor(repoDir);
     if (binding.present) {
       issues.push(...binding.issues);
     }
+    curator = curatorArtifactReport(repoDir);
   }
 
   return {
@@ -106,6 +135,7 @@ export async function runDoctor(dataDirOverride?: string, repoDir?: string): Pro
     taskCount,
     issues,
     binding,
+    curator,
   };
 }
 
@@ -123,6 +153,14 @@ export function formatDoctorReport(report: DoctorReport): string {
   lines.push(`tasks: ${String(report.taskCount)}`);
   if (report.binding !== undefined) {
     lines.push(...formatBindingDoctorReport(report.binding));
+  }
+  if (report.curator !== undefined) {
+    lines.push(
+      `curator: ${String(report.curator.present)}/${String(report.curator.total)} artifacts present`,
+    );
+    if (report.curator.missing.length > 0) {
+      lines.push(`curator-missing: ${report.curator.missing.join(', ')}`);
+    }
   }
   for (const issue of report.issues) {
     lines.push(`issue: ${issue}`);

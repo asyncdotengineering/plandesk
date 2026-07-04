@@ -1,7 +1,16 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { globalDirRefusalReason, insertFactorySentinelBlock } from './connect-artifacts.js';
+import {
+  globalDirRefusalReason,
+  insertFactorySentinelBlock,
+  mergeCuratorHooksJson,
+} from './connect-artifacts.js';
 import { resolveAgents } from './connect.js';
+import {
+  CURATOR_DIR,
+  CURATOR_HOOKS_SETTINGS_SNIPPET_JSON,
+  CURATOR_TEMPLATES,
+} from './curator-templates.js';
 
 export class FactoryError extends Error {
   constructor(
@@ -25,6 +34,8 @@ export type FactoryArtifact = {
   path: string;
   content: string;
   action: 'create' | 'update' | 'skip';
+  /** Set the executable bit (0o755) after writing — for the curator hook scripts. */
+  executable?: boolean;
 };
 
 export type FactoryInitResult = {
@@ -318,7 +329,10 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
     { path: join(factoryDir, 'factory.md'), content: buildFactoryMarkdown() },
     { path: join(factoryDir, 'protocol.md'), content: buildProtocolMarkdown() },
     { path: join(factoryDir, 'lanes.md'), content: buildLanesMarkdown() },
-    { path: join(factoryDir, 'verifiers', 'tests-pass.md'), content: buildExampleVerifierMarkdown() },
+    {
+      path: join(factoryDir, 'verifiers', 'tests-pass.md'),
+      content: buildExampleVerifierMarkdown(),
+    },
     { path: join(factoryDir, 'runs', '.gitignore'), content: buildRunsGitignore() },
     ...WORKER_TEMPLATES.map((worker) => ({
       path: join(factoryDir, 'workers', `${worker.name}.md`),
@@ -373,6 +387,34 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
     });
   }
 
+  // Curator artifacts (Plan-Desk-Curator RFC): authored policy, same
+  // skip-if-exists semantics as the factory files above — a user's edited
+  // triage.md must never be clobbered by a second `factory init` run.
+  const curatorDir = join(repoDir, CURATOR_DIR);
+  for (const template of CURATOR_TEMPLATES) {
+    const path = join(curatorDir, template.relativePath);
+    artifacts.push({
+      path,
+      content: template.content,
+      action: existsSync(path) ? 'skip' : 'create',
+      executable: template.executable,
+    });
+  }
+
+  // Curator hooks wiring (F1): merge the SessionStart/Stop/PreCompact block
+  // into .claude/settings.json additively — never clobbers a user's existing
+  // hooks for other events, and never duplicates the curator entries on
+  // rerun (see mergeCuratorHooksJson).
+  const settingsJsonPath = join(repoDir, '.claude', 'settings.json');
+  const existingSettingsJson = existsSync(settingsJsonPath)
+    ? readFileSync(settingsJsonPath, 'utf8')
+    : undefined;
+  artifacts.push({
+    path: settingsJsonPath,
+    content: mergeCuratorHooksJson(existingSettingsJson, CURATOR_HOOKS_SETTINGS_SNIPPET_JSON),
+    action: existingSettingsJson !== undefined ? 'update' : 'create',
+  });
+
   return artifacts;
 }
 
@@ -383,6 +425,9 @@ function writeFactoryArtifacts(artifacts: FactoryArtifact[]): void {
     }
     mkdirSync(dirname(artifact.path), { recursive: true });
     writeFileSync(artifact.path, artifact.content, 'utf8');
+    if (artifact.executable === true) {
+      chmodSync(artifact.path, 0o755);
+    }
   }
 }
 
