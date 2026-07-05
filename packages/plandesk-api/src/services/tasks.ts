@@ -31,6 +31,13 @@ import { normalizeTagName } from './tags.js';
 
 type SerializedTask = ReturnType<typeof serializeTask>;
 
+export class InvalidGoalReferenceError extends Error {
+  constructor(goalId: string) {
+    super(`Goal ${goalId} does not exist in this project`);
+    this.name = 'InvalidGoalReferenceError';
+  }
+}
+
 export type NextActionableReason =
   | 'ok'
   | 'no_tasks'
@@ -153,6 +160,13 @@ export function createTaskService(deps: TaskServiceDeps) {
       const project = getProject(db, projectId);
       if (!project) {
         return undefined;
+      }
+
+      if (
+        input.goalId !== undefined &&
+        !listGoals(db, projectId).some((g) => g.id === input.goalId)
+      ) {
+        throw new InvalidGoalReferenceError(input.goalId);
       }
 
       const { task, tags } = db.transaction((tx) => {

@@ -13,6 +13,7 @@ export {
   InvalidVerificationSurfaceError,
 } from './services/goals.js';
 export type { TaskService } from './services/tasks.js';
+export { InvalidGoalReferenceError } from './services/tasks.js';
 export type { TagService } from './services/tags.js';
 export type { CanvasService } from './services/canvas.js';
 export type { DocumentService } from './services/documents.js';

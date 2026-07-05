@@ -427,6 +427,53 @@ Use the granular tools (\`create_task\`, \`create_edge\`, \`create_document\`) o
 when **adding** to an already-scaffolded project — \`scaffold_project_from_
 plan\` is for standing up something new.
 
+## Decomposing a Goal into cycle-sized tasks
+
+A **Goal** is the durable, goal-altitude contract a human hands over
+(\`objective\` + \`verification_surface\` + constraints/boundaries/budget — see
+the "Goal as a durable primitive" design). The human authors the Goal; **the
+system owns cycle-sizing**. When asked to plan a Goal (or a worker picks up a
+Goal that has no cycle-tasks yet), decompose it here so no human ever crafts a
+too-big task.
+
+Input is the Goal's \`objective\` and its \`verification_surface\` (the acceptance
+that must end green). Output is a set of **cycle-sized tasks under that Goal**,
+edge-sequenced, that together make the \`verification_surface\` pass.
+
+### The sizing rule (the one rule that matters)
+
+A task is cycle-sized when **one worker can take it start → proven-done in one
+coherent pass** — one red gate made green, verified, with every changed line
+tracing to that task. If you cannot describe a single checkable "done" for a
+task, or it would need more than one verify-and-integrate pass, it is too big:
+**split it** until each child is one cycle. Prefer more, smaller cycles over
+fewer large ones — the loop (\`get_next_task\` → work → prove → done) only stays
+unstuck when each step is genuinely one pass.
+
+Each cycle-task carries its own acceptance in its **Action Items** (what makes
+*this* task done), so the worker never has to guess. Sequence them with edges
+(a task that needs another's output \`depends_on\` it) so \`get_next_task\`
+(scoped to this Goal) walks the frontier in a runnable order.
+
+### How to place tasks under the Goal
+
+Use \`create_task\` with \`goal_id\` set to the Goal you are decomposing (each task
+is a cycle *within* that Goal), then \`create_edge\` for the dependencies —
+these are the granular "adding to an existing project" tools, not
+\`scaffold_project_from_plan\` (which stands up a *new* project on the default
+goal). Status is \`scope\` by default (the human's \`scope → todo\` release is the
+gate here too — §3 applies unchanged; never auto-\`todo\`).
+
+### Decompose-on-refusal (the safety net — refusal is not terminal)
+
+If a worker in the loop hits a task that turns out too big to finish to the bar
+in one pass, it does **not** bare-stop. It splits that task into cycle-sized
+children (created under the same Goal via \`create_task\` with \`goal_id\`, back to
+\`scope\`), records why in a comment, and lets the human release them. A too-big
+task is a sizing miss to correct, never a dead end. (This mirrors the
+evidence-based-completion path: a red \`verification_surface\` blocks the Goal
+and files a remediation task rather than faking done — see S3.)
+
 ## When to ask vs. proceed
 
 - Multiple reasonable WBS shapes exist → pick the one that best matches

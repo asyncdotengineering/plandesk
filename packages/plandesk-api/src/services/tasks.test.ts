@@ -19,7 +19,7 @@ import {
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus, type TaskUpdatedEvent } from '../events.js';
 import { InvalidTagError } from './tags.js';
-import { createTaskService } from './tasks.js';
+import { createTaskService, InvalidGoalReferenceError } from './tasks.js';
 
 describe('taskService', () => {
   const db = createDb(':memory:');
@@ -128,6 +128,22 @@ describe('taskService', () => {
     expect(
       service.create('00000000-0000-4000-8000-000000009999', { label: 'Ghost' }),
     ).toBeUndefined();
+  });
+
+  it('places a task under an explicit goal_id (planner decomposition)', () => {
+    const service = createService();
+    const goal = createGoal(db, { projectId, objective: 'Ship the thing' });
+    const created = service.create(projectId, { label: 'Cycle 1', goalId: goal.id });
+    expect(created?.goal_id).toBe(goal.id);
+  });
+
+  it('rejects a goal_id that does not belong to the project', () => {
+    const service = createService();
+    const otherProject = createProject(db, { name: 'Other' });
+    const foreignGoal = createGoal(db, { projectId: otherProject.id, objective: 'Elsewhere' });
+    expect(() =>
+      service.create(projectId, { label: 'Wrong goal', goalId: foreignGoal.id }),
+    ).toThrow(InvalidGoalReferenceError);
   });
 
   it('returns undefined when updating a missing task', () => {

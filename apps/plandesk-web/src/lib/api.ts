@@ -121,6 +121,8 @@ export type CreateTaskInput = {
   y?: number;
   assignee?: string | null;
   due_date?: string | null;
+  // Goal this task belongs to; omit to attach to the project default goal.
+  goal_id?: string;
   // Sets the task's tags by name; unknown names are auto-created.
   tags?: string[];
 };

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { InvalidTaskStatusError, isTaskStatus } from '@plandesk/db';
 import type { ProjectService } from '../services/projects.js';
-import type { TaskService } from '../services/tasks.js';
+import { InvalidGoalReferenceError, type TaskService } from '../services/tasks.js';
 import { InvalidTagError } from '../services/tags.js';
 import { isStringArray } from './tasks.js';
 import { parsePaginationParams } from '../serialize.js';
@@ -72,6 +72,7 @@ export function createProjectsRouter(
       y?: number;
       assignee?: string | null;
       due_date?: string | null;
+      goal_id?: string;
       tags?: unknown;
     }>();
 
@@ -106,6 +107,7 @@ export function createProjectsRouter(
         ...(body.y !== undefined ? { y: body.y } : {}),
         ...(body.assignee !== undefined ? { assignee: body.assignee } : {}),
         ...(dueDate !== undefined ? { dueDate } : {}),
+        ...(body.goal_id !== undefined ? { goalId: body.goal_id } : {}),
         ...(body.tags !== undefined ? { tags: body.tags } : {}),
       });
 
@@ -115,7 +117,11 @@ export function createProjectsRouter(
 
       return c.json(task, 201);
     } catch (error) {
-      if (error instanceof InvalidTaskStatusError || error instanceof InvalidTagError) {
+      if (
+        error instanceof InvalidTaskStatusError ||
+        error instanceof InvalidTagError ||
+        error instanceof InvalidGoalReferenceError
+      ) {
         return c.json({ error: 'invalid_argument' }, 400);
       }
       throw error;

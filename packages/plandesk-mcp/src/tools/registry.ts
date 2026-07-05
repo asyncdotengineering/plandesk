@@ -31,6 +31,13 @@ export const createTaskInputSchema = z.object({
   description: z.string().optional(),
   x: z.number().optional(),
   y: z.number().optional(),
+  goal_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      'Goal this task belongs to (a cycle within the goal). Omit to attach to the project default goal.',
+    ),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_SET_DESCRIPTION),
 });
 
