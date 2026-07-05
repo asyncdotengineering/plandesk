@@ -10,9 +10,9 @@ import {
   createProject,
   createToken,
   createDocument,
-  createDocumentComment,
+  createComment,
   listTasks,
-  updateDocumentComment,
+  updateComment,
   migrate,
   revokeToken,
   verifyToken,
@@ -865,9 +865,19 @@ describe('createMcpApp', () => {
       });
 
       const doc = createDocument(db, { projectId, title: 'Review doc' });
-      const resolved = createDocumentComment(db, { documentId: doc.id, body: 'Already done' });
-      updateDocumentComment(db, resolved.id, { resolved: true });
-      const open = createDocumentComment(db, { documentId: doc.id, body: 'Still open' });
+      const resolved = createComment(db, {
+        projectId,
+        targetType: 'document',
+        targetId: doc.id,
+        body: 'Already done',
+      });
+      updateComment(db, resolved.id, { resolved: true });
+      const open = createComment(db, {
+        projectId,
+        targetType: 'document',
+        targetId: doc.id,
+        body: 'Still open',
+      });
 
       const client = await connectClient(baseUrl, token);
 

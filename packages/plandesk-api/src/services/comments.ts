@@ -1,12 +1,12 @@
 import {
-  createDocumentComment,
-  deleteDocumentComment as dbDeleteDocumentComment,
+  createComment,
+  deleteComment as dbDeleteComment,
+  getComment as dbGetComment,
   getDocument as dbGetDocument,
-  getDocumentComment as dbGetDocumentComment,
   getProject,
-  listCommentsByDocument as dbListCommentsByDocument,
   listCommentsByProject as dbListCommentsByProject,
-  updateDocumentComment as dbUpdateDocumentComment,
+  listCommentsByTarget as dbListCommentsByTarget,
+  updateComment as dbUpdateComment,
   type Db,
 } from '@plandesk/db';
 import type { EventBus } from '../events.js';
@@ -52,8 +52,10 @@ export function createCommentService(deps: CommentServiceDeps) {
 
       assertNonEmptyBody(input.body);
 
-      const comment = createDocumentComment(db, {
-        documentId,
+      const comment = createComment(db, {
+        projectId: document.projectId,
+        targetType: 'document',
+        targetId: documentId,
         body: input.body,
         passage: input.passage,
       });
@@ -76,7 +78,7 @@ export function createCommentService(deps: CommentServiceDeps) {
       if (!document) {
         return undefined;
       }
-      return dbListCommentsByDocument(db, documentId, options).map(serializeComment);
+      return dbListCommentsByTarget(db, 'document', documentId, options).map(serializeComment);
     },
 
     listByProject(
@@ -91,7 +93,7 @@ export function createCommentService(deps: CommentServiceDeps) {
     },
 
     update(id: string, input: UpdateCommentInput): SerializedComment | undefined {
-      const existing = dbGetDocumentComment(db, id);
+      const existing = dbGetComment(db, id);
       if (!existing) {
         return undefined;
       }
@@ -100,12 +102,16 @@ export function createCommentService(deps: CommentServiceDeps) {
         assertNonEmptyBody(input.body);
       }
 
-      const comment = dbUpdateDocumentComment(db, id, input);
+      const comment = dbUpdateComment(db, id, input);
       if (!comment) {
         return undefined;
       }
 
-      const document = dbGetDocument(db, comment.documentId);
+      if (comment.targetType !== 'document') {
+        return undefined;
+      }
+
+      const document = dbGetDocument(db, comment.targetId);
       if (!document) {
         return undefined;
       }
@@ -113,7 +119,7 @@ export function createCommentService(deps: CommentServiceDeps) {
       eventBus.emit({
         type: 'comment_updated',
         commentId: id,
-        documentId: comment.documentId,
+        documentId: comment.targetId,
         projectId: document.projectId,
       });
 
@@ -121,17 +127,21 @@ export function createCommentService(deps: CommentServiceDeps) {
     },
 
     delete(id: string): boolean {
-      const existing = dbGetDocumentComment(db, id);
+      const existing = dbGetComment(db, id);
       if (!existing) {
         return false;
       }
 
-      const document = dbGetDocument(db, existing.documentId);
+      if (existing.targetType !== 'document') {
+        return false;
+      }
+
+      const document = dbGetDocument(db, existing.targetId);
       if (!document) {
         return false;
       }
 
-      const deleted = dbDeleteDocumentComment(db, id);
+      const deleted = dbDeleteComment(db, id);
       if (!deleted) {
         return false;
       }
@@ -139,7 +149,7 @@ export function createCommentService(deps: CommentServiceDeps) {
       eventBus.emit({
         type: 'comment_updated',
         commentId: id,
-        documentId: existing.documentId,
+        documentId: existing.targetId,
         projectId: document.projectId,
       });
 

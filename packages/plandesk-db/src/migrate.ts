@@ -11,6 +11,21 @@ type MigrationJournal = {
 };
 
 const DOWN_SQL: Record<string, string[]> = {
+  '0010_polymorphic_comments': [
+    `CREATE TABLE \`document_comments\` (
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`document_id\` text NOT NULL,
+	\`passage\` text,
+	\`body\` text NOT NULL,
+	\`resolved\` integer DEFAULT false NOT NULL,
+	\`created_at\` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
+	FOREIGN KEY (\`document_id\`) REFERENCES \`documents\`(\`id\`) ON UPDATE no action ON DELETE no action
+);`,
+    `INSERT INTO \`document_comments\` (\`id\`, \`document_id\`, \`passage\`, \`body\`, \`resolved\`, \`created_at\`)
+SELECT \`id\`, \`target_id\`, \`passage\`, \`body\`, \`resolved\`, \`created_at\`
+FROM \`comments\` WHERE \`target_type\` = 'document';`,
+    'DROP TABLE `comments`;',
+  ],
   '0009_watery_santa_claus': ['ALTER TABLE `goals` DROP COLUMN `last_verification`;'],
   '0008_damp_moonstone': [
     `CREATE TABLE \`__old_tasks\` (
@@ -48,6 +63,7 @@ const DOWN_SQL: Record<string, string[]> = {
   '0000_gifted_stephen_strange': [
     'DROP TABLE IF EXISTS `agent_run_events`;',
     'DROP TABLE IF EXISTS `agent_runs`;',
+    'DROP TABLE IF EXISTS `comments`;',
     'DROP TABLE IF EXISTS `document_comments`;',
     'DROP TABLE IF EXISTS `documents`;',
     'DROP TABLE IF EXISTS `edges`;',

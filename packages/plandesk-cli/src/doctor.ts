@@ -15,7 +15,7 @@ const EXPECTED_TABLES = [
   'tasks',
   'edges',
   'documents',
-  'document_comments',
+  'comments',
   'agent_runs',
   'agent_run_events',
   'mcp_tokens',

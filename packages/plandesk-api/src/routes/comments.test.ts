@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDocument, createDocumentComment, createProject } from '@plandesk/db';
+import { createComment, createDocument, createProject } from '@plandesk/db';
 import { createTestApp, parseJson } from '../test-helpers.js';
 import type { PlankDeskEvent } from '../events.js';
 
@@ -146,7 +146,12 @@ describe('comments routes', () => {
     const { app, db } = createTestApp();
     const project = createProject(db, { name: 'Cascade doc' });
     const doc = createDocument(db, { projectId: project.id, title: 'Doc' });
-    const comment = createDocumentComment(db, { documentId: doc.id, body: 'Orphan?' });
+    const comment = createComment(db, {
+      projectId: project.id,
+      targetType: 'document',
+      targetId: doc.id,
+      body: 'Orphan?',
+    });
 
     const deleteRes = await app.request(`/api/v1/documents/${doc.id}`, { method: 'DELETE' });
     expect(deleteRes.status).toBe(204);

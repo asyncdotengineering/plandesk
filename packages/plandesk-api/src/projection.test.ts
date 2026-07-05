@@ -3,7 +3,7 @@ import {
   createAgentRun,
   createDb,
   createDocument,
-  createDocumentComment,
+  createComment,
   createEdge,
   createProject,
   createShare,
@@ -17,7 +17,7 @@ describe('buildClientView', () => {
 
   beforeEach(() => {
     migrate(db);
-    db.$client.exec('DELETE FROM document_comments');
+    db.$client.exec('DELETE FROM comments');
     db.$client.exec('DELETE FROM agent_run_events');
     db.$client.exec('DELETE FROM agent_runs');
     db.$client.exec('DELETE FROM shares');
@@ -60,7 +60,12 @@ describe('buildClientView', () => {
       title: 'Internal notes',
       body: '<p>Secret</p>',
     });
-    createDocumentComment(db, { documentId: sharedDoc.id, body: 'Internal comment' });
+    createComment(db, {
+      projectId: project.id,
+      targetType: 'document',
+      targetId: sharedDoc.id,
+      body: 'Internal comment',
+    });
     createAgentRun(db, { projectId: project.id, label: 'Internal run' });
 
     const { share } = createShare(db, {

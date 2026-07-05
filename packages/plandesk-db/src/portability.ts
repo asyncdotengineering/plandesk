@@ -9,6 +9,7 @@ import { createNote } from './repositories/notes.js';
 import { createGoal, getOrCreateDefaultGoal, listGoals } from './repositories/goals.js';
 import { createProject, getProject, updateProject } from './repositories/projects.js';
 import { createTag, listTags, listTagsByTaskForProject, setTaskTags } from './repositories/tags.js';
+import { createComment, listCommentsByProject } from './repositories/comments.js';
 import { createTask } from './repositories/tasks.js';
 import { listAgentRunEvents } from './repositories/agent-run-events.js';
 import { listAgentRuns } from './repositories/agent-runs.js';
@@ -16,7 +17,7 @@ import { listDocuments } from './repositories/documents.js';
 import { listEdges } from './repositories/edges.js';
 import { listNotes } from './repositories/notes.js';
 import { listTasks } from './repositories/tasks.js';
-import type { AgentRunStatus, GoalStatus, TaskStatus } from './schema.js';
+import type { AgentRunStatus, CommentTargetType, GoalStatus, TaskStatus } from './schema.js';
 
 export const PLANDESK_EXPORT_VERSION = 'plandesk-export-v1' as const;
 
@@ -96,6 +97,25 @@ export type PlandeskExportV1Note = {
   body: string | null;
 };
 
+export type PlandeskExportV1Comment = {
+  id: string;
+  target_type: CommentTargetType;
+  target_id: string;
+  passage: string | null;
+  body: string;
+  resolved: boolean;
+  created_at: string;
+};
+
+export type PlandeskExportV1DocumentComment = {
+  id: string;
+  document_id: string;
+  passage: string | null;
+  body: string;
+  resolved: boolean;
+  created_at?: string;
+};
+
 export type PlandeskExportV1AgentRunEvent = {
   message: string;
   created_at: string;
@@ -120,6 +140,7 @@ export type PlandeskExportV1 = {
   folders: PlandeskExportV1Folder[];
   documents: PlandeskExportV1Document[];
   notes: PlandeskExportV1Note[];
+  comments: PlandeskExportV1Comment[];
   agent_runs: PlandeskExportV1AgentRun[];
 };
 
@@ -137,6 +158,10 @@ export type PlandeskExportInput = {
   documents: PlandeskExportV1Document[];
   // Optional for backward compatibility with exports written before notes existed.
   notes?: PlandeskExportV1Note[];
+  // Optional for backward compatibility with exports written before comments existed.
+  comments?: PlandeskExportV1Comment[];
+  // Legacy shape from exports written before polymorphic comments.
+  document_comments?: PlandeskExportV1DocumentComment[];
   agent_runs: PlandeskExportV1AgentRun[];
 };
 
@@ -226,6 +251,7 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
   const folders = listFolders(db, projectId);
   const documents = listDocuments(db, projectId);
   const notes = listNotes(db, projectId);
+  const comments = listCommentsByProject(db, projectId, { includeResolved: true });
   const runs = listAgentRuns(db, projectId);
 
   return {
@@ -294,6 +320,15 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
       id: note.id,
       title: note.title,
       body: note.body,
+    })),
+    comments: comments.map((comment) => ({
+      id: comment.id,
+      target_type: comment.targetType,
+      target_id: comment.targetId,
+      passage: comment.passage,
+      body: comment.body,
+      resolved: comment.resolved,
+      created_at: comment.createdAt.toISOString(),
     })),
     agent_runs: runs.map((run) => ({
       id: run.id,
@@ -450,6 +485,36 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
         projectId: project.id,
         title: note.title,
         body: note.body,
+      });
+    }
+
+    const commentEntries: PlandeskExportV1Comment[] = [
+      ...(data.comments ?? []),
+      ...(data.document_comments ?? []).map((legacy) => ({
+        id: legacy.id,
+        target_type: 'document' as const,
+        target_id: legacy.document_id,
+        passage: legacy.passage,
+        body: legacy.body,
+        resolved: legacy.resolved,
+        created_at: legacy.created_at ?? new Date().toISOString(),
+      })),
+    ];
+
+    for (const comment of commentEntries) {
+      const targetId =
+        comment.target_type === 'document'
+          ? (remapId(documentIdMap, comment.target_id) ?? comment.target_id)
+          : comment.target_id;
+      createComment(tx, {
+        projectId: project.id,
+        targetType: comment.target_type,
+        targetId,
+        passage: comment.passage,
+        body: comment.body,
+        resolved: comment.resolved,
+        createdAt: new Date(comment.created_at),
+        id: randomUUID(),
       });
     }
 

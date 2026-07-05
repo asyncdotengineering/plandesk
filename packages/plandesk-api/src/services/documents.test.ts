@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  createComment,
   createDb,
   createDocument,
-  createDocumentComment,
   createFolder,
   createProject,
-  getDocumentComment,
-  listCommentsByDocument,
+  getComment,
+  listCommentsByTarget,
   migrate,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
@@ -24,7 +24,7 @@ describe('documentService', () => {
 
   beforeEach(() => {
     migrate(db);
-    db.$client.exec('DELETE FROM document_comments');
+    db.$client.exec('DELETE FROM comments');
     db.$client.exec('DELETE FROM documents');
     db.$client.exec('UPDATE folders SET parent_folder_id = NULL');
     db.$client.exec('DELETE FROM folders');
@@ -173,11 +173,18 @@ describe('documentService', () => {
   it('deletes document comments when deleting a document', () => {
     const service = createService();
     const document = createDocument(db, { projectId, title: 'Doc' });
-    const comment = createDocumentComment(db, { documentId: document.id, body: 'Note' });
+    const comment = createComment(db, {
+      projectId,
+      targetType: 'document',
+      targetId: document.id,
+      body: 'Note',
+    });
 
     expect(service.delete(document.id)).toBe(true);
-    expect(getDocumentComment(db, comment.id)).toBeUndefined();
-    expect(listCommentsByDocument(db, document.id, { includeResolved: true })).toHaveLength(0);
+    expect(getComment(db, comment.id)).toBeUndefined();
+    expect(
+      listCommentsByTarget(db, 'document', document.id, { includeResolved: true }),
+    ).toHaveLength(0);
   });
 
   it('updates a document and bumps updated_at', () => {

@@ -2,7 +2,7 @@ import type {
   AgentRun,
   AgentRunEvent,
   Document,
-  DocumentComment,
+  Comment,
   Edge,
   Folder,
   Goal,
@@ -207,10 +207,10 @@ export type SerializedComment = {
   created_at: string;
 };
 
-export function serializeComment(comment: DocumentComment): SerializedComment {
+export function serializeComment(comment: Comment): SerializedComment {
   return {
     id: comment.id,
-    document_id: comment.documentId,
+    document_id: comment.targetType === 'document' ? comment.targetId : '',
     passage: comment.passage,
     body: comment.body,
     resolved: comment.resolved,

@@ -4,11 +4,11 @@ import {
   createAgentRunEvent,
   createDb,
   createDocument,
-  createDocumentComment,
+  createComment,
   createEdge,
   createProject,
   getDocument,
-  getDocumentComment,
+  getComment,
   getProject,
   getTask,
   listAgentRuns,
@@ -28,7 +28,7 @@ describe('projectService', () => {
 
   beforeEach(() => {
     migrate(db);
-    db.$client.exec('DELETE FROM document_comments');
+    db.$client.exec('DELETE FROM comments');
     db.$client.exec('DELETE FROM agent_run_events');
     db.$client.exec('DELETE FROM agent_runs');
     db.$client.exec('DELETE FROM edges');
@@ -118,7 +118,12 @@ describe('projectService', () => {
       title: 'Doc',
       linkedTaskId: task.id,
     });
-    const comment = createDocumentComment(db, { documentId: doc.id, body: 'Feedback' });
+    const comment = createComment(db, {
+      projectId: project.id,
+      targetType: 'document',
+      targetId: doc.id,
+      body: 'Feedback',
+    });
     const run = createAgentRun(db, { projectId: project.id, label: 'Run' });
     createAgentRunEvent(db, { runId: run.id, message: 'progress' });
 
@@ -131,7 +136,7 @@ describe('projectService', () => {
     expect(listAgentRuns(db, project.id)).toHaveLength(0);
     expect(getTask(db, task.id)).toBeUndefined();
     expect(getDocument(db, doc.id)).toBeUndefined();
-    expect(getDocumentComment(db, comment.id)).toBeUndefined();
+    expect(getComment(db, comment.id)).toBeUndefined();
     expect(edge).toBeDefined();
   });
 

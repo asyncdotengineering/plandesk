@@ -18,6 +18,9 @@ export type GoalStatus = (typeof goalStatuses)[number];
 export const agentRunStatuses = ['running', 'completed', 'failed'] as const;
 export type AgentRunStatus = (typeof agentRunStatuses)[number];
 
+export const commentTargetTypes = ['document', 'task', 'note', 'submission'] as const;
+export type CommentTargetType = (typeof commentTargetTypes)[number];
+
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -173,11 +176,13 @@ export const taskTags = sqliteTable(
   (table) => [primaryKey({ columns: [table.taskId, table.tagId] })],
 );
 
-export const documentComments = sqliteTable('document_comments', {
+export const comments = sqliteTable('comments', {
   id: text('id').primaryKey(),
-  documentId: text('document_id')
+  projectId: text('project_id')
     .notNull()
-    .references(() => documents.id),
+    .references(() => projects.id),
+  targetType: text('target_type', { enum: commentTargetTypes }).notNull(),
+  targetId: text('target_id').notNull(),
   passage: text('passage'),
   body: text('body').notNull(),
   resolved: integer('resolved', { mode: 'boolean' }).notNull().default(false),

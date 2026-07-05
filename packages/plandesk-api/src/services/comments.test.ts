@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  createComment,
   createDb,
   createDocument,
-  createDocumentComment,
   createProject,
-  getDocumentComment,
-  listCommentsByDocument,
+  getComment,
+  listCommentsByTarget,
   migrate,
 } from '@plandesk/db';
 import { createEventBus, type PlankDeskEvent } from '../events.js';
@@ -23,7 +23,7 @@ describe('commentService', () => {
 
   beforeEach(() => {
     migrate(db);
-    db.$client.exec('DELETE FROM document_comments');
+    db.$client.exec('DELETE FROM comments');
     db.$client.exec('DELETE FROM documents');
     db.$client.exec('DELETE FROM projects');
     projectId = createProject(db, { name: 'Comments' }).id;
@@ -61,14 +61,29 @@ describe('commentService', () => {
     const service = createService();
     expect(() => service.create(documentId, { body: '   ' })).toThrow(InvalidCommentError);
 
-    const created = createDocumentComment(db, { documentId, body: 'Valid' });
+    const created = createComment(db, {
+      projectId,
+      targetType: 'document',
+      targetId: documentId,
+      body: 'Valid',
+    });
     expect(() => service.update(created.id, { body: '' })).toThrow(InvalidCommentError);
   });
 
   it('lists comments by document and project with resolved filter', () => {
     const service = createService();
-    const open = createDocumentComment(db, { documentId, body: 'Open' });
-    const resolved = createDocumentComment(db, { documentId, body: 'Done' });
+    const open = createComment(db, {
+      projectId,
+      targetType: 'document',
+      targetId: documentId,
+      body: 'Open',
+    });
+    const resolved = createComment(db, {
+      projectId,
+      targetType: 'document',
+      targetId: documentId,
+      body: 'Done',
+    });
     service.update(resolved.id, { resolved: true });
 
     expect(service.listByDocument(documentId)?.map((c) => c.id)).toEqual([open.id]);
@@ -107,8 +122,10 @@ describe('commentService', () => {
     });
 
     expect(service.delete(created.id)).toBe(true);
-    expect(getDocumentComment(db, created.id)).toBeUndefined();
-    expect(listCommentsByDocument(db, documentId, { includeResolved: true })).toHaveLength(0);
+    expect(getComment(db, created.id)).toBeUndefined();
+    expect(
+      listCommentsByTarget(db, 'document', documentId, { includeResolved: true }),
+    ).toHaveLength(0);
     expect(received.filter((e) => e.type === 'comment_updated')).toHaveLength(2);
   });
 });

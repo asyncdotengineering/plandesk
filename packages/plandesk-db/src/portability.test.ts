@@ -10,6 +10,7 @@ import {
 } from './portability.js';
 import { createAgentRunEvent } from './repositories/agent-run-events.js';
 import { createAgentRun, updateAgentRunStatus } from './repositories/agent-runs.js';
+import { createComment } from './repositories/comments.js';
 import { createDocument } from './repositories/documents.js';
 import { createEdge } from './repositories/edges.js';
 import { createFolder } from './repositories/folders.js';
@@ -62,6 +63,13 @@ type ComparableExport = {
   notes: Array<{
     title: string;
     body: string | null;
+  }>;
+  comments: Array<{
+    target_type: string;
+    target_title: string;
+    passage: string | null;
+    body: string;
+    resolved: boolean;
   }>;
   agent_runs: Array<{
     status: string;
@@ -159,6 +167,18 @@ function toComparable(exported: PlandeskExportV1): ComparableExport {
         title: note.title,
         body: note.body,
       })),
+    comments: [...exported.comments]
+      .sort((a, b) => a.body.localeCompare(b.body))
+      .map((comment) => ({
+        target_type: comment.target_type,
+        target_title:
+          comment.target_type === 'document'
+            ? (documentTitleById.get(comment.target_id) ?? comment.target_id)
+            : comment.target_id,
+        passage: comment.passage,
+        body: comment.body,
+        resolved: comment.resolved,
+      })),
     agent_runs: [...exported.agent_runs].map((run) => ({
       status: run.status,
       label: run.label,
@@ -238,7 +258,7 @@ function buildFixtureProject(db: ReturnType<typeof createDb>): string {
     statusLine: 'Status: approved',
     folderId: specsFolder.id,
   });
-  createDocument(db, {
+  const childDoc = createDocument(db, {
     projectId: project.id,
     id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
     title: 'Child Spec',
@@ -247,6 +267,21 @@ function buildFixtureProject(db: ReturnType<typeof createDb>): string {
     parentId: parentDoc.id,
     folderId: archiveFolder.id,
     linkedTaskId: design.id,
+  });
+
+  createComment(db, {
+    projectId: project.id,
+    targetType: 'document',
+    targetId: parentDoc.id,
+    body: 'Needs review',
+    passage: '§1',
+  });
+  createComment(db, {
+    projectId: project.id,
+    targetType: 'document',
+    targetId: childDoc.id,
+    body: 'Resolved feedback',
+    resolved: true,
   });
 
   createNote(db, {
@@ -280,6 +315,7 @@ describe('export/import portability', () => {
 
   beforeEach(() => {
     migrate(db);
+    db.$client.exec('DELETE FROM comments');
     db.$client.exec('DELETE FROM agent_run_events');
     db.$client.exec('DELETE FROM agent_runs');
     db.$client.exec('DELETE FROM documents');
@@ -327,6 +363,8 @@ describe('export/import portability', () => {
     expect(reExported.documents).toHaveLength(exported.documents.length);
     expect(reExported.notes).toHaveLength(exported.notes.length);
     expect(reExported.notes).toHaveLength(2);
+    expect(reExported.comments).toHaveLength(exported.comments.length);
+    expect(reExported.comments).toHaveLength(2);
     expect(reExported.agent_runs).toHaveLength(exported.agent_runs.length);
     expect(reExported.agent_runs[0]?.events).toHaveLength(
       exported.agent_runs[0]?.events.length ?? 0,
@@ -341,6 +379,37 @@ describe('export/import portability', () => {
 
   it('returns undefined when exporting an unknown project', () => {
     expect(exportProject(db, '00000000-0000-4000-8000-000000009999')).toBeUndefined();
+  });
+
+  it('imports legacy document_comments-shaped entries', () => {
+    const sourceProjectId = buildFixtureProject(db);
+    const exported = exportProject(db, sourceProjectId);
+    expect(exported).toBeDefined();
+    if (!exported) {
+      return;
+    }
+
+    const legacy = {
+      ...exported,
+      comments: undefined,
+      document_comments: exported.comments.map((comment) => ({
+        id: comment.id,
+        document_id: comment.target_id,
+        passage: comment.passage,
+        body: comment.body,
+        resolved: comment.resolved,
+        created_at: comment.created_at,
+      })),
+    };
+
+    const { projectId: importedProjectId } = importProject(db, legacy);
+    const reExported = exportProject(db, importedProjectId);
+    expect(reExported).toBeDefined();
+    if (!reExported) {
+      return;
+    }
+
+    expect(toComparable(reExported).comments).toEqual(toComparable(exported).comments);
   });
 
   it('throws on unsupported export version', () => {
