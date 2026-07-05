@@ -56,6 +56,7 @@ not-yet-written files.
 
 - [factory/workflow.md](factory/workflow.md) - the orchestrator's session program (shipped default)
 - [factory/factory.md](factory/factory.md) - the factory contract: how delegated agent work cycles run here
+- [factory/autonomous-stand.md](factory/autonomous-stand.md) - the execution posture: decompose a goal, drive a task list to zero, ship without pausing
 - [factory/protocol.md](factory/protocol.md) - the deterministic dispatch + result contract for worker CLIs
 - [factory/workers/](factory/workers/) - one file per worker: probe (is it installed?) + command template
 - [factory/lanes.md](factory/lanes.md) - risk-lane policy: which changes need which human gates
@@ -110,6 +111,126 @@ file is the policy the supervising agent follows.
 `;
 }
 
+export function buildAutonomousStandMarkdown(): string {
+  return `---
+type: autonomous-stand
+version: 1
+---
+
+# Autonomous delivery mode
+
+The execution posture for factory work. Once a work item is pulled from the
+board, operate as a senior IC with full delivery ownership: decompose the
+goal, drive a task list to zero, verify, and ship finished work without
+pausing for permission. The user reviews after you are done; during
+execution you are the decision-maker.
+
+The verification bar lives in [protocol.md](protocol.md) — exit codes are
+authoritative, no done without proof, root-cause fixes. This file adds only
+what protocol does not: the autonomy flip and the operating spine.
+
+## Role
+
+Ship the complete outcome — researched, implemented, tested, verified —
+without waiting for permission.
+
+## Communication
+
+Execute immediately. Output first: code and diffs over prose. Think in
+systems before changing anything — relationships, feedback loops, root
+causes, second-order effects.
+
+## Operating spine — see the line, then play it
+
+The failure this prevents: barrelling at the whole scope with the plan only
+in your head, drifting onto a tangent, and calling it done before it is. A
+chess player calculates the line before touching a piece, works from the
+position on the board rather than from memory, and converts a won game
+instead of letting it drift to a draw. Operate the same way.
+
+**0 — Restate to lock intent.** Before decomposing, restate the goal in
+precise terms: what "done" looks like, the assumptions you are making, the
+reading you picked if more than one existed. Then proceed on your best
+reading — do not wait for sign-off. Log the load-bearing assumption in
+\`runs/<task>-implementation-notes.md\`.
+
+**1 — See the line (decompose before you act).** Before the first edit,
+break the goal into ordered, verifiable moves — each with a checkable
+done-condition and its dependencies. Look several moves ahead: name what
+each step unlocks and where two could collide. A goal you cannot decompose
+is a goal you do not yet understand — explore until you can.
+
+**2 — Put the line on the board (drive a task list, not your memory).**
+Hold the moves in a durable task list and work them one at a time. This
+list is the spine the loop runs on.
+- **Lead session with harness task tools (the default here)** — use
+  \`TaskCreate\` / \`TaskList\` / \`TaskUpdate\`. They are tracked and
+  re-surfaced every turn. Mark a task \`in_progress\` when you start it and
+  \`completed\` the moment its done-condition holds — not before.
+- **Delegated worker without harness tools** — drive
+  \`runs/tasks-<task>.md\`, a Backlog → Doing → Done ledger, updated in the
+  same step you do the work. After a compaction or resume, trust the ledger
+  over recollection.
+
+**3 — Checkpoint every third move (verify; don't just produce).** After
+roughly every 3 completed tasks, stop and run a checkpoint: run the
+typecheck / tests / smoke for what you touched (observe, do not assume);
+reconcile the list against reality — close what is done, prune dead
+branches, re-order what remains; confirm you are still on the goal, not a
+tangent.
+
+**4 — Convert (drive to zero, no pause).** Keep playing moves until the
+list is empty and every done-condition holds. Do not stop early for time,
+complexity, or token budget. Do not pause between moves to ask "should I
+continue?" — you were asked to deliver, so deliver.
+
+## Errors — root, not symptom
+
+Fix the local root cause, not the symptom. If the failing check still fails
+after your fix, you symptom-patched — stop and re-triage, do not layer a
+second patch. This is a hard-stop.
+
+## Autonomy
+
+Resolve ambiguity yourself; exhaust your tools — codebase search, web,
+\`gh\` — before asking.
+
+Proceed without asking when a sensible reversible default exists, the spec
+implies the answer and you can verify it in the repo, or multiple
+interpretations exist (pick the best, log it, proceed).
+
+Ask only when blocked by missing credentials or access you cannot obtain,
+an irreversible decision with no reasonable default, or a genuine product
+fork the spec does not resolve. Never ask permission to continue between
+moves. If you catch yourself drafting a plan for sign-off, execute it
+instead.
+
+## Artifacts
+
+- **Task list** — harness tasks (lead) or \`runs/tasks-<task>.md\` (worker).
+- **\`runs/<task>-implementation-notes.md\`** — assumptions, decisions not
+  in the spec, deviations and why, root causes found.
+- **\`runs/result-<task>.json\`** — verification claims per [protocol.md](protocol.md);
+  write claims before flipping the task to done.
+
+## Limits
+
+Finish the request fully, but do not gold-plate — scope is exactly what was
+asked.
+
+## Report
+
+Report once, when the list is at zero (or you are genuinely blocked):
+1. **Done** — one sentence: what shipped.
+2. **Changes** — key files and modules, and why.
+3. **Verification** — what you ran and the results.
+4. **Notes** — pointer to \`runs/<task>-implementation-notes.md\`; any
+   blocker that truly required user input.
+
+Do not end with open questions or "let me know if you want me to continue."
+`;
+}
+
 export type WorkerTemplate = {
   name: string;
   probe: string;
@@ -133,10 +254,15 @@ export const WORKER_TEMPLATES: WorkerTemplate[] = [
   {
     name: 'codex',
     probe: 'command -v codex',
-    command: 'codex exec --full-auto < {prompt_file}',
+    command:
+      'codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust --skip-git-repo-check < {prompt_file}',
     body: `Adversarial review and live-smoke worker — prefer it as the reviewer
-when the act worker is a Claude-family run. Verify flags against your
-installed version (\`codex --help\`).`,
+when the act worker is a Claude-family run. The three bypass flags are
+mandatory in every mode: a sandboxed codex cannot bind sockets, reach the
+network, run the suite, or write its result claims. Never substitute
+\`--sandbox read-only\`/\`workspace-write\` (only for genuinely untrusted
+third-party code). Verify flags against your installed version
+(\`codex exec --help\`).`,
   },
   {
     name: 'cursor',
@@ -149,16 +275,43 @@ installed version (\`codex --help\`).`,
   {
     name: 'grok',
     probe: 'command -v grok',
-    command: 'grok --prompt-file {prompt_file} --always-approve --output-format plain',
-    body: `Fast implementation worker. Pin a model with \`--model <id>\` after
-checking \`grok models\` for what is installed here.`,
+    command:
+      'grok --prompt-file {prompt_file} --model grok-composer-2.5-fast --always-approve --output-format plain',
+    body: `Fast implementation worker (default IC). \`--model grok-composer-2.5-fast\`
+is the installed default; swap to \`grok-build\` or another id from
+\`grok models\`. Never pass \`--sandbox\` — omitting it grants full IC
+access; \`--sandbox\` is opt-in to restrict, only for untrusted third-party
+code.`,
   },
   {
     name: 'opencode',
     probe: 'command -v opencode',
-    command: 'opencode run < {prompt_file}',
-    body: `End-to-end implementation worker. Verify flags against your installed
-version (\`opencode --help\`).`,
+    command:
+      'opencode run --dangerously-skip-permissions -m opencode-go/kimi-k2.7-code < {prompt_file}',
+    body: `End-to-end implementation worker across one subscription (Kimi / GLM /
+MiniMax / DeepSeek / Anthropic / OpenAI). \`--dangerously-skip-permissions\`
+prevents approval stalls; \`-m <provider/model>\` is mandatory — the default
+agent drifts between runs. stdin IS the prompt (do not add \`< /dev/null\`).
+Swap the model id from \`opencode models\`; verify flags with
+\`opencode run --help\`.`,
+  },
+  {
+    name: 'pi',
+    probe: 'command -v pi',
+    command: 'pi -p --provider zai --model glm-5.2 --approve --thinking medium @{prompt_file}',
+    body: `Implementation worker. Delivers the brief via pi's \`@file\` attachment
+syntax — not stdin. Pick the provider/model per task:
+
+- \`zai\`/\`glm-5.2\` (DEFAULT — ZhipuAI direct API, 1M ctx) — general
+  implementation. Requires \`ZAI_API_KEY\`.
+- \`opencode-go\`/\`kimi-k2.7-code\` (262K, image-capable) — agentic,
+  multi-step work. Requires \`OPENCODE_API_KEY\` (or \`pi /login\`).
+- \`deepseek\`/\`deepseek-v4-pro\` (1M ctx) — long-context, deep reasoning;
+  \`deepseek-v4-flash\` for fast/cheap runs. Requires \`DEEPSEEK_API_KEY\`.
+
+\`--approve\` trusts project-local skills/extensions; \`--thinking\` sets
+reasoning depth (\`off|minimal|low|medium|high|xhigh\`). Live list:
+\`pi --list-models\`.`,
   },
 ];
 
@@ -300,7 +453,12 @@ owned by the repository (see the Factory workspace docs for customizing).
 
 - \`start_agent_run\`, then loop the [factory.md](factory.md) cycle over
   \`get_next_task\` until nothing is actionable or a gate blocks.
-- One task at a time; serial within a project.
+- **Operate in [autonomous-stand](autonomous-stand.md) mode** for each work
+  item: decompose it into verifiable moves and drive a harness task list
+  (\`TaskCreate\` / \`TaskList\` / \`TaskUpdate\`) to zero — \`in_progress\`
+  on start, \`completed\` the moment the done-condition holds. Do not pause
+  between moves for permission.
+- One work item at a time; serial within a project.
 - \`record_agent_progress\` every cycle. Blockers become tasks or comments —
   never a silent stop.
 
@@ -317,6 +475,8 @@ export function buildFactoryCommandMarkdown(): string {
 @.agents/factory/workflow.md
 
 @.agents/factory/factory.md
+
+@.agents/factory/autonomous-stand.md
 `;
 }
 
@@ -329,6 +489,7 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
     { path: join(repoDir, '.agents', 'index.md'), content: buildAgentsIndexMarkdown() },
     { path: join(factoryDir, 'workflow.md'), content: buildWorkflowMarkdown() },
     { path: join(factoryDir, 'factory.md'), content: buildFactoryMarkdown() },
+    { path: join(factoryDir, 'autonomous-stand.md'), content: buildAutonomousStandMarkdown() },
     { path: join(factoryDir, 'protocol.md'), content: buildProtocolMarkdown() },
     { path: join(factoryDir, 'lanes.md'), content: buildLanesMarkdown() },
     {

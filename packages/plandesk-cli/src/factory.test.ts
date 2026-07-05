@@ -70,6 +70,7 @@ describe('runFactoryInit', () => {
       '.agents/index.md',
       '.agents/factory/workflow.md',
       '.agents/factory/factory.md',
+      '.agents/factory/autonomous-stand.md',
       '.agents/factory/protocol.md',
       '.agents/factory/lanes.md',
       '.agents/factory/verifiers/tests-pass.md',
@@ -79,6 +80,7 @@ describe('runFactoryInit', () => {
       '.agents/factory/workers/cursor.md',
       '.agents/factory/workers/grok.md',
       '.agents/factory/workers/opencode.md',
+      '.agents/factory/workers/pi.md',
       '.claude/commands/factory.md',
       '.codex/commands/factory.md',
       'CLAUDE.md',
@@ -98,6 +100,7 @@ describe('runFactoryInit', () => {
 
     const command = readFileSync(join(repo, '.claude/commands/factory.md'), 'utf8');
     expect(command).toContain('@.agents/factory/factory.md');
+    expect(command).toContain('@.agents/factory/autonomous-stand.md');
 
     const runsIgnore = readFileSync(join(repo, '.agents/factory/runs/.gitignore'), 'utf8');
     expect(runsIgnore).toContain('*');
@@ -188,6 +191,12 @@ describe('always-on policy include', () => {
     expect(first).toContain('<!-- plandesk-factory:start -->');
     expect(first).toContain('@.agents/factory/workflow.md');
     expect(first).toContain('@.agents/factory/factory.md');
+    expect(first).toContain('@.agents/factory/autonomous-stand.md');
+    // Always-on directive preamble: use the factory as default workflow,
+    // operate in autonomous-stand mode, drive via harness tasks.
+    expect(first).toContain('Plan Desk Factory — default operating mode');
+    expect(first).toContain('autonomous-stand mode');
+    expect(first).toContain('TaskCreate');
 
     runFactoryInit({ repoDir: repo });
     const second = readFileSync(join(repo, 'CLAUDE.md'), 'utf8');
@@ -220,7 +229,7 @@ describe('worker files', () => {
   it('every worker declares a probe and a {prompt_file} command template', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
-    for (const name of ['claude', 'codex', 'cursor', 'grok', 'opencode']) {
+    for (const name of ['claude', 'codex', 'cursor', 'grok', 'opencode', 'pi']) {
       const content = readFileSync(join(repo, `.agents/factory/workers/${name}.md`), 'utf8');
       expect(content, name).toContain('type: worker');
       expect(content, name).toContain('probe: command -v ');
