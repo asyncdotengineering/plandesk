@@ -1,5 +1,7 @@
 import Image from '@tiptap/extension-image';
 import { TableKit } from '@tiptap/extension-table';
+import TaskItem from '@tiptap/extension-task-item';
+import TaskList from '@tiptap/extension-task-list';
 import type { EditorView } from '@tiptap/pm/view';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -27,10 +29,41 @@ const turndownService = new TurndownService({
 });
 turndownService.use(gfm);
 
+// marked emits <input type="checkbox"> inside <li>; TipTap needs data-type attrs.
+function taskListFromMarkdownHtml(html: string): string {
+  const template = window.document.createElement('template');
+  template.innerHTML = html;
+  template.content.querySelectorAll('li').forEach((li) => {
+    const firstChild = li.firstElementChild;
+    if (firstChild?.tagName !== 'INPUT' || firstChild.getAttribute('type') !== 'checkbox') {
+      return;
+    }
+    const checked = firstChild.hasAttribute('checked');
+    firstChild.remove();
+    li.setAttribute('data-type', 'taskItem');
+    li.setAttribute('data-checked', checked ? 'true' : 'false');
+    const firstNode = li.firstChild;
+    if (firstNode?.nodeType === Node.TEXT_NODE) {
+      firstNode.textContent = (firstNode.textContent ?? '').replace(/^\s+/, '');
+    }
+    const parent = li.parentElement;
+    if (parent?.tagName === 'UL' || parent?.tagName === 'OL') {
+      parent.setAttribute('data-type', 'taskList');
+    }
+  });
+  return template.innerHTML;
+}
+
+function renderHtml(value: string): string {
+  return taskListFromMarkdownHtml(bodyToHtml(value));
+}
+
 // TipTap serializes tables with a <colgroup> and wraps every cell in a <p>.
 // Both defeat turndown-plugin-gfm's GFM-table detection (it needs <tbody> as the
 // table's first child and inline cell content), so tables would otherwise fall
 // back to raw HTML. Normalize the markup so tables round-trip to GFM Markdown.
+// Task items need the inverse: unwrap TipTap's label/div so turndown sees a
+// direct-child checkbox on each <li>.
 function normalizeForMarkdown(html: string): string {
   const template = window.document.createElement('template');
   template.innerHTML = html;
@@ -43,6 +76,58 @@ function normalizeForMarkdown(html: string): string {
         child.replaceWith(...Array.from(child.childNodes));
       }
     });
+  });
+  template.content.querySelectorAll('li').forEach((li) => {
+    if (li.closest('ul[data-type="taskList"], ol[data-type="taskList"]') !== null) {
+      return;
+    }
+    Array.from(li.children).forEach((child) => {
+      if (child.tagName === 'P') {
+        child.replaceWith(...Array.from(child.childNodes));
+      }
+    });
+  });
+  template.content.querySelectorAll('ul[data-type="taskList"] > li[data-checked]').forEach((li) => {
+    const checked = li.getAttribute('data-checked') === 'true';
+    Array.from(li.children).forEach((child) => {
+      if (child.tagName === 'LABEL') {
+        child.remove();
+      }
+    });
+    let inlineContentHtml = '';
+    const contentDiv = Array.from(li.children).find((child) => child.tagName === 'DIV');
+    if (contentDiv !== undefined) {
+      Array.from(contentDiv.children).forEach((child) => {
+        if (child.tagName === 'P') {
+          child.replaceWith(...Array.from(child.childNodes));
+        }
+      });
+      inlineContentHtml = contentDiv.innerHTML;
+      contentDiv.remove();
+    } else {
+      const wrapper = window.document.createElement('span');
+      Array.from(li.childNodes).forEach((node) => wrapper.appendChild(node.cloneNode(true)));
+      inlineContentHtml = wrapper.innerHTML;
+    }
+    li.removeAttribute('data-type');
+    li.removeAttribute('data-checked');
+    const checkbox = checked ? '<input type="checkbox" checked>' : '<input type="checkbox">';
+    // No space after the checkbox: turndown-plugin-gfm's taskListItems rule already
+    // emits "[x] " with a trailing space, so adding one here would double it.
+    li.innerHTML = `${checkbox}${inlineContentHtml.trim()}`;
+  });
+  template.content
+    .querySelectorAll('ul[data-type="taskList"], ol[data-type="taskList"]')
+    .forEach((list) => {
+      list.removeAttribute('data-type');
+    });
+  template.content.querySelectorAll('p').forEach((p) => {
+    if (p.closest('li, td, th') !== null) {
+      return;
+    }
+    if ((p.textContent ?? '').trim() === '') {
+      p.remove();
+    }
   });
   return template.innerHTML;
 }
@@ -109,8 +194,14 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     } | null>(null);
 
     const editor = useEditor({
-      extensions: [StarterKit, Image.configure({ allowBase64: true }), TableKit],
-      content: bodyToHtml(value),
+      extensions: [
+        StarterKit,
+        Image.configure({ allowBase64: true }),
+        TableKit,
+        TaskList,
+        TaskItem.configure({ nested: true }),
+      ],
+      content: renderHtml(value),
       editable: mode === 'editor',
       onUpdate: () => {
         dirtyRef.current = true;
@@ -149,7 +240,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       // A freshly loaded value is not a user edit.
       dirtyRef.current = false;
       const current = editor.getHTML();
-      const next = bodyToHtml(value);
+      const next = renderHtml(value);
       if (current !== next) {
         editor.commands.setContent(next, { emitUpdate: false });
       }
@@ -209,7 +300,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             <div
               className="document-reader-content"
               aria-label={ariaLabel}
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyToHtml(value)) }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderHtml(value)) }}
               style={{
                 lineHeight: 1.6,
                 padding: '1rem',

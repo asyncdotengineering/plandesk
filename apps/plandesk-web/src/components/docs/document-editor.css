@@ -32,3 +32,40 @@
   background: #f3f4f6;
   font-weight: 600;
 }
+
+.document-editor-content ul[data-type='taskList'],
+.document-reader-content ul[data-type='taskList'],
+.portal-document-content ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.document-editor-content ul[data-type='taskList'] li,
+.document-reader-content ul[data-type='taskList'] li,
+.portal-document-content ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.document-editor-content ul[data-type='taskList'] li > label,
+.document-reader-content ul[data-type='taskList'] li > label,
+.portal-document-content ul[data-type='taskList'] li > label {
+  margin-top: 0.15rem;
+}
+
+.document-reader-content li[data-type='taskItem'],
+.portal-document-content li[data-type='taskItem'] {
+  list-style: none;
+}
+
+.document-reader-content li[data-type='taskItem']::before,
+.portal-document-content li[data-type='taskItem']::before {
+  content: '\2610';
+  margin-right: 0.4rem;
+}
+
+.document-reader-content li[data-type='taskItem'][data-checked='true']::before,
+.portal-document-content li[data-type='taskItem'][data-checked='true']::before {
+  content: '\2611';
+}

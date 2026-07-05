@@ -72,6 +72,52 @@ describe('RichTextEditor', () => {
     expect(markdown).not.toContain('<strong');
   });
 
+  it('renders task-list markdown as task items in reader mode', () => {
+    render(<RichTextEditor value={'- [x] a\n- [ ] b'} mode="reader" />);
+
+    const items = document.querySelectorAll('.document-reader-content li[data-type="taskItem"]');
+    expect(items).toHaveLength(2);
+    expect(items[0]?.getAttribute('data-checked')).toBe('true');
+    expect(items[1]?.getAttribute('data-checked')).toBe('false');
+  });
+
+  it('round-trips GFM task-list checkboxes through the editor', async () => {
+    const ref = createRef<RichTextEditorHandle>();
+    render(<RichTextEditor ref={ref} value={'- [x] a\n- [ ] b'} mode="editor" />);
+
+    await waitFor(() => {
+      expect(
+        document.querySelector(
+          '.document-editor-content ul[data-type="taskList"] input[type="checkbox"]',
+        ),
+      ).toBeTruthy();
+    });
+
+    const markdown = ref.current?.getMarkdown() ?? '';
+    // Tolerant of turndown's native "-   " marker spacing; the load path re-parses
+    // it as a checkbox regardless (verified). The contract is Markdown, not HTML.
+    expect(markdown).toMatch(/-\s+\[x\] a/);
+    expect(markdown).toMatch(/-\s+\[ \] b/);
+    expect(markdown).not.toContain('<input');
+    expect(markdown).not.toContain('data-type');
+    expect(markdown).not.toContain('<li');
+  });
+
+  it('does not convert plain bullet lists into task items', async () => {
+    const ref = createRef<RichTextEditorHandle>();
+    render(<RichTextEditor ref={ref} value={'- one\n- two'} mode="editor" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('one')).toBeTruthy();
+    });
+
+    const markdown = ref.current?.getMarkdown() ?? '';
+    // Plain bullets, never task items — tolerant of turndown's "-   " marker spacing.
+    expect(markdown).toMatch(/^-\s+one$/m);
+    expect(markdown).toMatch(/^-\s+two$/m);
+    expect(markdown).not.toContain('[');
+  });
+
   it('is clean until edited, then reports dirty so callers can skip a no-op re-serialize', async () => {
     const ref = createRef<RichTextEditorHandle>();
     render(<RichTextEditor ref={ref} value="Start" mode="editor" />);
