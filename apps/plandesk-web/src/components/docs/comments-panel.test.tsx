@@ -117,6 +117,59 @@ describe('CommentsPanel', () => {
     });
   });
 
+  it('pre-attaches a passage handed in from a document highlight (no Attach-selection click)', async () => {
+    const onPassageConsumed = vi.fn();
+    const created: SerializedComment = {
+      id: 'cmt-4',
+      document_id: 'doc-1',
+      passage: 'Phase C in scope',
+      body: 'anchor comment',
+      resolved: false,
+      created_at: '2026-06-07T15:00:00.000Z',
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve([]) })
+      .mockResolvedValueOnce({ ok: true, status: 201, json: () => Promise.resolve(created) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve([created]) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <CommentsPanel
+          documentId="doc-1"
+          projectId="proj-1"
+          attachPassage="Phase C in scope"
+          onPassageConsumed={onPassageConsumed}
+        />
+      </QueryClientProvider>,
+    );
+
+    // The passage from the highlight is pre-attached — no "Attach selection" click.
+    await waitFor(() => {
+      expect(screen.getByText(/Phase C in scope/)).toBeTruthy();
+    });
+    expect(onPassageConsumed).toHaveBeenCalled();
+
+    fireEvent.change(screen.getByPlaceholderText(/leave feedback/i), {
+      target: { value: 'anchor comment' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /add comment/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/documents/doc-1/comments',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ body: 'anchor comment', passage: 'Phase C in scope' }),
+        }),
+      );
+    });
+  });
+
   it('resolves and deletes a comment', async () => {
     const resolved = { ...openComment, resolved: true };
     const fetchMock = vi

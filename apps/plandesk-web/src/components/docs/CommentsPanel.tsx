@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SerializedComment } from '../../lib/api.js';
 import {
   useCreateComment,
@@ -10,6 +10,11 @@ import {
 type CommentsPanelProps = {
   documentId: string;
   projectId: string;
+  // A passage handed in from the document's on-selection "Add comment" affordance:
+  // when set, it pre-attaches to the composer and focuses it. The parent clears it
+  // via onPassageConsumed so the same text can be selected again.
+  attachPassage?: string | null;
+  onPassageConsumed?: () => void;
 };
 
 function formatDate(iso: string): string {
@@ -107,7 +112,11 @@ function CommentItem({
   );
 }
 
-export function CommentsPanel({ documentId }: CommentsPanelProps) {
+export function CommentsPanel({
+  documentId,
+  attachPassage = null,
+  onPassageConsumed,
+}: CommentsPanelProps) {
   const { data: comments, isLoading, error } = useDocumentComments(documentId);
   const createComment = useCreateComment(documentId);
   const patchComment = usePatchComment(documentId);
@@ -115,6 +124,18 @@ export function CommentsPanel({ documentId }: CommentsPanelProps) {
 
   const [body, setBody] = useState('');
   const [attachedPassage, setAttachedPassage] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+  // When the document's on-selection affordance hands in a passage, pre-attach it to
+  // the composer and focus it, then let the parent clear the hand-off.
+  useEffect(() => {
+    if (attachPassage === null) {
+      return;
+    }
+    setAttachedPassage(attachPassage);
+    bodyRef.current?.focus();
+    onPassageConsumed?.();
+  }, [attachPassage, onPassageConsumed]);
   const [showResolved, setShowResolved] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
 
@@ -240,6 +261,7 @@ export function CommentsPanel({ documentId }: CommentsPanelProps) {
           </div>
         ) : null}
         <textarea
+          ref={bodyRef}
           value={body}
           onChange={(event) => {
             setBody(event.target.value);

@@ -41,6 +41,9 @@ type DocumentEditorProps = {
   onDelete?: () => void;
   isSaving?: boolean;
   isDeleting?: boolean;
+  // Called when the reader highlights text and clicks the floating "Add comment"
+  // button — hands the selected passage up to the comment composer.
+  onCommentOnSelection?: (passage: string) => void;
 };
 
 export function DocumentEditor({
@@ -50,9 +53,16 @@ export function DocumentEditor({
   onDelete,
   isSaving = false,
   isDeleting = false,
+  onCommentOnSelection,
 }: DocumentEditorProps) {
   const [title, setTitle] = useState(document.title);
   const [statusLine, setStatusLine] = useState(document.status_line ?? '');
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [selectionMenu, setSelectionMenu] = useState<{
+    top: number;
+    left: number;
+    text: string;
+  } | null>(null);
 
   const editor = useEditor({
     extensions: [StarterKit, Image.configure({ allowBase64: true })],
@@ -89,6 +99,53 @@ export function DocumentEditor({
       editor.commands.setContent(next, { emitUpdate: false });
     }
   }, [editor, document.body]);
+
+  // Surface a floating "Add comment" button when text is highlighted inside the
+  // document content — the discoverable path to a passage-anchored comment. DOM-
+  // selection based so it works in both reader and editor mode; `window` avoids the
+  // `document` prop shadow. Best-effort positioning (getBoundingClientRect can throw
+  // on a detached range under jsdom).
+  useEffect(() => {
+    if (onCommentOnSelection === undefined) {
+      return;
+    }
+    const container = contentRef.current;
+    if (container === null) {
+      return;
+    }
+    const showForSelection = () => {
+      const selection = window.getSelection();
+      const text = selection?.toString().trim() ?? '';
+      if (selection === null || selection.rangeCount === 0 || text === '') {
+        setSelectionMenu(null);
+        return;
+      }
+      const anchor = selection.anchorNode;
+      if (anchor !== null && !container.contains(anchor)) {
+        setSelectionMenu(null);
+        return;
+      }
+      let top = 0;
+      let left = 0;
+      try {
+        const rect = selection.getRangeAt(0).getBoundingClientRect();
+        top = rect.top;
+        left = rect.left + rect.width / 2;
+      } catch {
+        // detached range
+      }
+      setSelectionMenu({ top, left, text });
+    };
+    const clearSelection = () => {
+      setSelectionMenu(null);
+    };
+    container.addEventListener('mouseup', showForSelection);
+    container.addEventListener('mousedown', clearSelection);
+    return () => {
+      container.removeEventListener('mouseup', showForSelection);
+      container.removeEventListener('mousedown', clearSelection);
+    };
+  }, [onCommentOnSelection]);
 
   const handleSave = () => {
     onSave({
@@ -199,30 +256,64 @@ export function DocumentEditor({
 
       {mode === 'editor' ? <DocumentToolbar editor={editor} /> : null}
 
-      {mode === 'reader' ? (
-        <div
-          className="document-reader-content"
-          dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyToHtml(document.body ?? '')) }}
-          style={{
-            lineHeight: 1.6,
-            padding: '1rem',
-            border: '1px solid #e5e7eb',
-            borderRadius: 8,
-            minHeight: '12rem',
+      <div ref={contentRef}>
+        {mode === 'reader' ? (
+          <div
+            className="document-reader-content"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyToHtml(document.body ?? '')) }}
+            style={{
+              lineHeight: 1.6,
+              padding: '1rem',
+              border: '1px solid #e5e7eb',
+              borderRadius: 8,
+              minHeight: '12rem',
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              border: '1px solid #e5e7eb',
+              borderRadius: 8,
+              padding: '0.75rem 1rem',
+              minHeight: '12rem',
+            }}
+          >
+            <EditorContent editor={editor} />
+          </div>
+        )}
+      </div>
+
+      {onCommentOnSelection !== undefined && selectionMenu !== null ? (
+        <button
+          type="button"
+          onMouseDown={(event) => {
+            event.preventDefault();
           }}
-        />
-      ) : (
-        <div
+          onClick={() => {
+            onCommentOnSelection(selectionMenu.text);
+            setSelectionMenu(null);
+            window.getSelection()?.removeAllRanges();
+          }}
           style={{
-            border: '1px solid #e5e7eb',
-            borderRadius: 8,
-            padding: '0.75rem 1rem',
-            minHeight: '12rem',
+            position: 'fixed',
+            top: Math.max(selectionMenu.top - 42, 8),
+            left: selectionMenu.left,
+            transform: 'translateX(-50%)',
+            zIndex: 50,
+            padding: '0.375rem 0.625rem',
+            borderRadius: 6,
+            border: '1px solid #1d4ed8',
+            background: '#1d4ed8',
+            color: '#fff',
+            fontWeight: 600,
+            fontSize: '0.8125rem',
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
           }}
         >
-          <EditorContent editor={editor} />
-        </div>
-      )}
+          💬 Add comment
+        </button>
+      ) : null}
     </div>
   );
 }

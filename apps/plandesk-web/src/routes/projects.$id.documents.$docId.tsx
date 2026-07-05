@@ -12,6 +12,7 @@ function DocumentPage() {
   const patchDocument = usePatchDocument();
   const deleteDocument = useDeleteDocument();
   const [mode, setMode] = useState<DocumentEditorMode>('editor');
+  const [pendingPassage, setPendingPassage] = useState<string | null>(null);
 
   if (projectLoading || docLoading) {
     return <p>Loading document…</p>;
@@ -92,6 +93,9 @@ function DocumentPage() {
             mode={mode}
             isSaving={patchDocument.isPending}
             isDeleting={deleteDocument.isPending}
+            onCommentOnSelection={(passage) => {
+              setPendingPassage(passage);
+            }}
             onSave={(input) => {
               patchDocument.mutate({ id: docId, input });
             }}
@@ -107,7 +111,14 @@ function DocumentPage() {
             }}
           />
         </div>
-        <CommentsPanel documentId={docId} projectId={id} />
+        <CommentsPanel
+          documentId={docId}
+          projectId={id}
+          attachPassage={pendingPassage}
+          onPassageConsumed={() => {
+            setPendingPassage(null);
+          }}
+        />
       </div>
     </section>
   );

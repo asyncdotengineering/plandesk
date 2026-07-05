@@ -136,4 +136,45 @@ describe('DocumentEditor', () => {
     expect(reader?.querySelector('h2')?.textContent).toBe('Hosts');
     expect(reader?.querySelectorAll('li')).toHaveLength(2);
   });
+
+  it('surfaces a floating Add-comment button on selection and hands up the passage', async () => {
+    const onCommentOnSelection = vi.fn();
+    vi.stubGlobal(
+      'getSelection',
+      vi.fn().mockReturnValue({
+        toString: () => 'Phase C in scope',
+        rangeCount: 1,
+        anchorNode: null,
+        removeAllRanges: vi.fn(),
+        getRangeAt: () => ({
+          getBoundingClientRect: () => ({ top: 120, left: 40, width: 80 }),
+        }),
+      }),
+    );
+
+    render(
+      <DocumentEditor
+        document={sampleDocument}
+        mode="reader"
+        onSave={vi.fn()}
+        onCommentOnSelection={onCommentOnSelection}
+      />,
+    );
+
+    const reader = document.querySelector('.document-reader-content');
+    expect(reader).toBeTruthy();
+    fireEvent.mouseUp(reader as Element);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /add comment/i })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /add comment/i }));
+    expect(onCommentOnSelection).toHaveBeenCalledWith('Phase C in scope');
+  });
+
+  it('shows no Add-comment affordance when onCommentOnSelection is not provided', () => {
+    render(<DocumentEditor document={sampleDocument} mode="reader" onSave={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: /add comment/i })).toBeNull();
+  });
 });
