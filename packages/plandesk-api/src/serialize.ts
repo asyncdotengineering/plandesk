@@ -86,6 +86,30 @@ export function serializeTag(tag: Tag): SerializedTag {
   };
 }
 
+function parseLastVerification(raw: string | null) {
+  if (raw === null) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as {
+      at: string;
+      green: boolean;
+      kind: string | null;
+      detail?: string;
+    };
+    if (
+      typeof parsed.at === 'string' &&
+      typeof parsed.green === 'boolean' &&
+      (parsed.kind === null || typeof parsed.kind === 'string')
+    ) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function serializeGoal(goal: Goal) {
   return {
     id: goal.id,
@@ -98,6 +122,7 @@ export function serializeGoal(goal: Goal) {
     iteration_policy: goal.iterationPolicy,
     stop_condition: goal.stopCondition,
     budget: goal.budget,
+    last_verification: parseLastVerification(goal.lastVerification),
     created_at: goal.createdAt.toISOString(),
     updated_at: goal.updatedAt.toISOString(),
   };

@@ -59,6 +59,15 @@ is briefs, verification, diff-reading, and integration — not typing the code.
   in-session gets written down before the session ends — as a gotcha, a
   verifier, a worker-file note, or a skill a cheaper model can follow.
 
+## Goal completion is proven
+
+The runner drives all cycle-tasks on a goal to `done`, then runs the goal's
+`verification_surface` externally (gate command via `verify-handoff-proof.sh`,
+acceptance checklist, or human sign-off) and calls `complete_goal` with the
+evidence. The API validates evidence against the declared surface — it never
+executes shell. Green evidence completes the goal; red evidence sets the goal
+`blocked` and files one `scope` remediation task.
+
 ## Conventions
 
 - Statuses flip atomically with the work event, never in batches.

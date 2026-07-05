@@ -186,10 +186,32 @@ export const scaffoldProjectFromPlanInputSchema = z.object({
     .optional(),
 });
 
+const verificationEvidenceSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('gate_command'),
+    exit_code: z.number(),
+    command: z.string().optional(),
+    detail: z.string().optional(),
+  }),
+  z.object({
+    kind: z.literal('acceptance_checklist'),
+    checked: z.array(z.string()),
+  }),
+  z.object({
+    kind: z.literal('human_sign_off'),
+    approved_by: z.string(),
+  }),
+]);
+
 export const createGoalInputSchema = z.object({
   project_id: z.string().uuid(),
   objective: z.string().min(1),
-  verification_surface: z.string().optional(),
+  verification_surface: z
+    .string()
+    .optional()
+    .describe(
+      'JSON verification surface: gate_command, acceptance_checklist, or human_sign_off. Omit for no surface.',
+    ),
   constraints: z.string().optional(),
   boundaries: z.string().optional(),
   iteration_policy: z.string().optional(),
@@ -208,6 +230,10 @@ export const listGoalsInputSchema = z.object({
 
 export const goalLifecycleInputSchema = z.object({
   goal_id: z.string().uuid(),
+});
+
+export const completeGoalInputSchema = goalLifecycleInputSchema.extend({
+  evidence: verificationEvidenceSchema.optional(),
 });
 
 export const getNextTaskInputSchema = z.object({
@@ -361,7 +387,7 @@ export const v1ToolSchemas = {
   list_goals: listGoalsInputSchema,
   pause_goal: goalLifecycleInputSchema,
   resume_goal: goalLifecycleInputSchema,
-  complete_goal: goalLifecycleInputSchema,
+  complete_goal: completeGoalInputSchema,
   get_next_task: getNextTaskInputSchema,
   get_task: getTaskInputSchema,
   list_tasks: listTasksInputSchema,

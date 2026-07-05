@@ -100,6 +100,9 @@ describe('migrate', () => {
     expect(getProject(db, FIXTURE_PROJECT_ID)?.name).toBe('Fixture Project');
 
     migrateDown(db, 1);
+    expect(hasColumn(db, 'goals', 'last_verification')).toBe(false);
+
+    migrateDown(db, 1);
     expect(listTables(db)).not.toContain('goals');
     expect(hasColumn(db, 'tasks', 'goal_id')).toBe(false);
 
@@ -141,6 +144,7 @@ describe('migrate', () => {
     expect(listTables(db)).toContain('task_tags');
     expect(listTables(db)).toContain('goals');
     expect(hasColumn(db, 'tasks', 'goal_id')).toBe(true);
+    expect(hasColumn(db, 'goals', 'last_verification')).toBe(true);
     expect(getProject(db, FIXTURE_PROJECT_ID)?.name).toBe('Fixture Project');
 
     migrateDownAll(db);
@@ -154,7 +158,7 @@ describe('migrate', () => {
   it('0008 backfill assigns a default goal to pre-existing tasks', () => {
     const db = createDb(':memory:');
     migrate(db);
-    migrateDown(db, 1);
+    migrateDown(db, 2);
     expect(hasColumn(db, 'tasks', 'goal_id')).toBe(false);
     expect(listTables(db)).not.toContain('goals');
 
@@ -183,7 +187,7 @@ describe('migrate', () => {
     createTask(db, { projectId: project.id, label: 'Task A' });
     createTask(db, { projectId: project.id, label: 'Task B' });
 
-    migrateDown(db, 1);
+    migrateDown(db, 2);
     expect(listTables(db)).not.toContain('goals');
     expect(hasColumn(db, 'tasks', 'goal_id')).toBe(false);
 
@@ -205,6 +209,18 @@ describe('migrate', () => {
     expect(goal.objective).toBe('General');
   });
 
+  it('regression: 0009 migrate down then up adds and removes last_verification', () => {
+    const db = createDb(':memory:');
+    migrate(db);
+    expect(hasColumn(db, 'goals', 'last_verification')).toBe(true);
+
+    migrateDown(db, 1);
+    expect(hasColumn(db, 'goals', 'last_verification')).toBe(false);
+
+    migrate(db);
+    expect(hasColumn(db, 'goals', 'last_verification')).toBe(true);
+  });
+
   // The 0008 tasks-rebuild drops and recreates `tasks`, which has INCOMING FK
   // references from edges, documents.linked_task_id, and
   // share_submissions.linked_task_id. The live board has a dense edge graph, so
@@ -213,7 +229,7 @@ describe('migrate', () => {
   it('regression: 0008 rebuild survives tasks referenced by edges, docs, submissions', () => {
     const db = createDb(':memory:');
     migrate(db);
-    migrateDown(db, 1); // back to 0007 (pre-goals)
+    migrateDown(db, 2); // back to 0007 (pre-goals)
 
     const project = createProject(db, { name: 'FK project' });
     const now = Date.now();
@@ -244,7 +260,7 @@ describe('migrate', () => {
       migrate(db);
     }).not.toThrow();
     expect(() => {
-      migrateDown(db, 1);
+      migrateDown(db, 2);
     }).not.toThrow();
     expect(() => {
       migrate(db);

@@ -15,6 +15,7 @@ export type NewGoal = {
   iterationPolicy?: string | null;
   stopCondition?: string | null;
   budget?: string | null;
+  lastVerification?: string | null;
   id?: string;
 };
 
@@ -27,6 +28,7 @@ export type GoalUpdate = {
   iterationPolicy?: string | null;
   stopCondition?: string | null;
   budget?: string | null;
+  lastVerification?: string | null;
 };
 
 export class InvalidGoalStatusError extends Error {
@@ -64,6 +66,7 @@ export function createGoal(db: DbClient, input: NewGoal): Goal {
       iterationPolicy: input.iterationPolicy ?? null,
       stopCondition: input.stopCondition ?? null,
       budget: input.budget ?? null,
+      lastVerification: input.lastVerification ?? null,
       createdAt: now,
       updatedAt: now,
     })

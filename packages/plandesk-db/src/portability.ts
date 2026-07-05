@@ -36,6 +36,7 @@ export type PlandeskExportV1Goal = {
   iteration_policy: string | null;
   stop_condition: string | null;
   budget: string | null;
+  last_verification?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -244,6 +245,7 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
       iteration_policy: goal.iterationPolicy,
       stop_condition: goal.stopCondition,
       budget: goal.budget,
+      last_verification: goal.lastVerification,
       created_at: goal.createdAt.toISOString(),
       updated_at: goal.updatedAt.toISOString(),
     })),
@@ -363,6 +365,7 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
         iterationPolicy: goal.iteration_policy,
         stopCondition: goal.stop_condition,
         budget: goal.budget,
+        lastVerification: goal.last_verification ?? null,
       });
     }
 

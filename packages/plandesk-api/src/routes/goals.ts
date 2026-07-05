@@ -2,8 +2,11 @@ import { Hono, type Context } from 'hono';
 import { InvalidGoalStatusError, isGoalStatus } from '@plandesk/db';
 import {
   GoalCompletionBlockedError,
+  GoalVerificationRequiredError,
   InvalidGoalTransitionError,
+  InvalidVerificationSurfaceError,
   type GoalService,
+  type VerificationEvidence,
 } from '../services/goals.js';
 
 type CreateGoalBody = {
@@ -27,6 +30,10 @@ type UpdateGoalBody = {
   budget?: string | null;
 };
 
+type CompleteGoalBody = {
+  evidence?: VerificationEvidence;
+};
+
 function mapGoalInput(body: CreateGoalBody | UpdateGoalBody) {
   return {
     ...(body.objective !== undefined ? { objective: body.objective } : {}),
@@ -44,6 +51,18 @@ function mapGoalInput(body: CreateGoalBody | UpdateGoalBody) {
 function handleGoalError(c: Context, error: unknown) {
   if (error instanceof InvalidGoalStatusError || error instanceof InvalidGoalTransitionError) {
     return c.json({ error: 'invalid_argument' }, 400);
+  }
+  if (error instanceof InvalidVerificationSurfaceError) {
+    return c.json({ error: 'invalid_argument' }, 400);
+  }
+  if (error instanceof GoalVerificationRequiredError) {
+    return c.json(
+      {
+        error: 'verification_required',
+        required_kind: error.requiredKind,
+      },
+      400,
+    );
   }
   if (error instanceof GoalCompletionBlockedError) {
     return c.json(
@@ -141,9 +160,15 @@ export function createGoalsRouter(goalService: GoalService): Hono {
     }
   });
 
-  router.post('/goals/:id/complete', (c) => {
+  router.post('/goals/:id/complete', async (c) => {
+    let body: CompleteGoalBody = {};
     try {
-      const goal = goalService.complete(c.req.param('id'));
+      body = await c.req.json<CompleteGoalBody>();
+    } catch {
+      // empty body is valid when the goal has no verification_surface
+    }
+    try {
+      const goal = goalService.complete(c.req.param('id'), body.evidence);
       if (!goal) {
         return c.json({ error: 'not_found' }, 404);
       }

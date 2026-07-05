@@ -44,6 +44,7 @@ export const goals = sqliteTable('goals', {
   iterationPolicy: text('iteration_policy'),
   stopCondition: text('stop_condition'),
   budget: text('budget'),
+  lastVerification: text('last_verification'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),

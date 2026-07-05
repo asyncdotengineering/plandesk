@@ -64,6 +64,13 @@
       "when": 1783255852451,
       "tag": "0008_damp_moonstone",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1783260225207,
+      "tag": "0009_watery_santa_claus",
+      "breakpoints": true
     }
   ]
 }

@@ -11,6 +11,7 @@ type MigrationJournal = {
 };
 
 const DOWN_SQL: Record<string, string[]> = {
+  '0009_watery_santa_claus': ['ALTER TABLE `goals` DROP COLUMN `last_verification`;'],
   '0008_damp_moonstone': [
     `CREATE TABLE \`__old_tasks\` (
 	\`id\` text PRIMARY KEY NOT NULL,

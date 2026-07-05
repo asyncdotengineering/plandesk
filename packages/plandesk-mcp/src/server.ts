@@ -59,6 +59,7 @@ import {
   createGoalInputSchema,
   getGoalInputSchema,
   listGoalsInputSchema,
+  completeGoalInputSchema,
   goalLifecycleInputSchema,
   getNextTaskInputSchema,
   getProjectInputSchema,
@@ -374,8 +375,8 @@ function createMcpServer(services: Services): McpServer {
     {
       title: 'Complete Goal',
       description:
-        'Mark a goal complete when every cycle-task is done. Blocked if any cycle-task is unfinished.',
-      inputSchema: goalLifecycleInputSchema.shape,
+        'Mark a goal complete when every cycle-task is done and verification evidence is green. Submit evidence matching the goal verification_surface; red evidence blocks the goal and files a remediation task.',
+      inputSchema: completeGoalInputSchema.shape,
     },
     createCompleteGoalHandler(services.goalService),
   );

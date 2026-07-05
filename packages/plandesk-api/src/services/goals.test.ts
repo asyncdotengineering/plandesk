@@ -5,15 +5,77 @@ import {
   createProject,
   getGoal,
   InvalidGoalStatusError,
+  listTasks,
   migrate,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus, type GoalUpdatedEvent } from '../events.js';
 import {
   createGoalService,
+  evaluateEvidence,
   GoalCompletionBlockedError,
+  GoalVerificationRequiredError,
   InvalidGoalTransitionError,
+  InvalidVerificationSurfaceError,
+  parseVerificationSurface,
 } from './goals.js';
+
+const gateSurface = JSON.stringify({ kind: 'gate_command', command: 'pnpm test' });
+const checklistSurface = JSON.stringify({
+  kind: 'acceptance_checklist',
+  items: [{ criterion: 'Tests pass' }, { criterion: 'Lint clean' }],
+});
+
+describe('verification parsing', () => {
+  it('parses gate_command surface', () => {
+    expect(parseVerificationSurface(gateSurface)).toEqual({
+      kind: 'gate_command',
+      command: 'pnpm test',
+    });
+  });
+
+  it('rejects malformed and unknown surfaces', () => {
+    expect(() => parseVerificationSurface('not json')).toThrow(InvalidVerificationSurfaceError);
+    expect(() => parseVerificationSurface(JSON.stringify({ kind: 'bogus' }))).toThrow(
+      InvalidVerificationSurfaceError,
+    );
+    expect(() =>
+      parseVerificationSurface(JSON.stringify({ kind: 'acceptance_checklist', items: [] })),
+    ).toThrow(InvalidVerificationSurfaceError);
+  });
+
+  it('evaluates evidence per surface kind', () => {
+    const checklist = parseVerificationSurface(checklistSurface);
+    if (!checklist) {
+      throw new Error('expected checklist surface');
+    }
+    expect(
+      evaluateEvidence(checklist, {
+        kind: 'acceptance_checklist',
+        checked: ['Tests pass', 'Lint clean'],
+      }).green,
+    ).toBe(true);
+    expect(
+      evaluateEvidence(checklist, { kind: 'acceptance_checklist', checked: ['Tests pass'] }).green,
+    ).toBe(false);
+    expect(
+      evaluateEvidence({ kind: 'human_sign_off' }, { kind: 'human_sign_off', approved_by: 'alice' })
+        .green,
+    ).toBe(true);
+    expect(
+      evaluateEvidence(
+        { kind: 'gate_command', command: 'pnpm test' },
+        { kind: 'gate_command', exit_code: 0 },
+      ).green,
+    ).toBe(true);
+    expect(
+      evaluateEvidence(
+        { kind: 'gate_command', command: 'pnpm test' },
+        { kind: 'gate_command', exit_code: 1 },
+      ).green,
+    ).toBe(false);
+  });
+});
 
 describe('goalService', () => {
   const db = createDb(':memory:');
@@ -22,6 +84,12 @@ describe('goalService', () => {
 
   function createService() {
     return createGoalService({ db, eventBus });
+  }
+
+  function markAllCycleTasksDone(goalId: string) {
+    for (const task of listTasks(db, projectId).filter((row) => row.goalId === goalId)) {
+      db.$client.prepare('UPDATE tasks SET status = ? WHERE id = ?').run('done', task.id);
+    }
   }
 
   beforeEach(() => {
@@ -46,7 +114,7 @@ describe('goalService', () => {
 
     const goal = service.create(projectId, {
       objective: 'Ship goals',
-      verificationSurface: 'pnpm validate',
+      verificationSurface: gateSurface,
       constraints: 'backend only',
     });
 
@@ -54,7 +122,7 @@ describe('goalService', () => {
       project_id: projectId,
       objective: 'Ship goals',
       status: 'active',
-      verification_surface: 'pnpm validate',
+      verification_surface: gateSurface,
       constraints: 'backend only',
     });
     expect(goal).toBeDefined();
@@ -62,6 +130,18 @@ describe('goalService', () => {
       throw new Error('expected created goal');
     }
     expect(received).toEqual([{ type: 'goal_updated', goalId: goal.id, projectId }]);
+  });
+
+  it('rejects invalid verification_surface on create and update', () => {
+    const service = createService();
+    expect(() =>
+      service.create(projectId, { objective: 'Bad', verificationSurface: 'pnpm validate' }),
+    ).toThrow(InvalidVerificationSurfaceError);
+
+    const goal = service.create(projectId, { objective: 'Ok' });
+    expect(() => service.update(goal?.id ?? '', { verificationSurface: '{not json' })).toThrow(
+      InvalidVerificationSurfaceError,
+    );
   });
 
   it('returns undefined when creating a goal for a missing project', () => {
@@ -154,7 +234,148 @@ describe('goalService', () => {
 
     const completed = service.complete(goal.id);
     expect(completed?.status).toBe('complete');
+    expect(completed?.last_verification).toMatchObject({ green: true, kind: null });
     expect(done.id).toBeTruthy();
+  });
+
+  it('surfaceless goal completes with last_verification on children-done only', () => {
+    const service = createService();
+    const goal = createGoal(db, { projectId, objective: 'No surface', status: 'active' });
+    createTask(db, { projectId, goalId: goal.id, label: 'Only', status: 'done' });
+
+    const completed = service.complete(goal.id);
+    expect(completed?.status).toBe('complete');
+    expect(completed?.last_verification).toMatchObject({ green: true, kind: null });
+    expect(completed?.last_verification?.at).toBeTruthy();
+  });
+
+  it('gate_command green completes and red blocks with one scope task', () => {
+    const service = createService();
+    const goal = createGoal(db, {
+      projectId,
+      objective: 'Gated',
+      status: 'active',
+      verificationSurface: gateSurface,
+    });
+    createTask(db, { projectId, goalId: goal.id, label: 'Done child', status: 'done' });
+
+    expect(() => service.complete(goal.id)).toThrow(GoalVerificationRequiredError);
+
+    const blocked = service.complete(goal.id, { kind: 'gate_command', exit_code: 1 });
+    expect(blocked?.status).toBe('blocked');
+    expect(blocked?.last_verification).toMatchObject({ green: false, kind: 'gate_command' });
+
+    const scopeTasks = listTasks(db, projectId).filter(
+      (task) => task.goalId === goal.id && task.status === 'scope',
+    );
+    expect(scopeTasks).toHaveLength(1);
+    expect(scopeTasks[0]?.description).toContain(`Acceptance-block-for: ${goal.id}`);
+
+    const blockedAgain = service.complete(goal.id, { kind: 'gate_command', exit_code: 1 });
+    expect(blockedAgain?.status).toBe('blocked');
+    expect(
+      listTasks(db, projectId).filter((task) => task.goalId === goal.id && task.status === 'scope'),
+    ).toHaveLength(1);
+
+    db.$client.prepare('UPDATE goals SET status = ? WHERE id = ?').run('active', goal.id);
+    markAllCycleTasksDone(goal.id);
+    for (const task of listTasks(db, projectId).filter(
+      (row) => row.goalId === goal.id && row.status === 'scope',
+    )) {
+      db.$client.prepare('UPDATE tasks SET status = ? WHERE id = ?').run('done', task.id);
+    }
+    const completed = service.complete(goal.id, { kind: 'gate_command', exit_code: 0 });
+    expect(completed?.status).toBe('complete');
+    expect(completed?.last_verification).toMatchObject({ green: true, kind: 'gate_command' });
+  });
+
+  it('green re-completion of a blocked goal resolves its acceptance blocker (board stays true)', () => {
+    const service = createService();
+    const gateSurface = JSON.stringify({ kind: 'gate_command', command: 'pnpm validate' });
+    const goal = createGoal(db, {
+      projectId,
+      objective: 'Gated',
+      status: 'active',
+      verificationSurface: gateSurface,
+    });
+    createTask(db, { projectId, goalId: goal.id, label: 'Done child', status: 'done' });
+
+    const blocked = service.complete(goal.id, { kind: 'gate_command', exit_code: 1 });
+    expect(blocked?.status).toBe('blocked');
+    const blocker = listTasks(db, projectId).find(
+      (task) =>
+        task.goalId === goal.id && task.description?.includes(`Acceptance-block-for: ${goal.id}`),
+    );
+    expect(blocker?.status).toBe('scope');
+
+    // Re-run with green evidence directly on the blocked goal (no manual fixups).
+    const completed = service.complete(goal.id, { kind: 'gate_command', exit_code: 0 });
+    expect(completed?.status).toBe('complete');
+    // The obsolete remediation task must be resolved — a completed goal shows no open work.
+    const after = listTasks(db, projectId).find((task) => task.id === blocker?.id);
+    expect(after?.status).toBe('done');
+    expect(
+      listTasks(db, projectId).filter((task) => task.goalId === goal.id && task.status === 'scope'),
+    ).toHaveLength(0);
+  });
+
+  it('acceptance_checklist partial is red and full is green', () => {
+    const service = createService();
+    const goal = createGoal(db, {
+      projectId,
+      objective: 'Checklist',
+      status: 'active',
+      verificationSurface: checklistSurface,
+    });
+    createTask(db, { projectId, goalId: goal.id, label: 'Done child', status: 'done' });
+
+    const partial = service.complete(goal.id, {
+      kind: 'acceptance_checklist',
+      checked: ['Tests pass'],
+    });
+    expect(partial?.status).toBe('blocked');
+
+    db.$client.prepare('UPDATE goals SET status = ? WHERE id = ?').run('active', goal.id);
+    markAllCycleTasksDone(goal.id);
+    const full = service.complete(goal.id, {
+      kind: 'acceptance_checklist',
+      checked: ['Tests pass', 'Lint clean'],
+    });
+    expect(full?.status).toBe('complete');
+  });
+
+  it('human_sign_off with approved_by completes', () => {
+    const service = createService();
+    const surface = JSON.stringify({ kind: 'human_sign_off' });
+    const goal = createGoal(db, {
+      projectId,
+      objective: 'Sign-off',
+      status: 'active',
+      verificationSurface: surface,
+    });
+    createTask(db, { projectId, goalId: goal.id, label: 'Done child', status: 'done' });
+
+    const completed = service.complete(goal.id, {
+      kind: 'human_sign_off',
+      approved_by: 'reviewer',
+    });
+    expect(completed?.status).toBe('complete');
+    expect(completed?.last_verification).toMatchObject({ green: true, kind: 'human_sign_off' });
+  });
+
+  it('rejects mismatched evidence kind', () => {
+    const service = createService();
+    const goal = createGoal(db, {
+      projectId,
+      objective: 'Mismatch',
+      status: 'active',
+      verificationSurface: gateSurface,
+    });
+    createTask(db, { projectId, goalId: goal.id, label: 'Done child', status: 'done' });
+
+    expect(() =>
+      service.complete(goal.id, { kind: 'human_sign_off', approved_by: 'alice' }),
+    ).toThrow(GoalVerificationRequiredError);
   });
 
   it('returns undefined for missing goals on lifecycle methods', () => {

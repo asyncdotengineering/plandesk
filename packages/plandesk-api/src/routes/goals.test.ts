@@ -25,14 +25,14 @@ describe('goals routes', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         objective: 'Ship S2',
-        verification_surface: 'pnpm validate',
+        verification_surface: JSON.stringify({ kind: 'gate_command', command: 'pnpm validate' }),
       }),
     });
 
     expect(res.status).toBe(201);
     const body = await parseJson<{ objective: string; verification_surface: string }>(res);
     expect(body.objective).toBe('Ship S2');
-    expect(body.verification_surface).toBe('pnpm validate');
+    expect(body.verification_surface).toContain('gate_command');
   });
 
   it('GET /projects/:id/goals lists goals and 404s missing project', async () => {
@@ -115,5 +115,51 @@ describe('goals routes', () => {
     const completeRes = await app.request(`/api/v1/goals/${goal.id}/complete`, { method: 'POST' });
     expect(completeRes.status).toBe(200);
     expect((await parseJson<{ status: string }>(completeRes)).status).toBe('complete');
+  });
+
+  it('POST /goals/:id/complete requires evidence when verification_surface is set', async () => {
+    const { app, db } = createTestApp();
+    const project = createProject(db, { name: 'Evidence' });
+    const goal = createGoal(db, {
+      projectId: project.id,
+      objective: 'Gated',
+      status: 'active',
+      verificationSurface: JSON.stringify({ kind: 'gate_command', command: 'pnpm test' }),
+    });
+    const task = createTask(db, {
+      projectId: project.id,
+      goalId: goal.id,
+      label: 'Done',
+      status: 'done',
+    });
+    expect(task.id).toBeTruthy();
+
+    const missing = await app.request(`/api/v1/goals/${goal.id}/complete`, { method: 'POST' });
+    expect(missing.status).toBe(400);
+    expect((await parseJson<{ error: string }>(missing)).error).toBe('verification_required');
+
+    const red = await app.request(`/api/v1/goals/${goal.id}/complete`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ evidence: { kind: 'gate_command', exit_code: 1 } }),
+    });
+    expect(red.status).toBe(200);
+    const redBody = await parseJson<{ status: string; last_verification: { green: boolean } }>(red);
+    expect(redBody.status).toBe('blocked');
+    expect(redBody.last_verification.green).toBe(false);
+
+    db.$client.prepare('UPDATE goals SET status = ? WHERE id = ?').run('active', goal.id);
+    for (const row of db.$client
+      .prepare('SELECT id FROM tasks WHERE goal_id = ? AND status = ?')
+      .all(goal.id, 'scope') as Array<{ id: string }>) {
+      db.$client.prepare('UPDATE tasks SET status = ? WHERE id = ?').run('done', row.id);
+    }
+    const green = await app.request(`/api/v1/goals/${goal.id}/complete`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ evidence: { kind: 'gate_command', exit_code: 0 } }),
+    });
+    expect(green.status).toBe(200);
+    expect((await parseJson<{ status: string }>(green)).status).toBe('complete');
   });
 });
