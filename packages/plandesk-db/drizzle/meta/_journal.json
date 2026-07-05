@@ -57,6 +57,13 @@
       "when": 1783063984701,
       "tag": "0007_busy_naoko",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1783255852451,
+      "tag": "0008_damp_moonstone",
+      "breakpoints": true
     }
   ]
 }

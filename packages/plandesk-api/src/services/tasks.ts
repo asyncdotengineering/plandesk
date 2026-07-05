@@ -4,6 +4,7 @@ import {
   deleteEdgesByTaskId,
   deleteTask as dbDeleteTask,
   deleteTaskTagsByTaskId,
+  getOrCreateDefaultGoal,
   getProject,
   getTagByName,
   getTask,
@@ -63,6 +64,7 @@ export type CreateTaskInput = {
   y?: number;
   assignee?: string | null;
   dueDate?: Date | null;
+  goalId?: string;
   // Sets the task's tags by name; names without an existing tag are auto-created.
   tags?: string[];
 };
@@ -147,8 +149,10 @@ export function createTaskService(deps: TaskServiceDeps) {
       }
 
       const { task, tags } = db.transaction((tx) => {
+        const goalId = input.goalId ?? getOrCreateDefaultGoal(tx, projectId).id;
         const row = createTask(tx, {
           projectId,
+          goalId,
           label: input.label,
           status: input.status,
           description: input.description,

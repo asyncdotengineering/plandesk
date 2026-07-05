@@ -33,6 +33,7 @@ describe('checkout-revamp dogfood fixture', () => {
     db.$client.exec('DELETE FROM notes');
     db.$client.exec('DELETE FROM edges');
     db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
   });
 

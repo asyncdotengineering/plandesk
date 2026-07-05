@@ -89,6 +89,7 @@ export function serializeTask(task: Task, tags?: Tag[]) {
   return {
     id: task.id,
     project_id: task.projectId,
+    goal_id: task.goalId,
     label: task.label,
     status: task.status,
     description: task.description,

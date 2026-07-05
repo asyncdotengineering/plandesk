@@ -6,6 +6,7 @@ import { createDocument } from './repositories/documents.js';
 import { createEdge } from './repositories/edges.js';
 import { createFolder, listFolders } from './repositories/folders.js';
 import { createNote } from './repositories/notes.js';
+import { createGoal, getOrCreateDefaultGoal, listGoals } from './repositories/goals.js';
 import { createProject, getProject, updateProject } from './repositories/projects.js';
 import { createTag, listTags, listTagsByTaskForProject, setTaskTags } from './repositories/tags.js';
 import { createTask } from './repositories/tasks.js';
@@ -15,7 +16,7 @@ import { listDocuments } from './repositories/documents.js';
 import { listEdges } from './repositories/edges.js';
 import { listNotes } from './repositories/notes.js';
 import { listTasks } from './repositories/tasks.js';
-import type { AgentRunStatus, TaskStatus } from './schema.js';
+import type { AgentRunStatus, GoalStatus, TaskStatus } from './schema.js';
 
 export const PLANDESK_EXPORT_VERSION = 'plandesk-export-v1' as const;
 
@@ -23,6 +24,20 @@ export type PlandeskExportV1Project = {
   name: string;
   description: string | null;
   canvas_layout: string | null;
+};
+
+export type PlandeskExportV1Goal = {
+  id: string;
+  objective: string;
+  status: GoalStatus;
+  verification_surface: string | null;
+  constraints: string | null;
+  boundaries: string | null;
+  iteration_policy: string | null;
+  stop_condition: string | null;
+  budget: string | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type PlandeskExportV1Task = {
@@ -34,6 +49,7 @@ export type PlandeskExportV1Task = {
   y: number;
   assignee: string | null;
   due_date: string | null;
+  goal_id: string;
   // Optional for backward compatibility with exports written before tags existed.
   tag_ids?: string[];
   created_at?: string;
@@ -95,6 +111,7 @@ export type PlandeskExportV1AgentRun = {
 export type PlandeskExportV1 = {
   version: typeof PLANDESK_EXPORT_VERSION;
   project: PlandeskExportV1Project;
+  goals: PlandeskExportV1Goal[];
   tasks: PlandeskExportV1Task[];
   tags: PlandeskExportV1Tag[];
   edges: PlandeskExportV1Edge[];
@@ -108,6 +125,8 @@ export type PlandeskExportInput = {
   version: string;
   project: PlandeskExportV1Project;
   tasks: PlandeskExportV1Task[];
+  // Optional for backward compatibility with exports written before goals existed.
+  goals?: PlandeskExportV1Goal[];
   // Optional for backward compatibility with exports written before tags existed.
   tags?: PlandeskExportV1Tag[];
   edges: PlandeskExportV1Edge[];
@@ -197,6 +216,7 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
     return undefined;
   }
 
+  const projectGoals = listGoals(db, projectId);
   const tasks = listTasks(db, projectId);
   const tags = listTags(db, projectId);
   const tagsByTask = listTagsByTaskForProject(db, projectId);
@@ -213,6 +233,19 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
       description: project.description,
       canvas_layout: project.canvasLayout,
     },
+    goals: projectGoals.map((goal) => ({
+      id: goal.id,
+      objective: goal.objective,
+      status: goal.status,
+      verification_surface: goal.verificationSurface,
+      constraints: goal.constraints,
+      boundaries: goal.boundaries,
+      iteration_policy: goal.iterationPolicy,
+      stop_condition: goal.stopCondition,
+      budget: goal.budget,
+      created_at: goal.createdAt.toISOString(),
+      updated_at: goal.updatedAt.toISOString(),
+    })),
     tasks: tasks.map((task) => ({
       id: task.id,
       label: task.label,
@@ -222,6 +255,7 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
       y: task.y,
       assignee: task.assignee,
       due_date: task.dueDate?.toISOString() ?? null,
+      goal_id: task.goalId,
       tag_ids: (tagsByTask.get(task.id) ?? []).map((tag) => tag.id),
       created_at: task.createdAt.toISOString(),
       updated_at: task.updatedAt.toISOString(),
@@ -279,6 +313,7 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
 
   return db.transaction((tx) => {
     const taskIdMap = new Map<string, string>();
+    const goalIdMap = new Map<string, string>();
     const tagIdMap = new Map<string, string>();
     const edgeIdMap = new Map<string, string>();
     const folderIdMap = new Map<string, string>();
@@ -287,6 +322,9 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
 
     for (const task of data.tasks) {
       taskIdMap.set(task.id, randomUUID());
+    }
+    for (const goal of data.goals ?? []) {
+      goalIdMap.set(goal.id, randomUUID());
     }
     for (const tag of data.tags ?? []) {
       tagIdMap.set(tag.id, randomUUID());
@@ -312,10 +350,32 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
       updateProject(tx, project.id, { canvasLayout: data.project.canvas_layout });
     }
 
+    for (const goal of data.goals ?? []) {
+      createGoal(tx, {
+        id: remapId(goalIdMap, goal.id) ?? goal.id,
+        projectId: project.id,
+        objective: goal.objective,
+        status: goal.status,
+        verificationSurface: goal.verification_surface,
+        constraints: goal.constraints,
+        boundaries: goal.boundaries,
+        iterationPolicy: goal.iteration_policy,
+        stopCondition: goal.stop_condition,
+        budget: goal.budget,
+      });
+    }
+
+    const defaultGoal = getOrCreateDefaultGoal(tx, project.id);
+
     for (const task of data.tasks) {
+      const goalId =
+        task.goal_id !== undefined
+          ? (remapId(goalIdMap, task.goal_id) ?? defaultGoal.id)
+          : defaultGoal.id;
       createTask(tx, {
         id: remapId(taskIdMap, task.id) ?? task.id,
         projectId: project.id,
+        goalId,
         label: task.label,
         status: task.status,
         description: task.description,

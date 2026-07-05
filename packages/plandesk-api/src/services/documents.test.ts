@@ -5,11 +5,11 @@ import {
   createDocumentComment,
   createFolder,
   createProject,
-  createTask,
   getDocumentComment,
   listCommentsByDocument,
   migrate,
 } from '@plandesk/db';
+import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus } from '../events.js';
 import { createDocumentService, InvalidDocumentError } from './documents.js';
 
@@ -29,6 +29,7 @@ describe('documentService', () => {
     db.$client.exec('UPDATE folders SET parent_folder_id = NULL');
     db.$client.exec('DELETE FROM folders');
     db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
     projectId = createProject(db, { name: 'Docs' }).id;
   });

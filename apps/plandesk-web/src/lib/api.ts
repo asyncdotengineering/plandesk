@@ -38,6 +38,7 @@ export type SerializedTag = {
 export type SerializedTask = {
   id: string;
   project_id: string;
+  goal_id: string;
   label: string;
   status: TaskStatus;
   description: string | null;

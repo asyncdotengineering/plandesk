@@ -8,7 +8,6 @@ import {
   createDb,
   createEdge,
   createProject,
-  createTask,
   createToken,
   createDocument,
   createDocumentComment,
@@ -19,6 +18,7 @@ import {
   verifyToken,
   type Db,
 } from '@plandesk/db';
+import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import {
   createSyncDb,
   createSyncServer,

@@ -34,6 +34,7 @@ function makeTask(
   return {
     id,
     project_id: projectId,
+    goal_id: 'goal-1',
     label,
     status,
     description: null,

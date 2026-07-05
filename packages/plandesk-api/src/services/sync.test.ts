@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createDb,
   createProject,
-  createTask,
   getPullCursor,
   getSubmission,
   listSubmissions,
   listTasks,
   migrate,
 } from '@plandesk/db';
+import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createServer, type Server } from 'node:http';
 import { getRequestListener } from '@hono/node-server';
 import {
@@ -49,6 +49,7 @@ describe('syncService', () => {
     db.$client.exec('DELETE FROM share_submissions');
     db.$client.exec('DELETE FROM sync_state');
     db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
     vi.restoreAllMocks();
   });
@@ -563,6 +564,7 @@ describe('syncService push', () => {
     db.$client.exec('DELETE FROM sync_state');
     db.$client.exec('DELETE FROM shares');
     db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
   });
 

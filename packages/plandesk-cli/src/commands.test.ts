@@ -3,11 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   createProject,
-  createTask,
   exportProject,
   getProject,
   PLANDESK_EXPORT_VERSION,
 } from '@plandesk/db';
+import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs, workspaceDbPath } from './args.js';
 import { main } from './cli.js';

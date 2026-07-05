@@ -3,11 +3,11 @@ import {
   createDb,
   createEdge,
   createProject,
-  createTask,
   getTask,
   listEdges,
   migrate,
 } from '@plandesk/db';
+import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus } from '../events.js';
 import { createCanvasService, InvalidCanvasError } from './canvas.js';
 
@@ -24,6 +24,7 @@ describe('canvasService', () => {
     migrate(db);
     db.$client.exec('DELETE FROM edges');
     db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
     projectId = createProject(db, { name: 'Canvas' }).id;
   });

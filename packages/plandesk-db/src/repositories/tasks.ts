@@ -7,6 +7,7 @@ export type Task = typeof tasks.$inferSelect;
 
 export type NewTask = {
   projectId: string;
+  goalId: string;
   label: string;
   status?: TaskStatus;
   description?: string | null;
@@ -25,6 +26,7 @@ export type TaskUpdate = {
   y?: number;
   assignee?: string | null;
   dueDate?: Date | null;
+  goalId?: string;
 };
 
 export class InvalidTaskStatusError extends Error {
@@ -54,6 +56,7 @@ export function createTask(db: DbClient, input: NewTask): Task {
     .values({
       id,
       projectId: input.projectId,
+      goalId: input.goalId,
       label: input.label,
       status,
       description: input.description ?? null,

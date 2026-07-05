@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createEdge, createProject, createTask, getTask, listEdges } from '@plandesk/db';
+import { createEdge, createProject, getTask, listEdges } from '@plandesk/db';
+import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import {
   createTestApp,
   parseJson,

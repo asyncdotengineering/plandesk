@@ -12,6 +12,9 @@ import {
 export const taskStatuses = ['scope', 'todo', 'in_progress', 'done', 'backlog'] as const;
 export type TaskStatus = (typeof taskStatuses)[number];
 
+export const goalStatuses = ['active', 'paused', 'complete', 'blocked'] as const;
+export type GoalStatus = (typeof goalStatuses)[number];
+
 export const agentRunStatuses = ['running', 'completed', 'failed'] as const;
 export type AgentRunStatus = (typeof agentRunStatuses)[number];
 
@@ -28,11 +31,35 @@ export const projects = sqliteTable('projects', {
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
 });
 
+export const goals = sqliteTable('goals', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id')
+    .notNull()
+    .references(() => projects.id),
+  objective: text('objective').notNull(),
+  status: text('status', { enum: goalStatuses }).notNull().default('active'),
+  verificationSurface: text('verification_surface'),
+  constraints: text('constraints'),
+  boundaries: text('boundaries'),
+  iterationPolicy: text('iteration_policy'),
+  stopCondition: text('stop_condition'),
+  budget: text('budget'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+});
+
 export const tasks = sqliteTable('tasks', {
   id: text('id').primaryKey(),
   projectId: text('project_id')
     .notNull()
     .references(() => projects.id),
+  goalId: text('goal_id')
+    .notNull()
+    .references(() => goals.id),
   label: text('label').notNull(),
   status: text('status', { enum: taskStatuses }).notNull().default('todo'),
   description: text('description'),

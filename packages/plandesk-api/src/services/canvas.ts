@@ -1,6 +1,7 @@
 import {
   createEdge,
   createTask,
+  getOrCreateDefaultGoal,
   deleteEdge as dbDeleteEdge,
   getEdgeByProjectAndId,
   getProject,
@@ -160,6 +161,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
 
           const created = createTask(tx, {
             projectId,
+            goalId: getOrCreateDefaultGoal(tx, projectId).id,
             id: node.id,
             label: node.label,
             status: 'todo',

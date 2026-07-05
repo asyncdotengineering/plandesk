@@ -12,6 +12,7 @@ import {
   deleteFoldersByProjectId,
   deleteNotesByProjectId,
   deleteEdgesByProjectId,
+  deleteGoalsByProjectId,
   deleteShareSubmissionsByProjectId,
   deleteSharesByProjectId,
   deleteTagsByProjectId,
@@ -19,6 +20,7 @@ import {
   deleteSyncStateByProjectId,
   deleteProject as dbDeleteProject,
   deleteTasksByProjectId,
+  getOrCreateDefaultGoal,
   getProject as dbGetProject,
   InvalidTaskStatusError,
   isTaskStatus,
@@ -210,6 +212,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
         deleteNotesByProjectId(tx, id);
         deleteTagsByProjectId(tx, id);
         deleteTasksByProjectId(tx, id);
+        deleteGoalsByProjectId(tx, id);
         deleteShareSubmissionsByProjectId(tx, id);
         deleteSyncStateByProjectId(tx, id);
         deleteSyncRemoteByProjectId(tx, id);
@@ -236,12 +239,14 @@ export function createProjectService(deps: ProjectServiceDeps) {
           description: input.description,
         });
         projectId = project.id;
+        const defaultGoal = getOrCreateDefaultGoal(tx, project.id);
 
         input.tasks.forEach((taskInput, i) => {
           const x = taskInput.x ?? (i % 4) * 240;
           const y = taskInput.y ?? Math.floor(i / 4) * 160;
           const task = createTask(tx, {
             projectId: project.id,
+            goalId: defaultGoal.id,
             label: taskInput.label,
             status: taskInput.status,
             description: taskInput.description,

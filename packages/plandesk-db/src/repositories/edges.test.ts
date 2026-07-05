@@ -3,7 +3,7 @@ import { createDb } from '../client.js';
 import { migrate } from '../migrate.js';
 import { createEdge, deleteEdge, getEdge, listEdges, updateEdge } from './edges.js';
 import { createProject } from './projects.js';
-import { createTask } from './tasks.js';
+import { createTaskWithDefaultGoal as createTask } from '../testing.js';
 
 describe('edges repository', () => {
   const db = createDb(':memory:');
@@ -15,6 +15,7 @@ describe('edges repository', () => {
     migrate(db);
     db.$client.exec('DELETE FROM edges');
     db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
     projectId = createProject(db, { name: 'Edge Project' }).id;
     fromTaskId = createTask(db, { projectId, label: 'From' }).id;

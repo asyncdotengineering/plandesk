@@ -16,10 +16,15 @@ import { createFolder } from './repositories/folders.js';
 import { createNote } from './repositories/notes.js';
 import { createProject, updateProject } from './repositories/projects.js';
 import { createTag, setTaskTags } from './repositories/tags.js';
-import { createTask } from './repositories/tasks.js';
+import { createTaskWithDefaultGoal as createTask } from './testing.js';
 
 type ComparableExport = {
   project: PlandeskExportV1['project'];
+  goals: Array<{
+    objective: string;
+    status: string;
+    task_labels: string[];
+  }>;
   tasks: Array<{
     label: string;
     status: string;
@@ -28,6 +33,7 @@ type ComparableExport = {
     y: number;
     assignee: string | null;
     due_date: string | null;
+    goal_objective: string;
     tag_names: string[];
   }>;
   tags: Array<{
@@ -66,12 +72,23 @@ type ComparableExport = {
 
 function toComparable(exported: PlandeskExportV1): ComparableExport {
   const taskLabelById = new Map(exported.tasks.map((task) => [task.id, task.label]));
+  const goalObjectiveById = new Map(exported.goals.map((goal) => [goal.id, goal.objective]));
   const documentTitleById = new Map(exported.documents.map((doc) => [doc.id, doc.title]));
   const folderNameById = new Map(exported.folders.map((folder) => [folder.id, folder.name]));
   const tagNameById = new Map(exported.tags.map((tag) => [tag.id, tag.name]));
 
   return {
     project: exported.project,
+    goals: [...exported.goals]
+      .sort((a, b) => a.objective.localeCompare(b.objective))
+      .map((goal) => ({
+        objective: goal.objective,
+        status: goal.status,
+        task_labels: exported.tasks
+          .filter((task) => task.goal_id === goal.id)
+          .map((task) => task.label)
+          .sort(),
+      })),
     tasks: [...exported.tasks]
       .sort((a, b) => a.label.localeCompare(b.label))
       .map((task) => ({
@@ -82,6 +99,7 @@ function toComparable(exported: PlandeskExportV1): ComparableExport {
         y: task.y,
         assignee: task.assignee,
         due_date: task.due_date,
+        goal_objective: goalObjectiveById.get(task.goal_id) ?? task.goal_id,
         tag_names: (task.tag_ids ?? []).map((id) => tagNameById.get(id) ?? id).sort(),
       })),
     tags: [...exported.tags]
@@ -270,6 +288,7 @@ describe('export/import portability', () => {
     db.$client.exec('DELETE FROM tags');
     db.$client.exec('DELETE FROM edges');
     db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
   });
 
@@ -296,6 +315,8 @@ describe('export/import portability', () => {
 
     expect(importedComparable).toEqual(sourceComparable);
     expect(reExported.tasks).toHaveLength(exported.tasks.length);
+    expect(reExported.goals).toHaveLength(exported.goals.length);
+    expect(reExported.goals.length).toBeGreaterThan(0);
     expect(reExported.tags).toHaveLength(exported.tags.length);
     expect(reExported.tags).toHaveLength(2);
     expect(reExported.edges).toHaveLength(exported.edges.length);

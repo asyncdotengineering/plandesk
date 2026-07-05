@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createTask, createProject } from '@plandesk/db';
+import { createProject } from '@plandesk/db';
+import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus, type PlankDeskEvent } from '../events.js';
 import { createTestApp, parseJson, type TaskResponse } from '../test-helpers.js';
 

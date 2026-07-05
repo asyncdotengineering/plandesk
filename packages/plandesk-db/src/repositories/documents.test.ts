@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb } from '../client.js';
 import { migrate } from '../migrate.js';
 import { createProject } from './projects.js';
-import { createTask } from './tasks.js';
+import { createTaskWithDefaultGoal as createTask } from '../testing.js';
 import {
   createDocument,
   getDocument,
@@ -19,6 +19,7 @@ describe('documents repository', () => {
     migrate(db);
     db.$client.exec('DELETE FROM documents');
     db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
     projectId = createProject(db, { name: 'Docs' }).id;
   });

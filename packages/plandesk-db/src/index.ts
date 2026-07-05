@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 export { createDb, type Db, type DbClient, type DbTx } from './client.js';
 export { migrate } from './migrate.js';
 export * from './repositories/projects.js';
+export * from './repositories/goals.js';
 export * from './repositories/tasks.js';
 export * from './repositories/tags.js';
 export * from './repositories/edges.js';

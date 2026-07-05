@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb } from '../client.js';
 import { migrate } from '../migrate.js';
 import { createProject } from './projects.js';
-import { createTask, getTask, InvalidTaskStatusError, listTasks, updateTask } from './tasks.js';
+import { createTaskWithDefaultGoal as createTask } from '../testing.js';
+import { getTask, InvalidTaskStatusError, listTasks, updateTask } from './tasks.js';
 
 describe('tasks repository', () => {
   const db = createDb(':memory:');
@@ -11,6 +12,7 @@ describe('tasks repository', () => {
   beforeEach(() => {
     migrate(db);
     db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
     const project = createProject(db, { name: 'Test Project' });
     projectId = project.id;

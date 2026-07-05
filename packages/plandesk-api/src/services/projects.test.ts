@@ -7,7 +7,6 @@ import {
   createDocumentComment,
   createEdge,
   createProject,
-  createTask,
   getDocument,
   getDocumentComment,
   getProject,
@@ -19,6 +18,7 @@ import {
   listTasks,
   migrate,
 } from '@plandesk/db';
+import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus, type PlankDeskEvent } from '../events.js';
 import { createProjectService, InvalidScaffoldError } from './projects.js';
 
@@ -34,6 +34,7 @@ describe('projectService', () => {
     db.$client.exec('DELETE FROM edges');
     db.$client.exec('DELETE FROM documents');
     db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
   });
 

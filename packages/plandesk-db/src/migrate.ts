@@ -11,6 +11,28 @@ type MigrationJournal = {
 };
 
 const DOWN_SQL: Record<string, string[]> = {
+  '0008_damp_moonstone': [
+    'PRAGMA foreign_keys=OFF;',
+    `CREATE TABLE \`__old_tasks\` (
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`project_id\` text NOT NULL,
+	\`label\` text NOT NULL,
+	\`status\` text DEFAULT 'todo' NOT NULL,
+	\`description\` text,
+	\`x\` real DEFAULT 0 NOT NULL,
+	\`y\` real DEFAULT 0 NOT NULL,
+	\`assignee\` text,
+	\`due_date\` integer,
+	\`created_at\` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
+	\`updated_at\` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
+	FOREIGN KEY (\`project_id\`) REFERENCES \`projects\`(\`id\`) ON UPDATE no action ON DELETE no action
+);`,
+    'INSERT INTO `__old_tasks` (`id`, `project_id`, `label`, `status`, `description`, `x`, `y`, `assignee`, `due_date`, `created_at`, `updated_at`) SELECT `id`, `project_id`, `label`, `status`, `description`, `x`, `y`, `assignee`, `due_date`, `created_at`, `updated_at` FROM `tasks`;',
+    'DROP TABLE `tasks`;',
+    'ALTER TABLE `__old_tasks` RENAME TO `tasks`;',
+    'PRAGMA foreign_keys=ON;',
+    'DROP TABLE IF EXISTS `goals`;',
+  ],
   '0006_thin_lila_cheney': [
     'ALTER TABLE `documents` DROP COLUMN `folder_id`;',
     'DROP TABLE IF EXISTS `folders`;',

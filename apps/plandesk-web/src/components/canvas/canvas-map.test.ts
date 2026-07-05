@@ -13,6 +13,7 @@ import {
 const sampleTask: SerializedTask = {
   id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   project_id: 'proj-1',
+  goal_id: 'goal-1',
   label: 'Design API',
   status: 'in_progress',
   description: 'Detailed spec',

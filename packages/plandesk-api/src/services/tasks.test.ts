@@ -5,7 +5,6 @@ import {
   createEdge,
   createProject,
   createTag,
-  createTask,
   getDocument,
   getTask,
   InvalidTaskStatusError,
@@ -14,6 +13,7 @@ import {
   listTasks,
   migrate,
 } from '@plandesk/db';
+import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus, type TaskUpdatedEvent } from '../events.js';
 import { InvalidTagError } from './tags.js';
 import { createTaskService } from './tasks.js';
@@ -34,6 +34,7 @@ describe('taskService', () => {
     db.$client.exec('DELETE FROM task_tags');
     db.$client.exec('DELETE FROM tags');
     db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
     projectId = createProject(db, { name: 'Project' }).id;
   });

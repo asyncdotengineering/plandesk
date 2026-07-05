@@ -7,9 +7,9 @@ import {
   createEdge,
   createProject,
   createShare,
-  createTask,
   migrate,
 } from '@plandesk/db';
+import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { buildClientView } from './projection.js';
 
 describe('buildClientView', () => {
@@ -24,6 +24,7 @@ describe('buildClientView', () => {
     db.$client.exec('DELETE FROM edges');
     db.$client.exec('DELETE FROM documents');
     db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
   });
 

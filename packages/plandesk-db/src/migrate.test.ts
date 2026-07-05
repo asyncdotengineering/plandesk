@@ -3,9 +3,29 @@ import { createDb } from './client.js';
 import { migrate, migrateDown, migrateDownAll } from './migrate.js';
 import { seed, FIXTURE_PROJECT_ID } from './seed.js';
 import { getProject } from './repositories/projects.js';
+import { randomUUID } from 'node:crypto';
+import { createProject } from './repositories/projects.js';
+import { createTaskWithDefaultGoal as createTask } from './testing.js';
+
+function insertLegacyTask(
+  db: ReturnType<typeof createDb>,
+  projectId: string,
+  label: string,
+): string {
+  const id = randomUUID();
+  const now = Date.now();
+  db.$client
+    .prepare(
+      `INSERT INTO tasks (id, project_id, label, status, x, y, created_at, updated_at)
+       VALUES (?, ?, ?, 'todo', 0, 0, ?, ?)`,
+    )
+    .run(id, projectId, label, now, now);
+  return id;
+}
 
 const EXPECTED_TABLES = [
   'projects',
+  'goals',
   'tasks',
   'edges',
   'documents',
@@ -80,6 +100,10 @@ describe('migrate', () => {
     expect(getProject(db, FIXTURE_PROJECT_ID)?.name).toBe('Fixture Project');
 
     migrateDown(db, 1);
+    expect(listTables(db)).not.toContain('goals');
+    expect(hasColumn(db, 'tasks', 'goal_id')).toBe(false);
+
+    migrateDown(db, 1);
     expect(listTables(db)).not.toContain('tags');
     expect(listTables(db)).not.toContain('task_tags');
     expect(listTables(db)).toContain('folders');
@@ -115,6 +139,8 @@ describe('migrate', () => {
     expect(hasColumn(db, 'documents', 'folder_id')).toBe(true);
     expect(listTables(db)).toContain('tags');
     expect(listTables(db)).toContain('task_tags');
+    expect(listTables(db)).toContain('goals');
+    expect(hasColumn(db, 'tasks', 'goal_id')).toBe(true);
     expect(getProject(db, FIXTURE_PROJECT_ID)?.name).toBe('Fixture Project');
 
     migrateDownAll(db);
@@ -123,5 +149,57 @@ describe('migrate', () => {
     migrate(db);
     seed(db);
     expect(getProject(db, FIXTURE_PROJECT_ID)?.name).toBe('Fixture Project');
+  });
+
+  it('0008 backfill assigns a default goal to pre-existing tasks', () => {
+    const db = createDb(':memory:');
+    migrate(db);
+    migrateDown(db, 1);
+    expect(hasColumn(db, 'tasks', 'goal_id')).toBe(false);
+    expect(listTables(db)).not.toContain('goals');
+
+    const project = createProject(db, { name: 'Legacy project' });
+    const legacyTaskId = insertLegacyTask(db, project.id, 'Legacy task');
+
+    migrate(db);
+    expect(hasColumn(db, 'tasks', 'goal_id')).toBe(true);
+    expect(listTables(db)).toContain('goals');
+
+    const taskRow = db.$client
+      .prepare('SELECT goal_id FROM tasks WHERE id = ?')
+      .get(legacyTaskId) as { goal_id: string };
+    const goalRow = db.$client
+      .prepare('SELECT objective, project_id FROM goals WHERE id = ?')
+      .get(taskRow.goal_id) as { objective: string; project_id: string };
+
+    expect(goalRow.objective).toBe('General');
+    expect(goalRow.project_id).toBe(project.id);
+  });
+
+  it('regression: 0008 migrate down then up on database with tasks', () => {
+    const db = createDb(':memory:');
+    migrate(db);
+    const project = createProject(db, { name: 'Down up project' });
+    createTask(db, { projectId: project.id, label: 'Task A' });
+    createTask(db, { projectId: project.id, label: 'Task B' });
+
+    migrateDown(db, 1);
+    expect(listTables(db)).not.toContain('goals');
+    expect(hasColumn(db, 'tasks', 'goal_id')).toBe(false);
+
+    migrate(db);
+    expect(listTables(db)).toContain('goals');
+    expect(hasColumn(db, 'tasks', 'goal_id')).toBe(true);
+
+    const tasks = db.$client.prepare('SELECT goal_id FROM tasks WHERE project_id = ?').all(project.id) as Array<{
+      goal_id: string;
+    }>;
+    expect(tasks).toHaveLength(2);
+    const goalIds = new Set(tasks.map((task) => task.goal_id));
+    expect(goalIds.size).toBe(1);
+    const goal = db.$client
+      .prepare('SELECT objective FROM goals WHERE id = ?')
+      .get([...goalIds][0]) as { objective: string };
+    expect(goal.objective).toBe('General');
   });
 });
