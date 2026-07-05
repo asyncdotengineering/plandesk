@@ -24,9 +24,7 @@ export function createCreateGoalHandler(
           : {}),
         ...(args.constraints !== undefined ? { constraints: args.constraints } : {}),
         ...(args.boundaries !== undefined ? { boundaries: args.boundaries } : {}),
-        ...(args.iteration_policy !== undefined
-          ? { iterationPolicy: args.iteration_policy }
-          : {}),
+        ...(args.iteration_policy !== undefined ? { iterationPolicy: args.iteration_policy } : {}),
         ...(args.stop_condition !== undefined ? { stopCondition: args.stop_condition } : {}),
         ...(args.budget !== undefined ? { budget: args.budget } : {}),
         ...(args.status !== undefined ? { status: args.status as GoalStatus } : {}),

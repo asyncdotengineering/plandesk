@@ -191,7 +191,9 @@ describe('migrate', () => {
     expect(listTables(db)).toContain('goals');
     expect(hasColumn(db, 'tasks', 'goal_id')).toBe(true);
 
-    const tasks = db.$client.prepare('SELECT goal_id FROM tasks WHERE project_id = ?').all(project.id) as Array<{
+    const tasks = db.$client
+      .prepare('SELECT goal_id FROM tasks WHERE project_id = ?')
+      .all(project.id) as Array<{
       goal_id: string;
     }>;
     expect(tasks).toHaveLength(2);
@@ -238,18 +240,25 @@ describe('migrate', () => {
       .run(randomUUID(), project.id, t2, now, now);
 
     // up (rebuild), down, and up again must all succeed with references present.
-    expect(() => migrate(db)).not.toThrow();
-    expect(() => migrateDown(db, 1)).not.toThrow();
-    expect(() => migrate(db)).not.toThrow();
+    expect(() => {
+      migrate(db);
+    }).not.toThrow();
+    expect(() => {
+      migrateDown(db, 1);
+    }).not.toThrow();
+    expect(() => {
+      migrate(db);
+    }).not.toThrow();
 
-    const edge = db.$client
-      .prepare('SELECT from_task_id, to_task_id FROM edges')
-      .get() as { from_task_id: string; to_task_id: string };
+    const edge = db.$client.prepare('SELECT from_task_id, to_task_id FROM edges').get() as {
+      from_task_id: string;
+      to_task_id: string;
+    };
     expect(edge.from_task_id).toBe(t1);
     expect(edge.to_task_id).toBe(t2);
-    const tasks = db.$client
-      .prepare('SELECT goal_id FROM tasks')
-      .all() as Array<{ goal_id: string }>;
+    const tasks = db.$client.prepare('SELECT goal_id FROM tasks').all() as Array<{
+      goal_id: string;
+    }>;
     expect(tasks).toHaveLength(2);
     expect(tasks.every((t) => typeof t.goal_id === 'string' && t.goal_id.length > 0)).toBe(true);
   });

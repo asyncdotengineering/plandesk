@@ -106,11 +106,7 @@ export function updateGoal(db: DbClient, id: string, input: GoalUpdate): Goal | 
   return rows[0];
 }
 
-export function updateGoalStatus(
-  db: DbClient,
-  id: string,
-  status: GoalStatus,
-): Goal | undefined {
+export function updateGoalStatus(db: DbClient, id: string, status: GoalStatus): Goal | undefined {
   return updateGoal(db, id, { status });
 }
 

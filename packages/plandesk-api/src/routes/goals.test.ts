@@ -83,7 +83,11 @@ describe('goals routes', () => {
   it('lifecycle routes enforce transition guards and completion blocking', async () => {
     const { app, db } = createTestApp();
     const project = createProject(db, { name: 'Lifecycle' });
-    const goal = createGoal(db, { projectId: project.id, objective: 'Lifecycle', status: 'active' });
+    const goal = createGoal(db, {
+      projectId: project.id,
+      objective: 'Lifecycle',
+      status: 'active',
+    });
     const open = createTask(db, {
       projectId: project.id,
       goalId: goal.id,

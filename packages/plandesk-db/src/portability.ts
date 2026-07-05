@@ -49,7 +49,8 @@ export type PlandeskExportV1Task = {
   y: number;
   assignee: string | null;
   due_date: string | null;
-  goal_id: string;
+  // Always written on export; optional on import for exports written before goals existed.
+  goal_id?: string;
   // Optional for backward compatibility with exports written before tags existed.
   tag_ids?: string[];
   created_at?: string;
@@ -368,10 +369,10 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
     const defaultGoal = getOrCreateDefaultGoal(tx, project.id);
 
     for (const task of data.tasks) {
+      // A task from a pre-goals export (or referencing an unknown goal) falls
+      // back to the project's default goal.
       const goalId =
-        task.goal_id !== undefined
-          ? (remapId(goalIdMap, task.goal_id) ?? defaultGoal.id)
-          : defaultGoal.id;
+        (task.goal_id !== undefined ? goalIdMap.get(task.goal_id) : undefined) ?? defaultGoal.id;
       createTask(tx, {
         id: remapId(taskIdMap, task.id) ?? task.id,
         projectId: project.id,

@@ -128,9 +128,7 @@ describe('documentService', () => {
     const docs = service.listByFolder(projectId, folder.id);
     expect(docs?.map((doc) => doc.title)).toEqual(['In folder']);
 
-    expect(
-      service.listByFolder(projectId, '00000000-0000-4000-8000-000000009999'),
-    ).toBeUndefined();
+    expect(service.listByFolder(projectId, '00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
   it('rejects cross-project task link on create', () => {

@@ -86,7 +86,11 @@ describe('goals repository', () => {
     expect(first.objective).toBe('General');
     expect(first.status).toBe('active');
 
-    const second = createGoal(db, { projectId, objective: 'Earlier', id: '11111111-1111-4111-8111-111111111111' });
+    const second = createGoal(db, {
+      projectId,
+      objective: 'Earlier',
+      id: '11111111-1111-4111-8111-111111111111',
+    });
     db.$client
       .prepare('UPDATE goals SET created_at = ? WHERE id = ?')
       .run(Date.now() - 10_000, second.id);

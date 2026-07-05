@@ -84,7 +84,9 @@ function withForeignKeysDisabled(db: Db, fn: () => void): void {
   }
   const violations = db.$client.pragma('foreign_key_check') as unknown[];
   if (violations.length > 0) {
-    throw new Error(`Migration left ${violations.length} foreign key violation(s): ${JSON.stringify(violations)}`);
+    throw new Error(
+      `Migration left ${String(violations.length)} foreign key violation(s): ${JSON.stringify(violations)}`,
+    );
   }
 }
 

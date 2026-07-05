@@ -6,10 +6,7 @@ export { createServices, type Services, type ServicesDeps } from './services/ind
 export { createEventBus, type EventBus, type PlankDeskEvent } from './events.js';
 export type { ProjectService } from './services/projects.js';
 export type { GoalService } from './services/goals.js';
-export {
-  GoalCompletionBlockedError,
-  InvalidGoalTransitionError,
-} from './services/goals.js';
+export { GoalCompletionBlockedError, InvalidGoalTransitionError } from './services/goals.js';
 export type { TaskService } from './services/tasks.js';
 export type { TagService } from './services/tags.js';
 export type { CanvasService } from './services/canvas.js';

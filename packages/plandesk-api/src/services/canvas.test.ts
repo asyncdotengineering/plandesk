@@ -1,12 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  createDb,
-  createEdge,
-  createProject,
-  getTask,
-  listEdges,
-  migrate,
-} from '@plandesk/db';
+import { createDb, createEdge, createProject, getTask, listEdges, migrate } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus } from '../events.js';
 import { createCanvasService, InvalidCanvasError } from './canvas.js';

@@ -99,7 +99,9 @@ function toComparable(exported: PlandeskExportV1): ComparableExport {
         y: task.y,
         assignee: task.assignee,
         due_date: task.due_date,
-        goal_objective: goalObjectiveById.get(task.goal_id) ?? task.goal_id,
+        // exportProject always writes goal_id; coerce for the optional import type.
+        goal_objective:
+          task.goal_id === undefined ? '' : (goalObjectiveById.get(task.goal_id) ?? task.goal_id),
         tag_names: (task.tag_ids ?? []).map((id) => tagNameById.get(id) ?? id).sort(),
       })),
     tags: [...exported.tags]

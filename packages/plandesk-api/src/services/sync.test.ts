@@ -440,13 +440,7 @@ describe('syncService', () => {
     const service = await pullSubmission(project.id);
 
     await expect(
-      service.triage(
-        'sub-remote-1',
-        'accept',
-        remote,
-        { label: 'New task' },
-        existingTask.id,
-      ),
+      service.triage('sub-remote-1', 'accept', remote, { label: 'New task' }, existingTask.id),
     ).rejects.toBeInstanceOf(InvalidTriageInputError);
 
     expect(listTasks(db, project.id)).toHaveLength(1);

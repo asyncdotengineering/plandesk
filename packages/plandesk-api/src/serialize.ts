@@ -265,7 +265,8 @@ export function buildFolderTree(
     if (!node) {
       continue;
     }
-    const parent = folder.parentFolderId === null ? undefined : folderNodes.get(folder.parentFolderId);
+    const parent =
+      folder.parentFolderId === null ? undefined : folderNodes.get(folder.parentFolderId);
     if (parent) {
       parent.folders.push(node);
     } else {

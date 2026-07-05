@@ -6,7 +6,6 @@ import {
   getGoal,
   InvalidGoalStatusError,
   migrate,
-  updateGoalStatus,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus, type GoalUpdatedEvent } from '../events.js';
@@ -74,9 +73,9 @@ describe('goalService', () => {
 
   it('rejects invalid status on create', () => {
     const service = createService();
-    expect(() => service.create(projectId, { objective: 'Bad', status: 'bogus' as 'active' })).toThrow(
-      InvalidGoalStatusError,
-    );
+    expect(() =>
+      service.create(projectId, { objective: 'Bad', status: 'bogus' as 'active' }),
+    ).toThrow(InvalidGoalStatusError);
   });
 
   it('gets a goal with cycle_tasks', () => {
