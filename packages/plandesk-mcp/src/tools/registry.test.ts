@@ -16,7 +16,7 @@ const TASK_ID = '00000000-0000-4000-8000-000000000002';
 describe('tool registry tag schemas', () => {
   it('registers list_tags with a schema for every v1 tool', () => {
     expect(v1ToolNames).toContain('list_tags');
-    expect(v1ToolNames).toHaveLength(32);
+    expect(v1ToolNames).toHaveLength(38);
     for (const name of v1ToolNames) {
       expect(v1ToolSchemas[name]).toBeDefined();
     }
@@ -46,6 +46,17 @@ describe('tool registry tag schemas', () => {
     expect(updateTaskInputSchema.safeParse({ task_id: TASK_ID, tags: [] }).success).toBe(true);
     expect(updateTaskInputSchema.safeParse({ task_id: TASK_ID, tags: ['a'] }).success).toBe(true);
     expect(updateTaskInputSchema.safeParse({ task_id: TASK_ID, tags: [1] }).success).toBe(false);
+  });
+
+  it('get_next_task accepts an optional goal_id filter', () => {
+    const GOAL_ID = '00000000-0000-4000-8000-000000000003';
+    expect(getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID }).success).toBe(true);
+    expect(
+      getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID, goal_id: GOAL_ID }).success,
+    ).toBe(true);
+    expect(
+      getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID, goal_id: 'not-a-uuid' }).success,
+    ).toBe(false);
   });
 
   it('list_tasks and get_next_task accept an optional tags filter', () => {

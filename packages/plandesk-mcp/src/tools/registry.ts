@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { shareSubmissionStatuses, taskStatuses } from '@plandesk/db';
+import { goalStatuses, shareSubmissionStatuses, taskStatuses } from '@plandesk/db';
 
 const DOCUMENT_BODY_DESCRIPTION =
   'Document body in Markdown (rendered as rich text). Structure it well: `##` headings, bullet lists, fenced code blocks, and blank lines between paragraphs. HTML is also accepted.';
@@ -186,8 +186,39 @@ export const scaffoldProjectFromPlanInputSchema = z.object({
     .optional(),
 });
 
+export const createGoalInputSchema = z.object({
+  project_id: z.string().uuid(),
+  objective: z.string().min(1),
+  verification_surface: z.string().optional(),
+  constraints: z.string().optional(),
+  boundaries: z.string().optional(),
+  iteration_policy: z.string().optional(),
+  stop_condition: z.string().optional(),
+  budget: z.string().optional(),
+  status: z.enum(goalStatuses).optional(),
+});
+
+export const getGoalInputSchema = z.object({
+  goal_id: z.string().uuid(),
+});
+
+export const listGoalsInputSchema = z.object({
+  project_id: z.string().uuid(),
+});
+
+export const goalLifecycleInputSchema = z.object({
+  goal_id: z.string().uuid(),
+});
+
 export const getNextTaskInputSchema = z.object({
   project_id: z.string().uuid(),
+  goal_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      'Scope the frontier to a specific goal. When omitted, uses the project sole active goal.',
+    ),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
 });
 
@@ -282,6 +313,12 @@ export const v1ToolNames = [
   'record_agent_progress',
   'complete_agent_run',
   'scaffold_project_from_plan',
+  'create_goal',
+  'get_goal',
+  'list_goals',
+  'pause_goal',
+  'resume_goal',
+  'complete_goal',
   'get_next_task',
   'get_task',
   'list_tasks',
@@ -319,6 +356,12 @@ export const v1ToolSchemas = {
   record_agent_progress: recordAgentProgressInputSchema,
   complete_agent_run: completeAgentRunInputSchema,
   scaffold_project_from_plan: scaffoldProjectFromPlanInputSchema,
+  create_goal: createGoalInputSchema,
+  get_goal: getGoalInputSchema,
+  list_goals: listGoalsInputSchema,
+  pause_goal: goalLifecycleInputSchema,
+  resume_goal: goalLifecycleInputSchema,
+  complete_goal: goalLifecycleInputSchema,
   get_next_task: getNextTaskInputSchema,
   get_task: getTaskInputSchema,
   list_tasks: listTasksInputSchema,

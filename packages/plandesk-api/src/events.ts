@@ -81,6 +81,12 @@ export type SubmissionsPulledEvent = {
   projectId: string;
 };
 
+export type GoalUpdatedEvent = {
+  type: 'goal_updated';
+  goalId: string;
+  projectId: string;
+};
+
 export type PlankDeskEvent =
   | TaskUpdatedEvent
   | TagUpdatedEvent
@@ -95,7 +101,8 @@ export type PlankDeskEvent =
   | AgentRunStartedEvent
   | AgentRunProgressEvent
   | AgentRunCompletedEvent
-  | SubmissionsPulledEvent;
+  | SubmissionsPulledEvent
+  | GoalUpdatedEvent;
 
 export type EventListener = (event: PlankDeskEvent) => void;
 

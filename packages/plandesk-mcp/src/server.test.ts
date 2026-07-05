@@ -138,7 +138,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(32);
+      expect(names).toHaveLength(38);
       await client.close();
     });
   });
@@ -598,6 +598,72 @@ describe('createMcpApp', () => {
     });
   });
 
+  it('goal tools support CRUD and lifecycle', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+      const client = await connectClient(baseUrl, token);
+
+      const created = await client.callTool({
+        name: 'create_goal',
+        arguments: { project_id: projectId, objective: 'MCP goal' },
+      });
+      expect(created.isError).not.toBe(true);
+      const createdText =
+        (created.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+      const createdPayload = JSON.parse(createdText) as {
+        goal: { id: string; objective: string };
+      };
+      expect(createdPayload.goal.objective).toBe('MCP goal');
+
+      const listed = await client.callTool({
+        name: 'list_goals',
+        arguments: { project_id: projectId },
+      });
+      const listedText =
+        (listed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+      const listedPayload = JSON.parse(listedText) as { goals: Array<{ id: string }> };
+      expect(listedPayload.goals.some((goal) => goal.id === createdPayload.goal.id)).toBe(true);
+
+      const task = createTask(db, {
+        projectId,
+        goalId: createdPayload.goal.id,
+        label: 'Cycle task',
+        status: 'todo',
+      });
+
+      const fetched = await client.callTool({
+        name: 'get_goal',
+        arguments: { goal_id: createdPayload.goal.id },
+      });
+      const fetchedText =
+        (fetched.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+      const fetchedPayload = JSON.parse(fetchedText) as {
+        goal: { cycle_tasks: Array<{ id: string }> };
+      };
+      expect(fetchedPayload.goal.cycle_tasks.map((row) => row.id)).toEqual([task.id]);
+
+      const blocked = await client.callTool({
+        name: 'complete_goal',
+        arguments: { goal_id: createdPayload.goal.id },
+      });
+      expect(blocked.isError).toBe(true);
+
+      db.$client.prepare('UPDATE tasks SET status = ? WHERE id = ?').run('done', task.id);
+      const completed = await client.callTool({
+        name: 'complete_goal',
+        arguments: { goal_id: createdPayload.goal.id },
+      });
+      expect(completed.isError).not.toBe(true);
+
+      const paused = await client.callTool({
+        name: 'pause_goal',
+        arguments: { goal_id: createdPayload.goal.id },
+      });
+      expect(paused.isError).toBe(true);
+
+      await client.close();
+    });
+  });
+
   it('get_next_task returns actionable task and blocked context', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
       const actionable = createTask(db, { projectId, label: 'Actionable', status: 'todo' });
@@ -1043,7 +1109,7 @@ describe('createMcpApp', () => {
         const projectBody = (await projectRes.json()) as {
           summary: Record<string, number>;
         };
-        expect(projectBody.summary.todo).toBeGreaterThanOrEqual(1);
+        expect(projectBody.summary.scope).toBeGreaterThanOrEqual(1);
 
         const participantListRes = await fetch(
           `${syncServerUrl}/api/portal/v1/shares/${share.token}/submissions`,

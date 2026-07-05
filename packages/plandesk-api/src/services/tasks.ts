@@ -6,6 +6,7 @@ import {
   deleteTaskTagsByTaskId,
   getOrCreateDefaultGoal,
   getProject,
+  listGoals,
   getTagByName,
   getTask,
   InvalidTaskStatusError,
@@ -30,7 +31,13 @@ import { normalizeTagName } from './tags.js';
 
 type SerializedTask = ReturnType<typeof serializeTask>;
 
-export type NextActionableReason = 'ok' | 'no_tasks' | 'no_todo_tasks' | 'all_blocked';
+export type NextActionableReason =
+  | 'ok'
+  | 'no_tasks'
+  | 'no_todo_tasks'
+  | 'all_blocked'
+  | 'no_active_goal'
+  | 'multiple_active_goals';
 
 export type NextActionableResult = {
   next_task: SerializedTask | null;
@@ -229,15 +236,29 @@ export function createTaskService(deps: TaskServiceDeps) {
       return true;
     },
 
-    // filter.tags (OR semantics): only tasks carrying ANY of the given tag names
-    // are candidates for next_task / blocked; prerequisite completion is still
-    // evaluated against all tasks in the project.
+    // filter.goalId scopes candidates to one goal; when omitted, the project's sole
+    // active goal is resolved. filter.tags (OR semantics) composes with goal scope;
+    // prerequisite completion is still evaluated against all tasks in the project.
     nextActionable(
       projectId: string,
-      filter: { tags?: string[] } = {},
+      filter: { goalId?: string; tags?: string[] } = {},
     ): NextActionableResult | undefined {
       const project = getProject(db, projectId);
       if (!project) {
+        return undefined;
+      }
+
+      let goalId = filter.goalId;
+      if (goalId === undefined) {
+        const active = listGoals(db, projectId).filter((goal) => goal.status === 'active');
+        if (active.length === 0) {
+          return { next_task: null, reason: 'no_active_goal', blocked: [] };
+        }
+        if (active.length > 1) {
+          return { next_task: null, reason: 'multiple_active_goals', blocked: [] };
+        }
+        goalId = active[0]?.id;
+      } else if (!listGoals(db, projectId).some((goal) => goal.id === goalId)) {
         return undefined;
       }
 
@@ -272,7 +293,10 @@ export function createTaskService(deps: TaskServiceDeps) {
       }
 
       const todoTasks = tasks.filter(
-        (task) => task.status === 'todo' && (tagMatches === undefined || tagMatches.has(task.id)),
+        (task) =>
+          task.goalId === goalId &&
+          task.status === 'todo' &&
+          (tagMatches === undefined || tagMatches.has(task.id)),
       );
       if (todoTasks.length === 0) {
         return { next_task: null, reason: 'no_todo_tasks', blocked: [] };

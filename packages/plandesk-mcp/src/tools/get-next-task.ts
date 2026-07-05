@@ -3,12 +3,16 @@ import { toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createGetNextTaskHandler(
   taskService: TaskService,
-): (args: { project_id: string; tags?: string[] }) => ToolResult {
+): (args: { project_id: string; goal_id?: string; tags?: string[] }) => ToolResult {
   return (args) => {
-    const result = taskService.nextActionable(
-      args.project_id,
-      args.tags !== undefined ? { tags: args.tags } : {},
-    );
+    const filter: { goalId?: string; tags?: string[] } = {};
+    if (args.goal_id !== undefined) {
+      filter.goalId = args.goal_id;
+    }
+    if (args.tags !== undefined) {
+      filter.tags = args.tags;
+    }
+    const result = taskService.nextActionable(args.project_id, filter);
     if (!result) {
       return toolNotFound();
     }

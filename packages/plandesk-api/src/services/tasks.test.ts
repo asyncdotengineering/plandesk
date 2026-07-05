@@ -3,15 +3,18 @@ import {
   createDb,
   createDocument,
   createEdge,
+  createGoal,
   createProject,
   createTag,
   getDocument,
+  getOrCreateDefaultGoal,
   getTask,
   InvalidTaskStatusError,
   listEdges,
   listTags,
   listTasks,
   migrate,
+  updateGoalStatus,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus, type TaskUpdatedEvent } from '../events.js';
@@ -184,8 +187,9 @@ describe('taskService', () => {
     expect(service.nextActionable('00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
-  it('returns no_tasks when project has no tasks', () => {
+  it('returns no_tasks when project has no tasks on the active goal', () => {
     const service = createService();
+    getOrCreateDefaultGoal(db, projectId);
     expect(service.nextActionable(projectId)).toEqual({
       next_task: null,
       reason: 'no_tasks',
@@ -357,6 +361,92 @@ describe('taskService', () => {
 
     const none = service.nextActionable(projectId, { tags: ['missing'] });
     expect(none).toEqual({ next_task: null, reason: 'no_todo_tasks', blocked: [] });
+  });
+
+  it('nextActionable preserves single-active-goal backward compat via default goal', () => {
+    const service = createService();
+    const defaultGoal = getOrCreateDefaultGoal(db, projectId);
+    const task = createTask(db, { projectId, label: 'On default goal', status: 'todo' });
+
+    const result = service.nextActionable(projectId);
+    expect(result?.reason).toBe('ok');
+    expect(result?.next_task?.id).toBe(task.id);
+    expect(result?.next_task?.goal_id).toBe(defaultGoal.id);
+  });
+
+  it('nextActionable returns no_active_goal when no active goal exists', () => {
+    const service = createService();
+    const goal = createGoal(db, { projectId, objective: 'Paused', status: 'paused' });
+    createTask(db, { projectId, goalId: goal.id, label: 'Orphan todo', status: 'todo' });
+
+    expect(service.nextActionable(projectId)).toEqual({
+      next_task: null,
+      reason: 'no_active_goal',
+      blocked: [],
+    });
+  });
+
+  it('nextActionable returns multiple_active_goals when ambiguous', () => {
+    const service = createService();
+    createGoal(db, { projectId, objective: 'A', status: 'active' });
+    createGoal(db, { projectId, objective: 'B', status: 'active' });
+
+    expect(service.nextActionable(projectId)).toEqual({
+      next_task: null,
+      reason: 'multiple_active_goals',
+      blocked: [],
+    });
+  });
+
+  it('nextActionable scopes candidates to a specific goal', () => {
+    const service = createService();
+    const goalA = createGoal(db, { projectId, objective: 'Goal A', status: 'active' });
+    const goalB = createGoal(db, { projectId, objective: 'Goal B', status: 'paused' });
+    updateGoalStatus(db, getOrCreateDefaultGoal(db, projectId).id, 'paused');
+    const taskA = createTask(db, { projectId, goalId: goalA.id, label: 'A todo', status: 'todo' });
+    createTask(db, { projectId, goalId: goalB.id, label: 'B todo', status: 'todo' });
+
+    const scoped = service.nextActionable(projectId, { goalId: goalA.id });
+    expect(scoped?.reason).toBe('ok');
+    expect(scoped?.next_task?.id).toBe(taskA.id);
+
+    const scopedB = service.nextActionable(projectId, { goalId: goalB.id });
+    expect(scopedB?.reason).toBe('ok');
+    expect(scopedB?.next_task?.goal_id).toBe(goalB.id);
+
+    const emptyGoal = createGoal(db, { projectId, objective: 'Empty', status: 'active' });
+    expect(service.nextActionable(projectId, { goalId: emptyGoal.id })).toEqual({
+      next_task: null,
+      reason: 'no_todo_tasks',
+      blocked: [],
+    });
+    expect(
+      service.nextActionable(projectId, {
+        goalId: '00000000-0000-4000-8000-000000009999',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('nextActionable composes goal scoping with tags filter', () => {
+    const service = createService();
+    const goal = createGoal(db, { projectId, objective: 'Tagged goal', status: 'active' });
+    updateGoalStatus(db, getOrCreateDefaultGoal(db, projectId).id, 'paused');
+    const tagged = service.create(projectId, {
+      label: 'Tagged in goal',
+      goalId: goal.id,
+      tags: ['x'],
+    });
+    createTask(db, { projectId, goalId: goal.id, label: 'Untagged in goal', status: 'todo' });
+    createTask(db, {
+      projectId,
+      goalId: getOrCreateDefaultGoal(db, projectId).id,
+      label: 'Other goal tagged',
+      status: 'todo',
+    });
+
+    const result = service.nextActionable(projectId, { goalId: goal.id, tags: ['x'] });
+    expect(result?.reason).toBe('ok');
+    expect(result?.next_task?.id).toBe(tagged?.id);
   });
 
   it('nextActionable tags filter keeps prerequisite evaluation across all tasks', () => {

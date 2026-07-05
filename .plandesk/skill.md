@@ -83,8 +83,11 @@ session program — read and follow it when executing the plan (it defers to
 tool-level default it builds on.
 
 To work a plan, do not guess what is next — call `get_next_task`. It returns the
-next actionable `todo` task (one whose prerequisite tasks are all `done`), plus
-the `blocked` tasks and what each is `waiting_on`. The loop:
+next actionable `todo` on the project's **active goal** frontier (or pass
+`goal_id` to scope to a specific goal). A task is actionable when its prerequisite
+tasks are all `done`. The response also includes `blocked` tasks and what each is
+`waiting_on`. When no single active goal can be resolved, `reason` is
+`no_active_goal` or `multiple_active_goals`. The loop:
 
 1. `get_next_task` → the next unblocked task.
 2. Read its linked document before changing anything.

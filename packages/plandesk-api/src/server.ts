@@ -14,6 +14,7 @@ import type { EventBus } from './events.js';
 import { createEventsRouter } from './routes/events.js';
 import { createTokensRouter } from './routes/tokens.js';
 import { createAgentRunsRouter } from './routes/agent-runs.js';
+import { createGoalsRouter } from './routes/goals.js';
 import { createSubmissionsRouter } from './routes/submissions.js';
 import { mountStatic } from './static.js';
 import { createServices, type Services } from './services/index.js';
@@ -31,6 +32,7 @@ export function createApp(deps: AppDeps): Hono {
   const {
     eventBus,
     projectService,
+    goalService,
     taskService,
     tagService,
     canvasService,
@@ -51,6 +53,7 @@ export function createApp(deps: AppDeps): Hono {
 
   app.route('/api/v1', healthRouter);
   app.route('/api/v1', createProjectsRouter(projectService, taskService));
+  app.route('/api/v1', createGoalsRouter(goalService));
   app.route('/api/v1', createTasksRouter(taskService));
   app.route('/api/v1', createTagsRouter(tagService));
   app.route('/api/v1', createCanvasRouter(canvasService));

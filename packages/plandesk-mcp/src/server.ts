@@ -15,6 +15,14 @@ import { createUpdateNoteHandler } from './tools/update-note.js';
 import { createGetNoteHandler } from './tools/get-note.js';
 import { createListNotesHandler } from './tools/list-notes.js';
 import { createGetDocumentHandler } from './tools/get-document.js';
+import { createCreateGoalHandler } from './tools/create-goal.js';
+import { createGetGoalHandler } from './tools/get-goal.js';
+import { createListGoalsHandler } from './tools/list-goals.js';
+import {
+  createCompleteGoalHandler,
+  createPauseGoalHandler,
+  createResumeGoalHandler,
+} from './tools/goal-lifecycle.js';
 import { createGetNextTaskHandler } from './tools/get-next-task.js';
 import { createGetProjectHandler } from './tools/get-project.js';
 import { createGetTaskHandler } from './tools/get-task.js';
@@ -48,6 +56,10 @@ import {
   getNoteInputSchema,
   listNotesInputSchema,
   addCommentInputSchema,
+  createGoalInputSchema,
+  getGoalInputSchema,
+  listGoalsInputSchema,
+  goalLifecycleInputSchema,
   getNextTaskInputSchema,
   getProjectInputSchema,
   listCommentsInputSchema,
@@ -306,11 +318,74 @@ function createMcpServer(services: Services): McpServer {
   );
 
   server.registerTool(
+    'create_goal',
+    {
+      title: 'Create Goal',
+      description: 'Create a goal for a project with an objective and optional contract fields',
+      inputSchema: createGoalInputSchema.shape,
+    },
+    createCreateGoalHandler(services.goalService),
+  );
+
+  server.registerTool(
+    'get_goal',
+    {
+      title: 'Get Goal',
+      description: 'Get a goal by ID including its cycle-tasks',
+      inputSchema: getGoalInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createGetGoalHandler(services.goalService),
+  );
+
+  server.registerTool(
+    'list_goals',
+    {
+      title: 'List Goals',
+      description: 'List all goals for a project',
+      inputSchema: listGoalsInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListGoalsHandler(services.goalService),
+  );
+
+  server.registerTool(
+    'pause_goal',
+    {
+      title: 'Pause Goal',
+      description: 'Pause an active goal',
+      inputSchema: goalLifecycleInputSchema.shape,
+    },
+    createPauseGoalHandler(services.goalService),
+  );
+
+  server.registerTool(
+    'resume_goal',
+    {
+      title: 'Resume Goal',
+      description: 'Resume a paused goal',
+      inputSchema: goalLifecycleInputSchema.shape,
+    },
+    createResumeGoalHandler(services.goalService),
+  );
+
+  server.registerTool(
+    'complete_goal',
+    {
+      title: 'Complete Goal',
+      description:
+        'Mark a goal complete when every cycle-task is done. Blocked if any cycle-task is unfinished.',
+      inputSchema: goalLifecycleInputSchema.shape,
+    },
+    createCompleteGoalHandler(services.goalService),
+  );
+
+  server.registerTool(
     'get_next_task',
     {
       title: 'Get Next Task',
       description:
-        'Return the next actionable todo task whose prerequisites are all done. Optional `tags` filter uses OR semantics (only tasks carrying ANY of the given tags are considered); prerequisite completion is still evaluated against all tasks.',
+        'Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id). Resolves the sole active goal when goal_id is omitted; returns no_active_goal or multiple_active_goals when ambiguous. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks.',
       inputSchema: getNextTaskInputSchema.shape,
       annotations: { readOnlyHint: true },
     },

@@ -5,6 +5,7 @@ import type {
   DocumentComment,
   Edge,
   Folder,
+  Goal,
   Note,
   Project,
   Tag,
@@ -82,6 +83,23 @@ export function serializeTag(tag: Tag): SerializedTag {
     name: tag.name,
     color: tag.color,
     created_at: tag.createdAt.toISOString(),
+  };
+}
+
+export function serializeGoal(goal: Goal) {
+  return {
+    id: goal.id,
+    project_id: goal.projectId,
+    objective: goal.objective,
+    status: goal.status,
+    verification_surface: goal.verificationSurface,
+    constraints: goal.constraints,
+    boundaries: goal.boundaries,
+    iteration_policy: goal.iterationPolicy,
+    stop_condition: goal.stopCondition,
+    budget: goal.budget,
+    created_at: goal.createdAt.toISOString(),
+    updated_at: goal.updatedAt.toISOString(),
   };
 }
 
