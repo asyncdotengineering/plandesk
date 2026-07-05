@@ -1,5 +1,6 @@
-import { Link, createFileRoute } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { Board } from '../components/board/Board.js';
+import { ProjectNav } from '../components/layout/ProjectNav.js';
 import { useProject, useTasks } from '../lib/queries.js';
 import { validateTaskFilterSearch } from '../lib/search.js';
 
@@ -31,27 +32,7 @@ function ProjectBoardPage() {
 
   return (
     <section>
-      <nav style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-        <Link to="/projects/$id/overview" params={{ id }} style={{ color: '#555' }}>
-          Overview
-        </Link>
-        <Link to="/projects/$id/flow" params={{ id }} style={{ color: '#555' }}>
-          Flow
-        </Link>
-        <Link
-          to="/projects/$id/board"
-          params={{ id }}
-          style={{ fontWeight: 600, color: '#1a56db' }}
-        >
-          Board
-        </Link>
-        <Link to="/projects/$id/notes" params={{ id }} style={{ color: '#555' }}>
-          Notes
-        </Link>
-        <Link to="/projects/$id/inbox" params={{ id }} style={{ color: '#555' }}>
-          Inbox
-        </Link>
-      </nav>
+      <ProjectNav projectId={id} />
       <h1 style={{ marginTop: 0 }}>{project.name} — Board</h1>
       {status !== undefined ? (
         <p style={{ color: '#666', marginTop: 0 }}>Filter: {status}</p>

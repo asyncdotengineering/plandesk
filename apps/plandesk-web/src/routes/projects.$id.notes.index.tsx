@@ -1,31 +1,6 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
+import { ProjectNav } from '../components/layout/ProjectNav.js';
 import { useCreateNote, useNotes, useProject } from '../lib/queries.js';
-
-function ProjectNotesNav({ projectId }: { projectId: string }) {
-  return (
-    <nav style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-      <Link to="/projects/$id/overview" params={{ id: projectId }} style={{ color: '#555' }}>
-        Overview
-      </Link>
-      <Link to="/projects/$id/flow" params={{ id: projectId }} style={{ color: '#555' }}>
-        Flow
-      </Link>
-      <Link to="/projects/$id/board" params={{ id: projectId }} style={{ color: '#555' }}>
-        Board
-      </Link>
-      <Link
-        to="/projects/$id/notes"
-        params={{ id: projectId }}
-        style={{ fontWeight: 600, color: '#1a56db' }}
-      >
-        Notes
-      </Link>
-      <Link to="/projects/$id/inbox" params={{ id: projectId }} style={{ color: '#555' }}>
-        Inbox
-      </Link>
-    </nav>
-  );
-}
 
 function ProjectNotesPage() {
   const { id } = Route.useParams();
@@ -74,7 +49,7 @@ function ProjectNotesPage() {
 
   return (
     <section>
-      <ProjectNotesNav projectId={id} />
+      <ProjectNav projectId={id} />
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
         <h1 style={{ margin: 0, flex: 1 }}>{project.name} — Notes</h1>
         <button

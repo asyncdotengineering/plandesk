@@ -1,6 +1,7 @@
-import { Link, createFileRoute } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { AgentRunsPanel } from '../components/canvas/AgentRunsPanel.js';
 import { FlowCanvas } from '../components/canvas/FlowCanvas.js';
+import { ProjectNav } from '../components/layout/ProjectNav.js';
 import { useProject } from '../lib/queries.js';
 import { validateTaskFilterSearch } from '../lib/search.js';
 
@@ -23,23 +24,7 @@ function ProjectFlowPage() {
 
   return (
     <section>
-      <nav style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-        <Link to="/projects/$id/overview" params={{ id }} style={{ color: '#555' }}>
-          Overview
-        </Link>
-        <Link to="/projects/$id/flow" params={{ id }} style={{ fontWeight: 600, color: '#1a56db' }}>
-          Flow
-        </Link>
-        <Link to="/projects/$id/board" params={{ id }} style={{ color: '#555' }}>
-          Board
-        </Link>
-        <Link to="/projects/$id/notes" params={{ id }} style={{ color: '#555' }}>
-          Notes
-        </Link>
-        <Link to="/projects/$id/inbox" params={{ id }} style={{ color: '#555' }}>
-          Inbox
-        </Link>
-      </nav>
+      <ProjectNav projectId={id} />
       <h1 style={{ marginTop: 0 }}>{project.name} — Flow</h1>
       {status !== undefined ? (
         <p style={{ color: '#666', marginTop: 0 }}>Filter: {status}</p>

@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  completeGoal,
   createComment,
   createDocument,
   createFolder,
+  createGoal,
   createMcpToken,
   createNote,
   createProject,
   createTag,
   createTask,
+  getGoal,
   deleteComment,
   deleteDocument,
   deleteEdge,
@@ -25,13 +28,16 @@ import {
   listDocumentComments,
   listDocuments,
   listFolders,
+  listGoals,
   listMcpTokens,
   listNotes,
   listProjects,
   listSubmissions,
   listTags,
   listTasks,
+  pauseGoal,
   patchComment,
+  patchGoal,
   patchDocument,
   patchFolder,
   patchNote,
@@ -39,9 +45,11 @@ import {
   patchTag,
   patchTask,
   putCanvas,
+  resumeGoal,
   revokeMcpToken,
   triageSubmission,
   type CreateCommentInput,
+  type CreateGoalInput,
   type CreateDocumentInput,
   type CreateFolderInput,
   type CreateNoteInput,
@@ -50,6 +58,7 @@ import {
   type CreateTaskInput,
   type PatchCommentInput,
   type PatchDocumentInput,
+  type PatchGoalInput,
   type PatchFolderInput,
   type PatchNoteInput,
   type PatchProjectInput,
@@ -59,6 +68,7 @@ import {
   type SubmissionStatus,
   type TaskStatus,
   type TriageSubmissionInput,
+  type VerificationEvidence,
 } from './api.js';
 
 export const queryKeys = {
@@ -80,6 +90,8 @@ export const queryKeys = {
   agentRuns: (projectId: string) => ['projects', projectId, 'agent-runs'] as const,
   submissions: (projectId: string, status?: SubmissionStatus) =>
     ['projects', projectId, 'submissions', status ?? 'pending'] as const,
+  goals: (projectId: string) => ['projects', projectId, 'goals'] as const,
+  goal: (goalId: string) => ['goals', goalId] as const,
 };
 
 export function useProjects() {
@@ -290,7 +302,10 @@ export function useFolders(projectId: string) {
   });
 }
 
-function invalidateFolderQueries(queryClient: ReturnType<typeof useQueryClient>, projectId: string) {
+function invalidateFolderQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  projectId: string,
+) {
   void queryClient.invalidateQueries({ queryKey: queryKeys.folders(projectId) });
   void queryClient.invalidateQueries({ queryKey: queryKeys.documents(projectId) });
 }
@@ -475,6 +490,85 @@ export function useTriageSubmission(projectId: string) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.submissions(projectId) });
       // accepting creates a new `scope` task
       invalidateTaskQueries(queryClient, projectId);
+    },
+  });
+}
+
+function invalidateGoalQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  projectId: string,
+  goalId: string,
+  includeTasks = false,
+) {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.goals(projectId) });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.goal(goalId) });
+  if (includeTasks) {
+    invalidateTaskQueries(queryClient, projectId);
+  }
+}
+
+export function useGoals(projectId: string) {
+  return useQuery({
+    queryKey: queryKeys.goals(projectId),
+    queryFn: () => listGoals(projectId),
+  });
+}
+
+export function useGoal(goalId: string) {
+  return useQuery({
+    queryKey: queryKeys.goal(goalId),
+    queryFn: () => getGoal(goalId),
+    enabled: goalId !== '',
+  });
+}
+
+export function useCreateGoal(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateGoalInput) => createGoal(projectId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.goals(projectId) });
+    },
+  });
+}
+
+export function usePatchGoal(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: PatchGoalInput }) => patchGoal(id, input),
+    onSuccess: (goal) => {
+      invalidateGoalQueries(queryClient, projectId, goal.id);
+    },
+  });
+}
+
+export function usePauseGoal(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (goalId: string) => pauseGoal(goalId),
+    onSuccess: (goal) => {
+      invalidateGoalQueries(queryClient, projectId, goal.id);
+    },
+  });
+}
+
+export function useResumeGoal(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (goalId: string) => resumeGoal(goalId),
+    onSuccess: (goal) => {
+      invalidateGoalQueries(queryClient, projectId, goal.id);
+    },
+  });
+}
+
+export function useCompleteGoal(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ goalId, evidence }: { goalId: string; evidence?: VerificationEvidence }) =>
+      completeGoal(goalId, evidence),
+    onSuccess: (goal) => {
+      invalidateGoalQueries(queryClient, projectId, goal.id, true);
     },
   });
 }

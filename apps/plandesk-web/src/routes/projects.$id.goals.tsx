@@ -1,11 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { AgentRunsPanel } from '../components/canvas/AgentRunsPanel.js';
-import { FileIssue } from '../components/inbox/FileIssue.js';
-import { InboxPanel } from '../components/inbox/InboxPanel.js';
+import { GoalsPanel } from '../components/goals/GoalsPanel.js';
 import { ProjectNav } from '../components/layout/ProjectNav.js';
 import { useProject } from '../lib/queries.js';
 
-function ProjectInboxPage() {
+function ProjectGoalsPage() {
   const { id } = Route.useParams();
   const { data: project, isLoading, error } = useProject(id);
 
@@ -24,18 +22,12 @@ function ProjectInboxPage() {
   return (
     <section>
       <ProjectNav projectId={id} />
-      <h1 style={{ marginTop: 0 }}>{project.name} — Inbox</h1>
-
-      <FileIssue projectId={id} />
-      <InboxPanel projectId={id} />
-
-      <div style={{ position: 'relative', minHeight: '18rem' }}>
-        <AgentRunsPanel projectId={id} />
-      </div>
+      <h1 style={{ marginTop: 0 }}>{project.name} — Goals</h1>
+      <GoalsPanel projectId={id} />
     </section>
   );
 }
 
-export const Route = createFileRoute('/projects/$id/inbox')({
-  component: ProjectInboxPage,
+export const Route = createFileRoute('/projects/$id/goals')({
+  component: ProjectGoalsPage,
 });

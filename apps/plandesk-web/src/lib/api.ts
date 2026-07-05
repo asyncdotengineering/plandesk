@@ -511,3 +511,95 @@ export function triageSubmission(
 ): Promise<SerializedSubmission> {
   return request(`/submissions/${id}/triage`, { method: 'POST', body: JSON.stringify(input) });
 }
+
+export const goalStatuses = ['active', 'paused', 'complete', 'blocked'] as const;
+export type GoalStatus = (typeof goalStatuses)[number];
+
+export type SerializedLastVerification = {
+  at: string;
+  green: boolean;
+  kind: string | null;
+  detail?: string;
+};
+
+export type SerializedGoal = {
+  id: string;
+  project_id: string;
+  objective: string;
+  status: GoalStatus;
+  verification_surface: string | null;
+  constraints: string | null;
+  boundaries: string | null;
+  iteration_policy: string | null;
+  stop_condition: string | null;
+  budget: string | null;
+  last_verification: SerializedLastVerification | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SerializedGoalDetail = SerializedGoal & {
+  cycle_tasks: SerializedTask[];
+};
+
+export type CreateGoalInput = {
+  objective: string;
+  verification_surface?: string | null;
+  constraints?: string | null;
+  boundaries?: string | null;
+  iteration_policy?: string | null;
+  stop_condition?: string | null;
+  budget?: string | null;
+};
+
+export type PatchGoalInput = {
+  objective?: string;
+  verification_surface?: string | null;
+  constraints?: string | null;
+  boundaries?: string | null;
+  iteration_policy?: string | null;
+  stop_condition?: string | null;
+  budget?: string | null;
+};
+
+export type VerificationEvidence =
+  | { kind: 'gate_command'; exit_code: number; stdout?: string; stderr?: string }
+  | { kind: 'acceptance_checklist'; checked: string[] }
+  | { kind: 'human_sign_off'; approved_by: string };
+
+export function listGoals(projectId: string): Promise<SerializedGoal[]> {
+  return request(`/projects/${projectId}/goals`);
+}
+
+export function getGoal(goalId: string): Promise<SerializedGoalDetail> {
+  return request(`/goals/${goalId}`);
+}
+
+export function createGoal(projectId: string, input: CreateGoalInput): Promise<SerializedGoal> {
+  return request(`/projects/${projectId}/goals`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function patchGoal(goalId: string, input: PatchGoalInput): Promise<SerializedGoal> {
+  return request(`/goals/${goalId}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function pauseGoal(goalId: string): Promise<SerializedGoal> {
+  return request(`/goals/${goalId}/pause`, { method: 'POST' });
+}
+
+export function resumeGoal(goalId: string): Promise<SerializedGoal> {
+  return request(`/goals/${goalId}/resume`, { method: 'POST' });
+}
+
+export function completeGoal(
+  goalId: string,
+  evidence?: VerificationEvidence,
+): Promise<SerializedGoal> {
+  return request(`/goals/${goalId}/complete`, {
+    method: 'POST',
+    body: JSON.stringify(evidence !== undefined ? { evidence } : {}),
+  });
+}

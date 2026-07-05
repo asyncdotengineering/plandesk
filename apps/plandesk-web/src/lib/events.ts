@@ -80,6 +80,12 @@ type AgentRunCompletedEvent = {
   projectId: string;
 };
 
+type GoalUpdatedEvent = {
+  type: 'goal_updated';
+  goalId: string;
+  projectId: string;
+};
+
 type PlankDeskEvent =
   | TaskUpdatedEvent
   | TagUpdatedEvent
@@ -93,7 +99,8 @@ type PlankDeskEvent =
   | NoteUpdatedEvent
   | AgentRunStartedEvent
   | AgentRunProgressEvent
-  | AgentRunCompletedEvent;
+  | AgentRunCompletedEvent
+  | GoalUpdatedEvent;
 
 function isPlankDeskEvent(value: unknown): value is PlankDeskEvent {
   if (typeof value !== 'object' || value === null || !('type' in value)) {
@@ -113,7 +120,8 @@ function isPlankDeskEvent(value: unknown): value is PlankDeskEvent {
     type === 'note_updated' ||
     type === 'agent_run_started' ||
     type === 'agent_run_progress' ||
-    type === 'agent_run_completed'
+    type === 'agent_run_completed' ||
+    type === 'goal_updated'
   );
 }
 
@@ -178,6 +186,12 @@ export function useSseInvalidation() {
         case 'agent_run_progress':
         case 'agent_run_completed':
           void queryClient.invalidateQueries({ queryKey: queryKeys.agentRuns(event.projectId) });
+          break;
+        case 'goal_updated':
+          void queryClient.invalidateQueries({ queryKey: queryKeys.goals(event.projectId) });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.goal(event.goalId) });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.tasks(event.projectId) });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(event.projectId) });
           break;
       }
     };
