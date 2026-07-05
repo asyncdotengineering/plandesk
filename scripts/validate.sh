@@ -23,6 +23,12 @@ if [[ ! -x "$PLANDESK" ]]; then
   exit 1
 fi
 
+# Static gates: eslint (every package) + the web app's typecheck. The web app
+# builds with vite/esbuild, which does NOT typecheck — `typecheck` (tsc --noEmit)
+# is its only type gate, so it must run here or web type errors ship silently.
+( cd "$ROOT" && pnpm exec turbo run lint typecheck )
+echo "cmd:lint_typecheck OK"
+
 DATA_DIR="$(mktemp -d "${TMPDIR:-/tmp}/plandesk-validate.XXXXXX")"
 PORT="$(node -e "const net=require('node:net');const s=net.createServer();s.listen(0,'127.0.0.1',()=>{process.stdout.write(String(s.address().port));s.close();});")"
 BASE_URL="http://127.0.0.1:${PORT}"
