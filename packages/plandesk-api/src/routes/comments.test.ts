@@ -6,6 +6,7 @@ import {
   createProject,
   createTask,
   getOrCreateDefaultGoal,
+  upsertSubmission,
 } from '@plandesk/db';
 import { createTestApp, parseJson } from '../test-helpers.js';
 import type { PlankDeskEvent } from '../events.js';
@@ -155,6 +156,39 @@ describe('comments routes', () => {
     expect(await parseJson<CommentResponse[]>(noteListRes)).toHaveLength(1);
   });
 
+  it('creates and lists submission comments via REST', async () => {
+    const { app, db } = createTestApp();
+    const project = createProject(db, { name: 'Submissions' });
+    upsertSubmission(db, {
+      id: 'sub-1',
+      projectId: project.id,
+      hostedShareId: 'hosted-share-1',
+      participantName: 'Alex',
+      title: 'Bug report',
+      body: 'Something broke',
+      createdAt: new Date('2026-01-15T12:00:00.000Z'),
+      pulledAt: new Date('2026-01-15T12:01:00.000Z'),
+    });
+
+    const createRes = await app.request('/api/v1/submissions/sub-1/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'Needs triage context' }),
+    });
+    expect(createRes.status).toBe(201);
+    const created = await parseJson<CommentResponse>(createRes);
+    expect(created).toMatchObject({
+      target_type: 'submission',
+      target_id: 'sub-1',
+      document_id: null,
+      body: 'Needs triage context',
+    });
+
+    const listRes = await app.request('/api/v1/submissions/sub-1/comments');
+    expect(listRes.status).toBe(200);
+    expect(await parseJson<CommentResponse[]>(listRes)).toHaveLength(1);
+  });
+
   it('returns 400 for empty body and 404 for missing resources', async () => {
     const { app, db } = createTestApp();
     const project = createProject(db, { name: 'Validate' });
@@ -191,6 +225,13 @@ describe('comments routes', () => {
       body: JSON.stringify({ body: 'Hi' }),
     });
     expect(missingNoteRes.status).toBe(404);
+
+    const missingSubmissionRes = await app.request(`/api/v1/submissions/${missing}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'Hi' }),
+    });
+    expect(missingSubmissionRes.status).toBe(404);
 
     const missingProjectRes = await app.request(`/api/v1/projects/${missing}/comments`);
     expect(missingProjectRes.status).toBe(404);

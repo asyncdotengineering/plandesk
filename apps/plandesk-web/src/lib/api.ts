@@ -212,7 +212,7 @@ export type SerializedComment = {
   created_at: string;
 };
 
-export type CommentTargetType = 'document' | 'task' | 'note';
+export type CommentTargetType = 'document' | 'task' | 'note' | 'submission';
 export type CommentTarget = { type: CommentTargetType; id: string };
 
 export type CreateCommentInput = { body: string; passage?: string | null };

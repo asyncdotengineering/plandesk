@@ -1,6 +1,13 @@
 import { useState, type CSSProperties } from 'react';
 import type { SerializedSubmission } from '../../lib/api.js';
-import { usePatchTask, useSubmissions, useTasks, useTriageSubmission } from '../../lib/queries.js';
+import {
+  useComments,
+  usePatchTask,
+  useSubmissions,
+  useTasks,
+  useTriageSubmission,
+} from '../../lib/queries.js';
+import { CommentsPanel } from '../docs/CommentsPanel.js';
 
 type InboxPanelProps = {
   projectId: string;
@@ -84,6 +91,10 @@ function SubmissionRow({
 }) {
   const triage = useTriageSubmission(projectId);
   const [mergeTaskId, setMergeTaskId] = useState('');
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const commentTarget = { type: 'submission' as const, id: submission.id };
+  const { data: comments } = useComments(commentTarget);
+  const openCommentCount = (comments ?? []).filter((comment) => !comment.resolved).length;
 
   return (
     <li
@@ -170,6 +181,31 @@ function SubmissionRow({
           Merge into
         </button>
       </div>
+
+      <div>
+        <button
+          type="button"
+          onClick={() => {
+            setCommentsOpen((open) => !open);
+          }}
+          aria-expanded={commentsOpen}
+          style={{
+            padding: '0.25rem 0',
+            border: 'none',
+            background: 'transparent',
+            color: '#1d4ed8',
+            fontSize: '0.8125rem',
+            cursor: 'pointer',
+          }}
+        >
+          {commentsOpen
+            ? 'Hide comments'
+            : openCommentCount > 0
+              ? `Comments (${String(openCommentCount)} open)`
+              : 'Comments'}
+        </button>
+        {commentsOpen ? <CommentsPanel target={commentTarget} embedded /> : null}
+      </div>
     </li>
   );
 }
@@ -190,8 +226,7 @@ function PendingSubmissions({ projectId }: { projectId: string }) {
       ) : null}
       {!isLoading && !error && (submissions === undefined || submissions.length === 0) ? (
         <p style={{ color: '#6b7280', fontSize: '0.875rem', margin: 0 }}>
-          No pending submissions — this project has no share configured, or nothing new has come
-          in.
+          No pending submissions — this project has no share configured, or nothing new has come in.
         </p>
       ) : null}
       {submissions !== undefined && submissions.length > 0 ? (
@@ -271,9 +306,7 @@ function CuratorProposals({ projectId }: { projectId: string }) {
   const { data: tasks, isLoading, error } = useTasks(projectId, { status: 'scope' });
   const [acknowledged, setAcknowledged] = useState<Set<string>>(new Set());
 
-  const proposals = (tasks ?? []).filter(
-    (task) => provenanceLine(task.description) !== null,
-  );
+  const proposals = (tasks ?? []).filter((task) => provenanceLine(task.description) !== null);
 
   return (
     <section aria-label="Curator proposals awaiting approval" style={{ marginBottom: '1.5rem' }}>
@@ -294,9 +327,9 @@ function CuratorProposals({ projectId }: { projectId: string }) {
       {proposals.length > 0 ? (
         <>
           <p style={{ margin: '0 0 0.5rem', fontSize: '0.8125rem', color: '#6b7280' }}>
-            These are `scope` tasks the Curator proposed. Releasing a task from{' '}
-            <code>scope</code> to <code>todo</code> on the Board is the actual approval — nothing
-            here does that for you.
+            These are `scope` tasks the Curator proposed. Releasing a task from <code>scope</code>{' '}
+            to <code>todo</code> on the Board is the actual approval — nothing here does that for
+            you.
           </p>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.5rem' }}>
             {proposals.map((task) => (

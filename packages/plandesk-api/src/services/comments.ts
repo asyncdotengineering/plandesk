@@ -5,6 +5,7 @@ import {
   getDocument as dbGetDocument,
   getNote as dbGetNote,
   getProject,
+  getSubmission,
   getTask,
   listCommentsByProject as dbListCommentsByProject,
   listCommentsByTarget as dbListCommentsByTarget,
@@ -21,7 +22,7 @@ export type CommentServiceDeps = {
 };
 
 export type CommentTarget = {
-  type: Exclude<CommentTargetType, 'submission'>;
+  type: CommentTargetType;
   id: string;
 };
 
@@ -60,7 +61,7 @@ function targetProjectId(
     case 'note':
       return dbGetNote(db, target.id)?.projectId;
     case 'submission':
-      return undefined;
+      return getSubmission(db, target.id)?.projectId;
   }
 }
 

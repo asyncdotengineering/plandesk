@@ -117,6 +117,13 @@ describe('tool registry tag schemas', () => {
       addCommentInputSchema.safeParse({ target_type: 'task', target_id: DOC_ID, body: 'Note' })
         .success,
     ).toBe(true);
+    expect(
+      addCommentInputSchema.safeParse({
+        target_type: 'submission',
+        target_id: DOC_ID,
+        body: 'Note',
+      }).success,
+    ).toBe(true);
     expect(addCommentInputSchema.safeParse({ document_id: DOC_ID, body: 'Note' }).success).toBe(
       false,
     );

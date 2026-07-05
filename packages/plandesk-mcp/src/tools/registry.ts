@@ -271,13 +271,13 @@ export const listTagsInputSchema = z.object({
 
 export const listCommentsInputSchema = z.object({
   project_id: z.string().uuid(),
-  target_type: z.enum(['document', 'task', 'note']).optional(),
+  target_type: z.enum(['document', 'task', 'note', 'submission']).optional(),
   target_id: z.string().uuid().optional(),
   include_resolved: z.boolean().optional(),
 });
 
 export const addCommentInputSchema = z.object({
-  target_type: z.enum(['document', 'task', 'note']),
+  target_type: z.enum(['document', 'task', 'note', 'submission']),
   target_id: z.string().uuid(),
   body: z.string().min(1),
   passage: z.string().optional(),

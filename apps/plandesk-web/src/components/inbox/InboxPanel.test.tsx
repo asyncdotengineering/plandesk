@@ -79,6 +79,25 @@ function routeFetch(url: string, init?: RequestInit) {
   if (url.match(/\/submissions\/sub-1\/triage$/) && method === 'POST') {
     return jsonResponse({ ...pendingSubmission, status: 'accepted', linked_task_id: 'task-new' });
   }
+  if (url.match(/\/submissions\/sub-1\/comments$/) && method === 'GET') {
+    return jsonResponse([]);
+  }
+  if (url.match(/\/submissions\/sub-1\/comments$/) && method === 'POST') {
+    if (typeof init?.body !== 'string') {
+      throw new Error('expected string request body');
+    }
+    const parsed = JSON.parse(init.body) as { body: string };
+    return jsonResponse({
+      id: 'comment-1',
+      document_id: null,
+      target_type: 'submission',
+      target_id: 'sub-1',
+      passage: null,
+      body: parsed.body,
+      resolved: false,
+      created_at: '2026-07-04T12:02:00.000Z',
+    });
+  }
   if (url.match(/\/tasks\/task-backlog-1$/) && method === 'PATCH') {
     return jsonResponse({ ...backlogTask, status: 'scope' });
   }
@@ -197,6 +216,30 @@ describe('InboxPanel', () => {
       expect(screen.getByText('Bug report')).toBeTruthy();
     });
     expect(screen.getByText('high')).toBeTruthy();
+  });
+
+  it('shows a collapsible comment thread on a submission row', async () => {
+    const fetchMock = vi.fn(routeFetch);
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderInboxPanel();
+
+    await waitFor(() => {
+      expect(screen.getByText('Bug report')).toBeTruthy();
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/submissions/sub-1/comments?include_resolved=true',
+        expect.anything(),
+      );
+    });
+
+    expect(screen.queryByPlaceholderText(/Leave feedback/)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Comments' }));
+
+    expect(await screen.findByPlaceholderText(/Leave feedback/)).toBeTruthy();
   });
 
   it('releases a backlog task to scope', async () => {

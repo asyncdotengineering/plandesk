@@ -1,11 +1,12 @@
 import type { CommentService } from '@plandesk/api';
+import type { CommentTargetType } from '@plandesk/db';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createListCommentsHandler(
   commentService: CommentService,
 ): (args: {
   project_id: string;
-  target_type?: 'document' | 'task' | 'note';
+  target_type?: CommentTargetType;
   target_id?: string;
   include_resolved?: boolean;
 }) => ToolResult {

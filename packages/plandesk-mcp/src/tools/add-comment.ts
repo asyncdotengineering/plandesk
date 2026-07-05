@@ -1,11 +1,12 @@
 import type { CommentService } from '@plandesk/api';
 import { InvalidCommentError } from '@plandesk/api';
+import type { CommentTargetType } from '@plandesk/db';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createAddCommentHandler(
   commentService: CommentService,
 ): (args: {
-  target_type: 'document' | 'task' | 'note';
+  target_type: CommentTargetType;
   target_id: string;
   body: string;
   passage?: string;

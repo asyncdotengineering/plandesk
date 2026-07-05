@@ -10,6 +10,7 @@ import {
   getOrCreateDefaultGoal,
   listCommentsByTarget,
   migrate,
+  upsertSubmission,
 } from '@plandesk/db';
 import { createEventBus, type PlankDeskEvent } from '../events.js';
 import { createCommentService, InvalidCommentError } from './comments.js';
@@ -21,6 +22,7 @@ describe('commentService', () => {
   let documentId = '';
   let taskId = '';
   let noteId = '';
+  let submissionId = '';
 
   function createService() {
     return createCommentService({ db, eventBus });
@@ -29,6 +31,7 @@ describe('commentService', () => {
   beforeEach(() => {
     migrate(db);
     db.$client.exec('DELETE FROM comments');
+    db.$client.exec('DELETE FROM share_submissions');
     db.$client.exec('DELETE FROM notes');
     db.$client.exec('DELETE FROM tasks');
     db.$client.exec('DELETE FROM documents');
@@ -39,6 +42,16 @@ describe('commentService', () => {
     documentId = createDocument(db, { projectId, title: 'Doc' }).id;
     taskId = createTask(db, { projectId, goalId, label: 'Task' }).id;
     noteId = createNote(db, { projectId, title: 'Note' }).id;
+    submissionId = 'sub-1';
+    upsertSubmission(db, {
+      id: submissionId,
+      projectId,
+      hostedShareId: 'hosted-share-1',
+      participantName: 'Alex',
+      title: 'Bug report',
+      createdAt: new Date('2026-01-15T12:00:00.000Z'),
+      pulledAt: new Date('2026-01-15T12:01:00.000Z'),
+    });
   });
 
   it('creates a comment and emits comment_created', () => {
@@ -91,6 +104,21 @@ describe('commentService', () => {
       target_id: noteId,
       document_id: null,
       body: 'Note note',
+    });
+  });
+
+  it('creates comments on submissions', () => {
+    const service = createService();
+    const submissionComment = service.create(
+      { type: 'submission', id: submissionId },
+      { body: 'Submission note' },
+    );
+
+    expect(submissionComment).toMatchObject({
+      target_type: 'submission',
+      target_id: submissionId,
+      document_id: null,
+      body: 'Submission note',
     });
   });
 

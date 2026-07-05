@@ -84,6 +84,14 @@ export function createCommentsRouter(commentService: CommentService): Hono {
     handleListComments(c, commentService, { type: 'note', id: c.req.param('id') }),
   );
 
+  router.post('/submissions/:id/comments', (c) =>
+    handleCreateComment(c, commentService, { type: 'submission', id: c.req.param('id') }),
+  );
+
+  router.get('/submissions/:id/comments', (c) =>
+    handleListComments(c, commentService, { type: 'submission', id: c.req.param('id') }),
+  );
+
   router.get('/projects/:id/comments', (c) => {
     const includeResolved = parseIncludeResolved(c.req.query('include_resolved'));
     const comments = commentService.listByProject(c.req.param('id'), { includeResolved });
