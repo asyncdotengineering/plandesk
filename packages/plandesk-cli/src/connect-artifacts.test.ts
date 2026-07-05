@@ -245,7 +245,9 @@ describe('connect artifacts', () => {
         expect(readServerInfo(dir)).toBeDefined();
         deleteServerInfo(dir);
         expect(readServerInfo(dir)).toBeUndefined();
-        expect(() => deleteServerInfo(dir)).not.toThrow();
+        expect(() => {
+          deleteServerInfo(dir);
+        }).not.toThrow();
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }

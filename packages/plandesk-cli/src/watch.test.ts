@@ -43,16 +43,16 @@ describe('runWatch', () => {
     }
   });
 
-  function makeWorkspace(): {
+  async function makeWorkspace(): Promise<{
     dataDir: string;
     repoDir: string;
     projectId: string;
     db: ReturnType<typeof openWorkspace>['db'];
-  } {
+  }> {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-watch-ws-'));
     const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-watch-repo-'));
     tempDirs.push(dataDir, repoDir);
-    runInit(dataDir);
+    await runInit(dataDir);
     const { db } = openWorkspace(dataDir);
     const project = createProject(db, { name: 'Watch test' });
     mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
@@ -73,7 +73,7 @@ describe('runWatch', () => {
   }
 
   it('calls watchPush onChange for matching project events only', async () => {
-    const { repoDir, projectId, db: workspaceDb } = makeWorkspace();
+    const { repoDir, projectId, db: workspaceDb } = await makeWorkspace();
 
     const onChange = vi.fn();
     const dispose = vi.fn();
@@ -127,7 +127,7 @@ describe('runWatch', () => {
   });
 
   it('disposes on SIGINT without leaking the watcher', async () => {
-    const { repoDir, projectId, db: workspaceDb } = makeWorkspace();
+    const { repoDir, projectId, db: workspaceDb } = await makeWorkspace();
 
     const onChange = vi.fn();
     const dispose = vi.fn();

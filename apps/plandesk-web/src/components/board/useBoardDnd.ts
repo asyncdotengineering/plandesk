@@ -1,4 +1,4 @@
-import { type DragEndEvent } from '@dnd-kit/core';
+import { type DragEndEvent, type UniqueIdentifier } from '@dnd-kit/core';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { type SerializedTask, type TaskStatus } from '../../lib/api.js';
@@ -71,8 +71,10 @@ export function useBoardDnd({ projectId, tasks }: UseBoardDndOptions) {
   return { handleDragEnd, isUpdating: patchTask.isPending, updateError: patchTask.error };
 }
 
+// Only the active/over ids are read, so the param is typed to exactly that —
+// a real DragEndEvent satisfies it, and tests can pass minimal id-only objects.
 export function statusFromDragEnd(
-  event: Pick<DragEndEvent, 'active' | 'over'>,
+  event: { active: { id: UniqueIdentifier }; over: { id: UniqueIdentifier } | null },
   tasks: SerializedTask[],
 ): { taskId: string; status: TaskStatus } | null {
   if (event.over === null) {

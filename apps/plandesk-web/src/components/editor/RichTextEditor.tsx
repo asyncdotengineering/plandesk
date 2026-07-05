@@ -125,7 +125,7 @@ function normalizeForMarkdown(html: string): string {
     if (p.closest('li, td, th') !== null) {
       return;
     }
-    if ((p.textContent ?? '').trim() === '') {
+    if (p.textContent.trim() === '') {
       p.remove();
     }
   });

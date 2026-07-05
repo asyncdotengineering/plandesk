@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   crashCourse,
   DEFAULT_BIND_HOST,
-  DEFAULT_PORT,
   findLocalPlandeskDir,
   isLoopbackHost,
   parseArgs,
@@ -259,7 +258,11 @@ describe('startServer', () => {
     expect(info?.port).toBe(port);
     expect(info?.pid).toBe(process.pid);
 
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await new Promise<void>((resolve) => {
+      server.close(() => {
+        resolve();
+      });
+    });
     servers.splice(servers.indexOf(server), 1);
     expect(readServerInfo(dataDir)).toBeUndefined();
 

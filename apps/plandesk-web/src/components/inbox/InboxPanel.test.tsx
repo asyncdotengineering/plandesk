@@ -237,7 +237,7 @@ describe('InboxPanel', () => {
         ([url, init]) =>
           typeof url === 'string' &&
           url.includes('/tasks?status=backlog') &&
-          ((init as RequestInit | undefined)?.method ?? 'GET') === 'GET',
+          (init?.method ?? 'GET') === 'GET',
       ).length;
     const before = backlogCalls();
 

@@ -3,13 +3,7 @@ import { getRequestListener } from '@hono/node-server';
 import { createApp, createEventBus, createServices } from '@plandesk/api';
 import { createDb, migrate, verifyToken } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
-import {
-  isLoopbackHost,
-  resolveAuthPassword,
-  resolveBindHost,
-  resolveDataDir,
-  workspaceDbPath,
-} from './args.js';
+import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
 import { deleteServerInfo, writeServerInfo } from './connect-artifacts.js';
 
 export type ServeOptions = {
@@ -29,10 +23,10 @@ const defaultExit: ExitFn = (code) => {
   process.exit(code);
 };
 
-export function validateServeBind(
-  options: ServeOptions,
-  _exit: ExitFn = defaultExit,
-): { host: string; authPassword?: string } {
+export function validateServeBind(options: ServeOptions): {
+  host: string;
+  authPassword?: string;
+} {
   const host = resolveBindHost(options.host);
   const authPassword = options.authPassword ?? resolveAuthPassword();
   return { host, authPassword };
@@ -53,7 +47,7 @@ export function createListenErrorHandler(
 }
 
 export function startServer(options: ServeOptions, exit: ExitFn = defaultExit): Server {
-  const { host, authPassword } = validateServeBind(options, exit);
+  const { host, authPassword } = validateServeBind(options);
   const dataDir = resolveDataDir(options.dataDir);
   const dbPath = workspaceDbPath(dataDir);
   const db = createDb(dbPath);

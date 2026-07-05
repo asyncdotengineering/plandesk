@@ -30,6 +30,10 @@ export function layoutNodes(
 
   return nodes.map((node) => {
     const positioned = graph.node(node.id);
+    // dagre types x/y as optional; a node it never laid out keeps its own position.
+    if (positioned.x === undefined || positioned.y === undefined) {
+      return node;
+    }
     const width = node.measured?.width ?? DEFAULT_NODE_WIDTH;
     const height = node.measured?.height ?? DEFAULT_NODE_HEIGHT;
     // dagre anchors at the node center; React Flow anchors at the top left.
