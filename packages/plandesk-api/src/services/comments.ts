@@ -3,10 +3,13 @@ import {
   deleteComment as dbDeleteComment,
   getComment as dbGetComment,
   getDocument as dbGetDocument,
+  getNote as dbGetNote,
   getProject,
+  getTask,
   listCommentsByProject as dbListCommentsByProject,
   listCommentsByTarget as dbListCommentsByTarget,
   updateComment as dbUpdateComment,
+  type CommentTargetType,
   type Db,
 } from '@plandesk/db';
 import type { EventBus } from '../events.js';
@@ -15,6 +18,11 @@ import { serializeComment, type SerializedComment } from '../serialize.js';
 export type CommentServiceDeps = {
   db: Db;
   eventBus: EventBus;
+};
+
+export type CommentTarget = {
+  type: Exclude<CommentTargetType, 'submission'>;
+  id: string;
 };
 
 export type CreateCommentInput = {
@@ -40,45 +48,99 @@ function assertNonEmptyBody(body: string): void {
   }
 }
 
+function targetProjectId(
+  db: Db,
+  target: { type: CommentTargetType; id: string },
+): string | undefined {
+  switch (target.type) {
+    case 'document':
+      return dbGetDocument(db, target.id)?.projectId;
+    case 'task':
+      return getTask(db, target.id)?.projectId;
+    case 'note':
+      return dbGetNote(db, target.id)?.projectId;
+    case 'submission':
+      return undefined;
+  }
+}
+
+function emitCommentCreated(
+  eventBus: EventBus,
+  commentId: string,
+  projectId: string,
+  target: { type: CommentTargetType; id: string },
+): void {
+  eventBus.emit({
+    type: 'comment_created',
+    commentId,
+    projectId,
+    target_type: target.type,
+    target_id: target.id,
+    ...(target.type === 'document' ? { documentId: target.id } : {}),
+  });
+}
+
+function emitCommentUpdated(
+  eventBus: EventBus,
+  commentId: string,
+  projectId: string,
+  target: { type: CommentTargetType; id: string },
+): void {
+  eventBus.emit({
+    type: 'comment_updated',
+    commentId,
+    projectId,
+    target_type: target.type,
+    target_id: target.id,
+    ...(target.type === 'document' ? { documentId: target.id } : {}),
+  });
+}
+
 export function createCommentService(deps: CommentServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    create(documentId: string, input: CreateCommentInput): SerializedComment | undefined {
-      const document = dbGetDocument(db, documentId);
-      if (!document) {
+    create(target: CommentTarget, input: CreateCommentInput): SerializedComment | undefined {
+      const projectId = targetProjectId(db, target);
+      if (!projectId) {
         return undefined;
       }
 
       assertNonEmptyBody(input.body);
 
       const comment = createComment(db, {
-        projectId: document.projectId,
-        targetType: 'document',
-        targetId: documentId,
+        projectId,
+        targetType: target.type,
+        targetId: target.id,
         body: input.body,
         passage: input.passage,
       });
 
-      eventBus.emit({
-        type: 'comment_created',
-        commentId: comment.id,
-        documentId,
-        projectId: document.projectId,
-      });
+      emitCommentCreated(eventBus, comment.id, projectId, target);
 
       return serializeComment(comment);
+    },
+
+    listByTarget(
+      target: CommentTarget,
+      options?: { includeResolved?: boolean },
+    ): SerializedComment[] | undefined {
+      const projectId = targetProjectId(db, target);
+      if (!projectId) {
+        return undefined;
+      }
+      return dbListCommentsByTarget(db, target.type, target.id, options).map(serializeComment);
+    },
+
+    resolveTargetProjectId(target: CommentTarget): string | undefined {
+      return targetProjectId(db, target);
     },
 
     listByDocument(
       documentId: string,
       options?: { includeResolved?: boolean },
     ): SerializedComment[] | undefined {
-      const document = dbGetDocument(db, documentId);
-      if (!document) {
-        return undefined;
-      }
-      return dbListCommentsByTarget(db, 'document', documentId, options).map(serializeComment);
+      return this.listByTarget({ type: 'document', id: documentId }, options);
     },
 
     listByProject(
@@ -107,20 +169,17 @@ export function createCommentService(deps: CommentServiceDeps) {
         return undefined;
       }
 
-      if (comment.targetType !== 'document') {
+      const projectId = targetProjectId(db, {
+        type: comment.targetType,
+        id: comment.targetId,
+      });
+      if (!projectId) {
         return undefined;
       }
 
-      const document = dbGetDocument(db, comment.targetId);
-      if (!document) {
-        return undefined;
-      }
-
-      eventBus.emit({
-        type: 'comment_updated',
-        commentId: id,
-        documentId: comment.targetId,
-        projectId: document.projectId,
+      emitCommentUpdated(eventBus, id, projectId, {
+        type: comment.targetType,
+        id: comment.targetId,
       });
 
       return serializeComment(comment);
@@ -132,12 +191,11 @@ export function createCommentService(deps: CommentServiceDeps) {
         return false;
       }
 
-      if (existing.targetType !== 'document') {
-        return false;
-      }
-
-      const document = dbGetDocument(db, existing.targetId);
-      if (!document) {
+      const projectId = targetProjectId(db, {
+        type: existing.targetType,
+        id: existing.targetId,
+      });
+      if (!projectId) {
         return false;
       }
 
@@ -146,11 +204,9 @@ export function createCommentService(deps: CommentServiceDeps) {
         return false;
       }
 
-      eventBus.emit({
-        type: 'comment_updated',
-        commentId: id,
-        documentId: existing.targetId,
-        projectId: document.projectId,
+      emitCommentUpdated(eventBus, id, projectId, {
+        type: existing.targetType,
+        id: existing.targetId,
       });
 
       return true;

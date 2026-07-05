@@ -18,15 +18,19 @@ export type DocumentCreatedEvent = {
 export type CommentCreatedEvent = {
   type: 'comment_created';
   commentId: string;
-  documentId: string;
   projectId: string;
+  target_type: string;
+  target_id: string;
+  documentId?: string;
 };
 
 export type CommentUpdatedEvent = {
   type: 'comment_updated';
   commentId: string;
-  documentId: string;
   projectId: string;
+  target_type: string;
+  target_id: string;
+  documentId?: string;
 };
 
 export type FolderCreatedEvent = {

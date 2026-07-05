@@ -200,7 +200,9 @@ export function serializeNote(note: Note): SerializedNote {
 
 export type SerializedComment = {
   id: string;
-  document_id: string;
+  target_type: Comment['targetType'];
+  target_id: string;
+  document_id: string | null;
   passage: string | null;
   body: string;
   resolved: boolean;
@@ -210,7 +212,9 @@ export type SerializedComment = {
 export function serializeComment(comment: Comment): SerializedComment {
   return {
     id: comment.id,
-    document_id: comment.targetType === 'document' ? comment.targetId : '',
+    target_type: comment.targetType,
+    target_id: comment.targetId,
+    document_id: comment.targetType === 'document' ? comment.targetId : null,
     passage: comment.passage,
     body: comment.body,
     resolved: comment.resolved,

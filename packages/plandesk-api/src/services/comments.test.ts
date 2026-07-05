@@ -3,8 +3,11 @@ import {
   createComment,
   createDb,
   createDocument,
+  createNote,
   createProject,
+  createTask,
   getComment,
+  getOrCreateDefaultGoal,
   listCommentsByTarget,
   migrate,
 } from '@plandesk/db';
@@ -16,6 +19,8 @@ describe('commentService', () => {
   const eventBus = createEventBus();
   let projectId = '';
   let documentId = '';
+  let taskId = '';
+  let noteId = '';
 
   function createService() {
     return createCommentService({ db, eventBus });
@@ -24,10 +29,16 @@ describe('commentService', () => {
   beforeEach(() => {
     migrate(db);
     db.$client.exec('DELETE FROM comments');
+    db.$client.exec('DELETE FROM notes');
+    db.$client.exec('DELETE FROM tasks');
     db.$client.exec('DELETE FROM documents');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
     projectId = createProject(db, { name: 'Comments' }).id;
+    const goalId = getOrCreateDefaultGoal(db, projectId).id;
     documentId = createDocument(db, { projectId, title: 'Doc' }).id;
+    taskId = createTask(db, { projectId, goalId, label: 'Task' }).id;
+    noteId = createNote(db, { projectId, title: 'Note' }).id;
   });
 
   it('creates a comment and emits comment_created', () => {
@@ -37,12 +48,17 @@ describe('commentService', () => {
     });
 
     const service = createService();
-    const comment = service.create(documentId, {
-      body: 'Fix this section',
-      passage: '§2',
-    });
+    const comment = service.create(
+      { type: 'document', id: documentId },
+      {
+        body: 'Fix this section',
+        passage: '§2',
+      },
+    );
 
     expect(comment).toMatchObject({
+      target_type: 'document',
+      target_id: documentId,
       document_id: documentId,
       body: 'Fix this section',
       passage: '§2',
@@ -54,12 +70,35 @@ describe('commentService', () => {
       commentId: comment?.id,
       documentId,
       projectId,
+      target_type: 'document',
+      target_id: documentId,
+    });
+  });
+
+  it('creates comments on tasks and notes', () => {
+    const service = createService();
+    const taskComment = service.create({ type: 'task', id: taskId }, { body: 'Task note' });
+    const noteComment = service.create({ type: 'note', id: noteId }, { body: 'Note note' });
+
+    expect(taskComment).toMatchObject({
+      target_type: 'task',
+      target_id: taskId,
+      document_id: null,
+      body: 'Task note',
+    });
+    expect(noteComment).toMatchObject({
+      target_type: 'note',
+      target_id: noteId,
+      document_id: null,
+      body: 'Note note',
     });
   });
 
   it('rejects empty body on create and update', () => {
     const service = createService();
-    expect(() => service.create(documentId, { body: '   ' })).toThrow(InvalidCommentError);
+    expect(() => service.create({ type: 'document', id: documentId }, { body: '   ' })).toThrow(
+      InvalidCommentError,
+    );
 
     const created = createComment(db, {
       projectId,
@@ -70,7 +109,7 @@ describe('commentService', () => {
     expect(() => service.update(created.id, { body: '' })).toThrow(InvalidCommentError);
   });
 
-  it('lists comments by document and project with resolved filter', () => {
+  it('lists comments by target and project with resolved filter', () => {
     const service = createService();
     const open = createComment(db, {
       projectId,
@@ -86,16 +125,23 @@ describe('commentService', () => {
     });
     service.update(resolved.id, { resolved: true });
 
+    expect(service.listByTarget({ type: 'document', id: documentId })?.map((c) => c.id)).toEqual([
+      open.id,
+    ]);
+    expect(
+      service.listByTarget({ type: 'document', id: documentId }, { includeResolved: true }),
+    ).toHaveLength(2);
     expect(service.listByDocument(documentId)?.map((c) => c.id)).toEqual([open.id]);
-    expect(service.listByDocument(documentId, { includeResolved: true })).toHaveLength(2);
     expect(service.listByProject(projectId)?.map((c) => c.id)).toEqual([open.id]);
   });
 
-  it('returns undefined for missing document or project', () => {
+  it('returns undefined for missing targets or project', () => {
     const service = createService();
-    expect(service.create('00000000-0000-4000-8000-000000009999', { body: 'x' })).toBeUndefined();
-    expect(service.listByDocument('00000000-0000-4000-8000-000000009999')).toBeUndefined();
-    expect(service.listByProject('00000000-0000-4000-8000-000000009999')).toBeUndefined();
+    const missing = '00000000-0000-4000-8000-000000009999';
+    expect(service.create({ type: 'document', id: missing }, { body: 'x' })).toBeUndefined();
+    expect(service.listByTarget({ type: 'task', id: missing })).toBeUndefined();
+    expect(service.listByDocument(missing)).toBeUndefined();
+    expect(service.listByProject(missing)).toBeUndefined();
   });
 
   it('updates and deletes comments with comment_updated events', () => {
@@ -105,7 +151,7 @@ describe('commentService', () => {
     });
 
     const service = createService();
-    const created = service.create(documentId, { body: 'Before' });
+    const created = service.create({ type: 'document', id: documentId }, { body: 'Before' });
     expect(created).toBeDefined();
     if (!created) {
       return;
@@ -119,6 +165,8 @@ describe('commentService', () => {
       commentId: created.id,
       documentId,
       projectId,
+      target_type: 'document',
+      target_id: documentId,
     });
 
     expect(service.delete(created.id)).toBe(true);
@@ -127,5 +175,20 @@ describe('commentService', () => {
       listCommentsByTarget(db, 'document', documentId, { includeResolved: true }),
     ).toHaveLength(0);
     expect(received.filter((e) => e.type === 'comment_updated')).toHaveLength(2);
+  });
+
+  it('updates and deletes task comments', () => {
+    const service = createService();
+    const created = service.create({ type: 'task', id: taskId }, { body: 'Task feedback' });
+    expect(created).toBeDefined();
+    if (!created) {
+      return;
+    }
+
+    const updated = service.update(created.id, { resolved: true });
+    expect(updated?.resolved).toBe(true);
+
+    expect(service.delete(created.id)).toBe(true);
+    expect(listCommentsByTarget(db, 'task', taskId, { includeResolved: true })).toHaveLength(0);
   });
 });

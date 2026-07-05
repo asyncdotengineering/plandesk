@@ -204,6 +204,8 @@ export type PatchNoteInput = {
 export type SerializedComment = {
   id: string;
   document_id: string;
+  target_type?: string;
+  target_id?: string;
   passage: string | null;
   body: string;
   resolved: boolean;

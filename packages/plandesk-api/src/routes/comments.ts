@@ -1,5 +1,9 @@
-import { Hono } from 'hono';
-import { InvalidCommentError, type CommentService } from '../services/comments.js';
+import { Hono, type Context } from 'hono';
+import {
+  InvalidCommentError,
+  type CommentService,
+  type CommentTarget,
+} from '../services/comments.js';
 
 type CreateCommentBody = {
   body?: string;
@@ -15,42 +19,70 @@ function parseIncludeResolved(value: string | undefined): boolean {
   return value === 'true';
 }
 
+async function handleCreateComment(
+  c: Context,
+  commentService: CommentService,
+  target: CommentTarget,
+) {
+  const body = await c.req.json<CreateCommentBody>();
+  if (typeof body.body !== 'string') {
+    return c.json({ error: 'invalid_argument' }, 400);
+  }
+
+  try {
+    const comment = commentService.create(target, {
+      body: body.body,
+      passage: body.passage,
+    });
+
+    if (!comment) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+
+    return c.json(comment, 201);
+  } catch (error) {
+    if (error instanceof InvalidCommentError) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    throw error;
+  }
+}
+
+function handleListComments(c: Context, commentService: CommentService, target: CommentTarget) {
+  const includeResolved = parseIncludeResolved(c.req.query('include_resolved'));
+  const comments = commentService.listByTarget(target, { includeResolved });
+  if (!comments) {
+    return c.json({ error: 'not_found' }, 404);
+  }
+  return c.json(comments);
+}
+
 export function createCommentsRouter(commentService: CommentService): Hono {
   const router = new Hono();
 
-  router.post('/documents/:id/comments', async (c) => {
-    const body = await c.req.json<CreateCommentBody>();
-    if (typeof body.body !== 'string') {
-      return c.json({ error: 'invalid_argument' }, 400);
-    }
+  router.post('/documents/:id/comments', (c) =>
+    handleCreateComment(c, commentService, { type: 'document', id: c.req.param('id') }),
+  );
 
-    try {
-      const comment = commentService.create(c.req.param('id'), {
-        body: body.body,
-        passage: body.passage,
-      });
+  router.get('/documents/:id/comments', (c) =>
+    handleListComments(c, commentService, { type: 'document', id: c.req.param('id') }),
+  );
 
-      if (!comment) {
-        return c.json({ error: 'not_found' }, 404);
-      }
+  router.post('/tasks/:id/comments', (c) =>
+    handleCreateComment(c, commentService, { type: 'task', id: c.req.param('id') }),
+  );
 
-      return c.json(comment, 201);
-    } catch (error) {
-      if (error instanceof InvalidCommentError) {
-        return c.json({ error: 'invalid_argument' }, 400);
-      }
-      throw error;
-    }
-  });
+  router.get('/tasks/:id/comments', (c) =>
+    handleListComments(c, commentService, { type: 'task', id: c.req.param('id') }),
+  );
 
-  router.get('/documents/:id/comments', (c) => {
-    const includeResolved = parseIncludeResolved(c.req.query('include_resolved'));
-    const comments = commentService.listByDocument(c.req.param('id'), { includeResolved });
-    if (!comments) {
-      return c.json({ error: 'not_found' }, 404);
-    }
-    return c.json(comments);
-  });
+  router.post('/notes/:id/comments', (c) =>
+    handleCreateComment(c, commentService, { type: 'note', id: c.req.param('id') }),
+  );
+
+  router.get('/notes/:id/comments', (c) =>
+    handleListComments(c, commentService, { type: 'note', id: c.req.param('id') }),
+  );
 
   router.get('/projects/:id/comments', (c) => {
     const includeResolved = parseIncludeResolved(c.req.query('include_resolved'));

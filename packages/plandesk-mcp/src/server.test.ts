@@ -897,7 +897,12 @@ describe('createMcpApp', () => {
 
       const added = await client.callTool({
         name: 'add_comment',
-        arguments: { document_id: doc.id, body: 'Agent suggestion', passage: '§3' },
+        arguments: {
+          target_type: 'document',
+          target_id: doc.id,
+          body: 'Agent suggestion',
+          passage: '§3',
+        },
       });
       expect(added.isError).not.toBe(true);
       const addedContent = added.content as Array<{ type: string; text?: string }>;
@@ -926,7 +931,7 @@ describe('createMcpApp', () => {
     });
   });
 
-  it('list_comments rejects cross-project document_id', async () => {
+  it('list_comments rejects cross-project target', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
       const otherProject = createProject(db, { name: 'Other project' });
       const foreignDoc = createDocument(db, { projectId: otherProject.id, title: 'Foreign' });
@@ -934,7 +939,11 @@ describe('createMcpApp', () => {
       const client = await connectClient(baseUrl, token);
       const result = await client.callTool({
         name: 'list_comments',
-        arguments: { project_id: projectId, document_id: foreignDoc.id },
+        arguments: {
+          project_id: projectId,
+          target_type: 'document',
+          target_id: foreignDoc.id,
+        },
       });
       expect(result.isError).toBe(true);
       const content = result.content as Array<{ type: string; text?: string }>;
@@ -950,7 +959,7 @@ describe('createMcpApp', () => {
       const client = await connectClient(baseUrl, token);
       const result = await client.callTool({
         name: 'add_comment',
-        arguments: { document_id: doc.id, body: '   ' },
+        arguments: { target_type: 'document', target_id: doc.id, body: '   ' },
       });
       expect(result.isError).toBe(true);
       const content = result.content as Array<{ type: string; text?: string }>;

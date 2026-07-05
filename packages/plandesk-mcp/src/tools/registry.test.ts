@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addCommentInputSchema,
   createTaskInputSchema,
   getNextTaskInputSchema,
+  listCommentsInputSchema,
   listTagsInputSchema,
   listTasksInputSchema,
   triageSubmissionInputSchema,
@@ -100,5 +102,38 @@ describe('tool registry tag schemas', () => {
     expect(updateTaskInputSchema.shape.tags.description).toMatch(/replaces the full tag set/i);
     expect(listTasksInputSchema.shape.tags.description).toMatch(/OR semantics/i);
     expect(getNextTaskInputSchema.shape.tags.description).toMatch(/OR semantics/i);
+  });
+
+  it('add_comment requires target_type and target_id', () => {
+    const DOC_ID = '00000000-0000-4000-8000-000000000004';
+    expect(
+      addCommentInputSchema.safeParse({
+        target_type: 'document',
+        target_id: DOC_ID,
+        body: 'Note',
+      }).success,
+    ).toBe(true);
+    expect(
+      addCommentInputSchema.safeParse({ target_type: 'task', target_id: DOC_ID, body: 'Note' })
+        .success,
+    ).toBe(true);
+    expect(addCommentInputSchema.safeParse({ document_id: DOC_ID, body: 'Note' }).success).toBe(
+      false,
+    );
+  });
+
+  it('list_comments accepts optional target_type and target_id', () => {
+    const DOC_ID = '00000000-0000-4000-8000-000000000004';
+    expect(listCommentsInputSchema.safeParse({ project_id: PROJECT_ID }).success).toBe(true);
+    expect(
+      listCommentsInputSchema.safeParse({
+        project_id: PROJECT_ID,
+        target_type: 'note',
+        target_id: DOC_ID,
+      }).success,
+    ).toBe(true);
+    expect(
+      listCommentsInputSchema.safeParse({ project_id: PROJECT_ID, target_id: DOC_ID }).success,
+    ).toBe(true);
   });
 });

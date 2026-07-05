@@ -431,18 +431,18 @@ function createMcpServer(services: Services): McpServer {
     'list_comments',
     {
       title: 'List Comments',
-      description: 'List unresolved document comments for a project or document',
+      description: 'List unresolved comments for a project or a document, task, or note',
       inputSchema: listCommentsInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
-    createListCommentsHandler(services.commentService, services.documentService),
+    createListCommentsHandler(services.commentService),
   );
 
   server.registerTool(
     'add_comment',
     {
       title: 'Add Comment',
-      description: 'Leave a suggestion on a document',
+      description: 'Leave a suggestion on a document, task, or note',
       inputSchema: addCommentInputSchema.shape,
     },
     createAddCommentHandler(services.commentService),

@@ -4,13 +4,21 @@ import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from 
 
 export function createAddCommentHandler(
   commentService: CommentService,
-): (args: { document_id: string; body: string; passage?: string }) => ToolResult {
+): (args: {
+  target_type: 'document' | 'task' | 'note';
+  target_id: string;
+  body: string;
+  passage?: string;
+}) => ToolResult {
   return (args) => {
     try {
-      const comment = commentService.create(args.document_id, {
-        body: args.body,
-        passage: args.passage,
-      });
+      const comment = commentService.create(
+        { type: args.target_type, id: args.target_id },
+        {
+          body: args.body,
+          passage: args.passage,
+        },
+      );
       if (!comment) {
         return toolNotFound();
       }

@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { createComment, createDocument, createProject } from '@plandesk/db';
+import {
+  createComment,
+  createDocument,
+  createNote,
+  createProject,
+  createTask,
+  getOrCreateDefaultGoal,
+} from '@plandesk/db';
 import { createTestApp, parseJson } from '../test-helpers.js';
 import type { PlankDeskEvent } from '../events.js';
 
 type CommentResponse = {
   id: string;
-  document_id: string;
+  target_type: string;
+  target_id: string;
+  document_id: string | null;
   passage: string | null;
   body: string;
   resolved: boolean;
@@ -13,7 +22,7 @@ type CommentResponse = {
 };
 
 describe('comments routes', () => {
-  it('creates, lists, updates, and deletes comments via REST', async () => {
+  it('creates, lists, updates, and deletes document comments via REST', async () => {
     const { app, eventBus } = createTestApp();
     const received: PlankDeskEvent[] = [];
     eventBus.subscribe((event) => {
@@ -42,6 +51,8 @@ describe('comments routes', () => {
     expect(createRes.status).toBe(201);
     const created = await parseJson<CommentResponse>(createRes);
     expect(created).toMatchObject({
+      target_type: 'document',
+      target_id: doc.id,
       document_id: doc.id,
       body: 'Revise intro',
       passage: '§1',
@@ -52,6 +63,8 @@ describe('comments routes', () => {
       commentId: created.id,
       documentId: doc.id,
       projectId: project.id,
+      target_type: 'document',
+      target_id: doc.id,
     });
 
     const listRes = await app.request(`/api/v1/documents/${doc.id}/comments`);
@@ -79,6 +92,8 @@ describe('comments routes', () => {
       commentId: created.id,
       documentId: doc.id,
       projectId: project.id,
+      target_type: 'document',
+      target_id: doc.id,
     });
 
     const openOnlyRes = await app.request(`/api/v1/documents/${doc.id}/comments`);
@@ -98,10 +113,56 @@ describe('comments routes', () => {
     expect(await parseJson<CommentResponse[]>(afterDelete)).toHaveLength(0);
   });
 
+  it('creates and lists task and note comments via REST', async () => {
+    const { app, db } = createTestApp();
+    const project = createProject(db, { name: 'Targets' });
+    const goalId = getOrCreateDefaultGoal(db, project.id).id;
+    const task = createTask(db, { projectId: project.id, goalId, label: 'Ship' });
+    const note = createNote(db, { projectId: project.id, title: 'Memo' });
+
+    const taskCreateRes = await app.request(`/api/v1/tasks/${task.id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'Task feedback' }),
+    });
+    expect(taskCreateRes.status).toBe(201);
+    const taskComment = await parseJson<CommentResponse>(taskCreateRes);
+    expect(taskComment).toMatchObject({
+      target_type: 'task',
+      target_id: task.id,
+      document_id: null,
+      body: 'Task feedback',
+    });
+
+    const noteCreateRes = await app.request(`/api/v1/notes/${note.id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'Note feedback' }),
+    });
+    expect(noteCreateRes.status).toBe(201);
+    const noteComment = await parseJson<CommentResponse>(noteCreateRes);
+    expect(noteComment).toMatchObject({
+      target_type: 'note',
+      target_id: note.id,
+      document_id: null,
+      body: 'Note feedback',
+    });
+
+    const taskListRes = await app.request(`/api/v1/tasks/${task.id}/comments`);
+    expect(await parseJson<CommentResponse[]>(taskListRes)).toHaveLength(1);
+
+    const noteListRes = await app.request(`/api/v1/notes/${note.id}/comments`);
+    expect(await parseJson<CommentResponse[]>(noteListRes)).toHaveLength(1);
+  });
+
   it('returns 400 for empty body and 404 for missing resources', async () => {
     const { app, db } = createTestApp();
     const project = createProject(db, { name: 'Validate' });
+    const goalId = getOrCreateDefaultGoal(db, project.id).id;
     const doc = createDocument(db, { projectId: project.id, title: 'Doc' });
+    const task = createTask(db, { projectId: project.id, goalId, label: 'Task' });
+    const note = createNote(db, { projectId: project.id, title: 'Note' });
+    const missing = '00000000-0000-4000-8000-000000009999';
 
     const emptyRes = await app.request(`/api/v1/documents/${doc.id}/comments`, {
       method: 'POST',
@@ -110,36 +171,42 @@ describe('comments routes', () => {
     });
     expect(emptyRes.status).toBe(400);
 
-    const missingDocRes = await app.request(
-      '/api/v1/documents/00000000-0000-4000-8000-000000009999/comments',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: 'Hi' }),
-      },
-    );
+    const missingDocRes = await app.request(`/api/v1/documents/${missing}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'Hi' }),
+    });
     expect(missingDocRes.status).toBe(404);
 
-    const missingProjectRes = await app.request(
-      '/api/v1/projects/00000000-0000-4000-8000-000000009999/comments',
-    );
+    const missingTaskRes = await app.request(`/api/v1/tasks/${missing}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'Hi' }),
+    });
+    expect(missingTaskRes.status).toBe(404);
+
+    const missingNoteRes = await app.request(`/api/v1/notes/${missing}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'Hi' }),
+    });
+    expect(missingNoteRes.status).toBe(404);
+
+    const missingProjectRes = await app.request(`/api/v1/projects/${missing}/comments`);
     expect(missingProjectRes.status).toBe(404);
 
-    const missingPatchRes = await app.request(
-      '/api/v1/comments/00000000-0000-4000-8000-000000009999',
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resolved: true }),
-      },
-    );
+    const missingPatchRes = await app.request(`/api/v1/comments/${missing}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resolved: true }),
+    });
     expect(missingPatchRes.status).toBe(404);
 
-    const missingDeleteRes = await app.request(
-      '/api/v1/comments/00000000-0000-4000-8000-000000009999',
-      { method: 'DELETE' },
-    );
+    const missingDeleteRes = await app.request(`/api/v1/comments/${missing}`, { method: 'DELETE' });
     expect(missingDeleteRes.status).toBe(404);
+
+    expect(task.id).toBeTruthy();
+    expect(note.id).toBeTruthy();
   });
 
   it('deleting a document cascades comments', async () => {

@@ -1,6 +1,7 @@
 import {
   createTag,
   createTask,
+  deleteCommentsByTarget,
   deleteEdgesByTaskId,
   deleteTask as dbDeleteTask,
   deleteTaskTagsByTaskId,
@@ -240,6 +241,7 @@ export function createTaskService(deps: TaskServiceDeps) {
       const projectId = task.projectId;
 
       db.transaction((tx) => {
+        deleteCommentsByTarget(tx, 'task', id);
         deleteEdgesByTaskId(tx, id);
         nullDocumentsLinkedTask(tx, id);
         deleteTaskTagsByTaskId(tx, id);

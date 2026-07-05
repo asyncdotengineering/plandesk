@@ -1,5 +1,6 @@
 import {
   createNote as dbCreateNote,
+  deleteCommentsByTarget,
   deleteNote as dbDeleteNote,
   getNote as dbGetNote,
   getProject,
@@ -107,6 +108,8 @@ export function createNoteService(deps: NoteServiceDeps) {
       if (!deleted) {
         return false;
       }
+
+      deleteCommentsByTarget(db, 'note', id);
 
       eventBus.emit({ type: 'note_updated', noteId: id, projectId: existing.projectId });
       return true;
