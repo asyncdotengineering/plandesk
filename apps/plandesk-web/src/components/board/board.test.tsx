@@ -222,28 +222,29 @@ describe('Board', () => {
       expect(screen.getByLabelText('Task details')).toBeTruthy();
     });
     expect(screen.getByLabelText<HTMLInputElement>('Label').value).toBe('Plan sprint');
-    expect(screen.getByLabelText('Description')).toBeTruthy();
+    expect(screen.getByText('Description')).toBeTruthy();
 
     fireEvent.click(screen.getByLabelText('Close task details'));
     expect(screen.queryByLabelText('Task details')).toBeNull();
   });
 
-  it('saving the detail panel patches the task', async () => {
-    renderBoard([makeTask('t1', 'Plan sprint', 'scope')]);
+  it('patches the changed label but leaves an unedited description untouched', async () => {
+    renderBoard([{ ...makeTask('t1', 'Plan sprint', 'scope'), description: 'Details here' }]);
 
     fireEvent.click(screen.getByText('Plan sprint'));
     await waitFor(() => {
       expect(screen.getByLabelText('Task details')).toBeTruthy();
     });
+    // The rich editor hydrates the existing Markdown description asynchronously.
+    await waitFor(() => {
+      expect(screen.getByText('Details here')).toBeTruthy();
+    });
 
     fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Plan sprint v2' } });
-    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Details here' } });
     fireEvent.click(screen.getByText('Save details'));
 
     await waitFor(() => {
-      const patchCall = vi
-        .mocked(fetch)
-        .mock.calls.find(([, init]) => init?.method === 'PATCH');
+      const patchCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PATCH');
       expect(patchCall).toBeTruthy();
       const rawBody = patchCall?.[1]?.body;
       const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<
@@ -251,14 +252,14 @@ describe('Board', () => {
         unknown
       >;
       expect(body.label).toBe('Plan sprint v2');
-      expect(body.description).toBe('Details here');
+      // An unedited description must NOT be re-serialized through the lossy rich
+      // round-trip — it stays exactly as the agent authored it (Markdown).
+      expect(body).not.toHaveProperty('description');
     });
   });
 
   it('renders tag chips on task cards', async () => {
-    const tasks = [
-      makeTask('t1', 'Tagged card', 'todo', [makeTag('tag-a', 'backend', '#2563eb')]),
-    ];
+    const tasks = [makeTask('t1', 'Tagged card', 'todo', [makeTag('tag-a', 'backend', '#2563eb')])];
     const { container } = renderBoard(tasks);
 
     await waitFor(() => {
@@ -337,7 +338,10 @@ describe('Board', () => {
 
   it('removing a tag from the detail panel patches the remaining set', async () => {
     renderBoard([
-      makeTask('t1', 'Tagged card', 'todo', [makeTag('tag-a', 'backend'), makeTag('tag-b', 'urgent')]),
+      makeTask('t1', 'Tagged card', 'todo', [
+        makeTag('tag-a', 'backend'),
+        makeTag('tag-b', 'urgent'),
+      ]),
     ]);
 
     fireEvent.click(screen.getByText('Tagged card'));

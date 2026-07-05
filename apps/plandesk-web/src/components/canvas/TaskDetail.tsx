@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SerializedTag, TaskStatus } from '../../lib/api.js';
+import { RichTextEditor, type RichTextEditorHandle } from '../editor/RichTextEditor.js';
 import type { TaskNodeData } from './canvas-map.js';
 
 type TaskDetailProps = {
@@ -35,24 +36,34 @@ export function TaskDetail({
   onRemoveTag,
 }: TaskDetailProps) {
   const [label, setLabel] = useState(data.label);
-  const [description, setDescription] = useState(data.description ?? '');
   const [assignee, setAssignee] = useState(data.assignee ?? '');
   const [dueDate, setDueDate] = useState(data.dueDate !== null ? data.dueDate.slice(0, 10) : '');
   const [newTag, setNewTag] = useState('');
+  const editorRef = useRef<RichTextEditorHandle>(null);
 
   useEffect(() => {
     setLabel(data.label);
-    setDescription(data.description ?? '');
     setAssignee(data.assignee ?? '');
     setDueDate(data.dueDate !== null ? data.dueDate.slice(0, 10) : '');
     setNewTag('');
-  }, [taskId, data.label, data.description, data.assignee, data.dueDate]);
+  }, [taskId, data.label, data.assignee, data.dueDate]);
 
   const handleSave = () => {
     const trimmedLabel = label.trim();
+    const handle = editorRef.current;
+    // Only re-serialize the description when the user actually edited it. Task
+    // descriptions are Markdown the MCP reads/writes; the rich round-trip is
+    // intentionally lossy vs. raw Markdown, so an untouched description is left
+    // exactly as the agent authored it. When edited, serialize back to Markdown,
+    // never HTML.
+    let descriptionPatch: { description?: string | null } = {};
+    if (handle !== null && handle.isDirty()) {
+      const markdown = handle.getMarkdown().trim();
+      descriptionPatch = { description: markdown === '' ? null : markdown };
+    }
     onPatch({
       ...(trimmedLabel !== '' && trimmedLabel !== data.label ? { label: trimmedLabel } : {}),
-      description: description.trim() === '' ? null : description,
+      ...descriptionPatch,
       assignee: assignee.trim() === '' ? null : assignee.trim(),
       due_date: dueDate === '' ? null : `${dueDate}T00:00:00.000Z`,
     });
@@ -134,30 +145,18 @@ export function TaskDetail({
         }}
       />
 
-      <label
-        htmlFor={`task-desc-${taskId}`}
-        style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}
-      >
+      <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
         Description
-      </label>
-      <textarea
-        id={`task-desc-${taskId}`}
-        value={description}
-        onChange={(event) => {
-          setDescription(event.target.value);
-        }}
-        rows={3}
-        style={{
-          width: '100%',
-          marginBottom: '0.75rem',
-          padding: '0.5rem',
-          borderRadius: 6,
-          border: '1px solid #d1d5db',
-          fontSize: '0.875rem',
-          resize: 'vertical',
-          boxSizing: 'border-box',
-        }}
-      />
+      </div>
+      <div style={{ marginBottom: '0.75rem', fontSize: '0.875rem' }}>
+        <RichTextEditor
+          ref={editorRef}
+          value={data.description ?? ''}
+          mode="editor"
+          minHeight="5rem"
+          ariaLabel="Description"
+        />
+      </div>
 
       <label
         htmlFor={`task-assignee-${taskId}`}

@@ -4,3 +4,31 @@
   max-width: 100%;
   height: auto;
 }
+
+.document-editor-content table,
+.document-reader-content table,
+.portal-document-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75rem 0;
+  table-layout: fixed;
+}
+
+.document-editor-content th,
+.document-editor-content td,
+.document-reader-content th,
+.document-reader-content td,
+.portal-document-content th,
+.portal-document-content td {
+  border: 1px solid #d1d5db;
+  padding: 0.375rem 0.625rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.document-editor-content th,
+.document-reader-content th,
+.portal-document-content th {
+  background: #f3f4f6;
+  font-weight: 600;
+}

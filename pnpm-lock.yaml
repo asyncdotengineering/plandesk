@@ -69,6 +69,9 @@ importers:
       '@tiptap/extension-image':
         specifier: ^3.26.0
         version: 3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))
+      '@tiptap/extension-table':
+        specifier: ^3.26.0
+        version: 3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))(@tiptap/pm@3.26.0)
       '@tiptap/pm':
         specifier: ^3.26.0
         version: 3.26.0
@@ -93,6 +96,12 @@ importers:
       react-dom:
         specifier: ^19.2.7
         version: 19.2.7(react@19.2.7)
+      turndown:
+        specifier: ^7.2.4
+        version: 7.2.4
+      turndown-plugin-gfm:
+        specifier: ^1.0.2
+        version: 1.0.2
     devDependencies:
       '@tanstack/router-plugin':
         specifier: ^1.168.18
@@ -106,6 +115,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.2.3
         version: 19.2.3(@types/react@19.2.17)
+      '@types/turndown':
+        specifier: ^5.0.6
+        version: 5.0.6
       '@vitejs/plugin-react':
         specifier: ^6.0.2
         version: 6.0.2(vite@8.0.16(@types/node@25.9.2)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4))
@@ -1437,6 +1449,9 @@ packages:
   '@mdx-js/mdx@3.1.1':
     resolution: {integrity: sha512-f6ZO2ifpwAQIpzGWaBQT2TXxPv6z3RBzQKpVftEWN78Vl/YweF1uwussDx8ECAXVtr3Rs89fKyG9YlzUs9DyGQ==}
 
+  '@mixmark-io/domino@2.2.0':
+    resolution: {integrity: sha512-Y28PR25bHXUg88kCV7nivXrP2Nj2RueZ3/l/jdx6J9f8J4nsEGcgX0Qe6lt7Pa+J79+kPiJU3LguR6O/6zrLOw==}
+
   '@modelcontextprotocol/sdk@1.29.0':
     resolution: {integrity: sha512-zo37mZA9hJWpULgkRpowewez1y6ML5GsXJPY8FI0tBBCd77HEvza4jDqRKOXgHNn867PVGCyTdzqpz0izu5ZjQ==}
     engines: {node: '>=18'}
@@ -1982,6 +1997,12 @@ packages:
     peerDependencies:
       '@tiptap/core': 3.26.0
 
+  '@tiptap/extension-table@3.26.0':
+    resolution: {integrity: sha512-pLL1+tKeUWSF/w4se84tjWUnuraKVELQtIHwi1XKoq6vkevotwwMb99xY6cJ752FaUFVDbViFe/JUYWBoU+bIw==}
+    peerDependencies:
+      '@tiptap/core': 3.26.0
+      '@tiptap/pm': 3.26.0
+
   '@tiptap/extension-text@3.26.0':
     resolution: {integrity: sha512-yZXdevp3/8omGbb40Z52VfvID+tsRNhPQ1GNUToD56XSr2BjdJyAzAb9rWGgDKgVMUPLgJ26yT0O278RFqOKhA==}
     peerDependencies:
@@ -2132,6 +2153,9 @@ packages:
 
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
+
+  '@types/turndown@5.0.6':
+    resolution: {integrity: sha512-ru00MoyeeouE5BX4gRL+6m/BsDfbRayOskWqUvh7CLGW+UXxHQItqALa38kKnOiZPqJrtzJUgAC2+F0rL1S4Pg==}
 
   '@types/unist@2.0.11':
     resolution: {integrity: sha512-CmBKiL6NNo/OqgmMn95Fk9Whlp2mtvIv+KNpQKN2F4SjvrEesubTRWGYSg+BnWZOnlCaSTU1sMpsBOzgbYhnsA==}
@@ -4456,6 +4480,13 @@ packages:
     resolution: {integrity: sha512-NqgRQy6j6dPYcdSdv0q1g9QsZg7SWg87RERM8otw/1AtKU2yTFVClOM7cbwKzOonZr/Ek1blTBucw64L9H0Bwg==}
     hasBin: true
 
+  turndown-plugin-gfm@1.0.2:
+    resolution: {integrity: sha512-vwz9tfvF7XN/jE0dGoBei3FXWuvll78ohzCZQuOb+ZjWrs3a0XhQVomJEb2Qh4VHTPNRO4GPZh0V7VRbiWwkRg==}
+
+  turndown@7.2.4:
+    resolution: {integrity: sha512-I8yFsfRzmzK0WV1pNNOA4A7y4RDfFxPRxb3t+e3ui14qSGOxGtiSP6GjeX+Y6CHb7HYaFj7ECUD7VE5kQMZWGQ==}
+    engines: {node: '>=18', npm: '>=9'}
+
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
@@ -5853,6 +5884,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@mixmark-io/domino@2.2.0': {}
+
   '@modelcontextprotocol/sdk@1.29.0(zod@3.25.76)':
     dependencies:
       '@hono/node-server': 1.19.14(hono@4.12.23)
@@ -6310,6 +6343,11 @@ snapshots:
     dependencies:
       '@tiptap/core': 3.26.0(@tiptap/pm@3.26.0)
 
+  '@tiptap/extension-table@3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))(@tiptap/pm@3.26.0)':
+    dependencies:
+      '@tiptap/core': 3.26.0(@tiptap/pm@3.26.0)
+      '@tiptap/pm': 3.26.0
+
   '@tiptap/extension-text@3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))':
     dependencies:
       '@tiptap/core': 3.26.0(@tiptap/pm@3.26.0)
@@ -6498,6 +6536,8 @@ snapshots:
 
   '@types/trusted-types@2.0.7':
     optional: true
+
+  '@types/turndown@5.0.6': {}
 
   '@types/unist@2.0.11': {}
 
@@ -9535,6 +9575,12 @@ snapshots:
       '@turbo/linux-arm64': 2.9.16
       '@turbo/windows-64': 2.9.16
       '@turbo/windows-arm64': 2.9.16
+
+  turndown-plugin-gfm@1.0.2: {}
+
+  turndown@7.2.4:
+    dependencies:
+      '@mixmark-io/domino': 2.2.0
 
   type-check@0.4.0:
     dependencies:
