@@ -41,6 +41,14 @@ Checks the workspace DB, the binding, the token, and that the MCP server lists i
 
 ## Version notes
 
+### 0.11.x
+
+Latest: `@plandesk/cli@0.11.0` (depends on `@plandesk/api@0.10.0`, `@plandesk/db@0.8.0`, `@plandesk/mcp@0.10.0`). Upgrade with `npm i -g @plandesk/cli@latest`; restart `plandesk serve` — schema migrations run automatically on load (no manual migrate step). Back up `<data-dir>/workspace.db` before upgrading if you want a rollback point.
+
+- **Goals** — a new **Goals** tab per project holds goal-altitude nodes. Every task now belongs to a Goal (`tasks.goal_id`, NOT NULL); new projects get a default **General** goal. Agents gain `create_goal`, `get_goal`, `list_goals`, `pause_goal`, `resume_goal`, and `complete_goal`. `get_next_task` walks the active Goal's frontier (optional `goal_id`; new reasons `no_active_goal`, `multiple_active_goals`). `create_task` accepts an optional `goal_id`.
+- **Generalized comments** — comments are polymorphic (`target_type` + `target_id` on documents, tasks, notes, and submissions). `add_comment` now takes `{ target_type, target_id, body, passage? }`; `list_comments` takes `{ project_id, target_type?, target_id?, include_resolved? }`. The old document-only `document_comments` table is replaced by a single `comments` table. Migrations apply automatically on server start.
+- **MCP tool count** — the server now lists **38 tools**. Re-run `plandesk connect` and start a new agent session so the tools and skill reload.
+
 ### 0.6.x
 
 - **Project notes** — a new per-project **Notes** tab holds free-form, rich-text working notes, separate from documents (notes are flat, not linked to tasks, and not part of the client share). The `notes` table is added by migration `0005` and applies automatically when the upgraded server starts — your data is untouched and no manual step is needed.
@@ -50,7 +58,7 @@ Checks the workspace DB, the binding, the token, and that the MCP server lists i
 
 - **Zero-setup token** — `.mcp.json` no longer uses a static `Authorization: Bearer ${PLANDESK_MCP_TOKEN}` header (which warned when the env var was unset). The regenerated entry reads `.plandesk/token` automatically via a `headersHelper`; you can stop exporting `PLANDESK_MCP_TOKEN` (it still works as an override). **Re-running `connect` is required** to migrate the old entry.
 - **Skill discovery** — `connect` now also installs the skill at `.claude/skills/plandesk/` and `.agents/skills/plandesk/` (symlinks to `.plandesk/skill.md`) and a `/plandesk` command at `.claude/commands/plandesk.md`. Commit these alongside the rest.
-- **Markdown documents** — agents can write document bodies as Markdown; the MCP server converts them to rich text. Documents written as Markdown *before* 0.5.0 render correctly in the updated web UI without changes.
+- **Markdown documents** — agents can write document bodies as Markdown; the MCP server converts them to rich text. Documents written as Markdown _before_ 0.5.0 render correctly in the updated web UI without changes.
 - **Skill conventions** — the regenerated `.plandesk/skill.md` adds the "Keeping the board true" rules (atomic status updates, board↔reality reconciliation). If you customized your skill file, re-apply your edits after `connect` rewrites it.
 
 ## Pinned or npx installs

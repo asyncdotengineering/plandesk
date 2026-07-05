@@ -1,24 +1,19 @@
 # Set up Plan Desk for this project
 
-You are a coding agent (Claude Code, Codex, or similar) running inside a user's
-project folder. Your job: set up **Plan Desk** for _this_ project so the user can
-plan work on a graph and have an agent execute it over MCP — then hand off to a
-fresh session where the Plan Desk tools are live.
+You are a coding agent (Claude Code, Codex, or similar) in a user's project
+folder. Set up **Plan Desk** so the user can plan on a graph and have an agent
+execute it over MCP. Plan Desk is local-first: a task-node canvas with dependency
+edges, specs on nodes, a board, and an MCP server agents drive via `.mcp.json`.
+Data lives in a local SQLite file. Docs: https://plandesk.asyncdot.com (or
+`plandesk help` once installed).
 
-Plan Desk is a local-first planning workspace: a flow canvas of task nodes with
-labeled dependency edges, specs attached to nodes, a board, and an MCP server (32
-tools) agents use to read and update the plan. Data lives in a local SQLite file.
-Docs: https://plandesk.asyncdot.com — or, once the CLI is installed (step 2), run
-`plandesk help` for a crash course and the exact docs to read.
+**Two-phase setup — read all of it before running anything.**
 
-**This is a two-phase setup. Read all of it before running anything.**
-
-- **Phase A (this session):** install the CLI, start the local server, create or
-  select a project, and bind this repo. You do this with the shell — the Plan Desk
-  MCP tools are _not_ loaded in this session yet.
-- **Phase B (a new session):** once bound, the user starts a fresh agent session;
-  the Plan Desk MCP tools load from the repo's `.mcp.json`, and the agent plans and
-  builds from the live graph.
+- **Phase A (this session):** install the CLI, start the server, create/select a
+  project, bind this repo. Done from the shell — the Plan Desk MCP tools are _not_
+  loaded yet this session.
+- **Phase B (a new session):** the user starts a fresh session; the MCP tools load
+  from `.mcp.json`, and the agent plans and builds from the live graph.
 
 ## Rules (do not violate)
 
@@ -122,20 +117,30 @@ appears in `.gitignore`.
 ## 5. Scaffold the factory workspace
 
 ```bash
-# Writes .agents/ — the repo's agent operating policy: factory.md (how delegated
-# work cycles run against the plan), protocol.md (deterministic worker dispatch),
-# workers/ (one file per agent CLI with an availability probe), lanes.md (risk
-# gates), verifiers/ — plus a /factory command adapter. Authored files are
-# created once and never overwritten; re-running only refreshes the adapters.
+# Writes the repo's agent operating policy under .agents/ and wires the Claude
+# Code hooks. Authored files are created once and never overwritten; re-running
+# only refreshes the generated adapters (idempotent).
 plandesk factory init
 ```
 
-This makes the repo's agent policy portable: it travels with `git clone`, works
-with whichever agent CLIs each machine has (workers are probed, never assumed),
-and keeps every gate visible on the board. Skip only if the user says they just
-want planning with no agent execution. Note: both `connect` and `factory init`
-refuse to run in global config directories (`~/.claude`, `~/.codex`, ...) — agent
-config belongs to the project, not the machine.
+What this writes:
+
+- **Factory policy** (`.agents/factory/`): factory.md, workflow.md,
+  autonomous-stand.md (the execution posture — always-on in CLAUDE.md),
+  protocol.md, lanes.md, verifiers/, workers/ (one file per agent CLI, probed).
+- **Curator skills** (`.agents/curator/` → `.claude/skills/`): triage, intake,
+  autonomy, provenance, automation.
+- **Claude Code hooks**: `.agents/curator/hooks/session-start.sh` + `checkpoint.sh`,
+  wired into `.claude/settings.json` on `SessionStart` (startup|resume|compact),
+  `Stop`, `PreCompact`. **This is how Claude Code discovers the hooks** — the
+  session-start hook re-anchors the agent to the board; the checkpoint hook
+  records progress before stop/compact. Both no-op safely until `connect` binds.
+
+The policy travels with `git clone`, works with whichever agent CLIs each machine
+has (workers are probed, never assumed), and keeps every gate on the board. Skip
+only if the user wants planning with no agent execution. Both `connect` and
+`factory init` refuse to run in global config dirs (`~/.claude`, `~/.codex`, …) —
+agent config belongs to the project, not the machine.
 
 ## 6. Verify the setup
 
@@ -150,8 +155,9 @@ Confirm all of:
 - [ ] `.plandesk/config.json` exists and has a `projectId`
 - [ ] `.mcp.json` has a `plandesk` server entry with a `headersHelper` reading `.plandesk/token`
 - [ ] `CLAUDE.md` (and `AGENTS.md` if present) contains the `@.plandesk/skill.md` include
-- [ ] `.plandesk/token` is gitignored and **not** staged for commit
+- [ ] the board travels with the repo: `.plandesk/workspace.db` is **tracked** (committed), so the plan/graph is shared across clones. Per-machine state stays ignored: `.plandesk/token` (bearer minted per-clone by `connect`) and `.plandesk/server.json` (this machine's server URL/port) must remain gitignored and unstaged. Everything else under `.agents/`, `.claude/`, `.mcp.json`, `.plandesk/config.json`, `.plandesk/skill.md` is committed policy.
 - [ ] `.agents/factory/factory.md` exists (factory scaffold; unless the user opted out)
+- [ ] `.claude/settings.json` wires `SessionStart`/`Stop`/`PreCompact` to `.agents/curator/hooks/*` (hooks registered — unless the user opted out of the factory)
 
 ## 7. Hand off to a planning session
 

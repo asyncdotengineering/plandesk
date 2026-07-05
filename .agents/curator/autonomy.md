@@ -27,12 +27,14 @@ outside the project.
 
 ## The one rule everything else follows
 
-**The board is the spine, not the harness's ephemeral task list, and not
-your own memory of the plan.** Every "what's next" question is answered by
-calling `get_next_task` against the bound project — never by recalling what
-you decided three turns ago. This is what makes a long run survive
-compaction (see the F1 board-as-memory hooks: they re-inject exactly this
-state at the forget-moments).
+**The board is the durable spine for what's next — not your own memory of
+the plan, and not the harness's ephemeral task list.** (Harness tasks are
+fine as a per-session scratchpad for the moves within one item; they just
+don't survive compaction and don't decide what's next.) Every "what's next"
+question is answered by calling `get_next_task` against the bound project —
+never by recalling what you decided three turns ago. This is what makes a
+long run survive compaction (see the F1 board-as-memory hooks: they re-inject
+exactly this state at the forget-moments).
 
 ## The loop
 

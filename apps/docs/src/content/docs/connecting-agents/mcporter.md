@@ -48,7 +48,7 @@ For a Docker or remote sync host, use the reachable origin (e.g. `http://your-ho
 
 ```bash
 npx mcporter list                  # lists configured servers — you should see "plandesk"
-npx mcporter list plandesk         # prints TypeScript-style signatures for all 27 tools
+npx mcporter list plandesk         # prints TypeScript-style signatures for all 38 tools
 npx mcporter list plandesk --brief # compact one-line-per-tool view
 ```
 
@@ -69,7 +69,7 @@ npx mcporter call plandesk.get_next_task project_id:<project-id>
 npx mcporter call plandesk.update_task task_id:<task-id> status:done
 
 # Parenthesized form (handy for values with spaces)
-npx mcporter call 'plandesk.add_comment(document_id: "<doc-id>", body: "ship behind a flag")'
+npx mcporter call 'plandesk.add_comment(target_type: "document", target_id: "<doc-id>", body: "ship behind a flag")'
 ```
 
 Because these go through the same MCP service as an agent, every call streams to the live UI — a `update_task` here moves the card on the board with no refresh, same as if Claude did it.
@@ -93,5 +93,5 @@ npx mcporter emit-ts plandesk --mode client --out src/plandesk-client.ts
 ## See also
 
 - [MCP Setup](/connecting-agents/mcp-setup/) — connect Claude Code / Codex (full agent sessions)
-- [REST + MCP API](/reference/api/) — all 27 tools and their purposes
+- [REST + MCP API](/reference/api/) — all 38 tools and their purposes
 - [The Skill](/connecting-agents/skill/) — the conventions agents follow

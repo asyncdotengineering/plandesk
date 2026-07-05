@@ -10,7 +10,7 @@ apps/plandesk-web/          React SPA (canvas, docs, board, settings)
 apps/docs/                  Astro Starlight documentation site
 packages/plandesk-api/      Hono REST + SSE
 packages/plandesk-db/       SQLite schema + Drizzle migrations
-packages/plandesk-mcp/      MCP server (Streamable HTTP, 10 tools)
+packages/plandesk-mcp/      MCP server (Streamable HTTP, 38 tools)
 packages/plandesk-cli/      plandesk binary (init, serve, connect, …)
 packages/plandesk-mcp-client/  Factory Desk / programmatic MCP consumer
 ```
@@ -24,7 +24,7 @@ Core packages ship under the `@plandesk/*` scope on npm (currently `0.1.1`):
 | `@plandesk/cli`        | `plandesk` binary; bundles the web UI for `serve` |
 | `@plandesk/api`        | Hono REST + SSE server                            |
 | `@plandesk/db`         | SQLite schema + migrations                        |
-| `@plandesk/mcp`        | MCP server (10 tools)                             |
+| `@plandesk/mcp`        | MCP server (38 tools)                             |
 | `@plandesk/mcp-client` | Programmatic MCP consumer                         |
 
 Install with `npm i -g @plandesk/cli` to run Plan Desk without cloning the repo.
@@ -44,9 +44,12 @@ The UI subscribes to `GET /api/v1/events` for task, canvas, and agent-run change
 SQLite workspace at `.plandesk/workspace.db` (project-local; `plandesk serve` walks up from cwd to find it, falls back to `~/.plandesk/workspace.db`):
 
 - `projects` — project metadata
-- `tasks` — canvas nodes + board status (`scope` | `todo` | `in_progress` | `done` | `backlog`)
+- `goals` — goal-altitude nodes (`objective`, `verification_surface`, contract fields, `status`, `last_verification`)
+- `tasks` — canvas nodes + board status (`scope` | `todo` | `in_progress` | `done` | `backlog`); every task has a required `goal_id`
 - `edges` — labeled directed dependencies between tasks
 - `documents` — markdown bodies with optional `linked_task_id`
+- `notes` — free-form project working notes
+- `comments` — polymorphic comments keyed by `target_type` (`document` | `task` | `note` | `submission`) + `target_id`
 - `agent_runs` / `agent_run_events` — external agent session tracking
 - `mcp_tokens` — hashed bearer tokens (raw shown once at creation)
 

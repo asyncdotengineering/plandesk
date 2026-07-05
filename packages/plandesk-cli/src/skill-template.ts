@@ -95,6 +95,8 @@ Edge direction drives sequencing: \`from → to\` with most labels (\`blocks\`,
 \`feeds\`, \`enables\`, …) means \`from\` finishes before \`to\`; \`depends_on\` reverses
 it (\`from depends_on to\` ⇒ \`to\` first). Add edges so dependencies sequence right.
 
+**Track the moves within a task with the harness task tools** — when a task needs more than one verifiable step, decompose it with \`TaskCreate\` / \`TaskList\` / \`TaskUpdate\`: one sub-task per move, \`in_progress\` when you start it, \`completed\` the moment its done-condition holds. The board decides what is next (durable, survives compaction via the F1 hooks); harness tasks are per-session scratchpad for the moves inside the current item — re-derive from the board after a compaction, never trust the harness list as the source of truth.
+
 ## Keeping the board true
 
 The board is only useful when it matches reality. Two standing rules:
