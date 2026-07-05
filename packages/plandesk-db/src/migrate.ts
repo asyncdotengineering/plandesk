@@ -12,7 +12,6 @@ type MigrationJournal = {
 
 const DOWN_SQL: Record<string, string[]> = {
   '0008_damp_moonstone': [
-    'PRAGMA foreign_keys=OFF;',
     `CREATE TABLE \`__old_tasks\` (
 	\`id\` text PRIMARY KEY NOT NULL,
 	\`project_id\` text NOT NULL,
@@ -30,7 +29,6 @@ const DOWN_SQL: Record<string, string[]> = {
     'INSERT INTO `__old_tasks` (`id`, `project_id`, `label`, `status`, `description`, `x`, `y`, `assignee`, `due_date`, `created_at`, `updated_at`) SELECT `id`, `project_id`, `label`, `status`, `description`, `x`, `y`, `assignee`, `due_date`, `created_at`, `updated_at` FROM `tasks`;',
     'DROP TABLE `tasks`;',
     'ALTER TABLE `__old_tasks` RENAME TO `tasks`;',
-    'PRAGMA foreign_keys=ON;',
     'DROP TABLE IF EXISTS `goals`;',
   ],
   '0006_thin_lila_cheney': [
@@ -70,8 +68,30 @@ function appliedMigrationCount(db: Db): number {
   return row.count;
 }
 
+// Table-rebuild migrations (add a NOT NULL column to a referenced table via
+// the create-copy-drop-rename dance) must run with foreign_keys OFF: DROP TABLE
+// does an implicit row-delete that trips deferred FK counters even when the
+// final state is consistent. `foreign_keys` cannot be toggled inside a
+// transaction, and drizzle's migrator wraps each migration in one — so we must
+// disable it at the connection level around the whole migrate call, then
+// re-verify integrity with foreign_key_check.
+function withForeignKeysDisabled(db: Db, fn: () => void): void {
+  db.$client.pragma('foreign_keys = OFF');
+  try {
+    fn();
+  } finally {
+    db.$client.pragma('foreign_keys = ON');
+  }
+  const violations = db.$client.pragma('foreign_key_check') as unknown[];
+  if (violations.length > 0) {
+    throw new Error(`Migration left ${violations.length} foreign key violation(s): ${JSON.stringify(violations)}`);
+  }
+}
+
 export function migrate(db: Db): void {
-  drizzleMigrate(db, { migrationsFolder });
+  withForeignKeysDisabled(db, () => {
+    drizzleMigrate(db, { migrationsFolder });
+  });
 }
 
 export function migrateDown(db: Db, steps = 1): void {
@@ -91,6 +111,12 @@ export function migrateDown(db: Db, steps = 1): void {
     .map((entry) => entry.tag)
     .reverse();
 
+  withForeignKeysDisabled(db, () => {
+    runDownStatements(db, tags);
+  });
+}
+
+function runDownStatements(db: Db, tags: string[]): void {
   for (const tag of tags) {
     const statements = DOWN_SQL[tag];
     if (statements === undefined) {

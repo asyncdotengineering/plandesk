@@ -20,8 +20,6 @@ INSERT INTO `goals` (`id`, `project_id`, `objective`, `status`, `created_at`, `u
          (cast((julianday('now') - 2440587.5)*86400000 as integer))
   FROM `projects`;
 --> statement-breakpoint
-PRAGMA foreign_keys=OFF;
---> statement-breakpoint
 CREATE TABLE `__new_tasks` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text NOT NULL,
@@ -48,5 +46,3 @@ INSERT INTO `__new_tasks` (`id`, `project_id`, `goal_id`, `label`, `status`, `de
 DROP TABLE `tasks`;
 --> statement-breakpoint
 ALTER TABLE `__new_tasks` RENAME TO `tasks`;
---> statement-breakpoint
-PRAGMA foreign_keys=ON;

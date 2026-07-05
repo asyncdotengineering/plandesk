@@ -202,4 +202,55 @@ describe('migrate', () => {
       .get([...goalIds][0]) as { objective: string };
     expect(goal.objective).toBe('General');
   });
+
+  // The 0008 tasks-rebuild drops and recreates `tasks`, which has INCOMING FK
+  // references from edges, documents.linked_task_id, and
+  // share_submissions.linked_task_id. The live board has a dense edge graph, so
+  // the rebuild must survive references (this fails without foreign_keys OFF at
+  // the connection level — deferred FK counters trip on the implicit delete).
+  it('regression: 0008 rebuild survives tasks referenced by edges, docs, submissions', () => {
+    const db = createDb(':memory:');
+    migrate(db);
+    migrateDown(db, 1); // back to 0007 (pre-goals)
+
+    const project = createProject(db, { name: 'FK project' });
+    const now = Date.now();
+    const t1 = insertLegacyTask(db, project.id, 'Task 1');
+    const t2 = insertLegacyTask(db, project.id, 'Task 2');
+    db.$client
+      .prepare(
+        `INSERT INTO edges (id, project_id, from_task_id, to_task_id, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(randomUUID(), project.id, t1, t2, now);
+    db.$client
+      .prepare(
+        `INSERT INTO documents (id, project_id, title, linked_task_id, created_at, updated_at)
+         VALUES (?, ?, 'Doc', ?, ?, ?)`,
+      )
+      .run(randomUUID(), project.id, t1, now, now);
+    db.$client
+      .prepare(
+        `INSERT INTO share_submissions
+           (id, project_id, hosted_share_id, participant_name, title, status, linked_task_id, created_at, pulled_at)
+         VALUES (?, ?, 'hs', 'p', 'sub', 'accepted', ?, ?, ?)`,
+      )
+      .run(randomUUID(), project.id, t2, now, now);
+
+    // up (rebuild), down, and up again must all succeed with references present.
+    expect(() => migrate(db)).not.toThrow();
+    expect(() => migrateDown(db, 1)).not.toThrow();
+    expect(() => migrate(db)).not.toThrow();
+
+    const edge = db.$client
+      .prepare('SELECT from_task_id, to_task_id FROM edges')
+      .get() as { from_task_id: string; to_task_id: string };
+    expect(edge.from_task_id).toBe(t1);
+    expect(edge.to_task_id).toBe(t2);
+    const tasks = db.$client
+      .prepare('SELECT goal_id FROM tasks')
+      .all() as Array<{ goal_id: string }>;
+    expect(tasks).toHaveLength(2);
+    expect(tasks.every((t) => typeof t.goal_id === 'string' && t.goal_id.length > 0)).toBe(true);
+  });
 });
