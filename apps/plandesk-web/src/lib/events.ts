@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import type { CommentTargetType } from './api.js';
 import { queryKeys } from './queries.js';
 
 type TaskUpdatedEvent = {
@@ -27,16 +28,32 @@ type DocumentCreatedEvent = {
 type CommentCreatedEvent = {
   type: 'comment_created';
   commentId: string;
-  documentId: string;
   projectId: string;
+  documentId?: string;
+  target_type?: CommentTargetType;
+  target_id?: string;
 };
 
 type CommentUpdatedEvent = {
   type: 'comment_updated';
   commentId: string;
-  documentId: string;
   projectId: string;
+  documentId?: string;
+  target_type?: CommentTargetType;
+  target_id?: string;
 };
+
+function commentTargetFromEvent(
+  event: CommentCreatedEvent | CommentUpdatedEvent,
+): { type: CommentTargetType; id: string } | null {
+  if (event.target_type !== undefined && event.target_id !== undefined) {
+    return { type: event.target_type, id: event.target_id };
+  }
+  if (event.documentId !== undefined) {
+    return { type: 'document', id: event.documentId };
+  }
+  return null;
+}
 
 type FolderCreatedEvent = {
   type: 'folder_created';
@@ -167,11 +184,15 @@ export function useSseInvalidation() {
           void queryClient.invalidateQueries({ queryKey: queryKeys.document(event.documentId) });
           break;
         case 'comment_created':
-        case 'comment_updated':
-          void queryClient.invalidateQueries({
-            queryKey: queryKeys.documentComments(event.documentId),
-          });
+        case 'comment_updated': {
+          const target = commentTargetFromEvent(event);
+          if (target !== null) {
+            void queryClient.invalidateQueries({
+              queryKey: queryKeys.comments(target.type, target.id),
+            });
+          }
           break;
+        }
         case 'folder_created':
         case 'folder_updated':
           void queryClient.invalidateQueries({ queryKey: queryKeys.folders(event.projectId) });

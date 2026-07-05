@@ -28,7 +28,7 @@ function renderPanel() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <CommentsPanel documentId="doc-1" projectId="proj-1" />
+      <CommentsPanel target={{ type: 'document', id: 'doc-1' }} />
     </QueryClientProvider>,
   );
 }
@@ -140,8 +140,7 @@ describe('CommentsPanel', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <CommentsPanel
-          documentId="doc-1"
-          projectId="proj-1"
+          target={{ type: 'document', id: 'doc-1' }}
           attachPassage="Phase C in scope"
           onPassageConsumed={onPassageConsumed}
         />

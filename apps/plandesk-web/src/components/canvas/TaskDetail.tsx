@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SerializedTag, TaskStatus } from '../../lib/api.js';
+import { CommentsPanel } from '../docs/CommentsPanel.js';
 import { RichTextEditor, type RichTextEditorHandle } from '../editor/RichTextEditor.js';
 import type { TaskNodeData } from './canvas-map.js';
 
@@ -39,6 +40,7 @@ export function TaskDetail({
   const [assignee, setAssignee] = useState(data.assignee ?? '');
   const [dueDate, setDueDate] = useState(data.dueDate !== null ? data.dueDate.slice(0, 10) : '');
   const [newTag, setNewTag] = useState('');
+  const [pendingPassage, setPendingPassage] = useState<string | null>(null);
   const editorRef = useRef<RichTextEditorHandle>(null);
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export function TaskDetail({
     setAssignee(data.assignee ?? '');
     setDueDate(data.dueDate !== null ? data.dueDate.slice(0, 10) : '');
     setNewTag('');
+    setPendingPassage(null);
   }, [taskId, data.label, data.assignee, data.dueDate]);
 
   const handleSave = () => {
@@ -83,7 +86,9 @@ export function TaskDetail({
         top: 8,
         right: 8,
         zIndex: 10,
-        width: 280,
+        width: 320,
+        maxHeight: 'calc(100vh - 2rem)',
+        overflowY: 'auto',
         background: '#fff',
         border: '1px solid #e5e7eb',
         borderRadius: 8,
@@ -155,6 +160,9 @@ export function TaskDetail({
           mode="editor"
           minHeight="5rem"
           ariaLabel="Description"
+          onCommentOnSelection={(passage) => {
+            setPendingPassage(passage);
+          }}
         />
       </div>
 
@@ -373,6 +381,15 @@ export function TaskDetail({
           Delete
         </button>
       </div>
+
+      <CommentsPanel
+        target={{ type: 'task', id: taskId }}
+        attachPassage={pendingPassage}
+        onPassageConsumed={() => {
+          setPendingPassage(null);
+        }}
+        embedded
+      />
     </aside>
   );
 }

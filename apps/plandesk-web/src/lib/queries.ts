@@ -25,7 +25,7 @@ import {
   getProject,
   getTaskDocument,
   listAgentRuns,
-  listDocumentComments,
+  listComments,
   listDocuments,
   listFolders,
   listGoals,
@@ -48,6 +48,8 @@ import {
   resumeGoal,
   revokeMcpToken,
   triageSubmission,
+  type CommentTarget,
+  type CommentTargetType,
   type CreateCommentInput,
   type CreateGoalInput,
   type CreateDocumentInput,
@@ -84,7 +86,8 @@ export const queryKeys = {
   folders: (projectId: string) => ['projects', projectId, 'folders'] as const,
   notes: (projectId: string) => ['projects', projectId, 'notes'] as const,
   note: (id: string) => ['notes', id] as const,
-  documentComments: (documentId: string) => ['documents', documentId, 'comments'] as const,
+  comments: (targetType: CommentTargetType, targetId: string) =>
+    [`${targetType}s`, targetId, 'comments'] as const,
   taskDocument: (taskId: string) => ['tasks', taskId, 'document'] as const,
   mcpTokens: ['mcp-tokens'] as const,
   agentRuns: (projectId: string) => ['projects', projectId, 'agent-runs'] as const,
@@ -385,40 +388,40 @@ export function useDeleteNote() {
   });
 }
 
-export function useDocumentComments(documentId: string) {
+export function useComments(target: CommentTarget) {
   return useQuery({
-    queryKey: queryKeys.documentComments(documentId),
-    queryFn: () => listDocumentComments(documentId, { includeResolved: true }),
+    queryKey: queryKeys.comments(target.type, target.id),
+    queryFn: () => listComments(target, { includeResolved: true }),
   });
 }
 
-export function useCreateComment(documentId: string) {
+export function useCreateComment(target: CommentTarget) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateCommentInput) => createComment(documentId, input),
+    mutationFn: (input: CreateCommentInput) => createComment(target, input),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.documentComments(documentId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.comments(target.type, target.id) });
     },
   });
 }
 
-export function usePatchComment(documentId: string) {
+export function usePatchComment(target: CommentTarget) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: PatchCommentInput }) =>
       patchComment(id, input),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.documentComments(documentId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.comments(target.type, target.id) });
     },
   });
 }
 
-export function useDeleteComment(documentId: string) {
+export function useDeleteComment(target: CommentTarget) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteComment(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.documentComments(documentId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.comments(target.type, target.id) });
     },
   });
 }

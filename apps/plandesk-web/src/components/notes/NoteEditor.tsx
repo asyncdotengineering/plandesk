@@ -11,6 +11,7 @@ type NoteEditorProps = {
   onDelete?: () => void;
   isSaving?: boolean;
   isDeleting?: boolean;
+  onCommentOnSelection?: (passage: string) => void;
 };
 
 export function NoteEditor({
@@ -20,6 +21,7 @@ export function NoteEditor({
   onDelete,
   isSaving = false,
   isDeleting = false,
+  onCommentOnSelection,
 }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
   const editorRef = useRef<RichTextEditorHandle>(null);
@@ -100,7 +102,12 @@ export function NoteEditor({
         ) : null}
       </div>
 
-      <RichTextEditor ref={editorRef} value={note.body ?? ''} mode={mode} />
+      <RichTextEditor
+        ref={editorRef}
+        value={note.body ?? ''}
+        mode={mode}
+        onCommentOnSelection={onCommentOnSelection}
+      />
     </div>
   );
 }

@@ -1,20 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import type { SerializedComment } from '../../lib/api.js';
+import type { CommentTarget, SerializedComment } from '../../lib/api.js';
 import {
+  useComments,
   useCreateComment,
   useDeleteComment,
-  useDocumentComments,
   usePatchComment,
 } from '../../lib/queries.js';
 
 type CommentsPanelProps = {
-  documentId: string;
-  projectId: string;
-  // A passage handed in from the document's on-selection "Add comment" affordance:
+  target: CommentTarget;
+  // A passage handed in from the on-selection "Add comment" affordance:
   // when set, it pre-attaches to the composer and focuses it. The parent clears it
   // via onPassageConsumed so the same text can be selected again.
   attachPassage?: string | null;
   onPassageConsumed?: () => void;
+  embedded?: boolean;
 };
 
 function formatDate(iso: string): string {
@@ -113,21 +113,22 @@ function CommentItem({
 }
 
 export function CommentsPanel({
-  documentId,
+  target,
   attachPassage = null,
   onPassageConsumed,
+  embedded = false,
 }: CommentsPanelProps) {
-  const { data: comments, isLoading, error } = useDocumentComments(documentId);
-  const createComment = useCreateComment(documentId);
-  const patchComment = usePatchComment(documentId);
-  const deleteComment = useDeleteComment(documentId);
+  const { data: comments, isLoading, error } = useComments(target);
+  const createComment = useCreateComment(target);
+  const patchComment = usePatchComment(target);
+  const deleteComment = useDeleteComment(target);
 
   const [body, setBody] = useState('');
   const [attachedPassage, setAttachedPassage] = useState<string | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
-  // When the document's on-selection affordance hands in a passage, pre-attach it to
-  // the composer and focus it, then let the parent clear the hand-off.
+  // When the on-selection affordance hands in a passage, pre-attach it to the
+  // composer and focus it, then let the parent clear the hand-off.
   useEffect(() => {
     if (attachPassage === null) {
       return;
@@ -191,10 +192,13 @@ export function CommentsPanel({
   return (
     <aside
       style={{
-        width: 320,
+        width: embedded ? '100%' : 320,
         flexShrink: 0,
-        borderLeft: '1px solid #e5e7eb',
-        paddingLeft: '1rem',
+        borderLeft: embedded ? undefined : '1px solid #e5e7eb',
+        borderTop: embedded ? '1px solid #e5e7eb' : undefined,
+        paddingLeft: embedded ? 0 : '1rem',
+        paddingTop: embedded ? '1rem' : 0,
+        marginTop: embedded ? '1rem' : 0,
         display: 'flex',
         flexDirection: 'column',
         gap: '1rem',

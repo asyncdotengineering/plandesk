@@ -68,7 +68,7 @@ describe('useSseInvalidation comment events', () => {
     vi.unstubAllGlobals();
   });
 
-  it('invalidates documentComments query on comment_created', () => {
+  it('invalidates comments query on comment_created with documentId', () => {
     const queryClient = new QueryClient();
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
 
@@ -91,11 +91,39 @@ describe('useSseInvalidation comment events', () => {
     });
 
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: queryKeys.documentComments('doc-1'),
+      queryKey: queryKeys.comments('document', 'doc-1'),
     });
   });
 
-  it('invalidates documentComments query on comment_updated', () => {
+  it('invalidates comments query on comment_created with target_type', () => {
+    const queryClient = new QueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    function wrapper({ children }: { children: ReactNode }) {
+      return createElement(QueryClientProvider, { client: queryClient }, children);
+    }
+
+    renderHook(
+      () => {
+        useSseInvalidation();
+      },
+      { wrapper },
+    );
+
+    dispatchSse({
+      type: 'comment_created',
+      commentId: 'cmt-1',
+      target_type: 'task',
+      target_id: 'task-1',
+      projectId: 'proj-1',
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: queryKeys.comments('task', 'task-1'),
+    });
+  });
+
+  it('invalidates comments query on comment_updated', () => {
     const queryClient = new QueryClient();
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
 
@@ -118,7 +146,7 @@ describe('useSseInvalidation comment events', () => {
     });
 
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: queryKeys.documentComments('doc-1'),
+      queryKey: queryKeys.comments('document', 'doc-1'),
     });
   });
 });

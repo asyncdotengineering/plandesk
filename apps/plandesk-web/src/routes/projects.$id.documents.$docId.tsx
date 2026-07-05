@@ -112,8 +112,7 @@ function DocumentPage() {
           />
         </div>
         <CommentsPanel
-          documentId={docId}
-          projectId={id}
+          target={{ type: 'document', id: docId }}
           attachPassage={pendingPassage}
           onPassageConsumed={() => {
             setPendingPassage(null);

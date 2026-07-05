@@ -1,5 +1,6 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { CommentsPanel } from '../components/docs/CommentsPanel.js';
 import { NoteEditor, type NoteEditorMode } from '../components/notes/NoteEditor.js';
 import { useDeleteNote, useNote, usePatchNote, useProject } from '../lib/queries.js';
 
@@ -11,6 +12,7 @@ function NotePage() {
   const patchNote = usePatchNote();
   const deleteNote = useDeleteNote();
   const [mode, setMode] = useState<NoteEditorMode>('editor');
+  const [pendingPassage, setPendingPassage] = useState<string | null>(null);
 
   if (projectLoading || noteLoading) {
     return <p>Loading note…</p>;
@@ -84,25 +86,39 @@ function NotePage() {
           Save failed: {patchNote.error.message}
         </p>
       ) : null}
-      <NoteEditor
-        note={note}
-        mode={mode}
-        isSaving={patchNote.isPending}
-        isDeleting={deleteNote.isPending}
-        onSave={(input) => {
-          patchNote.mutate({ id: noteId, input });
-        }}
-        onDelete={() => {
-          deleteNote.mutate(
-            { id: noteId, projectId: id },
-            {
-              onSuccess: () => {
-                void navigate({ to: '/projects/$id/notes', params: { id } });
-              },
-            },
-          );
-        }}
-      />
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <NoteEditor
+            note={note}
+            mode={mode}
+            isSaving={patchNote.isPending}
+            isDeleting={deleteNote.isPending}
+            onCommentOnSelection={(passage) => {
+              setPendingPassage(passage);
+            }}
+            onSave={(input) => {
+              patchNote.mutate({ id: noteId, input });
+            }}
+            onDelete={() => {
+              deleteNote.mutate(
+                { id: noteId, projectId: id },
+                {
+                  onSuccess: () => {
+                    void navigate({ to: '/projects/$id/notes', params: { id } });
+                  },
+                },
+              );
+            }}
+          />
+        </div>
+        <CommentsPanel
+          target={{ type: 'note', id: noteId }}
+          attachPassage={pendingPassage}
+          onPassageConsumed={() => {
+            setPendingPassage(null);
+          }}
+        />
+      </div>
     </section>
   );
 }

@@ -212,8 +212,15 @@ export type SerializedComment = {
   created_at: string;
 };
 
+export type CommentTargetType = 'document' | 'task' | 'note';
+export type CommentTarget = { type: CommentTargetType; id: string };
+
 export type CreateCommentInput = { body: string; passage?: string | null };
 export type PatchCommentInput = { body?: string; resolved?: boolean };
+
+function commentCollectionPath(target: CommentTarget): string {
+  return `/${target.type}s/${target.id}/comments`;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -392,8 +399,8 @@ export function deleteNote(id: string): Promise<void> {
   return request(`/notes/${id}`, { method: 'DELETE' });
 }
 
-export function listDocumentComments(
-  documentId: string,
+export function listComments(
+  target: CommentTarget,
   opts?: { includeResolved?: boolean },
 ): Promise<SerializedComment[]> {
   const params = new URLSearchParams();
@@ -401,14 +408,14 @@ export function listDocumentComments(
     params.set('include_resolved', 'true');
   }
   const query = params.toString();
-  return request(`/documents/${documentId}/comments${query ? `?${query}` : ''}`);
+  return request(`${commentCollectionPath(target)}${query ? `?${query}` : ''}`);
 }
 
 export function createComment(
-  documentId: string,
+  target: CommentTarget,
   input: CreateCommentInput,
 ): Promise<SerializedComment> {
-  return request(`/documents/${documentId}/comments`, {
+  return request(commentCollectionPath(target), {
     method: 'POST',
     body: JSON.stringify(input),
   });
