@@ -3,6 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import type { Services } from '@plandesk/api';
 import { createAddCommentHandler } from './tools/add-comment.js';
+import { createAddArtifactCommentHandler } from './tools/add-artifact-comment.js';
 import { createCompleteAgentRunHandler } from './tools/complete-agent-run.js';
 import { createCreateDocumentHandler } from './tools/create-document.js';
 import { createCreateEdgeHandler } from './tools/create-edge.js';
@@ -29,6 +30,7 @@ import { createGetTaskHandler } from './tools/get-task.js';
 import { createListTasksHandler } from './tools/list-tasks.js';
 import { createListTagsHandler } from './tools/list-tags.js';
 import { createListCommentsHandler } from './tools/list-comments.js';
+import { createListArtifactCommentsHandler } from './tools/list-artifact-comments.js';
 import { createListDocumentsHandler } from './tools/list-documents.js';
 import { createListProjectsHandler } from './tools/list-projects.js';
 import { createRecordAgentProgressHandler } from './tools/record-agent-progress.js';
@@ -56,6 +58,7 @@ import {
   getNoteInputSchema,
   listNotesInputSchema,
   addCommentInputSchema,
+  addArtifactCommentInputSchema,
   createGoalInputSchema,
   getGoalInputSchema,
   listGoalsInputSchema,
@@ -64,6 +67,7 @@ import {
   getNextTaskInputSchema,
   getProjectInputSchema,
   listCommentsInputSchema,
+  listArtifactCommentsInputSchema,
   listDocumentsInputSchema,
   listProjectsInputSchema,
   listSubmissionsInputSchema,
@@ -446,6 +450,28 @@ function createMcpServer(services: Services): McpServer {
       inputSchema: addCommentInputSchema.shape,
     },
     createAddCommentHandler(services.commentService),
+  );
+
+  server.registerTool(
+    'list_artifact_comments',
+    {
+      title: 'List Artifact Comments',
+      description: 'List annotations on a file artifact for a project.',
+      inputSchema: listArtifactCommentsInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListArtifactCommentsHandler(services.commentService),
+  );
+
+  server.registerTool(
+    'add_artifact_comment',
+    {
+      title: 'Add Artifact Comment',
+      description:
+        'Create an annotation on a file artifact (previewed via `plandesk <file>`). artifact_id is the file identity; anchor is the W3C selector JSON.',
+      inputSchema: addArtifactCommentInputSchema.shape,
+    },
+    createAddArtifactCommentHandler(services.commentService),
   );
 
   server.registerTool(

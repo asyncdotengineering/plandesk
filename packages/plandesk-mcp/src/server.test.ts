@@ -138,7 +138,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(38);
+      expect(names).toHaveLength(40);
       await client.close();
     });
   });
@@ -926,6 +926,49 @@ describe('createMcpApp', () => {
         comment: { resolved: boolean };
       };
       expect(resolvedPayload.comment.resolved).toBe(true);
+
+      await client.close();
+    });
+  });
+
+  it('add_artifact_comment and list_artifact_comments preserve artifact annotations', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId }) => {
+      const client = await connectClient(baseUrl, token);
+      const artifactId = 'sha256:abc123::/workspace/docs/report with spaces.md';
+      const anchor = JSON.stringify({ type: 'TextQuoteSelector', exact: 'CSP' });
+
+      const added = await client.callTool({
+        name: 'add_artifact_comment',
+        arguments: {
+          project_id: projectId,
+          artifact_id: artifactId,
+          body: 'Check this annotation',
+          passage: 'CSP',
+          anchor,
+        },
+      });
+      expect(added.isError).not.toBe(true);
+      const addedContent = added.content as Array<{ type: string; text?: string }>;
+      const addedText = addedContent[0]?.type === 'text' ? (addedContent[0].text ?? '{}') : '{}';
+      const addedPayload = JSON.parse(addedText) as {
+        comment: { id: string; target_id: string; anchor: string | null };
+      };
+      expect(addedPayload.comment.target_id).toBe(artifactId);
+      expect(addedPayload.comment.anchor).toBe(anchor);
+
+      const listed = await client.callTool({
+        name: 'list_artifact_comments',
+        arguments: { project_id: projectId, artifact_id: artifactId },
+      });
+      expect(listed.isError).not.toBe(true);
+      const listedContent = listed.content as Array<{ type: string; text?: string }>;
+      const listedText = listedContent[0]?.type === 'text' ? (listedContent[0].text ?? '{}') : '{}';
+      const listedPayload = JSON.parse(listedText) as {
+        comments: Array<{ id: string; anchor: string | null }>;
+      };
+      expect(listedPayload.comments).toEqual([
+        expect.objectContaining({ id: addedPayload.comment.id, anchor }),
+      ]);
 
       await client.close();
     });

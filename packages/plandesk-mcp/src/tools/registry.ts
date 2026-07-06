@@ -283,6 +283,20 @@ export const addCommentInputSchema = z.object({
   passage: z.string().optional(),
 });
 
+export const addArtifactCommentInputSchema = z.object({
+  project_id: z.string().uuid(),
+  artifact_id: z.string().min(1),
+  body: z.string().min(1),
+  passage: z.string().optional(),
+  anchor: z.string().optional(),
+});
+
+export const listArtifactCommentsInputSchema = z.object({
+  project_id: z.string().uuid(),
+  artifact_id: z.string().min(1),
+  include_resolved: z.boolean().optional(),
+});
+
 export const resolveCommentInputSchema = z.object({
   comment_id: z.string().uuid(),
 });
@@ -360,6 +374,8 @@ export const v1ToolNames = [
   'list_tags',
   'list_comments',
   'add_comment',
+  'list_artifact_comments',
+  'add_artifact_comment',
   'resolve_comment',
   'publish_project',
   'sync_push',
@@ -403,6 +419,8 @@ export const v1ToolSchemas = {
   list_tags: listTagsInputSchema,
   list_comments: listCommentsInputSchema,
   add_comment: addCommentInputSchema,
+  list_artifact_comments: listArtifactCommentsInputSchema,
+  add_artifact_comment: addArtifactCommentInputSchema,
   resolve_comment: resolveCommentInputSchema,
   publish_project: publishProjectInputSchema,
   sync_push: syncPushInputSchema,
