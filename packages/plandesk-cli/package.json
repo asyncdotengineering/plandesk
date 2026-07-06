@@ -1,6 +1,6 @@
 {
   "name": "@plandesk/cli",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "type": "module",
   "exports": {
     ".": {
@@ -40,7 +40,7 @@
     "mermaid": "^11.16.0",
     "shiki": "^4.3.1"
   },
-  "description": "Plan Desk CLI — run a local-first planning workspace (canvas + docs + tasks + board + MCP). Provides the `plandesk` command.",
+  "description": "Plan Desk CLI \u2014 run a local-first planning workspace (canvas + docs + tasks + board + MCP). Provides the `plandesk` command.",
   "license": "MIT",
   "author": "asyncdotengineering",
   "homepage": "https://plandesk.asyncdot.com",

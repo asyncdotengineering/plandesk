@@ -2,6 +2,20 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [cli 0.13.0] — 2026-07-06
+
+### Added
+
+- **Rich previewer rendering** — the `plandesk <file.md>` previewer now renders fenced code with **syntax highlighting** (Shiki, dual light/dark, done at render time so the reader iframe stays script-free), **Mermaid diagrams** (```mermaid``` blocks render to real diagrams), and **styled GFM tables**. Mermaid runs in the previewer's parent page and injects static SVG into the sandboxed, network-dead reader iframe — nothing executes inside the reader. The Mermaid bundle is served locally and **lazy-loaded only when a diagram is present**, so files without diagrams are unaffected.
+
+### Changed
+
+- **Previewer rebuilt on Hono + hono/jsx** — the local preview server now uses Hono routing and `hono/jsx` server-rendered components (matching the rest of the codebase), replacing the previous hand-rolled `node:http` server. No behavior change to the previewer's URLs, security model (sandboxed iframes + network-dead CSP), or annotation flow.
+
+### Note
+
+- Installing the CLI now pulls **Mermaid** as a dependency, so `@plandesk/cli` is larger on disk. It is only loaded in the browser when you preview a file containing a diagram.
+
 ## [cli 0.12.0 · mcp 0.11.0 · api 0.11.0 · db 0.9.0] — 2026-07-06
 
 ### Added

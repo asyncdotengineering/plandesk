@@ -61,6 +61,8 @@ plandesk open docs/design.html  # a self-contained HTML artifact
 
 **How it renders (the Claude-artifact model).** Markdown renders inside a `sandbox="allow-same-origin"` iframe with **no** `allow-scripts` — any script the markdown injected cannot execute, yet the page can still annotate the text. Self-contained HTML renders inside `sandbox="allow-scripts"` (no same-origin) under a network-dead Content-Security-Policy (`connect-src 'none'`, sent as a header and injected as a `<meta>` that survives JS tampering). Only the files you explicitly open are served — no directory traversal. The server binds loopback by default.
 
+Markdown gets **syntax-highlighted code** (Shiki, light/dark), **Mermaid diagrams** (```mermaid``` blocks), and **styled GFM tables**. Highlighting is done at render time so the reader stays script-free; Mermaid renders in the previewer's parent page and injects static SVG into the sandboxed reader iframe, and its bundle is served locally and lazy-loaded only when a diagram is present.
+
 **Annotate.** Select text in the preview → **Add note**. The note (with a W3C text-quote + position selector) appears in the side rail; resolve it or click it to jump to the passage. Annotations persist and re-open — keyed by the file's path, with a content hash to flag drift.
 
 **Agent loop on files.** Inside a **connected repo**, annotations route to the workspace DB via the artifact-comments API, so your coding agent reads and resolves them over MCP (`list_artifact_comments` / `add_artifact_comment` / `resolve_comment`) — the same "you mark, the agent resolves" loop, now on any file the agent wrote. Standalone (no workspace), they persist to a local sidecar under `~/.plandesk/annotations/`. The startup line states which store is in use.
