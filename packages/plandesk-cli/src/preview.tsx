@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { basename, dirname, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { cwd, platform } from 'node:process';
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
@@ -65,6 +65,9 @@ export type PreviewTarget = {
   path: string;
   name: string;
   kind: ArtifactKind;
+  mode: 'file' | 'folder';
+  root: string;
+  rel: string;
 };
 
 export type TextSelector = {
@@ -107,25 +110,101 @@ export const MARKDOWN_ARTIFACT_CSP =
   "default-src 'none'; img-src data: blob: https:; style-src 'unsafe-inline'; " +
   "font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'";
 
+/**
+ * Same-origin static policy for folder-mode tree responses. Allows sibling
+ * assets under `/tree/:idx/` while blocking scripts and external network.
+ */
+export const FOLDER_CSP =
+  "default-src 'none'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; " +
+  "font-src 'self' data:; script-src 'none'; connect-src 'none'; base-uri 'self'; " +
+  "form-action 'none'";
+
+/** Resolve subpath inside root; returns null on traversal escape. */
+export function resolveWithinRoot(root: string, subpath: string): string | null {
+  const resolved = resolve(root, subpath);
+  const rel = relative(root, resolved);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    return null;
+  }
+  return resolved;
+}
+
 function kindForPath(path: string): ArtifactKind {
   const lower = path.toLowerCase();
   return lower.endsWith('.html') || lower.endsWith('.htm') ? 'html' : 'markdown';
 }
 
-/** Resolve CLI path args to absolute, existing, previewable targets. */
-export function resolvePreviewTargets(paths: string[]): PreviewTarget[] {
-  const targets: PreviewTarget[] = [];
-  for (const raw of paths) {
-    if (!hasPreviewExtension(raw)) {
+const MAX_FOLDER_DEPTH = 6;
+const MAX_FOLDER_FILES = 200;
+
+function walkPreviewableFiles(dir: string, depth: number, acc: string[]): void {
+  if (depth > MAX_FOLDER_DEPTH || acc.length >= MAX_FOLDER_FILES) {
+    return;
+  }
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (acc.length >= MAX_FOLDER_FILES) {
+      return;
+    }
+    const name = entry.name;
+    if (name.startsWith('.') || name === 'node_modules') {
       continue;
     }
+    const full = join(dir, name);
+    if (entry.isDirectory()) {
+      walkPreviewableFiles(full, depth + 1, acc);
+    } else if (entry.isFile() && hasPreviewExtension(full)) {
+      acc.push(full);
+    }
+  }
+}
+
+/** Resolve CLI path args to absolute, existing, previewable targets. */
+export function resolvePreviewTargets(paths: string[]): PreviewTarget[] {
+  const byPath = new Map<string, PreviewTarget>();
+  for (const raw of paths) {
     const abs = resolve(raw);
     if (!existsSync(abs)) {
       continue;
     }
-    targets.push({ index: targets.length, path: abs, name: basename(abs), kind: kindForPath(abs) });
+    if (statSync(abs).isDirectory()) {
+      const root = abs;
+      const files: string[] = [];
+      walkPreviewableFiles(root, 0, files);
+      for (const filePath of files) {
+        if (byPath.has(filePath)) {
+          continue;
+        }
+        const rel = relative(root, filePath);
+        byPath.set(filePath, {
+          index: 0,
+          path: filePath,
+          name: rel,
+          kind: kindForPath(filePath),
+          mode: 'folder',
+          root,
+          rel,
+        });
+      }
+      continue;
+    }
+    if (!hasPreviewExtension(raw)) {
+      continue;
+    }
+    if (byPath.has(abs)) {
+      continue;
+    }
+    byPath.set(abs, {
+      index: 0,
+      path: abs,
+      name: basename(abs),
+      kind: kindForPath(abs),
+      mode: 'file',
+      root: '',
+      rel: '',
+    });
   }
-  return targets;
+  const targets = [...byPath.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return targets.map((target, index) => ({ ...target, index }));
 }
 
 const READER_CSS = `
@@ -150,12 +229,12 @@ const READER_CSS = `
 `;
 
 /** Render a markdown artifact to a self-contained, script-free HTML document. */
-export async function renderMarkdownArtifact(rawMarkdown: string): Promise<string> {
+export async function renderMarkdownArtifact(
+  rawMarkdown: string,
+  csp: string = MARKDOWN_ARTIFACT_CSP,
+): Promise<string> {
   const body = await marked.parse(rawMarkdown, { async: true, gfm: true });
-  const cspMeta = html`<meta
-    http-equiv="Content-Security-Policy"
-    content="${unsafeRaw(MARKDOWN_ARTIFACT_CSP)}"
-  />`;
+  const cspMeta = html`<meta http-equiv="Content-Security-Policy" content="${unsafeRaw(csp)}" />`;
   const document = (
     <html>
       <head>
@@ -170,6 +249,55 @@ export async function renderMarkdownArtifact(rawMarkdown: string): Promise<strin
   // Hono renderables define their own HTML serialization; this is not Object#toString.
   // eslint-disable-next-line @typescript-eslint/no-base-to-string
   return html`<!doctype html>${document}`.toString();
+}
+
+function sandboxForTarget(target: PreviewTarget): string {
+  if (target.mode === 'folder') {
+    return 'allow-same-origin';
+  }
+  return target.kind === 'html' ? 'allow-scripts' : 'allow-same-origin';
+}
+
+function iframeSrcForTarget(target: PreviewTarget): string {
+  if (target.mode === 'folder') {
+    return `/tree/${String(target.index)}/${target.rel}`;
+  }
+  return `/artifact/${String(target.index)}`;
+}
+
+function contentTypeForPath(path: string): string {
+  const lower = path.toLowerCase();
+  if (lower.endsWith('.css')) {
+    return 'text/css';
+  }
+  if (lower.endsWith('.js')) {
+    return 'text/javascript';
+  }
+  if (lower.endsWith('.png')) {
+    return 'image/png';
+  }
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  if (lower.endsWith('.gif')) {
+    return 'image/gif';
+  }
+  if (lower.endsWith('.svg')) {
+    return 'image/svg+xml';
+  }
+  if (lower.endsWith('.webp')) {
+    return 'image/webp';
+  }
+  if (lower.endsWith('.json')) {
+    return 'application/json';
+  }
+  if (lower.endsWith('.woff2')) {
+    return 'font/woff2';
+  }
+  if (lower.endsWith('.ico')) {
+    return 'image/x-icon';
+  }
+  return 'application/octet-stream';
 }
 
 /** Read an HTML artifact and inject a meta CSP that survives JS tampering. */
@@ -479,8 +607,8 @@ export function renderChrome(targets: PreviewTarget[]): string {
                 class={`frame${index === 0 ? ' active' : ''}`}
                 data-idx={String(target.index)}
                 data-kind={target.kind}
-                sandbox={target.kind === 'html' ? 'allow-scripts' : 'allow-same-origin'}
-                src={`/artifact/${String(target.index)}`}
+                sandbox={sandboxForTarget(target)}
+                src={iframeSrcForTarget(target)}
                 title={target.name}
               />
             ))}
@@ -650,7 +778,7 @@ export function runPreview(options: RunPreviewOptions): number {
 
   app.get('/artifact/:idx', async (c) => {
     const target = annotationTarget(targets, Number(c.req.param('idx')));
-    if (!target) {
+    if (!target || target.mode !== 'file') {
       return c.text('not found', 404);
     }
     const artifact = readFileSync(target.path, 'utf8');
@@ -660,6 +788,31 @@ export function runPreview(options: RunPreviewOptions): number {
     }
     c.header('Content-Security-Policy', MARKDOWN_ARTIFACT_CSP);
     return c.html(await renderMarkdownArtifact(artifact));
+  });
+
+  app.get('/tree/:idx/:sub{.*}', async (c) => {
+    const target = annotationTarget(targets, Number(c.req.param('idx')));
+    if (!target || target.mode !== 'folder') {
+      return c.text('not found', 404);
+    }
+    const subpath = c.req.param('sub');
+    const resolved = resolveWithinRoot(target.root, subpath);
+    if (resolved === null || !existsSync(resolved) || !statSync(resolved).isFile()) {
+      return c.text('not found', 404);
+    }
+    c.header('Content-Security-Policy', FOLDER_CSP);
+    const lower = resolved.toLowerCase();
+    if (lower.endsWith('.md') || lower.endsWith('.markdown')) {
+      const artifact = readFileSync(resolved, 'utf8');
+      return c.html(await renderMarkdownArtifact(artifact, FOLDER_CSP));
+    }
+    if (lower.endsWith('.html') || lower.endsWith('.htm')) {
+      return c.body(readFileSync(resolved, 'utf8'), 200, {
+        'Content-Type': 'text/html; charset=utf-8',
+      });
+    }
+    const contentType = contentTypeForPath(resolved);
+    return c.body(readFileSync(resolved), 200, { 'Content-Type': contentType });
   });
 
   app.get('/api/annotations', async (c) => {

@@ -13,6 +13,7 @@ import {
   renderMarkdownArtifact,
   resolvePreviewTargets,
   resolvePreviewWorkspace,
+  resolveWithinRoot,
 } from './preview.js';
 
 describe('preview helpers', () => {
@@ -62,9 +63,66 @@ describe('preview helpers', () => {
     writeFileSync(html, '<h1>B</h1>');
     const targets = resolvePreviewTargets([md, html, join(dir, 'missing.md'), join(dir, 'note.txt')]);
     expect(targets).toHaveLength(2);
-    expect(targets[0]).toMatchObject({ index: 0, name: 'a.md', kind: 'markdown' });
-    expect(targets[1]).toMatchObject({ index: 1, name: 'b.HTML', kind: 'html' });
+    expect(targets[0]).toMatchObject({
+      index: 0,
+      name: 'a.md',
+      kind: 'markdown',
+      mode: 'file',
+      root: '',
+      rel: '',
+    });
+    expect(targets[1]).toMatchObject({
+      index: 1,
+      name: 'b.HTML',
+      kind: 'html',
+      mode: 'file',
+      root: '',
+      rel: '',
+    });
     expect(targets[0]?.path.startsWith('/')).toBe(true);
+  });
+
+  it('resolveWithinRoot keeps subpaths inside root and rejects escapes', () => {
+    const root = tmp();
+    const inside = join(root, 'docs', 'page.md');
+    mkdirSync(join(root, 'docs'), { recursive: true });
+    writeFileSync(inside, '# page');
+    expect(resolveWithinRoot(root, 'docs/page.md')).toBe(inside);
+    expect(resolveWithinRoot(root, '../escape')).toBeNull();
+    expect(resolveWithinRoot(root, '/etc/passwd')).toBeNull();
+    expect(resolveWithinRoot(root, 'a/../../escape')).toBeNull();
+  });
+
+  it('resolves directory args to folder-mode tabs and file args to file-mode', () => {
+    const dir = tmp();
+    writeFileSync(join(dir, 'a.md'), '# A');
+    mkdirSync(join(dir, 'sub'), { recursive: true });
+    writeFileSync(join(dir, 'sub', 'b.html'), '<h1>B</h1>');
+    writeFileSync(join(dir, 'logo.png'), 'png');
+    const folderTargets = resolvePreviewTargets([dir]);
+    expect(folderTargets).toHaveLength(2);
+    expect(folderTargets[0]).toMatchObject({
+      mode: 'folder',
+      root: dir,
+      rel: 'a.md',
+      name: 'a.md',
+      kind: 'markdown',
+    });
+    expect(folderTargets[1]).toMatchObject({
+      mode: 'folder',
+      root: dir,
+      rel: 'sub/b.html',
+      name: 'sub/b.html',
+      kind: 'html',
+    });
+    const fileTargets = resolvePreviewTargets([join(dir, 'a.md')]);
+    expect(fileTargets).toHaveLength(1);
+    expect(fileTargets[0]).toMatchObject({
+      mode: 'file',
+      root: '',
+      rel: '',
+      name: 'a.md',
+    });
   });
 
   it('renders markdown to a self-contained document carrying the markdown CSP', async () => {
@@ -105,8 +163,24 @@ describe('preview helpers', () => {
 
   it('uses distinct secure sandboxes for markdown and html frames', () => {
     const chrome = renderChrome([
-      { index: 0, path: '/x/a.md', name: 'a.md', kind: 'markdown' },
-      { index: 1, path: '/x/b.html', name: 'b.html', kind: 'html' },
+      {
+        index: 0,
+        path: '/x/a.md',
+        name: 'a.md',
+        kind: 'markdown',
+        mode: 'file',
+        root: '',
+        rel: '',
+      },
+      {
+        index: 1,
+        path: '/x/b.html',
+        name: 'b.html',
+        kind: 'html',
+        mode: 'file',
+        root: '',
+        rel: '',
+      },
     ]);
     const markdownFrame = chrome.match(/<iframe[^>]+src="\/artifact\/0"[^>]*>/)?.[0];
     const htmlFrame = chrome.match(/<iframe[^>]+src="\/artifact\/1"[^>]*>/)?.[0];
@@ -117,6 +191,37 @@ describe('preview helpers', () => {
     expect(chrome).toContain('src="/artifact/0"');
     expect(chrome).toContain('data-idx="1"');
     expect(chrome).toContain('<aside id="rail">');
+  });
+
+  it('uses folder-mode tree URLs and same-origin sandboxes without scripts', () => {
+    const chrome = renderChrome([
+      {
+        index: 0,
+        path: '/x/rfcs/a.html',
+        name: 'rfcs/a.html',
+        kind: 'html',
+        mode: 'folder',
+        root: '/x',
+        rel: 'rfcs/a.html',
+      },
+      {
+        index: 1,
+        path: '/x/b.html',
+        name: 'b.html',
+        kind: 'html',
+        mode: 'file',
+        root: '',
+        rel: '',
+      },
+    ]);
+    const folderFrame = chrome.match(/<iframe[^>]+src="\/tree\/0\/rfcs\/a\.html"[^>]*>/)?.[0];
+    const fileFrame = chrome.match(/<iframe[^>]+src="\/artifact\/1"[^>]*>/)?.[0];
+    expect(folderFrame).toContain('sandbox="allow-same-origin"');
+    expect(folderFrame).not.toContain('allow-scripts');
+    expect(folderFrame?.startsWith('<iframe')).toBe(true);
+    expect(fileFrame).toContain('sandbox="allow-scripts"');
+    expect(fileFrame).not.toContain('allow-same-origin');
+    expect(chrome).toContain('src="/tree/0/rfcs/a.html"');
   });
 
   it('detects a connected-repo workspace (config + token) for annotation routing', () => {
