@@ -1,9 +1,15 @@
-import { createServer, type Server } from 'node:http';
+import {
+  createServer,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from 'node:http';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { platform } from 'node:process';
 import { marked } from 'marked';
+import { addAnnotation, listAnnotations, resolveAnnotation } from './annotations-store.js';
 import { hasPreviewExtension } from './args.js';
 
 export type ArtifactKind = 'markdown' | 'html';
@@ -14,6 +20,26 @@ export type PreviewTarget = {
   name: string;
   kind: ArtifactKind;
 };
+
+export type TextSelector = {
+  exact: string;
+  prefix: string;
+  suffix: string;
+  start: number;
+  end: number;
+};
+
+/** Build a text-quote selector with short surrounding context. */
+export function computeSelector(bodyText: string, exact: string, start: number): TextSelector {
+  const end = start + exact.length;
+  return {
+    exact,
+    prefix: bodyText.slice(Math.max(0, start - 32), start),
+    suffix: bodyText.slice(end, end + 32),
+    start,
+    end,
+  };
+}
 
 /**
  * Strict, network-dead policy for a rendered HTML artifact. Mirrors the Claude
@@ -110,9 +136,9 @@ export function renderChrome(targets: PreviewTarget[]): string {
     .join('');
   const frames = targets
     .map((t, i) => {
-      const sandbox = t.kind === 'html' ? 'allow-scripts' : '';
+      const sandbox = t.kind === 'html' ? 'allow-scripts' : 'allow-same-origin';
       const idx = String(t.index);
-      return `<iframe class="frame${i === 0 ? ' active' : ''}" data-idx="${idx}" sandbox="${sandbox}" src="/artifact/${idx}" title="${escapeHtml(t.name)}"></iframe>`;
+      return `<iframe class="frame${i === 0 ? ' active' : ''}" data-idx="${idx}" data-kind="${t.kind}" sandbox="${sandbox}" src="/artifact/${idx}" title="${escapeHtml(t.name)}"></iframe>`;
     })
     .join('');
   return `<!doctype html><html><head><meta charset="utf-8"><title>plandesk — ${escapeHtml(
@@ -127,18 +153,250 @@ export function renderChrome(targets: PreviewTarget[]): string {
   .tab { border: 0; background: transparent; padding: .35rem .7rem; border-radius: 6px; cursor: pointer;
     font-size: .85rem; color: inherit; white-space: nowrap; }
   .tab.active { background: rgba(127,127,127,.2); font-weight: 600; }
-  .frames { flex: 1; position: relative; } .frame { position: absolute; inset: 0; width: 100%; height: 100%;
+  .workspace { display: flex; flex: 1; min-height: 0; }
+  .frames { flex: 1; position: relative; min-width: 0; } .frame { position: absolute; inset: 0; width: 100%; height: 100%;
     border: 0; display: none; background: canvas; } .frame.active { display: block; }
+  #rail { width: 300px; overflow-y: auto; padding: 1rem; border-left: 1px solid rgba(127,127,127,.3);
+    background: rgba(127,127,127,.04); }
+  #rail h2 { margin: 0 0 .8rem; font-size: 1rem; } .rail-hint { opacity: .65; font-size: .8rem; }
+  .annotation { padding: .75rem 0; border-top: 1px solid rgba(127,127,127,.25); cursor: pointer; }
+  .annotation.resolved { opacity: .45; } .passage { margin: 0 0 .35rem; font-size: .78rem; font-style: italic; }
+  .annotation-body { margin: 0 0 .5rem; white-space: pre-wrap; } button { color: inherit; }
+  .annotation button, .composer button, #add-note { border: 1px solid rgba(127,127,127,.4); border-radius: 5px;
+    background: canvas; padding: .3rem .55rem; cursor: pointer; }
+  .composer { margin-bottom: 1rem; } .composer textarea { display: block; width: 100%; min-height: 6rem;
+    margin: .5rem 0; padding: .5rem; resize: vertical; color: inherit; background: canvas; }
+  .composer-actions { display: flex; gap: .4rem; }
+  #add-note { position: fixed; z-index: 10; display: none; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
 </style></head><body>
-<div class="tabs">${tabs}</div><div class="frames">${frames}</div>
+<div class="tabs">${tabs}</div><div class="workspace"><div class="frames">${frames}</div><aside id="rail"></aside></div>
+<button id="add-note" type="button">Add note</button>
 <script>
   const tabs = [...document.querySelectorAll('.tab')];
   const frames = [...document.querySelectorAll('.frame')];
+  const rail = document.querySelector('#rail');
+  const addNote = document.querySelector('#add-note');
+  let active = Number(frames[0].dataset.idx);
+  let pendingSelection = null;
+
+  function element(name, className, text) {
+    const node = document.createElement(name);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function activeFrame() {
+    return frames.find((frame) => Number(frame.dataset.idx) === active);
+  }
+
+  function hideAddNote() {
+    addNote.style.display = 'none';
+  }
+
+  function composer(title, selection) {
+    const form = element('form', 'composer');
+    form.append(element('strong', '', title));
+    const textarea = element('textarea');
+    textarea.required = true;
+    textarea.placeholder = 'Write a note';
+    form.append(textarea);
+    const actions = element('div', 'composer-actions');
+    const save = element('button', '', 'Save');
+    save.type = 'submit';
+    const cancel = element('button', '', 'Cancel');
+    cancel.type = 'button';
+    cancel.addEventListener('click', () => {
+      textarea.value = '';
+      if (selection) form.remove();
+    });
+    actions.append(save, cancel);
+    form.append(actions);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const body = textarea.value.trim();
+      if (!body) return;
+      const payload = selection
+        ? { idx: active, passage: selection.exact, anchor: JSON.stringify(selection), body }
+        : { idx: active, passage: null, anchor: null, body };
+      const response = await fetch('/api/annotations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) return;
+      const frame = activeFrame();
+      frame.contentWindow?.getSelection()?.removeAllRanges();
+      pendingSelection = null;
+      hideAddNote();
+      await loadAnnotations();
+    });
+    return form;
+  }
+
+  function focusPassage(passage) {
+    const frame = activeFrame();
+    if (!passage || frame.dataset.kind !== 'markdown') return;
+    const doc = frame.contentDocument;
+    const body = doc?.body;
+    if (!doc || !body) return;
+    const walker = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let text = '';
+    let node;
+    while ((node = walker.nextNode())) {
+      nodes.push({ node, start: text.length });
+      text += node.nodeValue ?? '';
+    }
+    const start = text.indexOf(passage);
+    if (start < 0) return;
+    const end = start + passage.length;
+    const first = nodes.find((entry) => entry.start + (entry.node.nodeValue ?? '').length > start);
+    const last = [...nodes].reverse().find((entry) => entry.start < end);
+    if (!first || !last) return;
+    const range = doc.createRange();
+    range.setStart(first.node, start - first.start);
+    range.setEnd(last.node, end - last.start);
+    const target = first.node.parentElement;
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (target) {
+      target.style.outline = '2px solid #f59e0b';
+      setTimeout(() => { target.style.outline = ''; }, 1200);
+    }
+  }
+
+  function renderRail(annotations) {
+    rail.replaceChildren();
+    rail.append(element('h2', '', 'Annotations (' + String(annotations.length) + ')'));
+    const frame = activeFrame();
+    if (frame.dataset.kind === 'html') {
+      rail.append(composer('Comment on this artifact', null));
+    } else {
+      rail.append(element('p', 'rail-hint', 'Select text in the preview to add a note.'));
+    }
+    const ordered = [...annotations].sort((a, b) =>
+      Number(a.resolved) - Number(b.resolved) || b.createdAt.localeCompare(a.createdAt));
+    for (const annotation of ordered) {
+      const item = element('article', 'annotation' + (annotation.resolved ? ' resolved' : ''));
+      item.append(element('p', 'passage', annotation.passage ? '“' + annotation.passage + '”' : 'whole file'));
+      item.append(element('p', 'annotation-body', annotation.body));
+      if (!annotation.resolved) {
+        const resolveButton = element('button', '', 'Resolve');
+        resolveButton.type = 'button';
+        resolveButton.addEventListener('click', async (event) => {
+          event.stopPropagation();
+          const response = await fetch('/api/annotations/' + encodeURIComponent(annotation.id) + '/resolve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idx: active }),
+          });
+          if (response.ok) await loadAnnotations();
+        });
+        item.append(resolveButton);
+      }
+      item.addEventListener('click', () => focusPassage(annotation.passage));
+      rail.append(item);
+    }
+  }
+
+  async function loadAnnotations() {
+    const requested = active;
+    const response = await fetch('/api/annotations?idx=' + String(requested));
+    if (!response.ok || requested !== active) return;
+    renderRail(await response.json());
+  }
+
+  function handleSelection(frame) {
+    if (frame !== activeFrame()) return;
+    const selection = frame.contentWindow?.getSelection();
+    const exact = selection?.toString() ?? '';
+    if (!selection || selection.rangeCount === 0 || !exact.trim()) {
+      hideAddNote();
+      return;
+    }
+    const body = frame.contentDocument?.body;
+    if (!body) return;
+    const bodyText = body.innerText;
+    const range = selection.getRangeAt(0);
+    const before = range.cloneRange();
+    before.selectNodeContents(body);
+    before.setEnd(range.startContainer, range.startOffset);
+    const approximateStart = before.toString().length;
+    const nearbyStart = bodyText.indexOf(exact, Math.max(0, approximateStart - 32));
+    const start = nearbyStart >= 0 ? nearbyStart : bodyText.indexOf(exact);
+    if (start < 0) {
+      hideAddNote();
+      return;
+    }
+    pendingSelection = {
+      exact,
+      prefix: bodyText.slice(Math.max(0, start - 32), start),
+      suffix: bodyText.slice(start + exact.length, start + exact.length + 32),
+      start,
+      end: start + exact.length,
+    };
+    const rect = range.getBoundingClientRect();
+    const frameRect = frame.getBoundingClientRect();
+    addNote.style.left = String(Math.min(window.innerWidth - 90, frameRect.left + rect.right + 6)) + 'px';
+    addNote.style.top = String(Math.max(4, frameRect.top + rect.top - 34)) + 'px';
+    addNote.style.display = 'block';
+  }
+
+  const wiredFrames = new WeakSet();
+  function wireMarkdownFrame(frame) {
+    const doc = frame.contentDocument;
+    if (!doc || wiredFrames.has(doc)) return;
+    wiredFrames.add(doc);
+    doc.addEventListener('mouseup', () => handleSelection(frame));
+  }
+  for (const frame of frames) {
+    if (frame.dataset.kind === 'markdown') {
+      frame.addEventListener('load', () => wireMarkdownFrame(frame));
+      wireMarkdownFrame(frame);
+    }
+  }
+  addNote.addEventListener('click', () => {
+    if (!pendingSelection) return;
+    rail.querySelector('.composer')?.remove();
+    rail.insertBefore(composer('Add note', pendingSelection), rail.children[1] ?? null);
+    rail.querySelector('textarea')?.focus();
+    hideAddNote();
+  });
   for (const tab of tabs) tab.addEventListener('click', () => {
     const idx = tab.dataset.idx;
     for (const el of [...tabs, ...frames]) el.classList.toggle('active', el.dataset.idx === idx);
+    active = Number(idx);
+    pendingSelection = null;
+    hideAddNote();
+    void loadAnnotations();
   });
+  void loadAnnotations();
 </script></body></html>`;
+}
+
+function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  return new Promise((resolveBody, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => {
+      try {
+        resolveBody(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+function annotationTarget(targets: PreviewTarget[], value: unknown): PreviewTarget | undefined {
+  return typeof value === 'number' && Number.isInteger(value) ? targets[value] : undefined;
+}
+
+function jsonRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
 }
 
 function openBrowser(url: string): void {
@@ -170,7 +428,7 @@ export function runPreview(options: RunPreviewOptions): number {
   }
 
   const host = options.host ?? '127.0.0.1';
-  const server: Server = createServer((req, res) => {
+  const handleRequest = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const url = req.url ?? '/';
     if (url === '/' || url === '') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -200,7 +458,63 @@ export function runPreview(options: RunPreviewOptions): number {
       }
       return;
     }
+    const requestUrl = new URL(url, `http://${host}`);
+    if (req.method === 'GET' && requestUrl.pathname === '/api/annotations') {
+      const rawIdx = requestUrl.searchParams.get('idx');
+      const target = rawIdx === null ? undefined : annotationTarget(targets, Number(rawIdx));
+      if (!target) {
+        res.writeHead(400).end('invalid artifact index');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(listAnnotations(target.path)));
+      return;
+    }
+    if (req.method === 'POST' && requestUrl.pathname === '/api/annotations') {
+      try {
+        const input = jsonRecord(await readJsonBody(req));
+        const target = annotationTarget(targets, input?.idx);
+        if (!target || typeof input?.body !== 'string' || input.body.trim().length === 0) {
+          res.writeHead(400).end('invalid annotation');
+          return;
+        }
+        const content = readFileSync(target.path, 'utf8');
+        const annotation = addAnnotation(target.path, content, {
+          passage: typeof input.passage === 'string' ? input.passage : null,
+          anchor: typeof input.anchor === 'string' ? input.anchor : null,
+          body: input.body,
+        });
+        res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(annotation));
+      } catch {
+        res.writeHead(400).end('invalid JSON');
+      }
+      return;
+    }
+    const resolveMatch = /^\/api\/annotations\/([^/]+)\/resolve$/.exec(requestUrl.pathname);
+    if (req.method === 'POST' && resolveMatch) {
+      try {
+        const input = jsonRecord(await readJsonBody(req));
+        const target = annotationTarget(targets, input?.idx);
+        if (!target) {
+          res.writeHead(400).end('invalid artifact index');
+          return;
+        }
+        if (!resolveAnnotation(target.path, decodeURIComponent(resolveMatch[1] ?? ''))) {
+          res.writeHead(404).end('not found');
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch {
+        res.writeHead(400).end('invalid JSON');
+      }
+      return;
+    }
     res.writeHead(404).end('not found');
+  };
+  const server: Server = createServer((req, res) => {
+    void handleRequest(req, res);
   });
 
   const port = options.port ?? DEFAULT_PREVIEW_PORT;
