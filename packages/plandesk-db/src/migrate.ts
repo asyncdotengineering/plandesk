@@ -11,6 +11,7 @@ type MigrationJournal = {
 };
 
 const DOWN_SQL: Record<string, string[]> = {
+  '0011_lush_bushwacker': ['ALTER TABLE `comments` DROP COLUMN `anchor`;'],
   '0010_polymorphic_comments': [
     `CREATE TABLE \`document_comments\` (
 	\`id\` text PRIMARY KEY NOT NULL,

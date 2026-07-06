@@ -18,7 +18,7 @@ export type GoalStatus = (typeof goalStatuses)[number];
 export const agentRunStatuses = ['running', 'completed', 'failed'] as const;
 export type AgentRunStatus = (typeof agentRunStatuses)[number];
 
-export const commentTargetTypes = ['document', 'task', 'note', 'submission'] as const;
+export const commentTargetTypes = ['document', 'task', 'note', 'submission', 'artifact'] as const;
 export type CommentTargetType = (typeof commentTargetTypes)[number];
 
 export const projects = sqliteTable('projects', {
@@ -184,6 +184,9 @@ export const comments = sqliteTable('comments', {
   targetType: text('target_type', { enum: commentTargetTypes }).notNull(),
   targetId: text('target_id').notNull(),
   passage: text('passage'),
+  // W3C Web Annotation selector JSON (text-quote + text-position) for artifact
+  // annotations that must re-anchor on re-render; null for plain comments.
+  anchor: text('anchor'),
   body: text('body').notNull(),
   resolved: integer('resolved', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })

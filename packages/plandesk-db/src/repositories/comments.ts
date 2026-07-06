@@ -15,6 +15,7 @@ export type NewComment = {
   targetId: string;
   body: string;
   passage?: string | null;
+  anchor?: string | null;
   resolved?: boolean;
   createdAt?: Date;
   id?: string;
@@ -36,6 +37,7 @@ export function createComment(db: DbClient, input: NewComment): Comment {
       targetType: input.targetType,
       targetId: input.targetId,
       passage: input.passage ?? null,
+      anchor: input.anchor ?? null,
       body: input.body,
       resolved: input.resolved ?? false,
       createdAt: now,

@@ -43,6 +43,43 @@ describe('comments repository', () => {
     expect(fetched?.resolved).toBe(false);
   });
 
+  it('round-trips an artifact annotation with a W3C anchor selector', () => {
+    const anchor = JSON.stringify({
+      type: 'TextQuoteSelector',
+      exact: 'network-dead CSP',
+      prefix: 'sandboxed iframe with a ',
+      suffix: ' so annotation happens',
+      start: 1200,
+      end: 1216,
+    });
+    const created = createComment(db, {
+      projectId,
+      targetType: 'artifact',
+      targetId: 'sha256:abc123::report.md',
+      body: 'Confirm the CSP blocks connect-src',
+      passage: 'network-dead CSP',
+      anchor,
+    });
+
+    const fetched = getComment(db, created.id);
+    expect(fetched?.targetType).toBe('artifact');
+    expect(fetched?.anchor).toBe(anchor);
+
+    const listed = listCommentsByTarget(db, 'artifact', 'sha256:abc123::report.md');
+    expect(listed.map((c) => c.id)).toEqual([created.id]);
+    expect(JSON.parse(listed[0]?.anchor ?? 'null')).toMatchObject({ exact: 'network-dead CSP' });
+  });
+
+  it('defaults anchor to null for a plain comment', () => {
+    const created = createComment(db, {
+      projectId,
+      targetType: 'document',
+      targetId: documentId,
+      body: 'No anchor here',
+    });
+    expect(getComment(db, created.id)?.anchor).toBeNull();
+  });
+
   it('lists comments by target ordered by created_at asc', () => {
     const first = createComment(db, {
       projectId,
