@@ -2,7 +2,13 @@
 
 All notable changes to Plan Desk are documented here.
 
-## [0.13.1] — 2026-07-06
+## [0.13.2] — 2026-07-06
+
+### Added
+
+- **Folder support in the previewer** — `plandesk ./dir` opens every previewable file in a folder as tabs (walked recursively). A folder of linked HTML (an RFC or exported site with relative `<img>`/`<link>`/`<a href>` to sibling files and assets) now **renders with those assets and links working**: the opened directory is served as a scoped, same-origin static root, and folder HTML is framed `sandbox="allow-same-origin"` **without** `allow-scripts` (safe for static docs) under a `default-src 'none'; img-src 'self'…; script-src 'none'; connect-src 'none'` policy. Path traversal outside the folder is blocked. Single-file previews (`plandesk file.html`) are unchanged — a lone HTML file is still treated as a self-contained, `allow-scripts`, network-dead artifact.
+
+
 
 ### Changed
 
