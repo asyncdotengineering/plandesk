@@ -2,6 +2,18 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [cli 0.12.0 · mcp 0.11.0 · api 0.11.0 · db 0.9.0] — 2026-07-06
+
+### Added
+
+- **Artifacts + planannotator** — `plandesk <file.md>` / `plandesk <file.html>` (glob-friendly: `plandesk *.md`) opens a local browser previewer that renders agent-generated Markdown and self-contained HTML **the way a Claude artifact renders** — sandboxed and network-dead — and lets you **highlight text and attach annotations** that persist against the file. Also `plandesk open|preview|annotate <paths…>`.
+  - **Rendering & isolation.** Markdown is rendered (via `marked`) inside a `sandbox="allow-same-origin"` iframe with **no** `allow-scripts` — so injected scripts can never execute (no sanitizer needed) yet the page can annotate the text. Self-contained HTML artifacts render inside `sandbox="allow-scripts"` (no same-origin) under a network-dead CSP (`connect-src 'none'`, sent as a header **and** injected as a `<meta>` that survives JS tampering). Only the files you explicitly open are served (allowlist, no traversal). Multiple files open as tabs.
+  - **Annotate.** Select text → "Add note" → the note (with a W3C text-quote + position selector) is saved and listed in a side rail; resolve it, or click it to jump to the passage. Annotations **persist and re-open**: keyed by the file's path with a content hash to flag drift.
+  - **Agent loop on files.** In a **connected repo**, annotations route to the workspace DB via the artifact-comments API, so your coding agent reads and resolves them over MCP — the same "you mark, the agent resolves" loop plandesk already has for documents, now pointed at any file the agent wrote. Standalone (no workspace), annotations persist to a local sidecar under `~/.plandesk/annotations/`.
+- **`artifact` comment target + `anchor` column (db 0.9.0)** — the polymorphic `comments` table gains a nullable `anchor` (W3C selector JSON) and `artifact` becomes a first-class comment target. Migration `0011`; reversible.
+- **Artifact-comment REST (api 0.11.0)** — project-scoped `POST`/`GET /projects/:id/artifact-comments` (the file identity travels in the body/query, so it survives slashes); `serializeComment` now emits `anchor`.
+- **`add_artifact_comment` / `list_artifact_comments` MCP tools** — agents read and create file annotations. **MCP tool count is now 40** (was 38).
+
 ## [cli 0.9.1] — 2026-07-03
 
 ### Added

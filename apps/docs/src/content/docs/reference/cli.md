@@ -37,6 +37,7 @@ plandesk deploy [target]
 
 | Command                  | Purpose                                                                                                                  |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `<file.md\|.html>` / `open` | Preview & annotate files in the browser (see [Preview & annotate](#preview--annotate)); glob-friendly (`plandesk *.md`) |
 | `help`                   | A crash course (orientation + key commands + doc links) for humans and agents; `help --commands` prints the full grammar |
 | `init`                   | Create workspace DB, run migrations, and assign a project-local port (3400–3499) stored in `.plandesk/workspace.json`   |
 | `serve`                  | Start REST + SSE + MCP + web UI; reads the port from `workspace.json` if no `--port` flag is given                      |
@@ -47,6 +48,22 @@ plandesk deploy [target]
 | `doctor`                 | Check DB health; with `--repo`, validate binding + MCP reachability                                                      |
 | `factory init`           | Scaffold the project-local `.agents/` factory workspace (policy files + command adapters); see [Factory workspace](/reference/factory/) |
 | `version`                | Print the installed CLI version (also `--version`); see [Upgrading](/reference/upgrading/)                              |
+
+## Preview & annotate
+
+`plandesk <file.md>` (or `.markdown` / `.html` / `.htm`) opens a local browser previewer for files your agent wrote — design docs, RFCs, reports, or self-contained HTML artifacts. Shell globs work: `plandesk *.md` opens every match as tabs. The explicit form is `plandesk open <paths…>` (aliases: `preview`, `annotate`); flags: `--port <n>`, `--host <addr>`, `--no-open` (don't launch the browser).
+
+```sh
+plandesk report.md              # one file
+plandesk *.md                   # all matches, as tabs
+plandesk open docs/design.html  # a self-contained HTML artifact
+```
+
+**How it renders (the Claude-artifact model).** Markdown renders inside a `sandbox="allow-same-origin"` iframe with **no** `allow-scripts` — any script the markdown injected cannot execute, yet the page can still annotate the text. Self-contained HTML renders inside `sandbox="allow-scripts"` (no same-origin) under a network-dead Content-Security-Policy (`connect-src 'none'`, sent as a header and injected as a `<meta>` that survives JS tampering). Only the files you explicitly open are served — no directory traversal. The server binds loopback by default.
+
+**Annotate.** Select text in the preview → **Add note**. The note (with a W3C text-quote + position selector) appears in the side rail; resolve it or click it to jump to the passage. Annotations persist and re-open — keyed by the file's path, with a content hash to flag drift.
+
+**Agent loop on files.** Inside a **connected repo**, annotations route to the workspace DB via the artifact-comments API, so your coding agent reads and resolves them over MCP (`list_artifact_comments` / `add_artifact_comment` / `resolve_comment`) — the same "you mark, the agent resolves" loop, now on any file the agent wrote. Standalone (no workspace), they persist to a local sidecar under `~/.plandesk/annotations/`. The startup line states which store is in use.
 
 ## Collaboration
 

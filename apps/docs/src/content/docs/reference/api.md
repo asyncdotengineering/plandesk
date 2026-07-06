@@ -45,6 +45,8 @@ description: REST endpoints and MCP tools exposed by Plan Desk v1.
 | POST   | `/submissions/:id/comments`   | Add comment on a submission                           |
 | GET    | `/submissions/:id/comments`   | Comments for a submission                             |
 | GET    | `/projects/:id/comments`      | Comments across a project                             |
+| POST   | `/projects/:id/artifact-comments` | Annotate a file `{ artifact_id, body, passage?, anchor? }`        |
+| GET    | `/projects/:id/artifact-comments` | Annotations for a file `?artifact_id=…&include_resolved=`         |
 | PATCH  | `/comments/:id`               | Edit / resolve `{ body?, resolved? }`                 |
 | DELETE | `/comments/:id`               | Delete a comment (UI only)                            |
 | GET    | `/events`                     | SSE stream                                            |
@@ -61,7 +63,7 @@ Evidence-based completion: a Goal completes only when all its cycle-tasks are `d
 
 ### Comments
 
-Comments are polymorphic: a single `comments` table keyed by `target_type` (`document` | `task` | `note` | `submission`) + `target_id`, plus `project_id`, `passage`, `body`, `resolved`. The `passage` field anchors a comment to a text selection.
+Comments are polymorphic: a single `comments` table keyed by `target_type` (`document` | `task` | `note` | `submission` | `artifact`) + `target_id`, plus `project_id`, `passage`, `anchor`, `body`, `resolved`. `passage` anchors a comment to a text selection; `anchor` holds a W3C Web Annotation selector (JSON) for artifact annotations that re-render. An `artifact` target is a file previewed via `plandesk <file>` — it is project-scoped (the file identity is the `target_id`), so its endpoints live under `/projects/:id/artifact-comments`.
 
 ## MCP server
 
@@ -103,6 +105,8 @@ Comments are polymorphic: a single `comments` table keyed by `target_type` (`doc
 | `list_comments`              | Project comments; filter by `target_type`, `target_id`, `include_resolved`                                                 |
 | `add_comment`                | Leave a comment `{ target_type, target_id, body, passage? }`                                                               |
 | `resolve_comment`            | Mark a comment resolved (no delete tool)                                                                                   |
+| `list_artifact_comments`     | Annotations on a file artifact `{ project_id, artifact_id, include_resolved? }`                                            |
+| `add_artifact_comment`       | Annotate a file artifact `{ project_id, artifact_id, body, passage?, anchor? }` (anchor = W3C selector JSON)               |
 | `start_agent_run`            | Begin external agent session                                                                                               |
 | `record_agent_progress`      | Append progress event                                                                                                      |
 | `complete_agent_run`         | Close run (completed or failed)                                                                                            |
@@ -112,7 +116,7 @@ Comments are polymorphic: a single `comments` table keyed by `target_type` (`doc
 | `list_submissions`           | List pulled submissions (triage inbox)                                                                                     |
 | `triage_submission`          | Accept a submission → real task (or reject)                                                                                |
 
-38 tools in total. The last five are the [collaboration tier](/reference/collaboration/) — sharing a project with a client or team. At session start, list tools before calling them. Resolve the project from `.plandesk/config.json` when present — do not guess IDs. To stand up a whole plan at once use `scaffold_project_from_plan`; to execute it, loop `get_next_task` → `update_task` within a Goal. There is no delete tool by design — resolve comments rather than deleting them.
+40 tools in total. The last five are the [collaboration tier](/reference/collaboration/) — sharing a project with a client or team. At session start, list tools before calling them. Resolve the project from `.plandesk/config.json` when present — do not guess IDs. To stand up a whole plan at once use `scaffold_project_from_plan`; to execute it, loop `get_next_task` → `update_task` within a Goal. There is no delete tool by design — resolve comments rather than deleting them.
 
 ### Error cases
 

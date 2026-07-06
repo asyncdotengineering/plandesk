@@ -10,7 +10,7 @@ apps/plandesk-web/          React SPA (canvas, docs, board, settings)
 apps/docs/                  Astro Starlight documentation site
 packages/plandesk-api/      Hono REST + SSE
 packages/plandesk-db/       SQLite schema + Drizzle migrations
-packages/plandesk-mcp/      MCP server (Streamable HTTP, 38 tools)
+packages/plandesk-mcp/      MCP server (Streamable HTTP, 40 tools)
 packages/plandesk-cli/      plandesk binary (init, serve, connect, …)
 packages/plandesk-mcp-client/  Factory Desk / programmatic MCP consumer
 ```
@@ -24,7 +24,7 @@ Core packages ship under the `@plandesk/*` scope on npm (currently `0.1.1`):
 | `@plandesk/cli`        | `plandesk` binary; bundles the web UI for `serve` |
 | `@plandesk/api`        | Hono REST + SSE server                            |
 | `@plandesk/db`         | SQLite schema + migrations                        |
-| `@plandesk/mcp`        | MCP server (38 tools)                             |
+| `@plandesk/mcp`        | MCP server (40 tools)                             |
 | `@plandesk/mcp-client` | Programmatic MCP consumer                         |
 
 Install with `npm i -g @plandesk/cli` to run Plan Desk without cloning the repo.
