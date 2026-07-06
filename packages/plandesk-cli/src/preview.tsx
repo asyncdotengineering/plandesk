@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { basename, dirname, resolve } from 'node:path';
 import { cwd, platform } from 'node:process';
 import { serve } from '@hono/node-server';
@@ -17,9 +18,27 @@ import {
 import { findLocalPlandeskDir, hasPreviewExtension } from './args.js';
 import { normalizeServerUrl, readPlandeskConfig, readPlandeskToken } from './connect-artifacts.js';
 
+const require = createRequire(import.meta.url);
+let mermaidBundle: string | undefined;
+
+function getMermaidBundle(): string {
+  if (!mermaidBundle) {
+    mermaidBundle = readFileSync(require.resolve('mermaid/dist/mermaid.min.js'), 'utf8');
+  }
+  return mermaidBundle;
+}
+
 marked.use(
   markedShiki({
     highlight: async (code, lang) => {
+      if (lang === 'mermaid') {
+        const esc = code.replace(
+          /[&<>]/g,
+          (character) =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[character as '&' | '<' | '>'],
+        );
+        return `<pre class="mermaid">${esc}</pre>`;
+      }
       try {
         const highlighted = await codeToHtml(code, {
           lang: lang || 'text',
@@ -121,7 +140,11 @@ const READER_CSS = `
     .shiki, .shiki span { color: var(--shiki-dark, inherit) !important;
       background-color: var(--shiki-dark-bg, transparent) !important; }
   }
-  table { border-collapse: collapse; } th, td { border: 1px solid rgba(127,127,127,.35); padding: .4rem .7rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid rgba(127,127,127,.35); padding: .4rem .7rem; text-align: left; }
+  th { background: rgba(127,127,127,.12); }
+  .mermaid-rendered { margin: 1rem 0; text-align: center; }
+  .mermaid-rendered svg { max-width: 100%; height: auto; }
   img { max-width: 100%; } a { color: #2563eb; } blockquote { border-left: 3px solid rgba(127,127,127,.4);
     margin-left: 0; padding-left: 1rem; color: rgba(127,127,127,.95); }
 `;
@@ -364,17 +387,54 @@ export function renderChrome(targets: PreviewTarget[]): string {
     addNote.style.display = 'block';
   }
 
+  let mermaidLoadPromise = null;
+  function ensureMermaid() {
+    if (window.mermaid) return Promise.resolve();
+    if (mermaidLoadPromise) return mermaidLoadPromise;
+    mermaidLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = '/vendor/mermaid.min.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('mermaid load failed'));
+      document.head.appendChild(script);
+    });
+    return mermaidLoadPromise;
+  }
+
+  async function renderMermaidInFrame(frame) {
+    const doc = frame.contentDocument;
+    if (!doc) return;
+    const blocks = doc.querySelectorAll('pre.mermaid');
+    if (!blocks.length) return;
+    await ensureMermaid();
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: dark ? 'dark' : 'default' });
+    let i = 0;
+    for (const el of blocks) {
+      try {
+        const { svg } = await window.mermaid.render('mmd-' + (i++), el.textContent);
+        const wrap = doc.createElement('div');
+        wrap.className = 'mermaid-rendered';
+        wrap.innerHTML = svg;
+        el.replaceWith(wrap);
+      } catch {
+        /* leave the source block on failure */
+      }
+    }
+  }
+
   const wiredFrames = new WeakSet();
-  function wireMarkdownFrame(frame) {
+  async function wireMarkdownFrame(frame) {
     const doc = frame.contentDocument;
     if (!doc || wiredFrames.has(doc)) return;
     wiredFrames.add(doc);
     doc.addEventListener('mouseup', () => handleSelection(frame));
+    await renderMermaidInFrame(frame);
   }
   for (const frame of frames) {
     if (frame.dataset.kind === 'markdown') {
-      frame.addEventListener('load', () => wireMarkdownFrame(frame));
-      wireMarkdownFrame(frame);
+      frame.addEventListener('load', () => { void wireMarkdownFrame(frame); });
+      void wireMarkdownFrame(frame);
     }
   }
   addNote.addEventListener('click', () => {
@@ -582,6 +642,11 @@ export function runPreview(options: RunPreviewOptions): number {
   const app = new Hono();
 
   app.get('/', (c) => c.html(renderChrome(targets)));
+
+  app.get('/vendor/mermaid.min.js', (c) => {
+    c.header('Content-Type', 'text/javascript; charset=utf-8');
+    return c.body(getMermaidBundle());
+  });
 
   app.get('/artifact/:idx', async (c) => {
     const target = annotationTarget(targets, Number(c.req.param('idx')));

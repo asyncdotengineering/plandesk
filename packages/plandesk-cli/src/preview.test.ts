@@ -81,6 +81,17 @@ describe('preview helpers', () => {
     expect(doc).toContain('style="color:');
   });
 
+  it('emits mermaid containers instead of Shiki for mermaid fenced blocks', async () => {
+    const doc = await renderMarkdownArtifact('```mermaid\ngraph TD; A-->B;\n```');
+    expect(doc).toContain('<pre class="mermaid">');
+    expect(doc).not.toContain('class="shiki"');
+  });
+
+  it('renders GFM tables as html table elements', async () => {
+    const doc = await renderMarkdownArtifact('| a | b |\n|---|---|\n| 1 | 2 |');
+    expect(doc).toContain('<table>');
+  });
+
   it('injects the html CSP meta into an existing head', () => {
     const out = renderHtmlArtifact('<html><head><title>t</title></head><body>x</body></html>');
     expect(out).toContain(HTML_ARTIFACT_CSP);
