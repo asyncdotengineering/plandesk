@@ -401,3 +401,52 @@ describe('CLI context/progress-checkpoint no-binding smoke test', () => {
     expect(code).toBe(0);
   });
 });
+
+describe('preview command dispatch', () => {
+  it('parses the explicit open subcommand with paths and flags', () => {
+    expect(
+      parseArgs(['node', 'plandesk', 'open', 'a.md', 'b.html', '--port', '4000', '--no-open']),
+    ).toEqual({ command: 'preview', paths: ['a.md', 'b.html'], port: 4000, host: undefined, open: false });
+  });
+
+  it('treats preview and annotate as aliases of open', () => {
+    expect(parseArgs(['node', 'plandesk', 'preview', 'x.md'])).toMatchObject({
+      command: 'preview',
+      paths: ['x.md'],
+      open: true,
+    });
+    expect(parseArgs(['node', 'plandesk', 'annotate', 'y.markdown'])).toMatchObject({
+      command: 'preview',
+      paths: ['y.markdown'],
+    });
+  });
+
+  it('routes a bare existing previewable file to preview (plandesk *.md)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'plandesk-preview-'));
+    try {
+      const md = join(dir, 'report.md');
+      const html = join(dir, 'page.html');
+      writeFileSync(md, '# Hi');
+      writeFileSync(html, '<h1>Hi</h1>');
+      // Simulates the shell expanding `plandesk *.md *.html`.
+      expect(parseArgs(['node', 'plandesk', md, html])).toMatchObject({
+        command: 'preview',
+        paths: [md, html],
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not route a non-existent .md arg to preview (guards against shadowing)', () => {
+    expect(parseArgs(['node', 'plandesk', 'does-not-exist.md'])).toEqual({
+      command: 'unknown',
+      name: 'does-not-exist.md',
+    });
+  });
+
+  it('never lets a file shadow a reserved subcommand', () => {
+    // `serve` is reserved even if a file named `serve` existed in cwd.
+    expect(parseArgs(['node', 'plandesk', 'serve'])).toMatchObject({ command: 'serve' });
+  });
+});

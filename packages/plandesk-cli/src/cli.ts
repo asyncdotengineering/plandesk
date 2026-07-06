@@ -6,6 +6,7 @@ import { runInit } from './init.js';
 import { crashCourse, DEFAULT_PORT, findLocalPlandeskDir, parseArgs, resolveDataDir, usage } from './args.js';
 import { readWorkspaceJson, resolveEffectivePort } from './connect-artifacts.js';
 import { runServe } from './serve.js';
+import { runPreview } from './preview.js';
 import { runTokenCreate } from './token.js';
 import { runExport, ProjectNotFoundError } from './export.js';
 import { runImport, InvalidImportFileError } from './import.js';
@@ -379,6 +380,14 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
       const repoDir = resolveRepoDir(parsed.repoDir);
       await runProgressCheckpoint(repoDir, parsed.message ?? DEFAULT_CHECKPOINT_MESSAGE);
       return 0;
+    }
+    case 'preview': {
+      return runPreview({
+        paths: parsed.paths,
+        port: parsed.port,
+        host: parsed.host,
+        open: parsed.open,
+      });
     }
     case 'unknown':
       process.stderr.write(`Unknown command: ${parsed.name}\n\n${usage()}`);

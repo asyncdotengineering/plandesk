@@ -100,6 +100,49 @@ export function resolveAuthPassword(): string | undefined {
 
 export type ConnectAgent = 'claude' | 'codex' | 'both' | 'detect';
 
+/** File extensions the previewer/annotator can open. */
+export const PREVIEW_EXTENSIONS = ['.md', '.markdown', '.html', '.htm'] as const;
+
+/**
+ * Reserved subcommand names. A first positional that is none of these AND is an
+ * existing previewable file routes to `preview` (so `plandesk *.md` works).
+ */
+const RESERVED_COMMANDS = new Set([
+  'init',
+  'serve',
+  'url',
+  'token',
+  'export',
+  'import',
+  'connect',
+  'disconnect',
+  'doctor',
+  'publish',
+  'push',
+  'pull',
+  'sync',
+  'share',
+  'deploy',
+  'factory',
+  'context',
+  'progress-checkpoint',
+  'help',
+  'version',
+  'open',
+  'preview',
+  'annotate',
+]);
+
+export function hasPreviewExtension(path: string): boolean {
+  const lower = path.toLowerCase();
+  return PREVIEW_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+/** A previewable target is an existing file with a supported extension. */
+export function isPreviewableFile(path: string): boolean {
+  return hasPreviewExtension(path) && existsSync(path);
+}
+
 export type ParsedArgs =
   | { command: 'init'; dataDir?: string }
   | { command: 'serve'; port?: number; dataDir?: string; host?: string; strictPort: boolean }
@@ -145,6 +188,7 @@ export type ParsedArgs =
   | { command: 'factory'; subcommand: 'init'; repoDir?: string; print: boolean; force: boolean }
   | { command: 'context'; repoDir?: string }
   | { command: 'progress-checkpoint'; message?: string; repoDir?: string }
+  | { command: 'preview'; paths: string[]; port?: number; host?: string; open: boolean }
   | { command: 'help'; full: boolean }
   | { command: 'version' }
   | { command: 'unknown'; name: string };
@@ -221,6 +265,30 @@ export function parseArgs(argv: string[]): ParsedArgs {
   }
 
   const dataDir = flagString(flags, 'data-dir');
+
+  // Explicit previewer: `plandesk open|preview|annotate <paths...>`.
+  if (command === 'open' || command === 'preview' || command === 'annotate') {
+    return {
+      command: 'preview',
+      paths: positional.slice(1),
+      port: parsePort(flagString(flags, 'port')),
+      host: flagString(flags, 'host'),
+      open: flags['no-open'] !== true,
+    };
+  }
+
+  // Bare-file sugar: `plandesk report.md` / `plandesk *.md`. Only when the first
+  // positional is not a reserved subcommand and resolves to a previewable file,
+  // so a file named like a subcommand can never be shadowed silently.
+  if (!RESERVED_COMMANDS.has(command) && isPreviewableFile(command)) {
+    return {
+      command: 'preview',
+      paths: positional.filter(hasPreviewExtension),
+      port: parsePort(flagString(flags, 'port')),
+      host: flagString(flags, 'host'),
+      open: flags['no-open'] !== true,
+    };
+  }
 
   if (command === 'init') {
     return { command: 'init', dataDir };
@@ -400,6 +468,8 @@ export function usage(): string {
   return `plandesk — Plan Desk workspace CLI
 
 Usage:
+  plandesk <file.md|file.html> [more…]       # preview & annotate files in the browser (glob-friendly)
+  plandesk open <paths…> [--port <n>] [--host <addr>] [--no-open]   # explicit previewer
   plandesk init [--data-dir <dir>]
   plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>]
   plandesk url [--repo <dir>] [--lan]

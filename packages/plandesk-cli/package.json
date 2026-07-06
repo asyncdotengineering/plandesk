@@ -33,9 +33,10 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@plandesk/api": "workspace:*",
     "@plandesk/db": "workspace:*",
-    "@plandesk/mcp": "workspace:*"
+    "@plandesk/mcp": "workspace:*",
+    "marked": "^18.0.5"
   },
-  "description": "Plan Desk CLI — run a local-first planning workspace (canvas + docs + tasks + board + MCP). Provides the `plandesk` command.",
+  "description": "Plan Desk CLI \u2014 run a local-first planning workspace (canvas + docs + tasks + board + MCP). Provides the `plandesk` command.",
   "license": "MIT",
   "author": "asyncdotengineering",
   "homepage": "https://plandesk.asyncdot.com",
