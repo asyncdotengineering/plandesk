@@ -2,6 +2,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { mkdirSync, writeFileSync as writeFile } from 'node:fs';
+import { join as joinPath } from 'node:path';
 import {
   HTML_ARTIFACT_CSP,
   MARKDOWN_ARTIFACT_CSP,
@@ -10,6 +12,7 @@ import {
   renderHtmlArtifact,
   renderMarkdownArtifact,
   resolvePreviewTargets,
+  resolvePreviewWorkspace,
 } from './preview.js';
 
 describe('preview helpers', () => {
@@ -97,5 +100,28 @@ describe('preview helpers', () => {
     expect(chrome).toContain('src="/artifact/0"');
     expect(chrome).toContain('data-idx="1"');
     expect(chrome).toContain('<aside id="rail">');
+  });
+
+  it('detects a connected-repo workspace (config + token) for annotation routing', () => {
+    const dir = tmp();
+    // No .plandesk yet → standalone (sidecar).
+    expect(resolvePreviewWorkspace(dir)).toBeUndefined();
+
+    mkdirSync(joinPath(dir, '.plandesk'));
+    writeFile(
+      joinPath(dir, '.plandesk', 'config.json'),
+      JSON.stringify({
+        version: 'plandesk-connect-v1',
+        serverUrl: 'http://127.0.0.1:3999',
+        projectId: '9688c8b4-8472-4d4a-ba8b-c60de3d3a301',
+        projectName: 'x',
+      }),
+    );
+    writeFile(joinPath(dir, '.plandesk', 'token'), 'plandesk_mcp_test');
+    expect(resolvePreviewWorkspace(dir)).toEqual({
+      serverUrl: 'http://127.0.0.1:3999',
+      projectId: '9688c8b4-8472-4d4a-ba8b-c60de3d3a301',
+      token: 'plandesk_mcp_test',
+    });
   });
 });

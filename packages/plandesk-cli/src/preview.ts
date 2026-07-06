@@ -6,11 +6,17 @@ import {
 } from 'node:http';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { basename, resolve } from 'node:path';
-import { platform } from 'node:process';
+import { basename, dirname, resolve } from 'node:path';
+import { cwd, platform } from 'node:process';
 import { marked } from 'marked';
-import { addAnnotation, listAnnotations, resolveAnnotation } from './annotations-store.js';
-import { hasPreviewExtension } from './args.js';
+import {
+  addAnnotation,
+  listAnnotations,
+  resolveAnnotation,
+  type ArtifactAnnotation,
+} from './annotations-store.js';
+import { findLocalPlandeskDir, hasPreviewExtension } from './args.js';
+import { normalizeServerUrl, readPlandeskConfig, readPlandeskToken } from './connect-artifacts.js';
 
 export type ArtifactKind = 'markdown' | 'html';
 
@@ -408,11 +414,110 @@ function openBrowser(url: string): void {
   }
 }
 
+/** The annotation shape the previewer client renders (sidecar-native). */
+export type ClientAnnotation = ArtifactAnnotation;
+
+/**
+ * Where annotations live. In a connected repo they go to the plandesk API (DB),
+ * so the agent sees them over MCP; standalone they go to the local sidecar.
+ * One backend per context — never both, so a file's annotations never fragment.
+ */
+export type AnnotationBackend = {
+  list(target: PreviewTarget): Promise<ClientAnnotation[]>;
+  create(
+    target: PreviewTarget,
+    input: { passage: string | null; anchor: string | null; body: string },
+  ): Promise<ClientAnnotation>;
+  resolve(target: PreviewTarget, id: string): Promise<boolean>;
+};
+
+export type PreviewWorkspace = { serverUrl: string; projectId: string; token: string };
+
+/** Resolve the connected-repo context (config + token) by walking up from cwd. */
+export function resolvePreviewWorkspace(startDir: string = cwd()): PreviewWorkspace | undefined {
+  const plandeskDir = findLocalPlandeskDir(startDir);
+  if (plandeskDir === undefined) {
+    return undefined;
+  }
+  const repoDir = dirname(plandeskDir);
+  const config = readPlandeskConfig(repoDir);
+  const token = readPlandeskToken(repoDir);
+  if (!config || token === undefined) {
+    return undefined;
+  }
+  return { serverUrl: normalizeServerUrl(config.serverUrl), projectId: config.projectId, token };
+}
+
+const sidecarBackend: AnnotationBackend = {
+  list: (target) => Promise.resolve(listAnnotations(target.path)),
+  create: (target, input) =>
+    Promise.resolve(addAnnotation(target.path, readFileSync(target.path, 'utf8'), input)),
+  resolve: (target, id) => Promise.resolve(resolveAnnotation(target.path, id)),
+};
+
+/** Map an API SerializedComment onto the client annotation shape. */
+function toClientAnnotation(c: {
+  id: string;
+  passage: string | null;
+  anchor: string | null;
+  body: string;
+  resolved: boolean;
+  created_at: string;
+}): ClientAnnotation {
+  return {
+    id: c.id,
+    passage: c.passage,
+    anchor: c.anchor,
+    body: c.body,
+    resolved: c.resolved,
+    createdAt: c.created_at,
+  };
+}
+
+function apiBackend(workspace: PreviewWorkspace): AnnotationBackend {
+  const base = `${workspace.serverUrl}/api/v1`;
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${workspace.token}` };
+  const artifactId = (target: PreviewTarget): string => `file://${target.path}`;
+  return {
+    async list(target) {
+      const url = `${base}/projects/${workspace.projectId}/artifact-comments?artifact_id=${encodeURIComponent(artifactId(target))}&include_resolved=true`;
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        throw new Error(`artifact-comments list failed: ${String(res.status)}`);
+      }
+      return ((await res.json()) as Parameters<typeof toClientAnnotation>[0][]).map(
+        toClientAnnotation,
+      );
+    },
+    async create(target, input) {
+      const res = await fetch(`${base}/projects/${workspace.projectId}/artifact-comments`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ artifact_id: artifactId(target), ...input }),
+      });
+      if (!res.ok) {
+        throw new Error(`artifact-comments create failed: ${String(res.status)}`);
+      }
+      return toClientAnnotation((await res.json()) as Parameters<typeof toClientAnnotation>[0]);
+    },
+    async resolve(_target, id) {
+      const res = await fetch(`${base}/comments/${id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ resolved: true }),
+      });
+      return res.ok;
+    },
+  };
+}
+
 export type RunPreviewOptions = {
   paths: string[];
   port?: number;
   host?: string;
   open?: boolean;
+  /** Override the annotation backend (default: API when connected, else sidecar). */
+  backend?: AnnotationBackend;
 };
 
 export const DEFAULT_PREVIEW_PORT = 4100;
@@ -428,6 +533,8 @@ export function runPreview(options: RunPreviewOptions): number {
   }
 
   const host = options.host ?? '127.0.0.1';
+  const workspace = options.backend ? undefined : resolvePreviewWorkspace();
+  const backend = options.backend ?? (workspace ? apiBackend(workspace) : sidecarBackend);
   const handleRequest = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const url = req.url ?? '/';
     if (url === '/' || url === '') {
@@ -466,20 +573,30 @@ export function runPreview(options: RunPreviewOptions): number {
         res.writeHead(400).end('invalid artifact index');
         return;
       }
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify(listAnnotations(target.path)));
+      try {
+        const annotations = await backend.list(target);
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(annotations));
+      } catch {
+        res.writeHead(502).end('annotation backend unavailable');
+      }
       return;
     }
     if (req.method === 'POST' && requestUrl.pathname === '/api/annotations') {
+      let input: Record<string, unknown> | undefined;
       try {
-        const input = jsonRecord(await readJsonBody(req));
-        const target = annotationTarget(targets, input?.idx);
-        if (!target || typeof input?.body !== 'string' || input.body.trim().length === 0) {
-          res.writeHead(400).end('invalid annotation');
-          return;
-        }
-        const content = readFileSync(target.path, 'utf8');
-        const annotation = addAnnotation(target.path, content, {
+        input = jsonRecord(await readJsonBody(req));
+      } catch {
+        res.writeHead(400).end('invalid JSON');
+        return;
+      }
+      const target = annotationTarget(targets, input?.idx);
+      if (!target || typeof input?.body !== 'string' || input.body.trim().length === 0) {
+        res.writeHead(400).end('invalid annotation');
+        return;
+      }
+      try {
+        const annotation = await backend.create(target, {
           passage: typeof input.passage === 'string' ? input.passage : null,
           anchor: typeof input.anchor === 'string' ? input.anchor : null,
           body: input.body,
@@ -487,7 +604,7 @@ export function runPreview(options: RunPreviewOptions): number {
         res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify(annotation));
       } catch {
-        res.writeHead(400).end('invalid JSON');
+        res.writeHead(502).end('annotation backend unavailable');
       }
       return;
     }
@@ -500,7 +617,7 @@ export function runPreview(options: RunPreviewOptions): number {
           res.writeHead(400).end('invalid artifact index');
           return;
         }
-        if (!resolveAnnotation(target.path, decodeURIComponent(resolveMatch[1] ?? ''))) {
+        if (!(await backend.resolve(target, decodeURIComponent(resolveMatch[1] ?? '')))) {
           res.writeHead(404).end('not found');
           return;
         }
@@ -520,8 +637,12 @@ export function runPreview(options: RunPreviewOptions): number {
   const port = options.port ?? DEFAULT_PREVIEW_PORT;
   server.listen(port, host, () => {
     const url = `http://${host}:${String(port)}/`;
+    const mode = workspace
+      ? `annotations → ${workspace.serverUrl} (project ${workspace.projectId})`
+      : 'annotations → local sidecar';
     process.stdout.write(
       `plandesk preview — ${String(targets.length)} file(s) at ${url}\n` +
+        `  ${mode}\n` +
         targets.map((t) => `  ${t.name} (${t.kind})`).join('\n') +
         '\n',
     );
