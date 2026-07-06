@@ -67,12 +67,18 @@ describe('preview helpers', () => {
     expect(targets[0]?.path.startsWith('/')).toBe(true);
   });
 
-  it('renders markdown to a self-contained document carrying the markdown CSP', () => {
-    const doc = renderMarkdownArtifact('# Title\n\n- one\n- two');
+  it('renders markdown to a self-contained document carrying the markdown CSP', async () => {
+    const doc = await renderMarkdownArtifact('# Title\n\n- one\n- two');
     expect(doc).toContain('<h1>Title</h1>');
     expect(doc).toContain('<li>one</li>');
     expect(doc).toContain(MARKDOWN_ARTIFACT_CSP);
     expect(doc).toContain("connect-src 'none'");
+  });
+
+  it('highlights fenced code blocks with Shiki', async () => {
+    const doc = await renderMarkdownArtifact('```ts\nconst x = 1;\n```');
+    expect(doc).toContain('class="shiki"');
+    expect(doc).toContain('style="color:');
   });
 
   it('injects the html CSP meta into an existing head', () => {

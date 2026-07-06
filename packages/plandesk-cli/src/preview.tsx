@@ -1,14 +1,13 @@
-import {
-  createServer,
-  type IncomingMessage,
-  type Server,
-  type ServerResponse,
-} from 'node:http';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { cwd, platform } from 'node:process';
+import { serve } from '@hono/node-server';
+import { Hono } from 'hono';
+import { html, raw as unsafeRaw } from 'hono/html';
 import { marked } from 'marked';
+import markedShiki from 'marked-shiki';
+import { codeToHtml } from 'shiki';
 import {
   addAnnotation,
   listAnnotations,
@@ -17,6 +16,28 @@ import {
 } from './annotations-store.js';
 import { findLocalPlandeskDir, hasPreviewExtension } from './args.js';
 import { normalizeServerUrl, readPlandeskConfig, readPlandeskToken } from './connect-artifacts.js';
+
+marked.use(
+  markedShiki({
+    highlight: async (code, lang) => {
+      try {
+        const highlighted = await codeToHtml(code, {
+          lang: lang || 'text',
+          themes: { light: 'github-light', dark: 'github-dark' },
+        });
+        return highlighted.replace(/^<pre class="shiki[^"]*"/, '<pre class="shiki"');
+      } catch {
+        return `<pre><code>${code.replace(
+          /[&<>]/g,
+          (character) =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[
+              character as '&' | '<' | '>'
+            ],
+        )}</code></pre>`;
+      }
+    },
+  }),
+);
 
 export type ArtifactKind = 'markdown' | 'html';
 
@@ -96,34 +117,49 @@ const READER_CSS = `
   pre { background: rgba(127,127,127,.12); padding: .8rem 1rem; border-radius: 6px; overflow-x: auto; }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
   pre code { font-size: .85em; }
+  @media (prefers-color-scheme: dark) {
+    .shiki, .shiki span { color: var(--shiki-dark, inherit) !important;
+      background-color: var(--shiki-dark-bg, transparent) !important; }
+  }
   table { border-collapse: collapse; } th, td { border: 1px solid rgba(127,127,127,.35); padding: .4rem .7rem; }
   img { max-width: 100%; } a { color: #2563eb; } blockquote { border-left: 3px solid rgba(127,127,127,.4);
     margin-left: 0; padding-left: 1rem; color: rgba(127,127,127,.95); }
 `;
 
 /** Render a markdown artifact to a self-contained, script-free HTML document. */
-export function renderMarkdownArtifact(raw: string): string {
-  const body = marked.parse(raw, { async: false, gfm: true });
-  return `<!doctype html><html><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="${MARKDOWN_ARTIFACT_CSP}">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>${READER_CSS}</style></head><body>${body}</body></html>`;
+export async function renderMarkdownArtifact(rawMarkdown: string): Promise<string> {
+  const body = await marked.parse(rawMarkdown, { async: true, gfm: true });
+  const cspMeta = html`<meta
+    http-equiv="Content-Security-Policy"
+    content="${unsafeRaw(MARKDOWN_ARTIFACT_CSP)}"
+  />`;
+  const document = (
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        {cspMeta}
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <style dangerouslySetInnerHTML={{ __html: READER_CSS }} />
+      </head>
+      <body dangerouslySetInnerHTML={{ __html: body }} />
+    </html>
+  );
+  // Hono renderables define their own HTML serialization; this is not Object#toString.
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string
+  return html`<!doctype html>${document}`.toString();
 }
 
 /** Read an HTML artifact and inject a meta CSP that survives JS tampering. */
 export function renderHtmlArtifact(raw: string): string {
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${HTML_ARTIFACT_CSP}">`;
+  // Hono's raw() returns a branded string object whose serializer preserves the CSP verbatim.
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string
+  const meta = html`<meta http-equiv="Content-Security-Policy" content="${unsafeRaw(
+    HTML_ARTIFACT_CSP,
+  )}">`.toString();
   if (/<head[\s>]/i.test(raw)) {
     return raw.replace(/<head([^>]*)>/i, `<head$1>${meta}`);
   }
   return `${meta}\n${raw}`;
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(
-    /[&<>"]/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c,
-  );
 }
 
 /**
@@ -132,25 +168,7 @@ function escapeHtml(s: string): string {
  * allow scripts but the strict CSP keeps them network-dead.
  */
 export function renderChrome(targets: PreviewTarget[]): string {
-  const tabs = targets
-    .map(
-      (t, i) =>
-        `<button class="tab${i === 0 ? ' active' : ''}" data-idx="${String(t.index)}">${escapeHtml(
-          t.name,
-        )}</button>`,
-    )
-    .join('');
-  const frames = targets
-    .map((t, i) => {
-      const sandbox = t.kind === 'html' ? 'allow-scripts' : 'allow-same-origin';
-      const idx = String(t.index);
-      return `<iframe class="frame${i === 0 ? ' active' : ''}" data-idx="${idx}" data-kind="${t.kind}" sandbox="${sandbox}" src="/artifact/${idx}" title="${escapeHtml(t.name)}"></iframe>`;
-    })
-    .join('');
-  return `<!doctype html><html><head><meta charset="utf-8"><title>plandesk — ${escapeHtml(
-    targets[0]?.name ?? 'preview',
-  )}</title>
-<style>
+  const chromeCss = `
   :root { color-scheme: light dark; }
   * { box-sizing: border-box; } html, body { margin: 0; height: 100%; }
   body { display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -174,10 +192,8 @@ export function renderChrome(targets: PreviewTarget[]): string {
     margin: .5rem 0; padding: .5rem; resize: vertical; color: inherit; background: canvas; }
   .composer-actions { display: flex; gap: .4rem; }
   #add-note { position: fixed; z-index: 10; display: none; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
-</style></head><body>
-<div class="tabs">${tabs}</div><div class="workspace"><div class="frames">${frames}</div><aside id="rail"></aside></div>
-<button id="add-note" type="button">Add note</button>
-<script>
+`;
+  const clientScript = String.raw`
   const tabs = [...document.querySelectorAll('.tab')];
   const frames = [...document.querySelectorAll('.frame')];
   const rail = document.querySelector('#rail');
@@ -377,22 +393,50 @@ export function renderChrome(targets: PreviewTarget[]): string {
     void loadAnnotations();
   });
   void loadAnnotations();
-</script></body></html>`;
-}
-
-function readJsonBody(req: IncomingMessage): Promise<unknown> {
-  return new Promise((resolveBody, reject) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
-    req.on('end', () => {
-      try {
-        resolveBody(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown);
-      } catch (error) {
-        reject(error instanceof Error ? error : new Error(String(error)));
-      }
-    });
-    req.on('error', reject);
-  });
+`;
+  const document = (
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>plandesk — {targets[0]?.name ?? 'preview'}</title>
+        <style dangerouslySetInnerHTML={{ __html: chromeCss }} />
+      </head>
+      <body>
+        <div class="tabs">
+          {targets.map((target, index) => (
+            <button
+              class={`tab${index === 0 ? ' active' : ''}`}
+              data-idx={String(target.index)}
+            >
+              {target.name}
+            </button>
+          ))}
+        </div>
+        <div class="workspace">
+          <div class="frames">
+            {targets.map((target, index) => (
+              <iframe
+                class={`frame${index === 0 ? ' active' : ''}`}
+                data-idx={String(target.index)}
+                data-kind={target.kind}
+                sandbox={target.kind === 'html' ? 'allow-scripts' : 'allow-same-origin'}
+                src={`/artifact/${String(target.index)}`}
+                title={target.name}
+              />
+            ))}
+          </div>
+          <aside id="rail" />
+        </div>
+        <button id="add-note" type="button">
+          Add note
+        </button>
+        <script dangerouslySetInnerHTML={{ __html: clientScript }} />
+      </body>
+    </html>
+  );
+  // Hono renderables define their own HTML serialization; this is not Object#toString.
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string
+  return html`<!doctype html>${document}`.toString();
 }
 
 function annotationTarget(targets: PreviewTarget[], value: unknown): PreviewTarget | undefined {
@@ -535,107 +579,80 @@ export function runPreview(options: RunPreviewOptions): number {
   const host = options.host ?? '127.0.0.1';
   const workspace = options.backend ? undefined : resolvePreviewWorkspace();
   const backend = options.backend ?? (workspace ? apiBackend(workspace) : sidecarBackend);
-  const handleRequest = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    const url = req.url ?? '/';
-    if (url === '/' || url === '') {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(renderChrome(targets));
-      return;
+  const app = new Hono();
+
+  app.get('/', (c) => c.html(renderChrome(targets)));
+
+  app.get('/artifact/:idx', async (c) => {
+    const target = annotationTarget(targets, Number(c.req.param('idx')));
+    if (!target) {
+      return c.text('not found', 404);
     }
-    const match = /^\/artifact\/(\d+)$/.exec(url);
-    if (match) {
-      const target = targets[Number(match[1])];
-      if (!target) {
-        res.writeHead(404).end('not found');
-        return;
-      }
-      const raw = readFileSync(target.path, 'utf8');
-      if (target.kind === 'html') {
-        res.writeHead(200, {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Content-Security-Policy': HTML_ARTIFACT_CSP,
-        });
-        res.end(renderHtmlArtifact(raw));
-      } else {
-        res.writeHead(200, {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Content-Security-Policy': MARKDOWN_ARTIFACT_CSP,
-        });
-        res.end(renderMarkdownArtifact(raw));
-      }
-      return;
+    const artifact = readFileSync(target.path, 'utf8');
+    if (target.kind === 'html') {
+      c.header('Content-Security-Policy', HTML_ARTIFACT_CSP);
+      return c.html(renderHtmlArtifact(artifact));
     }
-    const requestUrl = new URL(url, `http://${host}`);
-    if (req.method === 'GET' && requestUrl.pathname === '/api/annotations') {
-      const rawIdx = requestUrl.searchParams.get('idx');
-      const target = rawIdx === null ? undefined : annotationTarget(targets, Number(rawIdx));
-      if (!target) {
-        res.writeHead(400).end('invalid artifact index');
-        return;
-      }
-      try {
-        const annotations = await backend.list(target);
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify(annotations));
-      } catch {
-        res.writeHead(502).end('annotation backend unavailable');
-      }
-      return;
-    }
-    if (req.method === 'POST' && requestUrl.pathname === '/api/annotations') {
-      let input: Record<string, unknown> | undefined;
-      try {
-        input = jsonRecord(await readJsonBody(req));
-      } catch {
-        res.writeHead(400).end('invalid JSON');
-        return;
-      }
-      const target = annotationTarget(targets, input?.idx);
-      if (!target || typeof input?.body !== 'string' || input.body.trim().length === 0) {
-        res.writeHead(400).end('invalid annotation');
-        return;
-      }
-      try {
-        const annotation = await backend.create(target, {
-          passage: typeof input.passage === 'string' ? input.passage : null,
-          anchor: typeof input.anchor === 'string' ? input.anchor : null,
-          body: input.body,
-        });
-        res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify(annotation));
-      } catch {
-        res.writeHead(502).end('annotation backend unavailable');
-      }
-      return;
-    }
-    const resolveMatch = /^\/api\/annotations\/([^/]+)\/resolve$/.exec(requestUrl.pathname);
-    if (req.method === 'POST' && resolveMatch) {
-      try {
-        const input = jsonRecord(await readJsonBody(req));
-        const target = annotationTarget(targets, input?.idx);
-        if (!target) {
-          res.writeHead(400).end('invalid artifact index');
-          return;
-        }
-        if (!(await backend.resolve(target, decodeURIComponent(resolveMatch[1] ?? '')))) {
-          res.writeHead(404).end('not found');
-          return;
-        }
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ ok: true }));
-      } catch {
-        res.writeHead(400).end('invalid JSON');
-      }
-      return;
-    }
-    res.writeHead(404).end('not found');
-  };
-  const server: Server = createServer((req, res) => {
-    void handleRequest(req, res);
+    c.header('Content-Security-Policy', MARKDOWN_ARTIFACT_CSP);
+    return c.html(await renderMarkdownArtifact(artifact));
   });
 
+  app.get('/api/annotations', async (c) => {
+    const rawIdx = c.req.query('idx');
+    const target = rawIdx === undefined ? undefined : annotationTarget(targets, Number(rawIdx));
+    if (!target) {
+      return c.text('invalid artifact index', 400);
+    }
+    try {
+      return c.json(await backend.list(target));
+    } catch {
+      return c.text('annotation backend unavailable', 502);
+    }
+  });
+
+  app.post('/api/annotations', async (c) => {
+    let input: Record<string, unknown> | undefined;
+    try {
+      input = jsonRecord(await c.req.json());
+    } catch {
+      return c.text('invalid JSON', 400);
+    }
+    const target = annotationTarget(targets, input?.idx);
+    if (!target || typeof input?.body !== 'string' || input.body.trim().length === 0) {
+      return c.text('invalid annotation', 400);
+    }
+    try {
+      const annotation = await backend.create(target, {
+        passage: typeof input.passage === 'string' ? input.passage : null,
+        anchor: typeof input.anchor === 'string' ? input.anchor : null,
+        body: input.body,
+      });
+      return c.json(annotation, 201);
+    } catch {
+      return c.text('annotation backend unavailable', 502);
+    }
+  });
+
+  app.post('/api/annotations/:id/resolve', async (c) => {
+    try {
+      const input = jsonRecord(await c.req.json());
+      const target = annotationTarget(targets, input?.idx);
+      if (!target) {
+        return c.text('invalid artifact index', 400);
+      }
+      if (!(await backend.resolve(target, c.req.param('id')))) {
+        return c.text('not found', 404);
+      }
+      return c.json({ ok: true });
+    } catch {
+      return c.text('invalid JSON', 400);
+    }
+  });
+
+  app.notFound((c) => c.text('not found', 404));
+
   const port = options.port ?? DEFAULT_PREVIEW_PORT;
-  server.listen(port, host, () => {
+  serve({ fetch: app.fetch, port, hostname: host }, () => {
     const url = `http://${host}:${String(port)}/`;
     const mode = workspace
       ? `annotations → ${workspace.serverUrl} (project ${workspace.projectId})`

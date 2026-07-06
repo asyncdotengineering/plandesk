@@ -34,7 +34,10 @@
     "@plandesk/api": "workspace:*",
     "@plandesk/db": "workspace:*",
     "@plandesk/mcp": "workspace:*",
-    "marked": "^18.0.5"
+    "hono": "^4.12.23",
+    "marked": "^18.0.5",
+    "marked-shiki": "^1.2.1",
+    "shiki": "^4.3.1"
   },
   "description": "Plan Desk CLI \u2014 run a local-first planning workspace (canvas + docs + tasks + board + MCP). Provides the `plandesk` command.",
   "license": "MIT",
