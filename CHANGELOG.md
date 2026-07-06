@@ -2,6 +2,16 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [0.13.1] — 2026-07-06
+
+### Changed
+
+- **Unified versioning** — all published packages (`@plandesk/db`, `api`, `mcp`, `cli`, `mcp-client`, `sync-server`) now share a single version, starting at **0.13.1**. Future releases bump them in lockstep. (Internal `workspace:*` deps are rewritten to the exact version on publish — no workspace references ship in the tarballs.)
+
+### Added
+
+- **Agent awareness of the file previewer** — the connect skill (`.plandesk/skill.md`) now tells your coding agent about the `plandesk <file.md>` previewer/annotator and how to read file annotations over MCP (`list_artifact_comments` → `resolve_comment`), closing the "you write a file → the human marks it up → you fix it" loop on files. Re-run `plandesk connect` to pick up the new skill section.
+
 ## [cli 0.13.0] — 2026-07-06
 
 ### Added

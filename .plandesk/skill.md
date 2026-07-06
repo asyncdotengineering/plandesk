@@ -126,6 +126,23 @@ People leave comments on documents in the UI to give you feedback or direction.
 - Address each comment, then `resolve_comment` to close the loop — resolving
   updates the commenter's UI live.
 - Use `add_comment` to leave a suggestion or question on a document for a person.
+- People can also annotate **files you wrote** (not just workspace documents) — see
+  the next section. Pull those with `list_artifact_comments` (by `project_id` +
+  `artifact_id`), address them, and `resolve_comment` the same way.
+
+## Reviewing files (the CLI previewer)
+
+Beyond the workspace UI, a person can open any Markdown or HTML file you produced
+in a local previewer and annotate it:
+
+    plandesk <file.md>        # or: plandesk *.md, plandesk open <paths...>
+
+They highlight text and attach notes. In a connected repo those annotations are
+stored as `artifact` comments in this project's board, so you read and resolve
+them over MCP exactly like document comments — `list_artifact_comments` to pull,
+`resolve_comment` to close. This closes the "you write a file → the human marks it
+up → you fix it" loop on files, not just documents. When you finish a deliverable
+file, tell the person they can review it with `plandesk <that file>`.
 
 ## Agent runs
 1. Start a run at the beginning of any multi-step Plan Desk operation.

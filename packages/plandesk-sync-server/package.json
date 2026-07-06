@@ -1,6 +1,6 @@
 {
   "name": "@plandesk/sync-server",
-  "version": "0.5.0",
+  "version": "0.13.1",
   "type": "module",
   "exports": {
     ".": {

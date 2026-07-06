@@ -1,6 +1,6 @@
 {
   "name": "@plandesk/mcp-client",
-  "version": "0.4.1",
+  "version": "0.13.1",
   "type": "module",
   "exports": {
     ".": {
@@ -30,7 +30,7 @@
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   },
-  "description": "Plan Desk MCP client SDK — connect to a Plan Desk server over MCP.",
+  "description": "Plan Desk MCP client SDK \u2014 connect to a Plan Desk server over MCP.",
   "license": "MIT",
   "author": "asyncdotengineering",
   "homepage": "https://plandesk.asyncdot.com",
