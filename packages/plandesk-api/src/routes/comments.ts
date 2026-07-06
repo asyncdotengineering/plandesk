@@ -8,6 +8,11 @@ import {
 type CreateCommentBody = {
   body?: string;
   passage?: string | null;
+  anchor?: string | null;
+};
+
+type CreateArtifactCommentBody = CreateCommentBody & {
+  artifact_id?: string;
 };
 
 type UpdateCommentBody = {
@@ -33,6 +38,7 @@ async function handleCreateComment(
     const comment = commentService.create(target, {
       body: body.body,
       passage: body.passage,
+      anchor: body.anchor,
     });
 
     if (!comment) {
@@ -95,6 +101,47 @@ export function createCommentsRouter(commentService: CommentService): Hono {
   router.get('/projects/:id/comments', (c) => {
     const includeResolved = parseIncludeResolved(c.req.query('include_resolved'));
     const comments = commentService.listByProject(c.req.param('id'), { includeResolved });
+    if (!comments) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json(comments);
+  });
+
+  // Artifact comments are project-scoped. The file identity (content-hash+path,
+  // which may contain slashes) travels in the JSON body / query, not a path
+  // segment, so it never collides with routing.
+  router.post('/projects/:id/artifact-comments', async (c) => {
+    const body = await c.req.json<CreateArtifactCommentBody>();
+    if (typeof body.body !== 'string' || typeof body.artifact_id !== 'string') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    try {
+      const comment = commentService.createForArtifact(c.req.param('id'), body.artifact_id, {
+        body: body.body,
+        passage: body.passage,
+        anchor: body.anchor,
+      });
+      if (!comment) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+      return c.json(comment, 201);
+    } catch (error) {
+      if (error instanceof InvalidCommentError) {
+        return c.json({ error: 'invalid_argument' }, 400);
+      }
+      throw error;
+    }
+  });
+
+  router.get('/projects/:id/artifact-comments', (c) => {
+    const artifactId = c.req.query('artifact_id');
+    if (artifactId === undefined || artifactId === '') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    const includeResolved = parseIncludeResolved(c.req.query('include_resolved'));
+    const comments = commentService.listForArtifact(c.req.param('id'), artifactId, {
+      includeResolved,
+    });
     if (!comments) {
       return c.json({ error: 'not_found' }, 404);
     }

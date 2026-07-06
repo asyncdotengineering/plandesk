@@ -17,6 +17,7 @@ type CommentResponse = {
   target_id: string;
   document_id: string | null;
   passage: string | null;
+  anchor: string | null;
   body: string;
   resolved: boolean;
   created_at: string;
@@ -187,6 +188,44 @@ describe('comments routes', () => {
     const listRes = await app.request('/api/v1/submissions/sub-1/comments');
     expect(listRes.status).toBe(200);
     expect(await parseJson<CommentResponse[]>(listRes)).toHaveLength(1);
+  });
+
+  it('creates and lists project-scoped artifact annotations with an anchor', async () => {
+    const { app, db } = createTestApp();
+    const project = createProject(db, { name: 'Artifacts' });
+    const artifactId = 'sha256:abc123::docs/report with spaces.md';
+    const anchor = JSON.stringify({ type: 'TextQuoteSelector', exact: 'CSP', start: 10, end: 13 });
+
+    const createRes = await app.request(`/api/v1/projects/${project.id}/artifact-comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ artifact_id: artifactId, body: 'Check this', passage: 'CSP', anchor }),
+    });
+    expect(createRes.status).toBe(201);
+    const created = await parseJson<CommentResponse>(createRes);
+    expect(created.target_type).toBe('artifact');
+    expect(created.target_id).toBe(artifactId);
+    expect(created.anchor).toBe(anchor);
+
+    const listRes = await app.request(
+      `/api/v1/projects/${project.id}/artifact-comments?artifact_id=${encodeURIComponent(artifactId)}`,
+    );
+    expect(listRes.status).toBe(200);
+    const listed = await parseJson<CommentResponse[]>(listRes);
+    expect(listed).toHaveLength(1);
+    expect(listed[0]?.id).toBe(created.id);
+
+    // Missing artifact_id → 400; unknown project → 404.
+    const badRes = await app.request(`/api/v1/projects/${project.id}/artifact-comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'No artifact id' }),
+    });
+    expect(badRes.status).toBe(400);
+    const missingProjectRes = await app.request(
+      `/api/v1/projects/00000000-0000-4000-8000-000000009999/artifact-comments?artifact_id=x`,
+    );
+    expect(missingProjectRes.status).toBe(404);
   });
 
   it('returns 400 for empty body and 404 for missing resources', async () => {

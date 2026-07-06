@@ -204,6 +204,7 @@ export type SerializedComment = {
   target_id: string;
   document_id: string | null;
   passage: string | null;
+  anchor: string | null;
   body: string;
   resolved: boolean;
   created_at: string;
@@ -216,6 +217,7 @@ export function serializeComment(comment: Comment): SerializedComment {
     target_id: comment.targetId,
     document_id: comment.targetType === 'document' ? comment.targetId : null,
     passage: comment.passage,
+    anchor: comment.anchor,
     body: comment.body,
     resolved: comment.resolved,
     created_at: comment.createdAt.toISOString(),

@@ -29,6 +29,7 @@ export type CommentTarget = {
 export type CreateCommentInput = {
   body: string;
   passage?: string | null;
+  anchor?: string | null;
 };
 
 export type UpdateCommentInput = {
@@ -62,6 +63,11 @@ function targetProjectId(
       return dbGetNote(db, target.id)?.projectId;
     case 'submission':
       return getSubmission(db, target.id)?.projectId;
+    case 'artifact':
+      // An artifact is a file on disk, not a DB entity — its project is
+      // supplied by the caller (the connected repo's project), not resolved
+      // from the target id. Artifact comments go through createForArtifact.
+      return undefined;
   }
 }
 
@@ -115,11 +121,54 @@ export function createCommentService(deps: CommentServiceDeps) {
         targetId: target.id,
         body: input.body,
         passage: input.passage,
+        anchor: input.anchor,
       });
 
       emitCommentCreated(eventBus, comment.id, projectId, target);
 
       return serializeComment(comment);
+    },
+
+    // Artifact comments are project-scoped: the caller supplies the project
+    // (the connected repo's), and the file identity is the target id. Slashes
+    // in the file identity mean it travels in the body/query, never a path seg.
+    createForArtifact(
+      projectId: string,
+      artifactId: string,
+      input: CreateCommentInput,
+    ): SerializedComment | undefined {
+      if (!getProject(db, projectId)) {
+        return undefined;
+      }
+      if (artifactId.trim() === '') {
+        throw new InvalidCommentError('Artifact id must not be empty');
+      }
+      assertNonEmptyBody(input.body);
+
+      const target = { type: 'artifact' as const, id: artifactId };
+      const comment = createComment(db, {
+        projectId,
+        targetType: 'artifact',
+        targetId: artifactId,
+        body: input.body,
+        passage: input.passage,
+        anchor: input.anchor,
+      });
+
+      emitCommentCreated(eventBus, comment.id, projectId, target);
+
+      return serializeComment(comment);
+    },
+
+    listForArtifact(
+      projectId: string,
+      artifactId: string,
+      options?: { includeResolved?: boolean },
+    ): SerializedComment[] | undefined {
+      if (!getProject(db, projectId)) {
+        return undefined;
+      }
+      return dbListCommentsByTarget(db, 'artifact', artifactId, options).map(serializeComment);
     },
 
     listByTarget(
