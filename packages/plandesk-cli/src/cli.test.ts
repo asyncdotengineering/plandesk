@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   crashCourse,
   DEFAULT_BIND_HOST,
@@ -16,8 +16,23 @@ import {
   workspaceDbPath,
 } from './args.js';
 import { runInit } from './init.js';
-import { readServerInfo, readWorkspaceJson } from './connect-artifacts.js';
+import { readPortRegistry, readServerInfo, readWorkspaceJson } from './connect-artifacts.js';
 import { createListenErrorHandler, startServer, validateServeBind } from './serve.js';
+
+// Isolate the machine-global port registry (~/.plandesk/ports.json) so tests
+// that run `init`/`serve` never read or write the real one on this machine.
+let portRegistryStateDir: string | undefined;
+beforeEach(() => {
+  portRegistryStateDir = mkdtempSync(join(tmpdir(), 'plandesk-state-'));
+  process.env.PLANDESK_STATE_DIR = portRegistryStateDir;
+});
+afterEach(() => {
+  delete process.env.PLANDESK_STATE_DIR;
+  if (portRegistryStateDir !== undefined) {
+    rmSync(portRegistryStateDir, { recursive: true, force: true });
+    portRegistryStateDir = undefined;
+  }
+});
 
 describe('parseArgs', () => {
   it('parses init with data-dir override', () => {
@@ -198,6 +213,42 @@ describe('runInit', () => {
       rmSync(dataDir, { recursive: true, force: true });
     }
   });
+
+  it('assigns distinct ports to two different projects even when neither server is listening', async () => {
+    const dirA = mkdtempSync(join(tmpdir(), 'plandesk-init-a-'));
+    const dirB = mkdtempSync(join(tmpdir(), 'plandesk-init-b-'));
+    try {
+      await runInit(dirA);
+      await runInit(dirB);
+      const portA = readWorkspaceJson(dirA)?.port;
+      const portB = readWorkspaceJson(dirB)?.port;
+      expect(portA).toBeDefined();
+      expect(portB).toBeDefined();
+      // The core invariant: no cross-project collision. Before the registry both
+      // projects took the same lowest free port because nothing was listening.
+      expect(portB).not.toBe(portA);
+    } finally {
+      rmSync(dirA, { recursive: true, force: true });
+      rmSync(dirB, { recursive: true, force: true });
+    }
+  });
+
+  it('reclaims a port whose owning project directory no longer exists', async () => {
+    const dirA = mkdtempSync(join(tmpdir(), 'plandesk-init-stale-a-'));
+    await runInit(dirA);
+    const portA = readWorkspaceJson(dirA)?.port;
+    rmSync(dirA, { recursive: true, force: true }); // A is gone → its registry entry is stale
+
+    const dirB = mkdtempSync(join(tmpdir(), 'plandesk-init-stale-b-'));
+    try {
+      await runInit(dirB);
+      // With A's dir gone, its port is reclaimable, so B takes it back rather
+      // than being pushed to a higher port by a dead assignment.
+      expect(readWorkspaceJson(dirB)?.port).toBe(portA);
+    } finally {
+      rmSync(dirB, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('createListenErrorHandler', () => {
@@ -257,6 +308,9 @@ describe('startServer', () => {
     const info = readServerInfo(dataDir);
     expect(info?.port).toBe(port);
     expect(info?.pid).toBe(process.pid);
+
+    // serve registers the port it actually bound, so other projects avoid it.
+    expect(readPortRegistry().assignments[String(port)]).toBe(dataDir);
 
     await new Promise<void>((resolve) => {
       server.close(() => {

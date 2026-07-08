@@ -5,7 +5,15 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getRequestListener } from '@hono/node-server';
 import { createApp, createEventBus, createServices } from '@plandesk/api';
-import { createDb, createProject, createToken, migrate, verifyToken, type Db } from '@plandesk/db';
+import {
+  createDb,
+  createProject,
+  createToken,
+  migrate,
+  revokeToken,
+  verifyToken,
+  type Db,
+} from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { parseConfigJson, SENTINEL_START } from './connect-artifacts.js';
 import { formatConnectPrint, runConnect } from './connect.js';
@@ -267,6 +275,29 @@ describe('runConnect', () => {
       expect(report.projectExists).toBe(true);
       expect(report.mcpToolCount).toBeGreaterThan(0);
       expect(report.issues).toEqual([]);
+    });
+  });
+
+  it('reports token invalid (not valid) when the bound token is revoked', async () => {
+    await withTestServer(async ({ baseUrl, db, projectId, projectName }) => {
+      const repoDir = makeRepo(projectName);
+      const row = createToken(db, { name: 'doctor-revoked' });
+      await runConnect({
+        repoDir,
+        project: projectId,
+        url: baseUrl,
+        token: row.token,
+        interactive: false,
+      });
+      revokeToken(db, row.id);
+
+      const report = await runBindingDoctor(repoDir);
+      expect(report.serverReachable).toBe(true);
+      // token-valid must reflect the real authenticated MCP path, not the open
+      // REST route — a revoked token 401s live MCP requests, so it is NOT valid.
+      expect(report.tokenValid).toBe(false);
+      expect(report.mcpToolCount).toBe(0);
+      expect(report.issues).toContain('token invalid or revoked');
     });
   });
 });

@@ -115,6 +115,37 @@ describe('createPlandeskClient', () => {
     ).rejects.toThrow(/unreachable/i);
   });
 
+  it('surfaces an actionable error when the endpoint returns HTML instead of JSON-RPC', async () => {
+    // Simulate a foreign server (e.g. a web UI on a port owned by another
+    // project) answering /mcp/ with an HTML page. The raw SDK failure is an
+    // opaque "Unexpected content type"/parse error; the client must translate it.
+    const htmlServer = createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/html' });
+      res.end('<!doctype html><html><body>Plan Desk web UI</body></html>');
+    });
+    await new Promise<void>((resolve) => {
+      htmlServer.listen(0, '127.0.0.1', () => {
+        resolve();
+      });
+    });
+    const address = htmlServer.address();
+    if (address === null || typeof address !== 'object') {
+      throw new Error('expected TCP address');
+    }
+    const baseUrl = `http://127.0.0.1:${String(address.port)}`;
+    try {
+      await expect(
+        createPlandeskClient({ url: baseUrl, token: 'plandesk_mcp_probe_token' }),
+      ).rejects.toThrow(/non-JSON|not serving|HTML page/i);
+    } finally {
+      await new Promise<void>((resolve) => {
+        htmlServer.close(() => {
+          resolve();
+        });
+      });
+    }
+  });
+
   it('surfaces 401 for revoked token', async () => {
     await withMcpServer(async ({ baseUrl, db }) => {
       const row = createToken(db, { name: 'revoked' });

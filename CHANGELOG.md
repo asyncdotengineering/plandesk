@@ -2,6 +2,15 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [0.13.3] — 2026-07-09
+
+### Fixed
+
+- **Documents and notes with Markdown bodies no longer fail to save** — `create_document`, `update_document`, `create_note`, and `update_note` with any non-empty Markdown body previously threw `marked(): The async option was set to true by an extension` whenever the CLI and MCP server ran in one `plandesk serve` process. The CLI previewer registers an async syntax-highlighting extension on the shared `marked` singleton at load time, which broke the server-side renderer's synchronous parse. The renderer now uses its own private `marked` instance, immune to extensions registered anywhere else in the process. (#10)
+- **`update_document` can now link a document to a task** — the MCP `update_document` tool silently dropped `linked_task_id` (the parameter was missing from its schema, so it was stripped before persistence). It now accepts `linked_task_id` (a task id; pass `null` to unlink) and round-trips through `get_document`. The canonical parameter for the granular document tools is `linked_task_id`; `link_to` (a task **key**) remains scaffold-only. (#11)
+- **`plandesk init` no longer hands two projects the same port** — port allocation only skipped ports that were *currently listening*, so two projects whose servers were both stopped could be assigned the same port, leaving the second project's config pointed at the first project's server (401s, `binding-project-exists: no`). A machine-global registry (`~/.plandesk/ports.json`) now records each project's assigned port, and `init` skips ports owned by another project; `serve` registers the port it actually binds. Stale entries (owning project deleted) are reclaimed. (#12)
+- **MCP endpoint and `doctor` failures are now legible.** The `/mcp` router is mounted before the web-UI/SPA fallback, so the MCP server→client `GET /mcp/` stream is no longer shadowed (which had broken reconnects). The MCP client now translates an HTML/non-JSON response (an SPA served on a foreign port) into an actionable error instead of an opaque `Unrecognized token '<'`. And `plandesk doctor`'s `binding-token-valid` now exercises the real authenticated MCP path — it can no longer report a token "valid" while live MCP requests are being rejected. (#13)
+
 ## [0.13.2] — 2026-07-06
 
 ### Added

@@ -2,7 +2,13 @@ import { createServer } from 'node:net';
 import { mkdirSync } from 'node:fs';
 import { createDb, migrate } from '@plandesk/db';
 import { resolveInitDataDir, workspaceDbPath } from './args.js';
-import { readWorkspaceJson, writeWorkspaceJson } from './connect-artifacts.js';
+import {
+  isPortOwnedByAnotherProject,
+  readPortRegistry,
+  readWorkspaceJson,
+  reservePort,
+  writeWorkspaceJson,
+} from './connect-artifacts.js';
 
 const PORT_RANGE_START = 3400;
 const PORT_RANGE_END = 3499;
@@ -22,8 +28,14 @@ function isPortFree(port: number): Promise<boolean> {
   });
 }
 
-async function assignPort(): Promise<number> {
+async function assignPort(dataDir: string): Promise<number> {
+  const registry = readPortRegistry();
   for (let port = PORT_RANGE_START; port <= PORT_RANGE_END; port++) {
+    // Skip ports another project already owns (even if that project's server is
+    // not currently listening) and ports something is actively bound to.
+    if (isPortOwnedByAnotherProject(registry, port, dataDir)) {
+      continue;
+    }
     if (await isPortFree(port)) {
       return port;
     }
@@ -41,8 +53,9 @@ export async function runInit(dataDirOverride?: string): Promise<string> {
   migrate(db);
 
   if (readWorkspaceJson(dataDir) === undefined) {
-    const port = await assignPort();
+    const port = await assignPort(dataDir);
     writeWorkspaceJson(dataDir, port);
+    reservePort(dataDir, port);
   }
 
   return dbPath;

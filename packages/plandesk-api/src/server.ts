@@ -65,11 +65,16 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createAgentRunsRouter(agentRunService));
   app.route('/api/v1', createSubmissionsRouter(syncService, projectService));
   app.route('/api/v1', createEventsRouter(eventBus));
-  mountStatic(app);
 
+  // Mount the MCP router BEFORE the static/SPA handler. The MCP transport uses
+  // GET /mcp/ for its server->client SSE stream; if the SPA catch-all (app.get('*'))
+  // is registered first it shadows that GET and the stream never reaches the
+  // transport, breaking reconnect. The MCP router must own every method on /mcp/*.
   if (deps.mcp) {
     app.route('/mcp', deps.mcp);
   }
+
+  mountStatic(app);
 
   app.notFound((c) => c.json({ error: 'not_found' }, 404));
 

@@ -10,6 +10,7 @@ export function createUpdateDocumentHandler(
   title?: string;
   body?: string;
   status_line?: string;
+  linked_task_id?: string | null;
   folder_id?: string | null;
 }) => ToolResult {
   return (args) => {
@@ -18,6 +19,7 @@ export function createUpdateDocumentHandler(
         ...(args.title !== undefined ? { title: args.title } : {}),
         ...(args.body !== undefined ? { body: ensureHtmlBody(args.body) } : {}),
         ...(args.status_line !== undefined ? { statusLine: args.status_line } : {}),
+        ...(args.linked_task_id !== undefined ? { linkedTaskId: args.linked_task_id } : {}),
         ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
       });
       if (!document) {

@@ -102,6 +102,23 @@ async function connectClient(baseUrl: string, token: string): Promise<Client> {
   return client;
 }
 
+function parseDocumentResult(result: unknown): {
+  id: string;
+  title: string;
+  linked_task_id: string | null;
+} {
+  const content = (result as { content: unknown }).content as Array<{
+    type: string;
+    text?: string;
+  }>;
+  const text = content[0]?.type === 'text' ? (content[0].text ?? '{}') : '{}';
+  return (
+    JSON.parse(text) as {
+      document: { id: string; title: string; linked_task_id: string | null };
+    }
+  ).document;
+}
+
 describe('createMcpApp', () => {
   const servers: Server[] = [];
 
@@ -308,6 +325,48 @@ describe('createMcpApp', () => {
         documents: Array<{ id: string; title: string }>;
       };
       expect(listPayload.documents.some((entry) => entry.id === doc.id)).toBe(true);
+
+      await client.close();
+    });
+  });
+
+  it('create_document and update_document persist linked_task_id (round-trip)', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+      const client = await connectClient(baseUrl, token);
+      const task = createTask(db, { projectId, label: 'Link target' });
+      const other = createTask(db, { projectId, label: 'Other target' });
+
+      // create with a link (this path already worked; guard it against regression)
+      const created = await client.callTool({
+        name: 'create_document',
+        arguments: { project_id: projectId, title: 'Spec', linked_task_id: task.id },
+      });
+      expect(created.isError).not.toBe(true);
+      const createdDoc = parseDocumentResult(created);
+      expect(createdDoc.linked_task_id).toBe(task.id);
+
+      // re-link via update (this path silently dropped the link before the fix)
+      const updated = await client.callTool({
+        name: 'update_document',
+        arguments: { document_id: createdDoc.id, linked_task_id: other.id },
+      });
+      expect(updated.isError).not.toBe(true);
+      expect(parseDocumentResult(updated).linked_task_id).toBe(other.id);
+
+      // get_document reflects the link
+      const got = await client.callTool({
+        name: 'get_document',
+        arguments: { document_id: createdDoc.id },
+      });
+      expect(parseDocumentResult(got).linked_task_id).toBe(other.id);
+
+      // null unlinks
+      const unlinked = await client.callTool({
+        name: 'update_document',
+        arguments: { document_id: createdDoc.id, linked_task_id: null },
+      });
+      expect(unlinked.isError).not.toBe(true);
+      expect(parseDocumentResult(unlinked).linked_task_id).toBeNull();
 
       await client.close();
     });

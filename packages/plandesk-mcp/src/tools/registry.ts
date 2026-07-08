@@ -7,6 +7,9 @@ const DOCUMENT_BODY_DESCRIPTION =
 const NOTE_BODY_DESCRIPTION =
   'Note body in Markdown (rendered as rich text). Notes are free-form working notes scoped to the project — use them for findings, context, or anything worth referring back to. HTML is also accepted.';
 
+const LINKED_TASK_DESCRIPTION =
+  'ID (uuid) of the task this document is the spec for. Links the document to its primary task.';
+
 const TAGS_SET_DESCRIPTION =
   'Tag names to set on the task. Replaces the FULL tag set; tags that do not exist yet in the project are auto-created by name. Pass [] to remove all tags.';
 
@@ -55,7 +58,7 @@ export const createDocumentInputSchema = z.object({
   project_id: z.string().uuid(),
   title: z.string().min(1),
   body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
-  linked_task_id: z.string().uuid().optional(),
+  linked_task_id: z.string().uuid().optional().describe(LINKED_TASK_DESCRIPTION),
   parent_id: z.string().uuid().optional(),
   folder_id: z
     .string()
@@ -69,6 +72,12 @@ export const updateDocumentInputSchema = z.object({
   title: z.string().optional(),
   body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
   status_line: z.string().optional(),
+  linked_task_id: z
+    .string()
+    .uuid()
+    .nullable()
+    .optional()
+    .describe(`${LINKED_TASK_DESCRIPTION} Pass null to unlink the document from its task.`),
   folder_id: z
     .string()
     .uuid()

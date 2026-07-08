@@ -74,29 +74,37 @@ export async function runBindingDoctor(repoDir: string): Promise<BindingDoctorRe
   }
 
   if (token !== undefined && serverReachable) {
+    // Project existence: the REST GET tells us whether the running server knows
+    // this project. It does NOT authenticate the MCP token, so it must never be
+    // the source of `tokenValid`.
     const projectResponse = await fetch(`${config.serverUrl}/api/v1/projects/${config.projectId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (projectResponse.status === 401) {
-      issues.push('token invalid or revoked');
-    } else if (projectResponse.ok) {
-      tokenValid = true;
+    if (projectResponse.ok) {
       projectExists = true;
     } else if (projectResponse.status === 404) {
-      tokenValid = true;
       issues.push(`bound project not found: ${config.projectId}`);
     } else {
       issues.push(`project check failed with status ${String(projectResponse.status)}`);
     }
 
-    if (tokenValid) {
-      try {
-        mcpToolCount = await listMcpTools(config.serverUrl, token);
-        if (mcpToolCount === 0) {
-          issues.push('MCP tools list is empty');
-        }
-      } catch {
-        issues.push('failed to list MCP tools');
+    // Token validity: exercise the REAL authenticated MCP path against the
+    // running server (verifyToken), not the open REST route. This is the only
+    // signal that cannot report "valid" while live MCP requests 401 — e.g. when
+    // the bound port is held by a different project's server.
+    try {
+      mcpToolCount = await listMcpTools(config.serverUrl, token);
+      tokenValid = true;
+      if (mcpToolCount === 0) {
+        issues.push('MCP tools list is empty');
+      }
+    } catch (error) {
+      tokenValid = false;
+      const message = error instanceof Error ? error.message : String(error);
+      if (/\b401\b/.test(message) || /unauthor/i.test(message)) {
+        issues.push('token invalid or revoked');
+      } else {
+        issues.push('MCP authentication failed (server may be serving a different project)');
       }
     }
   }

@@ -91,7 +91,7 @@ Comments are polymorphic: a single `comments` table keyed by `target_type` (`doc
 | `get_task`                   | Fetch a single task by id                                                                                                  |
 | `list_tasks`                 | Project tasks, filterable by status and tags (OR)                                                                          |
 | `create_document`            | Markdown body; optional link to task                                                                                       |
-| `update_document`            | Patch title/body/status line                                                                                               |
+| `update_document`            | Patch title/body/status line, folder, and `linked_task_id` (null to unlink)                                                |
 | `get_document`               | Fetch a document by id                                                                                                     |
 | `list_documents`             | Project documents as a tree; filter by `folder_id`                                                                         |
 | `create_folder`              | Create a document folder (optionally nested)                                                                               |

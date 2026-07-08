@@ -4,7 +4,7 @@ import { createApp, createEventBus, createServices } from '@plandesk/api';
 import { createDb, migrate, verifyToken } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
-import { deleteServerInfo, writeServerInfo } from './connect-artifacts.js';
+import { deleteServerInfo, reservePort, writeServerInfo } from './connect-artifacts.js';
 
 export type ServeOptions = {
   port: number;
@@ -70,6 +70,9 @@ export function startServer(options: ServeOptions, exit: ExitFn = defaultExit): 
   const logListening = (): void => {
     const address = server.address();
     const boundPort = typeof address === 'object' && address !== null ? address.port : options.port;
+    // Record the port this project actually bound, so other projects' `init`
+    // avoids it even if this project predates the registry or rotated ports.
+    reservePort(dataDir, boundPort);
     writeServerInfo(dataDir, {
       port: boundPort,
       pid: process.pid,

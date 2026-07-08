@@ -115,6 +115,24 @@ function wrapClientError(err: unknown, baseUrl: string, phase: 'connect' | 'call
     return new Error(`Plan Desk MCP authentication failed (401) at ${baseUrl}/mcp/`);
   }
 
+  // An HTML page (or other non-JSON body) where JSON-RPC was expected surfaces
+  // in the SDK as a JSON parse error ("Unrecognized token '<'"). That means the
+  // URL is answered by something that is NOT a Plan Desk MCP endpoint — commonly
+  // a web UI served on a port owned by a different project's server.
+  if (
+    lower.includes("token '<'") ||
+    lower.includes('is not valid json') ||
+    lower.includes('not valid json') ||
+    lower.includes('unexpected token') ||
+    lower.includes('unexpected content type')
+  ) {
+    return new Error(
+      `Plan Desk MCP endpoint at ${baseUrl}/mcp/ returned a non-JSON response (looks like an HTML page). ` +
+        `The server at that URL is not serving this project's MCP endpoint — the port may be owned by ` +
+        `another project's server. Run \`plandesk doctor\` to check the binding.`,
+    );
+  }
+
   if (
     lower.includes('econnrefused') ||
     lower.includes('fetch failed') ||
