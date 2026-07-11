@@ -1,0 +1,959 @@
+<style>
+  :root{
+    --bg:#fdfcfc; --sidebar:#f6f5f3; --surface:#fff; --surface-2:#f2f1ef; --canvas:#f5f4f2;
+    --border:#e8e6e2; --border-strong:#dbd9d4; --text:#0b0b0b; --text-2:#57554f; --muted:#8d8b85;
+    --accent:#000; --accent-fg:#fff; --field:#fff;
+    --shadow:0 0 1px rgba(0,0,0,.28),0 1px 1px rgba(0,0,0,.04),0 2px 4px rgba(0,0,0,.03);
+    --shadow-pop:0 0 1px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.05);
+    --s-scope-bg:#eceae6;--s-scope-fg:#565550;--s-scope-dot:#9a978f;
+    --s-todo-bg:#e9eef5;--s-todo-fg:#33506e;--s-todo-dot:#5a7da8;
+    --s-prog-bg:#f6efdb;--s-prog-fg:#7a5a18;--s-prog-dot:#cc9f3c;
+    --s-done-bg:#e6f0e7;--s-done-fg:#33623f;--s-done-dot:#4e9160;
+    --s-back-bg:#efeeeb;--s-back-fg:#6b6963;--s-back-dot:#a8a59f;
+    --radius:8px;
+  }
+  /* Default = light. Dark applies only when the viewer explicitly toggles it (data-theme="dark"). */
+  :root[data-theme="dark"]{
+    --bg:#0a0a0a;--sidebar:#0f0f0f;--surface:#161616;--surface-2:#1e1e1e;--canvas:#101010;
+    --border:#262626;--border-strong:#343434;--text:#fafafa;--text-2:#a6a6a6;--muted:#6f6f6f;
+    --accent:#fafafa;--accent-fg:#0a0a0a;--field:#111;
+    --shadow:0 1px 2px rgba(0,0,0,.5);--shadow-pop:0 10px 30px rgba(0,0,0,.6);
+    --s-scope-bg:#22211f;--s-scope-fg:#b6b3ac;--s-scope-dot:#7d7a72;
+    --s-todo-bg:#16263a;--s-todo-fg:#8fb0d8;--s-todo-dot:#557da8;
+    --s-prog-bg:#332811;--s-prog-fg:#e0bd76;--s-prog-dot:#cc9f3c;
+    --s-done-bg:#132a1a;--s-done-fg:#7cc492;--s-done-dot:#4e9160;
+    --s-back-bg:#212120;--s-back-fg:#9a978f;--s-back-dot:#5f5d58;
+  }
+  :root[data-theme="light"]{
+    --bg:#fdfcfc;--sidebar:#f6f5f3;--surface:#fff;--surface-2:#f2f1ef;--canvas:#f5f4f2;
+    --border:#e8e6e2;--border-strong:#dbd9d4;--text:#0b0b0b;--text-2:#57554f;--muted:#8d8b85;
+    --accent:#000;--accent-fg:#fff;--field:#fff;
+    --shadow:0 0 1px rgba(0,0,0,.28),0 1px 1px rgba(0,0,0,.04),0 2px 4px rgba(0,0,0,.03);
+    --shadow-pop:0 0 1px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.05);
+    --s-scope-bg:#eceae6;--s-scope-fg:#565550;--s-scope-dot:#9a978f;
+    --s-todo-bg:#e9eef5;--s-todo-fg:#33506e;--s-todo-dot:#5a7da8;
+    --s-prog-bg:#f6efdb;--s-prog-fg:#7a5a18;--s-prog-dot:#cc9f3c;
+    --s-done-bg:#e6f0e7;--s-done-fg:#33623f;--s-done-dot:#4e9160;
+    --s-back-bg:#efeeeb;--s-back-fg:#6b6963;--s-back-dot:#a8a59f;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0;font-family:"Helvetica Neue",-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",sans-serif;font-size:13.5px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;letter-spacing:-.005em;}
+  .mono{font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;}
+  svg{display:block;}
+  button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;}
+  a{color:inherit;text-decoration:none;}
+  :focus-visible{outline:2px solid var(--text);outline-offset:2px;border-radius:4px;}
+
+  .app{display:grid;grid-template-columns:244px 1fr;height:100vh;overflow:hidden;}
+
+  /* sidebar */
+  .sidebar{background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;min-width:0;}
+  .ws{display:flex;align-items:center;gap:9px;padding:12px 12px 10px;}
+  .ws-badge{width:22px;height:22px;border-radius:6px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;flex:none;font-weight:700;font-size:12px;}
+  .ws-name{font-weight:640;font-size:13.5px;}
+  .ws-chev{margin-left:auto;color:var(--muted);}
+  .side-scroll{flex:1;overflow-y:auto;padding:4px 8px 8px;}
+  .proj{display:flex;align-items:center;gap:8px;padding:7px 8px;margin:2px 0 6px;border-radius:6px;}
+  .proj-dot{width:14px;height:14px;border-radius:4px;background:linear-gradient(135deg,#e0a13b,#d0562f);flex:none;}
+  .proj-name{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .nav-label{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 8px 4px;font-weight:600;}
+  .nav-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:6px 8px;border-radius:6px;color:var(--text-2);font-size:13px;font-weight:480;}
+  .nav-item svg{color:var(--muted);flex:none;}
+  .nav-item:hover{background:var(--surface-2);color:var(--text);}
+  .nav-item .count{margin-left:auto;font-size:11.5px;color:var(--muted);}
+  .nav-item.active{background:var(--surface);color:var(--text);font-weight:600;box-shadow:var(--shadow);}
+  .nav-item.active svg{color:var(--text);}
+  .side-foot{border-top:1px solid var(--border);padding:8px;display:flex;align-items:center;gap:8px;}
+  .cmdk{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border-radius:6px;color:var(--muted);font-size:12.5px;}
+  .cmdk:hover{background:var(--surface-2);color:var(--text-2);}
+  kbd{font-family:ui-monospace,"SF Mono",monospace;font-size:10.5px;padding:1px 5px;border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:4px;background:var(--surface);color:var(--text-2);}
+  .icon-btn{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--muted);flex:none;}
+  .icon-btn:hover{background:var(--surface-2);color:var(--text);}
+
+  /* main + topbar */
+  .main{display:grid;grid-template-rows:auto 1fr;min-width:0;}
+  .topbar{display:flex;align-items:center;gap:10px;padding:0 16px;height:48px;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.2) blur(6px);}
+  .crumb{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);}
+  .crumb b{color:var(--text);font-weight:600;}
+  .topbar .spacer{flex:1;}
+  .tb-btn{display:flex;align-items:center;gap:6px;height:32px;padding:0 13px;border-radius:999px;font-size:12.5px;color:var(--text-2);border:1px solid transparent;white-space:nowrap;}
+  .tb-btn:hover{background:var(--surface-2);color:var(--text);}
+  .tb-btn.ghost{border-color:var(--border-strong);background:var(--surface);box-shadow:var(--shadow);}
+  .tb-btn.ghost:hover{background:var(--surface-2);}
+  .tb-btn.primary{background:var(--accent);color:var(--accent-fg);font-weight:560;}
+  .tb-btn.primary:hover{opacity:.88;}
+  .search{display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--border-strong);background:var(--surface);color:var(--muted);font-size:12.5px;min-width:150px;box-shadow:var(--shadow);}
+  .search:hover{color:var(--text-2);}
+  .seg{display:inline-flex;background:var(--surface-2);border-radius:999px;padding:2px;gap:2px;}
+  .seg button{font-size:12px;padding:4px 12px;border-radius:999px;color:var(--muted);}
+  .seg button.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow);font-weight:560;}
+
+  .view{display:none;height:100%;min-height:0;overflow:hidden;}
+  .view.active{display:flex;flex-direction:column;}
+
+  /* chips */
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:560;padding:2px 8px;border-radius:999px;white-space:nowrap;}
+  .chip .cdot{width:6px;height:6px;border-radius:50%;}
+  .chip.scope{background:var(--s-scope-bg);color:var(--s-scope-fg);}
+  .chip.todo{background:var(--s-todo-bg);color:var(--s-todo-fg);}
+  .chip.prog{background:var(--s-prog-bg);color:var(--s-prog-fg);}
+  .chip.done{background:var(--s-done-bg);color:var(--s-done-fg);}
+  .chip.back{background:var(--s-back-bg);color:var(--s-back-fg);}
+  .chip.solid{background:var(--accent);color:var(--accent-fg);}
+  button.chip{cursor:pointer;}
+  button.chip:hover{filter:brightness(.97);}
+  .lane{font-size:10.5px;color:var(--muted);font-weight:500;letter-spacing:.02em;text-transform:uppercase;}
+  .doc-i{color:var(--muted);}
+
+  /* BOARD */
+  .board-wrap{flex:1;overflow-x:auto;overflow-y:hidden;padding:14px 16px 4px;}
+  .board{display:flex;gap:14px;height:100%;align-items:flex-start;min-height:0;}
+  .col{flex:0 0 274px;display:flex;flex-direction:column;max-height:100%;}
+  .col-head{display:flex;align-items:center;gap:8px;padding:2px 4px 10px;}
+  .col-dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .col-name{font-size:12.5px;font-weight:640;}
+  .col-count{font-size:11.5px;color:var(--muted);background:var(--surface-2);border-radius:999px;padding:0 7px;line-height:17px;}
+  .col-head .grow{flex:1;}
+  .col-add{color:var(--muted);border-radius:6px;width:22px;height:22px;display:grid;place-items:center;}
+  .col-add:hover{background:var(--surface-2);color:var(--text);}
+  .col-body{display:flex;flex-direction:column;gap:8px;overflow-y:auto;padding:1px 2px 8px;}
+  .card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 11px 9px;box-shadow:var(--shadow);cursor:pointer;transition:border-color .12s,box-shadow .12s,transform .1s;}
+  .card:hover{border-color:var(--border-strong);box-shadow:var(--shadow-pop);}
+  .card:active{transform:translateY(1px);}
+  .card.sel{border-color:var(--text);box-shadow:0 0 0 1px var(--text);}
+  .card-title{font-size:13px;font-weight:540;line-height:1.35;margin:0 14px 9px 0;}
+  .meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .meta .id{margin-left:auto;font-size:10.5px;color:var(--muted);}
+  .kebab{position:absolute;top:7px;right:6px;width:22px;height:22px;border-radius:6px;color:var(--muted);display:grid;place-items:center;opacity:0;transition:opacity .12s;}
+  .card:hover .kebab{opacity:1;}
+  .kebab:hover{background:var(--surface-2);color:var(--text);}
+  .add-task{display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:8px;color:var(--muted);font-size:12.5px;}
+  .add-task:hover{background:var(--surface-2);color:var(--text-2);}
+  .empty{text-align:center;padding:18px 10px;color:var(--muted);font-size:12px;border:1px dashed var(--border-strong);border-radius:var(--radius);}
+  .empty b{display:block;color:var(--text-2);font-weight:600;margin-bottom:2px;font-size:12.5px;}
+
+  /* FLOW */
+  .flow{flex:1;display:grid;grid-template-columns:1fr 300px;min-height:0;}
+  .canvas{position:relative;overflow:auto;background:var(--canvas);background-image:radial-gradient(var(--border-strong) 1px,transparent 1px);background-size:20px 20px;}
+  .stage{position:relative;width:760px;height:880px;margin:24px auto;}
+  .edge-lines{position:absolute;inset:0;pointer-events:none;}
+  .edge-lines line{stroke:var(--border-strong);stroke-width:1.5;}
+  .elabel{position:absolute;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border);border-radius:999px;font-size:10px;color:var(--muted);padding:1px 8px;font-weight:500;}
+  .node{position:absolute;width:212px;background:var(--surface);border:1px solid var(--border);border-radius:9px;box-shadow:var(--shadow);padding:10px 11px;cursor:pointer;transition:border-color .12s,box-shadow .12s;}
+  .node:hover{border-color:var(--border-strong);box-shadow:var(--shadow-pop);}
+  .node.sel{border-color:var(--text);box-shadow:0 0 0 1px var(--text);}
+  .node-t{font-size:12.5px;font-weight:560;line-height:1.3;margin:0 0 8px;}
+  .node-b{display:flex;align-items:center;gap:8px;}
+  .node-doc{margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-2);font-weight:500;}
+  .node-doc:hover{color:var(--text);}
+  .zoom{position:absolute;left:14px;bottom:14px;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);overflow:hidden;}
+  .zoom button{width:30px;height:30px;display:grid;place-items:center;color:var(--text-2);border-bottom:1px solid var(--border);}
+  .zoom button:last-child{border-bottom:none;}
+  .zoom button:hover{background:var(--surface-2);color:var(--text);}
+  .flow-tools{position:absolute;right:14px;top:14px;}
+  .activity{border-left:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;min-height:0;}
+  .act-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border);}
+  .act-head h3{font-size:12.5px;font-weight:640;margin:0;}
+  .act-head .count{margin-left:auto;font-size:11px;color:var(--muted);}
+  .act-list{overflow-y:auto;padding:6px 12px 16px;}
+  .act{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--border);}
+  .act:first-child{border-top:none;}
+  .av{width:22px;height:22px;border-radius:6px;flex:none;display:grid;place-items:center;font-size:10px;font-weight:600;color:#fff;margin-top:1px;}
+  .act-main{min-width:0;}
+  .act-top{display:flex;align-items:center;gap:7px;margin-bottom:3px;flex-wrap:wrap;}
+  .act-who{font-size:12px;font-weight:600;}
+  .act-when{font-size:10.5px;color:var(--muted);}
+  .act-txt{font-size:11.5px;color:var(--text-2);line-height:1.5;}
+  .tag-xs{font-size:9px;font-weight:600;letter-spacing:.05em;padding:1px 6px;border-radius:999px;}
+  .tag-ship{color:var(--s-done-fg);background:var(--s-done-bg);}
+  .tag-hold{color:var(--s-prog-fg);background:var(--s-prog-bg);}
+
+  /* DOCS */
+  .docs{flex:1;display:grid;grid-template-columns:262px 1fr 288px;min-height:0;}
+  .tree{border-right:1px solid var(--border);background:var(--sidebar);overflow-y:auto;padding:10px 8px;}
+  .tree-head{display:flex;align-items:center;padding:4px 6px 8px;}
+  .tree-head span{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600;}
+  .tree-head .icon-btn{margin-left:auto;width:24px;height:24px;}
+  .trow{position:relative;display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:6px;font-size:12.5px;color:var(--text-2);cursor:pointer;}
+  .trow:hover{background:var(--surface-2);color:var(--text);}
+  .trow.folder{font-weight:600;color:var(--text);}
+  .trow.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow);}
+  .trow .tw-ico{color:var(--muted);flex:none;}
+  .trow .tw-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .trow .tkebab{margin-left:auto;opacity:0;color:var(--muted);width:20px;height:20px;border-radius:5px;display:grid;place-items:center;flex:none;}
+  .trow:hover .tkebab{opacity:1;}
+  .trow .tkebab:hover{background:var(--border);color:var(--text);}
+  .tchild{margin-left:14px;padding-left:8px;border-left:1px solid var(--border);}
+  .editor{overflow-y:auto;background:var(--bg);}
+  .ed-bar{display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(6px);z-index:2;}
+  .ed-bar .spacer{flex:1;}
+  .ed-tools{display:flex;gap:2px;padding:8px 20px;border-bottom:1px solid var(--border);}
+  .ed-tools.hide{display:none;}
+  .ed-tools button{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--text-2);font-size:12px;}
+  .ed-tools button:hover{background:var(--surface-2);color:var(--text);}
+  .ed-body{max-width:680px;padding:22px 20px 60px;}
+  .ed-title{font-size:22px;font-weight:680;letter-spacing:-.02em;margin:0 0 8px;}
+  .ed-meta{display:flex;align-items:center;gap:8px;margin-bottom:20px;color:var(--muted);font-size:12px;}
+  .ed-body h2{font-size:15px;font-weight:660;margin:22px 0 8px;}
+  .ed-body p{margin:0 0 12px;color:var(--text-2);font-size:13.5px;line-height:1.65;}
+  .ed-body code{font-family:ui-monospace,"SF Mono",monospace;font-size:12px;background:var(--surface-2);padding:1px 5px;border-radius:4px;color:var(--text);}
+  .dtable{width:100%;border-collapse:collapse;font-size:12.5px;margin:6px 0 14px;}
+  .dtable th,.dtable td{border:1px solid var(--border);padding:7px 10px;text-align:left;vertical-align:top;}
+  .dtable th{background:var(--surface-2);font-weight:600;font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:var(--text-2);}
+  .dtable td{color:var(--text-2);}
+  .comments{border-left:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;}
+  .cm-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:8px;}
+  .cm-head h3{font-size:12.5px;font-weight:640;margin:0;}
+  .cm-head span{font-size:11px;color:var(--muted);}
+  .cm-body{flex:1;overflow-y:auto;padding:14px;}
+  .cm-box{border:1px solid var(--border-strong);border-radius:10px;background:var(--field);padding:10px;}
+  .cm-in{width:100%;border:none;background:none;resize:none;color:var(--text);font:inherit;min-height:40px;outline:none;}
+  .cm-in::placeholder{color:var(--muted);}
+  .cm-actions{display:flex;gap:8px;margin-top:8px;justify-content:flex-end;}
+
+  /* GOALS / NOTES / generic panes */
+  .scrollpane{flex:1;overflow-y:auto;padding:20px 22px 40px;}
+  .pane-narrow{max-width:760px;margin:0 auto;}
+  .goal{display:flex;align-items:flex-start;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;box-shadow:var(--shadow);margin-bottom:10px;}
+  .goal.active-goal{border-color:var(--border-strong);box-shadow:0 0 0 1px var(--border-strong),var(--shadow);}
+  .goal-main{flex:1;min-width:0;}
+  .goal-t{font-size:14px;font-weight:600;margin:0 0 8px;line-height:1.35;}
+  .goal-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted);}
+  .gate{display:inline-flex;align-items:center;gap:5px;background:var(--surface-2);border-radius:6px;padding:2px 8px;font-size:11px;color:var(--text-2);}
+  .prog-wrap{flex:none;width:120px;text-align:right;}
+  .prog-num{font-size:12px;color:var(--text-2);margin-bottom:5px;}
+  .bar{height:5px;border-radius:5px;background:var(--surface-2);overflow:hidden;}
+  .bar>i{display:block;height:100%;background:var(--text);}
+  .sec-h{display:flex;align-items:baseline;gap:10px;margin:6px 0 14px;flex-wrap:wrap;}
+  .sec-h h2{font-size:15px;font-weight:660;margin:0;}
+  .sec-h .hint{font-size:12px;color:var(--muted);}
+  .goal{cursor:pointer;}
+  .gd-head{display:flex;align-items:flex-start;gap:16px;margin-bottom:6px;}
+  .gd-title{font-size:20px;font-weight:680;letter-spacing:-.02em;line-height:1.3;margin:0;flex:1;}
+  .gd-actions{display:flex;gap:8px;flex:none;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .gd-banner{display:flex;align-items:center;gap:12px;border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:12.5px;line-height:1.45;}
+  .gd-banner svg{flex:none;}
+  .gd-banner.attn{background:var(--s-prog-bg);color:var(--s-prog-fg);}
+  .gd-banner.ok{background:var(--s-done-bg);color:var(--s-done-fg);}
+  .gd-banner .b-main{flex:1;}
+  .gd-cols{display:grid;grid-template-columns:1fr 300px;gap:22px;align-items:start;}
+  .gd-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .gd-stat{border:1px solid var(--border);border-radius:9px;background:var(--surface);padding:11px 12px;box-shadow:var(--shadow);}
+  .gd-stat .l{font-size:11px;color:var(--muted);margin-bottom:3px;}
+  .gd-stat .v{font-size:14px;font-weight:600;}
+  .gtasks{border:1px solid var(--border);border-radius:10px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden;}
+  .gtask{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;}
+  .gtask:last-child{border-bottom:none;}
+  .gtask:hover{background:var(--surface-2);}
+  .gtask .gt-t{flex:1;font-size:12.5px;font-weight:500;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .verif{border:1px solid var(--border);border-radius:10px;background:var(--surface);box-shadow:var(--shadow);padding:14px;margin-top:14px;}
+  .verif .vt{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;margin-bottom:8px;}
+  .gd-activity{border:1px solid var(--border);border-radius:10px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden;}
+  .gd-activity .act-head{padding:10px 14px;}
+  .gd-activity .act-list{overflow:visible;padding:2px 12px 12px;}
+  @media (max-width:900px){.gd-cols{grid-template-columns:1fr;}}
+  .detail-pane{max-width:820px;margin:0 auto;}
+  .dcard{border:1px solid var(--border);border-radius:10px;background:var(--surface);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:12px;}
+  .dcard h4{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;margin:0 0 9px;}
+  .dcard>p{margin:0;font-size:13px;color:var(--text-2);line-height:1.6;}
+  .match{display:flex;align-items:center;gap:9px;padding:8px 0;font-size:12.5px;border-bottom:1px solid var(--border);}
+  .match:last-child{border-bottom:none;}
+  .match .m-t{flex:1;color:var(--text-2);}
+  .decide{display:flex;gap:8px;justify-content:flex-end;margin-top:6px;flex-wrap:wrap;}
+  .drow2f{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .sub{cursor:pointer;}
+  .note-body-empty{color:var(--muted);}
+  .note{display:flex;align-items:flex-start;gap:12px;padding:13px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);box-shadow:var(--shadow);margin-bottom:9px;cursor:pointer;}
+  .note:hover{border-color:var(--border-strong);}
+  .note-ic{width:30px;height:30px;border-radius:8px;background:var(--surface-2);display:grid;place-items:center;color:var(--muted);flex:none;}
+  .note-t{font-size:13px;font-weight:600;margin:0 0 3px;}
+  .note-x{font-size:12px;color:var(--muted);line-height:1.5;margin:0;}
+  .note-when{font-size:11px;color:var(--muted);flex:none;}
+
+  /* INBOX */
+  .inbox-sec{margin-bottom:22px;}
+  .isec-h{display:flex;align-items:center;gap:8px;margin:0 0 10px;}
+  .isec-h h2{font-size:13px;font-weight:660;margin:0;}
+  .isec-h .badge{font-size:11px;background:var(--surface-2);color:var(--muted);border-radius:999px;padding:0 8px;line-height:18px;}
+  .sub{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);box-shadow:var(--shadow);margin-bottom:8px;}
+  .sub-main{flex:1;min-width:0;}
+  .sub-t{font-size:13px;font-weight:560;margin:0 0 4px;}
+  .sub-x{font-size:12px;color:var(--text-2);line-height:1.5;margin:0 0 8px;}
+  .sub-foot{display:flex;align-items:center;gap:8px;}
+  .sub-actions{display:flex;gap:6px;flex:none;}
+  .btn-sm{height:30px;padding:0 13px;border-radius:999px;font-size:12px;border:1px solid var(--border-strong);color:var(--text-2);background:var(--surface);}
+  .btn-sm:hover{background:var(--surface-2);color:var(--text);}
+  .btn-sm.accent{background:var(--accent);color:var(--accent-fg);border-color:transparent;font-weight:560;}
+  .btn-sm.accent:hover{opacity:.88;}
+  .empty-line{color:var(--muted);font-size:12.5px;padding:2px 2px 4px;}
+
+  /* OVERVIEW */
+  .ov-desc{color:var(--text-2);font-size:13.5px;max-width:640px;margin:0 0 18px;line-height:1.6;}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;}
+  .stat{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:13px 14px;box-shadow:var(--shadow);}
+  .stat .n{font-size:22px;font-weight:680;letter-spacing:-.02em;}
+  .stat .l{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .statbar{display:flex;height:6px;border-radius:6px;overflow:hidden;margin-top:10px;gap:2px;}
+  .statbar i{display:block;}
+
+  /* SETTINGS */
+  .set-card{border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden;}
+  .set-card-h{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--border);}
+  .set-card-h .txt{flex:1;min-width:0;}
+  .set-card-h h3{font-size:14px;font-weight:660;margin:0 0 2px;}
+  .set-card-h p{font-size:12px;color:var(--muted);margin:0;line-height:1.5;}
+  .trow2{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);}
+  .trow2:last-child{border-bottom:none;}
+  .trow2 .tk-name{font-weight:560;font-size:13px;}
+  .trow2 .tk-val{font-size:12px;color:var(--muted);}
+  .trow2 .spacer{flex:1;}
+  .tok{display:inline-flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;}
+
+  /* MODAL / MENU / TOAST / PALETTE */
+  .overlay{position:fixed;inset:0;background:rgba(10,10,10,.4);display:flex;align-items:flex-start;justify-content:center;padding-top:12vh;z-index:60;opacity:0;pointer-events:none;transition:opacity .16s;}
+  .overlay.open{opacity:1;pointer-events:auto;}
+  .modal{width:440px;max-width:92vw;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);transform:translateY(8px) scale(.99);transition:transform .16s;overflow:hidden;}
+  .overlay.open .modal{transform:none;}
+  .modal-h{padding:16px 18px 4px;}
+  .modal-h h3{font-size:15px;font-weight:660;margin:0 0 3px;}
+  .modal-h p{font-size:12.5px;color:var(--muted);margin:0;line-height:1.5;}
+  .modal-b{padding:12px 18px 4px;display:flex;flex-direction:column;gap:12px;}
+  .field label{display:block;font-size:11.5px;color:var(--text-2);font-weight:560;margin-bottom:5px;}
+  .field input,.field textarea,.field select{width:100%;border:1px solid var(--border-strong);background:var(--field);color:var(--text);border-radius:8px;padding:8px 10px;font:inherit;font-size:13px;outline:none;}
+  .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--text);}
+  .field textarea{resize:vertical;min-height:70px;}
+  .modal-f{display:flex;justify-content:flex-end;gap:8px;padding:14px 18px 16px;}
+  .btn{height:34px;padding:0 15px;border-radius:999px;font-size:13px;font-weight:520;border:1px solid var(--border-strong);background:var(--surface);color:var(--text-2);}
+  .btn:hover{background:var(--surface-2);color:var(--text);}
+  .btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent;}
+  .btn.primary:hover{opacity:.88;}
+  .btn.danger{background:#c9382c;color:#fff;border-color:transparent;}
+  .btn.danger:hover{opacity:.9;}
+
+  .menu{position:fixed;min-width:180px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-pop);padding:5px;z-index:70;font-size:12.5px;}
+  .menu button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:7px 9px;border-radius:7px;color:var(--text-2);}
+  .menu button:hover{background:var(--surface-2);color:var(--text);}
+  .menu button svg{color:var(--muted);flex:none;}
+  .menu button.danger{color:#c9382c;}
+  .menu button.danger svg{color:#c9382c;}
+  .menu .sep{height:1px;background:var(--border);margin:5px 2px;}
+  .menu .mlabel{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 9px 3px;font-weight:600;}
+
+  .toasts{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:80;align-items:center;}
+  .toast{display:flex;align-items:center;gap:9px;background:var(--accent);color:var(--accent-fg);font-size:12.5px;font-weight:500;padding:9px 14px;border-radius:999px;box-shadow:var(--shadow-pop);animation:tin .2s ease;}
+  .toast svg{flex:none;}
+  @keyframes tin{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  .palette{width:560px;max-width:92vw;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);overflow:hidden;transform:translateY(8px) scale(.99);transition:transform .16s;}
+  .overlay.open .palette{transform:none;}
+  .pal-in{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--border);}
+  .pal-in input{flex:1;border:none;background:none;color:var(--text);font-size:15px;outline:none;}
+  .pal-in input::placeholder{color:var(--muted);}
+  .pal-list{max-height:340px;overflow-y:auto;padding:6px;}
+  .pal-g{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:8px 10px 4px;font-weight:600;}
+  .pal-item{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:8px;color:var(--text-2);font-size:13px;cursor:pointer;}
+  .pal-item svg{color:var(--muted);flex:none;}
+  .pal-item.on,.pal-item:hover{background:var(--surface-2);color:var(--text);}
+  .pal-item .k{margin-left:auto;font-size:11px;color:var(--muted);}
+
+  /* PORTAL (public share takeover) */
+  .portal{position:fixed;inset:0;background:var(--bg);z-index:50;display:none;flex-direction:column;overflow:auto;}
+  .portal.open{display:flex;}
+  .p-top{display:flex;align-items:center;gap:12px;padding:0 22px;height:56px;border-bottom:1px solid var(--border);}
+  .p-brand{font-weight:680;font-size:15px;}
+  .p-tag{font-size:11px;color:var(--muted);border:1px solid var(--border-strong);border-radius:999px;padding:2px 9px;}
+  .p-body{max-width:1080px;width:100%;margin:0 auto;padding:26px 22px 60px;}
+  .p-h1{font-size:24px;font-weight:700;letter-spacing:-.02em;margin:0 0 4px;}
+  .p-sub{color:var(--muted);font-size:13px;margin:0 0 22px;}
+  .p-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px;}
+  .p-col-h{font-size:12px;font-weight:640;margin:0 0 10px;display:flex;gap:7px;align-items:center;}
+  .p-card{background:var(--surface);border:1px solid var(--border);border-radius:9px;box-shadow:var(--shadow);padding:10px 12px;margin-bottom:8px;font-size:12.5px;font-weight:500;}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
+</style>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="ws"><div class="ws-badge">P</div><span class="ws-name">Plan Desk</span>
+      <svg class="ws-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 9l4 4 4-4M8 15l4-4 4 4"/></svg></div>
+    <div class="side-scroll">
+      <div class="proj"><span class="proj-dot"></span><span class="proj-name">Syrinx vNext</span></div>
+      <div class="nav-label">Plan</div>
+      <button class="nav-item" data-action="nav" data-target="overview"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Overview</button>
+      <button class="nav-item active" data-action="nav" data-target="board"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="16.5" y="4" width="4.5" height="8" rx="1.5"/></svg>Board<span class="count mono">7</span></button>
+      <button class="nav-item" data-action="nav" data-target="flow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="6" cy="7" r="2.4"/><circle cx="18" cy="12" r="2.4"/><circle cx="6" cy="17" r="2.4"/><path d="M8.3 7.6l7.4 3.6M8.2 16.2l7.5-3.4"/></svg>Flow</button>
+      <button class="nav-item" data-action="nav" data-target="goals"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.4"/></svg>Goals<span class="count mono">2</span></button>
+      <div class="nav-label">Workspace</div>
+      <button class="nav-item" data-action="nav" data-target="docs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M14 3.5V8h4"/></svg>Docs<span class="count mono">11</span></button>
+      <button class="nav-item" data-action="nav" data-target="notes"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1z"/></svg>Notes<span class="count mono">2</span></button>
+      <button class="nav-item" data-action="nav" data-target="inbox"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 13l2.2-7.2A2 2 0 0 1 8.1 4.5h7.8a2 2 0 0 1 1.9 1.3L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 13h4l1.5 2.2h5L16 13h4"/></svg>Inbox<span class="count mono">2</span></button>
+    </div>
+    <div class="side-foot">
+      <button class="cmdk" data-action="palette"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>Search or run a command<span style="margin-left:auto"><kbd>⌘</kbd> <kbd>K</kbd></span></button>
+      <button class="icon-btn" title="Settings" data-action="nav" data-target="settings"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.2M12 18.8V21M4.8 4.8l1.6 1.6M17.6 17.6l1.6 1.6M3 12h2.2M18.8 12H21M4.8 19.2l1.6-1.6M17.6 6.4l1.6-1.6"/></svg></button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <nav class="crumb"><span>Syrinx vNext</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"/></svg><b id="crumbView">Board</b></nav>
+      <div class="spacer"></div>
+      <div class="search" data-action="palette"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>Filter</div>
+      <button class="tb-btn primary" data-action="new"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span id="primaryLabel">New task</span></button>
+    </header>
+
+    <!-- OVERVIEW -->
+    <section class="view" data-view="overview">
+      <div class="scrollpane"><div class="pane-narrow" style="max-width:840px">
+        <p class="ov-desc">Voice-engine vNext build: IU substrate, InteractionPolicy / VAP, half-cascade, and reasoner-latency. Model-agnostic full-duplex turn-taking with structural-faithful multilingual voicing.</p>
+        <div class="stats">
+          <div class="stat"><div class="n mono">7</div><div class="l">Tasks</div><div class="statbar"><i style="flex:2;background:var(--s-todo-dot)"></i><i style="flex:1;background:var(--s-prog-dot)"></i><i style="flex:4;background:var(--s-done-dot)"></i></div></div>
+          <div class="stat"><div class="n mono">1</div><div class="l">In progress</div></div>
+          <div class="stat"><div class="n mono">2</div><div class="l">Active goals</div></div>
+          <div class="stat"><div class="n mono">11</div><div class="l">Documents</div></div>
+        </div>
+        <div class="sec-h"><h2>Recent activity</h2></div>
+        <div class="act" style="border:none;padding:8px 0"><div class="av" style="background:#d0562f">G</div><div class="act-main"><div class="act-top"><span class="act-who">Grok</span><span class="tag-xs tag-ship">SHIPPED</span><span class="act-when">2h ago</span></div><div class="act-txt">C1 (RealtimeBridge textOnly routing) shipped + manager-verified — realtime gate green (58 tests, exit 0).</div></div></div>
+        <div class="act" style="padding:8px 0"><div class="av" style="background:var(--accent);color:var(--accent-fg)">M</div><div class="act-main"><div class="act-top"><span class="act-who">Mithushan</span><span class="act-when">yesterday</span></div><div class="act-txt">Released "Build half-cascade" to In Progress · lane approve.</div></div></div>
+        <div class="act" style="padding:8px 0"><div class="av" style="background:#4e9160">✓</div><div class="act-main"><div class="act-top"><span class="act-who">Reasoner-latency</span><span class="tag-xs tag-ship">DONE</span><span class="act-when">2d ago</span></div><div class="act-txt">RoutingReasoner (B) + HedgedReasoner (C) shipped + verified, drop-in composable.</div></div></div>
+      </div></div>
+    </section>
+
+    <!-- BOARD -->
+    <section class="view active" data-view="board">
+      <div class="board-wrap"><div class="board">
+        <section class="col"><div class="col-head"><span class="col-dot" style="background:var(--s-scope-dot)"></span><span class="col-name">Scope</span><span class="col-count mono" data-count>0</span><span class="grow"></span><button class="col-add" data-action="add-task" data-status="Scope"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button></div>
+          <div class="col-body" data-col="Scope"><div class="empty"><b>Nothing in scope</b>Ideas awaiting sizing land here before a human releases them.</div></div></section>
+
+        <section class="col"><div class="col-head"><span class="col-dot" style="background:var(--s-todo-dot)"></span><span class="col-name">Todo</span><span class="col-count mono" data-count>2</span><span class="grow"></span><button class="col-add" data-action="add-task" data-status="Todo"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button></div>
+          <div class="col-body" data-col="Todo">
+            <article class="card" data-task="gpt"><button class="kebab" data-action="card-menu"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18" r="1.6"/></svg></button><p class="card-title">GPT-Live feel: rule-based polish chunks</p><div class="meta"><button class="chip todo" data-action="status"><span class="cdot" style="background:var(--s-todo-dot)"></span>Todo</button><span class="lane">auto</span><span class="id mono">SYX-31</span></div></article>
+            <article class="card" data-task="workers"><button class="kebab" data-action="card-menu"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18" r="1.6"/></svg></button><p class="card-title">Workers tier: hosted smart-turn binding in server-workers</p><div class="meta"><button class="chip todo" data-action="status"><span class="cdot" style="background:var(--s-todo-dot)"></span>Todo</button><span class="lane">approve</span><svg class="doc-i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M14 3.5V8h4"/></svg><span class="id mono">SYX-28</span></div></article>
+            <button class="add-task" data-action="add-task" data-status="Todo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Add task</button></div></section>
+
+        <section class="col"><div class="col-head"><span class="col-dot" style="background:var(--s-prog-dot)"></span><span class="col-name">In Progress</span><span class="col-count mono" data-count>1</span><span class="grow"></span><button class="col-add" data-action="add-task" data-status="In Progress"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button></div>
+          <div class="col-body" data-col="In Progress">
+            <article class="card" data-task="half"><button class="kebab" data-action="card-menu"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18" r="1.6"/></svg></button><p class="card-title">Build half-cascade (text-only front + Syrinx TTS)</p><div class="meta"><button class="chip prog" data-action="status"><span class="cdot" style="background:var(--s-prog-dot)"></span>In Progress</button><span class="lane">approve</span><svg class="doc-i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M14 3.5V8h4"/></svg><span class="id mono">SYX-23</span></div></article>
+            <button class="add-task" data-action="add-task" data-status="In Progress"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Add task</button></div></section>
+
+        <section class="col"><div class="col-head"><span class="col-dot" style="background:var(--s-done-dot)"></span><span class="col-name">Done</span><span class="col-count mono" data-count>4</span><span class="grow"></span><button class="col-add" data-action="add-task" data-status="Done"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button></div>
+          <div class="col-body" data-col="Done">
+            <article class="card" data-task="iu"><button class="kebab" data-action="card-menu"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18" r="1.6"/></svg></button><p class="card-title">Build IU substrate (IuLedger + turn-epoch)</p><div class="meta"><button class="chip done" data-action="status"><span class="cdot" style="background:var(--s-done-dot)"></span>Done</button><span class="lane">full</span><svg class="doc-i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M14 3.5V8h4"/></svg><span class="id mono">SYX-09</span></div></article>
+            <article class="card" data-task="ip"><button class="kebab" data-action="card-menu"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18" r="1.6"/></svg></button><p class="card-title">Build InteractionPolicy seam + VAP</p><div class="meta"><button class="chip done" data-action="status"><span class="cdot" style="background:var(--s-done-dot)"></span>Done</button><span class="lane">full</span><svg class="doc-i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M14 3.5V8h4"/></svg><span class="id mono">SYX-12</span></div></article>
+            <article class="card" data-task="rl"><button class="kebab" data-action="card-menu"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18" r="1.6"/></svg></button><p class="card-title">Reasoner-latency: routing + hedging</p><div class="meta"><button class="chip done" data-action="status"><span class="cdot" style="background:var(--s-done-dot)"></span>Done</button><span class="lane">approve</span><svg class="doc-i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M14 3.5V8h4"/></svg><span class="id mono">SYX-15</span></div></article>
+            <article class="card" data-task="vap"><button class="kebab" data-action="card-menu"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18" r="1.6"/></svg></button><p class="card-title">Arm VAP eval with real checkpoints (no training)</p><div class="meta"><button class="chip done" data-action="status"><span class="cdot" style="background:var(--s-done-dot)"></span>Done</button><span class="lane">approve</span><span class="id mono">SYX-19</span></div></article></div></section>
+
+        <section class="col"><div class="col-head"><span class="col-dot" style="background:var(--s-back-dot)"></span><span class="col-name">Backlog</span><span class="col-count mono" data-count>0</span><span class="grow"></span><button class="col-add" data-action="add-task" data-status="Backlog"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button></div>
+          <div class="col-body" data-col="Backlog"><div class="empty"><b>Backlog is clear</b>Unshaped requests wait here until triage sorts them.</div></div></section>
+      </div></div>
+    </section>
+
+    <!-- FLOW -->
+    <section class="view" data-view="flow">
+      <div class="flow">
+        <div class="canvas">
+          <button class="tb-btn ghost flow-tools"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h7M4 12h11M4 17h6"/><path d="M17 8l3 3-3 3"/></svg>Auto layout</button>
+          <div class="stage">
+            <svg class="edge-lines" width="760" height="880"><line x1="146" y1="88" x2="146" y2="150"/><line x1="146" y1="238" x2="146" y2="300"/><line x1="146" y1="388" x2="146" y2="450"/><line x1="146" y1="538" x2="146" y2="600"/></svg>
+            <div class="elabel" style="left:146px;top:119px">depends on</div>
+            <div class="elabel" style="left:146px;top:269px">depends on</div>
+            <div class="elabel" style="left:146px;top:419px">blocks</div>
+            <div class="elabel" style="left:146px;top:569px">blocks</div>
+            <div class="node" data-task="iu" style="left:40px;top:20px"><p class="node-t">Build IU substrate (IuLedger + turn-epoch)</p><div class="node-b"><button class="chip done" data-action="status"><span class="cdot" style="background:var(--s-done-dot)"></span>Done</button><a class="node-doc"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/></svg>Doc</a></div></div>
+            <div class="node" data-task="rl" style="left:470px;top:70px"><p class="node-t">Reasoner-latency: routing + hedging</p><div class="node-b"><button class="chip done" data-action="status"><span class="cdot" style="background:var(--s-done-dot)"></span>Done</button><a class="node-doc"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/></svg>Doc</a></div></div>
+            <div class="node" data-task="ip" style="left:40px;top:170px"><p class="node-t">Build InteractionPolicy seam + VAP</p><div class="node-b"><button class="chip done" data-action="status"><span class="cdot" style="background:var(--s-done-dot)"></span>Done</button><a class="node-doc"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/></svg>Doc</a></div></div>
+            <div class="node sel" data-task="half" style="left:40px;top:320px"><p class="node-t">Build half-cascade (text-only front + Syrinx TTS)</p><div class="node-b"><button class="chip prog" data-action="status"><span class="cdot" style="background:var(--s-prog-dot)"></span>In Progress</button><a class="node-doc"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/></svg>Doc</a></div></div>
+            <div class="node" data-task="vap" style="left:40px;top:470px"><p class="node-t">Arm VAP eval with real checkpoints (no training)</p><div class="node-b"><button class="chip done" data-action="status"><span class="cdot" style="background:var(--s-done-dot)"></span>Done</button><a class="node-doc"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/></svg>Doc</a></div></div>
+            <div class="node" data-task="workers" style="left:470px;top:470px"><p class="node-t">Workers tier: hosted smart-turn binding in server-workers</p><div class="node-b"><button class="chip todo" data-action="status"><span class="cdot" style="background:var(--s-todo-dot)"></span>Todo</button></div></div>
+            <div class="node" data-task="gpt" style="left:40px;top:620px"><p class="node-t">GPT-Live feel: rule-based polish chunks</p><div class="node-b"><button class="chip todo" data-action="status"><span class="cdot" style="background:var(--s-todo-dot)"></span>Todo</button></div></div>
+          </div>
+          <div class="zoom"><button title="Zoom in"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6v12M6 12h12"/></svg></button><button title="Zoom out"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 12h12"/></svg></button><button title="Fit"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/></svg></button></div>
+        </div>
+        <aside class="activity">
+          <div class="act-head"><h3>Activity</h3><span class="count">8 runs</span></div>
+          <div class="act-list">
+            <div class="act"><div class="av" style="background:#d0562f">G</div><div class="act-main"><div class="act-top"><span class="act-who">Grok</span><span class="tag-xs tag-ship">SHIPPED</span><span class="act-when">2h ago</span></div><div class="act-txt">C1 (RealtimeBridge textOnly routing) shipped + manager-verified. All 3 flagged hazards handled; realtime gate green (58 tests, exit 0).</div></div></div>
+            <div class="act"><div class="av" style="background:#454545">A</div><div class="act-main"><div class="act-top"><span class="act-who">Agent run</span><span class="act-when">now</span></div><div class="act-txt">C2 (zeta-tts HTTP-streaming Sinhala TTS) delegated to Grok; verifying against real diffs.</div></div></div>
+            <div class="act"><div class="av" style="background:#6b7280">C</div><div class="act-main"><div class="act-top"><span class="act-who">Codex</span><span class="tag-xs tag-hold">HOLD</span><span class="act-when">yesterday</span></div><div class="act-txt">RL-WBS-1 round 1 held — correct for compliant backends but hang-on-reject risk on a throwing one; fix requested.</div></div></div>
+            <div class="act"><div class="av" style="background:#4e9160">✓</div><div class="act-main"><div class="act-top"><span class="act-who">Reasoner-latency</span><span class="tag-xs tag-ship">CLOSED</span><span class="act-when">2d ago</span></div><div class="act-txt">RoutingReasoner (B) + HedgedReasoner (C) shipped, verified, robust — drop-in composable via withVoice.</div></div></div>
+            <div class="act"><div class="av" style="background:#6b7280">M</div><div class="act-main"><div class="act-top"><span class="act-who">Manager</span><span class="act-when">3d ago</span></div><div class="act-txt">Phase 0 code-complete + PR-ready. Full-test gate green across packages; one load-induced workerd timeout (passes isolated).</div></div></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- DOCS -->
+    <section class="view" data-view="docs">
+      <div class="docs">
+        <div class="tree" id="tree">
+          <div class="tree-head"><span>Documents</span><button class="icon-btn" title="New document" data-action="new-doc"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button></div>
+          <div class="trow folder"><svg class="tw-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg><span class="tw-t">Phase 0 — IU Substrate</span><button class="tkebab" data-action="tree-menu"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg></button></div>
+          <div class="tchild">
+            <div class="trow on" data-doc="1"><svg class="tw-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3.5h7l3.5 3.5V20a.8.8 0 0 1-.8.8H7a.8.8 0 0 1-.8-.8V4.3A.8.8 0 0 1 7 3.5z"/></svg><span class="tw-t">Plan: IU Substrate — Sprint Plan</span><button class="tkebab" data-action="tree-menu"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg></button></div>
+            <div class="trow" data-doc="2"><svg class="tw-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3.5h7l3.5 3.5V20a.8.8 0 0 1-.8.8H7a.8.8 0 0 1-.8-.8V4.3A.8.8 0 0 1 7 3.5z"/></svg><span class="tw-t">Phase 0 Outcomes</span><button class="tkebab" data-action="tree-menu"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg></button></div>
+          </div>
+          <div class="trow folder"><svg class="tw-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg><span class="tw-t">InteractionPolicy (seam + VAP)</span><button class="tkebab" data-action="tree-menu"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg></button></div>
+          <div class="tchild">
+            <div class="trow" data-doc="3"><svg class="tw-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3.5h7l3.5 3.5V20a.8.8 0 0 1-.8.8H7a.8.8 0 0 1-.8-.8V4.3A.8.8 0 0 1 7 3.5z"/></svg><span class="tw-t">Plan: InteractionPolicy — Sprint Plan</span><button class="tkebab" data-action="tree-menu"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg></button></div>
+          </div>
+          <div class="trow" data-doc="4"><svg class="tw-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3.5h7l3.5 3.5V20a.8.8 0 0 1-.8.8H7a.8.8 0 0 1-.8-.8V4.3A.8.8 0 0 1 7 3.5z"/></svg><span class="tw-t">Design: IU substrate (IuLedger + turn-epoch)</span><button class="tkebab" data-action="tree-menu"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg></button></div>
+          <div class="trow" data-doc="5"><svg class="tw-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3.5h7l3.5 3.5V20a.8.8 0 0 1-.8.8H7a.8.8 0 0 1-.8-.8V4.3A.8.8 0 0 1 7 3.5z"/></svg><span class="tw-t">Design: half-cascade</span><button class="tkebab" data-action="tree-menu"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg></button></div>
+          <div class="trow" data-doc="6"><svg class="tw-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3.5h7l3.5 3.5V20a.8.8 0 0 1-.8.8H7a.8.8 0 0 1-.8-.8V4.3A.8.8 0 0 1 7 3.5z"/></svg><span class="tw-t">Investigation: VAP adoption findings</span><button class="tkebab" data-action="tree-menu"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg></button></div>
+        </div>
+
+        <div class="editor">
+          <div class="ed-bar">
+            <div class="seg" id="rwSeg"><button data-action="reader">Read</button><button class="on" data-action="editmode">Edit</button></div>
+            <div class="spacer"></div>
+            <button class="tb-btn ghost"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 13l4 4L19 7"/></svg>Saved</button>
+          </div>
+          <div class="ed-tools" id="edTools">
+            <button style="font-weight:700">B</button><button style="font-style:italic">I</button><button><span style="font-size:11px;font-weight:700">H2</span></button>
+            <button><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></button>
+            <button><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="5" width="16" height="14" rx="1"/><path d="M4 10h16M10 5v14"/></svg></button>
+            <button><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 15l4-4 4 4 3-3 5 5"/><circle cx="9" cy="9.5" r="1.3"/></svg></button>
+          </div>
+          <div class="ed-body">
+            <h1 class="ed-title">Plan: IU Substrate — Sprint Plan (WBS)</h1>
+            <div class="ed-meta"><span class="chip done"><span class="cdot" style="background:var(--s-done-dot)"></span>Executed</span><span>·</span><span>Board mirror · updated 2d ago</span></div>
+            <p><b>Status:</b> Executed (all sprints closed; Phase 0 PR-ready). Full detail in the repo at <code>sprints/WBS.md</code> — this is the board mirror.</p>
+            <p><b>Build branch:</b> <code>plan/iu-substrate</code> · <b>IC:</b> grok · <b>Spec:</b> <code>docs/rfc-incremental-unit-substrate.md</code></p>
+            <h2>Roadmap (as executed)</h2>
+            <table class="dtable"><thead><tr><th>Sprint</th><th>Chunk</th><th>Goal</th><th>Outcome</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">0</td><td>C1 ledger core</td><td>IncrementalUnit + InMemoryIuLedger, monotonic / idempotent</td><td>Shipped (225 core tests)</td></tr>
+                <tr><td class="mono">1</td><td>C2 identity producer</td><td>Speculative gen on IuLedger, behavior-preserving</td><td>Shipped (fix 3d6770a)</td></tr>
+                <tr><td class="mono">2</td><td>C3 heard-prefix</td><td>Assistant-side IU producer on the ledger</td><td>Shipped (42 aisdk green)</td></tr>
+              </tbody></table>
+            <p>C4 rescoped as net-harmful (no dual bookkeeping to delete); C5 turn-epoch deferred to backlog — premise stale in v4.1.0.</p>
+          </div>
+        </div>
+
+        <aside class="comments">
+          <div class="cm-head"><h3>Comments</h3><span id="cmCount">1 open</span></div>
+          <div class="cm-body" id="cmBody">
+            <div class="act" style="border:none;padding:0 0 14px"><div class="av" style="background:var(--accent);color:var(--accent-fg)">M</div><div class="act-main"><div class="act-top"><span class="act-who">Mithushan</span><span class="act-when">1d ago</span></div><div class="act-txt">Can we fold the C4 rationale into the Phase 0 Outcomes doc so it's not buried here?</div></div></div>
+            <div class="cm-box"><textarea class="cm-in" id="cmInput" placeholder="Leave feedback for teammates or an agent…"></textarea><div class="cm-actions"><button class="btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="display:inline"><path d="M4 8l6 4 6-4M4 8v8h12"/></svg> Attach selection</button><button class="btn-sm accent" data-action="comment">Comment</button></div></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- GOALS -->
+    <section class="view" data-view="goals">
+      <div class="scrollpane" id="goalsList"><div class="pane-narrow" id="goalList">
+        <div class="sec-h"><h2>Goals</h2><span class="hint">Durable contracts you hand to agents. Open one to watch it get built and act where a gate needs you.</span></div>
+        <div class="goal active-goal" data-state="active" data-title="Ship Syrinx vNext — model-agnostic full-duplex turn-taking, structural-faithful multilingual voicing, sub-1s voice-to-voice"><div class="goal-main"><p class="goal-t">Ship Syrinx vNext — model-agnostic full-duplex turn-taking, structural-faithful multilingual voicing, sub-1s voice-to-voice</p><div class="goal-row"><span class="chip solid">Active</span><span class="gate"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12l5 5L20 6"/></svg>Gate: <span class="mono">pnpm -r test</span></span><span class="gate" style="color:var(--s-prog-fg);background:var(--s-prog-bg)">1 waiting on you</span></div></div><div class="prog-wrap"><div class="prog-num mono">4 / 7</div><div class="bar"><i style="width:57%"></i></div></div></div>
+        <div class="goal" data-state="active" data-title="General"><div class="goal-main"><p class="goal-t">General</p><div class="goal-row"><span class="chip solid">Active</span><span class="gate">Human sign-off</span></div></div><div class="prog-wrap"><div class="prog-num mono">0 / 0</div><div class="bar"><i style="width:0"></i></div></div></div>
+        <div class="goal" data-state="complete" data-title="Probe goal — testing create_goal"><div class="goal-main"><p class="goal-t">Probe goal — testing create_goal</p><div class="goal-row"><span class="chip done"><span class="cdot" style="background:var(--s-done-dot)"></span>Complete</span><span class="gate">Human sign-off</span></div></div><div class="prog-wrap"><div class="prog-num mono">1 / 1</div><div class="bar"><i style="width:100%"></i></div></div></div>
+      </div></div>
+
+      <div class="scrollpane" id="goalDetail" style="display:none"><div style="max-width:1000px;margin:0 auto">
+        <button class="tb-btn" data-action="goal-back" style="padding-left:8px;margin-bottom:8px;height:28px">← Goals</button>
+        <div class="gd-head"><h1 class="gd-title" id="gdTitle">Ship Syrinx vNext</h1><div class="gd-actions"><button class="btn" data-action="goal-run-verify">Run verification</button><button class="btn primary" data-action="goal-complete" id="gdComplete">Complete goal</button></div></div>
+        <div class="goal-row" style="margin:0 0 16px"><span class="chip solid">Active</span><span class="gate"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12l5 5L20 6"/></svg>Gate: <span class="mono">pnpm -r test</span></span><span class="gate">Budget: <span class="mono">$4.20</span> · no cap</span><span class="gate">Owner: Mithushan</span></div>
+
+        <div class="gd-banner attn" id="gdAttn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.3v.4"/></svg><div class="b-main"><b>1 task is waiting on you.</b> "Build half-cascade" is on lane <b>approve</b> — the agent posted a diff-summary. Release it to done, or send it back.</div><button class="btn-sm accent" data-action="open-half">Review</button></div>
+        <div class="gd-banner ok" id="gdDone" style="display:none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12l5 5L20 6"/></svg><div class="b-main"><b>Completed.</b> The gate passed and evidence was recorded — every cycle-task reached done.</div></div>
+
+        <div class="gd-cols">
+          <div>
+            <div class="gd-stats">
+              <div class="gd-stat"><div class="l">Progress</div><div class="v mono">4 / 7 done</div></div>
+              <div class="gd-stat"><div class="l">Verification</div><div class="v" style="color:var(--s-prog-fg)">Pending gate</div></div>
+              <div class="gd-stat"><div class="l">Cost spent</div><div class="v mono">$4.20</div></div>
+            </div>
+            <div class="sec-h" style="margin:20px 0 10px"><h2 style="font-size:13px">Cycle tasks</h2><span class="hint">The system sizes these under the goal; you release scope → todo.</span></div>
+            <div class="gtasks">
+              <div class="gtask" data-task="iu"><span class="col-dot" style="background:var(--s-done-dot)"></span><span class="gt-t">Build IU substrate (IuLedger + turn-epoch)</span><span class="lane">full</span><span class="id mono">SYX-09</span></div>
+              <div class="gtask" data-task="ip"><span class="col-dot" style="background:var(--s-done-dot)"></span><span class="gt-t">Build InteractionPolicy seam + VAP</span><span class="lane">full</span><span class="id mono">SYX-12</span></div>
+              <div class="gtask" data-task="rl"><span class="col-dot" style="background:var(--s-done-dot)"></span><span class="gt-t">Reasoner-latency: routing + hedging</span><span class="lane">approve</span><span class="id mono">SYX-15</span></div>
+              <div class="gtask" data-task="vap"><span class="col-dot" style="background:var(--s-done-dot)"></span><span class="gt-t">Arm VAP eval with real checkpoints</span><span class="lane">approve</span><span class="id mono">SYX-19</span></div>
+              <div class="gtask" data-task="half"><span class="col-dot" style="background:var(--s-prog-dot)"></span><span class="gt-t">Build half-cascade (text-only front + Syrinx TTS)</span><span class="lane" style="color:var(--s-prog-fg)">approve · waiting</span><span class="id mono">SYX-23</span></div>
+              <div class="gtask" data-task="workers"><span class="col-dot" style="background:var(--s-todo-dot)"></span><span class="gt-t">Workers tier: hosted smart-turn binding</span><span class="lane">approve</span><span class="id mono">SYX-28</span></div>
+              <div class="gtask" data-task="gpt"><span class="col-dot" style="background:var(--s-todo-dot)"></span><span class="gt-t">GPT-Live feel: rule-based polish chunks</span><span class="lane">auto</span><span class="id mono">SYX-31</span></div>
+            </div>
+            <div class="verif">
+              <div class="vt"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>Verification surface</div>
+              <p style="font-size:12.5px;color:var(--text-2);margin:0 0 10px;line-height:1.55">Completes only on green evidence from <span class="mono">pnpm -r test</span>. A red result blocks the goal and files one remediation task — it never fakes done. Runs when all 7 cycle-tasks reach done (3 remaining).</p>
+              <button class="btn-sm" data-action="goal-run-verify">Run gate now</button>
+            </div>
+          </div>
+          <aside class="gd-activity">
+            <div class="act-head"><h3>Agent activity</h3><span class="count">this goal</span></div>
+            <div class="act-list">
+              <div class="act"><div class="av" style="background:#d0562f">G</div><div class="act-main"><div class="act-top"><span class="act-who">Grok</span><span class="tag-xs tag-ship">SHIPPED</span><span class="act-when">2h ago</span></div><div class="act-txt">C1 (RealtimeBridge textOnly routing) shipped + manager-verified.</div></div></div>
+              <div class="act"><div class="av" style="background:#454545">A</div><div class="act-main"><div class="act-top"><span class="act-who">Agent run</span><span class="act-when">now</span></div><div class="act-txt">C2 (zeta-tts streaming) delegated; verifying against real diffs.</div></div></div>
+              <div class="act"><div class="av" style="background:#6b7280">C</div><div class="act-main"><div class="act-top"><span class="act-who">Codex</span><span class="tag-xs tag-hold">HOLD</span><span class="act-when">1d ago</span></div><div class="act-txt">RL-WBS-1 held — hang-on-reject risk; fix requested and shipped.</div></div></div>
+              <div class="act"><div class="av" style="background:var(--accent);color:var(--accent-fg)">M</div><div class="act-main"><div class="act-top"><span class="act-who">You</span><span class="act-when">1d ago</span></div><div class="act-txt">Released "Build half-cascade" to In Progress · lane approve.</div></div></div>
+            </div>
+          </aside>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- NOTES -->
+    <section class="view" data-view="notes">
+      <div class="scrollpane" id="notesList"><div class="pane-narrow" id="noteList">
+        <div class="sec-h"><h2>Notes</h2><span class="hint">Your working memory for this project — findings and scratch context, kept out of the formal plan. Open one to read or edit.</span></div>
+        <div class="note" data-note="n1" data-title="[ignore — MCP probe artifact] empty-body note"><div class="note-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1z"/></svg></div><div style="flex:1;min-width:0"><p class="note-t">[ignore — MCP probe artifact] empty-body note</p><p class="note-x">Created during an MCP surface probe. No body — safe to leave; there is no delete tool by design.</p></div><span class="note-when">5d ago</span></div>
+        <div class="note" data-note="n2" data-title="VAP prior-art scan — MaAI vs DualTurn"><div class="note-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1z"/></svg></div><div style="flex:1;min-width:0"><p class="note-t">VAP prior-art scan — MaAI vs DualTurn</p><p class="note-x">MaAI ships MIT checkpoints; DualTurn's Apache-2.0 ONNX is backbone-only. Real checkpoints exist → gate is now cheap.</p></div><span class="note-when">1w ago</span></div>
+      </div></div>
+
+      <div class="scrollpane" id="noteDetail" style="display:none"><div class="detail-pane">
+        <button class="tb-btn" data-action="note-back" style="padding-left:8px;margin-bottom:8px;height:28px">← Notes</button>
+        <div style="display:flex;align-items:center;gap:8px;margin:2px 0 12px">
+          <div class="seg" id="noteSeg"><button data-action="note-read">Read</button><button class="on" data-action="note-edit">Edit</button></div>
+          <span style="flex:1"></span>
+          <button class="btn-sm" data-action="note-delete">Delete</button>
+        </div>
+        <h1 class="ed-title" id="noteTitle" style="font-size:20px">VAP prior-art scan — MaAI vs DualTurn</h1>
+        <div class="ed-meta"><span>Note · updated 1w ago</span></div>
+        <div class="ed-tools" id="noteTools" style="padding:8px 0;border:none">
+          <button style="font-weight:700">B</button><button style="font-style:italic">I</button><button><span style="font-size:11px;font-weight:700">H2</span></button><button><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg></button>
+        </div>
+        <div class="ed-body" id="noteBody" style="padding:6px 0 40px;max-width:none"></div>
+      </div></div>
+    </section>
+
+    <!-- INBOX -->
+    <section class="view" data-view="inbox">
+      <div class="scrollpane" id="inboxList"><div class="pane-narrow">
+        <div class="sec-h" style="margin-bottom:16px"><h2>Inbox</h2><span class="hint">Raw signal waiting for you to triage onto the board — with provenance, never silently. Open an item to decide.</span></div>
+        <div class="inbox-sec">
+          <div class="isec-h"><h2>Pending submissions</h2><span class="badge mono">1</span></div>
+          <div class="sub" data-item="sub1" data-title="Sinhala TTS clips distort on long turns" data-src="From share · Acme" data-raw="Reporter notes audio artifacts past ~12s of continuous speech on the zeta-tts path. Short replies are clean; the distortion only shows on longer turns."><div class="av" style="background:#6b7280;margin-top:1px">?</div><div class="sub-main"><p class="sub-t">Sinhala TTS clips distort on long turns</p><p class="sub-x">From the Acme share — reporter notes audio artifacts past ~12s of continuous speech on the zeta-tts path.</p><div class="sub-foot"><span class="lane">from share · Acme</span></div></div><div class="sub-actions"><button class="btn-sm" data-action="triage" data-kind="dismiss" data-item="sub1">Dismiss</button><button class="btn-sm accent" data-action="triage" data-kind="scope" data-item="sub1">Triage → Scope</button></div></div>
+        </div>
+        <div class="inbox-sec">
+          <div class="isec-h"><h2>Un-triaged backlog</h2></div>
+          <p class="empty-line">Nothing in the backlog right now.</p>
+        </div>
+        <div class="inbox-sec">
+          <div class="isec-h"><h2>Curator proposals</h2><span class="badge mono">1</span></div>
+          <div class="sub" data-item="prop1" data-title="Cap zeta-tts turn length + chunk long utterances" data-src="Curator proposal · 1 source" data-raw="Curator drafted this task from the Acme submission above. Lane approve · severity medium. Provenance attached — the submission id is recorded on the task."><div class="av" style="background:var(--accent);color:var(--accent-fg);margin-top:1px">C</div><div class="sub-main"><p class="sub-t">Proposed: "Cap zeta-tts turn length + chunk long utterances"</p><p class="sub-x">Curator drafted this from the submission above. Lane <b>approve</b> · severity medium. Provenance attached.</p><div class="sub-foot"><span class="chip scope"><span class="cdot" style="background:var(--s-scope-dot)"></span>Scope</span><span class="lane">provenance: 1 source</span></div></div><div class="sub-actions"><button class="btn-sm accent" data-action="triage" data-kind="approve" data-item="prop1">Approve → Scope</button></div></div>
+        </div>
+      </div></div>
+
+      <div class="scrollpane" id="inboxDetail" style="display:none"><div class="detail-pane">
+        <button class="tb-btn" data-action="tri-back" style="padding-left:8px;margin-bottom:8px;height:28px">← Inbox</button>
+        <h1 class="ed-title" id="triTitle" style="font-size:19px">Sinhala TTS clips distort on long turns</h1>
+        <div class="goal-row" style="margin:2px 0 16px"><span class="gate" id="triSrc">From share · Acme</span></div>
+        <div class="dcard"><h4>Raw signal</h4><p id="triRaw"></p></div>
+        <div class="dcard"><h4>Cross-check open work</h4>
+          <div class="match"><span class="col-dot" style="background:var(--s-prog-dot)"></span><span class="m-t">Build half-cascade (text-only front + Syrinx TTS)</span><span class="lane">related, not dup</span></div>
+          <div class="match"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--s-done-dot)"><path d="M5 12l4 4L19 7"/></svg><span class="m-t">No exact duplicate — safe to create new.</span></div>
+        </div>
+        <div class="dcard"><h4>Drafted task · house style</h4>
+          <div class="field" style="margin-bottom:10px"><label>Label</label><input value="Cap zeta-tts turn length + chunk long utterances"></div>
+          <div class="field" style="margin-bottom:10px"><label>Description</label><textarea style="min-height:72px">Problem: zeta-tts distorts past ~12s continuous speech. Action items: cap turn length; chunk long utterances; add a regression clip. References: Acme submission.</textarea></div>
+          <div class="drow2f"><div class="field"><label>Lane</label><select><option>approve</option><option>auto</option><option>full</option></select></div><div class="field"><label>Severity</label><select><option>medium</option><option>low</option><option>high</option></select></div></div>
+          <p style="font-size:11.5px;color:var(--muted);margin:9px 0 0">Provenance: accept-new — audio artifact on long turns (source: submission · Acme)</p>
+        </div>
+        <div class="decide">
+          <button class="btn" data-action="tri-reject">Reject</button>
+          <button class="btn" data-action="tri-pending">Leave pending</button>
+          <button class="btn" data-action="tri-merge">Merge into…</button>
+          <button class="btn primary" data-action="tri-accept">Accept → Scope</button>
+        </div>
+      </div></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" data-view="settings">
+      <div class="scrollpane"><div class="pane-narrow">
+        <div class="sec-h"><h2>Settings</h2><span class="hint">Connection tokens for your agent, and the read-only share for your team.</span></div>
+        <div class="set-card">
+          <div class="set-card-h"><div class="txt"><h3>MCP tokens</h3><p>Each token lets one coding agent read and write this workspace over MCP. Keep them out of git — Plan Desk stores them in <span class="mono">.plandesk/token</span>.</p></div><button class="btn primary" data-action="create-token">Create token</button></div>
+          <div id="tokenList">
+            <div class="trow2" data-token="t1"><div><div class="tk-name">claude-code · laptop</div><div class="tk-val mono">pdk_live_••••••••3f9a · created Jul 4</div></div><span class="spacer"></span><button class="btn-sm" data-action="copy-token">Copy</button><button class="btn-sm" data-action="revoke-token" data-token="t1">Revoke</button></div>
+            <div class="trow2" data-token="t2"><div><div class="tk-name">codex · CI</div><div class="tk-val mono">pdk_live_••••••••b12c · created Jun 28</div></div><span class="spacer"></span><button class="btn-sm" data-action="copy-token">Copy</button><button class="btn-sm" data-action="revoke-token" data-token="t2">Revoke</button></div>
+          </div>
+        </div>
+        <div class="set-card">
+          <div class="set-card-h"><div class="txt"><h3>Team share</h3><p>Publish a live, read-only view of this plan. Your team watches progress and files issues into your Inbox — they never edit the board.</p></div><button class="btn primary" data-action="preview-portal">Preview public portal</button></div>
+          <div class="trow2"><div><div class="tk-name">Acme — external</div><div class="tk-val">Public link · submissions on · 2 viewers this week</div></div><span class="spacer"></span><button class="btn-sm" data-action="copy-token">Copy link</button><button class="btn-sm">Manage</button></div>
+        </div>
+      </div></div>
+    </section>
+  </div>
+</div>
+
+<!-- DRAWER -->
+<div class="scrim" id="scrim" style="position:fixed;inset:0;background:rgba(10,10,10,.28);opacity:0;pointer-events:none;transition:opacity .2s;z-index:20"></div>
+<aside class="drawer" id="drawer" aria-label="Task detail" style="position:fixed;top:0;right:0;width:372px;height:100vh;background:var(--surface);border-left:1px solid var(--border);box-shadow:var(--shadow-pop);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .2s cubic-bezier(.16,1,.3,1);z-index:30">
+  <div class="dr-head" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border)"><button class="chip prog" data-action="status"><span class="cdot" style="background:var(--s-prog-dot)"></span>In Progress</button><span class="id mono" style="font-size:11.5px;color:var(--muted)">SYX-23</span><span style="flex:1"></span><button class="icon-btn" data-action="drawer-menu"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18" r="1.6"/></svg></button><button class="icon-btn" title="Close" id="drawerClose"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="dr-body" style="flex:1;overflow-y:auto;padding:16px 16px 24px">
+    <h1 class="dr-title" id="drTitle" style="font-size:17px;font-weight:660;letter-spacing:-.02em;line-height:1.3;margin:0 0 12px">Build half-cascade (text-only front + Syrinx TTS)</h1>
+    <div style="display:grid;grid-template-columns:92px 1fr;gap:10px;padding:7px 0;align-items:center;font-size:12.5px"><span style="color:var(--muted)">Status</span><span><button class="chip prog" data-action="status"><span class="cdot" style="background:var(--s-prog-dot)"></span>In Progress</button></span></div>
+    <div style="display:grid;grid-template-columns:92px 1fr;gap:10px;padding:7px 0;align-items:center;font-size:12.5px"><span style="color:var(--muted)">Lane</span><span style="color:var(--text-2)">approve — diff-summary comment, human resolves</span></div>
+    <div style="display:grid;grid-template-columns:92px 1fr;gap:10px;padding:7px 0;align-items:center;font-size:12.5px"><span style="color:var(--muted)">Linked doc</span><a class="doclink" style="display:inline-flex;align-items:center;gap:6px;color:var(--text);font-weight:520" data-action="nav" data-target="docs"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z"/><path d="M14 3.5V8h4"/></svg>Design: half-cascade</a></div>
+    <div style="display:grid;grid-template-columns:92px 1fr;gap:10px;padding:7px 0;align-items:center;font-size:12.5px"><span style="color:var(--muted)">Worker</span><span style="color:var(--text-2)">Grok · composer-2.5</span></div>
+    <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:20px 0 8px">Description</div>
+    <div style="color:var(--text-2);font-size:13px;line-height:1.6"><p style="margin:0 0 9px">Text-only front-end feeding Syrinx TTS. C0 adapter and C1 bridge (textOnly routing) are shipped and live-proven; C2 (zeta-tts streaming) is finishing.</p><p style="margin:0">Done means: realtime gate green end-to-end, all three streaming hazards handled, and a live run producing structural-faithful voicing.</p></div>
+    <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:20px 0 8px">Activity</div>
+    <div class="act" style="border:none"><div class="av" style="background:#d0562f">G</div><div class="act-main"><div class="act-top"><span class="act-who">Grok</span><span class="tag-xs tag-ship">SHIPPED</span><span class="act-when">2h ago</span></div><div class="act-txt">C1 shipped + manager-verified; realtime gate green (58 tests, exit 0).</div></div></div>
+    <div class="act"><div class="av" style="background:var(--accent);color:var(--accent-fg)">A</div><div class="act-main"><div class="act-top"><span class="act-who">Agent run</span><span class="act-when">now</span></div><div class="act-txt">C2 (zeta-tts streaming) delegated; verifying against real diffs.</div></div></div>
+  </div>
+</aside>
+
+<!-- PORTAL -->
+<div class="portal" id="portal">
+  <div class="p-top"><span class="p-brand">Syrinx vNext</span><span class="p-tag">Live · read-only</span><span style="flex:1"></span><button class="btn-sm accent" data-action="submit-issue">Submit an issue</button><button class="btn-sm" data-action="back-to-app">← Back to app</button></div>
+  <div class="p-body">
+    <h1 class="p-h1">Syrinx vNext</h1>
+    <p class="p-sub">A live view shared by Mithushan. Watch progress and file issues — the board updates in real time.</p>
+    <div class="p-cols">
+      <div><p class="p-col-h"><span class="col-dot" style="background:var(--s-prog-dot)"></span>In Progress</p><div class="p-card">Build half-cascade (text-only front + Syrinx TTS)</div></div>
+      <div><p class="p-col-h"><span class="col-dot" style="background:var(--s-todo-dot)"></span>Up next</p><div class="p-card">GPT-Live feel: rule-based polish chunks</div><div class="p-card">Workers tier: hosted smart-turn binding</div></div>
+      <div><p class="p-col-h"><span class="col-dot" style="background:var(--s-done-dot)"></span>Shipped</p><div class="p-card">Build IU substrate (IuLedger + turn-epoch)</div><div class="p-card">Build InteractionPolicy seam + VAP</div><div class="p-card">Reasoner-latency: routing + hedging</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+(function(){
+  var STAT={Scope:{cls:'scope',dot:'--s-scope-dot'},Todo:{cls:'todo',dot:'--s-todo-dot'},'In Progress':{cls:'prog',dot:'--s-prog-dot'},Done:{cls:'done',dot:'--s-done-dot'},Backlog:{cls:'back',dot:'--s-back-dot'}};
+  var titles={gpt:'GPT-Live feel: rule-based polish chunks',workers:'Workers tier: hosted smart-turn binding in server-workers',half:'Build half-cascade (text-only front + Syrinx TTS)',iu:'Build IU substrate (IuLedger + turn-epoch)',ip:'Build InteractionPolicy seam + VAP',rl:'Reasoner-latency: routing + hedging',vap:'Arm VAP eval with real checkpoints (no training)'};
+  var labels={overview:'New document',board:'New task',flow:'New task',docs:'New document',goals:'New goal',notes:'New note',inbox:'File an issue',settings:'Create token'};
+  var $=function(s,r){return (r||document).querySelector(s);};
+  var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));};
+  var curView='board', nextId=32;
+
+  /* ---- toast ---- */
+  function toast(msg){var t=document.createElement('div');t.className='toast';t.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 12l5 5L20 6"/></svg>'+msg;$('#toasts').appendChild(t);setTimeout(function(){t.style.transition='opacity .3s';t.style.opacity='0';setTimeout(function(){t.remove();},300);},2200);}
+
+  /* ---- overlay (modal + palette) ---- */
+  var overlay=document.createElement('div');overlay.className='overlay';document.body.appendChild(overlay);
+  function closeOverlay(){overlay.classList.remove('open');setTimeout(function(){overlay.innerHTML='';},160);}
+  overlay.addEventListener('mousedown',function(e){if(e.target===overlay)closeOverlay();});
+
+  function modal(cfg){
+    var fields=(cfg.fields||[]).map(function(f){
+      var ctrl;
+      if(f.type==='textarea')ctrl='<textarea placeholder="'+(f.placeholder||'')+'">'+(f.value||'')+'</textarea>';
+      else if(f.type==='select')ctrl='<select>'+f.options.map(function(o){return '<option'+(o===f.value?' selected':'')+'>'+o+'</option>';}).join('')+'</select>';
+      else if(f.type==='readonly')ctrl='<input value="'+(f.value||'')+'" readonly>';
+      else ctrl='<input placeholder="'+(f.placeholder||'')+'" value="'+(f.value||'')+'">';
+      return '<div class="field" data-name="'+f.name+'"><label>'+f.label+'</label>'+ctrl+'</div>';
+    }).join('');
+    overlay.innerHTML='<div class="modal"><div class="modal-h"><h3>'+cfg.title+'</h3>'+(cfg.desc?'<p>'+cfg.desc+'</p>':'')+'</div><div class="modal-b">'+fields+'</div><div class="modal-f"><button class="btn" data-x>'+(cfg.cancel||'Cancel')+'</button><button class="btn '+(cfg.danger?'danger':'primary')+'" data-ok>'+cfg.confirm+'</button></div></div>';
+    overlay.classList.add('open');
+    var first=$('.modal-b input,.modal-b textarea,.modal-b select',overlay);if(first&&!first.readOnly)setTimeout(function(){first.focus();},60);
+    $('[data-x]',overlay).onclick=closeOverlay;
+    $('[data-ok]',overlay).onclick=function(){
+      var vals={};$$('.field',overlay).forEach(function(fd){var c=$('input,textarea,select',fd);if(c)vals[fd.getAttribute('data-name')]=c.value;});
+      closeOverlay();if(cfg.onConfirm)cfg.onConfirm(vals);
+    };
+  }
+
+  /* ---- menu popover ---- */
+  function menu(anchor,items){
+    var m=document.createElement('div');m.className='menu';
+    m.innerHTML=items.map(function(it){
+      if(it.sep)return '<div class="sep"></div>';
+      if(it.label&&it.header)return '<div class="mlabel">'+it.label+'</div>';
+      return '<button'+(it.danger?' class="danger"':'')+' data-i="'+it._i+'">'+(it.icon||'')+it.label+'</button>';
+    }).join('');
+    document.body.appendChild(m);
+    var r=anchor.getBoundingClientRect();var top=r.bottom+6,left=r.left;
+    if(left+200>window.innerWidth)left=window.innerWidth-208;
+    if(top+m.offsetHeight>window.innerHeight)top=r.top-m.offsetHeight-6;
+    m.style.top=top+'px';m.style.left=left+'px';
+    function close(){m.remove();document.removeEventListener('mousedown',out);}
+    function out(e){if(!m.contains(e.target))close();}
+    setTimeout(function(){document.addEventListener('mousedown',out);},0);
+    m.addEventListener('click',function(e){var b=e.target.closest('[data-i]');if(!b)return;var it=items[+b.getAttribute('data-i')];close();if(it.onClick)it.onClick();});
+  }
+  function ic(p){return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">'+p+'</svg>';}
+
+  /* ---- drawer ---- */
+  var drawer=$('#drawer'),scrim=$('#scrim');
+  function openDrawer(key,el){if(titles[key])$('#drTitle').textContent=titles[key];$$('.card.sel,.node.sel').forEach(function(c){c.classList.remove('sel');});if(el)el.classList.add('sel');drawer.style.transform='translateX(0)';scrim.style.opacity='1';scrim.style.pointerEvents='auto';}
+  function closeDrawer(){drawer.style.transform='translateX(100%)';scrim.style.opacity='0';scrim.style.pointerEvents='none';}
+  $('#drawerClose').onclick=closeDrawer;scrim.onclick=closeDrawer;
+
+  /* ---- view switching ---- */
+  function show(view){
+    curView=view;
+    $$('.view').forEach(function(v){v.classList.toggle('active',v.getAttribute('data-view')===view);});
+    $$('.nav-item[data-target]').forEach(function(n){n.classList.toggle('active',n.getAttribute('data-target')===view);});
+    $('#crumbView').textContent=view.charAt(0).toUpperCase()+view.slice(1);
+    $('#primaryLabel').textContent=labels[view]||'New';
+    if(view==='goals')backGoals();
+    if(view==='notes')backNotes();
+    if(view==='inbox')backInbox();
+    if(view!=='board'&&view!=='flow')closeDrawer();
+  }
+  function openGoal(card){var state=card.getAttribute('data-state')||'active';$('#gdTitle').textContent=(card.getAttribute('data-title')||'Goal').split(' — ')[0];var c=$('#gdComplete');if(state==='complete'){$('#gdAttn').style.display='none';$('#gdDone').style.display='flex';c.textContent='Completed';c.disabled=true;}else{$('#gdAttn').style.display='flex';$('#gdDone').style.display='none';c.textContent='Complete goal';c.disabled=false;}$('#goalsList').style.display='none';$('#goalDetail').style.display='block';}
+  function backGoals(){var d=$('#goalDetail'),l=$('#goalsList');if(d)d.style.display='none';if(l)l.style.display='block';}
+  var noteCard=null,triageCard=null;
+  var noteBodies={n1:'',n2:"MaAI ships MIT-licensed turn-taking checkpoints — usable directly. DualTurn's Apache-2.0 release is ONNX, but the published graph is backbone-only (Qwen + KV cache); the VAP head isn't in it.\n\nUpshot: real checkpoints exist, so arming the VAP eval is cheap — no training run needed. Fold this into the Arm VAP task."};
+  function openNote(card){noteCard=card;$('#noteTitle').textContent=card.getAttribute('data-title');var b=noteBodies[card.getAttribute('data-note')];$('#noteBody').innerHTML=b?('<p>'+b.split('\n\n').join('</p><p>')+'</p>'):'<p class="note-body-empty">No body yet — start writing.</p>';$('#noteTools').style.display='';$$('#noteSeg button').forEach(function(x){x.classList.toggle('on',x.getAttribute('data-action')==='note-edit');});$('#notesList').style.display='none';$('#noteDetail').style.display='block';}
+  function backNotes(){var d=$('#noteDetail'),l=$('#notesList');if(d)d.style.display='none';if(l)l.style.display='block';}
+  function openTriage(card){triageCard=card;$('#triTitle').textContent=card.getAttribute('data-title');$('#triSrc').textContent=card.getAttribute('data-src')||'';$('#triRaw').textContent=card.getAttribute('data-raw')||'';$('#inboxList').style.display='none';$('#inboxDetail').style.display='block';}
+  function backInbox(){var d=$('#inboxDetail'),l=$('#inboxList');if(d)d.style.display='none';if(l)l.style.display='block';}
+
+  /* ---- board helpers ---- */
+  function statusChip(status){var s=STAT[status];return '<button class="chip '+s.cls+'" data-action="status"><span class="cdot" style="background:var(--'+s.dot+')"></span>'+status+'</button>';}
+  function recount(){$$('.col-body[data-col]').forEach(function(b){var n=$$('.card',b).length;var head=b.parentElement.querySelector('[data-count]');if(head)head.textContent=n;});}
+  function addCard(status,title){
+    var body=$('.col-body[data-col="'+status+'"]');if(!body)return;
+    var empty=$('.empty',body);if(empty)empty.remove();
+    var el=document.createElement('article');el.className='card';el.setAttribute('data-task','new'+nextId);
+    titles['new'+nextId]=title;
+    el.innerHTML='<button class="kebab" data-action="card-menu"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="6" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18" r="1.6"/></svg></button><p class="card-title">'+title+'</p><div class="meta">'+statusChip(status)+'<span class="lane">approve</span><span class="id mono">SYX-'+(nextId++)+'</span></div>';
+    var add=$('.add-task',body);if(add)body.insertBefore(el,add);else body.appendChild(el);
+    recount();
+  }
+  function moveCard(card,status){
+    var body=$('.col-body[data-col="'+status+'"]');if(!body)return;
+    var chip=$('.chip[data-action="status"]',card);if(chip)chip.outerHTML=statusChip(status);
+    var add=$('.add-task',body);if(add)body.insertBefore(card,add);else body.appendChild(card);
+    var oldEmpty=$$('.col-body[data-col]').forEach(function(b){if(!$$('.card',b).length&&!$('.empty',b)){/*leave*/}});
+    recount();
+  }
+  function setChip(chipBtn,status){var s=STAT[status];chipBtn.className='chip '+s.cls;chipBtn.setAttribute('data-action','status');chipBtn.innerHTML='<span class="cdot" style="background:var(--'+s.dot+')"></span>'+status;}
+
+  /* ---- create flows ---- */
+  function newTask(status){modal({title:'New task',desc:'Lands on the board — a human releases scope → todo.',fields:[{name:'title',label:'Task',type:'text',placeholder:'Verb Noun in Location…'},{name:'status',label:'Status',type:'select',options:['Scope','Todo','In Progress','Done','Backlog'],value:status||'Todo'},{name:'lane',label:'Lane',type:'select',options:['auto','approve','full'],value:'approve'}],confirm:'Create task',onConfirm:function(v){if(!v.title)v.title='Untitled task';show('board');addCard(v.status,v.title);toast('Task created in '+v.status);}});}
+  function newDoc(){modal({title:'New document',fields:[{name:'title',label:'Title',type:'text',placeholder:'Design: …'},{name:'folder',label:'Folder',type:'select',options:['— none —','Phase 0 — IU Substrate','InteractionPolicy (seam + VAP)'],value:'— none —'}],confirm:'Create document',onConfirm:function(v){show('docs');toast('Document created');}});}
+  function newGoal(){modal({title:'New goal',desc:'A durable objective an agent drives to done, with a verification gate.',fields:[{name:'obj',label:'Objective',type:'textarea',placeholder:'Ship …'},{name:'gate',label:'Verification gate',type:'select',options:['Human sign-off','Gate: pnpm -r test','Gate: custom command…'],value:'Human sign-off'}],confirm:'Create goal',onConfirm:function(v){show('goals');var g=document.createElement('div');g.className='goal';g.setAttribute('data-state','active');g.setAttribute('data-title',v.obj||'Untitled goal');g.innerHTML='<div class="goal-main"><p class="goal-t">'+(v.obj||'Untitled goal')+'</p><div class="goal-row"><span class="chip solid">Active</span><span class="gate">'+v.gate+'</span></div></div><div class="prog-wrap"><div class="prog-num mono">0 / 0</div><div class="bar"><i style="width:0"></i></div></div>';$('#goalList').appendChild(g);toast('Goal created');}});}
+  function newNote(){modal({title:'New note',fields:[{name:'title',label:'Title',type:'text',placeholder:'Note title'},{name:'body',label:'Body',type:'textarea',placeholder:'Working note…'}],confirm:'Create note',onConfirm:function(v){show('notes');var id='n'+(nextId++);noteBodies[id]=v.body||'';var n=document.createElement('div');n.className='note';n.setAttribute('data-note',id);n.setAttribute('data-title',v.title||'Untitled note');n.innerHTML='<div class="note-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 19l1-4L16 5l3 3L9 18l-4 1z"/></svg></div><div style="flex:1;min-width:0"><p class="note-t">'+(v.title||'Untitled note')+'</p><p class="note-x">'+(v.body||'')+'</p></div><span class="note-when">just now</span>';$('#noteList').appendChild(n);toast('Note created');}});}
+  function fileIssue(){modal({title:'File an issue',fields:[{name:'t',label:'Summary',type:'text',placeholder:'What went wrong?'},{name:'d',label:'Details',type:'textarea',placeholder:'Steps, expected vs actual…'}],confirm:'File issue',onConfirm:function(){toast('Issue filed to Inbox');}});}
+  function createToken(){modal({title:'Create MCP token',desc:'Copy it now — it is shown once. Store it in .plandesk/token (gitignored).',fields:[{name:'name',label:'Label',type:'text',placeholder:'claude-code · laptop'},{name:'tok',label:'Token',type:'readonly',value:'pdk_live_'+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,10)}],confirm:'Copy & done',onConfirm:function(v){var row=document.createElement('div');row.className='trow2';row.setAttribute('data-token','t'+Date.now());row.innerHTML='<div><div class="tk-name">'+(v.name||'new token')+'</div><div class="tk-val mono">'+v.tok.slice(0,12)+'••••••••'+v.tok.slice(-4)+' · created just now</div></div><span class="spacer"></span><button class="btn-sm" data-action="copy-token">Copy</button><button class="btn-sm" data-action="revoke-token">Revoke</button>';$('#tokenList').appendChild(row);toast('Token created & copied');}});}
+
+  /* ---- comments ---- */
+  function addComment(){
+    var input=$('#cmInput');var val=(input.value||'').trim();if(!val){toast('Write a comment first');return;}
+    var box=$('.cm-box',$('#cmBody'));
+    var c=document.createElement('div');c.className='act';c.style.border='none';c.style.padding='0 0 14px';
+    c.innerHTML='<div class="av" style="background:var(--accent);color:var(--accent-fg)">M</div><div class="act-main"><div class="act-top"><span class="act-who">Mithushan</span><span class="act-when">just now</span></div><div class="act-txt">'+val+'</div></div>';
+    $('#cmBody').insertBefore(c,box);input.value='';
+    var n=$$('#cmBody .act').length;$('#cmCount').textContent=n+' open';toast('Comment posted');
+  }
+
+  /* ---- palette ---- */
+  var PAL=[
+    {g:'Go to'},{label:'Overview',act:function(){show('overview');},icon:ic('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8M8 12h8"/>')},
+    {label:'Board',act:function(){show('board');},icon:ic('<rect x="4" y="4" width="4" height="16" rx="1"/><rect x="10" y="4" width="4" height="11" rx="1"/><rect x="16" y="4" width="4" height="8" rx="1"/>')},
+    {label:'Flow',act:function(){show('flow');},icon:ic('<circle cx="6" cy="7" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="17" r="2"/>')},
+    {label:'Goals',act:function(){show('goals');},icon:ic('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>')},
+    {label:'Docs',act:function(){show('docs');},icon:ic('<path d="M6 3.5h8l4 4V21H6z"/>')},
+    {label:'Notes',act:function(){show('notes');},icon:ic('<path d="M5 19l1-4L16 5l3 3L9 18l-4 1z"/>')},
+    {label:'Inbox',act:function(){show('inbox');},icon:ic('<path d="M4 13l2-7h12l2 7v5H4z"/><path d="M4 13h4l1.5 2h5l1.5-2h4"/>')},
+    {label:'Settings',act:function(){show('settings');},icon:ic('<circle cx="12" cy="12" r="3"/>')},
+    {g:'Create'},{label:'New task',act:function(){newTask('Todo');},icon:ic('<path d="M12 5v14M5 12h14"/>')},
+    {label:'New document',act:newDoc,icon:ic('<path d="M12 5v14M5 12h14"/>')},
+    {label:'New goal',act:newGoal,icon:ic('<path d="M12 5v14M5 12h14"/>')},
+    {label:'New note',act:newNote,icon:ic('<path d="M12 5v14M5 12h14"/>')},
+    {g:'Share'},{label:'Preview public portal',act:function(){$('#portal').classList.add('open');},icon:ic('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18"/>')}
+  ];
+  function palette(){
+    overlay.innerHTML='<div class="palette"><div class="pal-in"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="color:var(--muted)"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><input placeholder="Search views, or run a command…"><span style="font-size:11px;color:var(--muted)">esc</span></div><div class="pal-list" id="palList"></div></div>';
+    overlay.classList.add('open');
+    var input=$('.pal-in input',overlay);
+    function render(q){
+      q=(q||'').toLowerCase();var html='';var items=[];
+      PAL.forEach(function(p){if(p.g){html+='<div class="pal-g">'+p.g+'</div>';return;}if(q&&p.label.toLowerCase().indexOf(q)<0)return;items.push(p);html+='<div class="pal-item" data-p="'+(items.length-1)+'">'+p.icon+p.label+'</div>';});
+      $('#palList').innerHTML=html||'<div class="pal-g">No matches</div>';
+      var first=$('.pal-item',overlay);if(first)first.classList.add('on');
+      $$('.pal-item',overlay).forEach(function(el){el.onclick=function(){closeOverlay();items[+el.getAttribute('data-p')].act();};});
+      return items;
+    }
+    var items=render('');
+    input.oninput=function(){items=render(input.value);};
+    input.onkeydown=function(e){if(e.key==='Enter'){var on=$('.pal-item.on',overlay);if(on){var i=+on.getAttribute('data-p');closeOverlay();items[i].act();}}};
+    setTimeout(function(){input.focus();},60);
+  }
+
+  /* ---- global click delegation ---- */
+  document.addEventListener('click',function(e){
+    var a=e.target.closest('[data-action]');
+    if(a){
+      var act=a.getAttribute('data-action');
+      if(act==='nav'){show(a.getAttribute('data-target'));return;}
+      if(act==='palette'){e.preventDefault();palette();return;}
+      if(act==='new'){({overview:newDoc,board:function(){newTask('Todo');},flow:function(){newTask('Todo');},docs:newDoc,goals:newGoal,notes:newNote,inbox:fileIssue,settings:createToken}[curView]||function(){newTask('Todo');})();return;}
+      if(act==='add-task'){e.stopPropagation();newTask(a.getAttribute('data-status'));return;}
+      if(act==='new-doc'){newDoc();return;}
+      if(act==='comment'){addComment();return;}
+      if(act==='goal-back'){backGoals();return;}
+      if(act==='goal-run-verify'){toast('Verification queued — pnpm -r test');return;}
+      if(act==='open-half'){openDrawer('half',null);return;}
+      if(act==='goal-complete'){modal({title:'Complete this goal?',desc:'Plan Desk runs the gate (pnpm -r test) and completes only on green evidence. A red result blocks the goal and files a remediation task.',confirm:'Run gate & complete',onConfirm:function(){$('#gdAttn').style.display='none';$('#gdDone').style.display='flex';$('#gdComplete').textContent='Completed';$('#gdComplete').disabled=true;toast('Gate green — goal completed');}});return;}
+      if(act==='note-back'){backNotes();return;}
+      if(act==='note-read'){$('#noteTools').style.display='none';$$('#noteSeg button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-action')==='note-read');});return;}
+      if(act==='note-edit'){$('#noteTools').style.display='';$$('#noteSeg button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-action')==='note-edit');});return;}
+      if(act==='note-delete'){modal({title:'Delete note?',desc:'This cannot be undone.',confirm:'Delete',danger:true,onConfirm:function(){if(noteCard)noteCard.remove();backNotes();toast('Note deleted');}});return;}
+      if(act==='tri-back'){backInbox();return;}
+      if(act==='tri-accept'){if(triageCard)triageCard.remove();backInbox();toast('Task created in Scope with provenance');return;}
+      if(act==='tri-merge'){if(triageCard)triageCard.remove();backInbox();toast('Merged into existing task');return;}
+      if(act==='tri-pending'){backInbox();toast('Left pending for review');return;}
+      if(act==='tri-reject'){modal({title:'Reject this item?',desc:'It leaves the Inbox. The reporter is not notified.',confirm:'Reject',danger:true,onConfirm:function(){if(triageCard)triageCard.remove();backInbox();toast('Item rejected');}});return;}
+      if(act==='reader'){$('#edTools').classList.add('hide');$$('#rwSeg button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-action')==='reader');});return;}
+      if(act==='editmode'){$('#edTools').classList.remove('hide');$$('#rwSeg button').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-action')==='editmode');});return;}
+      if(act==='create-token'){createToken();return;}
+      if(act==='copy-token'){toast('Copied to clipboard');return;}
+      if(act==='revoke-token'){e.stopPropagation();var row=a.closest('.trow2');modal({title:'Revoke token?',desc:'The agent using this token loses access immediately. This cannot be undone.',confirm:'Revoke',danger:true,onConfirm:function(){if(row)row.remove();toast('Token revoked');}});return;}
+      if(act==='preview-portal'){$('#portal').classList.add('open');return;}
+      if(act==='back-to-app'){$('#portal').classList.remove('open');return;}
+      if(act==='submit-issue'){modal({title:'Submit an issue',desc:'Goes to the owner’s Inbox as a pending submission.',fields:[{name:'t',label:'Summary',type:'text',placeholder:'What happened?'},{name:'d',label:'Details',type:'textarea'}],confirm:'Submit',onConfirm:function(){toast('Submitted — thanks!');}});return;}
+      if(act==='triage'){e.stopPropagation();var item=a.closest('.sub');var kind=a.getAttribute('data-kind');modal({title:kind==='dismiss'?'Dismiss submission?':(kind==='approve'?'Approve → Scope?':'Triage to Scope?'),desc:kind==='dismiss'?'It leaves the Inbox. The reporter is not notified.':'A task is created in Scope with provenance attached. A human still releases it to Todo.',confirm:kind==='dismiss'?'Dismiss':'Confirm',danger:kind==='dismiss',onConfirm:function(){if(item)item.remove();toast(kind==='dismiss'?'Submission dismissed':'Task created in Scope');}});return;}
+      if(act==='card-menu'||act==='drawer-menu'){
+        e.stopPropagation();var card=a.closest('.card');
+        menu(a,[
+          {_i:0,label:'Open',icon:ic('<path d="M9 6l6 6-6 6"/>'),onClick:function(){if(card)openDrawer(card.getAttribute('data-task'),card);}},
+          {_i:1,label:'Edit',icon:ic('<path d="M5 19l1-4L16 5l3 3L9 18l-4 1z"/>'),onClick:function(){toast('Edit — opens inline editor');}},
+          {_i:2,header:true,label:'Move to'},
+          {_i:3,label:'Scope',onClick:function(){if(card){moveCard(card,'Scope');toast('Moved to Scope');}}},
+          {_i:4,label:'Todo',onClick:function(){if(card){moveCard(card,'Todo');toast('Moved to Todo');}}},
+          {_i:5,label:'Done',onClick:function(){if(card){moveCard(card,'Done');toast('Moved to Done');}}},
+          {_i:6,sep:true},
+          {_i:7,label:'Copy link',icon:ic('<path d="M9 15l6-6M8 12l-2 2a3 3 0 0 0 4 4l2-2M16 12l2-2a3 3 0 0 0-4-4l-2 2"/>'),onClick:function(){toast('Link copied');}},
+          {_i:8,label:'Delete',danger:true,icon:ic('<path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12"/>'),onClick:function(){modal({title:'Delete task?',desc:'Plan Desk has no delete on the board by design — this archives the card and records why. Continue?',confirm:'Delete',danger:true,onConfirm:function(){if(card){card.remove();recount();}closeDrawer();toast('Task archived');}});}}
+        ]);return;
+      }
+      if(act==='tree-menu'){e.stopPropagation();var row=a.closest('.trow');var isFolder=row.classList.contains('folder');
+        menu(a,[
+          {_i:0,label:'Rename',icon:ic('<path d="M5 19l1-4L16 5l3 3L9 18l-4 1z"/>'),onClick:function(){toast('Rename — inline');}},
+          {_i:1,label:'Move to…',icon:ic('<path d="M4 9h10M4 15h6M14 6l4 3-4 3"/>'),onClick:function(){toast('Move — pick a folder');}},
+          isFolder?{_i:2,label:'New document here',icon:ic('<path d="M12 5v14M5 12h14"/>'),onClick:newDoc}:{_i:2,label:'Copy link',icon:ic('<path d="M9 15l6-6"/>'),onClick:function(){toast('Link copied');}},
+          {_i:3,sep:true},
+          {_i:4,label:'Delete',danger:true,icon:ic('<path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12"/>'),onClick:function(){modal({title:'Delete '+(isFolder?'folder':'document')+'?',desc:'This cannot be undone.',confirm:'Delete',danger:true,onConfirm:function(){if(row)row.remove();toast((isFolder?'Folder':'Document')+' deleted');}});}}
+        ]);return;
+      }
+      if(act==='status'){e.stopPropagation();var host=a.closest('.card')||a.closest('.node')||a.closest('.dr-head')||a;
+        menu(a,Object.keys(STAT).map(function(s,i){return {_i:i,label:s,icon:'<span class="cdot" style="width:8px;height:8px;border-radius:50%;background:var('+STAT[s].dot+');margin-right:2px"></span>',onClick:function(){
+          if(host&&host.classList&&host.classList.contains('card')){moveCard(host,s);}
+          else{setChip(a,s);}
+          toast('Status → '+s);
+        }};}));return;
+      }
+    }
+    var gt=e.target.closest('.gtask');
+    if(gt){openDrawer(gt.getAttribute('data-task'),null);return;}
+    var goalC=e.target.closest('.goal');
+    if(goalC&&curView==='goals'&&!e.target.closest('[data-action]')){openGoal(goalC);return;}
+    var noteC=e.target.closest('.note');
+    if(noteC&&curView==='notes'&&!e.target.closest('[data-action]')){openNote(noteC);return;}
+    var subC=e.target.closest('.sub');
+    if(subC&&!e.target.closest('[data-action]')){openTriage(subC);return;}
+    // card / node body → drawer
+    var body=e.target.closest('.card,.node');
+    if(body&&!e.target.closest('[data-action]')){openDrawer(body.getAttribute('data-task'),body);return;}
+    // tree row select
+    var trow=e.target.closest('.trow[data-doc]');
+    if(trow&&!e.target.closest('[data-action]')){$$('.trow.on').forEach(function(r){r.classList.remove('on');});trow.classList.add('on');}
+  });
+
+  document.addEventListener('keydown',function(e){
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();palette();}
+    if(e.key==='Escape'){if(overlay.classList.contains('open'))closeOverlay();else if($('#portal').classList.contains('open'))$('#portal').classList.remove('open');else closeDrawer();}
+  });
+})();
+</script>
