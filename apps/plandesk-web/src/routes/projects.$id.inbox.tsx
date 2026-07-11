@@ -1,5 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Toaster } from '@/components/ui/sonner';
 import { AgentRunsPanel } from '../components/canvas/AgentRunsPanel.js';
 import { FileIssue } from '../components/inbox/FileIssue.js';
 import { InboxPanel } from '../components/inbox/InboxPanel.js';
@@ -32,7 +31,6 @@ function ProjectInboxPage() {
       <div className="relative min-h-72">
         <AgentRunsPanel projectId={id} />
       </div>
-      <Toaster />
     </div>
   );
 }

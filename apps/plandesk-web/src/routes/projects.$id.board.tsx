@@ -1,5 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Toaster } from '@/components/ui/sonner';
 import { Board } from '../components/board/Board.js';
 import { useProject, useTasks } from '../lib/queries.js';
 import { validateTaskFilterSearch } from '../lib/search.js';
@@ -33,7 +32,6 @@ function ProjectBoardPage() {
   return (
     <section className="flex h-full flex-col">
       <Board projectId={id} tasks={tasks ?? []} />
-      <Toaster />
     </section>
   );
 }

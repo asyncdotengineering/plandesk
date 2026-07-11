@@ -1,5 +1,6 @@
 import { Outlet, createRootRoute, useLocation, useParams } from '@tanstack/react-router';
 import { Sidebar } from '../components/layout/Sidebar.js';
+import { Toaster } from '@/components/ui/sonner';
 import { useSseInvalidation } from '../lib/events.js';
 import { useProject } from '../lib/queries.js';
 
@@ -81,6 +82,7 @@ function RootLayout() {
           <Outlet />
         </main>
       </div>
+      <Toaster />
     </div>
   );
 }
