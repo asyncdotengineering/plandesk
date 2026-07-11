@@ -1,8 +1,17 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { ArrowLeftIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { CommentsPanel } from '../components/docs/CommentsPanel.js';
 import { NoteEditor, type NoteEditorMode } from '../components/notes/NoteEditor.js';
-import { useDeleteNote, useNote, usePatchNote, useProject } from '../lib/queries.js';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  useCreateComment,
+  useDeleteNote,
+  useNote,
+  usePatchNote,
+  useProject,
+} from '../lib/queries.js';
 
 function NotePage() {
   const { id, noteId } = Route.useParams();
@@ -11,11 +20,11 @@ function NotePage() {
   const { data: note, isLoading: noteLoading, error: noteError } = useNote(noteId);
   const patchNote = usePatchNote();
   const deleteNote = useDeleteNote();
-  const [mode, setMode] = useState<NoteEditorMode>('editor');
-  const [pendingPassage, setPendingPassage] = useState<string | null>(null);
+  const createComment = useCreateComment({ type: 'note', id: noteId });
+  const [mode, setMode] = useState<NoteEditorMode>('reader');
 
   if (projectLoading || noteLoading) {
-    return <p>Loading note…</p>;
+    return <p className="text-sm text-muted-foreground">Loading note…</p>;
   }
 
   if (projectError !== null) {
@@ -39,87 +48,70 @@ function NotePage() {
   }
 
   return (
-    <section>
-      <p>
-        <Link to="/projects/$id/notes" params={{ id }} style={{ color: '#555' }}>
-          ← {project.name} — Notes
-        </Link>
-      </p>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-        <button
-          type="button"
-          onClick={() => {
-            setMode('reader');
-          }}
-          aria-pressed={mode === 'reader'}
-          style={{
-            padding: '0.375rem 0.75rem',
-            borderRadius: 6,
-            border: '1px solid #d1d5db',
-            background: mode === 'reader' ? '#e5e7eb' : '#fff',
-            fontWeight: mode === 'reader' ? 600 : 400,
-            cursor: 'pointer',
-          }}
-        >
-          Reader
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setMode('editor');
-          }}
-          aria-pressed={mode === 'editor'}
-          style={{
-            padding: '0.375rem 0.75rem',
-            borderRadius: 6,
-            border: '1px solid #d1d5db',
-            background: mode === 'editor' ? '#e5e7eb' : '#fff',
-            fontWeight: mode === 'editor' ? 600 : 400,
-            cursor: 'pointer',
-          }}
-        >
-          Editor
-        </button>
-      </div>
-      {patchNote.error !== null ? (
-        <p role="alert" style={{ color: '#b91c1c' }}>
-          Save failed: {patchNote.error.message}
-        </p>
-      ) : null}
-      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <NoteEditor
-            note={note}
-            mode={mode}
-            isSaving={patchNote.isPending}
-            isDeleting={deleteNote.isPending}
-            onCommentOnSelection={(passage) => {
-              setPendingPassage(passage);
+    <div className="flex h-[calc(100vh-6rem)] min-h-0 gap-6">
+      <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto pr-2">
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            to="/projects/$id/notes"
+            params={{ id }}
+            className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeftIcon className="size-3.5" />
+            Notes
+          </Link>
+          <Tabs
+            value={mode}
+            onValueChange={(value) => {
+              setMode(value as NoteEditorMode);
             }}
-            onSave={(input) => {
-              patchNote.mutate({ id: noteId, input });
-            }}
-            onDelete={() => {
-              deleteNote.mutate(
-                { id: noteId, projectId: id },
-                {
-                  onSuccess: () => {
-                    void navigate({ to: '/projects/$id/notes', params: { id } });
-                  },
-                },
-              );
-            }}
-          />
+          >
+            <TabsList>
+              <TabsTrigger value="reader">Reader</TabsTrigger>
+              <TabsTrigger value="editor">Edit</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
-        <CommentsPanel
-          target={{ type: 'note', id: noteId }}
-          attachPassage={pendingPassage}
-          onPassageConsumed={() => {
-            setPendingPassage(null);
+
+        {patchNote.error !== null ? (
+          <p role="alert" className="text-[13px] text-destructive">
+            Save failed: {patchNote.error.message}
+          </p>
+        ) : null}
+
+        <NoteEditor
+          note={note}
+          mode={mode}
+          isSaving={patchNote.isPending}
+          isDeleting={deleteNote.isPending}
+          onCreateComment={async ({ passage, body }) => {
+            await createComment.mutateAsync({ body, passage });
+            toast('Comment added');
+          }}
+          onSave={(input) => {
+            patchNote.mutate(
+              { id: noteId, input },
+              {
+                onSuccess: () => {
+                  toast('Note saved');
+                },
+              },
+            );
+          }}
+          onDelete={() => {
+            deleteNote.mutate(
+              { id: noteId, projectId: id },
+              {
+                onSuccess: () => {
+                  toast('Note deleted');
+                  void navigate({ to: '/projects/$id/notes', params: { id } });
+                },
+              },
+            );
           }}
         />
       </div>
-    </section>
+      <CommentsPanel target={{ type: 'note', id: noteId }} />
+    </div>
   );
 }
 

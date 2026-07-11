@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PatchNoteInput, SerializedNote } from '../../lib/api.js';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { RichTextEditor, type RichTextEditorHandle } from '../editor/RichTextEditor.js';
+import { ConfirmDialog } from '../docs/ConfirmDialog.js';
 
 export type NoteEditorMode = 'reader' | 'editor';
 
@@ -12,6 +15,7 @@ type NoteEditorProps = {
   isSaving?: boolean;
   isDeleting?: boolean;
   onCommentOnSelection?: (passage: string) => void;
+  onCreateComment?: (input: { passage: string; body: string }) => Promise<void>;
 };
 
 export function NoteEditor({
@@ -22,8 +26,10 @@ export function NoteEditor({
   isSaving = false,
   isDeleting = false,
   onCommentOnSelection,
+  onCreateComment,
 }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const editorRef = useRef<RichTextEditorHandle>(null);
 
   useEffect(() => {
@@ -36,69 +42,40 @@ export function NoteEditor({
   };
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem' }}>
+    <div className="space-y-4">
+      <div className="flex items-start gap-2">
         {mode === 'editor' ? (
-          <input
+          <Input
             type="text"
             value={title}
             onChange={(event) => {
               setTitle(event.target.value);
             }}
             aria-label="Note title"
-            style={{
-              flex: 1,
-              fontSize: '1.5rem',
-              fontWeight: 600,
-              border: 'none',
-              borderBottom: '1px solid #e5e7eb',
-              padding: '0.25rem 0',
-            }}
+            className="h-auto flex-1 border-0 border-b border-border bg-transparent px-0 py-1 text-2xl font-semibold tracking-tight shadow-none focus-visible:border-ring focus-visible:ring-0"
           />
         ) : (
-          <h1 style={{ margin: 0, flex: 1 }}>{title}</h1>
+          <h1 className="flex-1 text-2xl font-semibold tracking-tight">{title}</h1>
         )}
         {mode === 'editor' ? (
-          <>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving || title.trim() === ''}
-              style={{
-                padding: '0.5rem 1rem',
-                borderRadius: 6,
-                border: '1px solid #1d4ed8',
-                background: '#1d4ed8',
-                color: '#fff',
-                fontWeight: 600,
-                cursor: isSaving ? 'wait' : 'pointer',
-              }}
-            >
+          <div className="flex shrink-0 items-center gap-2 pt-1">
+            <Button type="button" onClick={handleSave} disabled={isSaving || title.trim() === ''}>
               {isSaving ? 'Saving…' : 'Save'}
-            </button>
+            </Button>
             {onDelete !== undefined ? (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                className="text-destructive"
+                aria-label="Delete note"
                 onClick={() => {
-                  if (confirm('Delete this note?')) {
-                    onDelete();
-                  }
-                }}
-                disabled={isDeleting}
-                style={{
-                  padding: '0.5rem 1rem',
-                  borderRadius: 6,
-                  border: '1px solid #fca5a5',
-                  background: '#fef2f2',
-                  color: '#b91c1c',
-                  fontWeight: 600,
-                  cursor: isDeleting ? 'wait' : 'pointer',
+                  setConfirmDeleteOpen(true);
                 }}
               >
-                {isDeleting ? 'Deleting…' : 'Delete'}
-              </button>
+                Delete
+              </Button>
             ) : null}
-          </>
+          </div>
         ) : null}
       </div>
 
@@ -107,7 +84,22 @@ export function NoteEditor({
         value={note.body ?? ''}
         mode={mode}
         onCommentOnSelection={onCommentOnSelection}
+        onCreateComment={onCreateComment}
       />
+
+      {onDelete !== undefined ? (
+        <ConfirmDialog
+          open={confirmDeleteOpen}
+          onOpenChange={setConfirmDeleteOpen}
+          title="Delete this note?"
+          description="This note and its comments will be deleted. This cannot be undone."
+          busy={isDeleting}
+          onConfirm={() => {
+            setConfirmDeleteOpen(false);
+            onDelete();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

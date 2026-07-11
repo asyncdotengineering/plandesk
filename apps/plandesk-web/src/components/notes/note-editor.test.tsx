@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PatchNoteInput, SerializedNote } from '../../lib/api.js';
 import { NoteEditor } from './NoteEditor.js';
 
@@ -15,6 +15,15 @@ const sampleNote: SerializedNote = {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+});
+
+beforeEach(() => {
+  // Radix Dialog in jsdom.
+  const el = window.Element.prototype as unknown as Record<string, unknown>;
+  el.hasPointerCapture ??= vi.fn(() => false);
+  el.setPointerCapture ??= vi.fn();
+  el.releasePointerCapture ??= vi.fn();
+  el.scrollIntoView ??= vi.fn();
 });
 
 describe('NoteEditor', () => {
@@ -42,16 +51,16 @@ describe('NoteEditor', () => {
     expect(payload?.body).toContain('Initial content');
   });
 
-  it('renders delete button and calls onDelete after confirm', async () => {
+  it('renders delete button and calls onDelete after confirm dialog', async () => {
     const onDelete = vi.fn();
-    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
 
     render(<NoteEditor note={sampleNote} mode="editor" onSave={vi.fn()} onDelete={onDelete} />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Delete note' })).toBeTruthy();
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Delete note' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
@@ -79,5 +88,37 @@ describe('NoteEditor', () => {
 
     expect(screen.getByText('Safe')).toBeTruthy();
     expect(document.querySelector('script')).toBeNull();
+  });
+
+  it('surfaces a floating Add-comment button on selection when onCreateComment is provided', async () => {
+    vi.stubGlobal(
+      'getSelection',
+      vi.fn().mockReturnValue({
+        toString: () => 'Initial content',
+        rangeCount: 1,
+        anchorNode: null,
+        removeAllRanges: vi.fn(),
+        getRangeAt: () => ({
+          getBoundingClientRect: () => ({ top: 120, left: 40, width: 80 }),
+        }),
+      }),
+    );
+
+    render(
+      <NoteEditor
+        note={sampleNote}
+        mode="reader"
+        onSave={vi.fn()}
+        onCreateComment={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    const reader = document.querySelector('.document-reader-content');
+    expect(reader).toBeTruthy();
+    fireEvent.mouseUp(reader as Element);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /add comment/i })).toBeTruthy();
+    });
   });
 });
