@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileTextIcon, XIcon } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { FileTextIcon, PencilIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -95,11 +96,14 @@ function TaskDrawerBody({
 }: TaskDrawerBodyProps) {
   const [label, setLabel] = useState(task.label);
   const [newTag, setNewTag] = useState('');
+  // Open in read mode; editing is an explicit choice via the Edit toggle.
+  const [editing, setEditing] = useState(false);
   const editorRef = useRef<RichTextEditorHandle>(null);
 
   useEffect(() => {
     setLabel(task.label);
     setNewTag('');
+    setEditing(false);
   }, [task.id, task.label]);
 
   const lane = laneFromTags(task.tags);
@@ -120,6 +124,7 @@ function TaskDrawerBody({
       ...(trimmedLabel !== '' && trimmedLabel !== task.label ? { label: trimmedLabel } : {}),
       ...descriptionPatch,
     });
+    setEditing(false);
   };
 
   const tags = task.tags ?? [];
@@ -132,6 +137,23 @@ function TaskDrawerBody({
         <span className="ml-auto" />
         <Button
           type="button"
+          variant={editing ? 'secondary' : 'ghost'}
+          size="sm"
+          aria-label={editing ? 'Stop editing' : 'Edit task'}
+          onClick={() => {
+            setEditing((value) => !value);
+          }}
+        >
+          {editing ? (
+            'Done'
+          ) : (
+            <>
+              <PencilIcon className="size-3.5" /> Edit
+            </>
+          )}
+        </Button>
+        <Button
+          type="button"
           variant="ghost"
           size="icon-sm"
           aria-label="Close task details"
@@ -142,18 +164,24 @@ function TaskDrawerBody({
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        <Label htmlFor="task-drawer-label" className="mb-1 text-muted-foreground">
-          Label
-        </Label>
-        <Input
-          id="task-drawer-label"
-          aria-label="Label"
-          value={label}
-          onChange={(event) => {
-            setLabel(event.target.value);
-          }}
-          className="mb-3 font-semibold"
-        />
+        {editing ? (
+          <>
+            <Label htmlFor="task-drawer-label" className="mb-1 text-muted-foreground">
+              Label
+            </Label>
+            <Input
+              id="task-drawer-label"
+              aria-label="Label"
+              value={label}
+              onChange={(event) => {
+                setLabel(event.target.value);
+              }}
+              className="mb-3 font-semibold"
+            />
+          </>
+        ) : (
+          <h2 className="mb-3 text-[15px] font-semibold leading-snug">{task.label}</h2>
+        )}
 
         <dl className="grid grid-cols-[92px_1fr] gap-y-2 py-1 text-[12.5px]">
           <dt className="text-muted-foreground">Status</dt>
@@ -169,9 +197,16 @@ function TaskDrawerBody({
           {linkedDoc !== undefined ? (
             <>
               <dt className="text-muted-foreground">Linked doc</dt>
-              <dd className="inline-flex items-center gap-1.5 font-medium">
-                <FileTextIcon className="size-3.5 text-muted-foreground" />
-                {linkedDoc.title}
+              <dd>
+                <Link
+                  to="/projects/$id/documents/$docId"
+                  params={{ id: linkedDoc.project_id, docId: linkedDoc.id }}
+                  onClick={onClose}
+                  className="inline-flex items-center gap-1.5 font-medium text-foreground hover:underline"
+                >
+                  <FileTextIcon className="size-3.5 text-muted-foreground" />
+                  {linkedDoc.title}
+                </Link>
               </dd>
             </>
           ) : null}
@@ -183,29 +218,34 @@ function TaskDrawerBody({
         <RichTextEditor
           ref={editorRef}
           value={task.description ?? ''}
-          mode="editor"
+          mode={editing ? 'editor' : 'reader'}
           minHeight="5rem"
           ariaLabel="Description"
         />
 
-        <Label htmlFor="task-drawer-tags" className="mb-1 mt-4 text-muted-foreground">
-          Tags
-        </Label>
+        {editing || tags.length > 0 ? (
+          <div className="mb-1 mt-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Tags
+          </div>
+        ) : null}
         <TagEditor
           tags={tags}
           tagSuggestions={tagSuggestions}
           newTag={newTag}
+          editing={editing}
           onNewTagChange={setNewTag}
           onAddTag={onAddTag}
           onRemoveTag={onRemoveTag}
         />
       </div>
 
-      <footer className="border-t p-3">
-        <Button type="button" className="w-full" disabled={isSaving} onClick={handleSave}>
-          {isSaving ? 'Saving…' : 'Save details'}
-        </Button>
-      </footer>
+      {editing ? (
+        <footer className="border-t p-3">
+          <Button type="button" className="w-full" disabled={isSaving} onClick={handleSave}>
+            {isSaving ? 'Saving…' : 'Save details'}
+          </Button>
+        </footer>
+      ) : null}
     </div>
   );
 }
@@ -214,6 +254,7 @@ type TagEditorProps = {
   tags: SerializedTag[];
   tagSuggestions: string[];
   newTag: string;
+  editing: boolean;
   onNewTagChange: (value: string) => void;
   onAddTag: (name: string) => void;
   onRemoveTag: (name: string) => void;
@@ -223,6 +264,7 @@ function TagEditor({
   tags,
   tagSuggestions,
   newTag,
+  editing,
   onNewTagChange,
   onAddTag,
   onRemoveTag,
@@ -244,51 +286,55 @@ function TagEditor({
                 />
               ) : null}
               {tag.name}
-              <button
-                type="button"
-                aria-label={`Remove tag ${tag.name}`}
-                onClick={() => {
-                  onRemoveTag(tag.name);
-                }}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <XIcon className="size-3" />
-              </button>
+              {editing ? (
+                <button
+                  type="button"
+                  aria-label={`Remove tag ${tag.name}`}
+                  onClick={() => {
+                    onRemoveTag(tag.name);
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <XIcon className="size-3" />
+                </button>
+              ) : null}
             </span>
           ))}
         </div>
       ) : null}
-      <form
-        className="flex gap-1.5"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const trimmed = newTag.trim();
-          if (trimmed === '') {
-            return;
-          }
-          onAddTag(trimmed);
-          onNewTagChange('');
-        }}
-      >
-        <Input
-          id="task-drawer-tags"
-          aria-label="Tags"
-          list="task-drawer-tag-options"
-          value={newTag}
-          placeholder="Add tag"
-          onChange={(event) => {
-            onNewTagChange(event.target.value);
+      {editing ? (
+        <form
+          className="flex gap-1.5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const trimmed = newTag.trim();
+            if (trimmed === '') {
+              return;
+            }
+            onAddTag(trimmed);
+            onNewTagChange('');
           }}
-        />
-        <datalist id="task-drawer-tag-options">
-          {tagSuggestions.map((name) => (
-            <option key={name} value={name} />
-          ))}
-        </datalist>
-        <Button type="submit" variant="outline" size="sm" disabled={newTag.trim() === ''}>
-          Add tag
-        </Button>
-      </form>
+        >
+          <Input
+            id="task-drawer-tags"
+            aria-label="Tags"
+            list="task-drawer-tag-options"
+            value={newTag}
+            placeholder="Add tag"
+            onChange={(event) => {
+              onNewTagChange(event.target.value);
+            }}
+          />
+          <datalist id="task-drawer-tag-options">
+            {tagSuggestions.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+          <Button type="submit" variant="outline" size="sm" disabled={newTag.trim() === ''}>
+            Add tag
+          </Button>
+        </form>
+      ) : null}
     </>
   );
 }
