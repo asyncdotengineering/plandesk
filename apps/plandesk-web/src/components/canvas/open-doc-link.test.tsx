@@ -39,7 +39,7 @@ describe('OpenDocLink', () => {
   it('navigates to the linked document editor in one click', async () => {
     renderOpenDocLink('proj-1', 'doc-1');
 
-    const link = await screen.findByRole('link', { name: 'Open doc →' });
+    const link = await screen.findByRole('link', { name: 'Open doc' });
     expect(link.getAttribute('href')).toBe('/projects/proj-1/documents/doc-1');
   });
 });

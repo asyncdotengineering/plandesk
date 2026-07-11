@@ -1,101 +1,136 @@
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 import { useAgentRuns } from '../../lib/queries.js';
+import type { SerializedAgentRun } from '../../lib/api.js';
 
 type AgentRunsPanelProps = {
   projectId: string;
+  className?: string;
 };
 
-const statusColors: Record<string, string> = {
-  running: '#1d4ed8',
-  completed: '#15803d',
-  failed: '#b91c1c',
+const runStatusVars: Record<
+  SerializedAgentRun['status'],
+  { bg: string; fg: string }
+> = {
+  running: { bg: 'var(--s-prog-bg)', fg: 'var(--s-prog-fg)' },
+  completed: { bg: 'var(--s-done-bg)', fg: 'var(--s-done-fg)' },
+  failed: { bg: 'var(--destructive)', fg: '#ffffff' },
 };
 
-function formatStatus(status: string): string {
+function formatStatus(status: SerializedAgentRun['status']): string {
   if (status === 'running') {
     return 'Running';
   }
   if (status === 'completed') {
     return 'Completed';
   }
-  if (status === 'failed') {
-    return 'Failed';
-  }
-  return status;
+  return 'Failed';
 }
 
-export function AgentRunsPanel({ projectId }: AgentRunsPanelProps) {
+function relativeTime(iso: string): string {
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) {
+    return '';
+  }
+  const seconds = Math.round((Date.now() - then) / 1000);
+  if (seconds < 60) {
+    return 'just now';
+  }
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) {
+    return String(minutes) + 'm ago';
+  }
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) {
+    return String(hours) + 'h ago';
+  }
+  const days = Math.round(hours / 24);
+  return String(days) + 'd ago';
+}
+
+function activityAvatar(run: SerializedAgentRun): { label: string; bg: string; fg: string } {
+  const vars = runStatusVars[run.status];
+  const label = run.label ?? 'Agent run';
+  return {
+    label: label.charAt(0).toUpperCase(),
+    bg: vars.bg,
+    fg: vars.fg,
+  };
+}
+
+export function AgentRunsPanel({ projectId, className }: AgentRunsPanelProps) {
   const { data: runs, isLoading, error } = useAgentRuns(projectId);
 
   return (
     <aside
       aria-label="Agents activity"
-      style={{
-        position: 'absolute',
-        top: 8,
-        left: 8,
-        zIndex: 10,
-        width: 280,
-        maxHeight: 'calc(100% - 1rem)',
-        overflow: 'auto',
-        background: '#fff',
-        border: '1px solid #e5e7eb',
-        borderRadius: 8,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-        padding: '0.75rem',
-      }}
+      className={cn(
+        'absolute inset-0 flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm',
+        className,
+      )}
     >
-      <h2 style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', fontWeight: 600 }}>
-        Agents activity
-      </h2>
-      {isLoading ? (
-        <p style={{ margin: 0, fontSize: '0.8125rem', color: '#6b7280' }}>Loading…</p>
-      ) : null}
-      {error !== null ? (
-        <p role="alert" style={{ margin: 0, fontSize: '0.8125rem', color: '#b91c1c' }}>
-          Failed to load agent runs
-        </p>
-      ) : null}
-      {!isLoading && error === null && runs !== undefined && runs.length === 0 ? (
-        <p style={{ margin: 0, fontSize: '0.8125rem', color: '#6b7280' }}>No agent runs yet.</p>
-      ) : null}
-      {runs?.map((run) => (
-        <article
-          key={run.id}
-          style={{
-            borderTop: '1px solid #f3f4f6',
-            paddingTop: '0.625rem',
-            marginTop: '0.625rem',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
-            <strong style={{ fontSize: '0.8125rem' }}>{run.label ?? 'Agent run'}</strong>
-            <span
-              style={{
-                fontSize: '0.6875rem',
-                fontWeight: 600,
-                color: statusColors[run.status] ?? '#374151',
-                textTransform: 'uppercase',
-              }}
-            >
-              {formatStatus(run.status)}
-            </span>
-          </div>
-          {run.events.length > 0 ? (
-            <ul
-              style={{
-                margin: '0.375rem 0 0',
-                paddingLeft: '1rem',
-                fontSize: '0.75rem',
-                color: '#4b5563',
-              }}
-            >
-              {run.events.map((event) => (
-                <li key={event.id}>{event.message}</li>
-              ))}
-            </ul>
+      <header className="flex items-center gap-2 border-b border-border px-3.5 py-3">
+        <h2 className="text-[12.5px] font-semibold">Agents activity</h2>
+        {runs !== undefined && runs.length > 0 ? (
+          <span className="ml-auto text-[11px] text-muted-foreground">{runs.length} runs</span>
+        ) : null}
+      </header>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="px-3 pb-4">
+          {isLoading ? (
+            <p className="px-0.5 py-2.5 text-[12px] text-muted-foreground">Loading…</p>
           ) : null}
-        </article>
-      ))}
+          {error !== null ? (
+            <p role="alert" className="px-0.5 py-2.5 text-[12px] text-destructive">
+              Failed to load agent runs
+            </p>
+          ) : null}
+          {!isLoading && error === null && runs !== undefined && runs.length === 0 ? (
+            <p className="px-0.5 py-2.5 text-[12px] text-muted-foreground">No agent runs yet.</p>
+          ) : null}
+          {runs?.map((run, index) => {
+            const avatar = activityAvatar(run);
+            return (
+              <article
+                key={run.id}
+                className={cn('flex gap-2.5 py-2.5', index !== 0 && 'border-t border-border')}
+              >
+                <span
+                  aria-hidden
+                  className="mt-px flex size-[22px] shrink-0 select-none items-center justify-center rounded-md text-[10px] font-semibold"
+                  style={{ backgroundColor: avatar.bg, color: avatar.fg }}
+                >
+                  {avatar.label}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-[12px] font-semibold">{run.label ?? 'Agent run'}</span>
+                    <Badge
+                      className="rounded-full px-1.5 py-0 text-[9px] font-semibold uppercase tracking-[0.05em]"
+                      style={{ backgroundColor: runStatusVars[run.status].bg, color: runStatusVars[run.status].fg }}
+                    >
+                      {formatStatus(run.status)}
+                    </Badge>
+                    <span className="ml-auto text-[10.5px] text-muted-foreground">
+                      {relativeTime(run.started_at)}
+                    </span>
+                  </div>
+                  {run.events.length > 0 ? (
+                    <ul className="space-y-0.5">
+                      {run.events.map((event) => (
+                        <li key={event.id} className="text-[11.5px] leading-snug text-[var(--text-2)]">
+                          {event.message}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </ScrollArea>
     </aside>
   );
 }

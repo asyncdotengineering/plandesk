@@ -1,16 +1,12 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { useEffect, useState, type MouseEvent } from 'react';
-import { taskStatuses, type TaskStatus } from '../../lib/api.js';
+import { XIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { StatusMenu } from '../board/StatusChip.js';
+import { cn } from '@/lib/utils';
+import type { TaskStatus } from '../../lib/api.js';
 import type { TaskNodeData } from './canvas-map.js';
 import { OpenDocLink } from './OpenDocLink.js';
-
-const statusStyles: Record<TaskStatus, { bg: string; color: string }> = {
-  scope: { bg: '#ede9fe', color: '#5b21b6' },
-  todo: { bg: '#dbeafe', color: '#1d4ed8' },
-  in_progress: { bg: '#fef3c7', color: '#b45309' },
-  done: { bg: '#dcfce7', color: '#15803d' },
-  backlog: { bg: '#f3f4f6', color: '#4b5563' },
-};
 
 type TaskNodeCallbacks = {
   onPatchLabel: (taskId: string, label: string) => void;
@@ -24,8 +20,7 @@ export function registerTaskNodeCallbacks(callbacks: TaskNodeCallbacks | null) {
   taskNodeCallbacks = callbacks;
 }
 
-export function TaskNode({ id, data }: NodeProps<Node<TaskNodeData>>) {
-  const badge = statusStyles[data.status];
+export function TaskNode({ id, data, selected }: NodeProps<Node<TaskNodeData>>) {
   const [editing, setEditing] = useState(false);
   const [labelDraft, setLabelDraft] = useState(data.label);
 
@@ -53,28 +48,16 @@ export function TaskNode({ id, data }: NodeProps<Node<TaskNodeData>>) {
 
   return (
     <div
-      style={{
-        minWidth: 160,
-        padding: '0.75rem 1rem',
-        borderRadius: 8,
-        border: '1px solid #d1d5db',
-        background: '#fff',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-        cursor: 'grab',
-      }}
+      className={cn(
+        'group relative w-[212px] cursor-grab rounded-lg border border-border bg-card p-2.5 shadow-sm transition-[border-color,box-shadow] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-pop)]',
+        selected && 'border-foreground shadow-[0_0_0_1px_var(--foreground)]',
+      )}
     >
-      <Handle type="target" position={Position.Top} />
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '0.25rem',
-          marginBottom: '0.5rem',
-        }}
-      >
+      <Handle type="target" position={Position.Top} className="!bg-[var(--border-strong)]" />
+      <div className="mb-2 flex items-start gap-1">
         {editing ? (
           <input
-            className="nodrag"
+            className="nodrag flex-1 rounded border border-[var(--border-strong)] px-1.5 py-0.5 text-[12.5px] font-semibold leading-tight outline-none focus-visible:ring-2 focus-visible:ring-ring"
             type="text"
             value={labelDraft}
             autoFocus
@@ -92,87 +75,47 @@ export function TaskNode({ id, data }: NodeProps<Node<TaskNodeData>>) {
               }
             }}
             aria-label="Task label"
-            style={{
-              flex: 1,
-              fontWeight: 600,
-              fontSize: '0.875rem',
-              border: '1px solid #93c5fd',
-              borderRadius: 4,
-              padding: '0.125rem 0.375rem',
-            }}
           />
         ) : (
           <button
-            className="nodrag"
+            className="nodrag flex-1 text-left text-[12.5px] font-semibold leading-snug"
             type="button"
             onClick={() => {
               setEditing(true);
             }}
-            style={{
-              flex: 1,
-              textAlign: 'left',
-              fontWeight: 600,
-              lineHeight: 1.3,
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              cursor: 'text',
-              fontSize: 'inherit',
-              color: 'inherit',
-            }}
+            title="Edit label"
           >
             {data.label}
           </button>
         )}
-        <button
-          className="nodrag"
+        <Button
+          className="nodrag -mr-1 -mt-1 size-5 text-muted-foreground hover:text-destructive"
+          variant="ghost"
+          size="icon-xs"
           type="button"
           onClick={handleDelete}
           aria-label="Delete task"
           title="Delete task"
-          style={{
-            border: 'none',
-            background: 'none',
-            color: '#9ca3af',
-            cursor: 'pointer',
-            fontSize: '1rem',
-            lineHeight: 1,
-            padding: '0 0.125rem',
-          }}
         >
-          ×
-        </button>
+          <XIcon />
+        </Button>
       </div>
-      <select
-        className="nodrag"
-        value={data.status}
-        onChange={(event) => {
-          taskNodeCallbacks?.onPatchStatus(id, event.target.value as TaskStatus);
-        }}
-        aria-label="Task status"
-        style={{
-          fontSize: '0.75rem',
-          fontWeight: 600,
-          padding: '0.125rem 0.375rem',
-          borderRadius: 999,
-          background: badge.bg,
-          color: badge.color,
-          border: 'none',
-          cursor: 'pointer',
-        }}
-      >
-        {taskStatuses.map((status) => (
-          <option key={status} value={status}>
-            {status.replace('_', ' ')}
-          </option>
-        ))}
-      </select>
-      {data.documentId !== undefined ? (
-        <div className="nodrag" style={{ marginTop: '0.5rem' }}>
-          <OpenDocLink projectId={data.projectId} documentId={data.documentId} />
-        </div>
-      ) : null}
-      <Handle type="source" position={Position.Bottom} />
+      <div className="flex items-center gap-2">
+        <span className="nodrag">
+          <StatusMenu
+            status={data.status}
+            onChange={(status) => {
+              taskNodeCallbacks?.onPatchStatus(id, status);
+            }}
+          />
+        </span>
+        {data.documentId !== undefined ? (
+          <span className="nodrag ml-auto">
+            <OpenDocLink projectId={data.projectId} documentId={data.documentId} />
+          </span>
+        ) : null}
+      </div>
+      <Handle type="source" position={Position.Bottom} className="!bg-[var(--border-strong)]" />
     </div>
   );
 }

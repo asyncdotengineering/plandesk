@@ -28,20 +28,13 @@ export function LabeledEdge({
 
   return (
     <>
-      <BaseEdge id={id} path={edgePath} />
+      <BaseEdge id={id} path={edgePath} style={{ stroke: 'var(--border-strong)', strokeWidth: 1.5 }} />
       <EdgeLabelRenderer>
         <div
-          className="nodrag nopan"
+          className="nodrag nopan rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
           style={{
             position: 'absolute',
             transform: `translate(-50%, -50%) translate(${String(labelX)}px,${String(labelY)}px)`,
-            fontSize: '0.7rem',
-            fontWeight: 600,
-            padding: '0.125rem 0.375rem',
-            borderRadius: 4,
-            background: '#f3f4f6',
-            color: '#374151',
-            border: '1px solid #d1d5db',
             pointerEvents: 'all',
           }}
         >

@@ -6,7 +6,6 @@ import { validateTaskFilterSearch } from '../lib/search.js';
 
 function ProjectFlowPage() {
   const { id } = Route.useParams();
-  const { status } = Route.useSearch();
   const { data: project, isLoading, error } = useProject(id);
 
   if (isLoading) {
@@ -22,16 +21,12 @@ function ProjectFlowPage() {
   }
 
   return (
-    <section>
-      <h1 style={{ marginTop: 0 }}>{project.name} — Flow</h1>
-      {status !== undefined ? (
-        <p style={{ color: '#666', marginTop: 0 }}>Filter: {status}</p>
-      ) : null}
-      <div style={{ position: 'relative' }}>
-        <AgentRunsPanel projectId={id} />
-        <FlowCanvas projectId={id} />
+    <div className="flex h-full min-h-0">
+      <FlowCanvas projectId={id} />
+      <div className="relative h-full w-[300px] shrink-0 border-l border-border bg-card">
+        <AgentRunsPanel projectId={id} className="rounded-none border-0 shadow-none" />
       </div>
-    </section>
+    </div>
   );
 }
 

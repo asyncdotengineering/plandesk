@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { FileTextIcon } from 'lucide-react';
 
 type OpenDocLinkProps = {
   projectId: string;
@@ -10,17 +11,14 @@ export function OpenDocLink({ projectId, documentId }: OpenDocLinkProps) {
     <Link
       to="/projects/$id/documents/$docId"
       params={{ id: projectId, docId: documentId }}
-      style={{
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        color: '#1d4ed8',
-        textDecoration: 'none',
-      }}
+      aria-label="Open doc"
+      className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--text-2)] hover:text-foreground"
       onClick={(event) => {
         event.stopPropagation();
       }}
     >
-      Open doc →
+      <FileTextIcon className="size-[13px]" />
+      Doc
     </Link>
   );
 }

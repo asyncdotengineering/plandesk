@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type KeyboardEvent, type SubmitEvent } from 'react';
 import {
   Background,
-  Controls,
+  BackgroundVariant,
   Panel,
   ReactFlow,
   addEdge,
@@ -14,6 +14,9 @@ import {
   type OnSelectionChangeParams,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { LayoutDashboard, Maximize, Minus, Plus, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { DEFAULT_EDGE_LABEL } from '../../lib/api.js';
 import {
   useCanvas,
@@ -78,18 +81,10 @@ function AddTaskPanel({ projectId }: { projectId: string }) {
   return (
     <Panel position="top-left">
       <form
+        className="flex items-center gap-1.5 rounded-lg border border-border bg-card p-1 shadow-sm"
         onSubmit={handleSubmit}
-        style={{
-          display: 'flex',
-          gap: '0.375rem',
-          background: '#fff',
-          padding: '0.5rem',
-          borderRadius: 6,
-          border: '1px solid #e5e7eb',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-        }}
       >
-        <input
+        <Input
           type="text"
           value={label}
           onChange={(event) => {
@@ -97,31 +92,19 @@ function AddTaskPanel({ projectId }: { projectId: string }) {
           }}
           placeholder="New task name"
           aria-label="New task name"
-          style={{
-            width: 160,
-            padding: '0.375rem 0.5rem',
-            borderRadius: 4,
-            border: '1px solid #d1d5db',
-            fontSize: '0.875rem',
-          }}
+          className="h-7 w-40 border-transparent bg-transparent text-[12.5px] shadow-none focus-visible:border-[var(--border-strong)]"
         />
-        <button
+        <Button
           type="submit"
+          size="sm"
           disabled={createTask.isPending || label.trim() === ''}
-          style={{
-            padding: '0.375rem 0.75rem',
-            borderRadius: 4,
-            border: '1px solid #1d4ed8',
-            background: '#1d4ed8',
-            color: '#fff',
-            fontWeight: 600,
-            fontSize: '0.875rem',
-            cursor: createTask.isPending ? 'wait' : 'pointer',
-            whiteSpace: 'nowrap',
-          }}
         >
-          {createTask.isPending ? 'Adding…' : '+ Add task'}
-        </button>
+          {createTask.isPending ? 'Adding…' : (
+            <>
+              <Plus /> Add
+            </>
+          )}
+        </Button>
       </form>
     </Panel>
   );
@@ -132,25 +115,60 @@ function ArrangePanel({ onArrange }: { onArrange: () => void }) {
 
   return (
     <Panel position="top-right">
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="sm"
         onClick={() => {
           onArrange();
           void fitView({ padding: 0.2, duration: 300 });
         }}
-        style={{
-          padding: '0.375rem 0.75rem',
-          borderRadius: 6,
-          border: '1px solid #d1d5db',
-          background: '#fff',
-          fontWeight: 600,
-          fontSize: '0.875rem',
-          cursor: 'pointer',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-        }}
       >
-        Auto-arrange
-      </button>
+        <LayoutDashboard /> Auto layout
+      </Button>
+    </Panel>
+  );
+}
+
+function ZoomControls() {
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  return (
+    <Panel position="bottom-left">
+      <div className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Zoom in"
+          onClick={() => {
+            void zoomIn({ duration: 200 });
+          }}
+        >
+          <Plus />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Zoom out"
+          onClick={() => {
+            void zoomOut({ duration: 200 });
+          }}
+        >
+          <Minus />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Fit view"
+          onClick={() => {
+            void fitView({ padding: 0.2, duration: 300 });
+          }}
+        >
+          <Maximize />
+        </Button>
+      </div>
     </Panel>
   );
 }
@@ -319,49 +337,35 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
   }
 
   return (
-    <div style={{ position: 'relative' }} onKeyDown={handleKeyDown} tabIndex={0}>
+    <div
+      className="relative h-full min-w-0 flex-1 focus:outline-none"
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+    >
       {isSaving ? (
-        <span
-          style={{
-            position: 'absolute',
-            top: 8,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 10,
-            fontSize: '0.75rem',
-            color: '#6b7280',
-            background: '#fff',
-            padding: '0.25rem 0.5rem',
-            borderRadius: 4,
-            border: '1px solid #e5e7eb',
-          }}
-        >
+        <span className="pointer-events-none absolute left-1/2 top-2 z-20 -translate-x-1/2 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm">
           Saving…
         </span>
       ) : null}
       {saveError !== null ? (
-        <p role="alert" style={{ color: '#b91c1c', marginBottom: '0.5rem' }}>
+        <p
+          role="alert"
+          className="pointer-events-none absolute left-1/2 top-10 z-20 -translate-x-1/2 rounded-full border border-destructive/40 bg-card px-2.5 py-1 text-[11px] text-destructive shadow-sm"
+        >
           Save failed: {saveError.message}
         </p>
       ) : null}
       {selectedEdgeIds.length > 0 ? (
         <Panel position="top-center">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
+            className="border-destructive/40 bg-card text-destructive hover:bg-destructive/10"
             onClick={handleDeleteSelectedEdges}
-            style={{
-              padding: '0.375rem 0.75rem',
-              borderRadius: 6,
-              border: '1px solid #fca5a5',
-              background: '#fef2f2',
-              color: '#b91c1c',
-              fontWeight: 600,
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-            }}
           >
-            Delete edge
-          </button>
+            <Trash2 /> Delete edge
+          </Button>
         </Panel>
       ) : null}
       {selectedNode !== undefined ? (
@@ -371,6 +375,9 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
           isSaving={patchTask.isPending}
           onPatch={(input) => {
             patchTask.mutate({ id: selectedNode.id, input });
+          }}
+          onClose={() => {
+            setSelectedNodeId(null);
           }}
           onDelete={() => {
             deleteTask.mutate(
@@ -384,7 +391,7 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
           }}
         />
       ) : null}
-      <div style={{ width: '100%', height: 'calc(100vh - 12rem)', border: '1px solid #e5e7eb' }}>
+      <div className="h-full w-full bg-[var(--canvas)]">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -397,10 +404,10 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
           edgeTypes={edgeTypes}
           fitView
         >
-          <Background />
-          <Controls />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="var(--border-strong)" />
           <AddTaskPanel projectId={projectId} />
           <ArrangePanel onArrange={handleAutoArrange} />
+          <ZoomControls />
         </ReactFlow>
       </div>
     </div>
