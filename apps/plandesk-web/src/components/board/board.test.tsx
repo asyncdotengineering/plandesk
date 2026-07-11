@@ -224,6 +224,8 @@ describe('Board', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Task details')).toBeTruthy();
     });
+    // Drawer opens in read mode; enter edit mode to reach the Label input.
+    fireEvent.click(screen.getByLabelText('Edit task'));
     expect(screen.getByLabelText<HTMLInputElement>('Label').value).toBe('Plan sprint');
     expect(screen.getByText('Description')).toBeTruthy();
 
@@ -243,6 +245,7 @@ describe('Board', () => {
       expect(screen.getByText('Details here')).toBeTruthy();
     });
 
+    fireEvent.click(screen.getByLabelText('Edit task'));
     fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Plan sprint v2' } });
     fireEvent.click(screen.getByText('Save details'));
 
@@ -327,6 +330,7 @@ describe('Board', () => {
       expect(screen.getByLabelText('Task details')).toBeTruthy();
     });
 
+    fireEvent.click(screen.getByLabelText('Edit task'));
     fireEvent.change(screen.getByLabelText('Tags'), { target: { value: 'urgent' } });
     fireEvent.click(screen.getByText('Add tag'));
 
@@ -352,6 +356,7 @@ describe('Board', () => {
       expect(screen.getByLabelText('Task details')).toBeTruthy();
     });
 
+    fireEvent.click(screen.getByLabelText('Edit task'));
     fireEvent.click(screen.getByLabelText('Remove tag backend'));
 
     await waitFor(() => {

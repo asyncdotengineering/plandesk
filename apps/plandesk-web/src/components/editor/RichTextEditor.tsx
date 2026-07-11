@@ -234,6 +234,10 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
 
     useEffect(() => {
       editor.setEditable(mode === 'editor');
+      // Toggling editable (e.g. read-first Edit) is not a user edit — keep the
+      // dirty flag clean so a no-op Edit→Save never re-serializes (and thereby
+      // corrupts, via the lossy round-trip) agent-authored Markdown.
+      dirtyRef.current = false;
     }, [editor, mode]);
 
     useEffect(() => {
