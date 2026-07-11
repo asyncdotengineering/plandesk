@@ -62,7 +62,16 @@ export function StatusMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <StatusChip status={status} className={className} onClick={(event) => { event.stopPropagation(); }} />
+        <StatusChip
+          status={status}
+          className={className}
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+        />
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align}>
         {taskStatuses.map((option) => (

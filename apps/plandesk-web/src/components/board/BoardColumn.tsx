@@ -1,3 +1,4 @@
+import { useDndContext, useDroppable } from '@dnd-kit/core';
 import { PlusIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -42,10 +43,21 @@ export function BoardColumn({
   const label = columnLabels[status];
   const empty = EMPTY_COPY[status];
 
+  const { setNodeRef, isOver } = useDroppable({ id: status });
+  const { active } = useDndContext();
+  // Only highlight columns that would actually accept the card (a different
+  // column than the drag source). Same-column drops are no-ops.
+  const draggedStatus = active?.data.current?.status as TaskStatus | undefined;
+  const isDropTarget = isOver && draggedStatus !== undefined && draggedStatus !== status;
+
   return (
     <section
+      ref={setNodeRef}
       data-board-column={status}
-      className="flex w-[274px] flex-shrink-0 flex-col"
+      className={cn(
+        'flex w-[274px] flex-shrink-0 flex-col rounded-lg transition-colors',
+        isDropTarget && 'bg-muted/50 ring-2 ring-ring/30',
+      )}
     >
       <header className="flex items-center gap-2 px-1 pb-2.5">
         <span

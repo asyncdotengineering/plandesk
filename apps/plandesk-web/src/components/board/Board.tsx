@@ -1,3 +1,14 @@
+import {
+  closestCorners,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -33,15 +44,11 @@ import {
   usePatchTask,
   useTags,
 } from '../../lib/queries.js';
-import {
-  boardColumnOrder,
-  columnLabels,
-  filterTasksByAnyTag,
-  groupTasksByStatus,
-  LANE_TAG_PREFIX,
-} from './board-utils.js';
+import { boardColumnOrder, columnLabels, filterTasksByAnyTag, groupTasksByStatus, LANE_TAG_PREFIX } from './board-utils.js';
 import { BoardColumn } from './BoardColumn.js';
 import { TaskDrawer } from './TaskDrawer.js';
+import { TaskCardPreview } from './TaskCard.js';
+import { useBoardDnd } from './useBoardDnd.js';
 
 type BoardProps = {
   projectId: string;
@@ -72,6 +79,15 @@ export function Board({ projectId, tasks }: BoardProps) {
   const createTask = useCreateTask(projectId);
   const patchTask = usePatchTask();
   const deleteTaskHook = useDeleteTask();
+  const { handleDragEnd } = useBoardDnd({ projectId, tasks });
+
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor),
+  );
+  const activeTask =
+    activeTaskId !== null ? tasks.find((task) => task.id === activeTaskId) : undefined;
 
   const drawerTask = drawerTaskId !== null ? tasks.find((task) => task.id === drawerTaskId) : undefined;
   const tagNames = (projectTags ?? []).map((tag) => tag.name);
@@ -182,22 +198,42 @@ export function Board({ projectId, tasks }: BoardProps) {
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-x-auto pb-2">
-        <div className="flex h-full items-start gap-3.5">
-          {boardColumnOrder.map((status) => (
-            <BoardColumn
-              key={status}
-              status={status}
-              tasks={grouped[status]}
-              linkedDocTaskIds={linkedDocTaskIds}
-              onOpenTask={setDrawerTaskId}
-              onChangeStatus={handleChangeStatus}
-              onRequestDelete={handleRequestDelete}
-              onAddTask={setCreateForStatus}
-            />
-          ))}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={(event: DragStartEvent) => {
+          setActiveTaskId(String(event.active.id));
+        }}
+        onDragEnd={(event: DragEndEvent) => {
+          handleDragEnd(event);
+          setActiveTaskId(null);
+        }}
+        onDragCancel={() => {
+          setActiveTaskId(null);
+        }}
+      >
+        <div className="min-h-0 flex-1 overflow-x-auto pb-2">
+          <div className="flex h-full items-start gap-3.5">
+            {boardColumnOrder.map((status) => (
+              <BoardColumn
+                key={status}
+                status={status}
+                tasks={grouped[status]}
+                linkedDocTaskIds={linkedDocTaskIds}
+                onOpenTask={setDrawerTaskId}
+                onChangeStatus={handleChangeStatus}
+                onRequestDelete={handleRequestDelete}
+                onAddTask={setCreateForStatus}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+        <DragOverlay dropAnimation={null}>
+          {activeTask !== undefined ? (
+            <TaskCardPreview task={activeTask} hasLinkedDoc={linkedDocTaskIds.has(activeTask.id)} />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       <TaskDrawer
         open={drawerTask !== undefined}

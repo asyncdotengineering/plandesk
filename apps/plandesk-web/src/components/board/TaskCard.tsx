@@ -1,4 +1,6 @@
+import { useDraggable } from '@dnd-kit/core';
 import { FileTextIcon, MoreHorizontalIcon } from 'lucide-react';
+import { type MouseEvent, type PointerEvent, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -12,9 +14,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { columnLabels, laneFromTags, LANE_TAG_PREFIX } from './board-utils.js';
-import { StatusMenu } from './StatusChip.js';
 import { taskStatuses, type SerializedTask, type TaskStatus } from '../../lib/api.js';
+import { columnLabels, laneFromTags, LANE_TAG_PREFIX } from './board-utils.js';
+import { StatusChip, StatusMenu } from './StatusChip.js';
 
 type TaskCardProps = {
   task: SerializedTask;
@@ -24,18 +26,55 @@ type TaskCardProps = {
   onRequestDelete: () => void;
 };
 
+// A drag and a click both terminate on the card; only treat it as an open when
+// the pointer barely moved between press and release (matches the PointerSensor
+// activation distance, so a real drag never opens the drawer).
+const DRAG_CLICK_TOLERANCE_PX = 6;
+
 export function TaskCard({ task, hasLinkedDoc, onOpen, onChangeStatus, onRequestDelete }: TaskCardProps) {
   const lane = laneFromTags(task.tags);
   const chips = (task.tags ?? []).filter((tag) => !tag.name.startsWith(LANE_TAG_PREFIX));
 
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: task.id,
+    data: { status: task.status },
+  });
+  const pointerDown = useRef<{ x: number; y: number } | null>(null);
+
+  const handleClick = (event: MouseEvent<HTMLDivElement>) => {
+    const start = pointerDown.current;
+    pointerDown.current = null;
+    if (
+      start !== null &&
+      (Math.abs(event.clientX - start.x) > DRAG_CLICK_TOLERANCE_PX ||
+        Math.abs(event.clientY - start.y) > DRAG_CLICK_TOLERANCE_PX)
+    ) {
+      return;
+    }
+    onOpen();
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    pointerDown.current = { x: event.clientX, y: event.clientY };
+    listeners?.onPointerDown?.(event);
+  };
+
   return (
     <Card
+      ref={setNodeRef}
       data-task-id={task.id}
       data-task-status={task.status}
-      onClick={onOpen}
+      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onKeyDown={(event) => {
+        listeners?.onKeyDown?.(event);
+      }}
+      {...attributes}
+      style={{ touchAction: 'none' }}
       className={cn(
         'group relative w-full cursor-pointer gap-0 rounded-lg px-2.5 py-2.5 shadow-[var(--shadow)] transition',
         'hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-pop)]',
+        isDragging && 'opacity-40',
       )}
     >
       <div className="absolute right-1.5 top-1.5 opacity-0 transition group-hover:opacity-100">
@@ -46,6 +85,9 @@ export function TaskCard({ task, hasLinkedDoc, onOpen, onChangeStatus, onRequest
               variant="ghost"
               size="icon-xs"
               aria-label="Task actions"
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
               onClick={(event) => {
                 event.stopPropagation();
               }}
@@ -125,6 +167,29 @@ export function TaskCard({ task, hasLinkedDoc, onOpen, onChangeStatus, onRequest
           ))}
         </div>
       ) : null}
+    </Card>
+  );
+}
+
+// Floating preview rendered inside <DragOverlay>. Deliberately a separate,
+// hook-free component so the dragged id is never registered twice with dnd-kit.
+export function TaskCardPreview({ task, hasLinkedDoc }: { task: SerializedTask; hasLinkedDoc: boolean }) {
+  const lane = laneFromTags(task.tags);
+  return (
+    <Card className="w-[258px] gap-0 rounded-lg px-2.5 py-2.5 shadow-[var(--shadow-pop)]">
+      <p className="mb-2 mr-6 text-[13px] font-medium leading-snug">{task.label}</p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <StatusChip status={task.status} tabIndex={-1} />
+        {lane !== undefined ? (
+          <span className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+            {lane}
+          </span>
+        ) : null}
+        {hasLinkedDoc ? (
+          <FileTextIcon className="size-3.5 text-muted-foreground" aria-hidden />
+        ) : null}
+        <span className="mono ml-auto text-[10.5px] text-muted-foreground">{shortId(task.id)}</span>
+      </div>
     </Card>
   );
 }

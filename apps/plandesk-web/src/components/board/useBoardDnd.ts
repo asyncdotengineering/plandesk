@@ -1,9 +1,10 @@
 import { type DragEndEvent, type UniqueIdentifier } from '@dnd-kit/core';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
+import { toast } from 'sonner';
 import { type SerializedTask, type TaskStatus } from '../../lib/api.js';
 import { queryKeys, usePatchTask } from '../../lib/queries.js';
-import { resolveDropStatus } from './board-utils.js';
+import { columnLabels, resolveDropStatus } from './board-utils.js';
 
 type UseBoardDndOptions = {
   projectId: string;
@@ -56,6 +57,9 @@ export function useBoardDnd({ projectId, tasks }: UseBoardDndOptions) {
       patchTask.mutate(
         { id: taskId, input: { status: newStatus } },
         {
+          onSuccess: () => {
+            toast(`Status → ${columnLabels[newStatus]}`);
+          },
           onError: () => {
             if (previousTasks !== undefined) {
               queryClient.setQueryData(queryKeys.tasks(projectId), previousTasks);
