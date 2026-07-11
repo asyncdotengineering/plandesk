@@ -1,5 +1,5 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeftIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { CommentsPanel } from '../components/docs/CommentsPanel.js';
@@ -25,6 +25,17 @@ function DocumentPage() {
   const deleteDocument = useDeleteDocument();
   const createComment = useCreateComment({ type: 'document', id: docId });
   const [mode, setMode] = useState<DocumentEditorMode>('reader');
+  // A brand-new / empty document opens in Edit so you can start writing; an
+  // existing document opens read-first. Runs once when the doc first loads.
+  const modeInitialized = useRef(false);
+  useEffect(() => {
+    if (!modeInitialized.current && document !== undefined) {
+      modeInitialized.current = true;
+      if ((document.body ?? '').replace(/<[^>]*>/g, '').trim() === '') {
+        setMode('editor');
+      }
+    }
+  }, [document]);
 
   // Searchable targets for the "[[" doc-link suggestion (excluding this doc).
   const docLinks = flattenDocumentTree(allDocuments ?? [])

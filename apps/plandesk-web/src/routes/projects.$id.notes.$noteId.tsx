@@ -1,5 +1,5 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeftIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { CommentsPanel } from '../components/docs/CommentsPanel.js';
@@ -25,6 +25,16 @@ function NotePage() {
   const deleteNote = useDeleteNote();
   const createComment = useCreateComment({ type: 'note', id: noteId });
   const [mode, setMode] = useState<NoteEditorMode>('reader');
+  // A brand-new / empty note opens in Edit; an existing note opens read-first.
+  const modeInitialized = useRef(false);
+  useEffect(() => {
+    if (!modeInitialized.current && note !== undefined) {
+      modeInitialized.current = true;
+      if ((note.body ?? '').replace(/<[^>]*>/g, '').trim() === '') {
+        setMode('editor');
+      }
+    }
+  }, [note]);
 
   const docLinks = flattenDocumentTree(allDocuments ?? []).map((doc) => ({
     id: doc.id,

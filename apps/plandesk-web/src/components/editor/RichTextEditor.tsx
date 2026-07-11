@@ -467,6 +467,10 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       [],
     );
 
+    // In the document context (docs/notes pass projectId) the editor is a
+    // seamless, full-height canvas rather than a bordered box.
+    const seamless = projectId !== undefined;
+
     return (
       <div>
         {mode === 'editor' ? <RichTextToolbar editor={editor} /> : null}
@@ -487,22 +491,30 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                 }
               }}
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderHtml(value)) }}
-              style={{
-                lineHeight: 1.6,
-                padding: '1rem',
-                border: '1px solid #e5e7eb',
-                borderRadius: 8,
-                minHeight,
-              }}
+              style={
+                seamless
+                  ? { padding: '0.25rem 0', minHeight: 'calc(100vh - 16rem)' }
+                  : {
+                      lineHeight: 1.6,
+                      padding: '1rem',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      minHeight,
+                    }
+              }
             />
           ) : (
             <div
-              style={{
-                border: '1px solid #e5e7eb',
-                borderRadius: 8,
-                padding: '0.75rem 1rem',
-                minHeight,
-              }}
+              style={
+                seamless
+                  ? { padding: '0.25rem 0', minHeight: 'calc(100vh - 16rem)' }
+                  : {
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      padding: '0.75rem 1rem',
+                      minHeight,
+                    }
+              }
             >
               <EditorContent editor={editor} />
             </div>

@@ -69,3 +69,128 @@
 .portal-document-content li[data-type='taskItem'][data-checked='true']::before {
   content: '\2611';
 }
+
+/* Document typography — gives the editor + reader a real document feel
+   (headings, lists, quotes, code) instead of flat body text. */
+.document-editor-content,
+.document-reader-content,
+.portal-document-content {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--foreground);
+}
+.document-editor-content :first-child,
+.document-reader-content :first-child,
+.portal-document-content :first-child {
+  margin-top: 0;
+}
+.document-editor-content h1,
+.document-reader-content h1,
+.portal-document-content h1 {
+  font-size: 1.75em;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin: 1.4em 0 0.5em;
+}
+.document-editor-content h2,
+.document-reader-content h2,
+.portal-document-content h2 {
+  font-size: 1.375em;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  margin: 1.3em 0 0.45em;
+}
+.document-editor-content h3,
+.document-reader-content h3,
+.portal-document-content h3 {
+  font-size: 1.15em;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 1.15em 0 0.4em;
+}
+.document-editor-content p,
+.document-reader-content p,
+.portal-document-content p {
+  margin: 0.5em 0;
+}
+.document-editor-content ul,
+.document-reader-content ul,
+.portal-document-content ul,
+.document-editor-content ol,
+.document-reader-content ol,
+.portal-document-content ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+.document-editor-content ul:not([data-type='taskList']),
+.document-reader-content ul:not([data-type='taskList']),
+.portal-document-content ul:not([data-type='taskList']) {
+  list-style: disc;
+}
+.document-editor-content ol,
+.document-reader-content ol,
+.portal-document-content ol {
+  list-style: decimal;
+}
+.document-editor-content li,
+.document-reader-content li,
+.portal-document-content li {
+  margin: 0.2em 0;
+}
+.document-editor-content blockquote,
+.document-reader-content blockquote,
+.portal-document-content blockquote {
+  margin: 0.75em 0;
+  padding-left: 1em;
+  border-left: 3px solid var(--border-strong);
+  color: var(--muted-foreground);
+}
+.document-editor-content code,
+.document-reader-content code,
+.portal-document-content code {
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+  font-size: 0.875em;
+  background: var(--muted);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+.document-editor-content pre,
+.document-reader-content pre,
+.portal-document-content pre {
+  margin: 0.75em 0;
+  padding: 0.85em 1em;
+  background: var(--muted);
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+.document-editor-content pre code,
+.document-reader-content pre code,
+.portal-document-content pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+.document-editor-content hr,
+.document-reader-content hr,
+.portal-document-content hr {
+  margin: 1.25em 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+.document-editor-content a,
+.document-reader-content a,
+.portal-document-content a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.document-editor-content:focus,
+.document-editor-content:focus-visible {
+  outline: none;
+}
