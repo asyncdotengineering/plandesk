@@ -3,6 +3,11 @@
 .app {
   display: grid;
   grid-template-columns: 244px 1fr;
+  /* Explicit full-height row: without it the single implicit row is auto-sized
+     to .main's content, so short pages (e.g. the fixed-height Flow canvas)
+     collapse and leave dead space below. minmax(0,1fr) fills the viewport and
+     still lets .content scroll tall pages. */
+  grid-template-rows: minmax(0, 1fr);
   height: 100vh;
   overflow: hidden;
 }
