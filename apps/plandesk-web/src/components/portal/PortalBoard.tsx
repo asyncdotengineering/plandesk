@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { boardColumnOrder, columnLabels } from '../board/board-utils.js';
+import { statusTokenVars } from '../board/StatusChip.js';
 import type { ClientViewTask } from '../../lib/portal.js';
 import { PortalTaskCard } from './PortalTaskCard.js';
 
@@ -55,66 +57,40 @@ function columnLabel(status: string): string {
   return status.replace(/_/g, ' ');
 }
 
+function columnDotColor(status: string): string {
+  if (status in statusTokenVars) {
+    return statusTokenVars[status as keyof typeof statusTokenVars].dot;
+  }
+  return 'var(--muted-foreground)';
+}
+
 export function PortalBoard({ tasks }: PortalBoardProps) {
   const grouped = useMemo(() => groupPortalTasksByStatus(tasks), [tasks]);
   const statuses = useMemo(() => columnOrder(grouped), [grouped]);
 
   return (
-    <div
-      style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', overflowX: 'auto' }}
-      data-portal-board
-    >
+    <div className="flex items-start gap-3 overflow-x-auto" data-portal-board>
       {statuses.map((status) => {
         const columnTasks = grouped.get(status) ?? [];
         return (
           <div
             key={status}
             data-portal-column={status}
-            style={{
-              flex: '1 1 0',
-              minWidth: 180,
-              display: 'flex',
-              flexDirection: 'column',
-              background: '#f9fafb',
-              borderRadius: 8,
-              border: '1px solid #e5e7eb',
-            }}
+            className="flex min-w-[180px] flex-1 flex-col rounded-lg border border-border bg-muted/40"
           >
-            <header
-              style={{
-                padding: '0.75rem',
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                borderBottom: '1px solid #e5e7eb',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <span>{columnLabel(status)}</span>
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 500,
-                  color: '#6b7280',
-                  background: '#e5e7eb',
-                  borderRadius: 999,
-                  padding: '0.125rem 0.5rem',
-                }}
-              >
-                {columnTasks.length}
+            <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+              <span className="flex items-center gap-1.5 text-xs font-semibold">
+                <span
+                  className="size-2 rounded-full"
+                  style={{ backgroundColor: columnDotColor(status) }}
+                />
+                {columnLabel(status)}
               </span>
+              <Badge variant="secondary" className="h-5 px-2 text-[11px] font-medium">
+                {columnTasks.length}
+              </Badge>
             </header>
-            <div
-              style={{
-                padding: '0.5rem',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.5rem',
-                flex: 1,
-                minHeight: 120,
-              }}
-            >
+            <div className="flex min-h-[120px] flex-1 flex-col gap-2 p-2">
               {columnTasks.map((task) => (
                 <PortalTaskCard key={task.id} task={task} />
               ))}

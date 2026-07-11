@@ -1,4 +1,8 @@
 import { useEffect, useState, type SubmitEvent } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   PortalEmailNotInvitedError,
   PortalJoinError,
@@ -100,132 +104,94 @@ export function JoinGate({ shareToken, onJoined }: JoinGateProps) {
   }
 
   return (
-    <section
-      aria-label="Join shared project"
-      style={{
-        maxWidth: 420,
-        margin: '2rem auto',
-        padding: '1.5rem',
-        borderRadius: 12,
-        border: '1px solid #e5e7eb',
-        background: '#fff',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.06)',
-      }}
-    >
-      <header style={{ marginBottom: '1.25rem' }}>
-        <p
-          style={{
-            margin: '0 0 0.5rem',
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-            color: '#6b7280',
-          }}
-        >
-          Plan Desk
-        </p>
-        <h1 style={{ margin: 0, fontSize: '1.25rem' }}>
-          {meta?.audience_name ?? 'Join shared project'}
-        </h1>
-        <p style={{ margin: '0.5rem 0 0', color: '#6b7280', fontSize: '0.875rem' }}>
-          {metaLoading
-            ? 'Loading share details…'
-            : emailRequired
-              ? 'Enter your name and invited email to view this read-only plan.'
-              : 'Enter your name to view this read-only plan.'}
-        </p>
-      </header>
-
-      {shareError !== null ? (
-        <p role="alert" style={{ color: '#b91c1c', fontSize: '0.875rem', marginTop: 0 }}>
-          {shareError}
-        </p>
-      ) : null}
-
-      <form
-        onSubmit={(event) => {
-          void handleSubmit(event);
-        }}
-        style={{ display: 'grid', gap: '1rem' }}
-      >
-        <label style={{ display: 'grid', gap: '0.375rem', fontSize: '0.875rem' }}>
-          <span>Name</span>
-          <input
-            type="text"
-            name="name"
-            value={name}
-            onChange={(event) => {
-              setName(event.target.value);
-            }}
-            autoComplete="name"
-            required
-            disabled={metaLoading || shareError !== null}
-            style={{
-              padding: '0.5rem 0.75rem',
-              borderRadius: 6,
-              border: '1px solid #d1d5db',
-              fontSize: '0.9375rem',
-            }}
-          />
-          {fieldError !== null && !emailRequired ? (
-            <span role="alert" style={{ color: '#b91c1c', fontSize: '0.8125rem' }}>
-              {fieldError}
-            </span>
+    <section aria-label="Join shared project" className="mx-auto max-w-md px-5 py-8">
+      <Card className="shadow-sm">
+        <CardHeader>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Plan Desk
+          </p>
+          <h1 className="text-xl font-semibold leading-none">
+            {meta?.audience_name ?? 'Join shared project'}
+          </h1>
+          <CardDescription>
+            {metaLoading
+              ? 'Loading share details…'
+              : emailRequired
+                ? 'Enter your name and invited email to view this read-only plan.'
+                : 'Enter your name to view this read-only plan.'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {shareError !== null ? (
+            <p role="alert" className="mb-4 text-sm text-destructive">
+              {shareError}
+            </p>
           ) : null}
-        </label>
 
-        <label style={{ display: 'grid', gap: '0.375rem', fontSize: '0.875rem' }}>
-          <span>
-            {emailRequired ? 'Invited email' : 'Email'}{' '}
-            {!emailRequired ? <span style={{ color: '#9ca3af' }}>(optional)</span> : null}
-          </span>
-          <input
-            type="email"
-            name="email"
-            value={email}
-            onChange={(event) => {
-              setEmail(event.target.value);
+          <form
+            onSubmit={(event) => {
+              void handleSubmit(event);
             }}
-            autoComplete="email"
-            required={emailRequired}
-            disabled={metaLoading || shareError !== null}
-            style={{
-              padding: '0.5rem 0.75rem',
-              borderRadius: 6,
-              border: '1px solid #d1d5db',
-              fontSize: '0.9375rem',
-            }}
-          />
-          {emailRequired ? (
-            <span style={{ color: '#6b7280', fontSize: '0.8125rem' }}>
-              Use the email your invite was sent to.
-            </span>
-          ) : null}
-          {fieldError !== null && emailRequired ? (
-            <span role="alert" style={{ color: '#b91c1c', fontSize: '0.8125rem' }}>
-              {fieldError}
-            </span>
-          ) : null}
-        </label>
+            className="grid gap-4"
+          >
+            <div className="grid gap-1.5">
+              <Label htmlFor="portal-name">Name</Label>
+              <Input
+                id="portal-name"
+                type="text"
+                name="name"
+                value={name}
+                onChange={(event) => {
+                  setName(event.target.value);
+                }}
+                autoComplete="name"
+                required
+                disabled={metaLoading || shareError !== null}
+              />
+              {fieldError !== null && !emailRequired ? (
+                <span role="alert" className="text-xs text-destructive">
+                  {fieldError}
+                </span>
+              ) : null}
+            </div>
 
-        <button
-          type="submit"
-          disabled={!canSubmit || shareError !== null}
-          style={{
-            padding: '0.625rem 1rem',
-            borderRadius: 6,
-            border: 'none',
-            background: canSubmit && shareError === null ? '#1e40af' : '#9ca3af',
-            color: '#fff',
-            fontWeight: 600,
-            fontSize: '0.9375rem',
-            cursor: canSubmit && shareError === null ? 'pointer' : 'not-allowed',
-          }}
-        >
-          {pending ? 'Joining…' : 'Join'}
-        </button>
-      </form>
+            <div className="grid gap-1.5">
+              <Label htmlFor="portal-email">
+                {emailRequired ? 'Invited email' : 'Email'}{' '}
+                {!emailRequired ? (
+                  <span className="font-normal text-muted-foreground">(optional)</span>
+                ) : null}
+              </Label>
+              <Input
+                id="portal-email"
+                type="email"
+                name="email"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                }}
+                autoComplete="email"
+                required={emailRequired}
+                disabled={metaLoading || shareError !== null}
+              />
+              {emailRequired ? (
+                <span className="text-xs text-muted-foreground">
+                  Use the email your invite was sent to.
+                </span>
+              ) : null}
+              {fieldError !== null && emailRequired ? (
+                <span role="alert" className="text-xs text-destructive">
+                  {fieldError}
+                </span>
+              ) : null}
+            </div>
+
+            <Button type="submit" disabled={!canSubmit || shareError !== null}>
+              {pending ? 'Joining…' : 'Join'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </section>
   );
 }

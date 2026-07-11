@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useCreateMcpToken, useMcpTokens, useRevokeMcpToken } from '../../lib/queries.js';
 
 function formatDate(iso: string): string {
@@ -32,6 +36,7 @@ export function McpTokens() {
     setRawToken(created.token);
     setCopied(false);
     setName('');
+    toast('Token created');
   }
 
   async function handleCopy() {
@@ -47,169 +52,154 @@ export function McpTokens() {
     if (rawToken !== null) {
       setRawToken(null);
     }
+    toast('Token revoked');
   }
 
   const snippets = rawToken !== null ? connectionSnippet(rawToken) : null;
 
   return (
-    <div style={{ display: 'grid', gap: '1.5rem', maxWidth: '48rem' }}>
-      <section>
-        <h2 style={{ marginTop: 0, fontSize: '1.125rem' }}>Create token</h2>
-        <p style={{ color: '#666', marginTop: 0 }}>
-          The raw token is shown once after creation. Copy it now — it cannot be retrieved later.
-        </p>
-        <form
-          onSubmit={(e) => {
-            void handleCreate(e);
-          }}
-          style={{ display: 'flex', gap: '0.5rem' }}
-        >
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
+    <div className="grid max-w-3xl gap-6">
+      <Card>
+        <CardHeader className="border-b pb-4">
+          <CardTitle className="text-sm font-semibold">Create token</CardTitle>
+          <CardDescription>
+            The raw token is shown once after creation. Copy it now — it cannot be retrieved later.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <form
+            onSubmit={(e) => {
+              void handleCreate(e);
             }}
-            placeholder="Token name (e.g. Claude Desktop)"
-            aria-label="Token name"
-            style={{ flex: 1, padding: '0.5rem 0.75rem' }}
-          />
-          <button type="submit" disabled={createMutation.isPending || name.trim() === ''}>
-            {createMutation.isPending ? 'Creating…' : 'Create'}
-          </button>
-        </form>
-        {createMutation.isError ? (
-          <p role="alert" style={{ color: '#b00020' }}>
-            Failed to create token.
-          </p>
-        ) : null}
-      </section>
+            className="flex gap-2"
+          >
+            <Input
+              type="text"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+              }}
+              placeholder="Token name (e.g. Claude Desktop)"
+              aria-label="Token name"
+              className="flex-1"
+            />
+            <Button type="submit" disabled={createMutation.isPending || name.trim() === ''}>
+              {createMutation.isPending ? 'Creating…' : 'Create'}
+            </Button>
+          </form>
+          {createMutation.isError ? (
+            <p role="alert" className="mt-3 text-sm text-destructive">
+              Failed to create token.
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
 
       {rawToken !== null ? (
-        <section
-          style={{
-            padding: '1rem',
-            border: '1px solid #f0c36d',
-            borderRadius: '6px',
-            background: '#fffbeb',
-          }}
-        >
-          <h2 style={{ marginTop: 0, fontSize: '1.125rem' }}>Copy your token now</h2>
-          <p style={{ color: '#666', marginTop: 0 }}>
-            This is the only time the raw token will be shown. Store it securely.
-          </p>
-          <code
-            style={{
-              display: 'block',
-              padding: '0.75rem',
-              background: '#fff',
-              border: '1px solid #e5e5e5',
-              borderRadius: '4px',
-              wordBreak: 'break-all',
-              fontSize: '0.875rem',
-            }}
-          >
-            {rawToken}
-          </code>
-          <button
-            type="button"
-            onClick={() => {
-              void handleCopy();
-            }}
-            style={{ marginTop: '0.75rem' }}
-          >
-            {copied ? 'Copied' : 'Copy token'}
-          </button>
-          {snippets ? (
-            <div style={{ marginTop: '1rem' }}>
-              <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Connection commands</h3>
-              <p style={{ color: '#666', fontSize: '0.875rem', marginTop: 0 }}>
-                Use one of these to connect your MCP client:
-              </p>
-              <label style={{ display: 'block', fontSize: '0.75rem', color: '#666' }}>Claude</label>
-              <code
-                style={{
-                  display: 'block',
-                  padding: '0.5rem',
-                  background: '#fff',
-                  border: '1px solid #e5e5e5',
-                  borderRadius: '4px',
-                  fontSize: '0.75rem',
-                  wordBreak: 'break-all',
-                  marginBottom: '0.75rem',
-                }}
-              >
-                {snippets.claude}
-              </code>
-              <label style={{ display: 'block', fontSize: '0.75rem', color: '#666' }}>Codex</label>
-              <code
-                style={{
-                  display: 'block',
-                  padding: '0.5rem',
-                  background: '#fff',
-                  border: '1px solid #e5e5e5',
-                  borderRadius: '4px',
-                  fontSize: '0.75rem',
-                  wordBreak: 'break-all',
-                }}
-              >
-                {snippets.codex}
-              </code>
-            </div>
-          ) : null}
-        </section>
+        <Card className="border-[var(--s-prog-dot)] bg-[var(--s-prog-bg)]">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold text-[var(--s-prog-fg)]">
+              Copy your token now
+            </CardTitle>
+            <CardDescription className="text-[var(--s-prog-fg)]/80">
+              This is the only time the raw token will be shown. Store it securely.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <code className="block break-all rounded-md border border-border bg-card px-3 py-2.5 font-mono text-xs">
+              {rawToken}
+            </code>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() => {
+                void handleCopy();
+              }}
+            >
+              {copied ? 'Copied' : 'Copy token'}
+            </Button>
+            {snippets ? (
+              <div className="mt-2 grid gap-3">
+                <h3 className="text-sm font-semibold">Connection commands</h3>
+                <p className="text-xs text-muted-foreground">
+                  Use one of these to connect your MCP client:
+                </p>
+                <div>
+                  <label className="mb-1 block text-xs text-muted-foreground">Claude</label>
+                  <code className="block break-all rounded-md border border-border bg-card px-2.5 py-2 font-mono text-xs">
+                    {snippets.claude}
+                  </code>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-muted-foreground">Codex</label>
+                  <code className="block break-all rounded-md border border-border bg-card px-2.5 py-2 font-mono text-xs">
+                    {snippets.codex}
+                  </code>
+                </div>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
       ) : null}
 
-      <section>
-        <h2 style={{ marginTop: 0, fontSize: '1.125rem' }}>Tokens</h2>
-        {isLoading ? <p>Loading tokens…</p> : null}
-        {error ? (
-          <p role="alert" style={{ color: '#b00020' }}>
-            Failed to load tokens.
-          </p>
-        ) : null}
-        {!isLoading && tokens.length === 0 ? (
-          <p style={{ color: '#666' }}>No tokens yet. Create one above.</p>
-        ) : null}
-        {tokens.length > 0 ? (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ textAlign: 'left', borderBottom: '1px solid #e5e5e5' }}>
-                <th style={{ padding: '0.5rem 0' }}>Name</th>
-                <th style={{ padding: '0.5rem 0' }}>Created</th>
-                <th style={{ padding: '0.5rem 0' }}>Status</th>
-                <th style={{ padding: '0.5rem 0' }} />
-              </tr>
-            </thead>
-            <tbody>
-              {tokens.map((token) => (
-                <tr key={token.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '0.5rem 0' }}>{token.name}</td>
-                  <td style={{ padding: '0.5rem 0', color: '#666' }}>
-                    {formatDate(token.created_at)}
-                  </td>
-                  <td style={{ padding: '0.5rem 0' }}>
-                    {token.revoked_at === null ? 'Active' : 'Revoked'}
-                  </td>
-                  <td style={{ padding: '0.5rem 0', textAlign: 'right' }}>
-                    {token.revoked_at === null ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void handleRevoke(token.id);
-                        }}
-                        disabled={revokeMutation.isPending}
-                      >
-                        Revoke
-                      </button>
-                    ) : null}
-                  </td>
+      <Card>
+        <CardHeader className="border-b pb-4">
+          <CardTitle className="text-sm font-semibold">Tokens</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? <p className="px-4 py-3 text-sm text-muted-foreground">Loading tokens…</p> : null}
+          {error ? (
+            <p role="alert" className="px-4 py-3 text-sm text-destructive">
+              Failed to load tokens.
+            </p>
+          ) : null}
+          {!isLoading && tokens.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-muted-foreground">No tokens yet. Create one above.</p>
+          ) : null}
+          {tokens.length > 0 ? (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="px-4 py-2.5 font-medium">Name</th>
+                  <th className="px-4 py-2.5 font-medium">Created</th>
+                  <th className="px-4 py-2.5 font-medium">Status</th>
+                  <th className="px-4 py-2.5 font-medium" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
-      </section>
+              </thead>
+              <tbody>
+                {tokens.map((token) => (
+                  <tr key={token.id} className="border-b last:border-b-0">
+                    <td className="px-4 py-2.5 font-medium">{token.name}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {formatDate(token.created_at)}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {token.revoked_at === null ? 'Active' : 'Revoked'}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {token.revoked_at === null ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            void handleRevoke(token.id);
+                          }}
+                          disabled={revokeMutation.isPending}
+                        >
+                          Revoke
+                        </Button>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+        </CardContent>
+      </Card>
     </div>
   );
 }

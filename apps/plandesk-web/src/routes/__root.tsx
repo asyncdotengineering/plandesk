@@ -1,4 +1,5 @@
 import { Outlet, createRootRoute, useLocation, useParams } from '@tanstack/react-router';
+import { CommandMenu, CommandMenuProvider } from '../components/layout/CommandMenu.js';
 import { Sidebar } from '../components/layout/Sidebar.js';
 import { Toaster } from '@/components/ui/sonner';
 import { useSseInvalidation } from '../lib/events.js';
@@ -69,21 +70,24 @@ function RootLayout() {
   useSseInvalidation();
 
   return (
-    <div className="app">
-      <Sidebar />
-      <div className="main">
-        <header className="topbar">
-          <nav className="crumb">
-            <Crumb />
-          </nav>
-          <div className="spacer" />
-        </header>
-        <main className="content">
-          <Outlet />
-        </main>
+    <CommandMenuProvider>
+      <div className="app">
+        <Sidebar />
+        <div className="main">
+          <header className="topbar">
+            <nav className="crumb">
+              <Crumb />
+            </nav>
+            <div className="spacer" />
+          </header>
+          <main className="content">
+            <Outlet />
+          </main>
+        </div>
+        <CommandMenu />
+        <Toaster />
       </div>
-      <Toaster />
-    </div>
+    </CommandMenuProvider>
   );
 }
 

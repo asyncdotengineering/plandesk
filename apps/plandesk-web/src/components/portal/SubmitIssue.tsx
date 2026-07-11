@@ -1,4 +1,10 @@
 import { useState, type SubmitEvent } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import {
   PortalRateLimitedError,
   PortalSubmitFieldError,
@@ -93,205 +99,145 @@ export function SubmitIssue({
   }
 
   return (
-    <section
-      aria-label="Report an issue"
-      style={{
-        marginBottom: '1.5rem',
-        padding: '1rem',
-        borderRadius: 8,
-        border: '1px solid #e5e7eb',
-        background: '#fafafa',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.75rem',
-          flexWrap: 'wrap',
-        }}
-      >
-        <h2 style={{ fontSize: '1rem', margin: 0 }}>Report an issue</h2>
-        {!expanded ? (
-          <button
-            type="button"
-            onClick={() => {
-              setExpanded(true);
-            }}
-            style={{
-              padding: '0.5rem 0.875rem',
-              borderRadius: 6,
-              border: 'none',
-              background: '#1e40af',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-            }}
-          >
-            Report an issue
-          </button>
-        ) : null}
-      </div>
-
-      {successMessage !== null ? (
-        <p
-          role="status"
-          style={{ margin: '0.75rem 0 0', color: '#15803d', fontSize: '0.875rem', fontWeight: 600 }}
-        >
-          {successMessage}
-        </p>
-      ) : null}
-
-      {rateLimitError !== null ? (
-        <p role="alert" style={{ margin: '0.75rem 0 0', color: '#b91c1c', fontSize: '0.875rem' }}>
-          {rateLimitError}
-        </p>
-      ) : null}
-
-      {expanded ? (
-        <form
-          onSubmit={(event) => {
-            void handleSubmit(event);
-          }}
-          style={{ display: 'grid', gap: '0.875rem', marginTop: '1rem' }}
-        >
-          <label style={{ display: 'grid', gap: '0.375rem', fontSize: '0.875rem' }}>
-            <span>Title</span>
-            <input
-              type="text"
-              name="title"
-              value={title}
-              onChange={(event) => {
-                setTitle(event.target.value);
-              }}
-              required
-              disabled={pending}
-              style={{
-                padding: '0.5rem 0.75rem',
-                borderRadius: 6,
-                border: '1px solid #d1d5db',
-                fontSize: '0.9375rem',
-              }}
-            />
-            {fieldError !== null ? (
-              <span role="alert" style={{ color: '#b91c1c', fontSize: '0.8125rem' }}>
-                {fieldError}
-              </span>
-            ) : null}
-          </label>
-
-          <label style={{ display: 'grid', gap: '0.375rem', fontSize: '0.875rem' }}>
-            <span>Description</span>
-            <textarea
-              name="body"
-              value={body}
-              onChange={(event) => {
-                setBody(event.target.value);
-              }}
-              rows={4}
-              disabled={pending}
-              style={{
-                padding: '0.5rem 0.75rem',
-                borderRadius: 6,
-                border: '1px solid #d1d5db',
-                fontSize: '0.9375rem',
-                resize: 'vertical',
-              }}
-            />
-          </label>
-
-          <label style={{ display: 'grid', gap: '0.375rem', fontSize: '0.875rem' }}>
-            <span>
-              Severity <span style={{ color: '#9ca3af' }}>(optional)</span>
-            </span>
-            <select
-              name="severity"
-              value={severity}
-              onChange={(event) => {
-                setSeverity(event.target.value);
-              }}
-              disabled={pending}
-              style={{
-                padding: '0.5rem 0.75rem',
-                borderRadius: 6,
-                border: '1px solid #d1d5db',
-                fontSize: '0.9375rem',
-                background: '#fff',
-              }}
-            >
-              <option value="">—</option>
-              {SEVERITY_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label style={{ display: 'grid', gap: '0.375rem', fontSize: '0.875rem' }}>
-            <span>
-              Related task <span style={{ color: '#9ca3af' }}>(optional)</span>
-            </span>
-            <input
-              type="text"
-              name="task_ref"
-              value={taskRef}
-              onChange={(event) => {
-                setTaskRef(event.target.value);
-              }}
-              disabled={pending}
-              style={{
-                padding: '0.5rem 0.75rem',
-                borderRadius: 6,
-                border: '1px solid #d1d5db',
-                fontSize: '0.9375rem',
-              }}
-            />
-          </label>
-
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              style={{
-                padding: '0.625rem 1rem',
-                borderRadius: 6,
-                border: 'none',
-                background: canSubmit ? '#1e40af' : '#9ca3af',
-                color: '#fff',
-                fontWeight: 600,
-                fontSize: '0.9375rem',
-                cursor: canSubmit ? 'pointer' : 'not-allowed',
-              }}
-            >
-              {pending ? 'Submitting…' : 'Submit'}
-            </button>
-            <button
+    <section aria-label="Report an issue" className="mb-6">
+      <Card className="shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+          <CardTitle className="text-sm font-semibold">Report an issue</CardTitle>
+          {!expanded ? (
+            <Button
               type="button"
-              disabled={pending}
+              size="sm"
               onClick={() => {
-                setExpanded(false);
-                setFieldError(null);
-                setRateLimitError(null);
-              }}
-              style={{
-                padding: '0.625rem 1rem',
-                borderRadius: 6,
-                border: '1px solid #d1d5db',
-                background: '#fff',
-                color: '#374151',
-                fontWeight: 600,
-                fontSize: '0.9375rem',
-                cursor: pending ? 'not-allowed' : 'pointer',
+                setExpanded(true);
               }}
             >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : null}
+              Report an issue
+            </Button>
+          ) : null}
+        </CardHeader>
+
+        {successMessage !== null ? (
+          <CardContent className="pt-0">
+            <p role="status" className="text-sm font-semibold text-[var(--s-done-fg)]">
+              {successMessage}
+            </p>
+          </CardContent>
+        ) : null}
+
+        {rateLimitError !== null ? (
+          <CardContent className="pt-0">
+            <p role="alert" className="text-sm text-destructive">
+              {rateLimitError}
+            </p>
+          </CardContent>
+        ) : null}
+
+        {expanded ? (
+          <CardContent>
+            <form
+              onSubmit={(event) => {
+                void handleSubmit(event);
+              }}
+              className="grid gap-3.5"
+            >
+              <div className="grid gap-1.5">
+                <Label htmlFor="issue-title">Title</Label>
+                <Input
+                  id="issue-title"
+                  type="text"
+                  name="title"
+                  value={title}
+                  onChange={(event) => {
+                    setTitle(event.target.value);
+                  }}
+                  required
+                  disabled={pending}
+                />
+                {fieldError !== null ? (
+                  <span role="alert" className="text-xs text-destructive">
+                    {fieldError}
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="issue-body">Description</Label>
+                <Textarea
+                  id="issue-body"
+                  name="body"
+                  value={body}
+                  onChange={(event) => {
+                    setBody(event.target.value);
+                  }}
+                  rows={4}
+                  disabled={pending}
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="issue-severity">
+                  Severity <span className="font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <select
+                  id="issue-severity"
+                  name="severity"
+                  value={severity}
+                  onChange={(event) => {
+                    setSeverity(event.target.value);
+                  }}
+                  disabled={pending}
+                  className={cn(
+                    'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none',
+                    'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                  )}
+                >
+                  <option value="">—</option>
+                  {SEVERITY_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="issue-task-ref">
+                  Related task <span className="font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="issue-task-ref"
+                  type="text"
+                  name="task_ref"
+                  value={taskRef}
+                  onChange={(event) => {
+                    setTaskRef(event.target.value);
+                  }}
+                  disabled={pending}
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" disabled={!canSubmit}>
+                  {pending ? 'Submitting…' : 'Submit'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => {
+                    setExpanded(false);
+                    setFieldError(null);
+                    setRateLimitError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        ) : null}
+      </Card>
     </section>
   );
 }

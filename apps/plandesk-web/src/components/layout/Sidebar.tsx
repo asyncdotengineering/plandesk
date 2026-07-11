@@ -1,6 +1,7 @@
 import { Link, useParams } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useProject } from '../../lib/queries.js';
+import { useCommandMenu } from './CommandMenu.js';
 import './shell.css';
 
 type NavEntry = {
@@ -115,6 +116,7 @@ function ProjectSection({ id }: { id: string }) {
 export function Sidebar() {
   const params = useParams({ strict: false });
   const id = params.id;
+  const { setOpen } = useCommandMenu();
 
   return (
     <aside className="sidebar">
@@ -149,8 +151,13 @@ export function Sidebar() {
         )}
       </div>
       <div className="side-foot">
-        {/* Command palette stub — non-functional in this slice. */}
-        <button type="button" className="cmdk">
+        <button
+          type="button"
+          className="cmdk"
+          onClick={() => {
+            setOpen(true);
+          }}
+        >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
             <circle cx="11" cy="11" r="6.5" />
             <path d="M20 20l-4-4" />

@@ -1,5 +1,10 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
+import { FolderKanbanIcon } from 'lucide-react';
 import { useState, type SubmitEvent } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useCreateProject, useProjects } from '../lib/queries.js';
 
 export function ProjectListPage() {
@@ -18,75 +23,84 @@ export function ProjectListPage() {
       {
         onSuccess: () => {
           setName('');
+          toast('Project created');
         },
       },
     );
   }
 
   if (isLoading) {
-    return <p>Loading projects…</p>;
+    return <p className="text-sm text-muted-foreground">Loading projects…</p>;
   }
 
   if (error) {
-    return <p role="alert">Failed to load projects: {error.message}</p>;
+    return (
+      <p role="alert" className="text-sm text-destructive">
+        Failed to load projects: {error.message}
+      </p>
+    );
   }
 
   return (
-    <section>
-      <h1 style={{ marginTop: 0 }}>Projects</h1>
+    <div className="flex-1 overflow-y-auto px-5 py-5 pb-10">
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-5 flex flex-wrap items-baseline gap-2.5">
+          <h2 className="text-[15px] font-semibold tracking-tight">Projects</h2>
+          <span className="text-xs text-muted-foreground">Your workspaces</span>
+        </div>
 
-      <form
-        onSubmit={handleSubmit}
-        style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}
-      >
-        <input
-          type="text"
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-          }}
-          placeholder="New project name"
-          aria-label="Project name"
-          style={{ flex: 1, padding: '0.5rem' }}
-        />
-        <button type="submit" disabled={createProject.isPending || name.trim() === ''}>
-          {createProject.isPending ? 'Creating…' : 'Create project'}
-        </button>
-      </form>
+        <form onSubmit={handleSubmit} className="mb-6 flex gap-2">
+          <Input
+            type="text"
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+            }}
+            placeholder="New project name"
+            aria-label="Project name"
+            className="flex-1"
+          />
+          <Button type="submit" disabled={createProject.isPending || name.trim() === ''}>
+            {createProject.isPending ? 'Creating…' : 'Create project'}
+          </Button>
+        </form>
 
-      {createProject.isError ? (
-        <p role="alert" style={{ color: '#b00020' }}>
-          Failed to create project: {createProject.error.message}
-        </p>
-      ) : null}
+        {createProject.isError ? (
+          <p role="alert" className="mb-4 text-sm text-destructive">
+            Failed to create project: {createProject.error.message}
+          </p>
+        ) : null}
 
-      {projects !== undefined && projects.length === 0 ? (
-        <p>No projects yet. Create one above.</p>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {projects?.map((project) => (
-            <li
-              key={project.id}
-              style={{
-                padding: '0.75rem 0',
-                borderBottom: '1px solid #eee',
-              }}
-            >
+        {projects !== undefined && projects.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No projects yet. Create one above.</p>
+        ) : (
+          <div className="grid gap-2">
+            {projects?.map((project) => (
               <Link
+                key={project.id}
                 to="/projects/$id/overview"
                 params={{ id: project.id }}
-                style={{ fontWeight: 500, color: '#1a56db', textDecoration: 'none' }}
+                className="block"
               >
-                {project.name}
+                <Card className="flex items-start gap-3 border p-3.5 shadow-sm transition-colors hover:border-border hover:bg-muted/30">
+                  <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                    <FolderKanbanIcon className="size-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-semibold leading-snug">{project.name}</p>
+                    {project.description ? (
+                      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                        {project.description}
+                      </p>
+                    ) : null}
+                  </div>
+                </Card>
               </Link>
-              {project.description ? (
-                <p style={{ margin: '0.25rem 0 0', color: '#666' }}>{project.description}</p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -50,10 +50,10 @@ describe('Project list', () => {
     renderApp();
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /^projects$/i })).toBeTruthy();
+      expect(screen.getByRole('heading', { name: 'Projects' })).toBeTruthy();
     });
 
-    expect(screen.getByRole('link', { name: 'Alpha' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Alpha/ })).toBeTruthy();
     expect(screen.getByText('First project')).toBeTruthy();
   });
 

@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import {
   PortalUnauthorizedError,
   listMySubmissions,
@@ -20,35 +22,28 @@ function formatCreatedAt(value: string): string {
   return date.toLocaleString();
 }
 
-function statusBadgeStyle(status: string): { background: string; color: string; border: string } {
+function statusBadgeStyle(status: string): { backgroundColor: string; color: string } {
   switch (status) {
     case 'accepted':
-      return { background: '#dcfce7', color: '#166534', border: '#bbf7d0' };
+      return { backgroundColor: 'var(--s-done-bg)', color: 'var(--s-done-fg)' };
     case 'rejected':
-      return { background: '#fee2e2', color: '#991b1b', border: '#fecaca' };
+      return { backgroundColor: 'var(--destructive)', color: 'var(--destructive-foreground)' };
     case 'pending':
     default:
-      return { background: '#fef3c7', color: '#92400e', border: '#fde68a' };
+      return { backgroundColor: 'var(--s-prog-bg)', color: 'var(--s-prog-fg)' };
   }
 }
 
 function StatusBadge({ status }: { status: string }) {
   const style = statusBadgeStyle(status);
   return (
-    <span
-      style={{
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        padding: '0.125rem 0.5rem',
-        borderRadius: 999,
-        background: style.background,
-        color: style.color,
-        border: `1px solid ${style.border}`,
-        textTransform: 'capitalize',
-      }}
+    <Badge
+      variant="secondary"
+      className="border-transparent text-xs font-semibold capitalize"
+      style={style}
     >
       {status.replace(/_/g, ' ')}
-    </span>
+    </Badge>
   );
 }
 
@@ -81,9 +76,9 @@ export function SubmissionsList({
 
   if (error) {
     return (
-      <section aria-label="Your reported issues" style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ fontSize: '1rem', marginTop: 0 }}>Your reported issues</h2>
-        <p role="alert" style={{ color: '#b91c1c', fontSize: '0.875rem' }}>
+      <section aria-label="Your reported issues" className="mb-6">
+        <h2 className="mb-3 text-sm font-semibold">Your reported issues</h2>
+        <p role="alert" className="text-sm text-destructive">
           {error instanceof Error ? error.message : 'Failed to load your submissions.'}
         </p>
       </section>
@@ -93,52 +88,27 @@ export function SubmissionsList({
   const submissions: PortalSubmission[] = data ?? [];
 
   return (
-    <section aria-label="Your reported issues" style={{ marginBottom: '1.5rem' }}>
-      <h2 style={{ fontSize: '1rem', marginTop: 0 }}>Your reported issues</h2>
+    <section aria-label="Your reported issues" className="mb-6">
+      <h2 className="mb-3 text-sm font-semibold">Your reported issues</h2>
 
       {isLoading ? (
-        <p style={{ color: '#6b7280', fontSize: '0.875rem', margin: 0 }}>Loading…</p>
+        <p className="text-sm text-muted-foreground">Loading…</p>
       ) : submissions.length === 0 ? (
-        <p style={{ color: '#6b7280', fontSize: '0.875rem', margin: 0 }}>
-          You haven&apos;t reported anything yet.
-        </p>
+        <p className="text-sm text-muted-foreground">You haven&apos;t reported anything yet.</p>
       ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.5rem' }}>
+        <ul className="m-0 grid list-none gap-2 p-0">
           {submissions.map((submission) => (
-            <li
-              key={submission.id}
-              style={{
-                padding: '0.75rem',
-                borderRadius: 6,
-                border: '1px solid #e5e7eb',
-                background: '#fff',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  gap: '0.75rem',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <strong style={{ fontSize: '0.9375rem' }}>{submission.title}</strong>
-                <StatusBadge status={submission.status} />
-              </div>
-              <div
-                style={{
-                  marginTop: '0.375rem',
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '0.75rem',
-                  fontSize: '0.8125rem',
-                  color: '#6b7280',
-                }}
-              >
-                {submission.severity !== null ? <span>Severity: {submission.severity}</span> : null}
-                <span>{formatCreatedAt(submission.created_at)}</span>
-              </div>
+            <li key={submission.id}>
+              <Card className="gap-0 p-3 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <strong className="text-sm">{submission.title}</strong>
+                  <StatusBadge status={submission.status} />
+                </div>
+                <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                  {submission.severity !== null ? <span>Severity: {submission.severity}</span> : null}
+                  <span>{formatCreatedAt(submission.created_at)}</span>
+                </div>
+              </Card>
             </li>
           ))}
         </ul>

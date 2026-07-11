@@ -59,28 +59,28 @@ function PortalRoutePage() {
   }
 
   if (isLoading) {
-    return <p>Loading shared project…</p>;
+    return <p className="px-5 py-8 text-sm text-muted-foreground">Loading shared project…</p>;
   }
 
   if (error instanceof PortalNotReadyError) {
     return (
-      <section role="status">
-        <h1 style={{ fontSize: '1.25rem', marginTop: 0 }}>Not published yet</h1>
-        <p>{error.message}</p>
+      <section role="status" className="mx-auto max-w-lg px-5 py-8">
+        <h1 className="mb-2 text-xl font-semibold">Not published yet</h1>
+        <p className="text-sm text-muted-foreground">{error.message}</p>
       </section>
     );
   }
 
   if (error) {
     return (
-      <p role="alert">
+      <p role="alert" className="px-5 py-8 text-sm text-destructive">
         Failed to load shared project: {error instanceof Error ? error.message : 'Unknown error'}
       </p>
     );
   }
 
   if (data === undefined) {
-    return <p>Shared project not found.</p>;
+    return <p className="px-5 py-8 text-sm text-muted-foreground">Shared project not found.</p>;
   }
 
   return (
