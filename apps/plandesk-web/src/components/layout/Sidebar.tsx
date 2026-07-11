@@ -57,7 +57,16 @@ const PLAN_NAV: NavEntry[] = [
 ];
 
 const WORKSPACE_NAV: NavEntry[] = [
-  // Overview (in PLAN) is the documents home — no separate Docs route exists.
+  {
+    label: 'Docs',
+    to: '/projects/$id/documents' as const,
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+        <path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z" />
+        <path d="M14 3.5V8h4" />
+      </svg>
+    ),
+  },
   {
     label: 'Notes',
     to: '/projects/$id/notes' as const,

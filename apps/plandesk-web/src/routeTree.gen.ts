@@ -19,6 +19,7 @@ import { Route as ProjectsIdGoalsRouteImport } from './routes/projects.$id.goals
 import { Route as ProjectsIdFlowRouteImport } from './routes/projects.$id.flow'
 import { Route as ProjectsIdBoardRouteImport } from './routes/projects.$id.board'
 import { Route as ProjectsIdNotesIndexRouteImport } from './routes/projects.$id.notes.index'
+import { Route as ProjectsIdDocumentsIndexRouteImport } from './routes/projects.$id.documents.index'
 import { Route as ProjectsIdNotesNoteIdRouteImport } from './routes/projects.$id.notes.$noteId'
 import { Route as ProjectsIdDocumentsDocIdRouteImport } from './routes/projects.$id.documents.$docId'
 
@@ -72,6 +73,12 @@ const ProjectsIdNotesIndexRoute = ProjectsIdNotesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProjectsIdNotesRoute,
 } as any)
+const ProjectsIdDocumentsIndexRoute =
+  ProjectsIdDocumentsIndexRouteImport.update({
+    id: '/projects/$id/documents/',
+    path: '/projects/$id/documents/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ProjectsIdNotesNoteIdRoute = ProjectsIdNotesNoteIdRouteImport.update({
   id: '/$noteId',
   path: '/$noteId',
@@ -96,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/projects/$id/overview': typeof ProjectsIdOverviewRoute
   '/projects/$id/documents/$docId': typeof ProjectsIdDocumentsDocIdRoute
   '/projects/$id/notes/$noteId': typeof ProjectsIdNotesNoteIdRoute
+  '/projects/$id/documents/': typeof ProjectsIdDocumentsIndexRoute
   '/projects/$id/notes/': typeof ProjectsIdNotesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -109,6 +117,7 @@ export interface FileRoutesByTo {
   '/projects/$id/overview': typeof ProjectsIdOverviewRoute
   '/projects/$id/documents/$docId': typeof ProjectsIdDocumentsDocIdRoute
   '/projects/$id/notes/$noteId': typeof ProjectsIdNotesNoteIdRoute
+  '/projects/$id/documents': typeof ProjectsIdDocumentsIndexRoute
   '/projects/$id/notes': typeof ProjectsIdNotesIndexRoute
 }
 export interface FileRoutesById {
@@ -124,6 +133,7 @@ export interface FileRoutesById {
   '/projects/$id/overview': typeof ProjectsIdOverviewRoute
   '/projects/$id/documents/$docId': typeof ProjectsIdDocumentsDocIdRoute
   '/projects/$id/notes/$noteId': typeof ProjectsIdNotesNoteIdRoute
+  '/projects/$id/documents/': typeof ProjectsIdDocumentsIndexRoute
   '/projects/$id/notes/': typeof ProjectsIdNotesIndexRoute
 }
 export interface FileRouteTypes {
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/projects/$id/overview'
     | '/projects/$id/documents/$docId'
     | '/projects/$id/notes/$noteId'
+    | '/projects/$id/documents/'
     | '/projects/$id/notes/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/projects/$id/overview'
     | '/projects/$id/documents/$docId'
     | '/projects/$id/notes/$noteId'
+    | '/projects/$id/documents'
     | '/projects/$id/notes'
   id:
     | '__root__'
@@ -167,6 +179,7 @@ export interface FileRouteTypes {
     | '/projects/$id/overview'
     | '/projects/$id/documents/$docId'
     | '/projects/$id/notes/$noteId'
+    | '/projects/$id/documents/'
     | '/projects/$id/notes/'
   fileRoutesById: FileRoutesById
 }
@@ -181,6 +194,7 @@ export interface RootRouteChildren {
   ProjectsIdNotesRoute: typeof ProjectsIdNotesRouteWithChildren
   ProjectsIdOverviewRoute: typeof ProjectsIdOverviewRoute
   ProjectsIdDocumentsDocIdRoute: typeof ProjectsIdDocumentsDocIdRoute
+  ProjectsIdDocumentsIndexRoute: typeof ProjectsIdDocumentsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -255,6 +269,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsIdNotesIndexRouteImport
       parentRoute: typeof ProjectsIdNotesRoute
     }
+    '/projects/$id/documents/': {
+      id: '/projects/$id/documents/'
+      path: '/projects/$id/documents'
+      fullPath: '/projects/$id/documents/'
+      preLoaderRoute: typeof ProjectsIdDocumentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/$id/notes/$noteId': {
       id: '/projects/$id/notes/$noteId'
       path: '/$noteId'
@@ -297,6 +318,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsIdNotesRoute: ProjectsIdNotesRouteWithChildren,
   ProjectsIdOverviewRoute: ProjectsIdOverviewRoute,
   ProjectsIdDocumentsDocIdRoute: ProjectsIdDocumentsDocIdRoute,
+  ProjectsIdDocumentsIndexRoute: ProjectsIdDocumentsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -52,12 +52,12 @@ function DocumentPage() {
       <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto pr-2">
         <div className="flex items-center justify-between gap-3">
           <Link
-            to="/projects/$id/overview"
+            to="/projects/$id/documents"
             params={{ id }}
             className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeftIcon className="size-3.5" />
-            {project.name}
+            Documents
           </Link>
           <Tabs
             value={mode}
@@ -95,7 +95,7 @@ function DocumentPage() {
               { id: docId, projectId: id },
               {
                 onSuccess: () => {
-                  void navigate({ to: '/projects/$id/overview', params: { id } });
+                  void navigate({ to: '/projects/$id/documents', params: { id } });
                 },
               },
             );

@@ -1,35 +1,35 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { PencilIcon } from 'lucide-react';
+import { ArrowRightIcon, FileTextIcon, PencilIcon } from 'lucide-react';
 import { taskStatuses } from '../lib/api.js';
-import { DocumentsPanel } from '../components/docs/DocumentsPanel.js';
+import { AgentRunsPanel } from '../components/canvas/AgentRunsPanel.js';
+import { flattenDocumentTree } from '../components/docs/DocumentsPanel.js';
 import { ConfirmDialog } from '../components/docs/ConfirmDialog.js';
+import { AcceptanceIndicator, GoalStatusBadge } from '../components/goals/goal-ui.js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   useDeleteProject,
   useDocuments,
-  useFolders,
+  useGoals,
   usePatchProject,
   useProject,
-  useTasks,
 } from '../lib/queries.js';
 
-const STATUS_LABELS: Record<string, string> = {
-  scope: 'Scope',
-  todo: 'To do',
-  in_progress: 'In progress',
-  done: 'Done',
-  backlog: 'Backlog',
-};
+const STATUS_META: { status: (typeof taskStatuses)[number]; label: string; dot: string }[] = [
+  { status: 'scope', label: 'Scope', dot: 'var(--s-scope-dot)' },
+  { status: 'todo', label: 'To do', dot: 'var(--s-todo-dot)' },
+  { status: 'in_progress', label: 'In progress', dot: 'var(--s-prog-dot)' },
+  { status: 'done', label: 'Done', dot: 'var(--s-done-dot)' },
+  { status: 'backlog', label: 'Backlog', dot: 'var(--s-back-dot)' },
+];
 
 function ProjectOverviewPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const { data: project, isLoading, error } = useProject(id);
-  const { data: tasks } = useTasks(id);
+  const { data: goals } = useGoals(id);
   const { data: documents } = useDocuments(id);
-  const { data: folders } = useFolders(id);
   const patchProject = usePatchProject();
   const deleteProject = useDeleteProject();
   const [name, setName] = useState('');
@@ -71,9 +71,22 @@ function ProjectOverviewPage() {
     return <p>Project not found.</p>;
   }
 
+  const total = taskStatuses.reduce((sum, status) => sum + project.summary[status], 0);
+  const donePct = total === 0 ? 0 : Math.round((project.summary.done / total) * 100);
+
+  const goalList = goals ?? [];
+  const activeGoals = [...goalList]
+    .sort((a, b) => (a.status === 'complete' ? 1 : 0) - (b.status === 'complete' ? 1 : 0))
+    .slice(0, 5);
+
+  const recentDocs = flattenDocumentTree(documents ?? [])
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    .slice(0, 6);
+
   return (
-    <div className="mx-auto max-w-5xl">
-      <header className="mb-6">
+    <div className="mx-auto max-w-6xl space-y-6">
+      {/* Header */}
+      <header>
         <div className="flex items-start justify-between gap-3">
           {editingName ? (
             <Input
@@ -127,28 +140,127 @@ function ProjectOverviewPage() {
           </Button>
         </div>
         {project.description ? (
-          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">{project.description}</p>
+          <p className="mt-1.5 max-w-3xl text-sm text-muted-foreground">{project.description}</p>
         ) : null}
-
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {taskStatuses.map((status) => (
-            <span
-              key={status}
-              className="inline-flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-[12px]"
-            >
-              <span className="text-muted-foreground">{STATUS_LABELS[status] ?? status}</span>
-              <span className="font-semibold tabular-nums">{project.summary[status]}</span>
-            </span>
-          ))}
-        </div>
       </header>
 
-      <DocumentsPanel
-        projectId={id}
-        documents={documents ?? []}
-        folders={folders ?? []}
-        tasks={tasks ?? []}
-      />
+      {/* Status at a glance */}
+      <section aria-label="Task status" className="rounded-xl border bg-card p-4 shadow-[var(--shadow)]">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-medium">Progress</h2>
+          <Link
+            to="/projects/$id/board"
+            params={{ id }}
+            className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground"
+          >
+            Open board <ArrowRightIcon className="size-3.5" />
+          </Link>
+        </div>
+        <div className="mb-3 flex items-center gap-3">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-[var(--s-done-dot)] transition-[width]"
+              style={{ width: `${String(donePct)}%` }}
+            />
+          </div>
+          <span className="text-[13px] tabular-nums text-muted-foreground">
+            {project.summary.done}/{total} done
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {STATUS_META.map((meta) => (
+            <div key={meta.status} className="rounded-lg border bg-background px-3 py-2">
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: meta.dot }}
+                />
+                <span className="truncate text-[11.5px] text-muted-foreground">{meta.label}</span>
+              </div>
+              <div className="mt-0.5 text-xl font-semibold tabular-nums">
+                {project.summary[meta.status]}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Goals + Agent activity */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section
+          aria-label="Goals"
+          className="flex flex-col rounded-xl border bg-card p-4 shadow-[var(--shadow)]"
+        >
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-sm font-medium">Goals</h2>
+            <Link
+              to="/projects/$id/goals"
+              params={{ id }}
+              className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground"
+            >
+              All goals <ArrowRightIcon className="size-3.5" />
+            </Link>
+          </div>
+          {activeGoals.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No goals yet.</p>
+          ) : (
+            <ul className="m-0 flex flex-col gap-2 p-0">
+              {activeGoals.map((goal) => (
+                <li key={goal.id}>
+                  <Link
+                    to="/projects/$id/goals"
+                    params={{ id }}
+                    className="flex items-center gap-2.5 rounded-lg border px-3 py-2 transition-colors hover:bg-accent"
+                  >
+                    <AcceptanceIndicator verification={goal.last_verification} />
+                    <span className="min-w-0 flex-1 truncate text-[13.5px]">{goal.objective}</span>
+                    <GoalStatusBadge status={goal.status} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section aria-label="Agent activity" className="min-h-0">
+          <div className="relative h-[360px]">
+            <AgentRunsPanel projectId={id} />
+          </div>
+        </section>
+      </div>
+
+      {/* Recent documents */}
+      <section aria-label="Recent documents">
+        <div className="mb-2.5 flex items-baseline justify-between">
+          <h2 className="text-sm font-medium">Recent documents</h2>
+          <Link
+            to="/projects/$id/documents"
+            params={{ id }}
+            className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground"
+          >
+            All documents <ArrowRightIcon className="size-3.5" />
+          </Link>
+        </div>
+        {recentDocs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No documents yet.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {recentDocs.map((doc) => (
+              <Link
+                key={doc.id}
+                to="/projects/$id/documents/$docId"
+                params={{ id, docId: doc.id }}
+                className="group flex items-start gap-2.5 rounded-lg border bg-card p-3 transition-colors hover:border-[var(--border-strong)] hover:bg-accent"
+              >
+                <FileTextIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <span className="line-clamp-2 text-[13px] font-medium leading-snug">
+                  {doc.title}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
 
       <ConfirmDialog
         open={confirmDeleteOpen}
