@@ -8,19 +8,18 @@ version: 1
 Turns raw signal — client submissions, an ungroomed `backlog` column, or a
 pasted brain-dump — into board-ready tasks, so the board stays true without
 hand-grooming. Source-agnostic: one decision engine, three input adapters.
-Zero new infra — existing MCP tools only.
+Uses existing Plan Desk MCP tools only — no new infrastructure.
 
-**Spec:** RFC "Curator — auto-triage for Plan Desk" §4.1 + §6 · PRD stories
-1-3, 18-19 · REQ-1/2/3/4. **Lane: approve** — every proposal lands as a diff
-against the board; a human resolves it (the `scope → todo` drag is that
-resolution — see [autonomy.md](autonomy.md)).
+**Lane: approve** — every proposal lands as a diff against the board; a human
+resolves it (the `scope → todo` drag is that resolution — see
+[autonomy.md](autonomy.md)).
 
 ## When to run this
 
 - Explicitly asked to "triage the backlog" / "triage submissions" / "sort
   this brain-dump".
 - From [autonomy.md](autonomy.md)'s loop, or a schedule/event trigger (see
-  the "Triggers" section below, built out by C4).
+  "Triggers" below).
 
 ## Input adapters
 
@@ -55,14 +54,12 @@ For every normalized item, in order:
      below) and `create_task(status: "scope", ...)`. **Never `status:
      "todo"`** — the human's `scope → todo` release is the approval gate,
      full stop.
-   - `accept-merge` — duplicate of an existing task. For a submission,
-     call `triage_submission({ submission_id, action: "accept", link_task_id
-     })` (this primitive ships in C3 — until then, fall back to a
-     `add_comment` proposal on the target task naming the duplicate source,
-     and leave the submission `pending`). For a backlog/text item with no
-     submission record, add a comment to the target task noting the source
-     and leave the backlog task in place with a comment pointing at the
-     survivor (do not delete — there is no delete tool by design).
+   - `accept-merge` — duplicate of an existing task. For a submission, call
+     `triage_submission({ submission_id, action: "accept", link_task_id })`.
+     For a backlog/text item with no submission record, add a comment to the
+     target task noting the source and leave the backlog task in place with a
+     comment pointing at the survivor (do not delete — there is no delete tool
+     by design).
    - **Ambiguous or high-severity** — do not force a decision. Leave the
      source `pending` (or the backlog task untouched) and post a proposal
      comment describing the fork; a human decides. Never silently drop an
@@ -84,7 +81,7 @@ For every normalized item, in order:
      task's linked document if one exists, otherwise as a project note
      referencing the task) — this is the audit trail; the description line
      is the at-a-glance. See [provenance.md](provenance.md) for the
-     authoritative convention (C2).
+     authoritative convention.
 5. **Emit a reasoning comment per decision** — even for `reject` and
    `pending` — so the drift and its fix are traceable later. Use
    `add_comment` on the linked document when the task has one; otherwise
@@ -93,10 +90,10 @@ For every normalized item, in order:
 
 ## Dedup precision — start conservative
 
-Per RFC §11: if dedup precision on real data is unacceptable, keep
-`accept-merge` **propose-only** (a comment naming the suspected duplicate,
-decision left `pending` for a human) rather than raising autonomy. Widen once
-the metrics ledger backs it.
+If dedup precision on real data is unacceptable, keep `accept-merge`
+**propose-only** (a comment naming the suspected duplicate, decision left
+`pending` for a human) rather than raising autonomy. Widen only once you have
+evidence the matching is reliable.
 
 ## Contract (for callers / the autonomy loop)
 
@@ -113,7 +110,7 @@ triage(mode?: "submissions" | "backlog" | "text", items?: string)
 - A run that touches zero items (empty backlog / no pending submissions) is
   a no-op — report "nothing to triage", do not fabricate work.
 
-## Triggers (C4 — schedule + board events)
+## Triggers
 
 The Curator is only "auto" if it runs without a human opening the app. See
 [automation.md](automation.md) for how this skill is wired to a schedule and
@@ -123,7 +120,8 @@ write) per item.
 
 ## References
 
-RFC §4.1/§6/§11 (REQ-1/2/3/4); PRD stories 1-3, 4, 6, 18-19; note "Prior art:
-owainlewis/factory" (durable-memory convergence — see
-[../curator/autonomy.md](autonomy.md)); `.plandesk/skill.md` (house task
-conventions); `.agents/factory/lanes.md` (lane vocabulary).
+[autonomy.md](autonomy.md) (the loop that invokes this, and the human-gate
+rule); [provenance.md](provenance.md) (the provenance shape every non-reject
+decision carries); [automation.md](automation.md) (unattended triggers);
+`.plandesk/skill.md` (house task conventions); `.agents/factory/lanes.md`
+(lane vocabulary).

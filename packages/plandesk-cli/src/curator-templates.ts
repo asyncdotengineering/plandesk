@@ -1,6 +1,7 @@
-// Curator artifacts (Plan-Desk-Curator RFC): embedded verbatim from .agents/curator/*
-// in this repo, the same pattern skill-template.ts uses for the plandesk skill --
-// this file is the single source of truth `factory init` scaffolds into a fresh project.
+// Curator skill artifacts: embedded copies of .agents/curator/* from this repo, kept
+// byte-identical by curator-templates.test.ts. `factory init` scaffolds these verbatim
+// into a fresh project, so the text here is the consumer-facing skill — it must stay
+// self-contained: no internal RFC/PRD/ticket references, and describe tools as they ship.
 
 export const CURATOR_DIR = '.agents/curator';
 
@@ -14,19 +15,18 @@ version: 1
 Turns raw signal — client submissions, an ungroomed \`backlog\` column, or a
 pasted brain-dump — into board-ready tasks, so the board stays true without
 hand-grooming. Source-agnostic: one decision engine, three input adapters.
-Zero new infra — existing MCP tools only.
+Uses existing Plan Desk MCP tools only — no new infrastructure.
 
-**Spec:** RFC "Curator — auto-triage for Plan Desk" §4.1 + §6 · PRD stories
-1-3, 18-19 · REQ-1/2/3/4. **Lane: approve** — every proposal lands as a diff
-against the board; a human resolves it (the \`scope → todo\` drag is that
-resolution — see [autonomy.md](autonomy.md)).
+**Lane: approve** — every proposal lands as a diff against the board; a human
+resolves it (the \`scope → todo\` drag is that resolution — see
+[autonomy.md](autonomy.md)).
 
 ## When to run this
 
 - Explicitly asked to "triage the backlog" / "triage submissions" / "sort
   this brain-dump".
 - From [autonomy.md](autonomy.md)'s loop, or a schedule/event trigger (see
-  the "Triggers" section below, built out by C4).
+  "Triggers" below).
 
 ## Input adapters
 
@@ -61,14 +61,12 @@ For every normalized item, in order:
      below) and \`create_task(status: "scope", ...)\`. **Never \`status:
      "todo"\`** — the human's \`scope → todo\` release is the approval gate,
      full stop.
-   - \`accept-merge\` — duplicate of an existing task. For a submission,
-     call \`triage_submission({ submission_id, action: "accept", link_task_id
-     })\` (this primitive ships in C3 — until then, fall back to a
-     \`add_comment\` proposal on the target task naming the duplicate source,
-     and leave the submission \`pending\`). For a backlog/text item with no
-     submission record, add a comment to the target task noting the source
-     and leave the backlog task in place with a comment pointing at the
-     survivor (do not delete — there is no delete tool by design).
+   - \`accept-merge\` — duplicate of an existing task. For a submission, call
+     \`triage_submission({ submission_id, action: "accept", link_task_id })\`.
+     For a backlog/text item with no submission record, add a comment to the
+     target task noting the source and leave the backlog task in place with a
+     comment pointing at the survivor (do not delete — there is no delete tool
+     by design).
    - **Ambiguous or high-severity** — do not force a decision. Leave the
      source \`pending\` (or the backlog task untouched) and post a proposal
      comment describing the fork; a human decides. Never silently drop an
@@ -90,7 +88,7 @@ For every normalized item, in order:
      task's linked document if one exists, otherwise as a project note
      referencing the task) — this is the audit trail; the description line
      is the at-a-glance. See [provenance.md](provenance.md) for the
-     authoritative convention (C2).
+     authoritative convention.
 5. **Emit a reasoning comment per decision** — even for \`reject\` and
    \`pending\` — so the drift and its fix are traceable later. Use
    \`add_comment\` on the linked document when the task has one; otherwise
@@ -99,10 +97,10 @@ For every normalized item, in order:
 
 ## Dedup precision — start conservative
 
-Per RFC §11: if dedup precision on real data is unacceptable, keep
-\`accept-merge\` **propose-only** (a comment naming the suspected duplicate,
-decision left \`pending\` for a human) rather than raising autonomy. Widen once
-the metrics ledger backs it.
+If dedup precision on real data is unacceptable, keep \`accept-merge\`
+**propose-only** (a comment naming the suspected duplicate, decision left
+\`pending\` for a human) rather than raising autonomy. Widen only once you have
+evidence the matching is reliable.
 
 ## Contract (for callers / the autonomy loop)
 
@@ -119,7 +117,7 @@ triage(mode?: "submissions" | "backlog" | "text", items?: string)
 - A run that touches zero items (empty backlog / no pending submissions) is
   a no-op — report "nothing to triage", do not fabricate work.
 
-## Triggers (C4 — schedule + board events)
+## Triggers
 
 The Curator is only "auto" if it runs without a human opening the app. See
 [automation.md](automation.md) for how this skill is wired to a schedule and
@@ -129,10 +127,11 @@ write) per item.
 
 ## References
 
-RFC §4.1/§6/§11 (REQ-1/2/3/4); PRD stories 1-3, 4, 6, 18-19; note "Prior art:
-owainlewis/factory" (durable-memory convergence — see
-[../curator/autonomy.md](autonomy.md)); \`.plandesk/skill.md\` (house task
-conventions); \`.agents/factory/lanes.md\` (lane vocabulary).
+[autonomy.md](autonomy.md) (the loop that invokes this, and the human-gate
+rule); [provenance.md](provenance.md) (the provenance shape every non-reject
+decision carries); [automation.md](automation.md) (unattended triggers);
+\`.plandesk/skill.md\` (house task conventions); \`.agents/factory/lanes.md\`
+(lane vocabulary).
 `;
 
 export const CURATOR_PROVENANCE_MD = `---
@@ -143,12 +142,10 @@ version: 1
 # Curator: provenance convention
 
 The authoritative shape for "why does this task exist" — required output of
-every [triage.md](triage.md) decision that isn't \`reject\`. Automated triage
-is only trustworthy if every decision traces to its source (Modem's
-"attributed summary points"); this is also this board's own doctrine: no
-vacuous structure, observation over assertion.
-
-**Spec:** RFC §4.1 (provenance) · PRD stories 4, 6 · REQ-4.
+every [triage.md](triage.md) decision that isn't \`reject\`. Automated triage is
+only trustworthy if every decision traces to its source: a task nobody can
+explain back to a request is exactly the vacuous structure the board exists to
+avoid — observation over assertion.
 
 ## What must be recorded
 
@@ -166,7 +163,7 @@ For every \`accept-new\`, \`accept-merge\`, or promotion decision:
   task, or *why* it was merged rather than created new, or *why* it was
   promoted (e.g. severity). Not a restatement of the label.
 
-## Dual storage (resolves RFC §12 Q2)
+## Dual storage
 
 Both, always — they serve different readers:
 
@@ -189,28 +186,24 @@ Both, always — they serve different readers:
 
 - \`.agents/curator/triage.md\` — every \`accept-new\`/\`accept-merge\` decision,
   no exceptions; a decision missing provenance is an invalid triage output.
-- \`.agents/curator/automation.md\` (C4) — scheduled/event-triggered runs carry
-  the same requirement; an automated run is not exempt because a human
-  wasn't watching it happen.
+- \`.agents/curator/automation.md\` — scheduled/event-triggered runs carry the
+  same requirement; an automated run is not exempt because a human wasn't
+  watching it happen.
 - Any future promotion logic (e.g. a \`backlog → scope\` auto-promotion) — the
   same \`{sources, reason}\` shape applies to promotions, not just creations.
 
 ## Non-goals
 
 - No new schema/field — this rides on existing \`description\` + \`add_comment\`
-  + \`create_note\`. Do not propose a dedicated \`provenance\` column; the board
-  has no delete tool and no field additions in this phase (C3 is the only
-  schema-touching task in Phase C, and it isn't this one).
+  + \`create_note\`. Do not propose a dedicated \`provenance\` column; provenance
+  is a courtesy to the reviewer, not a stored primitive.
 - No cryptographic/immutable audit log — a human can edit a task description
-  after the fact like anything else on the board; provenance is a courtesy
-  to the reviewer, not a compliance ledger.
+  after the fact like anything else on the board.
 
 ## References
 
-RFC §4.1 (REQ-4); PRD stories 4, 6; [triage.md](triage.md) (the only current
-producer of provenance); note "Prior art: owainlewis/factory" (a JOURNAL.md
-is the flat-file analogue of what the pinned note achieves here, graph-native
-instead).
+[triage.md](triage.md) (the only current producer of provenance);
+\`.plandesk/skill.md\` (house task + note conventions).
 `;
 
 export const CURATOR_AUTOMATION_MD = `---
@@ -220,22 +213,19 @@ version: 1
 
 # Curator: automation (schedule + board-event triggers)
 
-Auto-triage is only "auto" if it runs without someone opening the app
-(Modem's Automations). This wires [triage.md](triage.md) to a cadence and to
-board events, with zero new infrastructure — no daemon, no webhook server,
-no new Plan Desk service. Everything here composes existing pieces: the
-Claude Code CLI, the \`schedule\` skill/cron, the board-as-memory hooks
-([F1](hooks/)), and \`agent_runs\`/SSE the web app already streams.
-
-**Spec:** RFC §6 · PRD stories 10, 11 · REQ-6.
+Auto-triage is only "auto" if it runs without someone opening the app. This
+wires [triage.md](triage.md) to a cadence and to board events, with zero new
+infrastructure — no daemon, no webhook server, no new Plan Desk service.
+Everything here composes existing pieces: a headless coding-agent CLI, the
+\`schedule\` skill / cron, and the board-as-memory hooks ([hooks/](hooks/)).
 
 ## Schedule trigger
 
-Run a headless Claude Code session on a cadence that does exactly two
-things, in order: \`sync_pull\` (refresh submissions from the sync server, a
-no-op if the project has no published share) then the [triage.md](triage.md)
-pass over \`backlog\` (the default adapter — add \`submissions\` too if the
-project has a share configured).
+Run a headless agent session on a cadence that does exactly two things, in
+order: \`sync_pull\` (refresh submissions from the sync server, a no-op if the
+project has no published share) then the [triage.md](triage.md) pass over
+\`backlog\` (the default adapter — add \`submissions\` too if the project has a
+share configured).
 
 Set this up with the \`schedule\` skill (\`CronCreate\`) rather than building a
 scheduler into Plan Desk:
@@ -248,18 +238,16 @@ prompt:   "Run .agents/curator/triage.md against the current project's
 \`\`\`
 
 A cadence of 1–4 hours is a reasonable default for a solo/small-team backlog;
-widen or tighten based on how much raw signal actually accumulates (there is
-no metrics ledger yet to justify a specific number — this is a starting
-point, not a tuned constant).
+widen or tighten based on how much raw signal actually accumulates — this is a
+starting point, not a tuned constant.
 
 ## Event triggers
 
 There is no push-based event bus to hook into without adding new
-infrastructure (a real webhook/queue is Phase X's runner territory, out of
-scope here). Instead, ride the moments an agent is already looking at the
-board:
+infrastructure (a real webhook/queue would be its own build, out of scope
+here). Instead, ride the moments an agent is already looking at the board:
 
-- **On session start** — the F1 board-as-memory hook (see [hooks/](hooks/))
+- **On session start** — the board-as-memory hook (see [hooks/](hooks/))
   already re-hydrates board state on \`SessionStart\`. When that hydration
   shows new items in \`backlog\` or new pending submissions since the last
   recorded progress, that is the trigger: run a triage pass before starting
@@ -271,9 +259,8 @@ board:
 - **On a task landing in \`backlog\`** — there's no server push for this
   either; the practical trigger is the same as the schedule cadence (a
   periodic \`list_tasks(status: "backlog")\` sweep) plus the session-start
-  check above. If \`agent_runs\`/SSE volume ever justifies a real push
-  listener, that's a Phase X candidate (see the "Wire risk lanes to
-  orchestrator waitpoints" / Trigger.dev backlog tasks) — not before.
+  check above. A real push listener would be its own piece of infrastructure
+  — not needed for the cadence-plus-session-start approach here.
 
 ## Confidence gate
 
@@ -292,10 +279,9 @@ without guessing at scope. If drafting the task required inventing details
 not present in the source item, confidence is low — say so in the proposal
 comment rather than fabricating specifics.
 
-This gate is deliberately conservative on the high-severity side: per RFC
-§11, if dedup/severity-judgment precision is unacceptable on real data,
-widen the auto-\`scope\` band only once the metrics ledger backs it — start
-narrow.
+This gate is deliberately conservative on the high-severity side: if
+dedup/severity judgment proves unreliable on real data, widen the
+auto-\`scope\` band only once you have evidence for it — start narrow.
 
 ## What never changes
 
@@ -306,12 +292,9 @@ autonomy grant (see [autonomy.md](autonomy.md)).
 
 ## References
 
-RFC §6 (REQ-6); PRD stories 10, 11; [triage.md](triage.md) (what runs);
-[provenance.md](provenance.md) (still required on every automated decision);
-\`hooks/\` (F1, the session-start re-hydration this rides on); Modem
-Automations (the pattern this distills); backlog tasks "Stand up self-hosted
-Trigger.dev runner" / "Wire risk lanes to orchestrator waitpoints" (Phase X —
-where a real push-based event bus belongs, deferred).
+[triage.md](triage.md) (what runs); [provenance.md](provenance.md) (still
+required on every automated decision); [hooks/](hooks/) (the session-start
+re-hydration this rides on); the \`schedule\` skill (the cadence mechanism).
 `;
 
 export const CURATOR_INTAKE_MD = `---
@@ -327,14 +310,12 @@ from_plan\` call. The greenfield-planning counterpart to [triage.md](triage.md)
 (existing signal) and the factory (execution): Curator / Factory / Human are
 the three roles; this is the Curator's planning half.
 
-**Spec:** RFC §4.4 · PRD story 14 · REQ-8. **Lane: approve** — a scaffolded
-project lands with tasks in \`scope\`/\`todo\` per §3 below, never bypassing the
-human's release gate.
+**Lane: approve** — a scaffolded project lands with tasks in \`scope\`/\`todo\`
+per §3 below, never bypassing the human's release gate.
 
-Distilled from \`feature-plan\` / \`rfc-to-sprints\` / \`to-issues\` — the
-methodology essence only, not a fork. Those skills target GitHub issues, RFC
-files, and STATE.md wizards; this one targets \`scaffold_project_from_plan\`
-and the board directly, with no file output and no multi-session wizard.
+This targets \`scaffold_project_from_plan\` and the board directly — no file
+output, no GitHub issues, no multi-session wizard. It is for standing up a new
+plan, not for grooming an existing one.
 
 ## When to run this
 
@@ -375,9 +356,8 @@ verbatim). For each task, decide:
 
 Each task description follows house style: **Problem** (what must change,
 by class/method name — never line numbers), **Action Items** (specific,
-independently completable), **References** (linked docs, related tasks, and
-— when scaffolding from an RFC — the RFC section it implements, e.g.
-\`Spec: RFC §4.2, REQ-5\`).
+independently completable), **References** (linked docs, related tasks, and —
+when scaffolding from a source spec — the section it implements).
 
 ### 3. Status at creation — scope vs todo
 
@@ -430,11 +410,10 @@ plan\` is for standing up something new.
 ## Decomposing a Goal into cycle-sized tasks
 
 A **Goal** is the durable, goal-altitude contract a human hands over
-(\`objective\` + \`verification_surface\` + constraints/boundaries/budget — see
-the "Goal as a durable primitive" design). The human authors the Goal; **the
-system owns cycle-sizing**. When asked to plan a Goal (or a worker picks up a
-Goal that has no cycle-tasks yet), decompose it here so no human ever crafts a
-too-big task.
+(\`objective\` + \`verification_surface\` + constraints/boundaries/budget). The
+human authors the Goal; **the system owns cycle-sizing**. When asked to plan a
+Goal (or a worker picks up a Goal that has no cycle-tasks yet), decompose it
+here so no human ever crafts a too-big task.
 
 Input is the Goal's \`objective\` and its \`verification_surface\` (the acceptance
 that must end green). Output is a set of **cycle-sized tasks under that Goal**,
@@ -470,9 +449,9 @@ If a worker in the loop hits a task that turns out too big to finish to the bar
 in one pass, it does **not** bare-stop. It splits that task into cycle-sized
 children (created under the same Goal via \`create_task\` with \`goal_id\`, back to
 \`scope\`), records why in a comment, and lets the human release them. A too-big
-task is a sizing miss to correct, never a dead end. (This mirrors the
-evidence-based-completion path: a red \`verification_surface\` blocks the Goal
-and files a remediation task rather than faking done — see S3.)
+task is a sizing miss to correct, never a dead end. This mirrors evidence-based
+completion: a red \`verification_surface\` blocks the Goal and files a
+remediation task rather than faking done.
 
 ## When to ask vs. proceed
 
@@ -496,11 +475,10 @@ human explicitly asked for that in the same request.
 
 ## References
 
-RFC §4.4 (REQ-8); PRD story 14; \`.plandesk/skill.md\` (task/document/edge
-conventions, inherited verbatim); \`.agents/factory/lanes.md\` (lane
-vocabulary); \`.agents/factory/workflow.md\` §2 (the stop-after-intake rule);
-distilled from \`feature-plan\`, \`rfc-to-sprints\`, \`to-issues\` (heavier,
-file/GitHub-targeted skills — not forked, not depended on).
+\`.plandesk/skill.md\` (task/document/edge conventions, inherited verbatim);
+\`.agents/factory/lanes.md\` (lane vocabulary); \`.agents/factory/workflow.md\` §2
+(the stop-after-intake rule); [triage.md](triage.md) and [autonomy.md](autonomy.md)
+(the sibling Curator roles).
 `;
 
 export const CURATOR_AUTONOMY_MD = `---
@@ -517,18 +495,16 @@ dependency on any global skill** (\`autonomous-stand\`, \`autonomous-manager-
 stand\`, or anything under an operator's \`~/.claude\`/\`~/.agents\`). Copy it,
 don't reference it.
 
-**Spec:** RFC §4.5/§9 (REQ-9) · PRD story 17. **Lane: full** — this governs
-autonomy itself; treat changes to this file with the same scrutiny as a
-public contract.
+**Lane: full** — this governs autonomy itself; treat changes to this file
+with the same scrutiny as a public contract.
 
 ## Why a distilled copy, not a dependency
 
-The global autonomy posture (where one exists) is written for a generic
-"drive any goal to done" loop, and its default — ship without pausing — would
-steamroll this project's structural human gates if wedged in unmodified. A
-Plan Desk project must work identically on a machine that has never seen
-that global skill. This file is the whole contract; nothing here reaches
-outside the project.
+A generic "drive any goal to done" autonomy posture defaults to shipping
+without pausing, which would steamroll this project's structural human gates
+if wedged in unmodified. A Plan Desk project must work identically on a
+machine that has never seen any such global skill. This file is the whole
+contract; nothing here reaches outside the project.
 
 ## The one rule everything else follows
 
@@ -538,8 +514,8 @@ fine as a per-session scratchpad for the moves within one item; they just
 don't survive compaction and don't decide what's next.) Every "what's next"
 question is answered by calling \`get_next_task\` against the bound project —
 never by recalling what you decided three turns ago. This is what makes a
-long run survive compaction (see the F1 board-as-memory hooks: they re-inject
-exactly this state at the forget-moments).
+long run survive compaction (see the board-as-memory hooks in [hooks/](hooks/):
+they re-inject exactly this state at the forget-moments).
 
 ## The loop
 
@@ -552,7 +528,7 @@ loop:
   if task.lane != "auto":
     stop — do not start it; see "Lane boundary" below
   work(task)                                  # do the task
-  checkpoint()                                # record_agent_progress; F1's
+  checkpoint()                                # record_agent_progress; the
                                                # Stop/PreCompact hooks also
                                                # persist this automatically
   update_task(task.id, status: "done")        # atomic with verification
@@ -599,8 +575,9 @@ that status change, even at a human's explicit request, is not the same
 event and does not satisfy the gate. If a human wants a task released, the
 answer is "please release it on the board" — never "sure, I'll flip it."
 This is not a lane-gated behavior to loosen later; it is the single
-non-negotiable line in the whole Curator system (see the RFC's "human gates
-are structural" framing), and it has no "but the human told me to" carve-out.
+non-negotiable line in the whole Curator system — the human gates here are
+structural, not a policy knob — and it has no "but the human told me to"
+carve-out.
 
 Corollary: this posture governs *this project's own dev-task board*
 identically to how [triage.md](triage.md) governs the Curator *feature's*
@@ -609,11 +586,11 @@ is helping build.
 
 ## Anchoring across compaction
 
-This posture assumes the F1 hook bundle is installed (\`.agents/curator/
-hooks/\`, wired into the project's \`.claude/settings.json\` — see F5 for the
-install step). If it is not yet installed in this project, that is a gap:
-say so, and fall back to reading the board explicitly (\`get_next_task\`, the
-current \`in_progress\` task, its linked document) at the start of every
+This posture assumes the board-as-memory hooks are installed (\`.agents/
+curator/hooks/\`, wired into the project's \`.claude/settings.json\` —
+\`plandesk factory init\` does this). If they are not yet installed, that is a
+gap: say so, and fall back to reading the board explicitly (\`get_next_task\`,
+the current \`in_progress\` task, its linked document) at the start of every
 resumed session rather than assuming continuity.
 
 ## When to escalate instead of proceeding
@@ -631,12 +608,11 @@ resumed session rather than assuming continuity.
 
 ## References
 
-RFC §4.5/§9 (REQ-9); PRD story 17; \`.agents/factory/lanes.md\` (lane
-vocabulary, source of truth this file defers to rather than restates);
-\`.agents/factory/factory.md\` (the per-task cycle this posture drives
-unattended); [triage.md](triage.md) (the parallel rule for the Curator
-feature's own output); F1 hooks (the anchoring mechanism referenced above);
-distilled from \`autonomous-manager-stand\` (not forked, not depended on).
+\`.agents/factory/lanes.md\` (lane vocabulary, source of truth this file defers
+to rather than restates); \`.agents/factory/factory.md\` (the per-task cycle
+this posture drives unattended); [triage.md](triage.md) (the parallel rule for
+the Curator feature's own output); [hooks/](hooks/) (the anchoring mechanism
+referenced above).
 `;
 
 export const CURATOR_HOOKS_SESSION_START_SH = `#!/usr/bin/env bash

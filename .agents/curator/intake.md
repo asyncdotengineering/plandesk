@@ -11,14 +11,12 @@ from_plan` call. The greenfield-planning counterpart to [triage.md](triage.md)
 (existing signal) and the factory (execution): Curator / Factory / Human are
 the three roles; this is the Curator's planning half.
 
-**Spec:** RFC §4.4 · PRD story 14 · REQ-8. **Lane: approve** — a scaffolded
-project lands with tasks in `scope`/`todo` per §3 below, never bypassing the
-human's release gate.
+**Lane: approve** — a scaffolded project lands with tasks in `scope`/`todo`
+per §3 below, never bypassing the human's release gate.
 
-Distilled from `feature-plan` / `rfc-to-sprints` / `to-issues` — the
-methodology essence only, not a fork. Those skills target GitHub issues, RFC
-files, and STATE.md wizards; this one targets `scaffold_project_from_plan`
-and the board directly, with no file output and no multi-session wizard.
+This targets `scaffold_project_from_plan` and the board directly — no file
+output, no GitHub issues, no multi-session wizard. It is for standing up a new
+plan, not for grooming an existing one.
 
 ## When to run this
 
@@ -59,9 +57,8 @@ verbatim). For each task, decide:
 
 Each task description follows house style: **Problem** (what must change,
 by class/method name — never line numbers), **Action Items** (specific,
-independently completable), **References** (linked docs, related tasks, and
-— when scaffolding from an RFC — the RFC section it implements, e.g.
-`Spec: RFC §4.2, REQ-5`).
+independently completable), **References** (linked docs, related tasks, and —
+when scaffolding from a source spec — the section it implements).
 
 ### 3. Status at creation — scope vs todo
 
@@ -114,11 +111,10 @@ plan` is for standing up something new.
 ## Decomposing a Goal into cycle-sized tasks
 
 A **Goal** is the durable, goal-altitude contract a human hands over
-(`objective` + `verification_surface` + constraints/boundaries/budget — see
-the "Goal as a durable primitive" design). The human authors the Goal; **the
-system owns cycle-sizing**. When asked to plan a Goal (or a worker picks up a
-Goal that has no cycle-tasks yet), decompose it here so no human ever crafts a
-too-big task.
+(`objective` + `verification_surface` + constraints/boundaries/budget). The
+human authors the Goal; **the system owns cycle-sizing**. When asked to plan a
+Goal (or a worker picks up a Goal that has no cycle-tasks yet), decompose it
+here so no human ever crafts a too-big task.
 
 Input is the Goal's `objective` and its `verification_surface` (the acceptance
 that must end green). Output is a set of **cycle-sized tasks under that Goal**,
@@ -154,9 +150,9 @@ If a worker in the loop hits a task that turns out too big to finish to the bar
 in one pass, it does **not** bare-stop. It splits that task into cycle-sized
 children (created under the same Goal via `create_task` with `goal_id`, back to
 `scope`), records why in a comment, and lets the human release them. A too-big
-task is a sizing miss to correct, never a dead end. (This mirrors the
-evidence-based-completion path: a red `verification_surface` blocks the Goal
-and files a remediation task rather than faking done — see S3.)
+task is a sizing miss to correct, never a dead end. This mirrors evidence-based
+completion: a red `verification_surface` blocks the Goal and files a
+remediation task rather than faking done.
 
 ## When to ask vs. proceed
 
@@ -180,8 +176,7 @@ human explicitly asked for that in the same request.
 
 ## References
 
-RFC §4.4 (REQ-8); PRD story 14; `.plandesk/skill.md` (task/document/edge
-conventions, inherited verbatim); `.agents/factory/lanes.md` (lane
-vocabulary); `.agents/factory/workflow.md` §2 (the stop-after-intake rule);
-distilled from `feature-plan`, `rfc-to-sprints`, `to-issues` (heavier,
-file/GitHub-targeted skills — not forked, not depended on).
+`.plandesk/skill.md` (task/document/edge conventions, inherited verbatim);
+`.agents/factory/lanes.md` (lane vocabulary); `.agents/factory/workflow.md` §2
+(the stop-after-intake rule); [triage.md](triage.md) and [autonomy.md](autonomy.md)
+(the sibling Curator roles).

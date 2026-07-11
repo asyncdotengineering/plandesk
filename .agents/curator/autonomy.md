@@ -12,18 +12,16 @@ dependency on any global skill** (`autonomous-stand`, `autonomous-manager-
 stand`, or anything under an operator's `~/.claude`/`~/.agents`). Copy it,
 don't reference it.
 
-**Spec:** RFC §4.5/§9 (REQ-9) · PRD story 17. **Lane: full** — this governs
-autonomy itself; treat changes to this file with the same scrutiny as a
-public contract.
+**Lane: full** — this governs autonomy itself; treat changes to this file
+with the same scrutiny as a public contract.
 
 ## Why a distilled copy, not a dependency
 
-The global autonomy posture (where one exists) is written for a generic
-"drive any goal to done" loop, and its default — ship without pausing — would
-steamroll this project's structural human gates if wedged in unmodified. A
-Plan Desk project must work identically on a machine that has never seen
-that global skill. This file is the whole contract; nothing here reaches
-outside the project.
+A generic "drive any goal to done" autonomy posture defaults to shipping
+without pausing, which would steamroll this project's structural human gates
+if wedged in unmodified. A Plan Desk project must work identically on a
+machine that has never seen any such global skill. This file is the whole
+contract; nothing here reaches outside the project.
 
 ## The one rule everything else follows
 
@@ -33,8 +31,8 @@ fine as a per-session scratchpad for the moves within one item; they just
 don't survive compaction and don't decide what's next.) Every "what's next"
 question is answered by calling `get_next_task` against the bound project —
 never by recalling what you decided three turns ago. This is what makes a
-long run survive compaction (see the F1 board-as-memory hooks: they re-inject
-exactly this state at the forget-moments).
+long run survive compaction (see the board-as-memory hooks in [hooks/](hooks/):
+they re-inject exactly this state at the forget-moments).
 
 ## The loop
 
@@ -47,7 +45,7 @@ loop:
   if task.lane != "auto":
     stop — do not start it; see "Lane boundary" below
   work(task)                                  # do the task
-  checkpoint()                                # record_agent_progress; F1's
+  checkpoint()                                # record_agent_progress; the
                                                # Stop/PreCompact hooks also
                                                # persist this automatically
   update_task(task.id, status: "done")        # atomic with verification
@@ -94,8 +92,9 @@ that status change, even at a human's explicit request, is not the same
 event and does not satisfy the gate. If a human wants a task released, the
 answer is "please release it on the board" — never "sure, I'll flip it."
 This is not a lane-gated behavior to loosen later; it is the single
-non-negotiable line in the whole Curator system (see the RFC's "human gates
-are structural" framing), and it has no "but the human told me to" carve-out.
+non-negotiable line in the whole Curator system — the human gates here are
+structural, not a policy knob — and it has no "but the human told me to"
+carve-out.
 
 Corollary: this posture governs *this project's own dev-task board*
 identically to how [triage.md](triage.md) governs the Curator *feature's*
@@ -104,11 +103,11 @@ is helping build.
 
 ## Anchoring across compaction
 
-This posture assumes the F1 hook bundle is installed (`.agents/curator/
-hooks/`, wired into the project's `.claude/settings.json` — see F5 for the
-install step). If it is not yet installed in this project, that is a gap:
-say so, and fall back to reading the board explicitly (`get_next_task`, the
-current `in_progress` task, its linked document) at the start of every
+This posture assumes the board-as-memory hooks are installed (`.agents/
+curator/hooks/`, wired into the project's `.claude/settings.json` —
+`plandesk factory init` does this). If they are not yet installed, that is a
+gap: say so, and fall back to reading the board explicitly (`get_next_task`,
+the current `in_progress` task, its linked document) at the start of every
 resumed session rather than assuming continuity.
 
 ## When to escalate instead of proceeding
@@ -126,9 +125,8 @@ resumed session rather than assuming continuity.
 
 ## References
 
-RFC §4.5/§9 (REQ-9); PRD story 17; `.agents/factory/lanes.md` (lane
-vocabulary, source of truth this file defers to rather than restates);
-`.agents/factory/factory.md` (the per-task cycle this posture drives
-unattended); [triage.md](triage.md) (the parallel rule for the Curator
-feature's own output); F1 hooks (the anchoring mechanism referenced above);
-distilled from `autonomous-manager-stand` (not forked, not depended on).
+`.agents/factory/lanes.md` (lane vocabulary, source of truth this file defers
+to rather than restates); `.agents/factory/factory.md` (the per-task cycle
+this posture drives unattended); [triage.md](triage.md) (the parallel rule for
+the Curator feature's own output); [hooks/](hooks/) (the anchoring mechanism
+referenced above).

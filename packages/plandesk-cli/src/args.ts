@@ -531,6 +531,12 @@ THE CORE LOOP  (you + your agent)
   agent: scaffold_project_from_plan → loop get_next_task → update_task → done
   Steer by commenting on docs; the agent reads and resolves them. All live.
 
+RUN IT WITH YOUR AGENT  (optional — delegated, lane-gated execution)
+  plandesk factory init                      # scaffold .agents/factory + curator skills
+  Your agent then runs the board unattended: pull get_next_task → dispatch a worker CLI →
+  verify → done, gated by risk lanes. Curator skills triage raw signal into tasks and
+  scaffold plans onto the board. Read .agents/index.md after init.
+
 SHARE WITH YOUR TEAM  (optional)
   plandesk deploy cloudflare | claude        # agent stands up your sync server
   plandesk share create --audience "Acme" --public --allow-submit
