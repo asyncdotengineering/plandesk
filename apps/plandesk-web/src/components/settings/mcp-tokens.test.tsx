@@ -128,11 +128,14 @@ describe('McpTokens', () => {
       expect(screen.getByText('Claude')).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /revoke/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^revoke$/i }));
+
+    // Revoking is destructive — it now goes through a confirm dialog.
+    fireEvent.click(await screen.findByRole('button', { name: /revoke token/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Revoked')).toBeTruthy();
     });
-    expect(screen.queryByRole('button', { name: /revoke/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^revoke$/i })).toBeNull();
   });
 });

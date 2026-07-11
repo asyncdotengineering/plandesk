@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { ConfirmDialog } from '../docs/ConfirmDialog.js';
 import { useCreateMcpToken, useMcpTokens, useRevokeMcpToken } from '../../lib/queries.js';
 
 function formatDate(iso: string): string {
@@ -25,6 +26,7 @@ export function McpTokens() {
   const [name, setName] = useState('');
   const [rawToken, setRawToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [tokenToRevoke, setTokenToRevoke] = useState<{ id: string; name: string } | null>(null);
 
   async function handleCreate(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,11 +49,15 @@ export function McpTokens() {
     setCopied(true);
   }
 
-  async function handleRevoke(id: string) {
-    await revokeMutation.mutateAsync(id);
+  async function handleRevoke() {
+    if (tokenToRevoke === null) {
+      return;
+    }
+    await revokeMutation.mutateAsync(tokenToRevoke.id);
     if (rawToken !== null) {
       setRawToken(null);
     }
+    setTokenToRevoke(null);
     toast('Token revoked');
   }
 
@@ -184,8 +190,9 @@ export function McpTokens() {
                           type="button"
                           variant="outline"
                           size="sm"
+                          className="text-destructive"
                           onClick={() => {
-                            void handleRevoke(token.id);
+                            setTokenToRevoke({ id: token.id, name: token.name });
                           }}
                           disabled={revokeMutation.isPending}
                         >
@@ -200,6 +207,22 @@ export function McpTokens() {
           ) : null}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={tokenToRevoke !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setTokenToRevoke(null);
+          }
+        }}
+        title={tokenToRevoke === null ? '' : `Revoke "${tokenToRevoke.name}"?`}
+        description="Any MCP client using this token will immediately lose access. This cannot be undone."
+        confirmLabel="Revoke token"
+        busy={revokeMutation.isPending}
+        onConfirm={() => {
+          void handleRevoke();
+        }}
+      />
     </div>
   );
 }
