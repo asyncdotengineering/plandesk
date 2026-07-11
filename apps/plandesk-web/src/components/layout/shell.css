@@ -25,8 +25,8 @@
   width: 22px;
   height: 22px;
   border-radius: 6px;
-  background: var(--accent);
-  color: var(--accent-fg);
+  background: var(--primary);
+  color: var(--primary-foreground);
   display: grid;
   place-items: center;
   flex: none;
@@ -39,7 +39,7 @@
 }
 .ws-chev {
   margin-left: auto;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .side-scroll {
   flex: 1;
@@ -72,7 +72,7 @@
   font-size: 10.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--muted-foreground);
   padding: 8px 8px 4px;
   font-weight: 600;
 }
@@ -89,26 +89,26 @@
   font-weight: 480;
 }
 .nav-item svg {
-  color: var(--muted);
+  color: var(--muted-foreground);
   flex: none;
 }
 .nav-item:hover {
-  background: var(--surface-2);
-  color: var(--text);
+  background: var(--secondary);
+  color: var(--foreground);
 }
 .nav-item .count {
   margin-left: auto;
   font-size: 11.5px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .nav-item.active {
-  background: var(--surface);
-  color: var(--text);
+  background: var(--card);
+  color: var(--foreground);
   font-weight: 600;
   box-shadow: var(--shadow);
 }
 .nav-item.active svg {
-  color: var(--text);
+  color: var(--foreground);
 }
 .side-foot {
   border-top: 1px solid var(--border);
@@ -124,11 +124,11 @@
   width: 100%;
   padding: 6px 8px;
   border-radius: 6px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 12.5px;
 }
 .cmdk:hover {
-  background: var(--surface-2);
+  background: var(--secondary);
   color: var(--text-2);
 }
 kbd {
@@ -138,7 +138,7 @@ kbd {
   border: 1px solid var(--border-strong);
   border-bottom-width: 2px;
   border-radius: 4px;
-  background: var(--surface);
+  background: var(--card);
   color: var(--text-2);
 }
 .icon-btn {
@@ -147,12 +147,12 @@ kbd {
   border-radius: 7px;
   display: grid;
   place-items: center;
-  color: var(--muted);
+  color: var(--muted-foreground);
   flex: none;
 }
 .icon-btn:hover {
-  background: var(--surface-2);
-  color: var(--text);
+  background: var(--secondary);
+  color: var(--foreground);
 }
 
 /* main + topbar */
@@ -168,7 +168,7 @@ kbd {
   padding: 0 16px;
   height: 48px;
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  background: color-mix(in srgb, var(--background) 82%, transparent);
   backdrop-filter: saturate(1.2) blur(6px);
 }
 .crumb {
@@ -176,10 +176,10 @@ kbd {
   align-items: center;
   gap: 7px;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .crumb b {
-  color: var(--text);
+  color: var(--foreground);
   font-weight: 600;
 }
 .topbar .spacer {
@@ -193,8 +193,8 @@ kbd {
   padding: 0 12px;
   border-radius: 999px;
   border: 1px solid var(--border-strong);
-  background: var(--surface);
-  color: var(--muted);
+  background: var(--card);
+  color: var(--muted-foreground);
   font-size: 12.5px;
   min-width: 150px;
   box-shadow: var(--shadow);
