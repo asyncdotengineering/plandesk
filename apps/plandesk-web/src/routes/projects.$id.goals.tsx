@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { GoalsPanel } from '../components/goals/GoalsPanel.js';
-import { ProjectNav } from '../components/layout/ProjectNav.js';
 import { useProject } from '../lib/queries.js';
 
 function ProjectGoalsPage() {
@@ -21,7 +20,6 @@ function ProjectGoalsPage() {
 
   return (
     <section>
-      <ProjectNav projectId={id} />
       <h1 style={{ marginTop: 0 }}>{project.name} — Goals</h1>
       <GoalsPanel projectId={id} />
     </section>

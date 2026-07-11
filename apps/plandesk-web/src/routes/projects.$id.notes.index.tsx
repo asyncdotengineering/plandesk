@@ -1,5 +1,4 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
-import { ProjectNav } from '../components/layout/ProjectNav.js';
 import { useCreateNote, useNotes, useProject } from '../lib/queries.js';
 
 function ProjectNotesPage() {
@@ -49,7 +48,6 @@ function ProjectNotesPage() {
 
   return (
     <section>
-      <ProjectNav projectId={id} />
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
         <h1 style={{ margin: 0, flex: 1 }}>{project.name} — Notes</h1>
         <button

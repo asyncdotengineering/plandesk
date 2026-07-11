@@ -2,7 +2,6 @@ import { createFileRoute } from '@tanstack/react-router';
 import { AgentRunsPanel } from '../components/canvas/AgentRunsPanel.js';
 import { FileIssue } from '../components/inbox/FileIssue.js';
 import { InboxPanel } from '../components/inbox/InboxPanel.js';
-import { ProjectNav } from '../components/layout/ProjectNav.js';
 import { useProject } from '../lib/queries.js';
 
 function ProjectInboxPage() {
@@ -23,7 +22,6 @@ function ProjectInboxPage() {
 
   return (
     <section>
-      <ProjectNav projectId={id} />
       <h1 style={{ marginTop: 0 }}>{project.name} — Inbox</h1>
 
       <FileIssue projectId={id} />

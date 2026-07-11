@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { taskStatuses } from '../lib/api.js';
 import { DocumentsPanel } from '../components/docs/DocumentsPanel.js';
-import { ProjectNav } from '../components/layout/ProjectNav.js';
 import {
   useCreateDocument,
   useDeleteProject,
@@ -110,7 +109,6 @@ function ProjectOverviewPage() {
 
   return (
     <section>
-      <ProjectNav projectId={id} />
       <div
         style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}
       >

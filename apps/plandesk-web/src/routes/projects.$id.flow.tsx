@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { AgentRunsPanel } from '../components/canvas/AgentRunsPanel.js';
 import { FlowCanvas } from '../components/canvas/FlowCanvas.js';
-import { ProjectNav } from '../components/layout/ProjectNav.js';
 import { useProject } from '../lib/queries.js';
 import { validateTaskFilterSearch } from '../lib/search.js';
 
@@ -24,7 +23,6 @@ function ProjectFlowPage() {
 
   return (
     <section>
-      <ProjectNav projectId={id} />
       <h1 style={{ marginTop: 0 }}>{project.name} — Flow</h1>
       {status !== undefined ? (
         <p style={{ color: '#666', marginTop: 0 }}>Filter: {status}</p>

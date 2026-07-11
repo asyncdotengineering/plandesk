@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Board } from '../components/board/Board.js';
-import { ProjectNav } from '../components/layout/ProjectNav.js';
 import { useProject, useTasks } from '../lib/queries.js';
 import { validateTaskFilterSearch } from '../lib/search.js';
 
@@ -32,7 +31,6 @@ function ProjectBoardPage() {
 
   return (
     <section>
-      <ProjectNav projectId={id} />
       <h1 style={{ marginTop: 0 }}>{project.name} — Board</h1>
       {status !== undefined ? (
         <p style={{ color: '#666', marginTop: 0 }}>Filter: {status}</p>

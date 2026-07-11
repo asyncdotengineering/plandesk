@@ -1,35 +1,84 @@
-import { Link, Outlet, createRootRoute } from '@tanstack/react-router';
+import { Outlet, createRootRoute, useLocation, useParams } from '@tanstack/react-router';
+import { Sidebar } from '../components/layout/Sidebar.js';
 import { useSseInvalidation } from '../lib/events.js';
+import { useProject } from '../lib/queries.js';
+
+const VIEW_LABELS: Record<string, string> = {
+  overview: 'Overview',
+  board: 'Board',
+  flow: 'Flow',
+  goals: 'Goals',
+  notes: 'Notes',
+  inbox: 'Inbox',
+  documents: 'Docs',
+};
+
+function viewLabelFromPath(pathname: string): string | null {
+  const segments = pathname.split('/').filter((segment) => segment.length > 0);
+  if (segments[0] === 'projects' && segments.length >= 3) {
+    const key = segments[2];
+    if (key === undefined) {
+      return null;
+    }
+    return VIEW_LABELS[key] ?? null;
+  }
+  if (segments[0] === 'settings' && segments[1] === 'mcp') {
+    return 'MCP Settings';
+  }
+  return null;
+}
+
+function ChevronRight() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+function ProjectCrumb({ id, viewLabel }: { id: string; viewLabel: string | null }) {
+  const { data: project } = useProject(id);
+  return (
+    <>
+      <span>{project?.name ?? ''}</span>
+      {viewLabel !== null ? (
+        <>
+          <ChevronRight />
+          <b>{viewLabel}</b>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function Crumb() {
+  const params = useParams({ strict: false });
+  const location = useLocation();
+  const viewLabel = viewLabelFromPath(location.pathname);
+  const id = params.id;
+  if (id === undefined) {
+    return <b>{viewLabel ?? 'Projects'}</b>;
+  }
+  return <ProjectCrumb id={id} viewLabel={viewLabel} />;
+}
 
 function RootLayout() {
   useSseInvalidation();
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
-      <header
-        style={{
-          display: 'flex',
-          gap: '1rem',
-          alignItems: 'center',
-          padding: '0.75rem 1.5rem',
-          borderBottom: '1px solid #e5e5e5',
-        }}
-      >
-        <Link to="/" style={{ fontWeight: 600, textDecoration: 'none', color: 'inherit' }}>
-          Plan Desk
-        </Link>
-        <nav style={{ display: 'flex', gap: '1rem', marginLeft: 'auto' }}>
-          <Link to="/" style={{ color: '#555', textDecoration: 'none' }}>
-            Projects
-          </Link>
-          <Link to="/settings/mcp" style={{ color: '#555', textDecoration: 'none' }}>
-            MCP Settings
-          </Link>
-        </nav>
-      </header>
-      <main style={{ padding: '1.5rem' }}>
-        <Outlet />
-      </main>
+    <div className="app">
+      <Sidebar />
+      <div className="main">
+        <header className="topbar">
+          <nav className="crumb">
+            <Crumb />
+          </nav>
+          <div className="spacer" />
+        </header>
+        <main className="content">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
