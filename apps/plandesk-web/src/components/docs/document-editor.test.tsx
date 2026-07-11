@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PatchDocumentInput, SerializedDocument } from '../../lib/api.js';
 import { DocumentEditor } from './DocumentEditor.js';
 
@@ -19,6 +19,15 @@ const sampleDocument: SerializedDocument = {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+});
+
+beforeEach(() => {
+  // Radix Dialog in jsdom.
+  const el = window.Element.prototype as unknown as Record<string, unknown>;
+  el.hasPointerCapture ??= vi.fn(() => false);
+  el.setPointerCapture ??= vi.fn();
+  el.releasePointerCapture ??= vi.fn();
+  el.scrollIntoView ??= vi.fn();
 });
 
 describe('DocumentEditor', () => {
@@ -50,9 +59,8 @@ describe('DocumentEditor', () => {
     expect(payload?.body).toContain('Initial content');
   });
 
-  it('renders delete button and calls onDelete after confirm', async () => {
+  it('renders delete button and calls onDelete after confirm dialog', async () => {
     const onDelete = vi.fn();
-    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
 
     render(
       <DocumentEditor
@@ -64,9 +72,10 @@ describe('DocumentEditor', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Delete document' })).toBeTruthy();
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Delete document' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(onDelete).toHaveBeenCalledTimes(1);
   });

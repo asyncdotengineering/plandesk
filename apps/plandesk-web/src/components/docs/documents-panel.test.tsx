@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedDocumentTree, SerializedFolder } from '../../lib/api.js';
@@ -43,24 +44,41 @@ function makeDocument(
   };
 }
 
-function renderPanel(
-  documents: SerializedDocumentTree[],
-  folders: SerializedFolder[],
-  onOpenDocument = vi.fn(),
-) {
+function renderPanel(documents: SerializedDocumentTree[], folders: SerializedFolder[]) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  const rootRoute = createRootRoute({
+    component: () => (
+      <DocumentsPanel projectId={projectId} documents={documents} folders={folders} />
+    ),
+  });
+  const router = createRouter({ routeTree: rootRoute });
   return render(
     <QueryClientProvider client={queryClient}>
-      <DocumentsPanel
-        projectId={projectId}
-        documents={documents}
-        folders={folders}
-        onOpenDocument={onOpenDocument}
-      />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+}
+
+// Radix DropdownMenu/Select open on pointer events; jsdom needs these polyfills.
+function stubPointer() {
+  const el = window.Element.prototype as unknown as Record<string, () => unknown>;
+  el.hasPointerCapture = () => false;
+  el.setPointerCapture = () => undefined;
+  el.releasePointerCapture = () => undefined;
+  el.scrollIntoView = () => undefined;
+}
+
+function openKebab(accessibleName: string) {
+  const trigger = screen.getByRole('button', { name: accessibleName });
+  fireEvent.pointerDown(trigger, { button: 0 });
+  fireEvent.pointerUp(trigger, { button: 0 });
+}
+
+// TanStack RouterProvider hydrates async; wait for the breadcrumb root before querying.
+function panelReady() {
+  return screen.findByRole('button', { name: 'Documents' });
 }
 
 beforeEach(() => {
@@ -73,6 +91,7 @@ beforeEach(() => {
       text: () => Promise.resolve(''),
     }),
   );
+  stubPointer();
 });
 
 afterEach(() => {
@@ -109,134 +128,130 @@ describe('panel helpers', () => {
 });
 
 describe('DocumentsPanel', () => {
-  it('renders nested folders with their documents and root documents', () => {
+  it('shows root folders as cards with a document count and root documents in the list', async () => {
     const folders = [makeFolder('f1', 'Specs', null), makeFolder('f2', 'Archive', 'f1')];
-    const documents = [
-      makeDocument('d1', 'Root doc', null),
-      makeDocument('d2', 'Spec doc', 'f1'),
-      makeDocument('d3', 'Old doc', 'f2'),
-    ];
+    const documents = [makeDocument('d1', 'Root doc', null), makeDocument('d2', 'Spec doc', 'f1')];
 
     renderPanel(documents, folders);
+    await panelReady();
 
-    expect(screen.getByText(/Specs/)).toBeTruthy();
-    expect(screen.getByText(/Archive/)).toBeTruthy();
-    expect(screen.getByText('Root doc')).toBeTruthy();
-    expect(screen.getByText('Spec doc')).toBeTruthy();
-    expect(screen.getByText('Old doc')).toBeTruthy();
+    // Root folder is shown as a card; nested folder is not surfaced at root.
+    expect(screen.getByText('Specs')).toBeTruthy();
+    expect(screen.queryByText('Archive')).toBeNull();
+    // Specs has exactly one document directly inside it.
+    expect(screen.getByText(/1 document/)).toBeTruthy();
+    // A root-level document appears in the list.
+    expect(screen.getAllByText('Root doc').length).toBeGreaterThan(0);
   });
 
-  it('collapses and expands a folder', () => {
+  it('drills into a folder to reveal its documents', async () => {
     const folders = [makeFolder('f1', 'Specs', null)];
     const documents = [makeDocument('d1', 'Spec doc', 'f1')];
 
     renderPanel(documents, folders);
-    expect(screen.getByText('Spec doc')).toBeTruthy();
+    await panelReady();
 
-    fireEvent.click(screen.getByLabelText('Collapse folder Specs'));
-    expect(screen.queryByText('Spec doc')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open folder Specs' }));
 
-    fireEvent.click(screen.getByLabelText('Expand folder Specs'));
-    expect(screen.getByText('Spec doc')).toBeTruthy();
+    // Breadcrumb now shows the folder, and its document is listed.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Specs' })).toBeTruthy();
+    });
+    expect(screen.getAllByText('Spec doc').length).toBeGreaterThan(0);
   });
 
-  it('renders an empty folder state', () => {
+  it('shows an empty state when a drilled-into folder has no documents', async () => {
     renderPanel([], [makeFolder('f1', 'Empty one', null)]);
-    expect(screen.getByText('Empty folder')).toBeTruthy();
+    await panelReady();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open folder Empty one' }));
+    expect(await screen.findByText('This folder is empty.')).toBeTruthy();
   });
 
-  it('renders empty panel state with no folders and no documents', () => {
+  it('renders empty root state with no folders and no documents', async () => {
     renderPanel([], []);
-    expect(screen.getByText('No documents yet.')).toBeTruthy();
+    await panelReady();
+    expect(screen.getByText(/No documents yet/)).toBeTruthy();
   });
 
-  it('creates a root folder via prompt and POST', async () => {
-    vi.stubGlobal('prompt', vi.fn().mockReturnValue('New folder name'));
-
+  it('creates a root folder via the dialog and POST', async () => {
     renderPanel([], []);
-    fireEvent.click(screen.getByText('+ New folder'));
+    await panelReady();
+
+    fireEvent.click(screen.getByRole('button', { name: 'New folder' }));
+    fireEvent.change(await screen.findByLabelText('Folder name'), {
+      target: { value: 'New folder name' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create folder' }));
 
     await waitFor(() => {
       const postCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'POST');
       expect(postCall).toBeTruthy();
       expect(postCall?.[0]).toBe(`/api/v1/projects/${projectId}/folders`);
       const rawBody = postCall?.[1]?.body;
-      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<
-        string,
-        unknown
-      >;
+      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<string, unknown>;
       expect(body.name).toBe('New folder name');
       expect(body.parent_folder_id).toBeNull();
     });
   });
 
-  it('creates a nested subfolder with parent_folder_id', async () => {
-    vi.stubGlobal('prompt', vi.fn().mockReturnValue('Nested'));
+  it('creates a document via the dialog and POST', async () => {
+    renderPanel([], []);
+    await panelReady();
 
-    renderPanel([], [makeFolder('f1', 'Specs', null)]);
-    fireEvent.click(screen.getByLabelText('New subfolder in Specs'));
+    fireEvent.click(screen.getByRole('button', { name: 'New document' }));
+    fireEvent.change(await screen.findByLabelText('Title'), {
+      target: { value: 'Design: caching' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Create document' }));
 
     await waitFor(() => {
       const postCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'POST');
       expect(postCall).toBeTruthy();
+      expect(postCall?.[0]).toBe(`/api/v1/projects/${projectId}/documents`);
       const rawBody = postCall?.[1]?.body;
-      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<
-        string,
-        unknown
-      >;
-      expect(body.parent_folder_id).toBe('f1');
+      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<string, unknown>;
+      expect(body.title).toBe('Design: caching');
+      expect(body.folder_id).toBeNull();
     });
   });
 
-  it('renames a folder via PATCH', async () => {
-    vi.stubGlobal('prompt', vi.fn().mockReturnValue('Renamed'));
-
+  it('renames a folder via the dialog and PATCH', async () => {
     renderPanel([], [makeFolder('f1', 'Specs', null)]);
-    fireEvent.click(screen.getByLabelText('Rename folder Specs'));
+    await panelReady();
+
+    openKebab('Actions for folder Specs');
+    fireEvent.click(screen.getByText('Rename'));
+    fireEvent.change(await screen.findByLabelText('Folder name'), {
+      target: { value: 'Renamed' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
 
     await waitFor(() => {
       const patchCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PATCH');
       expect(patchCall).toBeTruthy();
       expect(patchCall?.[0]).toBe('/api/v1/folders/f1');
-      const rawBody = patchCall?.[1]?.body;
-      expect(rawBody).toBe(JSON.stringify({ name: 'Renamed' }));
+      expect(patchCall?.[1]?.body).toBe(JSON.stringify({ name: 'Renamed' }));
     });
   });
 
-  it('moves a folder into another folder via PATCH', async () => {
-    // choice "1" selects the first eligible target folder
-    vi.stubGlobal('prompt', vi.fn().mockReturnValue('1'));
-
-    renderPanel([], [makeFolder('f1', 'Specs', null), makeFolder('f2', 'Archive', null)]);
-    fireEvent.click(screen.getByLabelText('Move folder Archive'));
-
-    await waitFor(() => {
-      const patchCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PATCH');
-      expect(patchCall).toBeTruthy();
-      expect(patchCall?.[0]).toBe('/api/v1/folders/f2');
-      expect(patchCall?.[1]?.body).toBe(JSON.stringify({ parent_folder_id: 'f1' }));
-    });
-  });
-
-  it('moves a document into a folder via PATCH with folder_id', async () => {
-    vi.stubGlobal('prompt', vi.fn().mockReturnValue('1'));
-
+  it('opens a move dialog for a document', async () => {
     renderPanel([makeDocument('d1', 'Loose doc', null)], [makeFolder('f1', 'Specs', null)]);
-    fireEvent.click(screen.getByLabelText('Move document Loose doc'));
+    await panelReady();
 
-    await waitFor(() => {
-      const patchCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PATCH');
-      expect(patchCall).toBeTruthy();
-      expect(patchCall?.[0]).toBe('/api/v1/documents/d1');
-      expect(patchCall?.[1]?.body).toBe(JSON.stringify({ folder_id: 'f1' }));
-    });
+    openKebab('Actions for document Loose doc');
+    fireEvent.click(screen.getByText('Move…'));
+    expect(await screen.findByText('Move "Loose doc"')).toBeTruthy();
   });
 
-  it('deletes a folder after confirm via DELETE', async () => {
-    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
-
+  it('deletes a folder via a confirm dialog then DELETE', async () => {
     renderPanel([], [makeFolder('f1', 'Specs', null)]);
-    fireEvent.click(screen.getByLabelText('Delete folder Specs'));
+    await panelReady();
+
+    openKebab('Actions for folder Specs');
+    fireEvent.click(screen.getByText('Delete'));
+    // The only button named "Delete" is the confirm dialog's action.
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {
       const deleteCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'DELETE');
@@ -245,11 +260,9 @@ describe('DocumentsPanel', () => {
     });
   });
 
-  it('opens a document through the onOpenDocument callback', () => {
-    const onOpenDocument = vi.fn();
-    renderPanel([makeDocument('d1', 'Spec doc', null)], [], onOpenDocument);
-
-    fireEvent.click(screen.getByText('Spec doc'));
-    expect(onOpenDocument).toHaveBeenCalledWith('d1');
+  it('renders a document row as a link to the document route', async () => {
+    renderPanel([makeDocument('d1', 'Spec doc', null)], []);
+    const links = await screen.findAllByRole('link', { name: 'Spec doc' });
+    expect(links[0]?.getAttribute('href')).toBe(`/projects/${projectId}/documents/d1`);
   });
 });

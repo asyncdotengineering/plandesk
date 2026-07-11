@@ -10,7 +10,9 @@ const VIEW_LABELS: Record<string, string> = {
   goals: 'Goals',
   notes: 'Notes',
   inbox: 'Inbox',
-  documents: 'Docs',
+  // Documents live under Overview (there is no separate Docs tab), so a document
+  // page reads as "Project › Overview" rather than a phantom "Docs" section.
+  documents: 'Overview',
 };
 
 function viewLabelFromPath(pathname: string): string | null {

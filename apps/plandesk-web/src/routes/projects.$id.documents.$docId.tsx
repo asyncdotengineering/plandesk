@@ -1,7 +1,9 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { ArrowLeftIcon } from 'lucide-react';
 import { CommentsPanel } from '../components/docs/CommentsPanel.js';
 import { DocumentEditor, type DocumentEditorMode } from '../components/docs/DocumentEditor.js';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDeleteDocument, useDocument, usePatchDocument, useProject } from '../lib/queries.js';
 
 function DocumentPage() {
@@ -11,11 +13,11 @@ function DocumentPage() {
   const { data: document, isLoading: docLoading, error: docError } = useDocument(docId);
   const patchDocument = usePatchDocument();
   const deleteDocument = useDeleteDocument();
-  const [mode, setMode] = useState<DocumentEditorMode>('editor');
+  const [mode, setMode] = useState<DocumentEditorMode>('reader');
   const [pendingPassage, setPendingPassage] = useState<string | null>(null);
 
   if (projectLoading || docLoading) {
-    return <p>Loading document…</p>;
+    return <p className="text-sm text-muted-foreground">Loading document…</p>;
   }
 
   if (projectError !== null) {
@@ -39,87 +41,67 @@ function DocumentPage() {
   }
 
   return (
-    <section>
-      <p>
-        <Link to="/projects/$id/overview" params={{ id }} style={{ color: '#555' }}>
-          ← {project.name}
-        </Link>
-      </p>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-        <button
-          type="button"
-          onClick={() => {
-            setMode('reader');
-          }}
-          aria-pressed={mode === 'reader'}
-          style={{
-            padding: '0.375rem 0.75rem',
-            borderRadius: 6,
-            border: '1px solid #d1d5db',
-            background: mode === 'reader' ? '#e5e7eb' : '#fff',
-            fontWeight: mode === 'reader' ? 600 : 400,
-            cursor: 'pointer',
-          }}
-        >
-          Reader
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setMode('editor');
-          }}
-          aria-pressed={mode === 'editor'}
-          style={{
-            padding: '0.375rem 0.75rem',
-            borderRadius: 6,
-            border: '1px solid #d1d5db',
-            background: mode === 'editor' ? '#e5e7eb' : '#fff',
-            fontWeight: mode === 'editor' ? 600 : 400,
-            cursor: 'pointer',
-          }}
-        >
-          Editor
-        </button>
-      </div>
-      {patchDocument.error !== null ? (
-        <p role="alert" style={{ color: '#b91c1c' }}>
-          Save failed: {patchDocument.error.message}
-        </p>
-      ) : null}
-      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <DocumentEditor
-            document={document}
-            mode={mode}
-            isSaving={patchDocument.isPending}
-            isDeleting={deleteDocument.isPending}
-            onCommentOnSelection={(passage) => {
-              setPendingPassage(passage);
+    <div className="flex h-[calc(100vh-6rem)] min-h-0 gap-6">
+      <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto pr-2">
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            to="/projects/$id/overview"
+            params={{ id }}
+            className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeftIcon className="size-3.5" />
+            {project.name}
+          </Link>
+          <Tabs
+            value={mode}
+            onValueChange={(value) => {
+              setMode(value as DocumentEditorMode);
             }}
-            onSave={(input) => {
-              patchDocument.mutate({ id: docId, input });
-            }}
-            onDelete={() => {
-              deleteDocument.mutate(
-                { id: docId, projectId: id },
-                {
-                  onSuccess: () => {
-                    void navigate({ to: '/projects/$id/overview', params: { id } });
-                  },
-                },
-              );
-            }}
-          />
+          >
+            <TabsList>
+              <TabsTrigger value="reader">Reader</TabsTrigger>
+              <TabsTrigger value="editor">Edit</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
-        <CommentsPanel
-          target={{ type: 'document', id: docId }}
-          attachPassage={pendingPassage}
-          onPassageConsumed={() => {
-            setPendingPassage(null);
+
+        {patchDocument.error !== null ? (
+          <p role="alert" className="text-[13px] text-destructive">
+            Save failed: {patchDocument.error.message}
+          </p>
+        ) : null}
+
+        <DocumentEditor
+          document={document}
+          mode={mode}
+          isSaving={patchDocument.isPending}
+          isDeleting={deleteDocument.isPending}
+          onCommentOnSelection={(passage) => {
+            setPendingPassage(passage);
+          }}
+          onSave={(input) => {
+            patchDocument.mutate({ id: docId, input });
+          }}
+          onDelete={() => {
+            deleteDocument.mutate(
+              { id: docId, projectId: id },
+              {
+                onSuccess: () => {
+                  void navigate({ to: '/projects/$id/overview', params: { id } });
+                },
+              },
+            );
           }}
         />
       </div>
-    </section>
+      <CommentsPanel
+        target={{ type: 'document', id: docId }}
+        attachPassage={pendingPassage}
+        onPassageConsumed={() => {
+          setPendingPassage(null);
+        }}
+      />
+    </div>
   );
 }
 

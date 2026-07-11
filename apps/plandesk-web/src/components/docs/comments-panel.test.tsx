@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedComment } from '../../lib/api.js';
 import { CommentsPanel } from './CommentsPanel.js';
 
@@ -36,6 +36,15 @@ function renderPanel() {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+});
+
+beforeEach(() => {
+  // Radix Dialog (delete confirm) in jsdom.
+  const el = window.Element.prototype as unknown as Record<string, unknown>;
+  el.hasPointerCapture ??= vi.fn(() => false);
+  el.setPointerCapture ??= vi.fn();
+  el.releasePointerCapture ??= vi.fn();
+  el.scrollIntoView ??= vi.fn();
 });
 
 describe('CommentsPanel', () => {
@@ -104,7 +113,7 @@ describe('CommentsPanel', () => {
     fireEvent.change(screen.getByPlaceholderText(/leave feedback/i), {
       target: { value: 'New feedback' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /add comment/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Comment' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -156,7 +165,7 @@ describe('CommentsPanel', () => {
     fireEvent.change(screen.getByPlaceholderText(/leave feedback/i), {
       target: { value: 'anchor comment' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /add comment/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Comment' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -200,7 +209,6 @@ describe('CommentsPanel', () => {
       });
 
     vi.stubGlobal('fetch', fetchMock);
-    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
 
     renderPanel();
 
@@ -223,9 +231,10 @@ describe('CommentsPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /show resolved/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Delete comment' })).toBeTruthy();
     });
 
+    fireEvent.click(screen.getByRole('button', { name: 'Delete comment' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {

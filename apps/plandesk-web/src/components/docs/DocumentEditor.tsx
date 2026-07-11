@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PatchDocumentInput, SerializedDocument } from '../../lib/api.js';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { RichTextEditor, type RichTextEditorHandle } from '../editor/RichTextEditor.js';
+import { ConfirmDialog } from './ConfirmDialog.js';
 
 export type DocumentEditorMode = 'reader' | 'editor';
 
@@ -27,6 +31,7 @@ export function DocumentEditor({
 }: DocumentEditorProps) {
   const [title, setTitle] = useState(document.title);
   const [statusLine, setStatusLine] = useState(document.status_line ?? '');
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const editorRef = useRef<RichTextEditorHandle>(null);
 
   useEffect(() => {
@@ -35,7 +40,6 @@ export function DocumentEditor({
   }, [document.title, document.status_line]);
 
   const handleSave = () => {
-    // Documents are stored as HTML — the MCP converts agent Markdown on write.
     onSave({
       title,
       body: editorRef.current?.getHTML() ?? '',
@@ -44,102 +48,60 @@ export function DocumentEditor({
   };
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem' }}>
+    <div className="space-y-4">
+      <div className="flex items-start gap-2">
         {mode === 'editor' ? (
-          <input
+          <Input
             type="text"
             value={title}
             onChange={(event) => {
               setTitle(event.target.value);
             }}
             aria-label="Document title"
-            style={{
-              flex: 1,
-              fontSize: '1.5rem',
-              fontWeight: 600,
-              border: 'none',
-              borderBottom: '1px solid #e5e7eb',
-              padding: '0.25rem 0',
-            }}
+            className="h-auto flex-1 border-0 border-b border-border bg-transparent px-0 py-1 text-2xl font-semibold tracking-tight shadow-none focus-visible:border-ring focus-visible:ring-0"
           />
         ) : (
-          <h1 style={{ margin: 0, flex: 1 }}>{title}</h1>
+          <h1 className="flex-1 text-2xl font-semibold tracking-tight">{title}</h1>
         )}
         {mode === 'editor' ? (
-          <>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving}
-              style={{
-                padding: '0.5rem 1rem',
-                borderRadius: 6,
-                border: '1px solid #1d4ed8',
-                background: '#1d4ed8',
-                color: '#fff',
-                fontWeight: 600,
-                cursor: isSaving ? 'wait' : 'pointer',
-              }}
-            >
+          <div className="flex shrink-0 items-center gap-2 pt-1">
+            <Button type="button" onClick={handleSave} disabled={isSaving}>
               {isSaving ? 'Saving…' : 'Save'}
-            </button>
+            </Button>
             {onDelete !== undefined ? (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                className="text-destructive"
+                aria-label="Delete document"
                 onClick={() => {
-                  if (confirm('Delete this document?')) {
-                    onDelete();
-                  }
-                }}
-                disabled={isDeleting}
-                style={{
-                  padding: '0.5rem 1rem',
-                  borderRadius: 6,
-                  border: '1px solid #fca5a5',
-                  background: '#fef2f2',
-                  color: '#b91c1c',
-                  fontWeight: 600,
-                  cursor: isDeleting ? 'wait' : 'pointer',
+                  setConfirmDeleteOpen(true);
                 }}
               >
-                {isDeleting ? 'Deleting…' : 'Delete'}
-              </button>
+                Delete
+              </Button>
             ) : null}
-          </>
+          </div>
         ) : null}
       </div>
 
-      <label
-        htmlFor="status-line"
-        style={{
-          display: 'block',
-          fontSize: '0.875rem',
-          color: '#6b7280',
-          marginBottom: '0.25rem',
-        }}
-      >
-        Status
-      </label>
       {mode === 'editor' ? (
-        <input
-          id="status-line"
-          type="text"
-          value={statusLine}
-          onChange={(event) => {
-            setStatusLine(event.target.value);
-          }}
-          placeholder="Status: draft"
-          style={{
-            width: '100%',
-            marginBottom: '1rem',
-            padding: '0.5rem 0.75rem',
-            borderRadius: 6,
-            border: '1px solid #d1d5db',
-          }}
-        />
+        <div className="space-y-1.5">
+          <Label htmlFor="document-status-line" className="text-xs text-muted-foreground">
+            Status
+          </Label>
+          <Input
+            id="document-status-line"
+            type="text"
+            value={statusLine}
+            onChange={(event) => {
+              setStatusLine(event.target.value);
+            }}
+            placeholder="Status: draft"
+          />
+        </div>
       ) : statusLine !== '' ? (
-        <p style={{ marginTop: 0, marginBottom: '1rem', color: '#374151' }}>{statusLine}</p>
+        <p className="text-sm text-muted-foreground">{statusLine}</p>
       ) : null}
 
       <RichTextEditor
@@ -148,6 +110,20 @@ export function DocumentEditor({
         mode={mode}
         onCommentOnSelection={onCommentOnSelection}
       />
+
+      {onDelete !== undefined ? (
+        <ConfirmDialog
+          open={confirmDeleteOpen}
+          onOpenChange={setConfirmDeleteOpen}
+          title="Delete this document?"
+          description="This document and its comments will be deleted. This cannot be undone."
+          busy={isDeleting}
+          onConfirm={() => {
+            setConfirmDeleteOpen(false);
+            onDelete();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

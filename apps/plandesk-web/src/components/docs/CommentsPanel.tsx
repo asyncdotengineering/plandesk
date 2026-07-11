@@ -1,11 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
+import { CheckIcon, PaperclipIcon, Trash2Icon, UserIcon } from 'lucide-react';
 import type { CommentTarget, SerializedComment } from '../../lib/api.js';
+import { bodyToHtml } from '../../lib/markdown.js';
+import { sanitizeHtml } from '../../lib/sanitize.js';
 import {
   useComments,
   useCreateComment,
   useDeleteComment,
   usePatchComment,
 } from '../../lib/queries.js';
+import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { ConfirmDialog } from './ConfirmDialog.js';
 
 type CommentsPanelProps = {
   target: CommentTarget;
@@ -26,89 +35,70 @@ function readSelection(): string | null {
   return text === '' ? null : text;
 }
 
+type CommentItemProps = {
+  comment: SerializedComment;
+  onResolve: () => void;
+  onDeleteRequest: () => void;
+  isResolving: boolean;
+  isDeleting: boolean;
+};
+
 function CommentItem({
   comment,
   onResolve,
-  onDelete,
+  onDeleteRequest,
   isResolving,
   isDeleting,
-}: {
-  comment: SerializedComment;
-  onResolve: () => void;
-  onDelete: () => void;
-  isResolving: boolean;
-  isDeleting: boolean;
-}) {
+}: CommentItemProps) {
   return (
-    <li
-      style={{
-        padding: '0.75rem',
-        border: '1px solid #e5e7eb',
-        borderRadius: 8,
-        background: comment.resolved ? '#f9fafb' : '#fff',
-      }}
+    <div
+      className={cn(
+        'flex gap-2.5 rounded-lg border p-2.5',
+        comment.resolved ? 'border-border bg-muted/40' : 'border-border bg-card',
+      )}
     >
-      {comment.passage !== null ? (
-        <p
-          style={{
-            margin: '0 0 0.5rem',
-            fontSize: '0.8125rem',
-            color: '#6b7280',
-            fontStyle: 'italic',
-          }}
-        >
-          &ldquo;{comment.passage}&rdquo;
-        </p>
-      ) : null}
-      <p style={{ margin: '0 0 0.5rem', lineHeight: 1.5 }}>{comment.body}</p>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.5rem',
-          flexWrap: 'wrap',
-        }}
-      >
-        <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
-          {formatDate(comment.created_at)}
-          {comment.resolved ? ' · Resolved' : ''}
-        </span>
-        <div style={{ display: 'flex', gap: '0.375rem' }}>
-          <button
-            type="button"
-            onClick={onResolve}
-            disabled={isResolving || isDeleting}
-            style={{
-              padding: '0.25rem 0.5rem',
-              borderRadius: 4,
-              border: '1px solid #d1d5db',
-              background: '#fff',
-              fontSize: '0.8125rem',
-              cursor: isResolving ? 'wait' : 'pointer',
-            }}
-          >
-            {isResolving ? '…' : comment.resolved ? 'Reopen' : 'Resolve'}
-          </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            disabled={isResolving || isDeleting}
-            style={{
-              padding: '0.25rem 0.5rem',
-              borderRadius: 4,
-              border: '1px solid #fca5a5',
-              background: '#fef2f2',
-              color: '#b91c1c',
-              fontSize: '0.8125rem',
-              cursor: isDeleting ? 'wait' : 'pointer',
-            }}
-          >
-            {isDeleting ? '…' : 'Delete'}
-          </button>
+      <Avatar className="mt-0.5 size-5">
+        <AvatarFallback className="rounded-md">
+          <UserIcon className="size-3" />
+        </AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 flex-1">
+        {comment.passage !== null ? (
+          <p className="mb-1 text-[12px] italic text-muted-foreground">&ldquo;{comment.passage}&rdquo;</p>
+        ) : null}
+        <div
+          className="comment-body text-[12.5px] leading-relaxed [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[11px] [&_li]:list-disc [&_ol]:my-1 [&_ol]:pl-4 [&_p]:my-0 [&_p+p]:mt-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:my-1 [&_ul]:pl-4"
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyToHtml(comment.body)) }}
+        />
+        <div className="mt-1.5 flex items-center justify-between gap-1.5">
+          <span className="text-[11px] text-muted-foreground">
+            {formatDate(comment.created_at)}
+            {comment.resolved ? ' · Resolved' : ''}
+          </span>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              disabled={isResolving || isDeleting}
+              onClick={onResolve}
+            >
+              {isResolving ? '…' : comment.resolved ? 'Reopen' : 'Resolve'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Delete comment"
+              disabled={isResolving || isDeleting}
+              onClick={onDeleteRequest}
+            >
+              <Trash2Icon />
+            </Button>
+          </div>
         </div>
       </div>
-    </li>
+    </div>
   );
 }
 
@@ -126,6 +116,9 @@ export function CommentsPanel({
   const [body, setBody] = useState('');
   const [attachedPassage, setAttachedPassage] = useState<string | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const [showResolved, setShowResolved] = useState(false);
+  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const [commentToDelete, setCommentToDelete] = useState<SerializedComment | null>(null);
 
   // When the on-selection affordance hands in a passage, pre-attach it to the
   // composer and focus it, then let the parent clear the hand-off.
@@ -137,8 +130,6 @@ export function CommentsPanel({
     bodyRef.current?.focus();
     onPassageConsumed?.();
   }, [attachPassage, onPassageConsumed]);
-  const [showResolved, setShowResolved] = useState(false);
-  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
 
   const allComments = comments ?? [];
   const openComments = allComments.filter((c) => !c.resolved);
@@ -159,6 +150,7 @@ export function CommentsPanel({
     const passage = attachedPassage ?? readSelection();
     createComment.mutate(passage !== null ? { body: trimmed, passage } : { body: trimmed }, {
       onSuccess: () => {
+        toast('Comment added');
         setBody('');
         setAttachedPassage(null);
       },
@@ -170,6 +162,9 @@ export function CommentsPanel({
     patchComment.mutate(
       { id: comment.id, input: { resolved: !comment.resolved } },
       {
+        onSuccess: () => {
+          toast(comment.resolved ? 'Comment reopened' : 'Comment resolved');
+        },
         onSettled: () => {
           setPendingActionId(null);
         },
@@ -177,12 +172,17 @@ export function CommentsPanel({
     );
   };
 
-  const handleDelete = (comment: SerializedComment) => {
-    if (!confirm('Delete this comment?')) {
+  const confirmDelete = () => {
+    if (commentToDelete === null) {
       return;
     }
-    setPendingActionId(comment.id);
-    deleteComment.mutate(comment.id, {
+    const target_id = commentToDelete.id;
+    setPendingActionId(target_id);
+    deleteComment.mutate(target_id, {
+      onSuccess: () => {
+        toast('Comment deleted');
+        setCommentToDelete(null);
+      },
       onSettled: () => {
         setPendingActionId(null);
       },
@@ -191,80 +191,33 @@ export function CommentsPanel({
 
   return (
     <aside
-      style={{
-        width: embedded ? '100%' : 320,
-        flexShrink: 0,
-        borderLeft: embedded ? undefined : '1px solid #e5e7eb',
-        borderTop: embedded ? '1px solid #e5e7eb' : undefined,
-        paddingLeft: embedded ? 0 : '1rem',
-        paddingTop: embedded ? '1rem' : 0,
-        marginTop: embedded ? '1rem' : 0,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1rem',
-      }}
+      className={cn(
+        'flex flex-col gap-3',
+        embedded ? 'mt-3 w-full border-t pt-3' : 'h-full w-72 border-l pl-4',
+      )}
     >
-      <div>
-        <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.125rem' }}>Comments</h2>
-        <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
-          {openComments.length} open
-        </p>
+      <div className="flex items-baseline gap-2">
+        <h2 className="text-[12.5px] font-semibold">Comments</h2>
+        <span className="text-[11px] text-muted-foreground">{openComments.length} open</span>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.5rem',
-          padding: '0.75rem',
-          border: '1px solid #e5e7eb',
-          borderRadius: 8,
-          background: '#fafafa',
-        }}
-      >
+      <div className="rounded-lg border bg-muted/30 p-2.5">
         {attachedPassage !== null ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '0.5rem',
-              padding: '0.5rem',
-              background: '#fff',
-              border: '1px solid #e5e7eb',
-              borderRadius: 6,
-            }}
-          >
-            <p
-              style={{
-                margin: 0,
-                flex: 1,
-                fontSize: '0.8125rem',
-                color: '#6b7280',
-                fontStyle: 'italic',
-              }}
-            >
-              &ldquo;{attachedPassage}&rdquo;
-            </p>
-            <button
+          <div className="mb-2 flex items-start gap-1.5 rounded-md border bg-card p-1.5">
+            <p className="flex-1 text-[12px] italic text-muted-foreground">&ldquo;{attachedPassage}&rdquo;</p>
+            <Button
               type="button"
+              variant="ghost"
+              size="xs"
               onClick={() => {
                 setAttachedPassage(null);
               }}
-              aria-label="Clear attached selection"
-              style={{
-                padding: '0.125rem 0.375rem',
-                borderRadius: 4,
-                border: '1px solid #d1d5db',
-                background: '#fff',
-                fontSize: '0.75rem',
-                cursor: 'pointer',
-              }}
             >
               Clear
-            </button>
+            </Button>
           </div>
         ) : null}
-        <textarea
+        <Textarea
           ref={bodyRef}
           value={body}
           onChange={(event) => {
@@ -272,82 +225,52 @@ export function CommentsPanel({
           }}
           placeholder="Leave feedback for teammates or an agent…"
           rows={3}
-          style={{
-            width: '100%',
-            padding: '0.5rem 0.75rem',
-            borderRadius: 6,
-            border: '1px solid #d1d5db',
-            resize: 'vertical',
-            fontFamily: 'inherit',
-            fontSize: '0.875rem',
-          }}
+          className="min-h-10 resize-y border-0 bg-transparent text-[12.5px] shadow-none focus-visible:ring-0"
         />
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button
+        <div className="mt-2 flex items-center justify-end gap-1.5">
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={handleAttachSelection}
-            style={{
-              padding: '0.375rem 0.75rem',
-              borderRadius: 6,
-              border: '1px solid #d1d5db',
-              background: '#fff',
-              fontSize: '0.8125rem',
-              cursor: 'pointer',
-            }}
           >
-            Attach selection
-          </button>
-          <button
+            <PaperclipIcon className="size-3.5" /> Attach selection
+          </Button>
+          <Button
             type="button"
-            onClick={handleSubmit}
+            size="sm"
             disabled={body.trim() === '' || createComment.isPending}
-            style={{
-              padding: '0.375rem 0.75rem',
-              borderRadius: 6,
-              border: '1px solid #1d4ed8',
-              background: '#1d4ed8',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: '0.8125rem',
-              cursor: createComment.isPending ? 'wait' : 'pointer',
-            }}
+            onClick={handleSubmit}
           >
-            {createComment.isPending ? 'Adding…' : 'Add comment'}
-          </button>
+            <CheckIcon className="size-3.5" /> Comment
+          </Button>
         </div>
         {createComment.error !== null ? (
-          <p role="alert" style={{ margin: 0, fontSize: '0.8125rem', color: '#b91c1c' }}>
+          <p role="alert" className="mt-1.5 text-[12px] text-destructive">
             {createComment.error.message}
           </p>
         ) : null}
       </div>
 
-      {isLoading ? <p style={{ margin: 0, color: '#6b7280' }}>Loading comments…</p> : null}
-      {error !== null ? (
-        <p role="alert" style={{ margin: 0, color: '#b91c1c' }}>
-          Failed to load comments: {error.message}
-        </p>
-      ) : null}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+        {isLoading ? <p className="text-[12.5px] text-muted-foreground">Loading comments…</p> : null}
+        {error !== null ? (
+          <p role="alert" className="text-[12.5px] text-destructive">
+            Failed to load comments: {error.message}
+          </p>
+        ) : null}
 
-      {!isLoading && error === null && allComments.length === 0 ? (
-        <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
-          No comments yet — add one to leave feedback for teammates or an agent.
-        </p>
-      ) : null}
+        {!isLoading && error === null && allComments.length === 0 ? (
+          <p className="text-[12.5px] text-muted-foreground">
+            No comments yet — add one to leave feedback for teammates or an agent.
+          </p>
+        ) : null}
 
-      {!isLoading && error === null && openComments.length > 0 ? (
-        <div>
-          <h3 style={{ margin: '0 0 0.5rem', fontSize: '0.875rem', color: '#374151' }}>Open</h3>
-          <ul
-            style={{
-              listStyle: 'none',
-              margin: 0,
-              padding: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.5rem',
-            }}
-          >
+        {!isLoading && error === null && openComments.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Open
+            </h3>
             {openComments.map((comment) => (
               <CommentItem
                 key={comment.id}
@@ -355,65 +278,61 @@ export function CommentsPanel({
                 onResolve={() => {
                   handleResolve(comment);
                 }}
-                onDelete={() => {
-                  handleDelete(comment);
+                onDeleteRequest={() => {
+                  setCommentToDelete(comment);
                 }}
                 isResolving={patchComment.isPending && pendingActionId === comment.id}
                 isDeleting={deleteComment.isPending && pendingActionId === comment.id}
               />
             ))}
-          </ul>
-        </div>
-      ) : null}
+          </div>
+        ) : null}
 
-      {!isLoading && error === null && resolvedComments.length > 0 ? (
-        <div>
-          <button
-            type="button"
-            onClick={() => {
-              setShowResolved((value) => !value);
-            }}
-            style={{
-              padding: '0.25rem 0',
-              border: 'none',
-              background: 'transparent',
-              color: '#1d4ed8',
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-              marginBottom: showResolved ? '0.5rem' : 0,
-            }}
-          >
-            {showResolved ? 'Hide resolved' : `Show resolved (${String(resolvedComments.length)})`}
-          </button>
-          {showResolved ? (
-            <ul
-              style={{
-                listStyle: 'none',
-                margin: 0,
-                padding: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.5rem',
+        {!isLoading && error === null && resolvedComments.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto justify-start p-0 text-[12.5px]"
+              onClick={() => {
+                setShowResolved((value) => !value);
               }}
             >
-              {resolvedComments.map((comment) => (
+              {showResolved ? 'Hide resolved' : `Show resolved (${String(resolvedComments.length)})`}
+            </Button>
+            {showResolved ? (
+              resolvedComments.map((comment) => (
                 <CommentItem
                   key={comment.id}
                   comment={comment}
                   onResolve={() => {
                     handleResolve(comment);
                   }}
-                  onDelete={() => {
-                    handleDelete(comment);
+                  onDeleteRequest={() => {
+                    setCommentToDelete(comment);
                   }}
                   isResolving={patchComment.isPending && pendingActionId === comment.id}
                   isDeleting={deleteComment.isPending && pendingActionId === comment.id}
                 />
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
+              ))
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      <ConfirmDialog
+        open={commentToDelete !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setCommentToDelete(null);
+          }
+        }}
+        title="Delete this comment?"
+        description="This cannot be undone."
+        busy={deleteComment.isPending && commentToDelete !== null}
+        onConfirm={confirmDelete}
+      />
     </aside>
   );
 }

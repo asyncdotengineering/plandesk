@@ -160,6 +160,11 @@ kbd {
   display: grid;
   grid-template-rows: auto 1fr;
   min-width: 0;
+  /* min-height:0 lets the 1fr .content shrink to the viewport and become the
+     scroll container; without it min-height:auto grows past 100vh and the
+     .app overflow:hidden clips the bottom (nothing scrolls). */
+  min-height: 0;
+  overflow: hidden;
 }
 .topbar {
   display: flex;

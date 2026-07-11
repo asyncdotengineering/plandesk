@@ -1,9 +1,12 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import { PencilIcon } from 'lucide-react';
 import { taskStatuses } from '../lib/api.js';
 import { DocumentsPanel } from '../components/docs/DocumentsPanel.js';
+import { ConfirmDialog } from '../components/docs/ConfirmDialog.js';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
-  useCreateDocument,
   useDeleteProject,
   useDocuments,
   useFolders,
@@ -11,6 +14,14 @@ import {
   useProject,
   useTasks,
 } from '../lib/queries.js';
+
+const STATUS_LABELS: Record<string, string> = {
+  scope: 'Scope',
+  todo: 'To do',
+  in_progress: 'In progress',
+  done: 'Done',
+  backlog: 'Backlog',
+};
 
 function ProjectOverviewPage() {
   const { id } = Route.useParams();
@@ -21,9 +32,9 @@ function ProjectOverviewPage() {
   const { data: folders } = useFolders(id);
   const patchProject = usePatchProject();
   const deleteProject = useDeleteProject();
-  const createDocument = useCreateDocument(id);
   const [name, setName] = useState('');
   const [editingName, setEditingName] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {
     if (project !== undefined) {
@@ -48,55 +59,8 @@ function ProjectOverviewPage() {
     );
   };
 
-  const handleDeleteProject = () => {
-    if (!confirm('Delete this project and all its tasks, documents, and edges?')) {
-      return;
-    }
-    deleteProject.mutate(id, {
-      onSuccess: () => {
-        void navigate({ to: '/' });
-      },
-    });
-  };
-
-  const handleNewDocument = () => {
-    const title = prompt('Document title');
-    if (title === null) {
-      return;
-    }
-    const trimmed = title.trim();
-    if (trimmed === '') {
-      return;
-    }
-
-    let linkedTaskId: string | null = null;
-    if (tasks !== undefined && tasks.length > 0) {
-      const taskChoice = prompt(
-        `Link to a task? Enter task number (1-${String(tasks.length)}) or leave blank:\n${tasks.map((t, i) => `${String(i + 1)}. ${t.label}`).join('\n')}`,
-      );
-      if (taskChoice !== null && taskChoice.trim() !== '') {
-        const index = Number.parseInt(taskChoice.trim(), 10) - 1;
-        if (index >= 0 && index < tasks.length) {
-          linkedTaskId = tasks[index]?.id ?? null;
-        }
-      }
-    }
-
-    createDocument.mutate(
-      { title: trimmed, linked_task_id: linkedTaskId },
-      {
-        onSuccess: (doc) => {
-          void navigate({
-            to: '/projects/$id/documents/$docId',
-            params: { id, docId: doc.id },
-          });
-        },
-      },
-    );
-  };
-
   if (isLoading) {
-    return <p>Loading project…</p>;
+    return <p className="text-sm text-muted-foreground">Loading project…</p>;
   }
 
   if (error) {
@@ -108,119 +72,101 @@ function ProjectOverviewPage() {
   }
 
   return (
-    <section>
-      <div
-        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}
-      >
-        {editingName ? (
-          <input
-            type="text"
-            value={name}
-            autoFocus
-            onChange={(event) => {
-              setName(event.target.value);
-            }}
-            onBlur={commitName}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                commitName();
-              }
-              if (event.key === 'Escape') {
-                setName(project.name);
-                setEditingName(false);
-              }
-            }}
-            aria-label="Project name"
-            style={{
-              fontSize: '1.75rem',
-              fontWeight: 700,
-              border: '1px solid #93c5fd',
-              borderRadius: 4,
-              padding: '0.125rem 0.375rem',
-              flex: 1,
-            }}
-          />
-        ) : (
-          <h1 style={{ margin: 0, flex: 1 }}>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingName(true);
+    <div className="mx-auto max-w-5xl">
+      <header className="mb-6">
+        <div className="flex items-start justify-between gap-3">
+          {editingName ? (
+            <Input
+              type="text"
+              value={name}
+              autoFocus
+              onChange={(event) => {
+                setName(event.target.value);
               }}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                font: 'inherit',
-                cursor: 'text',
-                color: 'inherit',
+              onBlur={commitName}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  commitName();
+                }
+                if (event.key === 'Escape') {
+                  setName(project.name);
+                  setEditingName(false);
+                }
               }}
-            >
-              {project.name}
-            </button>
-          </h1>
-        )}
-        <button
-          type="button"
-          onClick={handleDeleteProject}
-          disabled={deleteProject.isPending}
-          style={{
-            padding: '0.375rem 0.75rem',
-            borderRadius: 6,
-            border: '1px solid #fca5a5',
-            background: '#fef2f2',
-            color: '#b91c1c',
-            fontWeight: 600,
-            fontSize: '0.875rem',
-            cursor: deleteProject.isPending ? 'wait' : 'pointer',
-          }}
-        >
-          Delete project
-        </button>
-      </div>
-      {project.description ? <p style={{ color: '#666' }}>{project.description}</p> : null}
+              aria-label="Project name"
+              className="h-auto max-w-md flex-1 border-0 border-b border-border bg-transparent px-0 py-1 text-2xl font-semibold tracking-tight shadow-none focus-visible:border-ring focus-visible:ring-0"
+            />
+          ) : (
+            <div className="group flex min-w-0 items-center gap-2">
+              <h1 className="truncate text-2xl font-semibold tracking-tight">{project.name}</h1>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Rename project"
+                className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                onClick={() => {
+                  setEditingName(true);
+                }}
+              >
+                <PencilIcon className="size-3.5" />
+              </Button>
+            </div>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-muted-foreground hover:text-destructive"
+            disabled={deleteProject.isPending}
+            onClick={() => {
+              setConfirmDeleteOpen(true);
+            }}
+          >
+            Delete project
+          </Button>
+        </div>
+        {project.description ? (
+          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">{project.description}</p>
+        ) : null}
 
-      <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', marginBottom: '1.5rem' }}>
-        <button
-          type="button"
-          onClick={handleNewDocument}
-          disabled={createDocument.isPending}
-          style={{
-            padding: '0.5rem 1rem',
-            borderRadius: 6,
-            border: '1px solid #1d4ed8',
-            background: '#1d4ed8',
-            color: '#fff',
-            fontWeight: 600,
-            cursor: createDocument.isPending ? 'wait' : 'pointer',
-          }}
-        >
-          {createDocument.isPending ? 'Creating…' : 'New document'}
-        </button>
-      </div>
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          {taskStatuses.map((status) => (
+            <span
+              key={status}
+              className="inline-flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 text-[12px]"
+            >
+              <span className="text-muted-foreground">{STATUS_LABELS[status] ?? status}</span>
+              <span className="font-semibold tabular-nums">{project.summary[status]}</span>
+            </span>
+          ))}
+        </div>
+      </header>
 
       <DocumentsPanel
         projectId={id}
         documents={documents ?? []}
         folders={folders ?? []}
-        onOpenDocument={(docId) => {
-          void navigate({ to: '/projects/$id/documents/$docId', params: { id, docId } });
-        }}
+        tasks={tasks ?? []}
       />
 
-      <h2 style={{ fontSize: '1rem' }}>Task status summary</h2>
-      <ul style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '0.5rem' }}>
-        {taskStatuses.map((status) => (
-          <li
-            key={status}
-            style={{ display: 'flex', justifyContent: 'space-between', maxWidth: '16rem' }}
-          >
-            <span>{status.replace('_', ' ')}</span>
-            <strong>{project.summary[status]}</strong>
-          </li>
-        ))}
-      </ul>
-    </section>
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title={`Delete "${project.name}"?`}
+        description="This deletes the project and all its tasks, documents, and edges. This cannot be undone."
+        confirmLabel="Delete project"
+        busy={deleteProject.isPending}
+        onConfirm={() => {
+          deleteProject.mutate(id, {
+            onSuccess: () => {
+              setConfirmDeleteOpen(false);
+              void navigate({ to: '/' });
+            },
+          });
+        }}
+      />
+    </div>
   );
 }
 
