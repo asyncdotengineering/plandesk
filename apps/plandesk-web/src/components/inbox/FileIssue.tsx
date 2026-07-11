@@ -1,4 +1,16 @@
 import { useState, type SubmitEvent } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useCreateTask } from '../../lib/queries.js';
 
 type FileIssueProps = {
@@ -22,7 +34,7 @@ export function FileIssue({ projectId }: FileIssueProps) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [severity, setSeverity] = useState('');
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState<string | null>(null);
   const createTask = useCreateTask(projectId);
 
   const trimmedTitle = title.trim();
@@ -34,7 +46,7 @@ export function FileIssue({ projectId }: FileIssueProps) {
       return;
     }
 
-    setSuccessMessage(null);
+    setAnnouncement(null);
     createTask.mutate(
       {
         label: trimmedTitle,
@@ -47,7 +59,8 @@ export function FileIssue({ projectId }: FileIssueProps) {
           setBody('');
           setSeverity('');
           setExpanded(false);
-          setSuccessMessage('Filed ✓');
+          setAnnouncement('Filed ✓');
+          toast.success('Filed ✓');
         },
       },
     );
@@ -56,69 +69,41 @@ export function FileIssue({ projectId }: FileIssueProps) {
   return (
     <section
       aria-label="File an issue"
-      style={{
-        marginBottom: '1.5rem',
-        padding: '1rem',
-        borderRadius: 8,
-        border: '1px solid #e5e7eb',
-        background: '#fafafa',
-      }}
+      className="mb-6 rounded-lg border border-border bg-muted/40 p-4"
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.75rem',
-          flexWrap: 'wrap',
-        }}
-      >
-        <h2 style={{ fontSize: '1rem', margin: 0 }}>File an issue</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-base font-semibold">File an issue</h2>
         {!expanded ? (
-          <button
+          <Button
             type="button"
+            size="sm"
             onClick={() => {
               setExpanded(true);
             }}
-            style={{
-              padding: '0.5rem 0.875rem',
-              borderRadius: 6,
-              border: 'none',
-              background: '#1e40af',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-            }}
           >
             File an issue
-          </button>
+          </Button>
         ) : null}
       </div>
 
-      {successMessage !== null ? (
-        <p
-          role="status"
-          style={{ margin: '0.75rem 0 0', color: '#15803d', fontSize: '0.875rem', fontWeight: 600 }}
-        >
-          {successMessage}
+      {announcement !== null ? (
+        <p role="status" className="sr-only">
+          {announcement}
         </p>
       ) : null}
 
       {createTask.isError ? (
-        <p role="alert" style={{ margin: '0.75rem 0 0', color: '#b91c1c', fontSize: '0.875rem' }}>
+        <p role="alert" className="mt-3 text-sm text-destructive">
           Something went wrong. Please try again.
         </p>
       ) : null}
 
       {expanded ? (
-        <form
-          onSubmit={handleSubmit}
-          style={{ display: 'grid', gap: '0.875rem', marginTop: '1rem' }}
-        >
-          <label style={{ display: 'grid', gap: '0.375rem', fontSize: '0.875rem' }}>
-            <span>Title</span>
-            <input
+        <form onSubmit={handleSubmit} className="mt-4 grid gap-3.5">
+          <div className="grid gap-1.5">
+            <Label htmlFor="file-issue-title">Title</Label>
+            <Input
+              id="file-issue-title"
               type="text"
               name="title"
               value={title}
@@ -127,20 +112,15 @@ export function FileIssue({ projectId }: FileIssueProps) {
               }}
               required
               disabled={createTask.isPending}
-              style={{
-                padding: '0.5rem 0.75rem',
-                borderRadius: 6,
-                border: '1px solid #d1d5db',
-                fontSize: '0.9375rem',
-              }}
             />
-          </label>
+          </div>
 
-          <label style={{ display: 'grid', gap: '0.375rem', fontSize: '0.875rem' }}>
-            <span>
-              Description <span style={{ color: '#9ca3af' }}>(optional)</span>
-            </span>
-            <textarea
+          <div className="grid gap-1.5">
+            <Label htmlFor="file-issue-body">
+              Description <span className="font-normal text-muted-foreground">(optional)</span>
+            </Label>
+            <Textarea
+              id="file-issue-body"
               name="body"
               value={body}
               onChange={(event) => {
@@ -148,80 +128,48 @@ export function FileIssue({ projectId }: FileIssueProps) {
               }}
               rows={4}
               disabled={createTask.isPending}
-              style={{
-                padding: '0.5rem 0.75rem',
-                borderRadius: 6,
-                border: '1px solid #d1d5db',
-                fontSize: '0.9375rem',
-                resize: 'vertical',
-              }}
             />
-          </label>
+          </div>
 
-          <label style={{ display: 'grid', gap: '0.375rem', fontSize: '0.875rem' }}>
-            <span>
-              Severity <span style={{ color: '#9ca3af' }}>(optional)</span>
-            </span>
-            <select
-              name="severity"
-              value={severity}
-              onChange={(event) => {
-                setSeverity(event.target.value);
+          <div className="grid gap-1.5">
+            <Label htmlFor="file-issue-severity">
+              Severity <span className="font-normal text-muted-foreground">(optional)</span>
+            </Label>
+            <Select
+              value={severity === '' ? 'none' : severity}
+              onValueChange={(value) => {
+                setSeverity(value === 'none' ? '' : value);
               }}
               disabled={createTask.isPending}
-              style={{
-                padding: '0.5rem 0.75rem',
-                borderRadius: 6,
-                border: '1px solid #d1d5db',
-                fontSize: '0.9375rem',
-                background: '#fff',
-              }}
             >
-              <option value="">—</option>
-              {SEVERITY_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger id="file-issue-severity" className="w-full" aria-label="Severity">
+                <SelectValue placeholder="—" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—</SelectItem>
+                {SEVERITY_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              style={{
-                padding: '0.625rem 1rem',
-                borderRadius: 6,
-                border: 'none',
-                background: canSubmit ? '#1e40af' : '#9ca3af',
-                color: '#fff',
-                fontWeight: 600,
-                fontSize: '0.9375rem',
-                cursor: canSubmit ? 'pointer' : 'not-allowed',
-              }}
-            >
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={!canSubmit}>
               {createTask.isPending ? 'Filing…' : 'File issue'}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
               disabled={createTask.isPending}
               onClick={() => {
                 setExpanded(false);
               }}
-              style={{
-                padding: '0.625rem 1rem',
-                borderRadius: 6,
-                border: '1px solid #d1d5db',
-                background: '#fff',
-                color: '#374151',
-                fontWeight: 600,
-                fontSize: '0.9375rem',
-                cursor: createTask.isPending ? 'not-allowed' : 'pointer',
-              }}
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       ) : null}

@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { Toaster } from '@/components/ui/sonner';
 import { AgentRunsPanel } from '../components/canvas/AgentRunsPanel.js';
 import { FileIssue } from '../components/inbox/FileIssue.js';
 import { InboxPanel } from '../components/inbox/InboxPanel.js';
@@ -9,28 +10,30 @@ function ProjectInboxPage() {
   const { data: project, isLoading, error } = useProject(id);
 
   if (isLoading) {
-    return <p>Loading project…</p>;
+    return <p className="text-sm text-muted-foreground">Loading project…</p>;
   }
 
   if (error) {
-    return <p role="alert">Failed to load project: {error.message}</p>;
+    return (
+      <p role="alert" className="text-sm text-destructive">
+        Failed to load project: {error.message}
+      </p>
+    );
   }
 
   if (project === undefined) {
-    return <p>Project not found.</p>;
+    return <p className="text-sm text-muted-foreground">Project not found.</p>;
   }
 
   return (
-    <section>
-      <h1 style={{ marginTop: 0 }}>{project.name} — Inbox</h1>
-
+    <div className="flex h-full flex-col gap-6">
       <FileIssue projectId={id} />
       <InboxPanel projectId={id} />
-
-      <div style={{ position: 'relative', minHeight: '18rem' }}>
+      <div className="relative min-h-72">
         <AgentRunsPanel projectId={id} />
       </div>
-    </section>
+      <Toaster />
+    </div>
   );
 }
 

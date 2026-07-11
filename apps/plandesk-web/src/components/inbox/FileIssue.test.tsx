@@ -1,7 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FileIssue } from './FileIssue.js';
+
+function stubPointer() {
+  const el = window.Element.prototype as unknown as Record<string, () => unknown>;
+  el.hasPointerCapture = () => false;
+  el.setPointerCapture = () => undefined;
+  el.releasePointerCapture = () => undefined;
+  el.scrollIntoView = () => undefined;
+}
 
 function renderFileIssue() {
   const queryClient = new QueryClient({
@@ -13,6 +21,18 @@ function renderFileIssue() {
     </QueryClientProvider>,
   );
 }
+
+function selectSeverity(value: string) {
+  const hiddenSelect = document.querySelector('select[aria-hidden="true"]');
+  if (!(hiddenSelect instanceof HTMLSelectElement)) {
+    throw new Error('severity select not found');
+  }
+  fireEvent.change(hiddenSelect, { target: { value } });
+}
+
+beforeEach(() => {
+  stubPointer();
+});
 
 afterEach(() => {
   cleanup();
@@ -51,7 +71,7 @@ describe('FileIssue', () => {
     fireEvent.change(screen.getByLabelText(/Description/), {
       target: { value: 'Tapping it does nothing.' },
     });
-    fireEvent.change(screen.getByLabelText(/Severity/), { target: { value: 'high' } });
+    selectSeverity('high');
 
     fireEvent.click(screen.getByRole('button', { name: 'File issue' }));
 
@@ -70,7 +90,7 @@ describe('FileIssue', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Filed ✓')).toBeTruthy();
+      expect(screen.getByRole('status').textContent).toBe('Filed ✓');
     });
   });
 
