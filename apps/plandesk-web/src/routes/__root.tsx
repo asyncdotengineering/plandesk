@@ -12,7 +12,7 @@ const VIEW_LABELS: Record<string, string> = {
   goals: 'Goals',
   notes: 'Notes',
   inbox: 'Inbox',
-  documents: 'Docs',
+  documents: 'Documents',
 };
 
 function viewLabelFromPath(pathname: string): string | null {

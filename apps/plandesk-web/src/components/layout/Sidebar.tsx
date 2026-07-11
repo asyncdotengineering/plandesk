@@ -1,5 +1,6 @@
 import { Link, useParams } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import { SearchIcon, SettingsIcon } from 'lucide-react';
 import { useProject } from '../../lib/queries.js';
 import { useCommandMenu } from './CommandMenu.js';
 import './shell.css';
@@ -58,7 +59,7 @@ const PLAN_NAV: NavEntry[] = [
 
 const WORKSPACE_NAV: NavEntry[] = [
   {
-    label: 'Docs',
+    label: 'Documents',
     to: '/projects/$id/documents' as const,
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
@@ -163,24 +164,20 @@ export function Sidebar() {
         <button
           type="button"
           className="cmdk"
+          aria-label="Search or run a command"
           onClick={() => {
             setOpen(true);
           }}
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-            <circle cx="11" cy="11" r="6.5" />
-            <path d="M20 20l-4-4" />
-          </svg>
-          Search or run a command
-          <span style={{ marginLeft: 'auto' }}>
-            <kbd>⌘</kbd> <kbd>K</kbd>
+          <SearchIcon width={15} height={15} />
+          <span>Search…</span>
+          <span className="cmdk-keys">
+            <kbd>⌘</kbd>
+            <kbd>K</kbd>
           </span>
         </button>
         <Link to="/settings/mcp" className="icon-btn" title="Settings" aria-label="Settings">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-            <circle cx="12" cy="12" r="3.2" />
-            <path d="M12 3v2.2M12 18.8V21M4.8 4.8l1.6 1.6M17.6 17.6l1.6 1.6M3 12h2.2M18.8 12H21M4.8 19.2l1.6-1.6M17.6 6.4l1.6-1.6" />
-          </svg>
+          <SettingsIcon width={17} height={17} />
         </Link>
       </div>
     </aside>

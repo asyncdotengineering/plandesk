@@ -127,14 +127,27 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  /* A bordered card so it reads as a clickable search/command control rather
+     than a passive label. */
+  border: 1px solid var(--border);
+  background: var(--card);
   color: var(--muted-foreground);
   font-size: 12.5px;
+  box-shadow: var(--shadow);
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease;
 }
 .cmdk:hover {
-  background: var(--secondary);
-  color: var(--text-2);
+  border-color: var(--border-strong);
+  color: var(--foreground);
+}
+.cmdk-keys {
+  margin-left: auto;
+  display: flex;
+  gap: 3px;
 }
 kbd {
   font-family: ui-monospace, 'SF Mono', monospace;
