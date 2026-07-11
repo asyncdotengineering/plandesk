@@ -4,7 +4,14 @@ import { createApp, createEventBus, createServices } from '@plandesk/api';
 import { createDb, migrate, verifyToken } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
-import { deleteServerInfo, reservePort, writeServerInfo } from './connect-artifacts.js';
+import {
+  deleteServerInfo,
+  isPortOwnedByAnotherProject,
+  readPortRegistry,
+  reservePort,
+  writeServerInfo,
+} from './connect-artifacts.js';
+import { PORT_RANGE_START, PORT_RANGE_END } from './init.js';
 
 export type ServeOptions = {
   port: number;
@@ -100,20 +107,40 @@ export function startServer(options: ServeOptions, exit: ExitFn = defaultExit): 
     return server;
   }
 
-  // Default: rotate to the next free port (Vite/Expo-style).
+  // Default: rotate to another in-range port not owned by another project
+  // (Vite/Expo-style, but registry-aware — sequential `port + attempt` could
+  // bind a port a different live project owns).
   let attempt = 0;
+  const triedPorts = new Set<number>([options.port]);
+  const pickRotationCandidate = (): number | undefined => {
+    const registry = readPortRegistry();
+    const eligible: number[] = [];
+    for (let port = PORT_RANGE_START; port <= PORT_RANGE_END; port++) {
+      if (triedPorts.has(port) || isPortOwnedByAnotherProject(registry, port, dataDir)) {
+        continue;
+      }
+      eligible.push(port);
+    }
+    if (eligible.length === 0) {
+      return undefined;
+    }
+    return eligible[Math.floor(Math.random() * eligible.length)];
+  };
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code !== 'EADDRINUSE') {
       throw err;
     }
     attempt += 1;
-    if (attempt >= PORT_ROTATE_ATTEMPTS) {
-      const last = options.port + PORT_ROTATE_ATTEMPTS - 1;
-      process.stderr.write(`Error: ports ${String(options.port)}-${String(last)} are all in use\n`);
+    const candidate = attempt >= PORT_ROTATE_ATTEMPTS ? undefined : pickRotationCandidate();
+    if (candidate === undefined) {
+      process.stderr.write(
+        `Error: no available port in range ${String(PORT_RANGE_START)}-${String(PORT_RANGE_END)} — all attempted ports are in use\n`,
+      );
       exit(1);
       return;
     }
-    server.listen(options.port + attempt, host);
+    triedPorts.add(candidate);
+    server.listen(candidate, host);
   });
   server.once('listening', logListening);
   server.listen(options.port, host);

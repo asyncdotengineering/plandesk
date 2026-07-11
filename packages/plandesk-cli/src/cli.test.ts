@@ -15,8 +15,14 @@ import {
   resolveInitDataDir,
   workspaceDbPath,
 } from './args.js';
-import { runInit } from './init.js';
-import { readPortRegistry, readServerInfo, readWorkspaceJson } from './connect-artifacts.js';
+import { assignPort, runInit } from './init.js';
+import {
+  isPortOwnedByAnotherProject,
+  readPortRegistry,
+  readServerInfo,
+  readWorkspaceJson,
+  writeWorkspaceJson,
+} from './connect-artifacts.js';
 import { createListenErrorHandler, startServer, validateServeBind } from './serve.js';
 
 // Isolate the machine-global port registry (~/.plandesk/ports.json) so tests
@@ -234,19 +240,70 @@ describe('runInit', () => {
   });
 
   it('reclaims a port whose owning project directory no longer exists', async () => {
-    const dirA = mkdtempSync(join(tmpdir(), 'plandesk-init-stale-a-'));
-    await runInit(dirA);
-    const portA = readWorkspaceJson(dirA)?.port;
-    rmSync(dirA, { recursive: true, force: true }); // A is gone → its registry entry is stale
-
-    const dirB = mkdtempSync(join(tmpdir(), 'plandesk-init-stale-b-'));
+    // Assignment is random by default, so pin the rng to always pick the
+    // lowest eligible candidate — this isolates the invariant under test
+    // (a stale entry stops excluding its port) from the random selection.
+    const rng = vi.spyOn(Math, 'random').mockReturnValue(0);
     try {
-      await runInit(dirB);
-      // With A's dir gone, its port is reclaimable, so B takes it back rather
-      // than being pushed to a higher port by a dead assignment.
-      expect(readWorkspaceJson(dirB)?.port).toBe(portA);
+      const dirA = mkdtempSync(join(tmpdir(), 'plandesk-init-stale-a-'));
+      await runInit(dirA);
+      const portA = readWorkspaceJson(dirA)?.port;
+      rmSync(dirA, { recursive: true, force: true }); // A is gone → its registry entry is stale
+
+      const dirB = mkdtempSync(join(tmpdir(), 'plandesk-init-stale-b-'));
+      try {
+        await runInit(dirB);
+        // With A's dir gone, its port is reclaimable, so B takes it back rather
+        // than being pushed to a higher port by a dead assignment.
+        expect(readWorkspaceJson(dirB)?.port).toBe(portA);
+      } finally {
+        rmSync(dirB, { recursive: true, force: true });
+      }
     } finally {
-      rmSync(dirB, { recursive: true, force: true });
+      rng.mockRestore();
+    }
+  });
+});
+
+describe('assignPort rng injection', () => {
+  it('returns the eligible candidate at the rng-selected index, not always the lowest', async () => {
+    const dataDir = join(tmpdir(), 'plandesk-rng-test-a');
+    const lowest = await assignPort(dataDir, () => 0);
+    const highest = await assignPort(dataDir, () => 0.999999);
+    expect(lowest).toBeGreaterThanOrEqual(3400);
+    expect(lowest).toBeLessThanOrEqual(3499);
+    expect(highest).toBeGreaterThanOrEqual(3400);
+    expect(highest).toBeLessThanOrEqual(3499);
+    expect(highest).not.toBe(lowest);
+  });
+
+  it('gives two different rng values two different in-range ports when both are free/unowned', async () => {
+    const dataDir = join(tmpdir(), 'plandesk-rng-test-b');
+    const portA = await assignPort(dataDir, () => 0.1);
+    const portB = await assignPort(dataDir, () => 0.9);
+    expect(portA).not.toBe(portB);
+    expect(portA).toBeGreaterThanOrEqual(3400);
+    expect(portB).toBeLessThanOrEqual(3499);
+  });
+});
+
+describe('runInit legacy backfill', () => {
+  it('registers a pre-existing workspace.json port missing from the registry', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-legacy-'));
+    const otherDir = mkdtempSync(join(tmpdir(), 'plandesk-legacy-other-'));
+    try {
+      // Simulate a legacy install: workspace.json exists but predates the registry.
+      writeWorkspaceJson(dataDir, 3450);
+      expect(readPortRegistry().assignments['3450']).toBeUndefined();
+
+      await runInit(dataDir);
+
+      expect(readPortRegistry().assignments['3450']).toBe(dataDir);
+      // A different project's assignPort must now treat 3450 as owned and skip it.
+      expect(isPortOwnedByAnotherProject(readPortRegistry(), 3450, otherDir)).toBe(true);
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+      rmSync(otherDir, { recursive: true, force: true });
     }
   });
 });
@@ -337,10 +394,22 @@ describe('startServer', () => {
     });
   }
 
-  it('rotates to the next free port when the requested port is in use', async () => {
+  it('rotates to a different in-range port when the requested port is in use', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-rotate-'));
     await runInit(dataDir);
-    const port = await blockedPort();
+    const port = readWorkspaceJson(dataDir)?.port;
+    if (port === undefined) {
+      throw new Error('expected an assigned port');
+    }
+    // Block the project's own assigned in-range port so rotation must pick
+    // another candidate from the 3400–3499 range, not options.port + attempt.
+    const blocker = createServer();
+    await new Promise<void>((resolve) => {
+      blocker.listen(port, DEFAULT_BIND_HOST, () => {
+        resolve();
+      });
+    });
+    servers.push(blocker);
 
     let exitCode = 0;
     const exit = ((code: number) => {
@@ -356,7 +425,8 @@ describe('startServer', () => {
     const boundPort = typeof address === 'object' && address !== null ? address.port : 0;
     expect(exitCode).toBe(0);
     expect(boundPort).not.toBe(port);
-    expect(boundPort).toBeGreaterThan(port);
+    expect(boundPort).toBeGreaterThanOrEqual(3400);
+    expect(boundPort).toBeLessThanOrEqual(3499);
 
     const res = await fetch(`http://127.0.0.1:${String(boundPort)}/api/v1/health`);
     expect(res.status).toBe(200);
