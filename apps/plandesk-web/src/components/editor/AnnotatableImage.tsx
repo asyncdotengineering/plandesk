@@ -70,16 +70,26 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected }: NodeView
     }
     setSaving(true);
     try {
-      const serialized = serializeAnnotations(shapes);
       const { w, h } = naturalSize;
-      const flattened =
-        shapes.length > 0 && w > 0 && h > 0
-          ? await flattenAnnotations(baseSrc, shapes, w, h)
+      const canFlatten = w > 0 && h > 0;
+      // Blur/redact is destructive and permanent: bake it into the *persisted*
+      // original so the un-redacted pixels are never stored. data-original ships
+      // to the portal client, so keeping the raw image there would leak whatever
+      // the user redacted. Arrows/boxes/text stay re-editable as overlay JSON.
+      const blurShapes = shapes.filter((shape) => shape.type === 'blur');
+      const overlayShapes = shapes.filter((shape) => shape.type !== 'blur');
+      const persistedOriginal =
+        canFlatten && blurShapes.length > 0
+          ? await flattenAnnotations(baseSrc, blurShapes, w, h)
           : baseSrc;
+      const displaySrc =
+        canFlatten && overlayShapes.length > 0
+          ? await flattenAnnotations(persistedOriginal, overlayShapes, w, h)
+          : persistedOriginal;
       updateAttributes({
-        src: flattened,
-        originalSrc: baseSrc,
-        annotations: serialized,
+        src: displaySrc,
+        originalSrc: persistedOriginal,
+        annotations: serializeAnnotations(overlayShapes),
       });
     } finally {
       setSaving(false);
