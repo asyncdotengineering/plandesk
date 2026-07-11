@@ -5,10 +5,12 @@ import TaskList from '@tiptap/extension-task-list';
 import type { EditorView } from '@tiptap/pm/view';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { useRouter } from '@tanstack/react-router';
 import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -20,6 +22,7 @@ import { bodyToHtml } from '../../lib/markdown.js';
 import { sanitizeHtml } from '../../lib/sanitize.js';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { createDocLinkExtension, createSlashExtension } from './editor-extensions.js';
 import '../docs/document-editor.css';
 
 const COMMENT_DRAFT_HIGHLIGHT = 'comment-draft';
@@ -206,16 +209,39 @@ type RichTextEditorProps = {
   // anchored to the selection (which stays highlighted). On submit the comment
   // is created and appears in the rail. Takes precedence over onCommentOnSelection.
   onCreateComment?: (input: { passage: string; body: string }) => Promise<void>;
+  // When set, enables the Notion-style "/" slash menu and "[[" document-link
+  // suggestion. `projectId` builds the link target; `docLinks` is the searchable
+  // document list (read live, so a changing set never recreates the editor).
+  projectId?: string;
+  docLinks?: { id: string; title: string }[];
 };
 
 export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
   function RichTextEditor(
-    { value, mode, minHeight = '12rem', ariaLabel, onCommentOnSelection, onCreateComment },
+    {
+      value,
+      mode,
+      minHeight = '12rem',
+      ariaLabel,
+      onCommentOnSelection,
+      onCreateComment,
+      projectId,
+      docLinks,
+    },
     ref,
   ) {
+    const router = useRouter();
     const contentRef = useRef<HTMLDivElement>(null);
     // Tracks real user edits; reset whenever a new `value` is loaded.
     const dirtyRef = useRef(false);
+    // Live getters for the "[[" doc-link suggestion so a changing document set
+    // never forces the editor to be recreated.
+    const docLinksRef = useRef<{ id: string; title: string }[]>(docLinks ?? []);
+    const projectIdRef = useRef<string | undefined>(projectId);
+    useEffect(() => {
+      docLinksRef.current = docLinks ?? [];
+      projectIdRef.current = projectId;
+    }, [docLinks, projectId]);
     const [selectionMenu, setSelectionMenu] = useState<{
       top: number;
       left: number;
@@ -286,14 +312,31 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       }
     };
 
-    const editor = useEditor({
-      extensions: [
-        StarterKit,
+    const extensions = useMemo(() => {
+      const base = [
+        // openOnClick:false — links (incl. doc links) never navigate from inside
+        // the editable surface; reader-mode navigation is handled on click below.
+        StarterKit.configure({ link: { openOnClick: false } }),
         Image.configure({ allowBase64: true }),
         TableKit,
         TaskList,
         TaskItem.configure({ nested: true }),
-      ],
+      ];
+      if (projectId !== undefined) {
+        base.push(createSlashExtension());
+        base.push(
+          createDocLinkExtension({
+            getDocs: () => docLinksRef.current,
+            getProjectId: () => projectIdRef.current,
+          }),
+        );
+      }
+      return base;
+      // projectId presence is stable per mount; the doc set is read live via refs.
+    }, [projectId]);
+
+    const editor = useEditor({
+      extensions,
       content: renderHtml(value),
       editable: mode === 'editor',
       onUpdate: () => {
@@ -433,6 +476,16 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             <div
               className="document-reader-content"
               aria-label={ariaLabel}
+              // Doc links are stored as internal <a href="/projects/…">; intercept
+              // clicks so they navigate in-app (SPA) instead of a full reload.
+              onClick={(event) => {
+                const anchor = (event.target as HTMLElement).closest('a');
+                const href = anchor?.getAttribute('href');
+                if (href !== null && href !== undefined && href.startsWith('/')) {
+                  event.preventDefault();
+                  void router.navigate({ to: href });
+                }
+              }}
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderHtml(value)) }}
               style={{
                 lineHeight: 1.6,

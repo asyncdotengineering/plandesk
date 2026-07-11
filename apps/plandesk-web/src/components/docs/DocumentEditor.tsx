@@ -20,6 +20,9 @@ type DocumentEditorProps = {
   onCommentOnSelection?: (passage: string) => void;
   // Inline flow: create a passage-anchored comment from the floating composer.
   onCreateComment?: (input: { passage: string; body: string }) => Promise<void>;
+  // Enables the "/" slash menu + "[[" document links in the editor.
+  projectId?: string;
+  docLinks?: { id: string; title: string }[];
 };
 
 export function DocumentEditor({
@@ -31,6 +34,8 @@ export function DocumentEditor({
   isDeleting = false,
   onCommentOnSelection,
   onCreateComment,
+  projectId,
+  docLinks,
 }: DocumentEditorProps) {
   const [title, setTitle] = useState(document.title);
   const [statusLine, setStatusLine] = useState(document.status_line ?? '');
@@ -113,6 +118,8 @@ export function DocumentEditor({
         mode={mode}
         onCommentOnSelection={onCommentOnSelection}
         onCreateComment={onCreateComment}
+        projectId={projectId}
+        docLinks={docLinks}
       />
 
       {onDelete !== undefined ? (

@@ -4,11 +4,13 @@ import { ArrowLeftIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { CommentsPanel } from '../components/docs/CommentsPanel.js';
 import { DocumentEditor, type DocumentEditorMode } from '../components/docs/DocumentEditor.js';
+import { flattenDocumentTree } from '../components/docs/DocumentsPanel.js';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   useCreateComment,
   useDeleteDocument,
   useDocument,
+  useDocuments,
   usePatchDocument,
   useProject,
 } from '../lib/queries.js';
@@ -18,10 +20,16 @@ function DocumentPage() {
   const navigate = useNavigate();
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(id);
   const { data: document, isLoading: docLoading, error: docError } = useDocument(docId);
+  const { data: allDocuments } = useDocuments(id);
   const patchDocument = usePatchDocument();
   const deleteDocument = useDeleteDocument();
   const createComment = useCreateComment({ type: 'document', id: docId });
   const [mode, setMode] = useState<DocumentEditorMode>('reader');
+
+  // Searchable targets for the "[[" doc-link suggestion (excluding this doc).
+  const docLinks = flattenDocumentTree(allDocuments ?? [])
+    .filter((doc) => doc.id !== docId)
+    .map((doc) => ({ id: doc.id, title: doc.title }));
 
   if (projectLoading || docLoading) {
     return <p className="text-sm text-muted-foreground">Loading document…</p>;
@@ -81,6 +89,8 @@ function DocumentPage() {
         <DocumentEditor
           document={document}
           mode={mode}
+          projectId={id}
+          docLinks={docLinks}
           isSaving={patchDocument.isPending}
           isDeleting={deleteDocument.isPending}
           onCreateComment={async ({ passage, body }) => {

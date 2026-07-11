@@ -16,6 +16,8 @@ type NoteEditorProps = {
   isDeleting?: boolean;
   onCommentOnSelection?: (passage: string) => void;
   onCreateComment?: (input: { passage: string; body: string }) => Promise<void>;
+  projectId?: string;
+  docLinks?: { id: string; title: string }[];
 };
 
 export function NoteEditor({
@@ -27,6 +29,8 @@ export function NoteEditor({
   isDeleting = false,
   onCommentOnSelection,
   onCreateComment,
+  projectId,
+  docLinks,
 }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -85,6 +89,8 @@ export function NoteEditor({
         mode={mode}
         onCommentOnSelection={onCommentOnSelection}
         onCreateComment={onCreateComment}
+        projectId={projectId}
+        docLinks={docLinks}
       />
 
       {onDelete !== undefined ? (

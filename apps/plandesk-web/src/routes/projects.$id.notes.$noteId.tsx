@@ -3,11 +3,13 @@ import { useState } from 'react';
 import { ArrowLeftIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { CommentsPanel } from '../components/docs/CommentsPanel.js';
+import { flattenDocumentTree } from '../components/docs/DocumentsPanel.js';
 import { NoteEditor, type NoteEditorMode } from '../components/notes/NoteEditor.js';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   useCreateComment,
   useDeleteNote,
+  useDocuments,
   useNote,
   usePatchNote,
   useProject,
@@ -18,10 +20,16 @@ function NotePage() {
   const navigate = useNavigate();
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(id);
   const { data: note, isLoading: noteLoading, error: noteError } = useNote(noteId);
+  const { data: allDocuments } = useDocuments(id);
   const patchNote = usePatchNote();
   const deleteNote = useDeleteNote();
   const createComment = useCreateComment({ type: 'note', id: noteId });
   const [mode, setMode] = useState<NoteEditorMode>('reader');
+
+  const docLinks = flattenDocumentTree(allDocuments ?? []).map((doc) => ({
+    id: doc.id,
+    title: doc.title,
+  }));
 
   if (projectLoading || noteLoading) {
     return <p className="text-sm text-muted-foreground">Loading note…</p>;
@@ -81,6 +89,8 @@ function NotePage() {
         <NoteEditor
           note={note}
           mode={mode}
+          projectId={id}
+          docLinks={docLinks}
           isSaving={patchNote.isPending}
           isDeleting={deleteNote.isPending}
           onCreateComment={async ({ passage, body }) => {
