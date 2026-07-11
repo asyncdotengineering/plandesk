@@ -27,24 +27,23 @@ beforeEach(() => {
 });
 
 describe('NoteEditor', () => {
-  it('calls onSave with title and HTML body', async () => {
+  it('auto-saves title and HTML body — flushed on navigation away', async () => {
     const onSave = vi.fn();
 
-    render(<NoteEditor note={sampleNote} mode="editor" onSave={onSave} />);
+    const { unmount } = render(<NoteEditor note={sampleNote} mode="editor" onSave={onSave} />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+      expect(screen.getByLabelText('Note title')).toBeTruthy();
     });
 
     fireEvent.change(screen.getByLabelText('Note title'), {
       target: { value: 'Renamed note' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => {
-      expect(onSave).toHaveBeenCalledTimes(1);
-    });
+    // Navigating away (unmount) flushes any pending edit immediately.
+    unmount();
 
+    expect(onSave).toHaveBeenCalledTimes(1);
     const payload = onSave.mock.calls[0]?.[0] as PatchNoteInput | undefined;
     expect(payload?.title).toBe('Renamed note');
     expect(typeof payload?.body).toBe('string');

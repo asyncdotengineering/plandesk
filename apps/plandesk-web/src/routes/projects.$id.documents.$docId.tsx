@@ -98,6 +98,7 @@ function DocumentPage() {
         ) : null}
 
         <DocumentEditor
+          key={docId}
           document={document}
           mode={mode}
           projectId={id}
@@ -108,9 +109,7 @@ function DocumentPage() {
             await createComment.mutateAsync({ body, passage });
             toast('Comment added');
           }}
-          onSave={(input) => {
-            patchDocument.mutate({ id: docId, input });
-          }}
+          onSave={(input) => patchDocument.mutateAsync({ id: docId, input }).then(() => undefined)}
           onDelete={() => {
             deleteDocument.mutate(
               { id: docId, projectId: id },

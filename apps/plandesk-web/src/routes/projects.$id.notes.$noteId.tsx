@@ -97,6 +97,7 @@ function NotePage() {
         ) : null}
 
         <NoteEditor
+          key={noteId}
           note={note}
           mode={mode}
           projectId={id}
@@ -107,16 +108,7 @@ function NotePage() {
             await createComment.mutateAsync({ body, passage });
             toast('Comment added');
           }}
-          onSave={(input) => {
-            patchNote.mutate(
-              { id: noteId, input },
-              {
-                onSuccess: () => {
-                  toast('Note saved');
-                },
-              },
-            );
-          }}
+          onSave={(input) => patchNote.mutateAsync({ id: noteId, input }).then(() => undefined)}
           onDelete={() => {
             deleteNote.mutate(
               { id: noteId, projectId: id },

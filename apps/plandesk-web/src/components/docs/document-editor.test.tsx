@@ -31,13 +31,15 @@ beforeEach(() => {
 });
 
 describe('DocumentEditor', () => {
-  it('calls onSave with title, HTML body, and status_line via PATCH payload', async () => {
+  it('auto-saves title, HTML body, and status_line — flushed on navigation away', async () => {
     const onSave = vi.fn();
 
-    render(<DocumentEditor document={sampleDocument} mode="editor" onSave={onSave} />);
+    const { unmount } = render(
+      <DocumentEditor document={sampleDocument} mode="editor" onSave={onSave} />,
+    );
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+      expect(screen.getByLabelText('Document title')).toBeTruthy();
     });
 
     fireEvent.change(screen.getByLabelText('Document title'), {
@@ -46,12 +48,11 @@ describe('DocumentEditor', () => {
     fireEvent.change(screen.getByLabelText('Status'), {
       target: { value: 'Status: in review' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => {
-      expect(onSave).toHaveBeenCalledTimes(1);
-    });
+    // Navigating away (unmount) flushes any pending edit immediately.
+    unmount();
 
+    expect(onSave).toHaveBeenCalledTimes(1);
     const payload = onSave.mock.calls[0]?.[0] as PatchDocumentInput | undefined;
     expect(payload?.title).toBe('Updated title');
     expect(payload?.status_line).toBe('Status: in review');
@@ -83,7 +84,9 @@ describe('DocumentEditor', () => {
   it('inserts an uploaded image as a base64 img node in the saved body', async () => {
     const onSave = vi.fn();
 
-    render(<DocumentEditor document={sampleDocument} mode="editor" onSave={onSave} />);
+    const { unmount } = render(
+      <DocumentEditor document={sampleDocument} mode="editor" onSave={onSave} />,
+    );
 
     await waitFor(() => {
       expect(screen.getByLabelText('Insert image')).toBeTruthy();
@@ -98,12 +101,10 @@ describe('DocumentEditor', () => {
       expect(document.querySelector('.document-editor-content img')).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    // The image edit marks the doc dirty; navigating away flushes it.
+    unmount();
 
-    await waitFor(() => {
-      expect(onSave).toHaveBeenCalledTimes(1);
-    });
-
+    expect(onSave).toHaveBeenCalledTimes(1);
     const payload = onSave.mock.calls[0]?.[0] as PatchDocumentInput | undefined;
     expect(payload?.body).toContain('data:image/png;base64,');
     expect(payload?.body).toContain('alt="diagram.png"');

@@ -202,6 +202,9 @@ type RichTextEditorProps = {
   mode: RichTextEditorMode;
   minHeight?: string;
   ariaLabel?: string;
+  // Fires on every user edit with the current HTML — lets a parent drive
+  // debounced auto-save without reaching through the imperative handle.
+  onChange?: (html: string) => void;
   // When provided (documents today), highlighting text surfaces a floating
   // "Add comment" button that hands the selected passage up to a composer.
   onCommentOnSelection?: (passage: string) => void;
@@ -223,6 +226,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       mode,
       minHeight = '12rem',
       ariaLabel,
+      onChange,
       onCommentOnSelection,
       onCreateComment,
       projectId,
@@ -234,6 +238,9 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     const contentRef = useRef<HTMLDivElement>(null);
     // Tracks real user edits; reset whenever a new `value` is loaded.
     const dirtyRef = useRef(false);
+    // Live onChange so the editor (created once) always calls the latest handler.
+    const onChangeRef = useRef(onChange);
+    onChangeRef.current = onChange;
     // Live getters for the "[[" doc-link suggestion so a changing document set
     // never forces the editor to be recreated.
     const docLinksRef = useRef<{ id: string; title: string }[]>(docLinks ?? []);
@@ -339,8 +346,9 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       extensions,
       content: renderHtml(value),
       editable: mode === 'editor',
-      onUpdate: () => {
+      onUpdate: ({ editor: updated }) => {
         dirtyRef.current = true;
+        onChangeRef.current?.(updated.getHTML());
       },
       editorProps: {
         attributes: {
@@ -381,7 +389,11 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       dirtyRef.current = false;
       const current = editor.getHTML();
       const next = renderHtml(value);
-      if (current !== next) {
+      // Skip while the user is actively typing: a save echoes back into `value`
+      // (the patch invalidates the doc query), and re-setting content mid-edit
+      // would jump the cursor to the top. When focused, the user owns the DOM;
+      // an external change reconciles on the next blur/remount.
+      if (current !== next && !editor.isFocused) {
         editor.commands.setContent(next, { emitUpdate: false });
       }
     }, [editor, value]);

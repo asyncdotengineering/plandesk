@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { PatchNoteInput, SerializedNote } from '../../lib/api.js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RichTextEditor, type RichTextEditorHandle } from '../editor/RichTextEditor.js';
+import { RichTextEditor } from '../editor/RichTextEditor.js';
+import { SaveStatusIndicator } from '../editor/SaveStatusIndicator.js';
+import { useAutosave } from '../editor/useAutosave.js';
 import { ConfirmDialog } from '../docs/ConfirmDialog.js';
 
 export type NoteEditorMode = 'reader' | 'editor';
@@ -10,7 +12,7 @@ export type NoteEditorMode = 'reader' | 'editor';
 type NoteEditorProps = {
   note: SerializedNote;
   mode: NoteEditorMode;
-  onSave: (input: PatchNoteInput) => void;
+  onSave: (input: PatchNoteInput) => void | Promise<void>;
   onDelete?: () => void;
   isSaving?: boolean;
   isDeleting?: boolean;
@@ -32,18 +34,19 @@ export function NoteEditor({
   projectId,
   docLinks,
 }: NoteEditorProps) {
+  // Initialized once per mount; the route remounts this via key={noteId} when a
+  // different note loads, so a save echo never clobbers in-progress edits.
   const [title, setTitle] = useState(note.title);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const editorRef = useRef<RichTextEditorHandle>(null);
+  // Latest editor HTML; notes are stored as HTML (MCP converts agent Markdown).
+  const bodyRef = useRef(note.body ?? '');
 
-  useEffect(() => {
-    setTitle(note.title);
-  }, [note.title]);
+  const autosave = useAutosave<PatchNoteInput>({
+    buildInput: () => ({ title, body: bodyRef.current }),
+    onSave,
+  });
 
-  const handleSave = () => {
-    // Notes are stored as HTML — the MCP converts agent Markdown on write.
-    onSave({ title, body: editorRef.current?.getHTML() ?? '' });
-  };
+  const saveStatus = isSaving ? 'saving' : autosave.status;
 
   return (
     <div className="space-y-4">
@@ -54,6 +57,7 @@ export function NoteEditor({
             value={title}
             onChange={(event) => {
               setTitle(event.target.value);
+              autosave.notifyChange();
             }}
             aria-label="Note title"
             className="h-auto flex-1 border-0 border-b border-border bg-transparent px-0 py-1 text-2xl font-semibold tracking-tight shadow-none focus-visible:border-ring focus-visible:ring-0"
@@ -62,10 +66,8 @@ export function NoteEditor({
           <h1 className="flex-1 text-2xl font-semibold tracking-tight">{title}</h1>
         )}
         {mode === 'editor' ? (
-          <div className="flex shrink-0 items-center gap-2 pt-1">
-            <Button type="button" onClick={handleSave} disabled={isSaving || title.trim() === ''}>
-              {isSaving ? 'Saving…' : 'Save'}
-            </Button>
+          <div className="flex shrink-0 items-center gap-3 pt-1.5">
+            <SaveStatusIndicator status={saveStatus} />
             {onDelete !== undefined ? (
               <Button
                 type="button"
@@ -84,9 +86,12 @@ export function NoteEditor({
       </div>
 
       <RichTextEditor
-        ref={editorRef}
         value={note.body ?? ''}
         mode={mode}
+        onChange={(html) => {
+          bodyRef.current = html;
+          autosave.notifyChange();
+        }}
         onCommentOnSelection={onCommentOnSelection}
         onCreateComment={onCreateComment}
         projectId={projectId}
