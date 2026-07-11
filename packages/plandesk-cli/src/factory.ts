@@ -95,13 +95,20 @@ file is the policy the supervising agent follows.
 7. **Gate** — apply the task's lane from [lanes.md](lanes.md): \`auto\`
    proceeds, \`approve\` waits on a human resolving the diff-summary comment,
    \`full\` runs an independent review plus a human.
-8. **Report** — flip the task to \`done\` atomically with the verification and
-   append one line to \`runs/metrics.jsonl\` (cost, duration, lane, worker,
-   verdicts).
+8. **Report** — flip the task to \`done\` atomically with the verification,
+   commit that work item's diff as one atomic commit (subject references the
+   task), and append one line to \`runs/metrics.jsonl\` (cost, duration, lane,
+   worker, verdicts).
 
 ## Conventions
 
 - Statuses flip atomically with the work event, never in batches.
+- **One work item, one commit.** Commit only after the lane gate clears — for
+  \`auto\`, right after your own verification; for \`approve\`/\`full\`, only once
+  the human has resolved the gate and the task is \`done\`. The commit holds
+  exactly that item's changes and its subject names the task, so git history
+  stays 1:1 with the board. Never batch several done items into one commit, and
+  never commit work whose gate hasn't cleared.
 - Review blockers become tasks with blocking edges — the board always shows
   why work is stuck.
 - If a change balloons past its triaged complexity, the task goes back to
