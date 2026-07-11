@@ -18,6 +18,8 @@ type DocumentEditorProps = {
   // Called when the reader highlights text and clicks the floating "Add comment"
   // button — hands the selected passage up to the comment composer.
   onCommentOnSelection?: (passage: string) => void;
+  // Inline flow: create a passage-anchored comment from the floating composer.
+  onCreateComment?: (input: { passage: string; body: string }) => Promise<void>;
 };
 
 export function DocumentEditor({
@@ -28,6 +30,7 @@ export function DocumentEditor({
   isSaving = false,
   isDeleting = false,
   onCommentOnSelection,
+  onCreateComment,
 }: DocumentEditorProps) {
   const [title, setTitle] = useState(document.title);
   const [statusLine, setStatusLine] = useState(document.status_line ?? '');
@@ -109,6 +112,7 @@ export function DocumentEditor({
         value={document.body ?? ''}
         mode={mode}
         onCommentOnSelection={onCommentOnSelection}
+        onCreateComment={onCreateComment}
       />
 
       {onDelete !== undefined ? (

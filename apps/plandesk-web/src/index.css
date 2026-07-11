@@ -42,6 +42,8 @@
   --text-2: #57554f;
   --field: #ffffff;
   --canvas: #f5f4f2;
+  /* passage highlight while composing an inline comment (amber, doc-tool convention) */
+  --comment-highlight: rgba(245, 178, 46, 0.32);
   --shadow: 0 0 1px rgba(0, 0, 0, 0.28), 0 1px 1px rgba(0, 0, 0, 0.04),
     0 2px 4px rgba(0, 0, 0, 0.03);
   --shadow-pop: 0 0 1px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.1),
@@ -88,6 +90,7 @@
   --text-2: #a6a6a6;
   --field: #111111;
   --canvas: #101010;
+  --comment-highlight: rgba(245, 178, 46, 0.28);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.6);
 
@@ -172,4 +175,10 @@
     outline-offset: 2px;
     border-radius: 4px;
   }
+}
+
+/* Passage highlight for the inline comment composer (CSS Custom Highlight API). */
+::highlight(comment-draft) {
+  background-color: var(--comment-highlight);
+  border-radius: 2px;
 }

@@ -1,10 +1,17 @@
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { ArrowLeftIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { CommentsPanel } from '../components/docs/CommentsPanel.js';
 import { DocumentEditor, type DocumentEditorMode } from '../components/docs/DocumentEditor.js';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useDeleteDocument, useDocument, usePatchDocument, useProject } from '../lib/queries.js';
+import {
+  useCreateComment,
+  useDeleteDocument,
+  useDocument,
+  usePatchDocument,
+  useProject,
+} from '../lib/queries.js';
 
 function DocumentPage() {
   const { id, docId } = Route.useParams();
@@ -13,8 +20,8 @@ function DocumentPage() {
   const { data: document, isLoading: docLoading, error: docError } = useDocument(docId);
   const patchDocument = usePatchDocument();
   const deleteDocument = useDeleteDocument();
+  const createComment = useCreateComment({ type: 'document', id: docId });
   const [mode, setMode] = useState<DocumentEditorMode>('reader');
-  const [pendingPassage, setPendingPassage] = useState<string | null>(null);
 
   if (projectLoading || docLoading) {
     return <p className="text-sm text-muted-foreground">Loading document…</p>;
@@ -76,8 +83,9 @@ function DocumentPage() {
           mode={mode}
           isSaving={patchDocument.isPending}
           isDeleting={deleteDocument.isPending}
-          onCommentOnSelection={(passage) => {
-            setPendingPassage(passage);
+          onCreateComment={async ({ passage, body }) => {
+            await createComment.mutateAsync({ body, passage });
+            toast('Comment added');
           }}
           onSave={(input) => {
             patchDocument.mutate({ id: docId, input });
@@ -94,13 +102,7 @@ function DocumentPage() {
           }}
         />
       </div>
-      <CommentsPanel
-        target={{ type: 'document', id: docId }}
-        attachPassage={pendingPassage}
-        onPassageConsumed={() => {
-          setPendingPassage(null);
-        }}
-      />
+      <CommentsPanel target={{ type: 'document', id: docId }} />
     </div>
   );
 }
