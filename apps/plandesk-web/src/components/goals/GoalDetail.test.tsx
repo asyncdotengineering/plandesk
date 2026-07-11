@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedGoalDetail } from '../../lib/api.js';
@@ -77,11 +77,15 @@ describe('GoalDetail', () => {
       throw new Error(`unexpected fetch: ${init?.method ?? 'GET'} ${url}`);
     });
     vi.stubGlobal('fetch', fetchMock);
-    vi.spyOn(window, 'prompt').mockReturnValue('Alice');
 
     renderGoalDetail(humanSignOffGoal);
 
     fireEvent.click(screen.getByRole('button', { name: /Sign off & complete/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    const input = within(dialog).getByLabelText(/Approver name/i);
+    fireEvent.change(input, { target: { value: 'Alice' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Sign off & complete/i }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled();
@@ -120,6 +124,6 @@ describe('GoalDetail', () => {
     renderGoalDetail(goalWithTasks);
 
     expect(screen.getByText('Write tests')).toBeTruthy();
-    expect(screen.getByText('todo')).toBeTruthy();
+    expect(screen.getByText('Todo')).toBeTruthy();
   });
 });

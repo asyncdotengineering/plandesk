@@ -1,49 +1,32 @@
 import { useState } from 'react';
-import type { GoalStatus, SerializedGoal, SerializedLastVerification } from '../../lib/api.js';
+import { PlusIcon } from 'lucide-react';
+import { toast } from 'sonner';
+import type { SerializedGoal } from '../../lib/api.js';
 import { useCreateGoal, useGoal, useGoals } from '../../lib/queries.js';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { GoalDetail } from './GoalDetail.js';
+import { AcceptanceIndicator, GoalStatusBadge } from './goal-ui.js';
 
 type GoalsPanelProps = {
   projectId: string;
 };
 
-const statusColors: Record<GoalStatus, { background: string; color: string }> = {
-  active: { background: '#dbeafe', color: '#1e40af' },
-  paused: { background: '#fef3c7', color: '#b45309' },
-  complete: { background: '#dcfce7', color: '#15803d' },
-  blocked: { background: '#fee2e2', color: '#b91c1c' },
-};
-
-function statusChipStyle(status: GoalStatus) {
-  return {
-    fontSize: '0.6875rem',
-    fontWeight: 700,
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.03em',
-    padding: '0.125rem 0.375rem',
-    borderRadius: 4,
-    ...statusColors[status],
-  };
-}
-
-function AcceptanceIndicator({
-  verification,
-}: {
-  verification: SerializedLastVerification | null;
-}) {
-  if (verification === null) {
-    return <span aria-label="acceptance unknown">○</span>;
-  }
-  if (verification.green) {
-    return <span aria-label="acceptance passed">✓</span>;
-  }
-  return <span aria-label="acceptance failed">✗</span>;
-}
-
 export function GoalsPanel({ projectId }: GoalsPanelProps) {
   const { data: goals, isLoading, error } = useGoals(projectId);
   const createGoal = useCreateGoal(projectId);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+  const [newGoalOpen, setNewGoalOpen] = useState(false);
   const [newObjective, setNewObjective] = useState('');
   const [newSurface, setNewSurface] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
@@ -75,7 +58,9 @@ export function GoalsPanel({ projectId }: GoalsPanelProps) {
         onSuccess: (goal) => {
           setNewObjective('');
           setNewSurface('');
+          setNewGoalOpen(false);
           setSelectedGoalId(goal.id);
+          toast('Goal created');
         },
         onError: (err) => {
           setFormError(err instanceof Error ? err.message : 'Failed to create goal');
@@ -85,116 +70,135 @@ export function GoalsPanel({ projectId }: GoalsPanelProps) {
   };
 
   if (isLoading) {
-    return <p>Loading goals…</p>;
+    return <p className="text-sm text-muted-foreground">Loading goals…</p>;
   }
 
   if (error !== null) {
-    return <p role="alert">Failed to load goals: {error.message}</p>;
+    return (
+      <p role="alert" className="text-sm text-destructive">
+        Failed to load goals: {error.message}
+      </p>
+    );
   }
 
   const goalList = goals ?? [];
 
   return (
-    <div>
-      <section
-        style={{
-          marginBottom: '1.5rem',
-          padding: '1rem',
-          border: '1px solid #e5e7eb',
-          borderRadius: 8,
-        }}
-      >
-        <h2 style={{ marginTop: 0, fontSize: '1rem' }}>New goal</h2>
-        <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-          <span style={{ display: 'block', fontSize: '0.8125rem', marginBottom: '0.25rem' }}>
-            Objective
+    <div className="flex h-full flex-col">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+        <div className="flex flex-wrap items-baseline gap-2.5">
+          <h2 className="text-[15px] font-semibold tracking-tight">Goals</h2>
+          <span className="text-xs text-muted-foreground">
+            Durable contracts you hand to agents. Open one to watch it get built and act where a gate
+            needs you.
           </span>
-          <input
-            type="text"
-            value={newObjective}
-            onChange={(event) => {
-              setNewObjective(event.target.value);
-            }}
-            style={{ width: '100%', padding: '0.375rem 0.5rem', boxSizing: 'border-box' }}
-          />
-        </label>
-        <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-          <span style={{ display: 'block', fontSize: '0.8125rem', marginBottom: '0.25rem' }}>
-            verification_surface (optional JSON)
-          </span>
-          <textarea
-            value={newSurface}
-            onChange={(event) => {
-              setNewSurface(event.target.value);
-            }}
-            rows={3}
-            placeholder='{"kind":"human_sign_off"} or {"kind":"gate_command","command":"pnpm test"}'
-            style={{
-              width: '100%',
-              padding: '0.375rem 0.5rem',
-              boxSizing: 'border-box',
-              fontFamily: 'monospace',
-              fontSize: '0.8125rem',
-            }}
-          />
-        </label>
-        {formError !== null ? (
-          <p role="alert" style={{ color: '#b91c1c', fontSize: '0.8125rem' }}>
-            {formError}
-          </p>
-        ) : null}
-        <button
+        </div>
+        <Button
           type="button"
-          disabled={createGoal.isPending}
-          onClick={handleCreate}
-          style={{
-            padding: '0.375rem 0.75rem',
-            borderRadius: 6,
-            border: 'none',
-            background: '#1e40af',
-            color: '#fff',
-            fontWeight: 600,
-            cursor: 'pointer',
+          size="sm"
+          onClick={() => {
+            setFormError(null);
+            setNewGoalOpen(true);
           }}
         >
-          Create goal
-        </button>
-      </section>
+          <PlusIcon className="size-3.5" />
+          New goal
+        </Button>
+      </div>
 
-      {goalList.length === 0 ? (
-        <p style={{ color: '#6b7280' }}>No goals yet. Create one above.</p>
-      ) : (
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
-          <ul
-            style={{
-              listStyle: 'none',
-              margin: 0,
-              padding: 0,
-              minWidth: '16rem',
-              flexShrink: 0,
+      <Dialog
+        open={newGoalOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setFormError(null);
+          }
+          setNewGoalOpen(open);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>New goal</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleCreate();
             }}
           >
+            <div className="space-y-1.5">
+              <Label htmlFor="new-goal-objective" className="text-xs text-muted-foreground">
+                Objective
+              </Label>
+              <Input
+                id="new-goal-objective"
+                autoFocus
+                value={newObjective}
+                onChange={(event) => {
+                  setNewObjective(event.target.value);
+                }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-goal-surface" className="text-xs text-muted-foreground">
+                verification_surface (optional JSON)
+              </Label>
+              <Textarea
+                id="new-goal-surface"
+                value={newSurface}
+                rows={3}
+                placeholder='{"kind":"human_sign_off"} or {"kind":"gate_command","command":"pnpm test"}'
+                className="font-mono text-xs"
+                onChange={(event) => {
+                  setNewSurface(event.target.value);
+                }}
+              />
+            </div>
+            {formError !== null ? (
+              <p role="alert" className="text-xs text-destructive">
+                {formError}
+              </p>
+            ) : null}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setNewGoalOpen(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createGoal.isPending}>
+                Create goal
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {goalList.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No goals yet. Create one above.</p>
+      ) : (
+        <div className="flex min-h-0 flex-1 gap-6">
+          <ul className="m-0 w-64 shrink-0 list-none space-y-2.5 p-0">
             {goalList.map((goal: SerializedGoal) => (
-              <li key={goal.id} style={{ marginBottom: '0.5rem' }}>
+              <li key={goal.id}>
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedGoalId(goal.id);
                   }}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '0.5rem 0.75rem',
-                    borderRadius: 6,
-                    border:
-                      effectiveSelectedId === goal.id ? '2px solid #1a56db' : '1px solid #e5e7eb',
-                    background: effectiveSelectedId === goal.id ? '#eff6ff' : '#fff',
-                    cursor: 'pointer',
-                  }}
+                  className={cn(
+                    'w-full cursor-pointer rounded-[10px] border bg-card p-3.5 text-left shadow-[var(--shadow)] transition-colors',
+                    effectiveSelectedId === goal.id
+                      ? 'border-[var(--border-strong)] bg-muted ring-1 ring-[var(--border-strong)]'
+                      : 'border-border hover:bg-muted/50',
+                  )}
                 >
-                  <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{goal.objective}</div>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <span style={statusChipStyle(goal.status)}>{goal.status}</span>
+                  <p className="mb-2 text-sm font-semibold leading-snug">{goal.objective}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <GoalStatusBadge status={goal.status} />
                     <AcceptanceIndicator verification={goal.last_verification} />
                   </div>
                 </button>
@@ -202,15 +206,15 @@ export function GoalsPanel({ projectId }: GoalsPanelProps) {
             ))}
           </ul>
 
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="min-w-0 flex-1">
             {effectiveSelectedId === null ? (
-              <p>Select a goal.</p>
+              <p className="text-sm text-muted-foreground">Select a goal.</p>
             ) : detailLoading ? (
-              <p>Loading goal…</p>
+              <p className="text-sm text-muted-foreground">Loading goal…</p>
             ) : selectedGoal !== undefined ? (
               <GoalDetail projectId={projectId} goal={selectedGoal} />
             ) : (
-              <p>Goal not found.</p>
+              <p className="text-sm text-muted-foreground">Goal not found.</p>
             )}
           </div>
         </div>

@@ -18,12 +18,7 @@ function ProjectGoalsPage() {
     return <p>Project not found.</p>;
   }
 
-  return (
-    <section>
-      <h1 style={{ marginTop: 0 }}>{project.name} — Goals</h1>
-      <GoalsPanel projectId={id} />
-    </section>
-  );
+  return <GoalsPanel projectId={id} />;
 }
 
 export const Route = createFileRoute('/projects/$id/goals')({
