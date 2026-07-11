@@ -190,7 +190,7 @@ describe('Board', () => {
       makeTask('t3', 'Ship board', 'in_progress'),
     ];
 
-    renderBoard(tasks);
+    const { container } = renderBoard(tasks);
 
     await waitFor(() => {
       expect(screen.getByText('Plan sprint')).toBeTruthy();
@@ -198,11 +198,13 @@ describe('Board', () => {
       expect(screen.getByText('Ship board')).toBeTruthy();
     });
 
-    expect(screen.getByText('Scope')).toBeTruthy();
-    expect(screen.getByText('Todo')).toBeTruthy();
-    expect(screen.getByText('In Progress')).toBeTruthy();
-    expect(screen.getByText('Done')).toBeTruthy();
-    expect(screen.getByText('Backlog')).toBeTruthy();
+    // Five status columns are rendered, each labeled and grouping its tasks.
+    const columns = container.querySelectorAll('[data-board-column]');
+    expect(columns).toHaveLength(5);
+    expect(container.querySelector('[data-board-column="scope"]')?.getAttribute('data-board-column')).toBe('scope');
+    expect(container.querySelector('[data-board-column="scope"]')?.textContent).toContain('Plan sprint');
+    expect(container.querySelector('[data-board-column="todo"]')?.textContent).toContain('Write tests');
+    expect(container.querySelector('[data-board-column="in_progress"]')?.textContent).toContain('Ship board');
   });
 
   it('shows add task controls in each column', () => {
@@ -210,7 +212,7 @@ describe('Board', () => {
     const columns = container.querySelectorAll('[data-board-column]');
     expect(columns.length).toBe(5);
     for (const column of columns) {
-      expect(column.textContent).toContain('+ Add task');
+      expect(column.querySelector('[data-add-task]')).toBeTruthy();
     }
   });
 

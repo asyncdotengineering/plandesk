@@ -1,4 +1,9 @@
-import { taskStatuses, type SerializedTask, type TaskStatus } from '../../lib/api.js';
+import {
+  taskStatuses,
+  type SerializedTag,
+  type SerializedTask,
+  type TaskStatus,
+} from '../../lib/api.js';
 
 export const boardColumnOrder: TaskStatus[] = ['scope', 'todo', 'in_progress', 'done', 'backlog'];
 
@@ -20,6 +25,19 @@ export function groupTasksByStatus(tasks: SerializedTask[]): Record<TaskStatus, 
   }
 
   return grouped;
+}
+
+export const LANE_TAG_PREFIX = 'lane:';
+
+// Lane/severity is intentionally NOT a task field. It is carried as a
+// `lane:<value>` tag when present and surfaced separately from tag chips.
+export function laneFromTags(tags: SerializedTag[] | undefined): string | undefined {
+  for (const tag of tags ?? []) {
+    if (tag.name.startsWith(LANE_TAG_PREFIX)) {
+      return tag.name.slice(LANE_TAG_PREFIX.length);
+    }
+  }
+  return undefined;
 }
 
 // Multi-tag filter uses OR semantics: a task matches when it carries ANY of

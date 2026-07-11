@@ -1,180 +1,118 @@
-import { useState, type SubmitEvent } from 'react';
-import { useDroppable } from '@dnd-kit/core';
+import { PlusIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type { SerializedTask, TaskStatus } from '../../lib/api.js';
 import { columnLabels } from './board-utils.js';
+import { statusTokenVars } from './StatusChip.js';
 import { TaskCard } from './TaskCard.js';
 
 type BoardColumnProps = {
   status: TaskStatus;
   tasks: SerializedTask[];
-  activeTaskId: string | null;
-  onAddTask: (status: TaskStatus, label: string) => void;
+  linkedDocTaskIds: Set<string>;
   onOpenTask: (taskId: string) => void;
-  onDeleteTask: (taskId: string) => void;
-  isAdding?: boolean;
+  onChangeStatus: (taskId: string, status: TaskStatus) => void;
+  onRequestDelete: (taskId: string) => void;
+  onAddTask: (status: TaskStatus) => void;
+};
+
+const EMPTY_COPY: Record<TaskStatus, { title: string; body: string }> = {
+  scope: {
+    title: 'Nothing in scope',
+    body: 'Ideas awaiting sizing land here before a human releases them.',
+  },
+  todo: { title: 'No todos', body: 'Tasks waiting to start show up here.' },
+  in_progress: { title: 'Quiet for now', body: 'Nothing actively in progress.' },
+  done: { title: 'Nothing done yet', body: 'Completed tasks collect here.' },
+  backlog: {
+    title: 'Backlog is clear',
+    body: 'Unshaped requests wait here until triage sorts them.',
+  },
 };
 
 export function BoardColumn({
   status,
   tasks,
-  activeTaskId,
-  onAddTask,
+  linkedDocTaskIds,
   onOpenTask,
-  onDeleteTask,
-  isAdding = false,
+  onChangeStatus,
+  onRequestDelete,
+  onAddTask,
 }: BoardColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
-  const [label, setLabel] = useState('');
-  const [showForm, setShowForm] = useState(false);
-
-  const handleSubmit = (event: SubmitEvent) => {
-    event.preventDefault();
-    const trimmed = label.trim();
-    if (trimmed === '') {
-      return;
-    }
-    onAddTask(status, trimmed);
-    setLabel('');
-    setShowForm(false);
-  };
+  const label = columnLabels[status];
+  const empty = EMPTY_COPY[status];
 
   return (
-    <div
-      ref={setNodeRef}
+    <section
       data-board-column={status}
-      style={{
-        flex: '1 1 0',
-        minWidth: 180,
-        display: 'flex',
-        flexDirection: 'column',
-        background: isOver ? '#eff6ff' : '#f9fafb',
-        borderRadius: 8,
-        border: isOver ? '2px solid #3b82f6' : '1px solid #e5e7eb',
-        transition: 'background 0.15s, border 0.15s',
-      }}
+      className="flex w-[274px] flex-shrink-0 flex-col"
     >
-      <header
-        style={{
-          padding: '0.75rem',
-          fontWeight: 600,
-          fontSize: '0.875rem',
-          borderBottom: '1px solid #e5e7eb',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <span>{columnLabels[status]}</span>
+      <header className="flex items-center gap-2 px-1 pb-2.5">
         <span
-          style={{
-            fontSize: '0.75rem',
-            fontWeight: 500,
-            color: '#6b7280',
-            background: '#e5e7eb',
-            borderRadius: 999,
-            padding: '0.125rem 0.5rem',
-          }}
-        >
+          aria-hidden
+          className="size-2 flex-shrink-0 rounded-full"
+          style={{ backgroundColor: statusTokenVars[status].dot }}
+        />
+        <span className="text-[12.5px] font-semibold">{label}</span>
+        <span className="mono rounded-full bg-secondary px-1.5 text-[11.5px] text-muted-foreground">
           {tasks.length}
         </span>
+        <span className="ml-auto" />
+        <Button
+          type="button"
+          data-add-task
+          variant="ghost"
+          size="icon-xs"
+          aria-label={`Add task to ${label}`}
+          onClick={() => {
+            onAddTask(status);
+          }}
+        >
+          <PlusIcon />
+        </Button>
       </header>
-      <div
-        style={{
-          padding: '0.5rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.5rem',
-          flex: 1,
-          minHeight: 120,
-        }}
-      >
-        {tasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            isDragging={activeTaskId === task.id}
-            onOpen={onOpenTask}
-            onDelete={onDeleteTask}
-          />
-        ))}
-        {showForm ? (
-          <form
-            onSubmit={handleSubmit}
-            style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}
-          >
-            <input
-              type="text"
-              value={label}
-              autoFocus
-              onChange={(event) => {
-                setLabel(event.target.value);
-              }}
-              placeholder="Task name"
-              aria-label={`New task in ${columnLabels[status]}`}
-              style={{
-                padding: '0.375rem 0.5rem',
-                borderRadius: 4,
-                border: '1px solid #d1d5db',
-                fontSize: '0.875rem',
-              }}
-            />
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <button
-                type="submit"
-                disabled={isAdding || label.trim() === ''}
-                style={{
-                  flex: 1,
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: 4,
-                  border: '1px solid #1d4ed8',
-                  background: '#1d4ed8',
-                  color: '#fff',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  cursor: isAdding ? 'wait' : 'pointer',
-                }}
-              >
-                {isAdding ? 'Adding…' : 'Add'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  setLabel('');
-                }}
-                style={{
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: 4,
-                  border: '1px solid #d1d5db',
-                  background: '#fff',
-                  fontSize: '0.75rem',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+
+      <div className="flex min-h-0 flex-col gap-2 overflow-y-auto px-0.5 pb-2">
+        {tasks.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-[var(--border-strong)] px-2.5 py-4 text-center text-xs text-muted-foreground">
+            <p className="font-semibold text-[var(--text-2)]">{empty.title}</p>
+            <p className="mt-0.5 leading-snug">{empty.body}</p>
+          </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => {
-              setShowForm(true);
-            }}
-            style={{
-              padding: '0.375rem',
-              borderRadius: 4,
-              border: '1px dashed #d1d5db',
-              background: 'transparent',
-              color: '#6b7280',
-              fontSize: '0.75rem',
-              cursor: 'pointer',
-            }}
-          >
-            + Add task
-          </button>
+          <>
+            {tasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                hasLinkedDoc={linkedDocTaskIds.has(task.id)}
+                onOpen={() => {
+                  onOpenTask(task.id);
+                }}
+                onChangeStatus={(next) => {
+                  onChangeStatus(task.id, next);
+                }}
+                onRequestDelete={() => {
+                  onRequestDelete(task.id);
+                }}
+              />
+            ))}
+            <button
+              type="button"
+              data-add-task
+              onClick={() => {
+                onAddTask(status);
+              }}
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] text-muted-foreground',
+                'hover:bg-secondary hover:text-foreground',
+              )}
+            >
+              <PlusIcon className="size-3.5" />
+              Add task
+            </button>
+          </>
         )}
       </div>
-    </div>
+    </section>
   );
 }

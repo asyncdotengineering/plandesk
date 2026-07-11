@@ -1,124 +1,123 @@
-import { useDraggable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
-import { useRef, type CSSProperties, type MouseEvent } from 'react';
-import type { SerializedTask } from '../../lib/api.js';
+import { FileTextIcon, MoreHorizontalIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+import { columnLabels, laneFromTags, LANE_TAG_PREFIX } from './board-utils.js';
+import { StatusMenu } from './StatusChip.js';
+import { taskStatuses, type SerializedTask, type TaskStatus } from '../../lib/api.js';
 
 type TaskCardProps = {
   task: SerializedTask;
-  isDragging?: boolean;
-  onOpen: (taskId: string) => void;
-  onDelete: (taskId: string) => void;
+  hasLinkedDoc: boolean;
+  onOpen: () => void;
+  onChangeStatus: (status: TaskStatus) => void;
+  onRequestDelete: () => void;
 };
 
-const DRAG_CLICK_TOLERANCE_PX = 5;
-
-export function TaskCard({ task, isDragging = false, onOpen, onDelete }: TaskCardProps) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: task.id,
-    data: { status: task.status },
-  });
-  const pointerDownPosition = useRef<{ x: number; y: number } | null>(null);
-
-  const handleDelete = (event: MouseEvent) => {
-    event.stopPropagation();
-    if (confirm('Delete this task?')) {
-      onDelete(task.id);
-    }
-  };
-
-  // A drag releases a click on the same element; only open when the pointer
-  // barely moved between press and release.
-  const handleClick = (event: MouseEvent) => {
-    const start = pointerDownPosition.current;
-    if (
-      start !== null &&
-      (Math.abs(event.clientX - start.x) > DRAG_CLICK_TOLERANCE_PX ||
-        Math.abs(event.clientY - start.y) > DRAG_CLICK_TOLERANCE_PX)
-    ) {
-      return;
-    }
-    onOpen(task.id);
-  };
-
-  const style: CSSProperties = {
-    transform: CSS.Translate.toString(transform),
-    padding: '0.75rem',
-    borderRadius: 6,
-    border: '1px solid #d1d5db',
-    background: '#fff',
-    boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.12)' : '0 1px 2px rgba(0,0,0,0.06)',
-    cursor: isDragging ? 'grabbing' : 'pointer',
-    opacity: isDragging ? 0.5 : 1,
-    touchAction: 'none',
-  };
+export function TaskCard({ task, hasLinkedDoc, onOpen, onChangeStatus, onRequestDelete }: TaskCardProps) {
+  const lane = laneFromTags(task.tags);
+  const chips = (task.tags ?? []).filter((tag) => !tag.name.startsWith(LANE_TAG_PREFIX));
 
   return (
-    <div
-      ref={setNodeRef}
+    <Card
       data-task-id={task.id}
       data-task-status={task.status}
-      style={style}
-      {...attributes}
-      {...listeners}
-      onPointerDown={(event) => {
-        pointerDownPosition.current = { x: event.clientX, y: event.clientY };
-        listeners?.onPointerDown?.(event);
-      }}
-      onClick={handleClick}
+      onClick={onOpen}
+      className={cn(
+        'group relative w-full cursor-pointer gap-0 rounded-lg px-2.5 py-2.5 shadow-[var(--shadow)] transition',
+        'hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-pop)]',
+      )}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.25rem' }}>
-        <div style={{ flex: 1, fontWeight: 600, lineHeight: 1.3 }}>{task.label}</div>
-        <button
-          type="button"
-          onClick={handleDelete}
-          aria-label="Delete task"
-          style={{
-            border: 'none',
-            background: 'none',
-            color: '#9ca3af',
-            cursor: 'pointer',
-            fontSize: '1rem',
-            lineHeight: 1,
-            padding: '0 0.125rem',
-          }}
-        >
-          ×
-        </button>
+      <div className="absolute right-1.5 top-1.5 opacity-0 transition group-hover:opacity-100">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Task actions"
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+            >
+              <MoreHorizontalIcon />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onSelect={() => {
+                onOpen();
+              }}
+            >
+              Open
+            </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Move to</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {taskStatuses.map((status) => (
+                  <DropdownMenuItem
+                    key={status}
+                    disabled={status === task.status}
+                    onSelect={() => {
+                      onChangeStatus(status);
+                    }}
+                  >
+                    {columnLabels[status]}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => {
+                onRequestDelete();
+              }}
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-      {task.assignee !== null ? (
-        <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
-          {task.assignee}
-        </div>
-      ) : null}
-      {task.tags !== undefined && task.tags.length > 0 ? (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.375rem' }}>
-          {task.tags.map((tag) => (
+
+      <p className="mb-2 mr-6 text-[13px] font-medium leading-snug">{task.label}</p>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <StatusMenu status={task.status} onChange={onChangeStatus} />
+        {lane !== undefined ? (
+          <span className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+            {lane}
+          </span>
+        ) : null}
+        {hasLinkedDoc ? (
+          <FileTextIcon className="size-3.5 text-muted-foreground" aria-label="Has linked document" />
+        ) : null}
+        <span className="mono ml-auto text-[10.5px] text-muted-foreground">{shortId(task.id)}</span>
+      </div>
+
+      {chips.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {chips.map((tag) => (
             <span
               key={tag.id}
               data-tag-chip={tag.name}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                fontSize: '0.6875rem',
-                fontWeight: 500,
-                color: '#374151',
-                background: '#f3f4f6',
-                border: '1px solid #e5e7eb',
-                borderRadius: 999,
-                padding: '0.0625rem 0.5rem',
-              }}
+              className="inline-flex items-center gap-1 rounded-full border bg-secondary px-2 py-0.5 text-[11px] font-medium text-secondary-foreground"
             >
               {tag.color !== null ? (
                 <span
                   aria-hidden
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: '50%',
-                    background: tag.color,
-                    flexShrink: 0,
-                  }}
+                  className="size-1.5 rounded-full"
+                  style={{ backgroundColor: tag.color }}
                 />
               ) : null}
               {tag.name}
@@ -126,6 +125,10 @@ export function TaskCard({ task, isDragging = false, onOpen, onDelete }: TaskCar
           ))}
         </div>
       ) : null}
-    </div>
+    </Card>
   );
+}
+
+function shortId(id: string): string {
+  return id.length <= 4 ? id : id.slice(-4).toUpperCase();
 }

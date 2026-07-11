@@ -1,40 +1,80 @@
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragStartEvent,
-} from '@dnd-kit/core';
-import { useMemo, useState } from 'react';
-import type { SerializedTask, TaskStatus } from '../../lib/api.js';
-import { useCreateTask, useDeleteTask, usePatchTask, useTags } from '../../lib/queries.js';
-import { TaskDetail } from '../canvas/TaskDetail.js';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  type PatchTaskInput,
+  type SerializedDocumentTree,
+  type SerializedTag,
+  type SerializedTask,
+  type TaskStatus,
+  taskStatuses,
+} from '../../lib/api.js';
+import {
+  useCreateTask,
+  useDeleteTask,
+  useDocuments,
+  usePatchTask,
+  useTags,
+} from '../../lib/queries.js';
+import {
+  boardColumnOrder,
+  columnLabels,
+  filterTasksByAnyTag,
+  groupTasksByStatus,
+  LANE_TAG_PREFIX,
+} from './board-utils.js';
 import { BoardColumn } from './BoardColumn.js';
-import { boardColumnOrder, filterTasksByAnyTag, groupTasksByStatus } from './board-utils.js';
-import { TaskCard } from './TaskCard.js';
-import { useBoardDnd } from './useBoardDnd.js';
+import { TaskDrawer } from './TaskDrawer.js';
 
 type BoardProps = {
   projectId: string;
   tasks: SerializedTask[];
 };
 
+const LANE_OPTIONS = ['none', 'auto', 'approve', 'full'] as const;
+type LaneOption = (typeof LANE_OPTIONS)[number];
+
 export function Board({ projectId, tasks }: BoardProps) {
   const { data: projectTags } = useTags(projectId);
-  // OR semantics: a task stays visible when it carries ANY selected tag.
+  const { data: documents } = useDocuments(projectId);
+
+  const linkedDocTaskIds = useMemo(() => collectLinkedTaskIds(documents), [documents]);
+  const linkedDocByTask = useMemo(() => mapLinkedDocByTask(documents), [documents]);
+
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [drawerTaskId, setDrawerTaskId] = useState<string | null>(null);
+  const [createForStatus, setCreateForStatus] = useState<TaskStatus | null>(null);
+  const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
+
   const visibleTasks = useMemo(
     () => filterTasksByAnyTag(tasks, selectedTagIds),
     [tasks, selectedTagIds],
   );
   const grouped = useMemo(() => groupTasksByStatus(visibleTasks), [visibleTasks]);
-  const { handleDragEnd, isUpdating, updateError } = useBoardDnd({ projectId, tasks });
+
   const createTask = useCreateTask(projectId);
   const patchTask = usePatchTask();
-  const deleteTask = useDeleteTask();
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const deleteTaskHook = useDeleteTask();
+
+  const drawerTask = drawerTaskId !== null ? tasks.find((task) => task.id === drawerTaskId) : undefined;
+  const tagNames = (projectTags ?? []).map((tag) => tag.name);
 
   const toggleTagFilter = (tagId: string) => {
     setSelectedTagIds((current) =>
@@ -42,202 +82,369 @@ export function Board({ projectId, tasks }: BoardProps) {
     );
   };
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 6 },
-    }),
-  );
-
-  const activeTask =
-    activeTaskId !== null ? tasks.find((task) => task.id === activeTaskId) : undefined;
-  const selectedTask =
-    selectedTaskId !== null ? tasks.find((task) => task.id === selectedTaskId) : undefined;
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveTaskId(String(event.active.id));
+  const handleChangeStatus = (taskId: string, status: TaskStatus) => {
+    patchTask.mutate(
+      { id: taskId, input: { status } },
+      { onSuccess: () => toast(`Status → ${columnLabels[status]}`) },
+    );
   };
 
-  const handleDragEndWrapped = (event: Parameters<typeof handleDragEnd>[0]) => {
-    handleDragEnd(event);
-    setActiveTaskId(null);
+  const handleRequestDelete = (taskId: string) => {
+    setDeleteTaskId(taskId);
   };
 
-  const handleAddTask = (status: TaskStatus, label: string) => {
-    createTask.mutate({ label, status });
-  };
-
-  const handleDeleteTask = (taskId: string) => {
-    if (selectedTaskId === taskId) {
-      setSelectedTaskId(null);
+  const handleConfirmDelete = () => {
+    if (deleteTaskId === null) {
+      return;
     }
-    deleteTask.mutate({ id: taskId, projectId });
+    const targetId = deleteTaskId;
+    deleteTaskHook.mutate(
+      { id: targetId, projectId },
+      {
+        onSuccess: () => {
+          toast('Task deleted');
+          if (drawerTaskId === targetId) {
+            setDrawerTaskId(null);
+          }
+          setDeleteTaskId(null);
+        },
+      },
+    );
+  };
+
+  const handleCreate = (input: { label: string; status: TaskStatus; lane: LaneOption }) => {
+    const tags = input.lane !== 'none' ? [`${LANE_TAG_PREFIX}${input.lane}`] : undefined;
+    createTask.mutate(
+      { label: input.label, status: input.status, tags },
+      {
+        onSuccess: () => {
+          toast(`Task created in ${columnLabels[input.status]}`);
+          setCreateForStatus(null);
+        },
+      },
+    );
   };
 
   // Add/remove send the FULL replacement tag-name set (server replace semantics).
   const handleAddTag = (name: string) => {
-    if (selectedTask === undefined) {
+    if (drawerTask === undefined) {
       return;
     }
-    const names = (selectedTask.tags ?? []).map((tag) => tag.name);
+    const names = (drawerTask.tags ?? []).map((tag) => tag.name);
     if (names.includes(name)) {
       return;
     }
-    patchTask.mutate({ id: selectedTask.id, input: { tags: [...names, name] } });
+    patchTask.mutate({ id: drawerTask.id, input: { tags: [...names, name] } });
   };
 
   const handleRemoveTag = (name: string) => {
-    if (selectedTask === undefined) {
+    if (drawerTask === undefined) {
       return;
     }
-    const names = (selectedTask.tags ?? []).map((tag) => tag.name).filter((n) => n !== name);
-    patchTask.mutate({ id: selectedTask.id, input: { tags: names } });
+    const names = (drawerTask.tags ?? []).map((tag) => tag.name).filter((n) => n !== name);
+    patchTask.mutate({ id: drawerTask.id, input: { tags: names } });
+  };
+
+  const handlePatch = (input: PatchTaskInput) => {
+    if (drawerTask === undefined) {
+      return;
+    }
+    patchTask.mutate({ id: drawerTask.id, input });
   };
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="flex h-full flex-col">
       {projectTags !== undefined && projectTags.length > 0 ? (
-        <div
-          role="group"
-          aria-label="Filter by tag"
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: '0.375rem',
-            marginBottom: '0.75rem',
-          }}
-        >
-          <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>Filter:</span>
-          {projectTags.map((tag) => {
-            const selected = selectedTagIds.includes(tag.id);
-            return (
-              <button
-                key={tag.id}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => {
-                  toggleTagFilter(tag.id);
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.25rem',
-                  fontSize: '0.75rem',
-                  fontWeight: 500,
-                  color: selected ? '#1d4ed8' : '#374151',
-                  background: selected ? '#eff6ff' : '#f3f4f6',
-                  border: selected ? '1px solid #93c5fd' : '1px solid #e5e7eb',
-                  borderRadius: 999,
-                  padding: '0.125rem 0.625rem',
-                  cursor: 'pointer',
-                }}
-              >
-                {tag.color !== null ? (
-                  <span
-                    aria-hidden
-                    style={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: '50%',
-                      background: tag.color,
-                      flexShrink: 0,
-                    }}
-                  />
-                ) : null}
-                {tag.name}
-              </button>
-            );
-          })}
+        <div role="group" aria-label="Filter by tag" className="mb-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">Filter:</span>
+          {projectTags.map((tag) => (
+            <FilterTagButton
+              key={tag.id}
+              tag={tag}
+              selected={selectedTagIds.includes(tag.id)}
+              onClick={() => {
+                toggleTagFilter(tag.id);
+              }}
+            />
+          ))}
           {selectedTagIds.length > 0 ? (
-            <button
+            <Button
               type="button"
+              size="xs"
+              variant="ghost"
               onClick={() => {
                 setSelectedTagIds([]);
               }}
-              style={{
-                border: 'none',
-                background: 'none',
-                color: '#6b7280',
-                fontSize: '0.75rem',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
             >
               Clear filter
-            </button>
+            </Button>
           ) : null}
         </div>
       ) : null}
-      {isUpdating ? (
-        <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: 0 }}>Updating task…</p>
-      ) : null}
-      {updateError !== null ? (
-        <p role="alert" style={{ color: '#b91c1c', marginTop: 0 }}>
-          Failed to update task: {updateError.message}
-        </p>
-      ) : null}
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEndWrapped}>
-        <div
-          style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', overflowX: 'auto' }}
-        >
+
+      <div className="min-h-0 flex-1 overflow-x-auto pb-2">
+        <div className="flex h-full items-start gap-3.5">
           {boardColumnOrder.map((status) => (
             <BoardColumn
               key={status}
               status={status}
               tasks={grouped[status]}
-              activeTaskId={activeTaskId}
-              onAddTask={handleAddTask}
-              onOpenTask={setSelectedTaskId}
-              onDeleteTask={handleDeleteTask}
-              isAdding={createTask.isPending}
+              linkedDocTaskIds={linkedDocTaskIds}
+              onOpenTask={setDrawerTaskId}
+              onChangeStatus={handleChangeStatus}
+              onRequestDelete={handleRequestDelete}
+              onAddTask={setCreateForStatus}
             />
           ))}
         </div>
-        <DragOverlay>
-          {activeTask !== undefined ? (
-            <TaskCard
-              task={activeTask}
-              isDragging
-              onOpen={() => undefined}
-              onDelete={handleDeleteTask}
-            />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
-      {selectedTask !== undefined ? (
-        <TaskDetail
-          taskId={selectedTask.id}
-          data={{
-            label: selectedTask.label,
-            status: selectedTask.status,
-            projectId,
-            description: selectedTask.description,
-            assignee: selectedTask.assignee,
-            dueDate: selectedTask.due_date,
-          }}
-          tags={selectedTask.tags ?? []}
-          tagSuggestions={(projectTags ?? []).map((tag) => tag.name)}
-          onAddTag={handleAddTag}
-          onRemoveTag={handleRemoveTag}
-          isSaving={patchTask.isPending}
-          onPatch={(input) => {
-            patchTask.mutate({ id: selectedTask.id, input });
-          }}
-          onDelete={() => {
-            deleteTask.mutate(
-              { id: selectedTask.id, projectId },
-              {
-                onSuccess: () => {
-                  setSelectedTaskId(null);
-                },
-              },
-            );
-          }}
-          onClose={() => {
-            setSelectedTaskId(null);
-          }}
-        />
-      ) : null}
+      </div>
+
+      <TaskDrawer
+        open={drawerTask !== undefined}
+        task={drawerTask ?? null}
+        linkedDoc={drawerTask !== undefined ? linkedDocByTask.get(drawerTask.id) : undefined}
+        tagSuggestions={tagNames}
+        isSaving={patchTask.isPending}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDrawerTaskId(null);
+          }
+        }}
+        onPatch={handlePatch}
+        onChangeStatus={(status) => {
+          if (drawerTask !== undefined) {
+            handleChangeStatus(drawerTask.id, status);
+          }
+        }}
+        onAddTag={handleAddTag}
+        onRemoveTag={handleRemoveTag}
+      />
+
+      <CreateTaskDialog
+        open={createForStatus !== null}
+        status={createForStatus ?? 'todo'}
+        isCreating={createTask.isPending}
+        onClose={() => {
+          setCreateForStatus(null);
+        }}
+        onCreate={handleCreate}
+      />
+
+      <DeleteTaskDialog
+        open={deleteTaskId !== null}
+        isDeleting={deleteTaskHook.isPending}
+        onClose={() => {
+          setDeleteTaskId(null);
+        }}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
+}
+
+function FilterTagButton({
+  tag,
+  selected,
+  onClick,
+}: {
+  tag: SerializedTag;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      size="xs"
+      variant={selected ? 'default' : 'outline'}
+      aria-pressed={selected}
+      onClick={onClick}
+    >
+      {tag.color !== null ? (
+        <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+      ) : null}
+      {tag.name}
+    </Button>
+  );
+}
+
+type CreateTaskDialogProps = {
+  open: boolean;
+  status: TaskStatus;
+  isCreating: boolean;
+  onClose: () => void;
+  onCreate: (input: { label: string; status: TaskStatus; lane: LaneOption }) => void;
+};
+
+function CreateTaskDialog({ open, status, isCreating, onClose, onCreate }: CreateTaskDialogProps) {
+  const [label, setLabel] = useState('');
+  const [taskStatus, setTaskStatus] = useState<TaskStatus>(status);
+  const [lane, setLane] = useState<LaneOption>('none');
+
+  // Re-seed the form whenever the dialog opens (possibly for a new column).
+  useEffect(() => {
+    if (open) {
+      setLabel('');
+      setTaskStatus(status);
+      setLane('none');
+    }
+  }, [open, status]);
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New task</DialogTitle>
+          <DialogDescription>Lands on the board — a human releases scope → todo.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="new-task-title">Task</Label>
+            <Input
+              id="new-task-title"
+              value={label}
+              placeholder="Verb Noun in Location…"
+              onChange={(event) => {
+                setLabel(event.target.value);
+              }}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="new-task-status">Status</Label>
+              <Select
+                value={taskStatus}
+                onValueChange={(value) => {
+                  setTaskStatus(value as TaskStatus);
+                }}
+              >
+                <SelectTrigger id="new-task-status" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {taskStatuses.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {columnLabels[option]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="new-task-lane">Lane</Label>
+              <Select value={lane} onValueChange={(value) => {
+              setLane(value as LaneOption);
+            }}>
+                <SelectTrigger id="new-task-lane" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LANE_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={label.trim() === '' || isCreating}
+            onClick={() => {
+              onCreate({ label: label.trim(), status: taskStatus, lane });
+            }}
+          >
+            {isCreating ? 'Creating…' : 'Create task'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type DeleteTaskDialogProps = {
+  open: boolean;
+  isDeleting: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+};
+
+function DeleteTaskDialog({ open, isDeleting, onClose, onConfirm }: DeleteTaskDialogProps) {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Delete task?</DialogTitle>
+          <DialogDescription>This cannot be undone.</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="button" variant="destructive" disabled={isDeleting} onClick={onConfirm}>
+            {isDeleting ? 'Deleting…' : 'Delete'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function collectLinkedTaskIds(documents: SerializedDocumentTree[] | undefined): Set<string> {
+  const ids = new Set<string>();
+  if (documents === undefined) {
+    return ids;
+  }
+  const walk = (nodes: SerializedDocumentTree[]) => {
+    for (const node of nodes) {
+      if (node.linked_task_id !== null) {
+        ids.add(node.linked_task_id);
+      }
+      if (node.children.length > 0) {
+        walk(node.children);
+      }
+    }
+  };
+  walk(documents);
+  return ids;
+}
+
+function mapLinkedDocByTask(
+  documents: SerializedDocumentTree[] | undefined,
+): Map<string, SerializedDocumentTree> {
+  const map = new Map<string, SerializedDocumentTree>();
+  if (documents === undefined) {
+    return map;
+  }
+  const walk = (nodes: SerializedDocumentTree[]) => {
+    for (const node of nodes) {
+      if (node.linked_task_id !== null) {
+        map.set(node.linked_task_id, node);
+      }
+      if (node.children.length > 0) {
+        walk(node.children);
+      }
+    }
+  };
+  walk(documents);
+  return map;
 }
