@@ -1,4 +1,4 @@
-import Image from '@tiptap/extension-image';
+import { AnnotatableImage } from './AnnotatableImage.js';
 import { TableKit } from '@tiptap/extension-table';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
@@ -172,7 +172,12 @@ function insertImageFiles(view: EditorView, files: FileList | null | undefined, 
       if (typeof reader.result !== 'string') {
         return;
       }
-      const node = imageType.create({ src: reader.result, alt: file.name });
+      const node = imageType.create({
+        src: reader.result,
+        alt: file.name,
+        originalSrc: reader.result,
+        annotations: '[]',
+      });
       const tr =
         pos === undefined
           ? view.state.tr.replaceSelectionWith(node)
@@ -324,7 +329,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         // openOnClick:false — links (incl. doc links) never navigate from inside
         // the editable surface; reader-mode navigation is handled on click below.
         StarterKit.configure({ link: { openOnClick: false } }),
-        Image.configure({ allowBase64: true }),
+        AnnotatableImage,
         TableKit,
         TaskList,
         TaskItem.configure({ nested: true }),
