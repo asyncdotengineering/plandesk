@@ -2,13 +2,27 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [0.14.0] — 2026-07-12
+
+### Changed
+
+- **Redesigned web console.** The whole workspace UI was rebuilt as an operator console on shadcn/ui + Tailwind — a warm-monochrome, light-mode design system applied across Overview, Board, Flow, Goals, Documents, Notes, Inbox, settings, and the shared portal. Overview is now a real dashboard (progress, status tiles, goals, agent runs, recent documents), Documents is its own workspace tab with a **folder-based browser** (folder cards → recent → all documents), and document lists are ordered most-recently-updated first. Flow's auto-layout packs disconnected nodes into a grid instead of a single horizontal strip.
+- **Every destructive action now asks first.** Deleting a project, document, note, or folder — and revoking an MCP token — routes through a confirmation dialog instead of firing on click.
+
+### Added
+
+- **Notion-style document editor.** Documents and notes now edit on a seamless, full-height canvas with a `/` slash menu (headings, bullet / numbered / to-do lists, quote, code block, divider, table), `[[` document-to-document links, and proper document typography (headings, lists, quotes, code, rules) that had been flattened by the CSS reset. A brand-new or empty document opens in Edit; an existing one opens read-first.
+- **Auto-save for documents and notes.** The manual Save button is gone — edits persist automatically: debounced ~1s after a typing pause, forced during continuous typing, and flushed immediately on navigating away, closing the tab, or pressing ⌘S. A quiet Saved / Saving… / Unsaved indicator replaces the button, and a save never jumps the cursor mid-edit.
+- **Inline comments on a selection.** Highlighting a passage in reader mode opens an in-context composer anchored to the (still-highlighted) passage; submitting posts the comment to the rail.
+- **`factory` in `plandesk --help`.** The factory command is now discoverable in the default help, and `factory init` ships consumer-clean curator skills. The factory contract now commits one atomic commit per work item once its lane gate clears.
+
 ## [0.13.3] — 2026-07-09
 
 ### Fixed
 
 - **Documents and notes with Markdown bodies no longer fail to save** — `create_document`, `update_document`, `create_note`, and `update_note` with any non-empty Markdown body previously threw `marked(): The async option was set to true by an extension` whenever the CLI and MCP server ran in one `plandesk serve` process. The CLI previewer registers an async syntax-highlighting extension on the shared `marked` singleton at load time, which broke the server-side renderer's synchronous parse. The renderer now uses its own private `marked` instance, immune to extensions registered anywhere else in the process. (#10)
 - **`update_document` can now link a document to a task** — the MCP `update_document` tool silently dropped `linked_task_id` (the parameter was missing from its schema, so it was stripped before persistence). It now accepts `linked_task_id` (a task id; pass `null` to unlink) and round-trips through `get_document`. The canonical parameter for the granular document tools is `linked_task_id`; `link_to` (a task **key**) remains scaffold-only. (#11)
-- **`plandesk init` no longer hands two projects the same port** — port allocation only skipped ports that were *currently listening*, so two projects whose servers were both stopped could be assigned the same port, leaving the second project's config pointed at the first project's server (401s, `binding-project-exists: no`). A machine-global registry (`~/.plandesk/ports.json`) now records each project's assigned port, and `init` skips ports owned by another project; `serve` registers the port it actually binds. Stale entries (owning project deleted) are reclaimed. (#12)
+- **`plandesk init` no longer hands two projects the same port** — port allocation only skipped ports that were _currently listening_, so two projects whose servers were both stopped could be assigned the same port, leaving the second project's config pointed at the first project's server (401s, `binding-project-exists: no`). A machine-global registry (`~/.plandesk/ports.json`) now records each project's assigned port, and `init` skips ports owned by another project; `serve` registers the port it actually binds. Stale entries (owning project deleted) are reclaimed. (#12)
 - **MCP endpoint and `doctor` failures are now legible.** The `/mcp` router is mounted before the web-UI/SPA fallback, so the MCP server→client `GET /mcp/` stream is no longer shadowed (which had broken reconnects). The MCP client now translates an HTML/non-JSON response (an SPA served on a foreign port) into an actionable error instead of an opaque `Unrecognized token '<'`. And `plandesk doctor`'s `binding-token-valid` now exercises the real authenticated MCP path — it can no longer report a token "valid" while live MCP requests are being rejected. (#13)
 
 ## [0.13.2] — 2026-07-06
@@ -16,8 +30,6 @@ All notable changes to Plan Desk are documented here.
 ### Added
 
 - **Folder support in the previewer** — `plandesk ./dir` opens every previewable file in a folder as tabs (walked recursively). A folder of linked HTML (an RFC or exported site with relative `<img>`/`<link>`/`<a href>` to sibling files and assets) now **renders with those assets and links working**: the opened directory is served as a scoped, same-origin static root, and folder HTML is framed `sandbox="allow-same-origin"` **without** `allow-scripts` (safe for static docs) under a `default-src 'none'; img-src 'self'…; script-src 'none'; connect-src 'none'` policy. Path traversal outside the folder is blocked. Single-file previews (`plandesk file.html`) are unchanged — a lone HTML file is still treated as a self-contained, `allow-scripts`, network-dead artifact.
-
-
 
 ### Changed
 
@@ -31,7 +43,7 @@ All notable changes to Plan Desk are documented here.
 
 ### Added
 
-- **Rich previewer rendering** — the `plandesk <file.md>` previewer now renders fenced code with **syntax highlighting** (Shiki, dual light/dark, done at render time so the reader iframe stays script-free), **Mermaid diagrams** (```mermaid``` blocks render to real diagrams), and **styled GFM tables**. Mermaid runs in the previewer's parent page and injects static SVG into the sandboxed, network-dead reader iframe — nothing executes inside the reader. The Mermaid bundle is served locally and **lazy-loaded only when a diagram is present**, so files without diagrams are unaffected.
+- **Rich previewer rendering** — the `plandesk <file.md>` previewer now renders fenced code with **syntax highlighting** (Shiki, dual light/dark, done at render time so the reader iframe stays script-free), **Mermaid diagrams** (`mermaid` blocks render to real diagrams), and **styled GFM tables**. Mermaid runs in the previewer's parent page and injects static SVG into the sandboxed, network-dead reader iframe — nothing executes inside the reader. The Mermaid bundle is served locally and **lazy-loaded only when a diagram is present**, so files without diagrams are unaffected.
 
 ### Changed
 
