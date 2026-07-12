@@ -2,6 +2,16 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [0.15.0] — 2026-07-12
+
+### Added
+
+- **Image annotation in the document editor.** Insert an image, then mark it up WhatsApp-style — arrows, boxes, text labels, and blur/redact — on a custom SVG overlay. Marks flatten to a PNG so they render identically in the reader, the shared portal, and print/PDF. **Redaction is destructive and permanent**: a blurred region is baked into the stored image as a mosaic, so a redacted secret is never recoverable from the document (not even from the raw HTML) — while arrows, boxes, and text stay re-editable.
+
+### Fixed
+
+- **Each Plan Desk install now gets a unique random port in 3400–3499.** Port allocation scanned sequentially from 3400, so installs created while earlier servers were stopped piled onto 3400/3401 and collided — a project's `config.json` could point at a port another project's server had taken. Allocation now picks a random free, registry-unowned port; `serve` rotation on a busy port is registry-aware (it won't bind a port another live project owns); and a legacy `workspace.json` port is back-filled into `~/.plandesk/ports.json` so other installs stop treating it as free.
+
 ## [0.14.0] — 2026-07-12
 
 ### Changed
