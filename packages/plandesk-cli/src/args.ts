@@ -187,6 +187,7 @@ export type ParsedArgs =
     }
   | { command: 'deploy'; target?: string }
   | { command: 'factory'; subcommand: 'init'; repoDir?: string; print: boolean; force: boolean }
+  | { command: 'factory'; subcommand: 'sync'; repoDir?: string; write: boolean; force: boolean }
   | { command: 'context'; repoDir?: string }
   | { command: 'progress-checkpoint'; message?: string; repoDir?: string }
   | { command: 'preview'; paths: string[]; port?: number; host?: string; open: boolean }
@@ -452,6 +453,15 @@ export function parseArgs(argv: string[]): ParsedArgs {
         force: flags['force'] === true,
       };
     }
+    if (subcommand === 'sync') {
+      return {
+        command: 'factory',
+        subcommand: 'sync',
+        repoDir: flagString(flags, 'repo'),
+        write: flags['write'] === true,
+        force: flags['force'] === true,
+      };
+    }
     return { command: 'unknown', name: 'factory' };
   }
 
@@ -492,6 +502,7 @@ Usage:
   plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk deploy [target]   # list deploy guides, or print one for your coding agent: plandesk deploy cloudflare | claude
   plandesk factory init [--repo <dir>] [--print] [--force]
+  plandesk factory sync [--write] [--force] [--repo <dir>]   # update scaffolded policy to the latest shipped version
   plandesk context --json [--repo <dir>]   # bound project's current task/doc/progress, for session hooks
   plandesk progress-checkpoint [--message <text>] [--repo <dir>]   # post a checkpoint to the running agent run, for Stop/PreCompact hooks
   plandesk onboard           # teach-me guide: how to work in a Plan Desk + Factory repo
@@ -509,7 +520,8 @@ Options:
   --token     MCP token for connect
   --agent     Agent config target for connect (default: detect)
   --print     Dry-run connect / factory init without writing files
-  --force     (factory init) scaffold even in a global config directory
+  --write     (factory sync) apply creates + safe updates (customized files are kept)
+  --force     (factory init) scaffold even in a global config dir; (factory sync) also overwrite customized files
   --out       Output file for export
   --in        Input file for import
   --remote    Sync server URL for publish

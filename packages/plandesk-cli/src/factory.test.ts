@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -18,6 +19,7 @@ import {
   formatFactoryInitPrint,
   formatFactoryInitSummary,
   runFactoryInit,
+  runFactorySync,
 } from './factory.js';
 
 const tempDirs: string[] = [];
@@ -431,5 +433,81 @@ describe('curator hooks settings.json merge (F1 wiring)', () => {
     expect(after.hooks.SessionStart).toHaveLength(2);
     expect(JSON.stringify(after.hooks.SessionStart)).toContain('echo user-hook');
     expect(JSON.stringify(after.hooks.SessionStart)).toContain('session-start.sh');
+  });
+});
+
+describe('factory sync', () => {
+  const protocolRel = '.agents/factory/protocol.md';
+  const lanesRel = '.agents/factory/lanes.md';
+
+  it('reports everything up to date right after init (dry-run writes nothing)', () => {
+    const repo = makeTempDir('plandesk-sync-');
+    runFactoryInit({ repoDir: repo });
+    const result = runFactorySync({ repoDir: repo });
+    expect(result.applied).toBe(false);
+    expect(result.entries.length).toBeGreaterThan(0);
+    expect(result.entries.every((e) => e.status === 'up_to_date')).toBe(true);
+  });
+
+  it('recreates a deleted authored file (create), and dry-run leaves it missing', () => {
+    const repo = makeTempDir('plandesk-sync-');
+    runFactoryInit({ repoDir: repo });
+    const protocolPath = join(repo, protocolRel);
+    rmSync(protocolPath);
+
+    const plan = runFactorySync({ repoDir: repo });
+    expect(plan.entries.find((e) => e.relPath === protocolRel)?.status).toBe('create');
+    expect(existsSync(protocolPath)).toBe(false); // dry-run wrote nothing
+
+    runFactorySync({ repoDir: repo, write: true });
+    expect(existsSync(protocolPath)).toBe(true);
+  });
+
+  it('protects a user-edited file as a conflict and keeps it on --write', () => {
+    const repo = makeTempDir('plandesk-sync-');
+    runFactoryInit({ repoDir: repo });
+    const lanesPath = join(repo, lanesRel);
+    writeFileSync(lanesPath, '# my custom lanes\n', 'utf8');
+
+    const plan = runFactorySync({ repoDir: repo });
+    expect(plan.entries.find((e) => e.relPath === lanesRel)?.status).toBe('conflict');
+
+    runFactorySync({ repoDir: repo, write: true });
+    expect(readFileSync(lanesPath, 'utf8')).toBe('# my custom lanes\n'); // kept
+  });
+
+  it('overwrites a conflict only with --force', () => {
+    const repo = makeTempDir('plandesk-sync-');
+    runFactoryInit({ repoDir: repo });
+    const lanesPath = join(repo, lanesRel);
+    const shipped = readFileSync(lanesPath, 'utf8');
+    writeFileSync(lanesPath, '# my custom lanes\n', 'utf8');
+
+    runFactorySync({ repoDir: repo, force: true });
+    expect(readFileSync(lanesPath, 'utf8')).toBe(shipped); // restored
+  });
+
+  it('safe-updates a stale-but-unmodified file (manifest base matches on-disk)', () => {
+    const repo = makeTempDir('plandesk-sync-');
+    runFactoryInit({ repoDir: repo });
+    const protocolPath = join(repo, protocolRel);
+    const shipped = readFileSync(protocolPath, 'utf8');
+
+    // Simulate an older shipped version the user has NOT edited: put "old" on
+    // disk and record it as the manifest base (what the CLI last wrote).
+    const old = '# old protocol\n';
+    writeFileSync(protocolPath, old, 'utf8');
+    const manifestPath = join(repo, '.agents/.plandesk-sync.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      files: Record<string, string>;
+    };
+    manifest.files[protocolRel] = createHash('sha256').update(old, 'utf8').digest('hex');
+    writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');
+
+    const plan = runFactorySync({ repoDir: repo });
+    expect(plan.entries.find((e) => e.relPath === protocolRel)?.status).toBe('safe_update');
+
+    runFactorySync({ repoDir: repo, write: true });
+    expect(readFileSync(protocolPath, 'utf8')).toBe(shipped); // updated to shipped
   });
 });

@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import {
   globalDirRefusalReason,
   insertFactorySentinelBlock,
@@ -510,22 +511,11 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
   const factoryDir = join(repoDir, FACTORY_DIR);
 
   // Authored policy files: created once, then owned and edited by the user.
+  // `authoredFactoryFiles` is the shipped-content source of truth shared with
+  // `factory sync`; runs/.gitignore is static wiring, not synced policy.
   const authored: Array<{ path: string; content: string }> = [
-    { path: join(repoDir, '.agents', 'index.md'), content: buildAgentsIndexMarkdown() },
-    { path: join(factoryDir, 'workflow.md'), content: buildWorkflowMarkdown() },
-    { path: join(factoryDir, 'factory.md'), content: buildFactoryMarkdown() },
-    { path: join(factoryDir, 'autonomous-stand.md'), content: buildAutonomousStandMarkdown() },
-    { path: join(factoryDir, 'protocol.md'), content: buildProtocolMarkdown() },
-    { path: join(factoryDir, 'lanes.md'), content: buildLanesMarkdown() },
-    {
-      path: join(factoryDir, 'verifiers', 'tests-pass.md'),
-      content: buildExampleVerifierMarkdown(),
-    },
+    ...authoredFactoryFiles(repoDir),
     { path: join(factoryDir, 'runs', '.gitignore'), content: buildRunsGitignore() },
-    ...WORKER_TEMPLATES.map((worker) => ({
-      path: join(factoryDir, 'workers', `${worker.name}.md`),
-      content: buildWorkerMarkdown(worker),
-    })),
   ];
   for (const file of authored) {
     artifacts.push({
@@ -636,6 +626,248 @@ function writeFactoryArtifacts(artifacts: FactoryArtifact[]): void {
   }
 }
 
+type SyncableFile = { path: string; content: string; executable?: boolean };
+
+// The create-once authored files `factory sync` tracks: the factory policy docs
+// plus the curator sources. Generated files (the CLAUDE.md sentinel block, the
+// command/skill adapters, settings.json) already refresh on every `factory init`,
+// so sync refreshes those too but they never "conflict". This is the shipped
+// source of truth — `buildFactoryArtifacts` scaffolds from the same list.
+export function authoredFactoryFiles(repoDir: string): SyncableFile[] {
+  const factoryDir = join(repoDir, FACTORY_DIR);
+  return [
+    { path: join(repoDir, '.agents', 'index.md'), content: buildAgentsIndexMarkdown() },
+    { path: join(factoryDir, 'workflow.md'), content: buildWorkflowMarkdown() },
+    { path: join(factoryDir, 'factory.md'), content: buildFactoryMarkdown() },
+    { path: join(factoryDir, 'autonomous-stand.md'), content: buildAutonomousStandMarkdown() },
+    { path: join(factoryDir, 'protocol.md'), content: buildProtocolMarkdown() },
+    { path: join(factoryDir, 'lanes.md'), content: buildLanesMarkdown() },
+    { path: join(factoryDir, 'verifiers', 'tests-pass.md'), content: buildExampleVerifierMarkdown() },
+    ...WORKER_TEMPLATES.map((worker) => ({
+      path: join(factoryDir, 'workers', `${worker.name}.md`),
+      content: buildWorkerMarkdown(worker),
+    })),
+  ];
+}
+
+function syncableAuthoredFiles(repoDir: string): SyncableFile[] {
+  const curatorDir = join(repoDir, CURATOR_DIR);
+  return [
+    ...authoredFactoryFiles(repoDir),
+    ...CURATOR_TEMPLATES.map((template) => ({
+      path: join(curatorDir, template.relativePath),
+      content: template.content,
+      executable: template.executable,
+    })),
+  ];
+}
+
+// Sync manifest: relative-path → sha256 of the shipped content the CLI last wrote.
+// It lets sync tell "you edited this" (on-disk hash ≠ manifest) from "just stale"
+// (on-disk hash == manifest, shipped changed) so a safe update never clobbers edits.
+const SYNC_MANIFEST_REL = join('.agents', '.plandesk-sync.json');
+
+function sha256(content: string): string {
+  return createHash('sha256').update(content, 'utf8').digest('hex');
+}
+
+function syncManifestPath(repoDir: string): string {
+  return join(repoDir, SYNC_MANIFEST_REL);
+}
+
+export function readSyncManifest(repoDir: string): Record<string, string> {
+  const path = syncManifestPath(repoDir);
+  if (!existsSync(path)) {
+    return {};
+  }
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'files' in parsed &&
+      typeof (parsed as { files: unknown }).files === 'object'
+    ) {
+      return (parsed as { files: Record<string, string> }).files;
+    }
+  } catch {
+    // A corrupt manifest is treated as absent — sync degrades to conservative.
+  }
+  return {};
+}
+
+function writeSyncManifest(repoDir: string, files: Record<string, string>): void {
+  const path = syncManifestPath(repoDir);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify({ version: 1, files }, null, 2)}\n`, 'utf8');
+}
+
+// Record shipped-content hashes for every authored file currently identical to
+// what the CLI ships — i.e. files it just wrote or that are already in sync. A
+// file the user edited (on-disk ≠ shipped) is deliberately left out so sync
+// keeps protecting it.
+function recordInSyncManifest(repoDir: string): void {
+  const manifest = readSyncManifest(repoDir);
+  for (const file of syncableAuthoredFiles(repoDir)) {
+    if (existsSync(file.path) && readFileSync(file.path, 'utf8') === file.content) {
+      manifest[relative(repoDir, file.path)] = sha256(file.content);
+    }
+  }
+  writeSyncManifest(repoDir, manifest);
+}
+
+export type FactorySyncStatus = 'up_to_date' | 'create' | 'safe_update' | 'conflict';
+
+export type FactorySyncEntry = {
+  path: string;
+  relPath: string;
+  status: FactorySyncStatus;
+  shipped: string;
+  onDisk?: string;
+  executable?: boolean;
+};
+
+export type FactorySyncOptions = {
+  repoDir: string;
+  write?: boolean;
+  force?: boolean;
+  homeDir?: string;
+};
+
+export type FactorySyncResult = {
+  repoDir: string;
+  entries: FactorySyncEntry[];
+  applied: boolean;
+};
+
+export function planFactorySync(repoDir: string): FactorySyncEntry[] {
+  const manifest = readSyncManifest(repoDir);
+  const entries: FactorySyncEntry[] = [];
+  for (const file of syncableAuthoredFiles(repoDir)) {
+    const relPath = relative(repoDir, file.path);
+    if (!existsSync(file.path)) {
+      entries.push({ path: file.path, relPath, status: 'create', shipped: file.content, executable: file.executable });
+      continue;
+    }
+    const onDisk = readFileSync(file.path, 'utf8');
+    if (onDisk === file.content) {
+      entries.push({ path: file.path, relPath, status: 'up_to_date', shipped: file.content, onDisk, executable: file.executable });
+      continue;
+    }
+    // Differs from shipped. If the manifest proves it's unmodified since we last
+    // wrote it, the difference is just staleness → safe to update. Otherwise the
+    // user (or an unknown history) changed it → conflict, protected unless --force.
+    const base = manifest[relPath];
+    const unmodified = base !== undefined && base === sha256(onDisk);
+    entries.push({
+      path: file.path,
+      relPath,
+      status: unmodified ? 'safe_update' : 'conflict',
+      shipped: file.content,
+      onDisk,
+      executable: file.executable,
+    });
+  }
+  return entries;
+}
+
+export function runFactorySync(options: FactorySyncOptions): FactorySyncResult {
+  const repoDir = resolve(options.repoDir);
+  const refusal = globalDirRefusalReason(repoDir, options.homeDir);
+  if (refusal !== undefined && options.force !== true) {
+    throw new FactoryError(
+      `Refusing to sync in ${refusal}: agent config here leaks into every project on this machine.`,
+    );
+  }
+
+  const entries = planFactorySync(repoDir);
+  const apply = options.write === true || options.force === true;
+  if (!apply) {
+    return { repoDir, entries, applied: false };
+  }
+
+  const manifest = readSyncManifest(repoDir);
+  for (const entry of entries) {
+    const write =
+      entry.status === 'create' ||
+      entry.status === 'safe_update' ||
+      (entry.status === 'conflict' && options.force === true);
+    if (write) {
+      mkdirSync(dirname(entry.path), { recursive: true });
+      writeFileSync(entry.path, entry.shipped, 'utf8');
+      if (entry.executable === true) {
+        chmodSync(entry.path, 0o755);
+      }
+    }
+    if (write || entry.status === 'up_to_date') {
+      manifest[entry.relPath] = sha256(entry.shipped);
+    }
+  }
+  writeSyncManifest(repoDir, manifest);
+
+  // Now that authored sources are current, refresh the generated files that
+  // depend on them (the sentinel block and the skill/command adapters).
+  for (const artifact of buildFactoryArtifacts(repoDir)) {
+    if (artifact.action !== 'update') {
+      continue;
+    }
+    mkdirSync(dirname(artifact.path), { recursive: true });
+    writeFileSync(artifact.path, artifact.content, 'utf8');
+    if (artifact.executable === true) {
+      chmodSync(artifact.path, 0o755);
+    }
+  }
+
+  return { repoDir, entries, applied: true };
+}
+
+export function formatFactorySyncSummary(result: FactorySyncResult): string {
+  const byStatus = (s: FactorySyncStatus) => result.entries.filter((e) => e.status === s);
+  const upToDate = byStatus('up_to_date');
+  const created = byStatus('create');
+  const safe = byStatus('safe_update');
+  const conflicts = byStatus('conflict');
+  const lines: string[] = [];
+
+  if (result.applied) {
+    lines.push('Factory sync applied.');
+    if (created.length > 0) lines.push(`created (${created.length}): ${created.map((e) => e.relPath).join(', ')}`);
+    if (safe.length > 0) lines.push(`updated (${safe.length}): ${safe.map((e) => e.relPath).join(', ')}`);
+    lines.push(`up to date (${upToDate.length}).`);
+    if (conflicts.length > 0) {
+      lines.push(
+        `customized — kept your version (${conflicts.length}): ${conflicts.map((e) => e.relPath).join(', ')}`,
+      );
+      lines.push(
+        'These differ from the shipped version AND from what the CLI last wrote — your edits. Review each with `git diff`, or run `plandesk factory sync --force` to overwrite them with the shipped version.',
+      );
+    }
+    lines.push('Review everything with `git diff .agents/` before committing.');
+    return `${lines.join('\n')}\n`;
+  }
+
+  // Dry-run (default): report the plan, write nothing.
+  lines.push(`plandesk factory sync — plan for ${result.repoDir}`);
+  lines.push(`up to date: ${upToDate.length}`);
+  if (created.length > 0) lines.push(`would create (${created.length}): ${created.map((e) => e.relPath).join(', ')}`);
+  if (safe.length > 0)
+    lines.push(`would update — unmodified, safe (${safe.length}): ${safe.map((e) => e.relPath).join(', ')}`);
+  if (conflicts.length > 0)
+    lines.push(
+      `customized — would keep your version (${conflicts.length}): ${conflicts.map((e) => e.relPath).join(', ')}`,
+    );
+  lines.push('');
+  if (created.length + safe.length === 0 && conflicts.length === 0) {
+    lines.push('Everything is up to date.');
+  } else {
+    lines.push('Run `plandesk factory sync --write` to apply creates + safe updates (customized files are kept).');
+    if (conflicts.length > 0) {
+      lines.push('Add `--force` to also overwrite customized files with the shipped version.');
+    }
+  }
+  return `${lines.join('\n')}\n`;
+}
+
 export function runFactoryInit(options: FactoryInitOptions): FactoryInitResult {
   const repoDir = resolve(options.repoDir);
 
@@ -651,6 +883,9 @@ export function runFactoryInit(options: FactoryInitOptions): FactoryInitResult {
 
   if (options.print !== true) {
     writeFactoryArtifacts(artifacts);
+    // Seed the sync manifest so a later `factory sync` can tell edits from
+    // staleness. Only records files now identical to shipped (never an edit).
+    recordInSyncManifest(repoDir);
   }
 
   return { repoDir, artifacts };

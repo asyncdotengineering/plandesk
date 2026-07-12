@@ -17,7 +17,9 @@ import {
   FactoryError,
   formatFactoryInitPrint,
   formatFactoryInitSummary,
+  formatFactorySyncSummary,
   runFactoryInit,
+  runFactorySync,
 } from './factory.js';
 import { formatDisconnectSummary, runDisconnect } from './disconnect.js';
 import { runContext } from './context.js';
@@ -357,6 +359,15 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'factory': {
       try {
+        if (parsed.subcommand === 'sync') {
+          const result = runFactorySync({
+            repoDir: resolveRepoDir(parsed.repoDir),
+            write: parsed.write,
+            force: parsed.force,
+          });
+          process.stdout.write(formatFactorySyncSummary(result));
+          return 0;
+        }
         const result = runFactoryInit({
           repoDir: resolveRepoDir(parsed.repoDir),
           print: parsed.print,
