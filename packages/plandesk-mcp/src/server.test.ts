@@ -155,7 +155,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(42);
+      expect(names).toHaveLength(46);
       await client.close();
     });
   });
@@ -616,6 +616,104 @@ describe('createMcpApp', () => {
       expect(getRes.headers.get('Content-Type')).toBe('image/png');
       const body = Buffer.from(await getRes.arrayBuffer());
       expect(body).toEqual(bytes);
+
+      await client.close();
+    });
+  });
+
+  it('create_artifact, get_artifact, update_artifact, and list_artifacts close the comment loop', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, app }) => {
+      const client = await connectClient(baseUrl, token);
+
+      const created = await client.callTool({
+        name: 'create_artifact',
+        arguments: {
+          project_id: projectId,
+          title: 'Design RFC',
+          content: '# Architecture\n\nCSP details here.',
+          kind: 'markdown',
+        },
+      });
+      expect(created.isError).not.toBe(true);
+      const createdContent = created.content as Array<{ type: string; text?: string }>;
+      const createdText =
+        createdContent[0]?.type === 'text' ? (createdContent[0].text ?? '{}') : '{}';
+      const createdPayload = JSON.parse(createdText) as {
+        artifact: { artifact_id: string; url: string };
+      };
+      expect(createdPayload.artifact.artifact_id).toBeTruthy();
+      expect(createdPayload.artifact.url).toBe(
+        `/api/v1/artifacts/${createdPayload.artifact.artifact_id}`,
+      );
+
+      const getRes = await app.request(createdPayload.artifact.url);
+      expect(getRes.status).toBe(200);
+      const fetched = (await getRes.json()) as { content: string };
+      expect(fetched.content).toBe('# Architecture\n\nCSP details here.');
+
+      const got = await client.callTool({
+        name: 'get_artifact',
+        arguments: { artifact_id: createdPayload.artifact.artifact_id },
+      });
+      expect(got.isError).not.toBe(true);
+
+      const updated = await client.callTool({
+        name: 'update_artifact',
+        arguments: {
+          artifact_id: createdPayload.artifact.artifact_id,
+          content: '# Architecture\n\nRevised CSP details.',
+        },
+      });
+      expect(updated.isError).not.toBe(true);
+
+      const listed = await client.callTool({
+        name: 'list_artifacts',
+        arguments: { project_id: projectId },
+      });
+      expect(listed.isError).not.toBe(true);
+      const listedContent = listed.content as Array<{ type: string; text?: string }>;
+      const listedText =
+        listedContent[0]?.type === 'text' ? (listedContent[0].text ?? '{}') : '{}';
+      const listedPayload = JSON.parse(listedText) as {
+        artifacts: Array<{ id: string; title: string }>;
+      };
+      expect(listedPayload.artifacts).toEqual([
+        expect.objectContaining({ id: createdPayload.artifact.artifact_id, title: 'Design RFC' }),
+      ]);
+
+      const anchor = JSON.stringify({ type: 'TextQuoteSelector', exact: 'CSP' });
+      const commented = await client.callTool({
+        name: 'add_artifact_comment',
+        arguments: {
+          project_id: projectId,
+          artifact_id: createdPayload.artifact.artifact_id,
+          body: 'Check this section',
+          passage: 'CSP',
+          anchor,
+        },
+      });
+      expect(commented.isError).not.toBe(true);
+
+      const comments = await client.callTool({
+        name: 'list_artifact_comments',
+        arguments: {
+          project_id: projectId,
+          artifact_id: createdPayload.artifact.artifact_id,
+        },
+      });
+      expect(comments.isError).not.toBe(true);
+      const commentsContent = comments.content as Array<{ type: string; text?: string }>;
+      const commentsText =
+        commentsContent[0]?.type === 'text' ? (commentsContent[0].text ?? '{}') : '{}';
+      const commentsPayload = JSON.parse(commentsText) as {
+        comments: Array<{ target_id: string; body: string }>;
+      };
+      expect(commentsPayload.comments).toEqual([
+        expect.objectContaining({
+          target_id: createdPayload.artifact.artifact_id,
+          body: 'Check this section',
+        }),
+      ]);
 
       await client.close();
     });

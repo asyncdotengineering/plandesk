@@ -8,6 +8,7 @@ import { createTagsRouter } from './routes/tags.js';
 import { createCanvasRouter } from './routes/canvas.js';
 import { createCommentsRouter } from './routes/comments.js';
 import { createDocumentsRouter } from './routes/documents.js';
+import { createArtifactsRouter } from './routes/artifacts.js';
 import { createFilesRouter } from './routes/files.js';
 import { createFoldersRouter } from './routes/folders.js';
 import { createNotesRouter } from './routes/notes.js';
@@ -46,6 +47,7 @@ export function createApp(deps: AppDeps): Hono {
     tokenService,
     syncService,
     fileService,
+    artifactService,
     shareService,
   } = services;
 
@@ -63,6 +65,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createCanvasRouter(canvasService));
   app.route('/api/v1', createDocumentsRouter(documentService));
   app.route('/api/v1', createFilesRouter(fileService));
+  app.route('/api/v1', createArtifactsRouter(artifactService));
   app.route('/api/v1', createFoldersRouter(folderService));
   app.route('/api/v1', createNotesRouter(noteService));
   app.route('/api/v1', createSharesRouter(shareService));

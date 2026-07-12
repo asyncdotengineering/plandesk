@@ -14,6 +14,7 @@ import { createAgentRun, updateAgentRunStatus } from './repositories/agent-runs.
 import { createComment } from './repositories/comments.js';
 import { createDocument } from './repositories/documents.js';
 import { createEdge } from './repositories/edges.js';
+import { createArtifact, getArtifact } from './repositories/artifacts.js';
 import { createFile, getFile } from './repositories/files.js';
 import { createFolder } from './repositories/folders.js';
 import { createNote } from './repositories/notes.js';
@@ -323,6 +324,7 @@ describe('export/import portability', () => {
     db.$client.exec('DELETE FROM documents');
     db.$client.exec('UPDATE folders SET parent_folder_id = NULL');
     db.$client.exec('DELETE FROM folders');
+    db.$client.exec('DELETE FROM artifacts');
     db.$client.exec('DELETE FROM notes');
     db.$client.exec('DELETE FROM task_tags');
     db.$client.exec('DELETE FROM tags');
@@ -476,5 +478,51 @@ describe('export/import portability', () => {
     const importedFile = getFile(targetDb, id);
     expect(importedFile?.bytes).toEqual(bytes);
     expect(importedFile?.projectId).toBe(importedProjectId);
+  });
+
+  it('test:export_import round-trips a project artifact byte-identical', () => {
+    const sourceDb = createDb(':memory:');
+    migrate(sourceDb);
+    const project = createProject(sourceDb, { name: 'Artifact Fixture' });
+    const artifact = createArtifact(sourceDb, {
+      projectId: project.id,
+      title: 'Design RFC',
+      kind: 'html',
+      content: '<h1>Diagram</h1>',
+    });
+
+    const exported = exportProject(sourceDb, project.id);
+    expect(exported).toBeDefined();
+    if (!exported) {
+      return;
+    }
+    expect(exported.artifacts).toHaveLength(1);
+    expect(exported.artifacts[0]).toMatchObject({
+      id: artifact.id,
+      title: 'Design RFC',
+      kind: 'html',
+      content: '<h1>Diagram</h1>',
+    });
+
+    const targetDb = createDb(':memory:');
+    migrate(targetDb);
+    const { projectId: importedProjectId } = importProject(targetDb, exported);
+
+    const reExported = exportProject(targetDb, importedProjectId);
+    expect(reExported).toBeDefined();
+    if (!reExported) {
+      return;
+    }
+    expect(reExported.artifacts).toHaveLength(1);
+    expect(reExported.artifacts[0]?.title).toBe('Design RFC');
+    expect(reExported.artifacts[0]?.kind).toBe('html');
+    expect(reExported.artifacts[0]?.content).toBe('<h1>Diagram</h1>');
+
+    const importedArtifacts = reExported.artifacts;
+    const imported = getArtifact(targetDb, importedArtifacts[0]?.id ?? '');
+    expect(imported?.title).toBe('Design RFC');
+    expect(imported?.kind).toBe('html');
+    expect(imported?.content).toBe('<h1>Diagram</h1>');
+    expect(imported?.projectId).toBe(importedProjectId);
   });
 });

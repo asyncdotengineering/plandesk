@@ -5,6 +5,10 @@ import type { Services } from '@plandesk/api';
 import { createAddCommentHandler } from './tools/add-comment.js';
 import { createAddArtifactCommentHandler } from './tools/add-artifact-comment.js';
 import { createAttachFileHandler } from './tools/attach-file.js';
+import { createCreateArtifactHandler } from './tools/create-artifact.js';
+import { createGetArtifactHandler } from './tools/get-artifact.js';
+import { createUpdateArtifactHandler } from './tools/update-artifact.js';
+import { createListArtifactsHandler } from './tools/list-artifacts.js';
 import { createCompleteAgentRunHandler } from './tools/complete-agent-run.js';
 import { createCreateDocumentHandler } from './tools/create-document.js';
 import { createCreateEdgeHandler } from './tools/create-edge.js';
@@ -45,6 +49,10 @@ import { createSyncPushHandler } from './tools/sync-push.js';
 import { createTriageSubmissionHandler } from './tools/triage-submission.js';
 import {
   attachFileInputSchema,
+  createArtifactInputSchema,
+  getArtifactInputSchema,
+  updateArtifactInputSchema,
+  listArtifactsInputSchema,
   completeAgentRunInputSchema,
   createDocumentInputSchema,
   createEdgeInputSchema,
@@ -273,6 +281,52 @@ function createMcpServer(services: Services, origin: string): McpServer {
       annotations: { readOnlyHint: true },
     },
     createListNotesHandler(services.noteService),
+  );
+
+  server.registerTool(
+    'create_artifact',
+    {
+      title: 'Create Artifact',
+      description:
+        'Create an agent-produced deliverable (report, RFC, HTML diagram) stored in the workspace. Humans can annotate it via the CLI previewer; the returned artifact_id is exactly the id used by list_artifact_comments and add_artifact_comment, closing the annotate→read→revise loop.',
+      inputSchema: createArtifactInputSchema.shape,
+    },
+    createCreateArtifactHandler(services.artifactService),
+  );
+
+  server.registerTool(
+    'get_artifact',
+    {
+      title: 'Get Artifact',
+      description:
+        'Get a stored artifact by id, including its full content. Use after list_artifact_comments to read human feedback before revising with update_artifact.',
+      inputSchema: getArtifactInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createGetArtifactHandler(services.artifactService),
+  );
+
+  server.registerTool(
+    'update_artifact',
+    {
+      title: 'Update Artifact',
+      description:
+        'Revise a stored artifact (title, content, or kind). Use after reading artifact comments to incorporate human annotations.',
+      inputSchema: updateArtifactInputSchema.shape,
+    },
+    createUpdateArtifactHandler(services.artifactService),
+  );
+
+  server.registerTool(
+    'list_artifacts',
+    {
+      title: 'List Artifacts',
+      description:
+        'List artifact summaries for a project (id, title, kind, updated_at). Artifacts are agent deliverables humans annotate via the previewer.',
+      inputSchema: listArtifactsInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListArtifactsHandler(services.artifactService),
   );
 
   server.registerTool(

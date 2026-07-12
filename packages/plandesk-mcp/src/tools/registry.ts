@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { goalStatuses, shareSubmissionStatuses, taskStatuses } from '@plandesk/db';
+import { artifactKinds, goalStatuses, shareSubmissionStatuses, taskStatuses } from '@plandesk/db';
 
 const DOCUMENT_BODY_DESCRIPTION =
   'Document body in Markdown (rendered as rich text). Structure it well: `##` headings, bullet lists, fenced code blocks, and blank lines between paragraphs. HTML is also accepted.';
@@ -149,6 +149,31 @@ export const createShareLinkInputSchema = z.object({
     .enum(['24h', '7d', 'never'])
     .optional()
     .describe('Link TTL. Defaults to 24h; never means the link does not expire.'),
+});
+
+const ARTIFACT_CONTENT_DESCRIPTION =
+  'Artifact body. Markdown or HTML depending on kind — a report, RFC, or diagram a human can review with the CLI previewer.';
+
+export const createArtifactInputSchema = z.object({
+  project_id: z.string().uuid(),
+  title: z.string().min(1),
+  content: z.string().describe(ARTIFACT_CONTENT_DESCRIPTION),
+  kind: z.enum(artifactKinds).optional().describe('Defaults to markdown.'),
+});
+
+export const getArtifactInputSchema = z.object({
+  artifact_id: z.string().uuid(),
+});
+
+export const updateArtifactInputSchema = z.object({
+  artifact_id: z.string().uuid(),
+  title: z.string().min(1).optional(),
+  content: z.string().optional().describe(ARTIFACT_CONTENT_DESCRIPTION),
+  kind: z.enum(artifactKinds).optional(),
+});
+
+export const listArtifactsInputSchema = z.object({
+  project_id: z.string().uuid(),
 });
 
 export const attachFileInputSchema = z.object({
@@ -384,6 +409,10 @@ export const v1ToolNames = [
   'list_notes',
   'create_edge',
   'attach_file',
+  'create_artifact',
+  'get_artifact',
+  'update_artifact',
+  'list_artifacts',
   'create_share_link',
   'start_agent_run',
   'record_agent_progress',
@@ -431,6 +460,10 @@ export const v1ToolSchemas = {
   list_notes: listNotesInputSchema,
   create_edge: createEdgeInputSchema,
   attach_file: attachFileInputSchema,
+  create_artifact: createArtifactInputSchema,
+  get_artifact: getArtifactInputSchema,
+  update_artifact: updateArtifactInputSchema,
+  list_artifacts: listArtifactsInputSchema,
   create_share_link: createShareLinkInputSchema,
   start_agent_run: startAgentRunInputSchema,
   record_agent_progress: recordAgentProgressInputSchema,

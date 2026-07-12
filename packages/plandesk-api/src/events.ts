@@ -62,6 +62,18 @@ export type NoteUpdatedEvent = {
   projectId: string;
 };
 
+export type ArtifactCreatedEvent = {
+  type: 'artifact_created';
+  artifactId: string;
+  projectId: string;
+};
+
+export type ArtifactUpdatedEvent = {
+  type: 'artifact_updated';
+  artifactId: string;
+  projectId: string;
+};
+
 export type AgentRunStartedEvent = {
   type: 'agent_run_started';
   runId: string;
@@ -102,6 +114,8 @@ export type PlankDeskEvent =
   | FolderUpdatedEvent
   | NoteCreatedEvent
   | NoteUpdatedEvent
+  | ArtifactCreatedEvent
+  | ArtifactUpdatedEvent
   | AgentRunStartedEvent
   | AgentRunProgressEvent
   | AgentRunCompletedEvent

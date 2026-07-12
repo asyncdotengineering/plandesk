@@ -42,6 +42,7 @@ const EXPECTED_TABLES = [
   'sync_state',
   'sync_remotes',
   'files',
+  'artifacts',
   '__drizzle_migrations',
 ] as const;
 
@@ -103,6 +104,9 @@ describe('migrate', () => {
     expect(hasColumn(db, 'comments', 'anchor')).toBe(true);
 
     migrateDown(db, 1);
+    expect(listTables(db)).not.toContain('artifacts');
+
+    migrateDown(db, 1);
     expect(listTables(db)).not.toContain('files');
 
     migrateDown(db, 1);
@@ -161,6 +165,7 @@ describe('migrate', () => {
     expect(hasColumn(db, 'goals', 'last_verification')).toBe(true);
     expect(listTables(db)).toContain('comments');
     expect(hasColumn(db, 'comments', 'anchor')).toBe(true);
+    expect(listTables(db)).toContain('artifacts');
     expect(getProject(db, FIXTURE_PROJECT_ID)?.name).toBe('Fixture Project');
 
     migrateDownAll(db);
@@ -174,7 +179,7 @@ describe('migrate', () => {
   it('0008 backfill assigns a default goal to pre-existing tasks', () => {
     const db = createDb(':memory:');
     migrate(db);
-    migrateDown(db, 5);
+    migrateDown(db, 6);
     expect(hasColumn(db, 'tasks', 'goal_id')).toBe(false);
     expect(listTables(db)).not.toContain('goals');
 
@@ -203,7 +208,7 @@ describe('migrate', () => {
     createTask(db, { projectId: project.id, label: 'Task A' });
     createTask(db, { projectId: project.id, label: 'Task B' });
 
-    migrateDown(db, 5);
+    migrateDown(db, 6);
     expect(listTables(db)).not.toContain('goals');
     expect(hasColumn(db, 'tasks', 'goal_id')).toBe(false);
 
@@ -228,7 +233,7 @@ describe('migrate', () => {
   it('0010 backfill migrates document_comments to comments with project_id', () => {
     const db = createDb(':memory:');
     migrate(db);
-    migrateDown(db, 3);
+    migrateDown(db, 4);
     expect(listTables(db)).toContain('document_comments');
     expect(listTables(db)).not.toContain('comments');
 
@@ -280,7 +285,7 @@ describe('migrate', () => {
     expect(listTables(db)).toContain('comments');
     expect(listTables(db)).not.toContain('document_comments');
 
-    migrateDown(db, 3);
+    migrateDown(db, 4);
     expect(listTables(db)).toContain('document_comments');
     expect(listTables(db)).not.toContain('comments');
 
@@ -294,7 +299,7 @@ describe('migrate', () => {
     migrate(db);
     expect(hasColumn(db, 'goals', 'last_verification')).toBe(true);
 
-    migrateDown(db, 4);
+    migrateDown(db, 5);
     expect(hasColumn(db, 'goals', 'last_verification')).toBe(false);
 
     migrate(db);
@@ -309,7 +314,7 @@ describe('migrate', () => {
   it('regression: 0008 rebuild survives tasks referenced by edges, docs, submissions', () => {
     const db = createDb(':memory:');
     migrate(db);
-    migrateDown(db, 5); // back to 0007 (pre-goals)
+    migrateDown(db, 6); // back to 0007 (pre-goals)
 
     const project = createProject(db, { name: 'FK project' });
     const now = Date.now();
@@ -340,7 +345,7 @@ describe('migrate', () => {
       migrate(db);
     }).not.toThrow();
     expect(() => {
-      migrateDown(db, 5);
+      migrateDown(db, 6);
     }).not.toThrow();
     expect(() => {
       migrate(db);

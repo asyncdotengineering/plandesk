@@ -1,6 +1,7 @@
 import type {
   AgentRun,
   AgentRunEvent,
+  Artifact,
   Document,
   Comment,
   Edge,
@@ -195,6 +196,44 @@ export function serializeNote(note: Note): SerializedNote {
     body: note.body,
     created_at: note.createdAt.toISOString(),
     updated_at: note.updatedAt.toISOString(),
+  };
+}
+
+export type SerializedArtifact = {
+  id: string;
+  project_id: string;
+  title: string;
+  kind: Artifact['kind'];
+  content: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SerializedArtifactSummary = {
+  id: string;
+  title: string;
+  kind: Artifact['kind'];
+  updated_at: string;
+};
+
+export function serializeArtifact(artifact: Artifact): SerializedArtifact {
+  return {
+    id: artifact.id,
+    project_id: artifact.projectId,
+    title: artifact.title,
+    kind: artifact.kind,
+    content: artifact.content,
+    created_at: artifact.createdAt.toISOString(),
+    updated_at: artifact.updatedAt.toISOString(),
+  };
+}
+
+export function serializeArtifactSummary(artifact: Artifact): SerializedArtifactSummary {
+  return {
+    id: artifact.id,
+    title: artifact.title,
+    kind: artifact.kind,
+    updated_at: artifact.updatedAt.toISOString(),
   };
 }
 

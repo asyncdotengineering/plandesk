@@ -4,6 +4,7 @@ import { createAgentRunEvent } from './repositories/agent-run-events.js';
 import { createAgentRun } from './repositories/agent-runs.js';
 import { createDocument } from './repositories/documents.js';
 import { createEdge } from './repositories/edges.js';
+import { createArtifact, listArtifactsByProject } from './repositories/artifacts.js';
 import { createFile, listFilesByProject } from './repositories/files.js';
 import { createFolder, listFolders } from './repositories/folders.js';
 import { createNote } from './repositories/notes.js';
@@ -18,7 +19,13 @@ import { listDocuments } from './repositories/documents.js';
 import { listEdges } from './repositories/edges.js';
 import { listNotes } from './repositories/notes.js';
 import { listTasks } from './repositories/tasks.js';
-import type { AgentRunStatus, CommentTargetType, GoalStatus, TaskStatus } from './schema.js';
+import type {
+  AgentRunStatus,
+  ArtifactKind,
+  CommentTargetType,
+  GoalStatus,
+  TaskStatus,
+} from './schema.js';
 
 export const PLANDESK_EXPORT_VERSION = 'plandesk-export-v1' as const;
 
@@ -117,6 +124,15 @@ export type PlandeskExportV1DocumentComment = {
   created_at?: string;
 };
 
+export type PlandeskExportV1Artifact = {
+  id: string;
+  title: string;
+  kind: ArtifactKind;
+  content: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type PlandeskExportV1File = {
   id: string;
   filename: string;
@@ -156,6 +172,7 @@ export type PlandeskExportV1 = {
   comments: PlandeskExportV1Comment[];
   agent_runs: PlandeskExportV1AgentRun[];
   files: PlandeskExportV1File[];
+  artifacts: PlandeskExportV1Artifact[];
 };
 
 export type PlandeskExportInput = {
@@ -179,6 +196,8 @@ export type PlandeskExportInput = {
   agent_runs: PlandeskExportV1AgentRun[];
   // Optional for backward compatibility with exports written before files existed.
   files?: PlandeskExportV1File[];
+  // Optional for backward compatibility with exports written before artifacts existed.
+  artifacts?: PlandeskExportV1Artifact[];
 };
 
 export class InvalidExportVersionError extends Error {
@@ -270,6 +289,7 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
   const comments = listCommentsByProject(db, projectId, { includeResolved: true });
   const runs = listAgentRuns(db, projectId);
   const projectFiles = listFilesByProject(db, projectId);
+  const projectArtifacts = listArtifactsByProject(db, projectId);
 
   return {
     version: PLANDESK_EXPORT_VERSION,
@@ -367,6 +387,14 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
       external_url: file.externalUrl,
       created_at: file.createdAt,
     })),
+    artifacts: projectArtifacts.map((artifact) => ({
+      id: artifact.id,
+      title: artifact.title,
+      kind: artifact.kind,
+      content: artifact.content,
+      created_at: artifact.createdAt.toISOString(),
+      updated_at: artifact.updatedAt.toISOString(),
+    })),
   };
 }
 
@@ -382,6 +410,7 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
     const edgeIdMap = new Map<string, string>();
     const folderIdMap = new Map<string, string>();
     const documentIdMap = new Map<string, string>();
+    const artifactIdMap = new Map<string, string>();
     const agentRunIdMap = new Map<string, string>();
 
     for (const task of data.tasks) {
@@ -401,6 +430,9 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
     }
     for (const document of data.documents) {
       documentIdMap.set(document.id, randomUUID());
+    }
+    for (const artifact of data.artifacts ?? []) {
+      artifactIdMap.set(artifact.id, randomUUID());
     }
     for (const run of data.agent_runs) {
       agentRunIdMap.set(run.id, randomUUID());
@@ -531,7 +563,9 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
       const targetId =
         comment.target_type === 'document'
           ? (remapId(documentIdMap, comment.target_id) ?? comment.target_id)
-          : comment.target_id;
+          : comment.target_type === 'artifact'
+            ? (remapId(artifactIdMap, comment.target_id) ?? comment.target_id)
+            : comment.target_id;
       createComment(tx, {
         projectId: project.id,
         targetType: comment.target_type,
@@ -574,6 +608,16 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
         bytes: file.bytes_base64 ? Buffer.from(file.bytes_base64, 'base64') : null,
         externalUrl: file.external_url,
         createdAt: file.created_at,
+      });
+    }
+
+    for (const artifact of data.artifacts ?? []) {
+      createArtifact(tx, {
+        id: remapId(artifactIdMap, artifact.id) ?? artifact.id,
+        projectId: project.id,
+        title: artifact.title,
+        kind: artifact.kind,
+        content: artifact.content,
       });
     }
 

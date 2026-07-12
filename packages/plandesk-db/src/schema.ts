@@ -278,6 +278,25 @@ export const syncState = sqliteTable('sync_state', {
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
+export const artifactKinds = ['markdown', 'html'] as const;
+export type ArtifactKind = (typeof artifactKinds)[number];
+
+export const artifacts = sqliteTable('artifacts', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id')
+    .notNull()
+    .references(() => projects.id),
+  title: text('title').notNull(),
+  kind: text('kind', { enum: artifactKinds }).notNull().default('markdown'),
+  content: text('content').notNull().default(''),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+});
+
 export const files = sqliteTable('files', {
   // sha256 hex of the bytes — content-addressed for dedup.
   id: text('id').primaryKey(),

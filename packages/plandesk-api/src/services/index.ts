@@ -4,6 +4,7 @@ import { createStorageAdapter, type StorageAdapter } from '../storage/index.js';
 import { createCanvasService, type CanvasService } from './canvas.js';
 import { createCommentService, type CommentService } from './comments.js';
 import { createDocumentService, type DocumentService } from './documents.js';
+import { createArtifactService, type ArtifactService } from './artifacts.js';
 import { createFileService, type FileService } from './files.js';
 import { createFolderService, type FolderService } from './folders.js';
 import { createNoteService, type NoteService } from './notes.js';
@@ -38,6 +39,7 @@ export type Services = {
   shareService: ShareService;
   syncService: SyncService;
   fileService: FileService;
+  artifactService: ArtifactService;
 };
 
 export function createServices(deps: ServicesDeps): Services {
@@ -57,6 +59,7 @@ export function createServices(deps: ServicesDeps): Services {
   const shareService = createShareService({ db: deps.db, eventBus });
   const syncService = createSyncService({ db: deps.db, eventBus, taskService, shareService });
   const fileService = createFileService({ db: deps.db, storage });
+  const artifactService = createArtifactService({ db: deps.db, eventBus });
 
   return {
     eventBus,
@@ -74,5 +77,6 @@ export function createServices(deps: ServicesDeps): Services {
     shareService,
     syncService,
     fileService,
+    artifactService,
   };
 }
