@@ -57,6 +57,7 @@ export default defineConfig({
             { slug: 'guides/research-plan-build-share' },
             { slug: 'guides/idea-to-development' },
             { slug: 'guides/plan-and-execute' },
+            { slug: 'guides/drive-the-factory' },
             { slug: 'guides/plan-share-build' },
           ],
         },
