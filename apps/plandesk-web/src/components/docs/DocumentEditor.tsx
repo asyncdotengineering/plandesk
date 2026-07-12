@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import type { PatchDocumentInput, SerializedDocument } from '../../lib/api.js';
+import { ShareButton } from '@/components/share/ShareButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -80,6 +81,7 @@ export function DocumentEditor({
         {mode === 'editor' ? (
           <div className="flex shrink-0 items-center gap-3 pt-1.5">
             <SaveStatusIndicator status={saveStatus} />
+            <ShareButton resource={{ kind: 'document', id: document.id }} />
             {onDelete !== undefined ? (
               <Button
                 type="button"

@@ -73,4 +73,51 @@ describe('shares routes', () => {
     const res = await app.request('/api/v1/share/plandesk_share_abc');
     expect(res.status).toBe(404);
   });
+
+  it('POST /tasks/:id/share mints a public markdown link the .md route then serves', async () => {
+    const { app, db } = createTestAppWithServices();
+    const project = createProject(db, { name: 'UI share' });
+    const task = createTask(db, { projectId: project.id, label: 'Shareable task', status: 'todo' });
+
+    const res = await app.request(`/api/v1/tasks/${task.id}/share`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ expires: '7d' }),
+    });
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as { url: string; markdown_url: string; expires_at: string | null };
+    expect(json.markdown_url).toContain('/api/v1/share/');
+    expect(json.markdown_url.endsWith('.md')).toBe(true);
+    expect(json.expires_at).not.toBeNull(); // 7d → a real expiry
+
+    // The minted link resolves through the existing .md route.
+    const mdPath = new URL(json.markdown_url).pathname;
+    const md = await app.request(mdPath);
+    expect(md.status).toBe(200);
+    expect(await md.text()).toContain('Shareable task');
+  });
+
+  it('POST /documents/:id/share supports never-expiring links; 404s a missing resource; 400s a bad TTL', async () => {
+    const { app, db } = createTestAppWithServices();
+    const project = createProject(db, { name: 'UI share doc' });
+    const doc = createDocument(db, { projectId: project.id, title: 'Design', body: '<p>x</p>' });
+
+    const never = await app.request(`/api/v1/documents/${doc.id}/share`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ expires: 'never' }),
+    });
+    expect(never.status).toBe(201);
+    expect(((await never.json()) as { expires_at: string | null }).expires_at).toBeNull();
+
+    const missing = await app.request('/api/v1/tasks/nope/share', { method: 'POST' });
+    expect(missing.status).toBe(404);
+
+    const bad = await app.request(`/api/v1/documents/${doc.id}/share`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ expires: 'forever' }),
+    });
+    expect(bad.status).toBe(400);
+  });
 });

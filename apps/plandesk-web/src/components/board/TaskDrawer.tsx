@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { FileTextIcon, PencilIcon, XIcon } from 'lucide-react';
+import { ShareButton } from '@/components/share/ShareButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -142,6 +143,7 @@ function TaskDrawerBody({
         <StatusMenu status={task.status} onChange={onChangeStatus} />
         <span className="mono text-xs text-muted-foreground">{shortId(task.id)}</span>
         <span className="ml-auto" />
+        <ShareButton resource={{ kind: 'task', id: task.id }} />
         <Button
           type="button"
           variant={editing ? 'secondary' : 'ghost'}

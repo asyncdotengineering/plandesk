@@ -288,6 +288,22 @@ export function deleteTask(id: string): Promise<void> {
   return request(`/tasks/${id}`, { method: 'DELETE' });
 }
 
+export type ShareTtl = '24h' | '7d' | 'never';
+
+export type ShareLinkResult = {
+  url: string;
+  markdown_url: string;
+  expires_at: string | null;
+};
+
+export function createTaskShare(id: string, expires: ShareTtl): Promise<ShareLinkResult> {
+  return request(`/tasks/${id}/share`, { method: 'POST', body: JSON.stringify({ expires }) });
+}
+
+export function createDocumentShare(id: string, expires: ShareTtl): Promise<ShareLinkResult> {
+  return request(`/documents/${id}/share`, { method: 'POST', body: JSON.stringify({ expires }) });
+}
+
 export function listTags(projectId: string): Promise<SerializedTag[]> {
   return request(`/projects/${projectId}/tags`);
 }
