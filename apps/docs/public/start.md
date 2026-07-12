@@ -58,6 +58,10 @@ npm i -g @plandesk/cli@latest
 # Orient yourself (and the user) — a crash course + the docs to read, from the CLI:
 plandesk help
 
+# Learn how to work in a Plan Desk repo — the board, the execution loop,
+# delegation, and the MCP tools. Read this once; it teaches the agent the model.
+plandesk onboard
+
 # Initialize the local workspace DB (idempotent; repo-local .plandesk/workspace.db)
 plandesk init
 
@@ -173,7 +177,8 @@ Setup is done. Tell the user, verbatim:
 
 > Plan Desk is connected to this repo. **Start a new agent session here** so the Plan
 > Desk MCP tools load (you'll see 46 tools). The token is read from
-> `.plandesk/token` automatically — no export needed.
+> `.plandesk/token` automatically — no export needed. In that session, run
+> `plandesk onboard` first to learn how to work in a Plan Desk repo, then plan.
 > Anytime, run `plandesk help` for a refresher and the docs worth reading.
 
 Then, in that fresh session, the agent turns the repo's goals into a plan and
