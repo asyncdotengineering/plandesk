@@ -2,6 +2,13 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [0.20.0] — 2026-07-12
+
+### Added
+
+- **Share links in the UI.** Tasks and documents now have a **Share** action (task drawer + document editor): pick a TTL (24h / 7d / never), create the link, and copy the public, read-only `…/share/<token>.md` URL — the same agent-ready Markdown the `create_share_link` MCP tool produces, now mintable by a human without touching MCP. New REST endpoints `POST /api/v1/tasks/:id/share` and `POST /api/v1/documents/:id/share` back it.
+- **`plandesk factory sync`.** Update a repo's scaffolded factory/curator policy to the latest shipped version **without clobbering your edits**. Authored files (`.agents/factory/*.md`, `.agents/curator/*.md`) are create-once, so shipped improvements never reached existing repos before; `sync` classifies each file as up to date / create (missing) / **safe update** (unmodified since scaffold → updated) / **customized** (you edited it → kept), using a small manifest (`.agents/.plandesk-sync.json`) to tell edits from staleness. Default is a dry-run plan; `--write` applies creates + safe updates and keeps customized files; `--force` also overwrites them. On apply it refreshes the generated sentinel block and adapters too, so it's a one-stop upgrade. See [Upgrading](https://plandesk.asyncdot.com/reference/upgrading/).
+
 ## [0.19.0] — 2026-07-12
 
 ### Added
