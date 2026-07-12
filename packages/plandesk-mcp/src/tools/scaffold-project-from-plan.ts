@@ -5,7 +5,8 @@ import { ensureHtmlBody } from './markdown.js';
 import { toolInvalidArgument, toolSuccess, type ToolResult } from './result.js';
 
 type ScaffoldArgs = {
-  name: string;
+  project_id?: string;
+  name?: string;
   description?: string;
   tasks: Array<{
     key: string;
@@ -35,7 +36,8 @@ export function createScaffoldProjectFromPlanHandler(
   return (args) => {
     try {
       const result = projectService.scaffoldFromPlan({
-        name: args.name,
+        ...(args.project_id !== undefined ? { projectId: args.project_id } : {}),
+        ...(args.name !== undefined ? { name: args.name } : {}),
         ...(args.description !== undefined ? { description: args.description } : {}),
         tasks: args.tasks.map((task) => ({
           key: task.key,

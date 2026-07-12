@@ -207,7 +207,17 @@ export const completeAgentRunInputSchema = z.object({
 });
 
 export const scaffoldProjectFromPlanInputSchema = z.object({
-  name: z.string().min(1),
+  project_id: z
+    .string()
+    .optional()
+    .describe(
+      'Scaffold the whole plan atomically INTO an existing project (e.g. the repo-bound one) instead of creating a new one. Omit to create a new project. When set, `name`/`description` are ignored and the plan is added to that project; new auto-laid-out tasks are placed below its existing nodes.',
+    ),
+  name: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Name for a NEW project. Required when `project_id` is omitted; ignored when it is set.'),
   description: z.string().optional(),
   tasks: z
     .array(

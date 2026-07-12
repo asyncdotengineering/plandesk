@@ -390,7 +390,7 @@ chosen task \`key\`s to real IDs for you:
 
 \`\`\`
 scaffold_project_from_plan({
-  name, description,
+  project_id?, name?, description?,   // project_id → add to that project; else name → new project
   tasks: [{ key, label, description, status, x, y }, ...],
   edges: [{ from: key, to: key, label }, ...],
   documents: [{ title, body, link_to: key, status_line }, ...],
@@ -403,9 +403,19 @@ and reference those keys — not IDs — in \`edges\` and \`link_to\`; the serve
 need to comment on or otherwise follow up on a specific task in the same
 session.
 
-Use the granular tools (\`create_task\`, \`create_edge\`, \`create_document\`) only
-when **adding** to an already-scaffolded project — \`scaffold_project_from_
-plan\` is for standing up something new.
+\`scaffold_project_from_plan\` handles **both** cases atomically — use it either way:
+
+- **New project** — omit \`project_id\` and pass \`name\`. It creates the project
+  and the whole plan in one call.
+- **Existing or already-bound project** — pass \`project_id\` (the bound project
+  from \`.plandesk/config.json\`). The plan is added to that project atomically,
+  and new auto-laid-out tasks are placed below its existing nodes. **When the
+  repo is already bound, always pass \`project_id\`** — creating a new project
+  duplicates the bound one.
+
+Reach for the granular tools (\`create_task\`, \`create_edge\`, \`create_document\`)
+only for a one-off single addition — not for standing up a whole plan on either
+a new or an existing project.
 
 ## Decomposing a Goal into cycle-sized tasks
 

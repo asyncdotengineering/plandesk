@@ -32,9 +32,15 @@ When asked to plan a project, feature, or RFC from scratch, prefer the one-shot
 project, all tasks, their dependency edges, and linked spec documents in a
 single atomic call. Give each task a stable \`key\` (a slug you choose) and
 reference those keys in \`edges\` (\`from\`/\`to\`) and in a document's \`link_to\`.
-The server resolves keys to real IDs and returns a \`key_to_id\` map. Use the
-granular \`create_task\`/\`create_edge\`/\`create_document\` tools when ADDING to an
-existing plan; use \`scaffold_project_from_plan\` to build a new one.
+The server resolves keys to real IDs and returns a \`key_to_id\` map.
+
+\`scaffold_project_from_plan\` works for both a new and an existing project: omit
+\`project_id\` and pass \`name\` to create a new one; pass \`project_id\` (e.g. the
+repo-bound project from \`.plandesk/config.json\`) to scaffold the whole plan
+atomically INTO that project. When the repo is already bound, pass
+\`project_id\` — creating a new project duplicates the bound one. Reach for the
+granular \`create_task\`/\`create_edge\`/\`create_document\` tools only for a
+one-off single addition, not for standing up a whole plan.
 
 ## Task creation
 - Labels: short, imperative, outcome-focused — "Verb Noun in Location".

@@ -396,7 +396,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Scaffold Project From Plan',
       description:
-        'Create a project with tasks, dependency edges, and linked documents in one atomic call',
+        'Scaffold tasks, dependency edges, and linked documents in one atomic call — into a new project, or into an existing one when project_id is given (e.g. the repo-bound project)',
       inputSchema: scaffoldProjectFromPlanInputSchema.shape,
     },
     createScaffoldProjectFromPlanHandler(services.projectService),

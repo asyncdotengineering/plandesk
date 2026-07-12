@@ -187,6 +187,52 @@ describe('projectService', () => {
     expect(received.filter((e) => e.type === 'document_created')).toHaveLength(1);
   });
 
+  it('scaffolds into an existing project when project_id is given (no new project)', () => {
+    const service = createService();
+    const existing = createProject(db, { name: 'Existing' });
+    const result = service.scaffoldFromPlan({
+      projectId: existing.id,
+      tasks: [
+        { key: 'a', label: 'Task A' },
+        { key: 'b', label: 'Task B' },
+      ],
+      edges: [{ from: 'a', to: 'b', label: 'blocks' }],
+      documents: [{ title: 'Spec', body: '# Plan', linkTo: 'a' }],
+    });
+    // Targets the bound project, never creates a duplicate.
+    expect(result.project.id).toBe(existing.id);
+    expect(result.counts).toEqual({ tasks: 2, edges: 1, documents: 1 });
+    expect(listTasks(db, existing.id)).toHaveLength(2);
+    expect(listEdges(db, existing.id)).toHaveLength(1);
+    expect(listDocuments(db, existing.id)).toHaveLength(1);
+  });
+
+  it('offsets new task rows below existing nodes in a non-empty project', () => {
+    const service = createService();
+    const existing = createProject(db, { name: 'Existing' });
+    createTask(db, { projectId: existing.id, label: 'Old', x: 0, y: 320 });
+    const result = service.scaffoldFromPlan({
+      projectId: existing.id,
+      tasks: [{ key: 'n', label: 'New' }],
+    });
+    // maxY 320 → startRow = floor(320/160)+1 = 3 → y = 480, clear of the old node.
+    expect(result.tasks[0]).toMatchObject({ x: 0, y: 480 });
+  });
+
+  it('rejects scaffolding into a missing project and persists nothing', () => {
+    const service = createService();
+    expect(() =>
+      service.scaffoldFromPlan({ projectId: 'nope', tasks: [{ key: 'a', label: 'A' }] }),
+    ).toThrow(InvalidScaffoldError);
+  });
+
+  it('rejects a new-project scaffold with no name', () => {
+    const service = createService();
+    expect(() => service.scaffoldFromPlan({ tasks: [{ key: 'a', label: 'A' }] })).toThrow(
+      InvalidScaffoldError,
+    );
+  });
+
   it('assigns grid positions when x and y are omitted', () => {
     const service = createService();
     const result = service.scaffoldFromPlan({

@@ -82,7 +82,10 @@ export type ScaffoldDocumentInput = {
 };
 
 export type ScaffoldPlanInput = {
-  name: string;
+  /** Target an existing project; when set, the plan is added to it. Omit to create a new project. */
+  projectId?: string;
+  /** Name for a new project. Required when projectId is omitted; ignored when it is set. */
+  name?: string;
   description?: string | null;
   tasks: ScaffoldTaskInput[];
   edges?: ScaffoldEdgeInput[];
@@ -234,18 +237,39 @@ export function createProjectService(deps: ProjectServiceDeps) {
       let projectId = '';
 
       db.transaction((tx) => {
-        const project = dbCreateProject(tx, {
-          name: input.name,
-          description: input.description,
-        });
-        projectId = project.id;
-        const defaultGoal = getOrCreateDefaultGoal(tx, project.id);
+        // Row offset so tasks scaffolded INTO a non-empty project are laid out
+        // below its existing nodes instead of stacking on top of them.
+        let startRow = 0;
+        if (input.projectId !== undefined) {
+          const existing = dbGetProject(tx, input.projectId);
+          if (!existing) {
+            throw new InvalidScaffoldError(`project not found: ${input.projectId}`);
+          }
+          projectId = existing.id;
+          const existingTasks = listTasks(tx, existing.id);
+          if (existingTasks.length > 0) {
+            const maxY = existingTasks.reduce((m, t) => Math.max(m, t.y ?? 0), 0);
+            startRow = Math.floor(maxY / 160) + 1;
+          }
+        } else {
+          if (input.name === undefined || input.name.trim() === '') {
+            throw new InvalidScaffoldError(
+              'name is required to create a new project (or pass projectId to add to an existing one)',
+            );
+          }
+          const project = dbCreateProject(tx, {
+            name: input.name,
+            description: input.description,
+          });
+          projectId = project.id;
+        }
+        const defaultGoal = getOrCreateDefaultGoal(tx, projectId);
 
         input.tasks.forEach((taskInput, i) => {
           const x = taskInput.x ?? (i % 4) * 240;
-          const y = taskInput.y ?? Math.floor(i / 4) * 160;
+          const y = taskInput.y ?? (startRow + Math.floor(i / 4)) * 160;
           const task = createTask(tx, {
-            projectId: project.id,
+            projectId,
             goalId: defaultGoal.id,
             label: taskInput.label,
             status: taskInput.status,
@@ -264,7 +288,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
             throw new InvalidScaffoldError('edge references unknown task key');
           }
           const edge = createEdge(tx, {
-            projectId: project.id,
+            projectId,
             fromTaskId,
             toTaskId,
             label: edgeInput.label ?? null,
@@ -277,7 +301,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
           const linkedTaskId =
             docInput.linkTo !== undefined ? keyToId.get(docInput.linkTo) : undefined;
           const document = createDocument(tx, {
-            projectId: project.id,
+            projectId,
             title: docInput.title,
             body: docInput.body,
             statusLine: docInput.statusLine,
