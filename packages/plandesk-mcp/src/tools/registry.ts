@@ -142,6 +142,13 @@ export const listNotesInputSchema = z.object({
   project_id: z.string().uuid(),
 });
 
+export const attachFileInputSchema = z.object({
+  project_id: z.string().uuid(),
+  filename: z.string().min(1),
+  content_base64: z.string().min(1),
+  mime: z.string().min(1).optional().describe('Defaults to image/png.'),
+});
+
 export const createEdgeInputSchema = z.object({
   project_id: z.string().uuid(),
   from_task_id: z.string().uuid(),
@@ -367,6 +374,7 @@ export const v1ToolNames = [
   'get_note',
   'list_notes',
   'create_edge',
+  'attach_file',
   'start_agent_run',
   'record_agent_progress',
   'complete_agent_run',
@@ -412,6 +420,7 @@ export const v1ToolSchemas = {
   get_note: getNoteInputSchema,
   list_notes: listNotesInputSchema,
   create_edge: createEdgeInputSchema,
+  attach_file: attachFileInputSchema,
   start_agent_run: startAgentRunInputSchema,
   record_agent_progress: recordAgentProgressInputSchema,
   complete_agent_run: completeAgentRunInputSchema,

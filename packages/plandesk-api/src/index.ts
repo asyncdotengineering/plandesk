@@ -19,6 +19,7 @@ export type { CanvasService } from './services/canvas.js';
 export type { DocumentService } from './services/documents.js';
 export type { FolderService } from './services/folders.js';
 export type { NoteService } from './services/notes.js';
+export type { FileService } from './services/files.js';
 export type { CommentService } from './services/comments.js';
 export type { AgentRunService } from './services/agent-runs.js';
 export { InvalidDocumentError } from './services/documents.js';

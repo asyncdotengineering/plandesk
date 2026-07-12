@@ -1,8 +1,10 @@
 import type { Db } from '@plandesk/db';
 import { createEventBus, type EventBus } from '../events.js';
+import { createStorageAdapter, type StorageAdapter } from '../storage/index.js';
 import { createCanvasService, type CanvasService } from './canvas.js';
 import { createCommentService, type CommentService } from './comments.js';
 import { createDocumentService, type DocumentService } from './documents.js';
+import { createFileService, type FileService } from './files.js';
 import { createFolderService, type FolderService } from './folders.js';
 import { createNoteService, type NoteService } from './notes.js';
 import { createProjectService, type ProjectService } from './projects.js';
@@ -17,6 +19,7 @@ import { createSyncService, type SyncService } from './sync.js';
 export type ServicesDeps = {
   db: Db;
   eventBus?: EventBus;
+  storage?: StorageAdapter;
 };
 
 export type Services = {
@@ -34,10 +37,12 @@ export type Services = {
   tokenService: TokenService;
   shareService: ShareService;
   syncService: SyncService;
+  fileService: FileService;
 };
 
 export function createServices(deps: ServicesDeps): Services {
   const eventBus = deps.eventBus ?? createEventBus();
+  const storage = deps.storage ?? createStorageAdapter({ db: deps.db });
   const projectService = createProjectService({ db: deps.db, eventBus });
   const goalService = createGoalService({ db: deps.db, eventBus });
   const taskService = createTaskService({ db: deps.db, eventBus });
@@ -51,6 +56,7 @@ export function createServices(deps: ServicesDeps): Services {
   const tokenService = createTokenService({ db: deps.db });
   const shareService = createShareService({ db: deps.db, eventBus });
   const syncService = createSyncService({ db: deps.db, eventBus, taskService, shareService });
+  const fileService = createFileService({ db: deps.db, storage });
 
   return {
     eventBus,
@@ -67,5 +73,6 @@ export function createServices(deps: ServicesDeps): Services {
     tokenService,
     shareService,
     syncService,
+    fileService,
   };
 }

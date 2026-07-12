@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb } from './client.js';
 import { migrate } from './migrate.js';
@@ -13,6 +14,7 @@ import { createAgentRun, updateAgentRunStatus } from './repositories/agent-runs.
 import { createComment } from './repositories/comments.js';
 import { createDocument } from './repositories/documents.js';
 import { createEdge } from './repositories/edges.js';
+import { createFile, getFile } from './repositories/files.js';
 import { createFolder } from './repositories/folders.js';
 import { createNote } from './repositories/notes.js';
 import { createProject, updateProject } from './repositories/projects.js';
@@ -423,5 +425,56 @@ describe('export/import portability', () => {
 
     expect(() => importProject(db, badVersion)).toThrow(InvalidExportVersionError);
     expect(() => importProject(db, badVersion)).toThrow(/Unsupported export version/);
+  });
+
+  it('test:export_import round-trips a project file byte-identical', () => {
+    // Files are content-addressed (id = sha256 of bytes), so re-importing the
+    // same bytes into the source db would upsert onto the existing row instead
+    // of creating a new one. Use a separate target db to model the realistic
+    // portability case (export to JSON, import into a different workspace).
+    const sourceDb = createDb(':memory:');
+    migrate(sourceDb);
+    const project = createProject(sourceDb, { name: 'File Fixture' });
+    const bytes = Buffer.from('not-really-a-png-but-good-enough-for-a-test', 'utf8');
+    const id = createHash('sha256').update(bytes).digest('hex');
+    createFile(sourceDb, {
+      id,
+      projectId: project.id,
+      filename: 'shot.png',
+      mime: 'image/png',
+      size: bytes.length,
+      bytes,
+    });
+
+    const exported = exportProject(sourceDb, project.id);
+    expect(exported).toBeDefined();
+    if (!exported) {
+      return;
+    }
+    expect(exported.files).toHaveLength(1);
+    expect(exported.files[0]).toMatchObject({
+      id,
+      filename: 'shot.png',
+      mime: 'image/png',
+      size: bytes.length,
+      external_url: null,
+    });
+    expect(exported.files[0]?.bytes_base64).toBe(bytes.toString('base64'));
+
+    const targetDb = createDb(':memory:');
+    migrate(targetDb);
+    const { projectId: importedProjectId } = importProject(targetDb, exported);
+
+    const reExported = exportProject(targetDb, importedProjectId);
+    expect(reExported).toBeDefined();
+    if (!reExported) {
+      return;
+    }
+    expect(reExported.files).toHaveLength(1);
+    expect(reExported.files[0]?.bytes_base64).toBe(bytes.toString('base64'));
+
+    const importedFile = getFile(targetDb, id);
+    expect(importedFile?.bytes).toEqual(bytes);
+    expect(importedFile?.projectId).toBe(importedProjectId);
   });
 });

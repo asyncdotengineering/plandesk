@@ -4,6 +4,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import type { Services } from '@plandesk/api';
 import { createAddCommentHandler } from './tools/add-comment.js';
 import { createAddArtifactCommentHandler } from './tools/add-artifact-comment.js';
+import { createAttachFileHandler } from './tools/attach-file.js';
 import { createCompleteAgentRunHandler } from './tools/complete-agent-run.js';
 import { createCreateDocumentHandler } from './tools/create-document.js';
 import { createCreateEdgeHandler } from './tools/create-edge.js';
@@ -42,6 +43,7 @@ import { createSyncPullHandler } from './tools/sync-pull.js';
 import { createSyncPushHandler } from './tools/sync-push.js';
 import { createTriageSubmissionHandler } from './tools/triage-submission.js';
 import {
+  attachFileInputSchema,
   completeAgentRunInputSchema,
   createDocumentInputSchema,
   createEdgeInputSchema,
@@ -279,6 +281,17 @@ function createMcpServer(services: Services): McpServer {
       inputSchema: createEdgeInputSchema.shape,
     },
     createCreateEdgeHandler(services.canvasService),
+  );
+
+  server.registerTool(
+    'attach_file',
+    {
+      title: 'Attach File',
+      description:
+        'Upload a file (image today) and get back a short URL. Embed the returned `url` in a task, document, or comment body as `![alt](url)` instead of inlining base64 — keeps bodies lean. mime defaults to image/png.',
+      inputSchema: attachFileInputSchema.shape,
+    },
+    createAttachFileHandler(services.fileService),
   );
 
   server.registerTool(

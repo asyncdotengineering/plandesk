@@ -11,6 +11,7 @@ type MigrationJournal = {
 };
 
 const DOWN_SQL: Record<string, string[]> = {
+  '0012_needy_nico_minoru': ['DROP TABLE IF EXISTS `files`;'],
   '0011_lush_bushwacker': ['ALTER TABLE `comments` DROP COLUMN `anchor`;'],
   '0010_polymorphic_comments': [
     `CREATE TABLE \`document_comments\` (

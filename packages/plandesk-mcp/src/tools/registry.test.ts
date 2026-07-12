@@ -18,7 +18,7 @@ const TASK_ID = '00000000-0000-4000-8000-000000000002';
 describe('tool registry tag schemas', () => {
   it('registers list_tags with a schema for every v1 tool', () => {
     expect(v1ToolNames).toContain('list_tags');
-    expect(v1ToolNames).toHaveLength(40);
+    expect(v1ToolNames).toHaveLength(41);
     for (const name of v1ToolNames) {
       expect(v1ToolSchemas[name]).toBeDefined();
     }

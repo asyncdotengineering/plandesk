@@ -155,7 +155,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(40);
+      expect(names).toHaveLength(41);
       await client.close();
     });
   });
@@ -587,6 +587,52 @@ describe('createMcpApp', () => {
       });
       expect(blank.isError).toBe(true);
 
+      await client.close();
+    });
+  });
+
+  it('attach_file uploads a file and the REST endpoint serves it back', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, app }) => {
+      const client = await connectClient(baseUrl, token);
+      const bytes = Buffer.from('fake-png-bytes', 'utf8');
+
+      const result = await client.callTool({
+        name: 'attach_file',
+        arguments: {
+          project_id: projectId,
+          filename: 'shot.png',
+          content_base64: bytes.toString('base64'),
+        },
+      });
+      expect(result.isError).not.toBe(true);
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const text = content[0]?.type === 'text' ? (content[0].text ?? '{}') : '{}';
+      const payload = JSON.parse(text) as { file: { file_id: string; url: string } };
+      expect(payload.file.file_id).toBeTruthy();
+      expect(payload.file.url).toBe(`/api/v1/files/${payload.file.file_id}`);
+
+      const getRes = await app.request(payload.file.url);
+      expect(getRes.status).toBe(200);
+      expect(getRes.headers.get('Content-Type')).toBe('image/png');
+      const body = Buffer.from(await getRes.arrayBuffer());
+      expect(body).toEqual(bytes);
+
+      await client.close();
+    });
+  });
+
+  it('attach_file defaults mime to image/png and returns not_found for missing project', async () => {
+    await withMcpServer(async ({ baseUrl, token }) => {
+      const client = await connectClient(baseUrl, token);
+      const result = await client.callTool({
+        name: 'attach_file',
+        arguments: {
+          project_id: '00000000-0000-4000-8000-000000009999',
+          filename: 'x.png',
+          content_base64: 'aGVsbG8=',
+        },
+      });
+      expect(result.isError).toBe(true);
       await client.close();
     });
   });

@@ -4,6 +4,7 @@ import { createAgentRunEvent } from './repositories/agent-run-events.js';
 import { createAgentRun } from './repositories/agent-runs.js';
 import { createDocument } from './repositories/documents.js';
 import { createEdge } from './repositories/edges.js';
+import { createFile, listFilesByProject } from './repositories/files.js';
 import { createFolder, listFolders } from './repositories/folders.js';
 import { createNote } from './repositories/notes.js';
 import { createGoal, getOrCreateDefaultGoal, listGoals } from './repositories/goals.js';
@@ -116,6 +117,18 @@ export type PlandeskExportV1DocumentComment = {
   created_at?: string;
 };
 
+export type PlandeskExportV1File = {
+  id: string;
+  filename: string;
+  mime: string;
+  size: number;
+  // Present for locally-stored (BLOB) files; null for s3-backed files.
+  bytes_base64: string | null;
+  // Present for s3-backed files; null for locally-stored (BLOB) files.
+  external_url: string | null;
+  created_at: string;
+};
+
 export type PlandeskExportV1AgentRunEvent = {
   message: string;
   created_at: string;
@@ -142,6 +155,7 @@ export type PlandeskExportV1 = {
   notes: PlandeskExportV1Note[];
   comments: PlandeskExportV1Comment[];
   agent_runs: PlandeskExportV1AgentRun[];
+  files: PlandeskExportV1File[];
 };
 
 export type PlandeskExportInput = {
@@ -163,6 +177,8 @@ export type PlandeskExportInput = {
   // Legacy shape from exports written before polymorphic comments.
   document_comments?: PlandeskExportV1DocumentComment[];
   agent_runs: PlandeskExportV1AgentRun[];
+  // Optional for backward compatibility with exports written before files existed.
+  files?: PlandeskExportV1File[];
 };
 
 export class InvalidExportVersionError extends Error {
@@ -253,6 +269,7 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
   const notes = listNotes(db, projectId);
   const comments = listCommentsByProject(db, projectId, { includeResolved: true });
   const runs = listAgentRuns(db, projectId);
+  const projectFiles = listFilesByProject(db, projectId);
 
   return {
     version: PLANDESK_EXPORT_VERSION,
@@ -340,6 +357,15 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
         message: event.message,
         created_at: event.createdAt.toISOString(),
       })),
+    })),
+    files: projectFiles.map((file) => ({
+      id: file.id,
+      filename: file.filename,
+      mime: file.mime,
+      size: file.size,
+      bytes_base64: file.bytes ? file.bytes.toString('base64') : null,
+      external_url: file.externalUrl,
+      created_at: file.createdAt,
     })),
   };
 }
@@ -535,6 +561,20 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
           createdAt: new Date(event.created_at),
         });
       }
+    }
+
+    for (const file of data.files ?? []) {
+      createFile(tx, {
+        // Content-addressed: id stays the source hash, no remap needed.
+        id: file.id,
+        projectId: project.id,
+        filename: file.filename,
+        mime: file.mime,
+        size: file.size,
+        bytes: file.bytes_base64 ? Buffer.from(file.bytes_base64, 'base64') : null,
+        externalUrl: file.external_url,
+        createdAt: file.created_at,
+      });
     }
 
     return { projectId: project.id };

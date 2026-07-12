@@ -8,6 +8,7 @@ import { createTagsRouter } from './routes/tags.js';
 import { createCanvasRouter } from './routes/canvas.js';
 import { createCommentsRouter } from './routes/comments.js';
 import { createDocumentsRouter } from './routes/documents.js';
+import { createFilesRouter } from './routes/files.js';
 import { createFoldersRouter } from './routes/folders.js';
 import { createNotesRouter } from './routes/notes.js';
 import type { EventBus } from './events.js';
@@ -43,6 +44,7 @@ export function createApp(deps: AppDeps): Hono {
     agentRunService,
     tokenService,
     syncService,
+    fileService,
   } = services;
 
   const app = new Hono();
@@ -58,6 +60,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createTagsRouter(tagService));
   app.route('/api/v1', createCanvasRouter(canvasService));
   app.route('/api/v1', createDocumentsRouter(documentService));
+  app.route('/api/v1', createFilesRouter(fileService));
   app.route('/api/v1', createFoldersRouter(folderService));
   app.route('/api/v1', createNotesRouter(noteService));
   app.route('/api/v1', createCommentsRouter(commentService));

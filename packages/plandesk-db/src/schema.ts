@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  blob,
   integer,
   primaryKey,
   real,
@@ -275,6 +276,20 @@ export const syncState = sqliteTable('sync_state', {
     .references(() => projects.id),
   pullCursor: text('pull_cursor'),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
+export const files = sqliteTable('files', {
+  // sha256 hex of the bytes — content-addressed for dedup.
+  id: text('id').primaryKey(),
+  projectId: text('project_id')
+    .notNull()
+    .references(() => projects.id),
+  filename: text('filename').notNull(),
+  mime: text('mime').notNull(),
+  size: integer('size').notNull(),
+  bytes: blob('bytes', { mode: 'buffer' }),
+  externalUrl: text('external_url'),
+  createdAt: text('created_at').notNull(),
 });
 
 export const syncRemotes = sqliteTable('sync_remotes', {
