@@ -178,5 +178,6 @@ human explicitly asked for that in the same request.
 
 `.plandesk/skill.md` (task/document/edge conventions, inherited verbatim);
 `.agents/factory/lanes.md` (lane vocabulary); `.agents/factory/workflow.md` §2
-(the stop-after-intake rule); [triage.md](triage.md) and [autonomy.md](autonomy.md)
-(the sibling Curator roles).
+(the stop-after-intake rule); [plan-writer.md](plan-writer.md) (the upstream skill
+that authors the RFC this one consumes); [triage.md](triage.md) and
+[autonomy.md](autonomy.md) (the sibling Curator roles).

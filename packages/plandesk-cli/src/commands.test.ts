@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createProject, exportProject, getProject, PLANDESK_EXPORT_VERSION } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs, workspaceDbPath } from './args.js';
 import { main } from './cli.js';
 import { CURATOR_TEMPLATES } from './curator-templates.js';
@@ -39,6 +39,22 @@ async function captureIo(
     stderr: stderrChunks.join(''),
   };
 }
+
+// Isolate the machine-global port registry (~/.plandesk/ports.json) so tests
+// that run `init` never share its tmp path with other test files — concurrent
+// writers otherwise race on ports.json.tmp (one's rename consumes the other's).
+let portRegistryStateDir: string | undefined;
+beforeEach(() => {
+  portRegistryStateDir = mkdtempSync(join(tmpdir(), 'plandesk-cmd-state-'));
+  process.env.PLANDESK_STATE_DIR = portRegistryStateDir;
+});
+afterEach(() => {
+  delete process.env.PLANDESK_STATE_DIR;
+  if (portRegistryStateDir !== undefined) {
+    rmSync(portRegistryStateDir, { recursive: true, force: true });
+    portRegistryStateDir = undefined;
+  }
+});
 
 describe('parseArgs export/import/doctor', () => {
   it('parses export with project, out, and data-dir', () => {

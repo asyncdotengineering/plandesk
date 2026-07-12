@@ -248,7 +248,7 @@ describe('worker files', () => {
 });
 
 describe('curator artifacts (F5)', () => {
-  it('scaffolds all 9 curator artifacts create-if-missing, with hook scripts executable', () => {
+  it('scaffolds all 10 curator artifacts create-if-missing, with hook scripts executable', () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo });
 
@@ -282,7 +282,7 @@ describe('curator artifacts (F5)', () => {
     expect(triageArtifact?.action).toBe('skip');
   });
 
-  it('--print previews all 9 curator artifacts and the settings.json merge', () => {
+  it('--print previews all 10 curator artifacts and the settings.json merge', () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo, print: true });
     expect(existsSync(join(repo, '.agents/curator'))).toBe(false);

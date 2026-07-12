@@ -127,6 +127,7 @@ const RESERVED_COMMANDS = new Set([
   'context',
   'progress-checkpoint',
   'help',
+  'onboard',
   'version',
   'open',
   'preview',
@@ -190,6 +191,7 @@ export type ParsedArgs =
   | { command: 'progress-checkpoint'; message?: string; repoDir?: string }
   | { command: 'preview'; paths: string[]; port?: number; host?: string; open: boolean }
   | { command: 'help'; full: boolean }
+  | { command: 'onboard' }
   | { command: 'version' }
   | { command: 'unknown'; name: string };
 
@@ -253,6 +255,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   if (command === 'version' || flags['version'] === true) {
     return { command: 'version' };
+  }
+
+  if (command === 'onboard') {
+    return { command: 'onboard' };
   }
 
   if (
@@ -488,6 +494,7 @@ Usage:
   plandesk factory init [--repo <dir>] [--print] [--force]
   plandesk context --json [--repo <dir>]   # bound project's current task/doc/progress, for session hooks
   plandesk progress-checkpoint [--message <text>] [--repo <dir>]   # post a checkpoint to the running agent run, for Stop/PreCompact hooks
+  plandesk onboard           # teach-me guide: how to work in a Plan Desk + Factory repo
   plandesk version           # print the installed CLI version (also: --version)
 
 Options:
@@ -533,6 +540,7 @@ THE CORE LOOP  (you + your agent)
 
 RUN IT WITH YOUR AGENT  (optional — delegated, lane-gated execution)
   plandesk factory init                      # scaffold .agents/factory + curator skills
+  plandesk onboard                           # teach-me: how to work in a Plan Desk + Factory repo
   Your agent then runs the board unattended: pull get_next_task → dispatch a worker CLI →
   verify → done, gated by risk lanes. Curator skills triage raw signal into tasks and
   scaffold plans onto the board. Read .agents/index.md after init.

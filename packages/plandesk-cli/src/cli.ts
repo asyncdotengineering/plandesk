@@ -3,6 +3,7 @@ import { networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import { cwd } from 'node:process';
 import { runInit } from './init.js';
+import { printOnboard } from './onboard.js';
 import { crashCourse, DEFAULT_PORT, findLocalPlandeskDir, parseArgs, resolveDataDir, usage } from './args.js';
 import { readWorkspaceJson, resolveEffectivePort } from './connect-artifacts.js';
 import { runServe } from './serve.js';
@@ -81,6 +82,9 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
   switch (parsed.command) {
     case 'help':
       process.stdout.write(parsed.full ? usage() : crashCourse());
+      return 0;
+    case 'onboard':
+      printOnboard();
       return 0;
     case 'version': {
       const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {

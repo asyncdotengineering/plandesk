@@ -125,12 +125,16 @@ plandesk factory init
 
 What this writes:
 
-- **Factory policy** (`.agents/factory/`): factory.md (the per-task contract) and
-  workflow.md (the session program) — both ride **always-on** in `CLAUDE.md` /
-  `AGENTS.md` so they gate behavior — plus autonomous-stand.md (the execution
-  posture: decompose a goal, drive the task list to zero, ship without pausing;
-  pulled in by the `/factory` command and referenced by workflow.md), protocol.md,
-  lanes.md, verifiers/, workers/ (one file per agent CLI, probed).
+- **Factory policy** (`.agents/factory/`): workflow.md (the session program),
+  factory.md (the per-task contract), and autonomous-stand.md (the execution
+  posture: decompose a goal, drive the task list to zero, ship without pausing),
+  plus protocol.md, lanes.md, verifiers/, workers/ (one file per agent CLI,
+  probed). `factory init` writes a **managed sentinel block** into `CLAUDE.md` /
+  `AGENTS.md` — a "default operating mode" preamble (follow the cycle, delegate to
+  a probed worker when one is installed else do it yourself, autonomous-stand,
+  prove before done) followed by **always-on @-includes of all three** policy docs
+  (workflow.md, factory.md, autonomous-stand.md), so they gate behavior every
+  session. The same three are also exposed as a `/factory` command.
 - **Curator skills** (`.agents/curator/` → `.claude/skills/`): triage, intake,
   autonomy, provenance, automation.
 - **Claude Code hooks**: `.agents/curator/hooks/session-start.sh` + `checkpoint.sh`,

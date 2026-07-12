@@ -292,9 +292,12 @@ export const FACTORY_SENTINEL_PREAMBLE = `## Plan Desk Factory — default opera
 
 This repository runs on the Factory workflow. On any work request:
 1. **Follow the factory workflow** — orient, then execute the [factory.md](.agents/factory/factory.md) cycle: pull → read → red gate → act → prove → observe → gate → report.
-2. **Operate in autonomous-stand mode** — decompose the goal into verifiable moves, drive them to zero, and ship finished work without pausing for permission.
-3. **Drive via harness tasks** — use \`TaskCreate\` / \`TaskList\` / \`TaskUpdate\` as the execution spine. One task per move; \`in_progress\` on start, \`completed\` the instant its done-condition holds.
-4. **Prove before done** — re-run the claimed checks per [protocol.md](.agents/factory/protocol.md); exit codes are authoritative.`;
+2. **Delegate implementation by default — when a worker is available.** The supervisor orchestrates; IC workers execute. Probe the dispatchers in [.agents/factory/workers/](.agents/factory/workers/) per [protocol.md](.agents/factory/protocol.md) and hand each work item to a probed worker. **If no worker is installed on this machine, do the work yourself under the same contract** — never skip the cycle just because you are the one typing, and never assume a delegation skill or worker CLI exists that this repo did not ship. Write inline without dispatch only for trivial edits, integration/conflict resolution, and review fixes under ~5 lines.
+3. **Operate in autonomous-stand mode** — decompose the goal into verifiable moves, drive them to zero, and ship finished work without pausing for permission.
+4. **Drive via harness tasks** — use \`TaskCreate\` / \`TaskList\` / \`TaskUpdate\` as the execution spine. One task per move; \`in_progress\` on start, \`completed\` the instant its done-condition holds.
+5. **Prove before done** — re-run the claimed checks per [protocol.md](.agents/factory/protocol.md); exit codes are authoritative.
+
+New to this repo? Run \`plandesk onboard\` for the full Plan Desk + Factory model and the operating loop.`;
 
 export function buildFactorySentinelBlock(): string {
   return `${FACTORY_SENTINEL_START}\n${FACTORY_SENTINEL_PREAMBLE}\n\n${FACTORY_SENTINEL_INCLUDES.join('\n')}\n${FACTORY_SENTINEL_END}`;

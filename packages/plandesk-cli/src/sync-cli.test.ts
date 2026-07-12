@@ -11,7 +11,7 @@ import {
   createSyncToken,
   migrate as migrateSyncServer,
 } from '@plandesk/sync-server';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs } from './args.js';
 import { buildConfigJson } from './connect-artifacts.js';
 import { main } from './cli.js';
@@ -79,6 +79,22 @@ async function startTestSyncServer(): Promise<{
     },
   };
 }
+
+// Isolate the machine-global port registry (~/.plandesk/ports.json) so `init`
+// runs here never share its tmp path with other test files — concurrent writers
+// otherwise race on ports.json.tmp (one's rename consumes the other's).
+let portRegistryStateDir: string | undefined;
+beforeEach(() => {
+  portRegistryStateDir = mkdtempSync(join(tmpdir(), 'plandesk-sync-state-'));
+  process.env.PLANDESK_STATE_DIR = portRegistryStateDir;
+});
+afterEach(() => {
+  delete process.env.PLANDESK_STATE_DIR;
+  if (portRegistryStateDir !== undefined) {
+    rmSync(portRegistryStateDir, { recursive: true, force: true });
+    portRegistryStateDir = undefined;
+  }
+});
 
 describe('parseArgs publish/push/pull', () => {
   it('parses publish with remote, project, sync-token, and repo', () => {

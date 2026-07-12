@@ -13,6 +13,9 @@ shapes; if expected tools are missing, say so before proceeding.
 Never guess or hardcode a Plan Desk project, task, or document ID. Resolve the
 project as below; look up tasks/documents by name and use the returned ID.
 
+New to this repo? Run \`plandesk onboard\` for the full Plan Desk + Factory model
+(how the board works, the execution loop, delegation, and the MCP tools).
+
 ## Resolving the project
 1. Read \`.plandesk/config.json\`. If \`projectId\` is present, use it. Stop here —
    do not ask which project.

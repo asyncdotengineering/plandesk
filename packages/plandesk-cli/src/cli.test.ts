@@ -15,6 +15,7 @@ import {
   resolveInitDataDir,
   workspaceDbPath,
 } from './args.js';
+import { ONBOARD_GUIDE, printOnboard } from './onboard.js';
 import { assignPort, runInit } from './init.js';
 import {
   isPortOwnedByAnotherProject,
@@ -119,6 +120,10 @@ describe('parseArgs', () => {
     expect(parseArgs(['node', 'plandesk', 'version'])).toEqual({ command: 'version' });
     expect(parseArgs(['node', 'plandesk', '--version'])).toEqual({ command: 'version' });
   });
+
+  it('parses onboard as a command', () => {
+    expect(parseArgs(['node', 'plandesk', 'onboard'])).toEqual({ command: 'onboard' });
+  });
 });
 
 describe('crashCourse', () => {
@@ -129,6 +134,30 @@ describe('crashCourse', () => {
     expect(out).toContain('plandesk connect');
     expect(out).toContain('Agents:'); // explicit instruction to fetch the links
     expect(out).toContain('plandesk help --commands');
+    expect(out).toContain('plandesk onboard');
+  });
+});
+
+describe('onboard guide', () => {
+  it('teaches the model without assuming any worker CLI or delegation skill exists', () => {
+    const out = ONBOARD_GUIDE;
+    // Portability invariant: the guide must tell the agent to self-execute when
+    // no worker is installed — never assume a delegate skill or worker CLI ships
+    // on the machine reading it.
+    expect(out).toContain('do the work yourself');
+    expect(out).toContain('get_next_task');
+    expect(out).toContain('Factory');
+    // References only Plan-Desk-shipped surfaces, not a personal ~/.agents setup.
+    expect(out).not.toContain('~/.agents');
+    expect(out).not.toContain('/delegate');
+  });
+
+  it('printOnboard writes the guide to the provided sink', () => {
+    let captured = '';
+    printOnboard((s) => {
+      captured += s;
+    });
+    expect(captured).toContain('Plan Desk — onboarding for agents');
   });
 });
 
