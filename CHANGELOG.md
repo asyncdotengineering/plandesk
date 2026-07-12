@@ -2,6 +2,19 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [0.17.0] — 2026-07-12
+
+### Added
+
+- **File storage.** Uploads now go through a pluggable `StorageAdapter`; the default `local` adapter stores content-addressed BLOBs **inside `workspace.db`**, so a self-hosted install needs no object store and files travel with sync/backup/export. `POST /projects/:id/files` (base64, ≤10 MB) → a lean `/api/v1/files/:id` URL; `GET /files/:id` serves it (`image/*` inline, everything else forced to download so an upload can never execute as active content). MCP **`attach_file`** lets an agent upload once and embed `![](url)` instead of inlining base64. The editor now uploads pasted/dropped and annotated/redacted images to file URLs (via TipTap's `FileHandler`) so bodies stay lean.
+- **Agent share-links.** `create_share_link` (MCP) mints a public, hash-token link scoped to one task or document with a TTL (24h default, or `never`). `GET /api/v1/share/:token.md` returns it as **agent-ready Markdown** — linked documents inlined, an instruction to fetch every embedded image, and relative URLs absolutized — so a delegated worker can `curl` full task/RFC context without any MCP access. Reuses the existing `shares` table + projection.
+- **First-class artifacts.** Stored agent deliverables (markdown/html): `create_artifact` / `get_artifact` / `update_artifact` / `list_artifacts` (MCP) and `POST/GET/PATCH /artifacts` + `GET /projects/:id/artifacts` (REST). The stored artifact's id is the same `artifact_id` used by `list_artifact_comments` / `add_artifact_comment`, closing the produce → annotate → revise loop.
+- **Full editor in task descriptions.** Task descriptions now get the `/` slash menu, `[[` document links, and image upload, and the task drawer widened from a fixed 400px to 75vw.
+
+### Changed
+
+- **Docs + agent skill refreshed** for everything since 0.13.3 — the redesigned console, the Notion editor, auto-save, annotation, rich comments, and the new file/share/artifact surface (endpoint table, MCP tool docs, `plandesk connect` skill).
+
 ## [0.16.0] — 2026-07-12
 
 ### Added
