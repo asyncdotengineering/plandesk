@@ -142,6 +142,15 @@ export const listNotesInputSchema = z.object({
   project_id: z.string().uuid(),
 });
 
+export const createShareLinkInputSchema = z.object({
+  task_id: z.string().uuid().optional(),
+  document_id: z.string().uuid().optional(),
+  expires: z
+    .enum(['24h', '7d', 'never'])
+    .optional()
+    .describe('Link TTL. Defaults to 24h; never means the link does not expire.'),
+});
+
 export const attachFileInputSchema = z.object({
   project_id: z.string().uuid(),
   filename: z.string().min(1),
@@ -375,6 +384,7 @@ export const v1ToolNames = [
   'list_notes',
   'create_edge',
   'attach_file',
+  'create_share_link',
   'start_agent_run',
   'record_agent_progress',
   'complete_agent_run',
@@ -421,6 +431,7 @@ export const v1ToolSchemas = {
   list_notes: listNotesInputSchema,
   create_edge: createEdgeInputSchema,
   attach_file: attachFileInputSchema,
+  create_share_link: createShareLinkInputSchema,
   start_agent_run: startAgentRunInputSchema,
   record_agent_progress: recordAgentProgressInputSchema,
   complete_agent_run: completeAgentRunInputSchema,

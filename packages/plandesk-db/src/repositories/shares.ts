@@ -92,6 +92,12 @@ export function getShareByTokenHash(db: DbClient, hash: string): Share | undefin
     .get();
 }
 
+// Unlike getShareByTokenHash, does not filter out revoked/expired shares — callers
+// that need to distinguish "unknown token" (404) from "revoked/expired" (410) use this.
+export function getShareByTokenHashRaw(db: DbClient, hash: string): Share | undefined {
+  return db.select().from(shares).where(eq(shares.tokenHash, hash)).get();
+}
+
 export function listShares(db: DbClient, projectId: string): Share[] {
   return db.select().from(shares).where(eq(shares.projectId, projectId)).all();
 }

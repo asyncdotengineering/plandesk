@@ -18,6 +18,8 @@ import {
   serializeAnnotations,
   type AnnotationShape,
 } from './annotation-flatten.js';
+// Registers the editor.storage.imageUpload augmentation used below.
+import './image-upload.js';
 
 type AnnotationTool = AnnotationShape['type'];
 
@@ -37,7 +39,7 @@ function imagePoint(
   return { x: Math.max(0, Math.min(naturalW, x)), y: Math.max(0, Math.min(naturalH, y)) };
 }
 
-function AnnotatableImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
+function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: NodeViewProps) {
   const src = node.attrs.src as string;
   const alt = node.attrs.alt as string;
   const originalSrc = node.attrs.originalSrc as string | null;
@@ -86,9 +88,16 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected }: NodeView
         canFlatten && overlayShapes.length > 0
           ? await flattenAnnotations(persistedOriginal, overlayShapes, w, h)
           : persistedOriginal;
+      // Upload the flattened results to lean file URLs (no-op for already-hosted
+      // or when no uploader is configured — the uploader returns its input).
+      const upload =
+        editor.storage.imageUpload?.uploader ?? ((value: string) => Promise.resolve(value));
+      const persistedOriginalUrl = await upload(persistedOriginal);
+      const displaySrcUrl =
+        displaySrc === persistedOriginal ? persistedOriginalUrl : await upload(displaySrc);
       updateAttributes({
-        src: displaySrc,
-        originalSrc: persistedOriginal,
+        src: displaySrcUrl,
+        originalSrc: persistedOriginalUrl,
         annotations: serializeAnnotations(overlayShapes),
       });
     } finally {
@@ -98,7 +107,7 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected }: NodeView
       setTextDraft(null);
       dragStartRef.current = null;
     }
-  }, [baseSrc, naturalSize, saving, shapes, updateAttributes]);
+  }, [baseSrc, editor, naturalSize, saving, shapes, updateAttributes]);
 
   useEffect(() => {
     if (!annotating) {

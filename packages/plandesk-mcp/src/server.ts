@@ -8,6 +8,7 @@ import { createAttachFileHandler } from './tools/attach-file.js';
 import { createCompleteAgentRunHandler } from './tools/complete-agent-run.js';
 import { createCreateDocumentHandler } from './tools/create-document.js';
 import { createCreateEdgeHandler } from './tools/create-edge.js';
+import { createCreateShareLinkHandler } from './tools/create-share-link.js';
 import { createCreateFolderHandler } from './tools/create-folder.js';
 import { createUpdateFolderHandler } from './tools/update-folder.js';
 import { createCreateProjectHandler } from './tools/create-project.js';
@@ -48,6 +49,7 @@ import {
   createDocumentInputSchema,
   createEdgeInputSchema,
   createFolderInputSchema,
+  createShareLinkInputSchema,
   updateFolderInputSchema,
   createProjectInputSchema,
   createTaskInputSchema,
@@ -105,7 +107,7 @@ function extractBearerToken(header: string | undefined): string | undefined {
   return match?.[1]?.trim();
 }
 
-function createMcpServer(services: Services): McpServer {
+function createMcpServer(services: Services, origin: string): McpServer {
   const server = new McpServer({ name: 'plandesk', version: '1.0.0' });
 
   server.registerTool(
@@ -292,6 +294,17 @@ function createMcpServer(services: Services): McpServer {
       inputSchema: attachFileInputSchema.shape,
     },
     createAttachFileHandler(services.fileService),
+  );
+
+  server.registerTool(
+    'create_share_link',
+    {
+      title: 'Create Share Link',
+      description:
+        'Mint a public, hash-token share link scoped to a single task or document, with a Markdown URL (`markdown_url`) a worker can `curl` for full context — put "Context: <markdown_url>" in a worker brief instead of pasting. Exactly one of task_id/document_id is required. expires defaults to 24h; never means the link does not expire.',
+      inputSchema: createShareLinkInputSchema.shape,
+    },
+    createCreateShareLinkHandler(services.shareService, () => origin),
   );
 
   server.registerTool(
@@ -576,7 +589,8 @@ export function createMcpApp(deps: McpAppDeps): Hono {
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });
-    const server = createMcpServer(deps.services);
+    const origin = new URL(c.req.url).origin;
+    const server = createMcpServer(deps.services, origin);
     await server.connect(transport);
     return transport.handleRequest(c.req.raw);
   });

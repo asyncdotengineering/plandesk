@@ -1,8 +1,10 @@
+import FileHandler from '@tiptap/extension-file-handler';
+import type { Editor } from '@tiptap/core';
 import { AnnotatableImage } from './AnnotatableImage.js';
+import { ImageUploadContext, makeDataUrlUploader, type ImageUploader } from './image-upload.js';
 import { TableKit } from '@tiptap/extension-table';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
-import type { EditorView } from '@tiptap/pm/view';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { useRouter } from '@tanstack/react-router';
@@ -170,11 +172,12 @@ function normalizeForMarkdown(html: string): string {
   return template.innerHTML;
 }
 
-function insertImageFiles(view: EditorView, files: FileList | null | undefined, pos?: number) {
-  const imageType = view.state.schema.nodes.image;
-  if (imageType === undefined) {
-    return false;
-  }
+// Shared by the FileHandler paste/drop callbacks and the toolbar Image button.
+// Uploads each image to a lean file URL (uploader read from editor storage) and
+// inserts an AnnotatableImage node; falls back to the inline data URL when no
+// uploader is available or upload fails.
+function uploadAndInsertImages(editor: Editor, files: FileList | File[] | null | undefined, pos?: number) {
+  const uploader = editor.storage.imageUpload?.uploader ?? null;
   const images = Array.from(files ?? []).filter((file) => file.type.startsWith('image/'));
   for (const file of images) {
     const reader = new FileReader();
@@ -182,17 +185,17 @@ function insertImageFiles(view: EditorView, files: FileList | null | undefined, 
       if (typeof reader.result !== 'string') {
         return;
       }
-      const node = imageType.create({
-        src: reader.result,
-        alt: file.name,
-        originalSrc: reader.result,
-        annotations: '[]',
+      const dataUrl = reader.result;
+      const resolve = uploader != null ? uploader(dataUrl) : Promise.resolve(dataUrl);
+      void resolve.then((src) => {
+        editor
+          .chain()
+          .insertContentAt(pos ?? editor.state.selection.from, {
+            type: 'image',
+            attrs: { src, alt: file.name, originalSrc: src, annotations: '[]' },
+          })
+          .run();
       });
-      const tr =
-        pos === undefined
-          ? view.state.tr.replaceSelectionWith(node)
-          : view.state.tr.insert(Math.min(pos, view.state.doc.content.size), node);
-      view.dispatch(tr);
     };
     reader.readAsDataURL(file);
   }
@@ -220,6 +223,10 @@ type RichTextEditorProps = {
   // Borderless + compact (no full-height): for embedding in an existing box,
   // e.g. the comment composer. Ignored when the seamless doc canvas is active.
   bare?: boolean;
+  // Full-height borderless canvas (docs/notes). Defaults to `projectId` being
+  // set; pass false to enable projectId features (slash, [[ links, image upload)
+  // inside a bounded box (e.g. the task drawer).
+  seamless?: boolean;
   ariaLabel?: string;
   // Fires on every user edit with the current HTML — lets a parent drive
   // debounced auto-save without reaching through the imperative handle.
@@ -245,6 +252,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       mode,
       minHeight = '12rem',
       bare = false,
+      seamless: seamlessProp,
       ariaLabel,
       onChange,
       onCommentOnSelection,
@@ -265,6 +273,14 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     // never forces the editor to be recreated.
     const docLinksRef = useRef<{ id: string; title: string }[]>(docLinks ?? []);
     const projectIdRef = useRef<string | undefined>(projectId);
+    // Uploads inserted/annotated images to lean file URLs when a project is
+    // known; null (fallback to inline data URLs) otherwise. Mirrored onto the
+    // editor storage so FileHandler, the toolbar, and the image node view all
+    // read one source.
+    const uploader = useMemo<ImageUploader | null>(
+      () => (projectId !== undefined ? makeDataUrlUploader(projectId) : null),
+      [projectId],
+    );
     useEffect(() => {
       docLinksRef.current = docLinks ?? [];
       projectIdRef.current = projectId;
@@ -345,6 +361,18 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         // the editable surface; reader-mode navigation is handled on click below.
         StarterKit.configure({ link: { openOnClick: false } }),
         AnnotatableImage,
+        ImageUploadContext,
+        // Official paste/drop handling — the callbacks upload + insert; the
+        // uploader is read from editor storage inside uploadAndInsertImages.
+        FileHandler.configure({
+          allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'],
+          onPaste: (currentEditor, files) => {
+            uploadAndInsertImages(currentEditor, files);
+          },
+          onDrop: (currentEditor, files, pos) => {
+            uploadAndInsertImages(currentEditor, files, pos);
+          },
+        }),
         TableKit,
         TaskList,
         TaskItem.configure({ nested: true }),
@@ -375,16 +403,16 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
           class: 'document-editor-content',
           ...(ariaLabel !== undefined ? { 'aria-label': ariaLabel } : {}),
         },
-        handlePaste: (view, event) => insertImageFiles(view, event.clipboardData?.files),
-        handleDrop: (view, event, _slice, moved) => {
-          if (moved) {
-            return false;
-          }
-          const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
-          return insertImageFiles(view, event.dataTransfer?.files, pos);
-        },
       },
     });
+
+    // Publish the active uploader on editor storage so the paste/drop handlers,
+    // the toolbar, and the image node view share one source.
+    useEffect(() => {
+      if (editor.storage.imageUpload !== undefined) {
+        editor.storage.imageUpload.uploader = uploader;
+      }
+    }, [editor, uploader]);
 
     useImperativeHandle(
       ref,
@@ -502,7 +530,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
 
     // In the document context (docs/notes pass projectId) the editor is a
     // seamless, full-height canvas rather than a bordered box.
-    const seamless = projectId !== undefined;
+    const seamless = seamlessProp ?? projectId !== undefined;
 
     return (
       <div>
@@ -721,7 +749,7 @@ function RichTextToolbar({ editor }: { editor: ToolbarEditor }) {
         aria-label="Insert image"
         style={{ display: 'none' }}
         onChange={(event) => {
-          insertImageFiles(editor.view, event.target.files);
+          uploadAndInsertImages(editor, event.target.files);
           event.target.value = '';
         }}
       />

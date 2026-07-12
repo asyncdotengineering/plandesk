@@ -354,6 +354,24 @@ export function deleteDocument(id: string): Promise<void> {
   return request(`/documents/${id}`, { method: 'DELETE' });
 }
 
+export type UploadedFile = {
+  id: string;
+  url: string;
+  filename: string;
+  mime: string;
+  size: number;
+};
+
+export function uploadFile(
+  projectId: string,
+  input: { filename: string; mime: string; content_base64: string },
+): Promise<UploadedFile> {
+  return request(`/projects/${projectId}/files`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 export function listFolders(projectId: string): Promise<SerializedFolder[]> {
   return request(`/projects/${projectId}/folders`);
 }

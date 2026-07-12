@@ -155,7 +155,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(41);
+      expect(names).toHaveLength(42);
       await client.close();
     });
   });
@@ -633,6 +633,57 @@ describe('createMcpApp', () => {
         },
       });
       expect(result.isError).toBe(true);
+      await client.close();
+    });
+  });
+
+  it('create_share_link mints a resource-scoped link with a working markdown_url', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db, app }) => {
+      const task = createTask(db, { projectId, label: 'Shareable task', status: 'todo' });
+      createDocument(db, { projectId, title: 'Spec', body: '# Spec body', linkedTaskId: task.id });
+
+      const client = await connectClient(baseUrl, token);
+      const result = await client.callTool({
+        name: 'create_share_link',
+        arguments: { task_id: task.id },
+      });
+      expect(result.isError).not.toBe(true);
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const text = content[0]?.type === 'text' ? (content[0].text ?? '{}') : '{}';
+      const payload = JSON.parse(text) as {
+        share: { url: string; markdown_url: string; expires_at: string | null };
+      };
+      expect(payload.share.url).toMatch(new RegExp(`^${baseUrl}/p/`));
+      expect(payload.share.markdown_url).toMatch(new RegExp(`^${baseUrl}/api/v1/share/.+\\.md$`));
+      expect(payload.share.expires_at).toBeTruthy();
+
+      const mdPath = payload.share.markdown_url.slice(baseUrl.length);
+      const mdRes = await app.request(mdPath);
+      expect(mdRes.status).toBe(200);
+      expect(mdRes.headers.get('Content-Type')).toBe('text/markdown; charset=utf-8');
+      const markdown = await mdRes.text();
+      expect(markdown).toContain('Shareable task');
+      expect(markdown).toContain('## Linked document: Spec');
+
+      await client.close();
+    });
+  });
+
+  it('create_share_link requires exactly one of task_id/document_id', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+      const task = createTask(db, { projectId, label: 'Either' });
+      const doc = createDocument(db, { projectId, title: 'Either doc' });
+      const client = await connectClient(baseUrl, token);
+
+      const neither = await client.callTool({ name: 'create_share_link', arguments: {} });
+      expect(neither.isError).toBe(true);
+
+      const both = await client.callTool({
+        name: 'create_share_link',
+        arguments: { task_id: task.id, document_id: doc.id },
+      });
+      expect(both.isError).toBe(true);
+
       await client.close();
     });
   });

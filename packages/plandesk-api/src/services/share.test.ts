@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createDb, createProject, getShare, listShares, migrate } from '@plandesk/db';
+import {
+  createDb,
+  createDocument,
+  createProject,
+  getShare,
+  getShareByTokenHashRaw,
+  hashShareToken,
+  listShares,
+  migrate,
+} from '@plandesk/db';
+import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus } from '../events.js';
 import { createProjectService } from './projects.js';
 import { createShareService, InvalidShareError, serializeShare } from './share.js';
@@ -15,6 +25,9 @@ describe('shareService', () => {
     db.$client.exec('DELETE FROM share_submissions');
     db.$client.exec('DELETE FROM sync_state');
     db.$client.exec('DELETE FROM shares');
+    db.$client.exec('DELETE FROM documents');
+    db.$client.exec('DELETE FROM tasks');
+    db.$client.exec('DELETE FROM goals');
     db.$client.exec('DELETE FROM projects');
   });
 
@@ -126,6 +139,137 @@ describe('shareService', () => {
     const serialized = serializeShare(row);
     expect(serialized).not.toHaveProperty('token_hash');
     expect(JSON.stringify(serialized)).not.toContain(created.token);
+  });
+
+  it('createResourceShare for a task inlines the linked document, includes the agent preamble, and absolutizes a relative image', () => {
+    const service = createService();
+    const project = createProject(db, { name: 'Resource shares' });
+    const task = createTask(db, {
+      projectId: project.id,
+      label: 'Ship the thing',
+      description: 'See ![before](/api/v1/files/abc123) for context.',
+    });
+    createDocument(db, {
+      projectId: project.id,
+      title: 'Spec',
+      body: '<p>Do the work.</p><img src="/api/v1/files/def456" alt="diagram">',
+      linkedTaskId: task.id,
+    });
+
+    const created = service.createResourceShare(
+      { resource: { kind: 'task', id: task.id } },
+      'https://plandesk.example',
+    );
+    if (!created) {
+      throw new Error('expected resource share to be created');
+    }
+    expect(created.url).toBe(`https://plandesk.example/p/${created.token}`);
+    expect(created.markdownUrl).toBe(`https://plandesk.example/api/v1/share/${created.token}.md`);
+    expect(created.expiresAt).toBeTruthy();
+
+    const markdown = service.getResourceMarkdown(created.token, 'https://plandesk.example');
+    if (markdown.status !== 'ok') {
+      throw new Error('expected markdown');
+    }
+    expect(markdown.markdown).toContain('Agent context. Read every section');
+    expect(markdown.markdown).toContain('# Ship the thing');
+    expect(markdown.markdown).toContain('## Linked document: Spec');
+    expect(markdown.markdown).toContain('https://plandesk.example/api/v1/files/abc123');
+    expect(markdown.markdown).toContain('![diagram](https://plandesk.example/api/v1/files/def456)');
+    expect(markdown.markdown).toContain('## Images in this context');
+    expect(markdown.markdown).toMatch(/- https:\/\/plandesk\.example\/api\/v1\/files\/def456/);
+  });
+
+  it('createResourceShare for a document shares just that document', () => {
+    const service = createService();
+    const project = createProject(db, { name: 'Doc share' });
+    const doc = createDocument(db, {
+      projectId: project.id,
+      title: 'RFC',
+      body: '<h2>Design</h2>',
+    });
+
+    const created = service.createResourceShare(
+      { resource: { kind: 'document', id: doc.id } },
+      'https://plandesk.example',
+    );
+    if (!created) {
+      throw new Error('expected resource share to be created');
+    }
+
+    const markdown = service.getResourceMarkdown(created.token, 'https://plandesk.example');
+    if (markdown.status !== 'ok') {
+      throw new Error('expected markdown');
+    }
+    expect(markdown.markdown).toContain('# RFC');
+    expect(markdown.markdown).toContain('## Design');
+  });
+
+  it('createResourceShare defaults to a 24h expiry; explicit null never expires', () => {
+    const service = createService();
+    const project = createProject(db, { name: 'Expiry' });
+    const task = createTask(db, { projectId: project.id, label: 'Expire me' });
+
+    const defaulted = service.createResourceShare(
+      { resource: { kind: 'task', id: task.id } },
+      'https://plandesk.example',
+    );
+    expect(defaulted?.expiresAt).toBeTruthy();
+
+    const forever = service.createResourceShare(
+      { resource: { kind: 'task', id: task.id }, expiresAt: null },
+      'https://plandesk.example',
+    );
+    expect(forever?.expiresAt).toBeNull();
+  });
+
+  it('createResourceShare returns undefined for a missing task or document', () => {
+    const service = createService();
+    expect(
+      service.createResourceShare(
+        { resource: { kind: 'task', id: '00000000-0000-4000-8000-000000009999' } },
+        'https://plandesk.example',
+      ),
+    ).toBeUndefined();
+    expect(
+      service.createResourceShare(
+        { resource: { kind: 'document', id: '00000000-0000-4000-8000-000000009999' } },
+        'https://plandesk.example',
+      ),
+    ).toBeUndefined();
+  });
+
+  it('getResourceMarkdown returns gone for a revoked or expired token, not_found for an unknown one', () => {
+    const service = createService();
+    const project = createProject(db, { name: 'Gone' });
+    const task = createTask(db, { projectId: project.id, label: 'Revoke me' });
+
+    const revoked = service.createResourceShare(
+      { resource: { kind: 'task', id: task.id } },
+      'https://plandesk.example',
+    );
+    if (!revoked) {
+      throw new Error('expected share to be created');
+    }
+    const revokedRow = getShareByTokenHashRaw(db, hashShareToken(revoked.token));
+    if (!revokedRow) {
+      throw new Error('expected share row');
+    }
+    expect(service.revokeShare(revokedRow.id)).toBe(true);
+    expect(service.getResourceMarkdown(revoked.token, 'https://plandesk.example').status).toBe('gone');
+
+    const expired = service.createResourceShare(
+      { resource: { kind: 'task', id: task.id }, expiresAt: new Date(Date.now() - 1000) },
+      'https://plandesk.example',
+    );
+    if (!expired) {
+      throw new Error('expected share to be created');
+    }
+    expect(service.getResourceMarkdown(expired.token, 'https://plandesk.example').status).toBe('gone');
+
+    expect(
+      service.getResourceMarkdown('plandesk_share_unknown-token', 'https://plandesk.example').status,
+    ).toBe('not_found');
   });
 
   it('cascade deletes shares when a project is deleted', () => {

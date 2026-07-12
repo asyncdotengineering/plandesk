@@ -30,7 +30,7 @@ export { InvalidCommentError } from './services/comments.js';
 export { InvalidCanvasError } from './services/canvas.js';
 export { InvalidAgentRunError } from './services/agent-runs.js';
 export { InvalidScaffoldError } from './services/projects.js';
-export { InvalidShareError } from './services/share.js';
+export { InvalidShareError, type ShareService } from './services/share.js';
 export {
   InvalidTriageError,
   InvalidTriageInputError,

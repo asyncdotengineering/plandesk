@@ -72,6 +72,9 @@ importers:
       '@tiptap/core':
         specifier: ^3.26.0
         version: 3.26.0(@tiptap/pm@3.26.0)
+      '@tiptap/extension-file-handler':
+        specifier: ^3.27.3
+        version: 3.27.3(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))(@tiptap/extension-text-style@3.27.3(@tiptap/core@3.26.0(@tiptap/pm@3.26.0)))(@tiptap/pm@3.26.0)
       '@tiptap/extension-image':
         specifier: ^3.26.0
         version: 3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))
@@ -2799,6 +2802,13 @@ packages:
     peerDependencies:
       '@tiptap/extensions': 3.26.0
 
+  '@tiptap/extension-file-handler@3.27.3':
+    resolution: {integrity: sha512-imgPCybU4tM0HgW6y/xoXdwvxRvjN0X4ErvQwDJg//75/s6QSyk13jz5Cp4/T/PtCnzZ7whtpmK2bFtEiPMpyg==}
+    peerDependencies:
+      '@tiptap/core': 3.27.3
+      '@tiptap/extension-text-style': 3.27.3
+      '@tiptap/pm': 3.27.3
+
   '@tiptap/extension-floating-menu@3.26.0':
     resolution: {integrity: sha512-reQ77NRYAOP7iPudsNbzLBuBTdL2aGxZzjccUFmE2lNdmwP23n9A/JhkuUhshVBs/6IozvahI+smG3Bnea0TCQ==}
     peerDependencies:
@@ -2889,6 +2899,11 @@ packages:
     resolution: {integrity: sha512-Zi94LADPSmYk0SGqLpR9zc9u/hyn0+EXY5IvYS/3q+p5usBXHG3noz/t6TbiIm5fkZZ+G0L15HsRR+YuoCbArw==}
     peerDependencies:
       '@tiptap/extension-list': 3.26.0
+
+  '@tiptap/extension-text-style@3.27.3':
+    resolution: {integrity: sha512-oim4RqFtMBCA4N+J8f8dTFFYZrwyfmXLxLL5SvQkn+kkpfGLv8PqJCnJ4uHxsnHXDNsWHBtVVhfTGUABZsTEHg==}
+    peerDependencies:
+      '@tiptap/core': 3.27.3
 
   '@tiptap/extension-text@3.26.0':
     resolution: {integrity: sha512-yZXdevp3/8omGbb40Z52VfvID+tsRNhPQ1GNUToD56XSr2BjdJyAzAb9rWGgDKgVMUPLgJ26yT0O278RFqOKhA==}
@@ -8444,6 +8459,12 @@ snapshots:
     dependencies:
       '@tiptap/extensions': 3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))(@tiptap/pm@3.26.0)
 
+  '@tiptap/extension-file-handler@3.27.3(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))(@tiptap/extension-text-style@3.27.3(@tiptap/core@3.26.0(@tiptap/pm@3.26.0)))(@tiptap/pm@3.26.0)':
+    dependencies:
+      '@tiptap/core': 3.26.0(@tiptap/pm@3.26.0)
+      '@tiptap/extension-text-style': 3.27.3(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))
+      '@tiptap/pm': 3.26.0
+
   '@tiptap/extension-floating-menu@3.26.0(@floating-ui/dom@1.8.0)(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))(@tiptap/pm@3.26.0)':
     dependencies:
       '@floating-ui/dom': 1.8.0
@@ -8519,6 +8540,10 @@ snapshots:
   '@tiptap/extension-task-list@3.26.0(@tiptap/extension-list@3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))(@tiptap/pm@3.26.0))':
     dependencies:
       '@tiptap/extension-list': 3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))(@tiptap/pm@3.26.0)
+
+  '@tiptap/extension-text-style@3.27.3(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))':
+    dependencies:
+      '@tiptap/core': 3.26.0(@tiptap/pm@3.26.0)
 
   '@tiptap/extension-text@3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))':
     dependencies:
