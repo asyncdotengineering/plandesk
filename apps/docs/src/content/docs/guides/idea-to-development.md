@@ -119,5 +119,5 @@ That's the whole arc: an idea became a connected plan, Claude Code built it from
 ## Next steps
 
 - [The Skill](/connecting-agents/skill/) — the exact conventions Claude follows
-- [REST + MCP API](/reference/api/) — all 32 tools
+- [REST + MCP API](/reference/api/) — all 46 tools
 - [Plan & execute a project](/guides/plan-and-execute/) — the conceptual workflow + Codex setup

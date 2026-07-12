@@ -1,6 +1,6 @@
 export const PLANDESK_SKILL_TEMPLATE = `---
 name: plandesk
-description: Plan Desk planning conventions. Use when planning projects, features, or RFCs; creating or updating Plan Desk tasks, documents, notes, and edges; executing a plan with get_next_task; or reading and resolving Plan Desk comments.
+description: Plan Desk planning conventions. Use when planning projects, features, or RFCs; creating or updating Plan Desk tasks, documents, notes, files, artifacts, and edges; executing a plan with get_next_task; sharing context with a delegated worker; or reading and resolving Plan Desk comments.
 ---
 
 # Plan Desk MCP Instructions
@@ -69,6 +69,12 @@ memory rather than a deliverable spec.
   to revise the title or body.
 - Write bodies as well-structured Markdown — \`##\` headings, bullet lists, blank
   lines between paragraphs. Bodies render as rich text in the UI.
+
+## Files
+
+- Use \`attach_file\` to upload an image and get back \`{ file_id, url }\`; embed it
+  in a document, task, or comment body as \`![alt](url)\` instead of inlining
+  base64 — keeps bodies lean. \`mime\` defaults to \`image/png\`.
 
 ## Edges
 - Connect related tasks with labeled edges. Prefer the vocabulary:
@@ -143,6 +149,33 @@ them over MCP exactly like document comments — \`list_artifact_comments\` to p
 up → you fix it" loop on files, not just documents. When you finish a deliverable
 file, tell the person they can review it with \`plandesk <that file>\`.
 
+## Artifacts
+
+An artifact is a stored agent deliverable — a report, an RFC, an HTML diagram —
+kept in the workspace (not a file on disk).
+
+- \`create_artifact\` to store one (\`title\`, \`content\`, optional \`kind\`:
+  \`markdown\` or \`html\`); the returned \`artifact_id\` is exactly the id
+  \`list_artifact_comments\`/\`add_artifact_comment\` use, so a human's annotation
+  and your \`update_artifact\` revision close the loop without a file on disk.
+- \`get_artifact\` to read one back before revising; \`list_artifacts\` to check
+  what a project already has before creating a duplicate.
+- Prefer an artifact over a Note or Document when the deliverable is a finished
+  piece meant to be read and marked up (a report, a spec, a diagram) rather than
+  tracked plan state. \`artifact_id\` is opaque — pass through what \`create_artifact\`
+  or \`list_artifact_comments\` gave you, never construct it.
+
+## Sharing
+
+- \`create_share_link\` hands a delegated worker or sub-agent full context for one
+  task or document without giving it MCP access: pass exactly one of \`task_id\`/
+  \`document_id\`, get back \`{ url, markdown_url, expires_at }\`. Put
+  \`Context: <markdown_url>\` in the worker's brief instead of pasting context —
+  \`markdown_url\` returns the resource as agent-ready Markdown with linked docs
+  inlined and embedded images fetchable.
+- \`expires\` defaults to \`24h\`; pass \`never\` only when the link truly needs to
+  outlive a session — it stays public to anyone who has it.
+
 ## Agent runs
 1. Start a run at the beginning of any multi-step Plan Desk operation.
 2. Record progress after each meaningful unit of work (not every tool call).
@@ -157,7 +190,9 @@ file, tell the person they can review it with \`plandesk <that file>\`.
 - Create non-trivial tasks without a description.
 - Set a task to \`in_progress\` at creation.
 - Skip the duplicate check before creating a task.
-- Delete Plan Desk tasks, documents, or notes (there is no delete tool by design).
+- Delete Plan Desk tasks, documents, notes, or artifacts (there is no delete tool by design).
+- Inline large images as base64 in a document/task/comment body — \`attach_file\`
+  and embed the returned \`url\` instead.
 - Leave open document comments unaddressed — read them with \`list_comments\` and
   \`resolve_comment\` once handled (resolving replaces deleting).
 - Leave an agent run open at session end.

@@ -57,4 +57,10 @@ The handler and query code are identical across both; only the client factory di
 
 - **Multi-tenancy** — today a deployment is single-tenant (one team / one self-hosted instance). Org isolation with fail-closed tenant scoping and intra-org project ACLs is the gated final phase.
 
-See [The Skill](/connecting-agents/skill/) for how an agent already drives the planning loop, and the [REST + MCP API](/reference/api/) for the current 27 tools.
+See [The Skill](/connecting-agents/skill/) for how an agent already drives the planning loop, and the [REST + MCP API](/reference/api/) for the current 46 tools.
+
+## Agent share links (a lighter-weight sibling)
+
+`create_share_link` mints the same kind of `shares` row as `share create` above, but scoped by policy to a **single task or document** instead of a curated allow-list, and it adds one more surface: `GET /api/v1/share/:token.md` renders that resource as agent-ready Markdown (linked documents inlined, an instruction to fetch every embedded image, relative URLs absolutized). It defaults to a 24h TTL (`never` disables expiry).
+
+This is not the client-collaboration portal — no participant joins, no submissions, no live status-back. It exists for one thing: handing a delegated worker or sub-agent full context via a URL (`Context: <markdown_url>` in a brief) without granting it MCP access to the whole project. See [REST + MCP API → Share links](/reference/api/#share-links).

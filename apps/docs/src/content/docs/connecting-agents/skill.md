@@ -1,6 +1,6 @@
 ---
 title: The Skill
-description: Agent conventions for Plan Desk MCP — task labels, docs, edges, and agent runs.
+description: Agent conventions for Plan Desk MCP — task labels, docs, notes, files, artifacts, sharing, edges, and agent runs.
 ---
 
 Embed this file in a repo so Claude Code, Codex, or other MCP agents follow Plan Desk conventions. `plandesk connect` writes the same content to `.plandesk/skill.md` and references it from `CLAUDE.md`.
@@ -58,10 +58,33 @@ existing plan; use `scaffold_project_from_plan` to build a new one.
 
 ## Documents
 
+- Write bodies as well-structured Markdown — `##` headings, bullet lists,
+  fenced code blocks, and blank lines between paragraphs. Bodies render as
+  rich text in the UI (a Notion-style editor); a wall of unbroken text is unreadable for people.
 - Title prefix: `Investigation:`, `Scope:`, `Design:`, or `Fix:`.
 - Include a `Status:` line near the top: "Ready to implement",
   "Open — requires investigation", "Ready for review", or "Superseded".
 - After creating a document, link it to its primary task in the same step.
+
+## Notes
+
+Notes are free-form working notes scoped to the project — findings, context,
+scratch reasoning, anything worth referring back to later. They are distinct
+from documents: notes are not linked to tasks, not nested, and not part of the
+formal plan or client share. Reach for a note when the content is for working
+memory rather than a deliverable spec.
+
+- `list_notes` (by `project_id`) to see existing notes; `get_note` to read one.
+- `create_note` to capture a new note (give it a clear `title`); `update_note`
+  to revise the title or body.
+- Write bodies as well-structured Markdown — `##` headings, bullet lists, blank
+  lines between paragraphs. Bodies render as rich text in the UI.
+
+## Files
+
+- Use `attach_file` to upload an image and get back `{ file_id, url }`; embed it
+  in a document, task, or comment body as `![alt](url)` instead of inlining
+  base64 — keeps bodies lean. `mime` defaults to `image/png`.
 
 ## Edges
 
@@ -70,6 +93,11 @@ existing plan; use `scaffold_project_from_plan` to build a new one.
 - When you discover a new dependency while working, add the edge.
 
 ## Executing the plan
+
+If `.agents/factory/workflow.md` exists in this repo, it is the orchestrator's
+session program — read and follow it when executing the plan (it defers to
+`.agents/factory/factory.md` for the per-task contract). The loop below is the
+tool-level default it builds on.
 
 To work a plan, do not guess what is next — call `get_next_task`. It returns the
 next actionable `todo` task (one whose prerequisite tasks are all `done`), plus
@@ -104,7 +132,9 @@ The board is only useful when it matches reality. Two standing rules:
 
 ## Comments
 
-People leave comments on documents in the UI to give you feedback or direction.
+People leave comments on documents in the UI to give you feedback or direction —
+the composer is a full editor, so a comment can carry formatting, images, and
+the same annotation overlay as the document editor.
 
 - At the start of a session, and after finishing a task, pull open feedback with
   `list_comments` (by `project_id`, optionally one `document_id`). By default you
@@ -112,6 +142,52 @@ People leave comments on documents in the UI to give you feedback or direction.
 - Address each comment, then `resolve_comment` to close the loop — resolving
   updates the commenter's UI live.
 - Use `add_comment` to leave a suggestion or question on a document for a person.
+- People can also annotate **files you wrote** (not just workspace documents) — see
+  the next section. Pull those with `list_artifact_comments` (by `project_id` +
+  `artifact_id`), address them, and `resolve_comment` the same way.
+
+## Reviewing files (the CLI previewer)
+
+Beyond the workspace UI, a person can open any Markdown or HTML file you produced
+in a local previewer and annotate it:
+
+```
+plandesk <file.md>        # or: plandesk *.md, plandesk open <paths...>
+```
+
+They highlight text and attach notes. In a connected repo those annotations are
+stored as `artifact` comments in this project's board, so you read and resolve
+them over MCP exactly like document comments — `list_artifact_comments` to pull,
+`resolve_comment` to close. This closes the "you write a file → the human marks it
+up → you fix it" loop on files, not just documents. When you finish a deliverable
+file, tell the person they can review it with `plandesk <that file>`.
+
+## Artifacts
+
+An artifact is a stored agent deliverable — a report, an RFC, an HTML diagram —
+kept in the workspace (not a file on disk).
+
+- `create_artifact` to store one (`title`, `content`, optional `kind`:
+  `markdown` or `html`); the returned `artifact_id` is exactly the id
+  `list_artifact_comments`/`add_artifact_comment` use, so a human's annotation
+  and your `update_artifact` revision close the loop without a file on disk.
+- `get_artifact` to read one back before revising; `list_artifacts` to check
+  what a project already has before creating a duplicate.
+- Prefer an artifact over a Note or Document when the deliverable is a finished
+  piece meant to be read and marked up (a report, a spec, a diagram) rather than
+  tracked plan state. `artifact_id` is opaque — pass through what `create_artifact`
+  or `list_artifact_comments` gave you, never construct it.
+
+## Sharing
+
+- `create_share_link` hands a delegated worker or sub-agent full context for one
+  task or document without giving it MCP access: pass exactly one of `task_id`/
+  `document_id`, get back `{ url, markdown_url, expires_at }`. Put
+  `Context: <markdown_url>` in the worker's brief instead of pasting context —
+  `markdown_url` returns the resource as agent-ready Markdown with linked docs
+  inlined and embedded images fetchable.
+- `expires` defaults to `24h`; pass `never` only when the link truly needs to
+  outlive a session — it stays public to anyone who has it.
 
 ## Agent runs
 
@@ -129,7 +205,9 @@ People leave comments on documents in the UI to give you feedback or direction.
 - Create non-trivial tasks without a description.
 - Set a task to `in_progress` at creation.
 - Skip the duplicate check before creating a task.
-- Delete Plan Desk tasks or documents (there is no delete tool by design).
+- Delete Plan Desk tasks, documents, notes, or artifacts (there is no delete tool by design).
+- Inline large images as base64 in a document/task/comment body — `attach_file`
+  and embed the returned `url` instead.
 - Leave open document comments unaddressed — read them with `list_comments` and
   `resolve_comment` once handled (resolving replaces deleting).
 - Leave an agent run open at session end.

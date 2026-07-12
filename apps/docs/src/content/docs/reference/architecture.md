@@ -10,7 +10,7 @@ apps/plandesk-web/          React SPA (canvas, docs, board, settings)
 apps/docs/                  Astro Starlight documentation site
 packages/plandesk-api/      Hono REST + SSE
 packages/plandesk-db/       SQLite schema + Drizzle migrations
-packages/plandesk-mcp/      MCP server (Streamable HTTP, 40 tools)
+packages/plandesk-mcp/      MCP server (Streamable HTTP, 46 tools)
 packages/plandesk-cli/      plandesk binary (init, serve, connect, …)
 packages/plandesk-mcp-client/  Factory Desk / programmatic MCP consumer
 ```
@@ -24,7 +24,7 @@ Core packages ship under the `@plandesk/*` scope on npm (currently `0.1.1`):
 | `@plandesk/cli`        | `plandesk` binary; bundles the web UI for `serve` |
 | `@plandesk/api`        | Hono REST + SSE server                            |
 | `@plandesk/db`         | SQLite schema + migrations                        |
-| `@plandesk/mcp`        | MCP server (40 tools)                             |
+| `@plandesk/mcp`        | MCP server (46 tools)                             |
 | `@plandesk/mcp-client` | Programmatic MCP consumer                         |
 
 Install with `npm i -g @plandesk/cli` to run Plan Desk without cloning the repo.
@@ -49,7 +49,10 @@ SQLite workspace at `.plandesk/workspace.db` (project-local; `plandesk serve` wa
 - `edges` — labeled directed dependencies between tasks
 - `documents` — markdown bodies with optional `linked_task_id`
 - `notes` — free-form project working notes
-- `comments` — polymorphic comments keyed by `target_type` (`document` | `task` | `note` | `submission`) + `target_id`
+- `artifacts` — stored agent deliverables (`title`, `kind`: `markdown` | `html`, `content`)
+- `files` — content-addressed uploaded bytes (BLOB by default, pluggable `StorageAdapter`)
+- `comments` — polymorphic comments keyed by `target_type` (`document` | `task` | `note` | `submission` | `artifact`) + `target_id`
+- `shares` — audience or single-resource share links (token hashed at rest)
 - `agent_runs` / `agent_run_events` — external agent session tracking
 - `mcp_tokens` — hashed bearer tokens (raw shown once at creation)
 
