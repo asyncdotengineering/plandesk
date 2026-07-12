@@ -2,6 +2,22 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [0.18.0] — 2026-07-12
+
+### Added
+
+- **`plandesk onboard`.** A portable teach-me guide that explains the Plan Desk + Factory model to a coding agent — how the board works, the execution loop, delegation, and the MCP tools — without assuming any personal delegate skill or worker CLI exists on the machine. Wired into `plandesk help` / `--commands` and referenced from the connect skill.
+- **`curator-plan-writer` skill.** A new Curator skill that writes an RFC as a Plan Desk `Design:` document — an evidence-backed build contract (problem, numbered requirements, concrete design, alternatives, verification surface) that is the upstream of `curator-intake` (which decomposes it) and the factory (which executes it). Synthesized from how mature open-source projects (Sentry, Ember, React, the Vercel / AI SDK ecosystem) write RFCs; respects intake's ownership of task sizing.
+
+### Changed
+
+- **Leaner always-on agent context.** `factory init`'s managed `CLAUDE.md` / `AGENTS.md` block now inlines a crisp "default operating mode" preamble plus exactly one policy doc — `factory.md`, the per-item contract whose absence would change behavior. The session program (`workflow.md`) and execution posture (`autonomous-stand.md`) are referenced by path and read on demand instead of inlined into every session (~496 → ~266 lines of baseline policy). The preamble carries a **portable delegation default**: delegate implementation to a probed worker when one is installed, else do the work yourself under the same contract — never assuming a delegate skill or worker CLI this repo did not ship.
+- **Sharper execution posture.** `autonomous-stand.md` adds a concrete anti-early-stopping check (before ending a turn, if your last paragraph is a plan, a question, or an "I'll…" promise, do that work now with tool calls); `factory.md` frames diff review as adversarial (assume the worker missed something and prove it did not; never approve a first pass unexamined).
+
+### Fixed
+
+- CLI test isolation: the `commands` and `sync-cli` suites no longer race on the machine-global port registry under parallel runs.
+
 ## [0.17.0] — 2026-07-12
 
 ### Added
