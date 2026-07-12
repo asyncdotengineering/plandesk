@@ -57,6 +57,16 @@ const turndownService = new TurndownService({
 });
 turndownService.use(gfm);
 
+// Annotated images carry re-editable annotation data (data-original, data-annotations)
+// that a Markdown image `![](url)` cannot represent. Keep them as raw HTML so the
+// annotations survive a Markdown-stored body (task descriptions). Blur-only images
+// have no re-editable annotations left (redaction is baked in), so they fall through
+// to a plain Markdown image.
+turndownService.addRule('annotatedImage', {
+  filter: (node) => node.nodeName === 'IMG' && node.getAttribute('data-annotations') !== null,
+  replacement: (_content, node) => node.outerHTML,
+});
+
 // marked emits <input type="checkbox"> inside <li>; TipTap needs data-type attrs.
 function taskListFromMarkdownHtml(html: string): string {
   const template = window.document.createElement('template');
@@ -200,12 +210,16 @@ export type RichTextEditorHandle = {
   // True only after the user has edited the content since it was last loaded.
   // Lets a caller skip a lossy Markdown re-serialization when nothing changed.
   isDirty: () => boolean;
+  focus: () => void;
 };
 
 type RichTextEditorProps = {
   value: string;
   mode: RichTextEditorMode;
   minHeight?: string;
+  // Borderless + compact (no full-height): for embedding in an existing box,
+  // e.g. the comment composer. Ignored when the seamless doc canvas is active.
+  bare?: boolean;
   ariaLabel?: string;
   // Fires on every user edit with the current HTML — lets a parent drive
   // debounced auto-save without reaching through the imperative handle.
@@ -230,6 +244,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       value,
       mode,
       minHeight = '12rem',
+      bare = false,
       ariaLabel,
       onChange,
       onCommentOnSelection,
@@ -377,6 +392,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         getHTML: () => editor.getHTML(),
         getMarkdown: () => turndownService.turndown(normalizeForMarkdown(editor.getHTML())),
         isDirty: () => dirtyRef.current,
+        focus: () => editor.commands.focus(),
       }),
       [editor],
     );
@@ -525,12 +541,14 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
               style={
                 seamless
                   ? { padding: '0.25rem 0', minHeight: 'calc(100vh - 16rem)' }
-                  : {
-                      border: '1px solid var(--border)',
-                      borderRadius: 8,
-                      padding: '0.75rem 1rem',
-                      minHeight,
-                    }
+                  : bare
+                    ? { padding: '0.25rem', minHeight }
+                    : {
+                        border: '1px solid var(--border)',
+                        borderRadius: 8,
+                        padding: '0.75rem 1rem',
+                        minHeight,
+                      }
               }
             >
               <EditorContent editor={editor} />

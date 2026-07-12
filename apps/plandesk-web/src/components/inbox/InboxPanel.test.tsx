@@ -235,11 +235,14 @@ describe('InboxPanel', () => {
       );
     });
 
-    expect(screen.queryByPlaceholderText(/Leave feedback/)).toBeNull();
+    // Thread collapsed → the comment composer (a rich editor) is not mounted.
+    expect(document.querySelector('.document-editor-content')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Comments' }));
 
-    expect(await screen.findByPlaceholderText(/Leave feedback/)).toBeTruthy();
+    await waitFor(() => {
+      expect(document.querySelector('.document-editor-content')).toBeTruthy();
+    });
   });
 
   it('releases a backlog task to scope', async () => {

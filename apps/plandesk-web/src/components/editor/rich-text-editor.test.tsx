@@ -118,6 +118,39 @@ describe('RichTextEditor', () => {
     expect(markdown).not.toContain('[');
   });
 
+  it('keeps an annotated image as raw HTML in getMarkdown so annotations survive a Markdown body', async () => {
+    const ref = createRef<RichTextEditorHandle>();
+    const annotated =
+      '<img src="data:image/png;base64,AAAA" alt="shot" data-original="data:image/png;base64,BBBB" ' +
+      `data-annotations='[{"id":"a1","type":"arrow","x":1,"y":2,"w":3,"h":4,"color":"#000"}]'>`;
+    render(<RichTextEditor ref={ref} value={annotated} mode="editor" />);
+
+    await waitFor(() => {
+      expect(document.querySelector('.document-editor-content img')).toBeTruthy();
+    });
+
+    const markdown = ref.current?.getMarkdown() ?? '';
+    // Re-editable annotations can't survive a Markdown image, so it stays raw HTML.
+    expect(markdown).toContain('<img');
+    expect(markdown).toContain('data-annotations');
+    expect(markdown).not.toContain('![');
+  });
+
+  it('serializes a plain (un-annotated) image as a Markdown image', async () => {
+    const ref = createRef<RichTextEditorHandle>();
+    render(
+      <RichTextEditor ref={ref} value={'<img src="data:image/png;base64,AAAA" alt="pic">'} mode="editor" />,
+    );
+
+    await waitFor(() => {
+      expect(document.querySelector('.document-editor-content img')).toBeTruthy();
+    });
+
+    const markdown = ref.current?.getMarkdown() ?? '';
+    expect(markdown).toContain('![');
+    expect(markdown).not.toContain('data-annotations');
+  });
+
   it('is clean until edited, then reports dirty so callers can skip a no-op re-serialize', async () => {
     const ref = createRef<RichTextEditorHandle>();
     render(<RichTextEditor ref={ref} value="Start" mode="editor" />);

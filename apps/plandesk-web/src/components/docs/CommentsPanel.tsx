@@ -13,8 +13,17 @@ import {
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor, type RichTextEditorHandle } from '../editor/RichTextEditor.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
+
+// Empty if there's no text and no embedded media (an image alone is content).
+export function commentHasContent(html: string): boolean {
+  const text = html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .trim();
+  return text !== '' || html.includes('<img');
+}
 
 type CommentsPanelProps = {
   target: CommentTarget;
@@ -113,9 +122,12 @@ export function CommentsPanel({
   const patchComment = usePatchComment(target);
   const deleteComment = useDeleteComment(target);
 
-  const [body, setBody] = useState('');
+  // Comment bodies are now rich HTML (text + images + annotations). `composerKey`
+  // remounts the editor to clear it after a successful submit.
+  const [bodyHtml, setBodyHtml] = useState('');
+  const [composerKey, setComposerKey] = useState(0);
   const [attachedPassage, setAttachedPassage] = useState<string | null>(null);
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<RichTextEditorHandle>(null);
   const [showResolved, setShowResolved] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [commentToDelete, setCommentToDelete] = useState<SerializedComment | null>(null);
@@ -127,7 +139,7 @@ export function CommentsPanel({
       return;
     }
     setAttachedPassage(attachPassage);
-    bodyRef.current?.focus();
+    editorRef.current?.focus();
     onPassageConsumed?.();
   }, [attachPassage, onPassageConsumed]);
 
@@ -143,15 +155,16 @@ export function CommentsPanel({
   };
 
   const handleSubmit = () => {
-    const trimmed = body.trim();
-    if (trimmed === '') {
+    const html = bodyHtml;
+    if (!commentHasContent(html)) {
       return;
     }
     const passage = attachedPassage ?? readSelection();
-    createComment.mutate(passage !== null ? { body: trimmed, passage } : { body: trimmed }, {
+    createComment.mutate(passage !== null ? { body: html, passage } : { body: html }, {
       onSuccess: () => {
         toast('Comment added');
-        setBody('');
+        setBodyHtml('');
+        setComposerKey((key) => key + 1);
         setAttachedPassage(null);
       },
     });
@@ -217,15 +230,15 @@ export function CommentsPanel({
             </Button>
           </div>
         ) : null}
-        <Textarea
-          ref={bodyRef}
-          value={body}
-          onChange={(event) => {
-            setBody(event.target.value);
-          }}
-          placeholder="Leave feedback for teammates or an agent…"
-          rows={3}
-          className="min-h-10 resize-y border-0 bg-transparent text-[12.5px] shadow-none focus-visible:ring-0"
+        <RichTextEditor
+          key={composerKey}
+          ref={editorRef}
+          value=""
+          mode="editor"
+          bare
+          minHeight="3rem"
+          ariaLabel="Comment"
+          onChange={setBodyHtml}
         />
         <div className="mt-2 flex items-center justify-end gap-1.5">
           <Button
@@ -239,7 +252,7 @@ export function CommentsPanel({
           <Button
             type="button"
             size="sm"
-            disabled={body.trim() === '' || createComment.isPending}
+            disabled={!commentHasContent(bodyHtml) || createComment.isPending}
             onClick={handleSubmit}
           >
             <CheckIcon className="size-3.5" /> Comment
