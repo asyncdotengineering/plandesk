@@ -90,8 +90,10 @@ file is the policy the supervising agent follows.
    [protocol.md](protocol.md): probe first, then the file's command template.
 5. **Prove** — verify the worker's result claims per the protocol (re-run the
    claimed commands; exit codes are authoritative). No valid claims, no done.
-6. **Observe** — read the diff (the hunks, not the worker transcript) before
-   any status change.
+6. **Observe** — read the diff adversarially (the hunks, not the worker
+   transcript) before any status change: assume the worker missed something and
+   prove it did not. Never approve a first pass unexamined — the supervisor's
+   value is catching what the IC missed.
 7. **Gate** — apply the task's lane from [lanes.md](lanes.md): \`auto\`
    proceeds, \`approve\` waits on a human resolving the diff-summary comment,
    \`full\` runs an independent review plus a human.
@@ -192,6 +194,12 @@ tangent.
 list is empty and every done-condition holds. Do not stop early for time,
 complexity, or token budget. Do not pause between moves to ask "should I
 continue?" — you were asked to deliver, so deliver.
+
+Before ending a turn, read your last paragraph. If it is a plan, an analysis,
+a question, a list of next steps, or a promise about work you have not done
+("I'll…", "let me know when…"), do that work now with tool calls instead of
+ending. End the turn only when every done-condition holds, or you are blocked
+on input only the user can provide.
 
 ## Errors — root, not symptom
 
