@@ -58,7 +58,7 @@ npm i -g @plandesk/cli@latest
 # Orient yourself (and the user) — a crash course + the docs to read, from the CLI:
 plandesk help
 
-# Initialize the local workspace DB (idempotent; ~/.plandesk/workspace.db)
+# Initialize the local workspace DB (idempotent; repo-local .plandesk/workspace.db)
 plandesk init
 
 # Is a server already running on this project's port?
@@ -164,7 +164,7 @@ Confirm all of:
 Setup is done. Tell the user, verbatim:
 
 > Plan Desk is connected to this repo. **Start a new agent session here** so the Plan
-> Desk MCP tools load (you'll see 32 tools). The token is read from
+> Desk MCP tools load (you'll see 46 tools). The token is read from
 > `.plandesk/token` automatically — no export needed.
 > Anytime, run `plandesk help` for a refresher and the docs worth reading.
 

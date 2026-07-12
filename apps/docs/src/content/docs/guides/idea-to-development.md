@@ -30,7 +30,7 @@ claude mcp add --transport http plandesk http://127.0.0.1:3847/mcp/ \
   --header "Authorization: Bearer plandesk_mcp_…"
 ```
 
-Start a **new** Claude Code session so the tools load. You should see Plan Desk's 32 MCP tools (see [REST + MCP API](/reference/api/)). The two that drive this workflow are `scaffold_project_from_plan` (plan once) and `get_next_task` (the build loop).
+Start a **new** Claude Code session so the tools load. You should see Plan Desk's 46 MCP tools (see [REST + MCP API](/reference/api/)). The two that drive this workflow are `scaffold_project_from_plan` (plan once) and `get_next_task` (the build loop).
 
 ## 2. Turn the idea into a plan — let Claude do it
 
