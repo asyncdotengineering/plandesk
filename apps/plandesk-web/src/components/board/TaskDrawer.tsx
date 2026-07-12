@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/sheet';
 import type { RichTextEditorHandle } from '../editor/RichTextEditor.js';
 import { RichTextEditor } from '../editor/RichTextEditor.js';
+import { flattenDocumentTree } from '../docs/DocumentsPanel.js';
+import { useDocuments } from '../../lib/queries.js';
 import type { PatchTaskInput, SerializedDocument, SerializedTag, SerializedTask, TaskStatus } from '../../lib/api.js';
 import { laneFromTags } from './board-utils.js';
 import { StatusMenu } from './StatusChip.js';
@@ -47,7 +49,7 @@ export function TaskDrawer({
         side="right"
         aria-label="Task details"
         showCloseButton={false}
-        className="w-[400px] gap-0 p-0 sm:max-w-[400px]"
+        className="w-[75vw] gap-0 p-0 sm:max-w-[75vw]"
       >
         <SheetTitle className="sr-only">Task details</SheetTitle>
         <SheetDescription className="sr-only">View and edit the task.</SheetDescription>
@@ -99,6 +101,11 @@ function TaskDrawerBody({
   // Open in read mode; editing is an explicit choice via the Edit toggle.
   const [editing, setEditing] = useState(false);
   const editorRef = useRef<RichTextEditorHandle>(null);
+  const { data: allDocuments } = useDocuments(task.project_id);
+  const docLinks = flattenDocumentTree(allDocuments ?? []).map((doc) => ({
+    id: doc.id,
+    title: doc.title,
+  }));
 
   useEffect(() => {
     setLabel(task.label);
@@ -221,6 +228,9 @@ function TaskDrawerBody({
           mode={editing ? 'editor' : 'reader'}
           minHeight="5rem"
           ariaLabel="Description"
+          projectId={task.project_id}
+          seamless={false}
+          docLinks={docLinks}
         />
 
         {editing || tags.length > 0 ? (

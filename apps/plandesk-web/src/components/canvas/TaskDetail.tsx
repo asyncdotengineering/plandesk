@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { StatusMenu } from '../board/StatusChip.js';
 import { CommentsPanel } from '../docs/CommentsPanel.js';
 import { RichTextEditor, type RichTextEditorHandle } from '../editor/RichTextEditor.js';
+import { flattenDocumentTree } from '../docs/DocumentsPanel.js';
+import { useDocuments } from '../../lib/queries.js';
 import type { SerializedTag, TaskStatus } from '../../lib/api.js';
 import type { TaskNodeData } from './canvas-map.js';
 import { OpenDocLink } from './OpenDocLink.js';
@@ -48,6 +50,11 @@ export function TaskDetail({
   const [editing, setEditing] = useState(false);
   const [pendingPassage, setPendingPassage] = useState<string | null>(null);
   const editorRef = useRef<RichTextEditorHandle>(null);
+  const { data: allDocuments } = useDocuments(data.projectId);
+  const docLinks = flattenDocumentTree(allDocuments ?? []).map((doc) => ({
+    id: doc.id,
+    title: doc.title,
+  }));
 
   useEffect(() => {
     setLabel(data.label);
@@ -231,6 +238,9 @@ export function TaskDetail({
           mode={editing ? 'editor' : 'reader'}
           minHeight="5rem"
           ariaLabel="Description"
+          projectId={data.projectId}
+          seamless={false}
+          docLinks={docLinks}
           onCommentOnSelection={(passage) => {
             setPendingPassage(passage);
           }}
