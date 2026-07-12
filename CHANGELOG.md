@@ -2,6 +2,13 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [0.16.0] — 2026-07-12
+
+### Added
+
+- **Rich comments with images and annotation.** The comment composer is now a full editor — leave feedback with formatting, inline images, and the same WhatsApp-style annotation overlay (arrow/box/text/blur redaction). Comment bodies are stored as HTML; existing comments keep rendering.
+- **Re-editable image annotations in task descriptions.** Annotating an image inside a task description now round-trips: the annotated image is preserved as inline HTML in the Markdown body, so its arrows/boxes/text stay editable after reload (blur redaction stays permanent and safe). Task descriptions remain Markdown — the MCP/agent contract is unchanged.
+
 ## [0.15.0] — 2026-07-12
 
 ### Added
