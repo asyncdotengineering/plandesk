@@ -102,7 +102,9 @@ file is the policy the supervising agent follows.
 
 ## Conventions
 
-- Statuses flip atomically with the work event, never in batches.
+- Atomic status updates and board reconciliation follow \`.plandesk/skill.md\`
+  ("Keeping the board true"), not restated here — statuses flip with the work
+  event, never in batches.
 - **One work item, one commit.** Commit only after the lane gate clears — for
   \`auto\`, right after your own verification; for \`approve\`/\`full\`, only once
   the human has resolved the gate and the task is \`done\`. The commit holds

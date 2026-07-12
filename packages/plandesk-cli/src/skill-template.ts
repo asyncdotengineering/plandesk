@@ -185,19 +185,15 @@ kept in the workspace (not a file on disk).
 3. Complete or fail the run before the session ends — never leave one open.
 
 ## Never do
+
+The highest-consequence guardrails — each section above states the positive
+form; these are the ones worth a hard, consolidated reminder:
+
 - Guess or hardcode IDs.
-- Batch status updates for the end of a session — statuses change atomically
-  as the work happens.
-- Leave a task \`in_progress\` that nobody is actively working on.
-- Reference line numbers in tasks or documents.
-- Create non-trivial tasks without a description.
-- Set a task to \`in_progress\` at creation.
-- Skip the duplicate check before creating a task.
-- Delete Plan Desk tasks, documents, notes, or artifacts (there is no delete tool by design).
+- Delete tasks, documents, notes, or artifacts — there is no delete tool by
+  design; resolve, supersede, or set status instead.
+- Batch status updates for the end of a session — statuses flip atomically as
+  the work happens (see "Keeping the board true").
 - Inline large images as base64 in a document/task/comment body — \`attach_file\`
   and embed the returned \`url\` instead.
-- Leave open document comments unaddressed — read them with \`list_comments\` and
-  \`resolve_comment\` once handled (resolving replaces deleting).
-- Leave an agent run open at session end.
-- Create a document without linking it to a task.
 `;

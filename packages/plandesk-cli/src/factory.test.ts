@@ -189,9 +189,15 @@ describe('always-on policy include', () => {
     const first = readFileSync(join(repo, 'CLAUDE.md'), 'utf8');
     expect(first).toContain('# My repo');
     expect(first).toContain('<!-- plandesk-factory:start -->');
-    expect(first).toContain('@.agents/factory/workflow.md');
+    // Less-is-more: the always-on block carries the crisp preamble gate plus
+    // exactly ONE @-include — factory.md, the per-item contract whose absence
+    // would change behavior. workflow.md and autonomous-stand.md are referenced
+    // by path in the preamble, not inlined into every session's context.
     expect(first).toContain('@.agents/factory/factory.md');
-    expect(first).toContain('@.agents/factory/autonomous-stand.md');
+    expect(first).not.toContain('@.agents/factory/workflow.md');
+    expect(first).not.toContain('@.agents/factory/autonomous-stand.md');
+    expect(first).toContain('[workflow.md](.agents/factory/workflow.md)');
+    expect(first).toContain('[autonomous-stand.md](.agents/factory/autonomous-stand.md)');
     // Always-on directive preamble: use the factory as default workflow,
     // operate in autonomous-stand mode, drive via harness tasks.
     expect(first).toContain('Plan Desk Factory — default operating mode');

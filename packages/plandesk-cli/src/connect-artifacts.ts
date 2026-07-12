@@ -273,29 +273,28 @@ export function removeMcpServerEntry(existingContent: string): string | undefine
   return `${JSON.stringify(doc, null, 2)}\n`;
 }
 
-// Factory policy rides always-on next to the plandesk conventions: workflow.md
-// and factory.md change agent behavior at every decision point (a pointer the
-// agent may not follow is not a gate). Dispatch DATA (protocol, workers, lanes,
-// verifiers) stays on-demand — it is read at dispatch/gate time.
+// Always-on context is the minimum behavioral gate plus the tool conventions the
+// agent cannot guess — everything else lives on disk, path-referenced, pulled on
+// demand. So the sentinel rides the crisp PREAMBLE (the gate) plus exactly one
+// @-include: factory.md, the per-work-item contract whose absence would actually
+// change behavior. The session program (workflow.md) and the execution posture
+// (autonomous-stand.md) are named by path in the preamble and read when needed —
+// inlining ~230 more lines every session is noise a capable agent skims past.
+// Dispatch DATA (protocol, workers, lanes, verifiers) stays on-demand too.
 export const FACTORY_SENTINEL_START = '<!-- plandesk-factory:start -->';
 export const FACTORY_SENTINEL_END = '<!-- plandesk-factory:end -->';
-export const FACTORY_SENTINEL_INCLUDES = [
-  '@.agents/factory/workflow.md',
-  '@.agents/factory/factory.md',
-  '@.agents/factory/autonomous-stand.md',
-];
+export const FACTORY_SENTINEL_INCLUDES = ['@.agents/factory/factory.md'];
 
-// Always-on directive prose inserted into CLAUDE.md / AGENTS.md. The @-includes
-// below pull the full policy docs; this preamble is the crisp behavioral gate —
-// a pointer the agent may not follow is not a gate.
+// Always-on directive prose inserted into CLAUDE.md / AGENTS.md. This preamble is
+// the behavioral gate; the single @-include above pulls the per-item contract.
+// The other policy docs are referenced by path here, not inlined.
 export const FACTORY_SENTINEL_PREAMBLE = `## Plan Desk Factory — default operating mode
 
 This repository runs on the Factory workflow. On any work request:
-1. **Follow the factory workflow** — orient, then execute the [factory.md](.agents/factory/factory.md) cycle: pull → read → red gate → act → prove → observe → gate → report.
+1. **Follow the factory cycle** — the always-on [factory.md](.agents/factory/factory.md) contract governs each work item: pull → read → red gate → act → prove → observe → gate → report. For the session program (orient → intake → execute → finish), read [workflow.md](.agents/factory/workflow.md).
 2. **Delegate implementation by default — when a worker is available.** The supervisor orchestrates; IC workers execute. Probe the dispatchers in [.agents/factory/workers/](.agents/factory/workers/) per [protocol.md](.agents/factory/protocol.md) and hand each work item to a probed worker. **If no worker is installed on this machine, do the work yourself under the same contract** — never skip the cycle just because you are the one typing, and never assume a delegation skill or worker CLI exists that this repo did not ship. Write inline without dispatch only for trivial edits, integration/conflict resolution, and review fixes under ~5 lines.
-3. **Operate in autonomous-stand mode** — decompose the goal into verifiable moves, drive them to zero, and ship finished work without pausing for permission.
-4. **Drive via harness tasks** — use \`TaskCreate\` / \`TaskList\` / \`TaskUpdate\` as the execution spine. One task per move; \`in_progress\` on start, \`completed\` the instant its done-condition holds.
-5. **Prove before done** — re-run the claimed checks per [protocol.md](.agents/factory/protocol.md); exit codes are authoritative.
+3. **Operate in autonomous-stand mode** — decompose the goal into verifiable moves on a harness task list (\`TaskCreate\` / \`TaskList\` / \`TaskUpdate\`), drive them to zero, and ship without pausing for permission. The full posture is [autonomous-stand.md](.agents/factory/autonomous-stand.md).
+4. **Prove before done** — re-run the claimed checks per [protocol.md](.agents/factory/protocol.md); exit codes are authoritative.
 
 New to this repo? Run \`plandesk onboard\` for the full Plan Desk + Factory model and the operating loop.`;
 
