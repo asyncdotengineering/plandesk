@@ -2,6 +2,16 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [0.19.0] — 2026-07-12
+
+### Added
+
+- **Scaffold into an existing project.** `scaffold_project_from_plan` now takes an optional `project_id`: pass it to add a whole plan — tasks, dependency edges, linked documents — **atomically into an existing project** (e.g. the repo-bound one), with new auto-laid-out tasks placed below its existing nodes; omit it to create a new project (as before). This removes the friction of an agent either duplicating an already-bound project or falling back to granular `create_task`/`create_edge`/`create_document` calls. The intake and connect skills now direct agents to pass `project_id` when the repo is already bound.
+
+### Changed
+
+- **Factory hands workers context by link, not by paste.** The dispatch contract (`.agents/factory/protocol.md`) now instructs the supervisor to mint a share link (`create_share_link`) for the task being delegated and put the `markdown_url` in the worker's brief — so a worker CLI with no MCP access `curl`s one URL for the full task, its inlined specs, and image references. Delegation no longer requires the operator to name any tool.
+
 ## [0.18.0] — 2026-07-12
 
 ### Added
