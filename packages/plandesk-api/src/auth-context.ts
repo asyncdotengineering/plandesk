@@ -1,17 +1,34 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { OrgRole, TokenScope } from '@plandesk/db';
+import type { OrgRole } from '@plandesk/db';
 import { hasAtLeast } from './permissions.js';
 
 /**
- * Request-scoped auth. Middleware resolves org + effective permission once;
- * services read this and call requireRole — they never branch on auth kind.
+ * Request-scoped auth. Middleware resolves org + effective permission once,
+ * whatever the transport; services read `orgId` and call requireRole and must
+ * never branch on `kind`. Three transports, one identity model:
+ * browser session cookie, CLI/agent token, and trusted loopback.
  */
-export type AuthContext = {
-  orgId: string;
-  /** Effective permission: lesser of member role and token scope ceiling. */
-  permission: OrgRole;
-  tokenScope: TokenScope;
-};
+export type AuthContext =
+  | {
+      kind: 'session';
+      orgId: string;
+      /** Stable identity, e.g. `github:<numeric id>` — never the login. */
+      userRef: string;
+      /** The member's role: a browser session has no scope ceiling above it. */
+      permission: OrgRole;
+    }
+  | {
+      kind: 'token';
+      orgId: string;
+      /** Effective permission: lesser of member role and token scope ceiling. */
+      permission: OrgRole;
+    }
+  | {
+      kind: 'loopback';
+      orgId: string;
+      /** REQ-21: local loopback single-org is always owner — no login. */
+      permission: 'owner';
+    };
 
 const storage = new AsyncLocalStorage<AuthContext>();
 

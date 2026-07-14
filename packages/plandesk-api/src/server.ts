@@ -6,6 +6,8 @@ import {
   createWriteGuardMiddleware,
 } from './auth.js';
 import { healthRouter } from './routes/health.js';
+import { createAuthRouter } from './routes/auth.js';
+import type { GithubConfig } from './github.js';
 import { createProjectsRouter } from './routes/projects.js';
 import { createTasksRouter } from './routes/tasks.js';
 import { createTagsRouter } from './routes/tags.js';
@@ -34,6 +36,12 @@ export type AppDeps = {
   authPassword?: string;
   /** Server bind host — loopback default-org only when this is loopback. Default 127.0.0.1. */
   bindHost?: string;
+  /**
+   * GitHub app for browser sign-in. Omit it and the instance simply has no
+   * GitHub sign-in: /auth/github 404s and /auth/methods reports token entry.
+   * Self-hosting must never require registering an app (REQ-20).
+   */
+  github?: GithubConfig;
 };
 
 export function createApp(deps: AppDeps): Hono {
@@ -78,6 +86,7 @@ export function createApp(deps: AppDeps): Hono {
   });
 
   app.route('/api/v1', healthRouter);
+  app.route('/api/v1', createAuthRouter({ db: deps.db, github: deps.github }));
   app.route('/api/v1', createOrgsRouter(deps.db));
   app.route('/api/v1', createProjectsRouter(projectService, taskService));
   app.route('/api/v1', createGoalsRouter(goalService));

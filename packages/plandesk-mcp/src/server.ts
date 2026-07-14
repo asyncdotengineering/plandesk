@@ -659,8 +659,8 @@ export function createMcpApp(deps: McpAppDeps): Hono {
       // (read-only → viewer). Matches REST org auth middleware default.
       await runWithAuthContext(
         {
+          kind: 'token',
           orgId: verified.orgId,
-          tokenScope: verified.scope,
           permission: effectivePermission('owner', verified.scope),
         },
         async () => {

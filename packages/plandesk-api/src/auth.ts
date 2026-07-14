@@ -4,6 +4,7 @@ import {
   getDefaultOrg,
   getOrgMember,
   isSingleOrg,
+  verifySession,
   verifyToken,
   type Db,
   type OrgRole,
@@ -11,6 +12,7 @@ import {
 } from '@plandesk/db';
 import { runWithAuthContext, tryGetAuthContext, type AuthContext } from './auth-context.js';
 import { effectivePermission, hasAtLeast } from './permissions.js';
+import { readSessionCookie } from './session.js';
 
 const BASIC_PREFIX = 'Basic ';
 const BASIC_USER = 'plandesk';
@@ -88,15 +90,41 @@ async function resolveMemberRole(
 }
 
 /**
+ * Endpoints that must answer before the caller holds a credential: the OAuth
+ * entry/callback (GitHub sends the browser here with no cookie), the method
+ * probe the sign-in UI reads, and logout (which authenticates itself off the
+ * cookie it is destroying).
+ */
+const PUBLIC_AUTH_PATHS = new Set([
+  '/api/v1/auth/github',
+  '/api/v1/auth/github/callback',
+  '/api/v1/auth/methods',
+  '/api/v1/auth/logout',
+]);
+
+export function isPublicAuthPath(path: string): boolean {
+  return PUBLIC_AUTH_PATHS.has(path);
+}
+
+/**
  * Always-on org resolver for every request:
  * 1. Bearer token → token.orgId + effective permission
- * 2. else loopback bind + single-org → default org as owner (local, zero friction)
- * 3. else 401
+ * 2. else session cookie → session.orgId + the member's role
+ * 3. else loopback bind + single-org → default org as owner (local, zero friction)
+ * 4. else 401
+ *
+ * Every branch yields the same `{ orgId, permission }`, so services downstream
+ * are identical for a browser, the CLI, and an agent.
  */
 export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHandler {
   const { db, bindHost } = options;
 
   return async (c, next) => {
+    if (isPublicAuthPath(c.req.path)) {
+      await next();
+      return;
+    }
+
     const bearer = extractBearerToken(c.req.header('Authorization'));
     if (bearer !== undefined) {
       const verified = await verifyToken(db, bearer);
@@ -109,9 +137,35 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
       }
       const permission = effectivePermission(memberRole, verified.scope);
       const ctx: AuthContext = {
+        kind: 'token',
         orgId: verified.orgId,
-        tokenScope: verified.scope,
         permission,
+      };
+      await runWithAuthContext(ctx, async () => {
+        await next();
+      });
+      return;
+    }
+
+    const sessionToken = readSessionCookie(c);
+    if (sessionToken !== undefined) {
+      const session = await verifySession(db, sessionToken);
+      if (session === undefined) {
+        return c.json({ error: 'unauthorized' }, 401);
+      }
+      const member = await getOrgMember(db, session.orgId, session.userRef);
+      if (member === undefined) {
+        // Membership was revoked after the session was minted: the cookie no
+        // longer carries any authority, so the caller must sign in again.
+        return c.json({ error: 'unauthorized' }, 401);
+      }
+      // A browser session has no scope ceiling — the member's role IS the
+      // permission, enforced downstream by the same requireRole as tokens.
+      const ctx: AuthContext = {
+        kind: 'session',
+        orgId: session.orgId,
+        userRef: session.userRef,
+        permission: member.role,
       };
       await runWithAuthContext(ctx, async () => {
         await next();
@@ -124,8 +178,8 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
       if (org !== undefined) {
         // REQ-21: local loopback single-org is always owner — no login, no role prompt.
         const ctx: AuthContext = {
+          kind: 'loopback',
           orgId: org.id,
-          tokenScope: 'full',
           permission: 'owner',
         };
         await runWithAuthContext(ctx, async () => {
@@ -149,8 +203,22 @@ export function createAuthMiddleware(password: string): MiddlewareHandler {
       return;
     }
 
+    // OAuth entry/callback must stay reachable: GitHub redirects the browser
+    // here and cannot present Basic credentials.
+    if (isPublicAuthPath(c.req.path)) {
+      await next();
+      return;
+    }
+
     // Bearer tokens are handled by org auth; do not require Basic on top of them.
     if (extractBearerToken(c.req.header('Authorization')) !== undefined) {
+      await next();
+      return;
+    }
+
+    // A session cookie is a stronger credential than the shared front-door
+    // password; a signed-in member should not be asked for it as well.
+    if (readSessionCookie(c) !== undefined) {
       await next();
       return;
     }

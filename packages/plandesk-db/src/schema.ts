@@ -57,6 +57,24 @@ export const orgMembers = sqliteTable(
   (table) => [primaryKey({ columns: [table.orgId, table.userRef] })],
 );
 
+/**
+ * Browser sessions minted by the web OAuth redirect flow.
+ * Only the hash of the cookie value is stored, so a database dump yields no
+ * usable cookie. Rows are deleted on logout — revocation is server-side.
+ */
+export const sessions = sqliteTable('sessions', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id')
+    .notNull()
+    .references(() => orgs.id),
+  userRef: text('user_ref').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
   orgId: text('org_id')

@@ -299,6 +299,19 @@ describe('Portal route', () => {
     expect(fetchClientView).not.toHaveBeenCalled();
   });
 
+  // An external participant holds a share token, not an org membership: org
+  // sign-in must never stand between them and the share link.
+  it('is never gated behind org sign-in', async () => {
+    renderPortalRoute();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Acme Corp' })).toBeTruthy();
+    });
+
+    expect(screen.queryByText('Sign in to Plan Desk')).toBeNull();
+    expect(screen.queryByRole('link', { name: /continue with github/i })).toBeNull();
+  });
+
   it('does not call joinShare when name is empty', async () => {
     renderPortalRoute();
 

@@ -1,4 +1,6 @@
 import { Outlet, createRootRoute, useLocation, useParams } from '@tanstack/react-router';
+import { AccountMenu } from '../components/auth/AccountMenu.js';
+import { AuthGate } from '../components/auth/AuthGate.js';
 import { CommandMenu, CommandMenuProvider } from '../components/layout/CommandMenu.js';
 import { Sidebar } from '../components/layout/Sidebar.js';
 import { Toaster } from '@/components/ui/sonner';
@@ -63,26 +65,42 @@ function Crumb() {
   return <ProjectCrumb id={id} viewLabel={viewLabel} />;
 }
 
-function RootLayout() {
+/**
+ * The client share portal is a public surface: an external participant holds a
+ * share token, not an org membership, and authenticates against its own portal
+ * API (see lib/portal.ts). Org sign-in must never gate them.
+ */
+const PORTAL_PATH_PREFIX = '/p/';
+
+function AppShell({ showAccount }: { showAccount: boolean }) {
   return (
-    <CommandMenuProvider>
-      <div className="app">
-        <Sidebar />
-        <div className="main">
-          <header className="topbar">
-            <nav className="crumb">
-              <Crumb />
-            </nav>
-            <div className="spacer" />
-          </header>
-          <main className="content">
-            <Outlet />
-          </main>
-        </div>
-        <CommandMenu />
-        <Toaster />
+    <div className="app">
+      <Sidebar />
+      <div className="main">
+        <header className="topbar">
+          <nav className="crumb">
+            <Crumb />
+          </nav>
+          <div className="spacer" />
+          {showAccount ? <AccountMenu /> : null}
+        </header>
+        <main className="content">
+          <Outlet />
+        </main>
       </div>
-    </CommandMenuProvider>
+      <CommandMenu />
+      <Toaster />
+    </div>
+  );
+}
+
+function RootLayout() {
+  const location = useLocation();
+  const isPortal = location.pathname.startsWith(PORTAL_PATH_PREFIX);
+  const shell = <AppShell showAccount={!isPortal} />;
+
+  return (
+    <CommandMenuProvider>{isPortal ? shell : <AuthGate>{shell}</AuthGate>}</CommandMenuProvider>
   );
 }
 

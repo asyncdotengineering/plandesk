@@ -15,6 +15,10 @@ export const DEFAULT_EDGE_LABEL: EdgeLabel = 'depends_on';
 
 export type TaskStatusSummary = Record<TaskStatus, number>;
 
+/** Mirrors the org role ladder the API enforces (low → high). */
+export const orgRoles = ['viewer', 'commenter', 'editor', 'manager', 'owner'] as const;
+export type OrgRole = (typeof orgRoles)[number];
+
 export type SerializedProject = {
   id: string;
   name: string;
@@ -239,7 +243,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
-  const response = await fetch(`${BASE}${path}`, { ...init, headers });
+  // The session cookie is HttpOnly, so it only rides along when we opt in.
+  const response = await fetch(`${BASE}${path}`, { ...init, headers, credentials: 'include' });
   if (!response.ok) {
     throw new ApiError(response.status, await response.text());
   }
@@ -646,3 +651,37 @@ export function completeGoal(
     body: JSON.stringify(evidence !== undefined ? { evidence } : {}),
   });
 }
+
+export type AuthKind = 'session' | 'token' | 'loopback';
+
+export type SerializedAuthSession = {
+  kind: AuthKind;
+  user_ref: string | null;
+  role: OrgRole;
+  org: { id: string; name: string } | null;
+};
+
+export type SerializedAuthMethods = {
+  method: 'device' | 'token';
+  githubEnabled: boolean;
+};
+
+/**
+ * Who the caller is. Throws ApiError(401) when there is no session — that is
+ * the dashboard's cue to show sign-in rather than an error.
+ */
+export function getAuthSession(): Promise<SerializedAuthSession> {
+  return request('/auth/session');
+}
+
+/** Whether this instance offers GitHub sign-in, or token entry only (REQ-20). */
+export function getAuthMethods(): Promise<SerializedAuthMethods> {
+  return request('/auth/methods');
+}
+
+export function logout(): Promise<{ ok: boolean }> {
+  return request('/auth/logout', { method: 'POST' });
+}
+
+/** Full-page navigation: the OAuth redirect must leave the SPA. */
+export const GITHUB_SIGN_IN_PATH = `${BASE}/auth/github`;

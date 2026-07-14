@@ -4,8 +4,28 @@ export {
   createOrgAuthMiddleware,
   createWriteGuardMiddleware,
   isLoopbackBind,
+  isPublicAuthPath,
   type OrgAuthOptions,
 } from './auth.js';
+export {
+  authorizeUrl,
+  githubConfigFromEnv,
+  resolveGithubIdentity,
+  userRefFromGithubId,
+  GithubOAuthError,
+  type FetchLike,
+  type GithubConfig,
+  type GithubEnv,
+  type GithubIdentity,
+} from './github.js';
+export {
+  SESSION_COOKIE,
+  OAUTH_STATE_COOKIE,
+  readSessionCookie,
+  setSessionCookie,
+  clearSessionCookie,
+} from './session.js';
+export { createAuthRouter, type AuthRouterDeps } from './routes/auth.js';
 export {
   runWithAuthContext,
   tryGetAuthContext,

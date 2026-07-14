@@ -165,6 +165,7 @@ describe('api client', () => {
     expect(fetch).toHaveBeenCalledWith('/api/v1/tasks/task-1', {
       method: 'DELETE',
       headers: expect.any(Headers) as Headers,
+      credentials: 'include',
     });
   });
 
@@ -191,6 +192,7 @@ describe('api client', () => {
     expect(fetch).toHaveBeenCalledWith('/api/v1/projects/proj-1', {
       method: 'DELETE',
       headers: expect.any(Headers) as Headers,
+      credentials: 'include',
     });
   });
 
@@ -207,6 +209,7 @@ describe('api client', () => {
     expect(fetch).toHaveBeenCalledWith('/api/v1/documents/doc-1', {
       method: 'DELETE',
       headers: expect.any(Headers) as Headers,
+      credentials: 'include',
     });
   });
 
@@ -223,6 +226,7 @@ describe('api client', () => {
     expect(fetch).toHaveBeenCalledWith('/api/v1/projects/proj-1/edges/edge-1', {
       method: 'DELETE',
       headers: expect.any(Headers) as Headers,
+      credentials: 'include',
     });
   });
 
@@ -315,6 +319,7 @@ describe('api client', () => {
     expect(fetch).toHaveBeenCalledWith('/api/v1/mcp-tokens/tok-1', {
       method: 'DELETE',
       headers: expect.any(Headers) as Headers,
+      credentials: 'include',
     });
   });
 

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
 import {
   DEFAULT_ORG_ID,
@@ -117,6 +117,24 @@ export async function getOrgMember(
     .from(orgMembers)
     .where(and(eq(orgMembers.orgId, orgId), eq(orgMembers.userRef, userRef)))
     .get();
+}
+
+/**
+ * Every org this user_ref belongs to, oldest membership first.
+ * Identity is stable (`github:<numeric id>`), so a user signing in from a new
+ * browser resolves back to the org they already belong to rather than getting
+ * a fresh one per device.
+ */
+export async function listOrgMembershipsForUser(
+  db: DbClient,
+  userRef: string,
+): Promise<OrgMember[]> {
+  return db
+    .select()
+    .from(orgMembers)
+    .where(eq(orgMembers.userRef, userRef))
+    .orderBy(asc(orgMembers.createdAt))
+    .all();
 }
 
 export async function isSingleOrg(db: DbClient): Promise<boolean> {

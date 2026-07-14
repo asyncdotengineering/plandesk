@@ -11,6 +11,7 @@ type MigrationJournal = {
 };
 
 const DOWN_SQL: Record<string, string[]> = {
+  '0015_parallel_gunslinger': ['DROP TABLE IF EXISTS `sessions`;'],
   '0014_sloppy_photon': [
     // Reverse composite files PK → single-column id PK
     `CREATE TABLE \`__old_files\` (

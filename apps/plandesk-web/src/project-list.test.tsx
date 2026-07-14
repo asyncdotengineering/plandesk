@@ -12,6 +12,27 @@ const sampleProject = {
   updated_at: '2026-06-07T00:00:00.000Z',
 };
 
+/** The board renders behind AuthGate, so every request needs an auth answer. */
+const localSession = {
+  kind: 'loopback' as const,
+  user_ref: null,
+  role: 'owner' as const,
+  org: { id: 'org-1', name: 'Personal' },
+};
+
+function stubFetch(projects: unknown) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((input: unknown) => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(localSession) });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(projects) });
+    }),
+  );
+}
+
 function renderApp() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -30,13 +51,7 @@ afterEach(() => {
 
 describe('Project list', () => {
   it('renders projects from GET /projects', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve([sampleProject]),
-      }),
-    );
+    stubFetch([sampleProject]);
 
     renderApp();
 
@@ -49,13 +64,7 @@ describe('Project list', () => {
   });
 
   it('shows empty state when no projects', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve([]),
-      }),
-    );
+    stubFetch([]);
 
     renderApp();
 

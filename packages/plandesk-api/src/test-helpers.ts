@@ -1,10 +1,12 @@
 import { createDb, ensureDefaultOrg, migrate, type Db } from '@plandesk/db';
 import type { Hono } from 'hono';
 import { createApp } from './server.js';
+import type { GithubConfig } from './github.js';
 
 export async function createTestApp(opts?: {
   authPassword?: string;
   bindHost?: string;
+  github?: GithubConfig;
 }): Promise<{
   app: Hono;
   db: Db;
@@ -19,6 +21,7 @@ export async function createTestApp(opts?: {
       db,
       authPassword: opts?.authPassword,
       bindHost: opts?.bindHost ?? '127.0.0.1',
+      github: opts?.github,
     }),
     db,
     orgId: org.id,

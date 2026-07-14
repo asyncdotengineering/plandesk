@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import { getRequestListener } from '@hono/node-server';
-import { createApp, createServices, mountStatic } from '@plandesk/api';
+import { createApp, createServices, githubConfigFromEnv, mountStatic } from '@plandesk/api';
 import { createDb, ensureDefaultOrg, migrate, verifyToken } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
@@ -72,7 +72,16 @@ export async function startServer(
     },
   };
   const mcpApp = createMcpApp({ services, tokenStore });
-  const app = createApp({ db, services, mcp: mcpApp, authPassword, bindHost: host });
+  const app = createApp({
+    db,
+    services,
+    mcp: mcpApp,
+    authPassword,
+    bindHost: host,
+    // Self-hosters who never registered a GitHub app get undefined here, and
+    // the server simply has no GitHub sign-in (REQ-20).
+    github: githubConfigFromEnv(process.env),
+  });
   // Node-only: serve the bundled web SPA from disk. Edge entries use platform assets.
   mountStatic(app);
 

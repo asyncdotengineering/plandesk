@@ -8,6 +8,7 @@ import { createDb } from '@plandesk/db';
 import type { Hono } from 'hono';
 import { createApp } from './server.js';
 import { createServices } from './services/index.js';
+import { githubConfigFromEnv } from './github.js';
 import { createStorageAdapter } from './storage/index.js';
 
 let appPromise: Promise<Hono> | undefined;
@@ -30,6 +31,7 @@ async function getApp(): Promise<Hono> {
       services,
       authPassword: process.env.PLANDESK_AUTH_PASSWORD,
       bindHost: '0.0.0.0',
+      github: githubConfigFromEnv(process.env),
     });
   })();
   return appPromise;
