@@ -315,6 +315,14 @@ export const getNextTaskInputSchema = z.object({
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
 });
 
+export const claimTaskInputSchema = z.object({
+  task_id: z.string().uuid(),
+  agent_ref: z
+    .string()
+    .min(1)
+    .describe('Identifier for the agent claiming the task (stored as assignee).'),
+});
+
 export const getTaskInputSchema = z.object({
   task_id: z.string().uuid(),
 });
@@ -435,6 +443,7 @@ export const v1ToolNames = [
   'resume_goal',
   'complete_goal',
   'get_next_task',
+  'claim_task',
   'get_task',
   'list_tasks',
   'list_tags',
@@ -486,6 +495,7 @@ export const v1ToolSchemas = {
   resume_goal: goalLifecycleInputSchema,
   complete_goal: completeGoalInputSchema,
   get_next_task: getNextTaskInputSchema,
+  claim_task: claimTaskInputSchema,
   get_task: getTaskInputSchema,
   list_tasks: listTasksInputSchema,
   list_tags: listTagsInputSchema,

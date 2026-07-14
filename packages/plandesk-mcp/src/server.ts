@@ -34,6 +34,7 @@ import {
   createPauseGoalHandler,
   createResumeGoalHandler,
 } from './tools/goal-lifecycle.js';
+import { createClaimTaskHandler } from './tools/claim-task.js';
 import { createGetNextTaskHandler } from './tools/get-next-task.js';
 import { createGetProjectHandler } from './tools/get-project.js';
 import { createGetTaskHandler } from './tools/get-task.js';
@@ -78,6 +79,7 @@ import {
   createGoalInputSchema,
   getGoalInputSchema,
   listGoalsInputSchema,
+  claimTaskInputSchema,
   completeGoalInputSchema,
   goalLifecycleInputSchema,
   getNextTaskInputSchema,
@@ -476,11 +478,22 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Get Next Task',
       description:
-        'Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id). Resolves the sole active goal when goal_id is omitted; returns no_active_goal or multiple_active_goals when ambiguous. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks.',
+        'Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id). Resolves the sole active goal when goal_id is omitted; returns no_active_goal or multiple_active_goals when ambiguous. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.',
       inputSchema: getNextTaskInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
     createGetNextTaskHandler(services.taskService),
+  );
+
+  server.registerTool(
+    'claim_task',
+    {
+      title: 'Claim Task',
+      description:
+        'Atomically claim a todo task for an agent (status → in_progress, assignee = agent_ref). Exactly one concurrent claim wins; losers get claimed: false.',
+      inputSchema: claimTaskInputSchema.shape,
+    },
+    createClaimTaskHandler(services.taskService),
   );
 
   server.registerTool(

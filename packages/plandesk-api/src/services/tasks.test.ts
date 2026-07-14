@@ -472,4 +472,43 @@ describe('taskService', () => {
     expect(result?.blocked[0]?.task.id).toBe(tagged?.id);
     expect(result?.blocked[0]?.waiting_on.map((task) => task.id)).toEqual([prereq?.id]);
   });
+
+  it('claim marks a todo task in_progress with the agent_ref assignee', async () => {
+    const service = createService();
+    const created = await createTask(db, { projectId, label: 'Claim me', status: 'todo' });
+
+    const result = await service.claim(created.id, 'agent-42');
+    expect(result).toEqual({
+      claimed: true,
+      task: expect.objectContaining({
+        id: created.id,
+        status: 'in_progress',
+        assignee: 'agent-42',
+      }),
+    });
+  });
+
+  it('claim on an already in_progress task returns not-claimed', async () => {
+    const service = createService();
+    const created = await createTask(db, {
+      projectId,
+      label: 'Taken',
+      status: 'in_progress',
+      assignee: 'agent-a',
+    });
+
+    const result = await service.claim(created.id, 'agent-b');
+    expect(result).toEqual({ claimed: false, reason: 'taken_or_not_actionable' });
+  });
+
+  it('claim with a foreign org scope returns not-claimed (tenancy)', async () => {
+    const foreign = createTaskService({ db, orgId: '00000000-0000-4000-8000-00000000ffff' });
+    const created = await createTask(db, { projectId, label: 'A-only', status: 'todo' });
+
+    const result = await foreign.claim(created.id, 'agent-b');
+    expect(result).toEqual({ claimed: false, reason: 'taken_or_not_actionable' });
+
+    const stored = await getTask(db, created.id);
+    expect(stored?.status).toBe('todo');
+  });
 });

@@ -59,5 +59,18 @@ export function createTasksRouter(taskService: TaskService): Hono {
     return c.body(null, 204);
   });
 
+  router.post('/tasks/:id/claim', async (c) => {
+    const body = await c.req.json<{ agent_ref?: string }>();
+    if (typeof body.agent_ref !== 'string' || body.agent_ref.length === 0) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+
+    const result = await taskService.claim(c.req.param('id'), body.agent_ref);
+    if (!result.claimed) {
+      return c.json(result, 409);
+    }
+    return c.json(result);
+  });
+
   return router;
 }

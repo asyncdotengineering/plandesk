@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type Db } from '../client.js';
 import { migrate } from '../migrate.js';
+import { createOrg } from './orgs.js';
 import { createProjectInDefaultOrg as createProject } from '../testing.js';
 import { createTaskWithDefaultGoal as createTask } from '../testing.js';
-import { getTask, InvalidTaskStatusError, listTasks, updateTask } from './tasks.js';
+import {
+  claimTask,
+  getTask,
+  InvalidTaskStatusError,
+  listTasks,
+  updateTask,
+} from './tasks.js';
 
 describe('tasks repository', () => {
   let db: Db;
@@ -76,5 +83,89 @@ describe('tasks repository', () => {
     expect(updated?.status).toBe('done');
     expect(updated?.label).toBe('After');
     expect(updated?.updatedAt.getTime()).toBeGreaterThanOrEqual(created.updatedAt.getTime());
+  });
+
+  it('updateTask with a stale expectedUpdatedAt fails rather than clobbering', async () => {
+    const created = await createTask(db, { projectId, label: 'Race', status: 'todo' });
+    // Advance past create timestamp so the CAS value differs at ms resolution.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const first = await updateTask(
+      db,
+      created.id,
+      { label: 'Winner' },
+      { expectedUpdatedAt: created.updatedAt },
+    );
+    expect(first?.label).toBe('Winner');
+    expect(first?.updatedAt.getTime()).toBeGreaterThan(created.updatedAt.getTime());
+
+    const stale = await updateTask(
+      db,
+      created.id,
+      { label: 'Stale clobber' },
+      { expectedUpdatedAt: created.updatedAt },
+    );
+    expect(stale).toBeUndefined();
+
+    const current = await getTask(db, created.id);
+    expect(current?.label).toBe('Winner');
+  });
+
+  it('test:claim_race — concurrent claimTask yields exactly one winner', async () => {
+    const project = await createProject(db, { name: 'Claim Race' });
+    const task = await createTask(db, {
+      projectId: project.id,
+      label: 'Only one may claim',
+      status: 'todo',
+    });
+
+    const [a, b] = await Promise.all([
+      claimTask(db, task.id, project.orgId, 'agent-a'),
+      claimTask(db, task.id, project.orgId, 'agent-b'),
+    ]);
+
+    const winners = [a, b].filter((row) => row !== undefined);
+    const losers = [a, b].filter((row) => row === undefined);
+    expect(winners).toHaveLength(1);
+    expect(losers).toHaveLength(1);
+    expect(winners[0]?.status).toBe('in_progress');
+    expect(['agent-a', 'agent-b']).toContain(winners[0]?.assignee);
+
+    const stored = await getTask(db, task.id);
+    expect(stored?.status).toBe('in_progress');
+    expect(stored?.assignee).toBe(winners[0]?.assignee);
+  });
+
+  it('claimTask on an already in_progress task returns undefined', async () => {
+    const project = await createProject(db, { name: 'Taken' });
+    const task = await createTask(db, {
+      projectId: project.id,
+      label: 'Busy',
+      status: 'in_progress',
+      assignee: 'agent-a',
+    });
+
+    const claimed = await claimTask(db, task.id, project.orgId, 'agent-b');
+    expect(claimed).toBeUndefined();
+
+    const stored = await getTask(db, task.id);
+    expect(stored?.assignee).toBe('agent-a');
+    expect(stored?.status).toBe('in_progress');
+  });
+
+  it('claimTask with the wrong org returns undefined (tenancy)', async () => {
+    const projectA = await createProject(db, { name: 'Org A project' });
+    const orgB = await createOrg(db, { name: 'Org B' });
+    const task = await createTask(db, {
+      projectId: projectA.id,
+      label: 'A-only',
+      status: 'todo',
+    });
+
+    const claimed = await claimTask(db, task.id, orgB.id, 'agent-b');
+    expect(claimed).toBeUndefined();
+
+    const stored = await getTask(db, task.id);
+    expect(stored?.status).toBe('todo');
+    expect(stored?.assignee).toBeNull();
   });
 });

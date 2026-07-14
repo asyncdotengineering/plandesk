@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
-import { tags, taskStatuses, taskTags, tasks, type TaskStatus } from '../schema.js';
+import { projects, tags, taskStatuses, taskTags, tasks, type TaskStatus } from '../schema.js';
 
 export type Task = typeof tasks.$inferSelect;
 
@@ -133,22 +133,60 @@ export async function deleteTasksByProjectId(db: DbClient, projectId: string): P
   return result.rowsAffected;
 }
 
+export type UpdateTaskOptions = {
+  expectedUpdatedAt?: Date;
+};
+
 export async function updateTask(
   db: DbClient,
   id: string,
   input: TaskUpdate,
+  options?: UpdateTaskOptions,
 ): Promise<Task | undefined> {
   if (input.status !== undefined) {
     assertTaskStatus(input.status);
   }
   const now = new Date();
+  const conditions = [eq(tasks.id, id)];
+  if (options?.expectedUpdatedAt !== undefined) {
+    conditions.push(eq(tasks.updatedAt, options.expectedUpdatedAt));
+  }
   const rows = await db
     .update(tasks)
     .set({
       ...input,
       updatedAt: now,
     })
-    .where(eq(tasks.id, id))
+    .where(and(...conditions))
+    .returning()
+    .all();
+  return rows[0];
+}
+
+export async function claimTask(
+  db: DbClient,
+  id: string,
+  orgId: string,
+  agentRef: string,
+): Promise<Task | undefined> {
+  const now = new Date();
+  const rows = await db
+    .update(tasks)
+    .set({
+      status: 'in_progress',
+      assignee: agentRef,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(tasks.id, id),
+        eq(tasks.status, 'todo'),
+        inArray(
+          tasks.projectId,
+          db.select({ id: projects.id }).from(projects).where(eq(projects.orgId, orgId)),
+        ),
+      ),
+    )
     .returning()
     .all();
   return rows[0];

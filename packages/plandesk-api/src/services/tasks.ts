@@ -1,5 +1,6 @@
 import {
   withTransaction,
+  claimTask,
   createTag,
   createTask,
   deleteCommentsByTarget,
@@ -54,6 +55,10 @@ export type NextActionableResult = {
   reason: NextActionableReason;
   blocked: Array<{ task: SerializedTask; waiting_on: SerializedTask[] }>;
 };
+
+export type ClaimTaskResult =
+  | { claimed: true; task: SerializedTask }
+  | { claimed: false; reason: 'taken_or_not_actionable' };
 
 // depends_on: prerequisite = to, dependent = from. All other labels: prerequisite = from, dependent = to.
 function prerequisiteAndDependent(
@@ -251,6 +256,17 @@ export function createTaskService(deps: TaskServiceDeps) {
       });
 
       return true;
+    },
+
+    async claim(taskId: string, agentRef: string): Promise<ClaimTaskResult> {
+      const row = await claimTask(db, taskId, resolveOrgId(deps), agentRef);
+      if (!row) {
+        return { claimed: false, reason: 'taken_or_not_actionable' };
+      }
+      return {
+        claimed: true,
+        task: serializeTask(row, await listTagsForTask(db, row.id)),
+      };
     },
 
     // filter.goalId scopes candidates to one goal; when omitted, the project's sole

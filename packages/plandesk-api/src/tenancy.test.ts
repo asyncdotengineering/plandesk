@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createOrg,
   createProject,
+  createTaskWithDefaultGoal as createTask,
   createToken,
   ensureDefaultOrg,
 } from '@plandesk/db';
@@ -72,5 +73,36 @@ describe('org tenancy', () => {
     const res = await app.request('/api/v1/projects');
     expect(res.status).toBe(401);
     expect(await parseJson(res)).toEqual({ error: 'unauthorized' });
+  });
+
+  it('claim with org-B token on org-A task returns not-claimed (tenancy)', async () => {
+    const { app, db } = await createTestApp();
+    const orgA = await ensureDefaultOrg(db);
+    const orgB = await createOrg(db, { name: 'Org B' });
+
+    const projectA = await createProject(db, {
+      name: 'A Project',
+      orgId: orgA.id,
+    });
+    const task = await createTask(db, {
+      projectId: projectA.id,
+      label: 'A task',
+      status: 'todo',
+    });
+    const tokenB = await createToken(db, { name: 'B token', orgId: orgB.id, scope: 'full' });
+
+    const res = await app.request(`/api/v1/tasks/${task.id}/claim`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${tokenB.token}`,
+      },
+      body: JSON.stringify({ agent_ref: 'agent-b' }),
+    });
+    expect(res.status).toBe(409);
+    expect(await parseJson(res)).toEqual({
+      claimed: false,
+      reason: 'taken_or_not_actionable',
+    });
   });
 });
