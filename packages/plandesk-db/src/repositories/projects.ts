@@ -16,10 +16,10 @@ export type ProjectUpdate = {
   canvasLayout?: string | null;
 };
 
-export function createProject(db: DbClient, input: NewProject): Project {
+export async function createProject(db: DbClient, input: NewProject): Promise<Project> {
   const now = new Date();
   const id = input.id ?? randomUUID();
-  const rows = db
+  const rows = await db
     .insert(projects)
     .values({
       id,
@@ -37,7 +37,7 @@ export function createProject(db: DbClient, input: NewProject): Project {
   return row;
 }
 
-export function getProject(db: DbClient, id: string): Project | undefined {
+export async function getProject(db: DbClient, id: string): Promise<Project | undefined> {
   return db.select().from(projects).where(eq(projects.id, id)).get();
 }
 
@@ -46,7 +46,10 @@ export type ListProjectsOptions = {
   offset?: number;
 };
 
-export function listProjects(db: DbClient, options?: ListProjectsOptions): Project[] {
+export async function listProjects(
+  db: DbClient,
+  options?: ListProjectsOptions,
+): Promise<Project[]> {
   let query = db.select().from(projects).$dynamic();
   if (options?.limit !== undefined) {
     query = query.limit(options.limit);
@@ -57,14 +60,18 @@ export function listProjects(db: DbClient, options?: ListProjectsOptions): Proje
   return query.all();
 }
 
-export function deleteProject(db: DbClient, id: string): boolean {
-  const result = db.delete(projects).where(eq(projects.id, id)).run();
-  return result.changes > 0;
+export async function deleteProject(db: DbClient, id: string): Promise<boolean> {
+  const result = await db.delete(projects).where(eq(projects.id, id)).run();
+  return result.rowsAffected > 0;
 }
 
-export function updateProject(db: DbClient, id: string, input: ProjectUpdate): Project | undefined {
+export async function updateProject(
+  db: DbClient,
+  id: string,
+  input: ProjectUpdate,
+): Promise<Project | undefined> {
   const now = new Date();
-  const rows = db
+  const rows = await db
     .update(projects)
     .set({
       ...input,

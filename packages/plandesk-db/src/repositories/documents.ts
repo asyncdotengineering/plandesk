@@ -25,10 +25,10 @@ export type DocumentUpdate = {
   linkedTaskId?: string | null;
 };
 
-export function createDocument(db: DbClient, input: NewDocument): Document {
+export async function createDocument(db: DbClient, input: NewDocument): Promise<Document> {
   const now = new Date();
   const id = input.id ?? randomUUID();
-  const rows = db
+  const rows = await db
     .insert(documents)
     .values({
       id,
@@ -51,7 +51,7 @@ export function createDocument(db: DbClient, input: NewDocument): Document {
   return row;
 }
 
-export function getDocument(db: DbClient, id: string): Document | undefined {
+export async function getDocument(db: DbClient, id: string): Promise<Document | undefined> {
   return db.select().from(documents).where(eq(documents.id, id)).get();
 }
 
@@ -61,11 +61,11 @@ export type ListDocumentsOptions = {
   folderId?: string;
 };
 
-export function listDocuments(
+export async function listDocuments(
   db: DbClient,
   projectId: string,
   options?: ListDocumentsOptions,
-): Document[] {
+): Promise<Document[]> {
   const where =
     options?.folderId !== undefined
       ? and(eq(documents.projectId, projectId), eq(documents.folderId, options.folderId))
@@ -80,15 +80,15 @@ export function listDocuments(
   return query.all();
 }
 
-export function getDocumentByTask(db: DbClient, taskId: string): Document | undefined {
+export async function getDocumentByTask(db: DbClient, taskId: string): Promise<Document | undefined> {
   return db.select().from(documents).where(eq(documents.linkedTaskId, taskId)).get();
 }
 
-export function getDocumentByProjectAndId(
+export async function getDocumentByProjectAndId(
   db: DbClient,
   projectId: string,
   id: string,
-): Document | undefined {
+): Promise<Document | undefined> {
   return db
     .select()
     .from(documents)
@@ -96,13 +96,13 @@ export function getDocumentByProjectAndId(
     .get();
 }
 
-export function updateDocument(
+export async function updateDocument(
   db: DbClient,
   id: string,
   input: DocumentUpdate,
-): Document | undefined {
+): Promise<Document | undefined> {
   const now = new Date();
-  const rows = db
+  const rows = await db
     .update(documents)
     .set({
       ...input,
@@ -114,39 +114,42 @@ export function updateDocument(
   return rows[0];
 }
 
-export function deleteDocument(db: DbClient, id: string): boolean {
-  const result = db.delete(documents).where(eq(documents.id, id)).run();
-  return result.changes > 0;
+export async function deleteDocument(db: DbClient, id: string): Promise<boolean> {
+  const result = await db.delete(documents).where(eq(documents.id, id)).run();
+  return result.rowsAffected > 0;
 }
 
-export function detachDocumentChildren(db: DbClient, parentId: string): number {
-  const result = db
+export async function detachDocumentChildren(db: DbClient, parentId: string): Promise<number> {
+  const result = await db
     .update(documents)
     .set({ parentId: null })
     .where(eq(documents.parentId, parentId))
     .run();
-  return result.changes;
+  return result.rowsAffected;
 }
 
-export function nullDocumentsLinkedTask(db: DbClient, taskId: string): number {
-  const result = db
+export async function nullDocumentsLinkedTask(db: DbClient, taskId: string): Promise<number> {
+  const result = await db
     .update(documents)
     .set({ linkedTaskId: null })
     .where(eq(documents.linkedTaskId, taskId))
     .run();
-  return result.changes;
+  return result.rowsAffected;
 }
 
-export function clearDocumentParentRefsByProject(db: DbClient, projectId: string): number {
-  const result = db
+export async function clearDocumentParentRefsByProject(
+  db: DbClient,
+  projectId: string,
+): Promise<number> {
+  const result = await db
     .update(documents)
     .set({ parentId: null })
     .where(eq(documents.projectId, projectId))
     .run();
-  return result.changes;
+  return result.rowsAffected;
 }
 
-export function deleteDocumentsByProjectId(db: DbClient, projectId: string): number {
-  const result = db.delete(documents).where(eq(documents.projectId, projectId)).run();
-  return result.changes;
+export async function deleteDocumentsByProjectId(db: DbClient, projectId: string): Promise<number> {
+  const result = await db.delete(documents).where(eq(documents.projectId, projectId)).run();
+  return result.rowsAffected;
 }

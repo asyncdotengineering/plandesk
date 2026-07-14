@@ -23,9 +23,9 @@ export type EdgeUpdate = {
   style?: string | null;
 };
 
-export function createEdge(db: DbClient, input: NewEdge): Edge {
+export async function createEdge(db: DbClient, input: NewEdge): Promise<Edge> {
   const id = input.id ?? randomUUID();
-  const rows = db
+  const rows = await db
     .insert(edges)
     .values({
       id,
@@ -45,29 +45,33 @@ export function createEdge(db: DbClient, input: NewEdge): Edge {
   return row;
 }
 
-export function getEdge(db: DbClient, id: string): Edge | undefined {
+export async function getEdge(db: DbClient, id: string): Promise<Edge | undefined> {
   return db.select().from(edges).where(eq(edges.id, id)).get();
 }
 
-export function listEdges(db: DbClient, projectId: string): Edge[] {
+export async function listEdges(db: DbClient, projectId: string): Promise<Edge[]> {
   return db.select().from(edges).where(eq(edges.projectId, projectId)).all();
 }
 
-export function updateEdge(db: DbClient, id: string, input: EdgeUpdate): Edge | undefined {
-  const rows = db.update(edges).set(input).where(eq(edges.id, id)).returning().all();
+export async function updateEdge(
+  db: DbClient,
+  id: string,
+  input: EdgeUpdate,
+): Promise<Edge | undefined> {
+  const rows = await db.update(edges).set(input).where(eq(edges.id, id)).returning().all();
   return rows[0];
 }
 
-export function deleteEdge(db: DbClient, id: string): boolean {
-  const result = db.delete(edges).where(eq(edges.id, id)).run();
-  return result.changes > 0;
+export async function deleteEdge(db: DbClient, id: string): Promise<boolean> {
+  const result = await db.delete(edges).where(eq(edges.id, id)).run();
+  return result.rowsAffected > 0;
 }
 
-export function getEdgeByProjectAndId(
+export async function getEdgeByProjectAndId(
   db: DbClient,
   projectId: string,
   id: string,
-): Edge | undefined {
+): Promise<Edge | undefined> {
   return db
     .select()
     .from(edges)
@@ -75,15 +79,15 @@ export function getEdgeByProjectAndId(
     .get();
 }
 
-export function deleteEdgesByTaskId(db: DbClient, taskId: string): number {
-  const result = db
+export async function deleteEdgesByTaskId(db: DbClient, taskId: string): Promise<number> {
+  const result = await db
     .delete(edges)
     .where(or(eq(edges.fromTaskId, taskId), eq(edges.toTaskId, taskId)))
     .run();
-  return result.changes;
+  return result.rowsAffected;
 }
 
-export function deleteEdgesByProjectId(db: DbClient, projectId: string): number {
-  const result = db.delete(edges).where(eq(edges.projectId, projectId)).run();
-  return result.changes;
+export async function deleteEdgesByProjectId(db: DbClient, projectId: string): Promise<number> {
+  const result = await db.delete(edges).where(eq(edges.projectId, projectId)).run();
+  return result.rowsAffected;
 }

@@ -19,10 +19,10 @@ export type ArtifactUpdate = {
   content?: string;
 };
 
-export function createArtifact(db: DbClient, input: NewArtifact): Artifact {
+export async function createArtifact(db: DbClient, input: NewArtifact): Promise<Artifact> {
   const now = new Date();
   const id = input.id ?? randomUUID();
-  const rows = db
+  const rows = await db
     .insert(artifacts)
     .values({
       id,
@@ -42,19 +42,19 @@ export function createArtifact(db: DbClient, input: NewArtifact): Artifact {
   return row;
 }
 
-export function getArtifact(db: DbClient, id: string): Artifact | undefined {
+export async function getArtifact(db: DbClient, id: string): Promise<Artifact | undefined> {
   return db.select().from(artifacts).where(eq(artifacts.id, id)).get();
 }
 
-export function listArtifactsByProject(db: DbClient, projectId: string): Artifact[] {
+export async function listArtifactsByProject(db: DbClient, projectId: string): Promise<Artifact[]> {
   return db.select().from(artifacts).where(eq(artifacts.projectId, projectId)).all();
 }
 
-export function getArtifactByProjectAndId(
+export async function getArtifactByProjectAndId(
   db: DbClient,
   projectId: string,
   id: string,
-): Artifact | undefined {
+): Promise<Artifact | undefined> {
   return db
     .select()
     .from(artifacts)
@@ -62,13 +62,13 @@ export function getArtifactByProjectAndId(
     .get();
 }
 
-export function updateArtifact(
+export async function updateArtifact(
   db: DbClient,
   id: string,
   input: ArtifactUpdate,
-): Artifact | undefined {
+): Promise<Artifact | undefined> {
   const now = new Date();
-  const rows = db
+  const rows = await db
     .update(artifacts)
     .set({
       ...input,

@@ -46,12 +46,12 @@ function assertTaskStatus(status: string): asserts status is TaskStatus {
   }
 }
 
-export function createTask(db: DbClient, input: NewTask): Task {
+export async function createTask(db: DbClient, input: NewTask): Promise<Task> {
   const status = input.status ?? 'todo';
   assertTaskStatus(status);
   const now = new Date();
   const id = input.id ?? randomUUID();
-  const rows = db
+  const rows = await db
     .insert(tasks)
     .values({
       id,
@@ -76,7 +76,7 @@ export function createTask(db: DbClient, input: NewTask): Task {
   return row;
 }
 
-export function getTask(db: DbClient, id: string): Task | undefined {
+export async function getTask(db: DbClient, id: string): Promise<Task | undefined> {
   return db.select().from(tasks).where(eq(tasks.id, id)).get();
 }
 
@@ -88,7 +88,11 @@ export type ListTasksOptions = {
   offset?: number;
 };
 
-export function listTasks(db: DbClient, projectId: string, options?: ListTasksOptions): Task[] {
+export async function listTasks(
+  db: DbClient,
+  projectId: string,
+  options?: ListTasksOptions,
+): Promise<Task[]> {
   const conditions = [eq(tasks.projectId, projectId)];
   if (options?.status !== undefined) {
     conditions.push(eq(tasks.status, options.status));
@@ -119,22 +123,26 @@ export function listTasks(db: DbClient, projectId: string, options?: ListTasksOp
   return query.all();
 }
 
-export function deleteTask(db: DbClient, id: string): boolean {
-  const result = db.delete(tasks).where(eq(tasks.id, id)).run();
-  return result.changes > 0;
+export async function deleteTask(db: DbClient, id: string): Promise<boolean> {
+  const result = await db.delete(tasks).where(eq(tasks.id, id)).run();
+  return result.rowsAffected > 0;
 }
 
-export function deleteTasksByProjectId(db: DbClient, projectId: string): number {
-  const result = db.delete(tasks).where(eq(tasks.projectId, projectId)).run();
-  return result.changes;
+export async function deleteTasksByProjectId(db: DbClient, projectId: string): Promise<number> {
+  const result = await db.delete(tasks).where(eq(tasks.projectId, projectId)).run();
+  return result.rowsAffected;
 }
 
-export function updateTask(db: DbClient, id: string, input: TaskUpdate): Task | undefined {
+export async function updateTask(
+  db: DbClient,
+  id: string,
+  input: TaskUpdate,
+): Promise<Task | undefined> {
   if (input.status !== undefined) {
     assertTaskStatus(input.status);
   }
   const now = new Date();
-  const rows = db
+  const rows = await db
     .update(tasks)
     .set({
       ...input,

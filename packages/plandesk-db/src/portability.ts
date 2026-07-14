@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { DbClient } from './client.js';
+import { withTransaction, type Db, type DbClient } from './client.js';
 import { createAgentRunEvent } from './repositories/agent-run-events.js';
 import { createAgentRun } from './repositories/agent-runs.js';
 import { createDocument } from './repositories/documents.js';
@@ -272,24 +272,27 @@ function remapId(idMap: Map<string, string>, oldId: string | null): string | nul
   return mapped;
 }
 
-export function exportProject(db: DbClient, projectId: string): PlandeskExportV1 | undefined {
-  const project = getProject(db, projectId);
+export async function exportProject(
+  db: DbClient,
+  projectId: string,
+): Promise<PlandeskExportV1 | undefined> {
+  const project = await getProject(db, projectId);
   if (!project) {
     return undefined;
   }
 
-  const projectGoals = listGoals(db, projectId);
-  const tasks = listTasks(db, projectId);
-  const tags = listTags(db, projectId);
-  const tagsByTask = listTagsByTaskForProject(db, projectId);
-  const edges = listEdges(db, projectId);
-  const folders = listFolders(db, projectId);
-  const documents = listDocuments(db, projectId);
-  const notes = listNotes(db, projectId);
-  const comments = listCommentsByProject(db, projectId, { includeResolved: true });
-  const runs = listAgentRuns(db, projectId);
-  const projectFiles = listFilesByProject(db, projectId);
-  const projectArtifacts = listArtifactsByProject(db, projectId);
+  const projectGoals = await listGoals(db, projectId);
+  const tasks = await listTasks(db, projectId);
+  const tags = await listTags(db, projectId);
+  const tagsByTask = await listTagsByTaskForProject(db, projectId);
+  const edges = await listEdges(db, projectId);
+  const folders = await listFolders(db, projectId);
+  const documents = await listDocuments(db, projectId);
+  const notes = await listNotes(db, projectId);
+  const comments = await listCommentsByProject(db, projectId, { includeResolved: true });
+  const runs = await listAgentRuns(db, projectId);
+  const projectFiles = await listFilesByProject(db, projectId);
+  const projectArtifacts = await listArtifactsByProject(db, projectId);
 
   return {
     version: PLANDESK_EXPORT_VERSION,
@@ -367,17 +370,19 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
       resolved: comment.resolved,
       created_at: comment.createdAt.toISOString(),
     })),
-    agent_runs: runs.map((run) => ({
-      id: run.id,
-      status: run.status,
-      label: run.label,
-      started_at: run.startedAt.toISOString(),
-      completed_at: run.completedAt?.toISOString() ?? null,
-      events: listAgentRunEvents(db, run.id).map((event) => ({
-        message: event.message,
-        created_at: event.createdAt.toISOString(),
+    agent_runs: await Promise.all(
+      runs.map(async (run) => ({
+        id: run.id,
+        status: run.status,
+        label: run.label,
+        started_at: run.startedAt.toISOString(),
+        completed_at: run.completedAt?.toISOString() ?? null,
+        events: (await listAgentRunEvents(db, run.id)).map((event) => ({
+          message: event.message,
+          created_at: event.createdAt.toISOString(),
+        })),
       })),
-    })),
+    ),
     files: projectFiles.map((file) => ({
       id: file.id,
       filename: file.filename,
@@ -398,12 +403,18 @@ export function exportProject(db: DbClient, projectId: string): PlandeskExportV1
   };
 }
 
-export function importProject(db: DbClient, data: PlandeskExportInput): { projectId: string } {
+export async function importProject(
+  db: DbClient,
+  data: PlandeskExportInput,
+): Promise<{ projectId: string }> {
   if (data.version !== PLANDESK_EXPORT_VERSION) {
     throw new InvalidExportVersionError(data.version);
   }
 
-  return db.transaction((tx) => {
+  // Same-connection BEGIN/COMMIT via withTransaction — not db.transaction().
+  // libsql's interactive transaction opens a second connection; with bare
+  // :memory: that second connection is an empty database.
+  const run = async (tx: DbClient): Promise<{ projectId: string }> => {
     const taskIdMap = new Map<string, string>();
     const goalIdMap = new Map<string, string>();
     const tagIdMap = new Map<string, string>();
@@ -438,16 +449,16 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
       agentRunIdMap.set(run.id, randomUUID());
     }
 
-    const project = createProject(tx, {
+    const project = await createProject(tx, {
       name: data.project.name,
       description: data.project.description,
     });
     if (data.project.canvas_layout !== null) {
-      updateProject(tx, project.id, { canvasLayout: data.project.canvas_layout });
+      await updateProject(tx, project.id, { canvasLayout: data.project.canvas_layout });
     }
 
     for (const goal of data.goals ?? []) {
-      createGoal(tx, {
+      await createGoal(tx, {
         id: remapId(goalIdMap, goal.id) ?? goal.id,
         projectId: project.id,
         objective: goal.objective,
@@ -462,14 +473,14 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
       });
     }
 
-    const defaultGoal = getOrCreateDefaultGoal(tx, project.id);
+    const defaultGoal = await getOrCreateDefaultGoal(tx, project.id);
 
     for (const task of data.tasks) {
       // A task from a pre-goals export (or referencing an unknown goal) falls
       // back to the project's default goal.
       const goalId =
         (task.goal_id !== undefined ? goalIdMap.get(task.goal_id) : undefined) ?? defaultGoal.id;
-      createTask(tx, {
+      await createTask(tx, {
         id: remapId(taskIdMap, task.id) ?? task.id,
         projectId: project.id,
         goalId,
@@ -484,7 +495,7 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
     }
 
     for (const tag of data.tags ?? []) {
-      createTag(tx, {
+      await createTag(tx, {
         id: remapId(tagIdMap, tag.id) ?? tag.id,
         projectId: project.id,
         name: tag.name,
@@ -497,7 +508,7 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
       if (tagIds.length === 0) {
         continue;
       }
-      setTaskTags(
+      await setTaskTags(
         tx,
         remapId(taskIdMap, task.id) ?? task.id,
         tagIds.map((tagId) => remapId(tagIdMap, tagId) ?? tagId),
@@ -505,7 +516,7 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
     }
 
     for (const edge of data.edges) {
-      createEdge(tx, {
+      await createEdge(tx, {
         id: remapId(edgeIdMap, edge.id) ?? edge.id,
         projectId: project.id,
         fromTaskId: remapId(taskIdMap, edge.from_task_id) ?? edge.from_task_id,
@@ -517,7 +528,7 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
     }
 
     for (const folder of sortFoldersForImport(data.folders ?? [])) {
-      createFolder(tx, {
+      await createFolder(tx, {
         id: remapId(folderIdMap, folder.id) ?? folder.id,
         projectId: project.id,
         name: folder.name,
@@ -526,7 +537,7 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
     }
 
     for (const document of sortDocumentsForImport(data.documents)) {
-      createDocument(tx, {
+      await createDocument(tx, {
         id: remapId(documentIdMap, document.id) ?? document.id,
         projectId: project.id,
         title: document.title,
@@ -539,7 +550,7 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
     }
 
     for (const note of data.notes ?? []) {
-      createNote(tx, {
+      await createNote(tx, {
         projectId: project.id,
         title: note.title,
         body: note.body,
@@ -566,7 +577,7 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
           : comment.target_type === 'artifact'
             ? (remapId(artifactIdMap, comment.target_id) ?? comment.target_id)
             : comment.target_id;
-      createComment(tx, {
+      await createComment(tx, {
         projectId: project.id,
         targetType: comment.target_type,
         targetId,
@@ -578,18 +589,18 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
       });
     }
 
-    for (const run of data.agent_runs) {
-      const newRunId = remapId(agentRunIdMap, run.id) ?? run.id;
-      createAgentRun(tx, {
+    for (const agentRun of data.agent_runs) {
+      const newRunId = remapId(agentRunIdMap, agentRun.id) ?? agentRun.id;
+      await createAgentRun(tx, {
         id: newRunId,
         projectId: project.id,
-        status: run.status,
-        label: run.label,
-        startedAt: new Date(run.started_at),
-        completedAt: run.completed_at ? new Date(run.completed_at) : null,
+        status: agentRun.status,
+        label: agentRun.label,
+        startedAt: new Date(agentRun.started_at),
+        completedAt: agentRun.completed_at ? new Date(agentRun.completed_at) : null,
       });
-      for (const event of run.events) {
-        createAgentRunEvent(tx, {
+      for (const event of agentRun.events) {
+        await createAgentRunEvent(tx, {
           runId: newRunId,
           message: event.message,
           createdAt: new Date(event.created_at),
@@ -598,7 +609,7 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
     }
 
     for (const file of data.files ?? []) {
-      createFile(tx, {
+      await createFile(tx, {
         // Content-addressed: id stays the source hash, no remap needed.
         id: file.id,
         projectId: project.id,
@@ -612,7 +623,7 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
     }
 
     for (const artifact of data.artifacts ?? []) {
-      createArtifact(tx, {
+      await createArtifact(tx, {
         id: remapId(artifactIdMap, artifact.id) ?? artifact.id,
         projectId: project.id,
         title: artifact.title,
@@ -622,5 +633,11 @@ export function importProject(db: DbClient, data: PlandeskExportInput): { projec
     }
 
     return { projectId: project.id };
-  });
+  };
+
+  // DbClient may already be a nested transaction handle; only outer Db has $client.
+  if ('$client' in db) {
+    return withTransaction(db as Db, run);
+  }
+  return run(db);
 }

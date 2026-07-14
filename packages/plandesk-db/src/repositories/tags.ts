@@ -17,9 +17,9 @@ export type TagUpdate = {
   color?: string | null;
 };
 
-export function createTag(db: DbClient, input: NewTag): Tag {
+export async function createTag(db: DbClient, input: NewTag): Promise<Tag> {
   const id = input.id ?? randomUUID();
-  const rows = db
+  const rows = await db
     .insert(tags)
     .values({
       id,
@@ -37,11 +37,15 @@ export function createTag(db: DbClient, input: NewTag): Tag {
   return row;
 }
 
-export function getTag(db: DbClient, id: string): Tag | undefined {
+export async function getTag(db: DbClient, id: string): Promise<Tag | undefined> {
   return db.select().from(tags).where(eq(tags.id, id)).get();
 }
 
-export function getTagByName(db: DbClient, projectId: string, name: string): Tag | undefined {
+export async function getTagByName(
+  db: DbClient,
+  projectId: string,
+  name: string,
+): Promise<Tag | undefined> {
   return db
     .select()
     .from(tags)
@@ -49,24 +53,29 @@ export function getTagByName(db: DbClient, projectId: string, name: string): Tag
     .get();
 }
 
-export function listTags(db: DbClient, projectId: string): Tag[] {
+export async function listTags(db: DbClient, projectId: string): Promise<Tag[]> {
   return db.select().from(tags).where(eq(tags.projectId, projectId)).orderBy(asc(tags.name)).all();
 }
 
-export function updateTag(db: DbClient, id: string, input: TagUpdate): Tag | undefined {
-  const rows = db.update(tags).set(input).where(eq(tags.id, id)).returning().all();
+export async function updateTag(
+  db: DbClient,
+  id: string,
+  input: TagUpdate,
+): Promise<Tag | undefined> {
+  const rows = await db.update(tags).set(input).where(eq(tags.id, id)).returning().all();
   return rows[0];
 }
 
 // Removes the tag from every task (join rows), then the tag row itself.
-export function deleteTag(db: DbClient, id: string): boolean {
-  db.delete(taskTags).where(eq(taskTags.tagId, id)).run();
-  const result = db.delete(tags).where(eq(tags.id, id)).run();
-  return result.changes > 0;
+export async function deleteTag(db: DbClient, id: string): Promise<boolean> {
+  await db.delete(taskTags).where(eq(taskTags.tagId, id)).run();
+  const result = await db.delete(tags).where(eq(tags.id, id)).run();
+  return result.rowsAffected > 0;
 }
 
-export function deleteTagsByProjectId(db: DbClient, projectId: string): number {
-  db.delete(taskTags)
+export async function deleteTagsByProjectId(db: DbClient, projectId: string): Promise<number> {
+  await db
+    .delete(taskTags)
     .where(
       inArray(
         taskTags.tagId,
@@ -74,23 +83,24 @@ export function deleteTagsByProjectId(db: DbClient, projectId: string): number {
       ),
     )
     .run();
-  const result = db.delete(tags).where(eq(tags.projectId, projectId)).run();
-  return result.changes;
+  const result = await db.delete(tags).where(eq(tags.projectId, projectId)).run();
+  return result.rowsAffected;
 }
 
 // Replaces the task's tag set with exactly the given tag ids.
-export function setTaskTags(db: DbClient, taskId: string, tagIds: string[]): void {
-  db.delete(taskTags).where(eq(taskTags.taskId, taskId)).run();
+export async function setTaskTags(db: DbClient, taskId: string, tagIds: string[]): Promise<void> {
+  await db.delete(taskTags).where(eq(taskTags.taskId, taskId)).run();
   const unique = [...new Set(tagIds)];
   if (unique.length === 0) {
     return;
   }
-  db.insert(taskTags)
+  await db
+    .insert(taskTags)
     .values(unique.map((tagId) => ({ taskId, tagId })))
     .run();
 }
 
-export function listTagsForTask(db: DbClient, taskId: string): Tag[] {
+export async function listTagsForTask(db: DbClient, taskId: string): Promise<Tag[]> {
   return db
     .select({
       id: tags.id,
@@ -106,8 +116,11 @@ export function listTagsForTask(db: DbClient, taskId: string): Tag[] {
     .all();
 }
 
-export function listTagsByTaskForProject(db: DbClient, projectId: string): Map<string, Tag[]> {
-  const rows = db
+export async function listTagsByTaskForProject(
+  db: DbClient,
+  projectId: string,
+): Promise<Map<string, Tag[]>> {
+  const rows = await db
     .select({
       taskId: taskTags.taskId,
       id: tags.id,
@@ -134,15 +147,15 @@ export function listTagsByTaskForProject(db: DbClient, projectId: string): Map<s
 }
 
 // OR semantics: a task matches when it carries ANY of the given tag names.
-export function taskIdsWithAnyTagName(
+export async function taskIdsWithAnyTagName(
   db: DbClient,
   projectId: string,
   names: string[],
-): Set<string> {
+): Promise<Set<string>> {
   if (names.length === 0) {
     return new Set();
   }
-  const rows = db
+  const rows = await db
     .selectDistinct({ taskId: taskTags.taskId })
     .from(taskTags)
     .innerJoin(tags, eq(taskTags.tagId, tags.id))
@@ -152,7 +165,7 @@ export function taskIdsWithAnyTagName(
   return new Set(rows.map((row) => row.taskId));
 }
 
-export function deleteTaskTagsByTaskId(db: DbClient, taskId: string): number {
-  const result = db.delete(taskTags).where(eq(taskTags.taskId, taskId)).run();
-  return result.changes;
+export async function deleteTaskTagsByTaskId(db: DbClient, taskId: string): Promise<number> {
+  const result = await db.delete(taskTags).where(eq(taskTags.taskId, taskId)).run();
+  return result.rowsAffected;
 }

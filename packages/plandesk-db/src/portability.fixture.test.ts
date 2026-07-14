@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDb } from './client.js';
+import { createDb, type Db } from './client.js';
 import { migrate } from './migrate.js';
 import {
   exportProject,
@@ -23,21 +23,14 @@ function loadCheckoutRevampFixture(): PlandeskExportInput {
 }
 
 describe('checkout-revamp dogfood fixture', () => {
-  const db = createDb(':memory:');
+  let db: Db;
 
-  beforeEach(() => {
-    migrate(db);
-    db.$client.exec('DELETE FROM agent_run_events');
-    db.$client.exec('DELETE FROM agent_runs');
-    db.$client.exec('DELETE FROM documents');
-    db.$client.exec('DELETE FROM notes');
-    db.$client.exec('DELETE FROM edges');
-    db.$client.exec('DELETE FROM tasks');
-    db.$client.exec('DELETE FROM goals');
-    db.$client.exec('DELETE FROM projects');
+  beforeEach(async () => {
+    db = await createDb(':memory:');
+    await migrate(db);
   });
 
-  it('test:checkout_revamp_fixture_imports with labeled edges and linked docs', () => {
+  it('test:checkout_revamp_fixture_imports with labeled edges and linked docs', async () => {
     const fixture = loadCheckoutRevampFixture();
     expect(fixture.version).toBe(PLANDESK_EXPORT_VERSION);
     expect(fixture.project.name).toBe('Checkout Revamp');
@@ -45,10 +38,10 @@ describe('checkout-revamp dogfood fixture', () => {
     expect(fixture.edges.length).toBeGreaterThanOrEqual(4);
     expect(fixture.documents.length).toBeGreaterThanOrEqual(2);
 
-    const { projectId } = importProject(db, fixture);
-    const tasks = listTasks(db, projectId);
-    const edges = listEdges(db, projectId);
-    const documents = listDocuments(db, projectId);
+    const { projectId } = await importProject(db, fixture);
+    const tasks = await listTasks(db, projectId);
+    const edges = await listEdges(db, projectId);
+    const documents = await listDocuments(db, projectId);
 
     expect(tasks).toHaveLength(fixture.tasks.length);
     expect(edges).toHaveLength(fixture.edges.length);
@@ -84,7 +77,7 @@ describe('checkout-revamp dogfood fixture', () => {
     const linkedTask = tasks.find((task) => task.id === scopeDoc?.linkedTaskId);
     expect(linkedTask?.label).toBe('Scope checkout flow');
 
-    const reExported = exportProject(db, projectId);
+    const reExported = await exportProject(db, projectId);
     expect(reExported).toBeDefined();
     if (!reExported) {
       return;

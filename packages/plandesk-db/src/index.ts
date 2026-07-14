@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export { createDb, type Db, type DbClient, type DbTx } from './client.js';
+export { createDb, withTransaction, type Db, type DbClient, type DbTx } from './client.js';
 export { migrate } from './migrate.js';
 export * from './repositories/projects.js';
 export * from './repositories/goals.js';

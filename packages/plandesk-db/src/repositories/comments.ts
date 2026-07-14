@@ -26,10 +26,10 @@ export type CommentUpdate = {
   resolved?: boolean;
 };
 
-export function createComment(db: DbClient, input: NewComment): Comment {
+export async function createComment(db: DbClient, input: NewComment): Promise<Comment> {
   const id = input.id ?? randomUUID();
   const now = input.createdAt ?? new Date();
-  const rows = db
+  const rows = await db
     .insert(comments)
     .values({
       id,
@@ -51,7 +51,7 @@ export function createComment(db: DbClient, input: NewComment): Comment {
   return row;
 }
 
-export function getComment(db: DbClient, id: string): Comment | undefined {
+export async function getComment(db: DbClient, id: string): Promise<Comment | undefined> {
   return db.select().from(comments).where(eq(comments.id, id)).get();
 }
 
@@ -59,12 +59,12 @@ export type ListCommentsOptions = {
   includeResolved?: boolean;
 };
 
-export function listCommentsByTarget(
+export async function listCommentsByTarget(
   db: DbClient,
   targetType: CommentTargetType,
   targetId: string,
   options?: ListCommentsOptions,
-): Comment[] {
+): Promise<Comment[]> {
   const conditions = [eq(comments.targetType, targetType), eq(comments.targetId, targetId)];
   if (!options?.includeResolved) {
     conditions.push(eq(comments.resolved, false));
@@ -77,11 +77,11 @@ export function listCommentsByTarget(
     .all();
 }
 
-export function listCommentsByProject(
+export async function listCommentsByProject(
   db: DbClient,
   projectId: string,
   options?: ListCommentsOptions,
-): Comment[] {
+): Promise<Comment[]> {
   const conditions = [eq(comments.projectId, projectId)];
   if (!options?.includeResolved) {
     conditions.push(eq(comments.resolved, false));
@@ -94,29 +94,33 @@ export function listCommentsByProject(
     .all();
 }
 
-export function updateComment(db: DbClient, id: string, input: CommentUpdate): Comment | undefined {
-  const rows = db.update(comments).set(input).where(eq(comments.id, id)).returning().all();
+export async function updateComment(
+  db: DbClient,
+  id: string,
+  input: CommentUpdate,
+): Promise<Comment | undefined> {
+  const rows = await db.update(comments).set(input).where(eq(comments.id, id)).returning().all();
   return rows[0];
 }
 
-export function deleteComment(db: DbClient, id: string): boolean {
-  const result = db.delete(comments).where(eq(comments.id, id)).run();
-  return result.changes > 0;
+export async function deleteComment(db: DbClient, id: string): Promise<boolean> {
+  const result = await db.delete(comments).where(eq(comments.id, id)).run();
+  return result.rowsAffected > 0;
 }
 
-export function deleteCommentsByTarget(
+export async function deleteCommentsByTarget(
   db: DbClient,
   targetType: CommentTargetType,
   targetId: string,
-): number {
-  const result = db
+): Promise<number> {
+  const result = await db
     .delete(comments)
     .where(and(eq(comments.targetType, targetType), eq(comments.targetId, targetId)))
     .run();
-  return result.changes;
+  return result.rowsAffected;
 }
 
-export function deleteCommentsByProjectId(db: DbClient, projectId: string): number {
-  const result = db.delete(comments).where(eq(comments.projectId, projectId)).run();
-  return result.changes;
+export async function deleteCommentsByProjectId(db: DbClient, projectId: string): Promise<number> {
+  const result = await db.delete(comments).where(eq(comments.projectId, projectId)).run();
+  return result.rowsAffected;
 }

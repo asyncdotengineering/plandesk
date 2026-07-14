@@ -35,13 +35,17 @@ function toPublic(row: McpToken): McpTokenPublic {
   };
 }
 
-export function createToken(db: DbClient, input: { name: string }): CreateTokenResult {
+export async function createToken(
+  db: DbClient,
+  input: { name: string },
+): Promise<CreateTokenResult> {
   const id = randomUUID();
   const token = generateRawToken();
   const tokenHash = hashToken(token);
   const now = new Date();
 
-  db.insert(mcpTokens)
+  await db
+    .insert(mcpTokens)
     .values({
       id,
       name: input.name,
@@ -53,9 +57,12 @@ export function createToken(db: DbClient, input: { name: string }): CreateTokenR
   return { id, name: input.name, token };
 }
 
-export function verifyToken(db: DbClient, raw: string): { id: string; name: string } | undefined {
+export async function verifyToken(
+  db: DbClient,
+  raw: string,
+): Promise<{ id: string; name: string } | undefined> {
   const tokenHash = hashToken(raw);
-  const row = db
+  const row = await db
     .select()
     .from(mcpTokens)
     .where(and(eq(mcpTokens.tokenHash, tokenHash), isNull(mcpTokens.revokedAt)))
@@ -68,13 +75,14 @@ export function verifyToken(db: DbClient, raw: string): { id: string; name: stri
   return { id: row.id, name: row.name };
 }
 
-export function listTokens(db: DbClient): McpTokenPublic[] {
-  return db.select().from(mcpTokens).all().map(toPublic);
+export async function listTokens(db: DbClient): Promise<McpTokenPublic[]> {
+  const rows = await db.select().from(mcpTokens).all();
+  return rows.map(toPublic);
 }
 
-export function revokeToken(db: DbClient, id: string): McpTokenPublic | undefined {
+export async function revokeToken(db: DbClient, id: string): Promise<McpTokenPublic | undefined> {
   const now = new Date();
-  const rows = db
+  const rows = await db
     .update(mcpTokens)
     .set({ revokedAt: now })
     .where(and(eq(mcpTokens.id, id), isNull(mcpTokens.revokedAt)))

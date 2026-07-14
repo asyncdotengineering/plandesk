@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { migrate as drizzleMigrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { migrate as drizzleMigrate } from 'drizzle-orm/libsql/migrator';
 import type { Db } from './client.js';
 
 const migrationsFolder = join(dirname(fileURLToPath(import.meta.url)), '../drizzle');
@@ -81,11 +81,10 @@ function loadJournal(): MigrationJournal {
   return JSON.parse(readFileSync(journalPath, 'utf8')) as MigrationJournal;
 }
 
-function appliedMigrationCount(db: Db): number {
-  const row = db.$client.prepare('SELECT COUNT(*) AS count FROM __drizzle_migrations').get() as {
-    count: number;
-  };
-  return row.count;
+async function appliedMigrationCount(db: Db): Promise<number> {
+  const result = await db.$client.execute('SELECT COUNT(*) AS count FROM __drizzle_migrations');
+  const row = result.rows[0];
+  return Number(row?.count ?? 0);
 }
 
 // Table-rebuild migrations (add a NOT NULL column to a referenced table via
@@ -95,14 +94,15 @@ function appliedMigrationCount(db: Db): number {
 // transaction, and drizzle's migrator wraps each migration in one — so we must
 // disable it at the connection level around the whole migrate call, then
 // re-verify integrity with foreign_key_check.
-function withForeignKeysDisabled(db: Db, fn: () => void): void {
-  db.$client.pragma('foreign_keys = OFF');
+async function withForeignKeysDisabled(db: Db, fn: () => void | Promise<void>): Promise<void> {
+  await db.$client.execute('PRAGMA foreign_keys = OFF');
   try {
-    fn();
+    await fn();
   } finally {
-    db.$client.pragma('foreign_keys = ON');
+    await db.$client.execute('PRAGMA foreign_keys = ON');
   }
-  const violations = db.$client.pragma('foreign_key_check') as unknown[];
+  const check = await db.$client.execute('PRAGMA foreign_key_check');
+  const violations = check.rows;
   if (violations.length > 0) {
     throw new Error(
       `Migration left ${String(violations.length)} foreign key violation(s): ${JSON.stringify(violations)}`,
@@ -110,18 +110,18 @@ function withForeignKeysDisabled(db: Db, fn: () => void): void {
   }
 }
 
-export function migrate(db: Db): void {
-  withForeignKeysDisabled(db, () => {
-    drizzleMigrate(db, { migrationsFolder });
+export async function migrate(db: Db): Promise<void> {
+  await withForeignKeysDisabled(db, async () => {
+    await drizzleMigrate(db, { migrationsFolder });
   });
 }
 
-export function migrateDown(db: Db, steps = 1): void {
+export async function migrateDown(db: Db, steps = 1): Promise<void> {
   if (steps <= 0) {
     return;
   }
 
-  const applied = appliedMigrationCount(db);
+  const applied = await appliedMigrationCount(db);
   if (applied === 0) {
     return;
   }
@@ -133,28 +133,26 @@ export function migrateDown(db: Db, steps = 1): void {
     .map((entry) => entry.tag)
     .reverse();
 
-  withForeignKeysDisabled(db, () => {
-    runDownStatements(db, tags);
+  await withForeignKeysDisabled(db, async () => {
+    await runDownStatements(db, tags);
   });
 }
 
-function runDownStatements(db: Db, tags: string[]): void {
+async function runDownStatements(db: Db, tags: string[]): Promise<void> {
   for (const tag of tags) {
     const statements = DOWN_SQL[tag];
     if (statements === undefined) {
       throw new Error(`no down migration defined for ${tag}`);
     }
     for (const sql of statements) {
-      db.$client.exec(sql);
+      await db.$client.execute(sql);
     }
-    db.$client
-      .prepare(
-        'DELETE FROM __drizzle_migrations WHERE rowid = (SELECT MAX(rowid) FROM __drizzle_migrations)',
-      )
-      .run();
+    await db.$client.execute(
+      'DELETE FROM __drizzle_migrations WHERE rowid = (SELECT MAX(rowid) FROM __drizzle_migrations)',
+    );
   }
 }
 
-export function migrateDownAll(db: Db): void {
-  migrateDown(db, appliedMigrationCount(db));
+export async function migrateDownAll(db: Db): Promise<void> {
+  await migrateDown(db, await appliedMigrationCount(db));
 }

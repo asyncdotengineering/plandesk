@@ -12,10 +12,13 @@ export type NewAgentRunEvent = {
   createdAt?: Date;
 };
 
-export function createAgentRunEvent(db: DbClient, input: NewAgentRunEvent): AgentRunEvent {
+export async function createAgentRunEvent(
+  db: DbClient,
+  input: NewAgentRunEvent,
+): Promise<AgentRunEvent> {
   const id = input.id ?? randomUUID();
   const now = new Date();
-  const rows = db
+  const rows = await db
     .insert(agentRunEvents)
     .values({
       id,
@@ -32,11 +35,11 @@ export function createAgentRunEvent(db: DbClient, input: NewAgentRunEvent): Agen
   return row;
 }
 
-export function listAgentRunEvents(db: DbClient, runId: string): AgentRunEvent[] {
+export async function listAgentRunEvents(db: DbClient, runId: string): Promise<AgentRunEvent[]> {
   return db.select().from(agentRunEvents).where(eq(agentRunEvents.runId, runId)).all();
 }
 
-export function deleteAgentRunEventsByRunId(db: DbClient, runId: string): number {
-  const result = db.delete(agentRunEvents).where(eq(agentRunEvents.runId, runId)).run();
-  return result.changes;
+export async function deleteAgentRunEventsByRunId(db: DbClient, runId: string): Promise<number> {
+  const result = await db.delete(agentRunEvents).where(eq(agentRunEvents.runId, runId)).run();
+  return result.rowsAffected;
 }

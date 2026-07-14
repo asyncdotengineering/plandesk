@@ -17,10 +17,10 @@ export type FolderUpdate = {
   parentFolderId?: string | null;
 };
 
-export function createFolder(db: DbClient, input: NewFolder): Folder {
+export async function createFolder(db: DbClient, input: NewFolder): Promise<Folder> {
   const now = new Date();
   const id = input.id ?? randomUUID();
-  const rows = db
+  const rows = await db
     .insert(folders)
     .values({
       id,
@@ -39,15 +39,15 @@ export function createFolder(db: DbClient, input: NewFolder): Folder {
   return row;
 }
 
-export function getFolder(db: DbClient, id: string): Folder | undefined {
+export async function getFolder(db: DbClient, id: string): Promise<Folder | undefined> {
   return db.select().from(folders).where(eq(folders.id, id)).get();
 }
 
-export function getFolderByProjectAndId(
+export async function getFolderByProjectAndId(
   db: DbClient,
   projectId: string,
   id: string,
-): Folder | undefined {
+): Promise<Folder | undefined> {
   return db
     .select()
     .from(folders)
@@ -55,13 +55,17 @@ export function getFolderByProjectAndId(
     .get();
 }
 
-export function listFolders(db: DbClient, projectId: string): Folder[] {
+export async function listFolders(db: DbClient, projectId: string): Promise<Folder[]> {
   return db.select().from(folders).where(eq(folders.projectId, projectId)).all();
 }
 
-export function updateFolder(db: DbClient, id: string, input: FolderUpdate): Folder | undefined {
+export async function updateFolder(
+  db: DbClient,
+  id: string,
+  input: FolderUpdate,
+): Promise<Folder | undefined> {
   const now = new Date();
-  const rows = db
+  const rows = await db
     .update(folders)
     .set({
       ...input,
@@ -73,47 +77,50 @@ export function updateFolder(db: DbClient, id: string, input: FolderUpdate): Fol
   return rows[0];
 }
 
-export function deleteFolder(db: DbClient, id: string): boolean {
-  const result = db.delete(folders).where(eq(folders.id, id)).run();
-  return result.changes > 0;
+export async function deleteFolder(db: DbClient, id: string): Promise<boolean> {
+  const result = await db.delete(folders).where(eq(folders.id, id)).run();
+  return result.rowsAffected > 0;
 }
 
-export function reparentChildFolders(
+export async function reparentChildFolders(
   db: DbClient,
   parentFolderId: string,
   newParentFolderId: string | null,
-): number {
-  const result = db
+): Promise<number> {
+  const result = await db
     .update(folders)
     .set({ parentFolderId: newParentFolderId })
     .where(eq(folders.parentFolderId, parentFolderId))
     .run();
-  return result.changes;
+  return result.rowsAffected;
 }
 
-export function moveDocumentsToFolder(
+export async function moveDocumentsToFolder(
   db: DbClient,
   folderId: string,
   newFolderId: string | null,
-): number {
-  const result = db
+): Promise<number> {
+  const result = await db
     .update(documents)
     .set({ folderId: newFolderId })
     .where(eq(documents.folderId, folderId))
     .run();
-  return result.changes;
+  return result.rowsAffected;
 }
 
-export function clearFolderParentRefsByProject(db: DbClient, projectId: string): number {
-  const result = db
+export async function clearFolderParentRefsByProject(
+  db: DbClient,
+  projectId: string,
+): Promise<number> {
+  const result = await db
     .update(folders)
     .set({ parentFolderId: null })
     .where(eq(folders.projectId, projectId))
     .run();
-  return result.changes;
+  return result.rowsAffected;
 }
 
-export function deleteFoldersByProjectId(db: DbClient, projectId: string): number {
-  const result = db.delete(folders).where(eq(folders.projectId, projectId)).run();
-  return result.changes;
+export async function deleteFoldersByProjectId(db: DbClient, projectId: string): Promise<number> {
+  const result = await db.delete(folders).where(eq(folders.projectId, projectId)).run();
+  return result.rowsAffected;
 }

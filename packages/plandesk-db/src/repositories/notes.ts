@@ -17,10 +17,10 @@ export type NoteUpdate = {
   body?: string | null;
 };
 
-export function createNote(db: DbClient, input: NewNote): Note {
+export async function createNote(db: DbClient, input: NewNote): Promise<Note> {
   const now = new Date();
   const id = input.id ?? randomUUID();
-  const rows = db
+  const rows = await db
     .insert(notes)
     .values({
       id,
@@ -39,7 +39,7 @@ export function createNote(db: DbClient, input: NewNote): Note {
   return row;
 }
 
-export function getNote(db: DbClient, id: string): Note | undefined {
+export async function getNote(db: DbClient, id: string): Promise<Note | undefined> {
   return db.select().from(notes).where(eq(notes.id, id)).get();
 }
 
@@ -48,7 +48,11 @@ export type ListNotesOptions = {
   offset?: number;
 };
 
-export function listNotes(db: DbClient, projectId: string, options?: ListNotesOptions): Note[] {
+export async function listNotes(
+  db: DbClient,
+  projectId: string,
+  options?: ListNotesOptions,
+): Promise<Note[]> {
   let query = db.select().from(notes).where(eq(notes.projectId, projectId)).$dynamic();
   if (options?.limit !== undefined) {
     query = query.limit(options.limit);
@@ -59,11 +63,11 @@ export function listNotes(db: DbClient, projectId: string, options?: ListNotesOp
   return query.all();
 }
 
-export function getNoteByProjectAndId(
+export async function getNoteByProjectAndId(
   db: DbClient,
   projectId: string,
   id: string,
-): Note | undefined {
+): Promise<Note | undefined> {
   return db
     .select()
     .from(notes)
@@ -71,9 +75,13 @@ export function getNoteByProjectAndId(
     .get();
 }
 
-export function updateNote(db: DbClient, id: string, input: NoteUpdate): Note | undefined {
+export async function updateNote(
+  db: DbClient,
+  id: string,
+  input: NoteUpdate,
+): Promise<Note | undefined> {
   const now = new Date();
-  const rows = db
+  const rows = await db
     .update(notes)
     .set({
       ...input,
@@ -85,12 +93,12 @@ export function updateNote(db: DbClient, id: string, input: NoteUpdate): Note | 
   return rows[0];
 }
 
-export function deleteNote(db: DbClient, id: string): boolean {
-  const result = db.delete(notes).where(eq(notes.id, id)).run();
-  return result.changes > 0;
+export async function deleteNote(db: DbClient, id: string): Promise<boolean> {
+  const result = await db.delete(notes).where(eq(notes.id, id)).run();
+  return result.rowsAffected > 0;
 }
 
-export function deleteNotesByProjectId(db: DbClient, projectId: string): number {
-  const result = db.delete(notes).where(eq(notes.projectId, projectId)).run();
-  return result.changes;
+export async function deleteNotesByProjectId(db: DbClient, projectId: string): Promise<number> {
+  const result = await db.delete(notes).where(eq(notes.projectId, projectId)).run();
+  return result.rowsAffected;
 }

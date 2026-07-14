@@ -15,8 +15,8 @@ export type NewFile = {
   createdAt?: string;
 };
 
-export function createFile(db: DbClient, input: NewFile): File {
-  const rows = db
+export async function createFile(db: DbClient, input: NewFile): Promise<File> {
+  const rows = await db
     .insert(files)
     .values({
       id: input.id,
@@ -31,17 +31,17 @@ export function createFile(db: DbClient, input: NewFile): File {
     .onConflictDoNothing({ target: files.id })
     .returning()
     .all();
-  const row = rows[0] ?? getFile(db, input.id);
+  const row = rows[0] ?? (await getFile(db, input.id));
   if (!row) {
     throw new Error('Failed to create file');
   }
   return row;
 }
 
-export function getFile(db: DbClient, id: string): File | undefined {
+export async function getFile(db: DbClient, id: string): Promise<File | undefined> {
   return db.select().from(files).where(eq(files.id, id)).get();
 }
 
-export function listFilesByProject(db: DbClient, projectId: string): File[] {
+export async function listFilesByProject(db: DbClient, projectId: string): Promise<File[]> {
   return db.select().from(files).where(eq(files.projectId, projectId)).all();
 }

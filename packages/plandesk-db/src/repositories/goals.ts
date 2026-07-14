@@ -48,12 +48,12 @@ function assertGoalStatus(status: string): asserts status is GoalStatus {
   }
 }
 
-export function createGoal(db: DbClient, input: NewGoal): Goal {
+export async function createGoal(db: DbClient, input: NewGoal): Promise<Goal> {
   const status = input.status ?? 'active';
   assertGoalStatus(status);
   const now = new Date();
   const id = input.id ?? randomUUID();
-  const rows = db
+  const rows = await db
     .insert(goals)
     .values({
       id,
@@ -79,11 +79,11 @@ export function createGoal(db: DbClient, input: NewGoal): Goal {
   return row;
 }
 
-export function getGoal(db: DbClient, id: string): Goal | undefined {
+export async function getGoal(db: DbClient, id: string): Promise<Goal | undefined> {
   return db.select().from(goals).where(eq(goals.id, id)).get();
 }
 
-export function listGoals(db: DbClient, projectId: string): Goal[] {
+export async function listGoals(db: DbClient, projectId: string): Promise<Goal[]> {
   return db
     .select()
     .from(goals)
@@ -92,12 +92,16 @@ export function listGoals(db: DbClient, projectId: string): Goal[] {
     .all();
 }
 
-export function updateGoal(db: DbClient, id: string, input: GoalUpdate): Goal | undefined {
+export async function updateGoal(
+  db: DbClient,
+  id: string,
+  input: GoalUpdate,
+): Promise<Goal | undefined> {
   if (input.status !== undefined) {
     assertGoalStatus(input.status);
   }
   const now = new Date();
-  const rows = db
+  const rows = await db
     .update(goals)
     .set({
       ...input,
@@ -109,12 +113,16 @@ export function updateGoal(db: DbClient, id: string, input: GoalUpdate): Goal | 
   return rows[0];
 }
 
-export function updateGoalStatus(db: DbClient, id: string, status: GoalStatus): Goal | undefined {
+export async function updateGoalStatus(
+  db: DbClient,
+  id: string,
+  status: GoalStatus,
+): Promise<Goal | undefined> {
   return updateGoal(db, id, { status });
 }
 
-export function getOrCreateDefaultGoal(db: DbClient, projectId: string): Goal {
-  const existing = db
+export async function getOrCreateDefaultGoal(db: DbClient, projectId: string): Promise<Goal> {
+  const existing = await db
     .select()
     .from(goals)
     .where(eq(goals.projectId, projectId))
@@ -131,7 +139,7 @@ export function getOrCreateDefaultGoal(db: DbClient, projectId: string): Goal {
   });
 }
 
-export function deleteGoalsByProjectId(db: DbClient, projectId: string): number {
-  const result = db.delete(goals).where(eq(goals.projectId, projectId)).run();
-  return result.changes;
+export async function deleteGoalsByProjectId(db: DbClient, projectId: string): Promise<number> {
+  const result = await db.delete(goals).where(eq(goals.projectId, projectId)).run();
+  return result.rowsAffected;
 }

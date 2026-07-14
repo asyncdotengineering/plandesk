@@ -24,11 +24,11 @@ export type ListAgentRunsOptions = {
   offset?: number;
 };
 
-export function listAgentRuns(
+export async function listAgentRuns(
   db: DbClient,
   projectId: string,
   options?: ListAgentRunsOptions,
-): AgentRun[] {
+): Promise<AgentRun[]> {
   let query = db.select().from(agentRuns).where(eq(agentRuns.projectId, projectId)).$dynamic();
   if (options?.limit !== undefined) {
     query = query.limit(options.limit);
@@ -39,15 +39,15 @@ export function listAgentRuns(
   return query.all();
 }
 
-export function deleteAgentRun(db: DbClient, id: string): boolean {
-  const result = db.delete(agentRuns).where(eq(agentRuns.id, id)).run();
-  return result.changes > 0;
+export async function deleteAgentRun(db: DbClient, id: string): Promise<boolean> {
+  const result = await db.delete(agentRuns).where(eq(agentRuns.id, id)).run();
+  return result.rowsAffected > 0;
 }
 
-export function createAgentRun(db: DbClient, input: NewAgentRun): AgentRun {
+export async function createAgentRun(db: DbClient, input: NewAgentRun): Promise<AgentRun> {
   const id = input.id ?? randomUUID();
   const now = new Date();
-  const rows = db
+  const rows = await db
     .insert(agentRuns)
     .values({
       id,
@@ -66,16 +66,16 @@ export function createAgentRun(db: DbClient, input: NewAgentRun): AgentRun {
   return row;
 }
 
-export function getAgentRun(db: DbClient, id: string): AgentRun | undefined {
+export async function getAgentRun(db: DbClient, id: string): Promise<AgentRun | undefined> {
   return db.select().from(agentRuns).where(eq(agentRuns.id, id)).get();
 }
 
-export function updateAgentRunStatus(
+export async function updateAgentRunStatus(
   db: DbClient,
   id: string,
   input: AgentRunStatusUpdate,
-): AgentRun | undefined {
-  const rows = db
+): Promise<AgentRun | undefined> {
+  const rows = await db
     .update(agentRuns)
     .set({
       status: input.status,

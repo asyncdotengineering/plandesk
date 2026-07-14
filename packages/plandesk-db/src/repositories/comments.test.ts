@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDb } from '../client.js';
+import { createDb, type Db } from '../client.js';
 import { migrate } from '../migrate.js';
 import { createDocument } from './documents.js';
 import { createProject } from './projects.js';
@@ -15,35 +15,33 @@ import {
 } from './comments.js';
 
 describe('comments repository', () => {
-  const db = createDb(':memory:');
+  let db: Db;
   let projectId = '';
   let documentId = '';
 
-  beforeEach(() => {
-    migrate(db);
-    db.$client.exec('DELETE FROM comments');
-    db.$client.exec('DELETE FROM documents');
-    db.$client.exec('DELETE FROM projects');
-    projectId = createProject(db, { name: 'Comments' }).id;
-    documentId = createDocument(db, { projectId, title: 'Doc' }).id;
+  beforeEach(async () => {
+    db = await createDb(':memory:');
+    await migrate(db);
+    projectId = (await createProject(db, { name: 'Comments' })).id;
+    documentId = (await createDocument(db, { projectId, title: 'Doc' })).id;
   });
 
-  it('creates and retrieves a comment', () => {
-    const created = createComment(db, {
+  it('creates and retrieves a comment', async () => {
+    const created = await createComment(db, {
       projectId,
       targetType: 'document',
       targetId: documentId,
       body: 'Needs revision',
       passage: 'Section 2',
     });
-    const fetched = getComment(db, created.id);
+    const fetched = await getComment(db, created.id);
     expect(fetched).toEqual(created);
     expect(fetched?.body).toBe('Needs revision');
     expect(fetched?.passage).toBe('Section 2');
     expect(fetched?.resolved).toBe(false);
   });
 
-  it('round-trips an artifact annotation with a W3C anchor selector', () => {
+  it('round-trips an artifact annotation with a W3C anchor selector', async () => {
     const anchor = JSON.stringify({
       type: 'TextQuoteSelector',
       exact: 'network-dead CSP',
@@ -52,7 +50,7 @@ describe('comments repository', () => {
       start: 1200,
       end: 1216,
     });
-    const created = createComment(db, {
+    const created = await createComment(db, {
       projectId,
       targetType: 'artifact',
       targetId: 'sha256:abc123::report.md',
@@ -61,122 +59,124 @@ describe('comments repository', () => {
       anchor,
     });
 
-    const fetched = getComment(db, created.id);
+    const fetched = await getComment(db, created.id);
     expect(fetched?.targetType).toBe('artifact');
     expect(fetched?.anchor).toBe(anchor);
 
-    const listed = listCommentsByTarget(db, 'artifact', 'sha256:abc123::report.md');
+    const listed = await listCommentsByTarget(db, 'artifact', 'sha256:abc123::report.md');
     expect(listed.map((c) => c.id)).toEqual([created.id]);
     expect(JSON.parse(listed[0]?.anchor ?? 'null')).toMatchObject({ exact: 'network-dead CSP' });
   });
 
-  it('defaults anchor to null for a plain comment', () => {
-    const created = createComment(db, {
+  it('defaults anchor to null for a plain comment', async () => {
+    const created = await createComment(db, {
       projectId,
       targetType: 'document',
       targetId: documentId,
       body: 'No anchor here',
     });
-    expect(getComment(db, created.id)?.anchor).toBeNull();
+    expect((await getComment(db, created.id))?.anchor).toBeNull();
   });
 
-  it('lists comments by target ordered by created_at asc', () => {
-    const first = createComment(db, {
+  it('lists comments by target ordered by created_at asc', async () => {
+    const first = await createComment(db, {
       projectId,
       targetType: 'document',
       targetId: documentId,
       body: 'First',
     });
-    const second = createComment(db, {
+    const second = await createComment(db, {
       projectId,
       targetType: 'document',
       targetId: documentId,
       body: 'Second',
     });
-    const listed = listCommentsByTarget(db, 'document', documentId);
+    const listed = await listCommentsByTarget(db, 'document', documentId);
     expect(listed.map((c) => c.id)).toEqual([first.id, second.id]);
   });
 
-  it('filters resolved comments by default', () => {
-    const open = createComment(db, {
+  it('filters resolved comments by default', async () => {
+    const open = await createComment(db, {
       projectId,
       targetType: 'document',
       targetId: documentId,
       body: 'Open',
     });
-    const resolved = createComment(db, {
+    const resolved = await createComment(db, {
       projectId,
       targetType: 'document',
       targetId: documentId,
       body: 'Done',
     });
-    updateComment(db, resolved.id, { resolved: true });
+    await updateComment(db, resolved.id, { resolved: true });
 
-    expect(listCommentsByTarget(db, 'document', documentId).map((c) => c.id)).toEqual([open.id]);
+    expect((await listCommentsByTarget(db, 'document', documentId)).map((c) => c.id)).toEqual([
+      open.id,
+    ]);
     expect(
-      listCommentsByTarget(db, 'document', documentId, { includeResolved: true }),
+      await listCommentsByTarget(db, 'document', documentId, { includeResolved: true }),
     ).toHaveLength(2);
   });
 
-  it('lists comments by project', () => {
-    const otherProjectId = createProject(db, { name: 'Other' }).id;
-    const otherDocId = createDocument(db, { projectId: otherProjectId, title: 'Other' }).id;
-    const mine = createComment(db, {
+  it('lists comments by project', async () => {
+    const otherProjectId = (await createProject(db, { name: 'Other' })).id;
+    const otherDocId = (await createDocument(db, { projectId: otherProjectId, title: 'Other' })).id;
+    const mine = await createComment(db, {
       projectId,
       targetType: 'document',
       targetId: documentId,
       body: 'Mine',
     });
-    createComment(db, {
+    await createComment(db, {
       projectId: otherProjectId,
       targetType: 'document',
       targetId: otherDocId,
       body: 'Theirs',
     });
 
-    const listed = listCommentsByProject(db, projectId);
+    const listed = await listCommentsByProject(db, projectId);
     expect(listed).toHaveLength(1);
     expect(listed[0]?.id).toBe(mine.id);
   });
 
-  it('updates and deletes a comment', () => {
-    const created = createComment(db, {
+  it('updates and deletes a comment', async () => {
+    const created = await createComment(db, {
       projectId,
       targetType: 'document',
       targetId: documentId,
       body: 'Before',
     });
-    const updated = updateComment(db, created.id, { body: 'After', resolved: true });
+    const updated = await updateComment(db, created.id, { body: 'After', resolved: true });
     expect(updated?.body).toBe('After');
     expect(updated?.resolved).toBe(true);
 
-    expect(deleteComment(db, created.id)).toBe(true);
-    expect(getComment(db, created.id)).toBeUndefined();
-    expect(deleteComment(db, created.id)).toBe(false);
+    expect(await deleteComment(db, created.id)).toBe(true);
+    expect(await getComment(db, created.id)).toBeUndefined();
+    expect(await deleteComment(db, created.id)).toBe(false);
   });
 
-  it('deletes comments by target and project', () => {
-    const doc2 = createDocument(db, { projectId, title: 'Doc 2' }).id;
-    createComment(db, {
+  it('deletes comments by target and project', async () => {
+    const doc2 = (await createDocument(db, { projectId, title: 'Doc 2' })).id;
+    await createComment(db, {
       projectId,
       targetType: 'document',
       targetId: documentId,
       body: 'A',
     });
-    createComment(db, {
+    await createComment(db, {
       projectId,
       targetType: 'document',
       targetId: doc2,
       body: 'B',
     });
 
-    expect(deleteCommentsByTarget(db, 'document', documentId)).toBe(1);
+    expect(await deleteCommentsByTarget(db, 'document', documentId)).toBe(1);
     expect(
-      listCommentsByTarget(db, 'document', documentId, { includeResolved: true }),
+      await listCommentsByTarget(db, 'document', documentId, { includeResolved: true }),
     ).toHaveLength(0);
-    expect(listCommentsByProject(db, projectId, { includeResolved: true })).toHaveLength(1);
+    expect(await listCommentsByProject(db, projectId, { includeResolved: true })).toHaveLength(1);
 
-    expect(deleteCommentsByProjectId(db, projectId)).toBe(1);
-    expect(listCommentsByProject(db, projectId, { includeResolved: true })).toHaveLength(0);
+    expect(await deleteCommentsByProjectId(db, projectId)).toBe(1);
+    expect(await listCommentsByProject(db, projectId, { includeResolved: true })).toHaveLength(0);
   });
 });

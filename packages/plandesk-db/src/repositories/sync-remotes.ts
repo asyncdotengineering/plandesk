@@ -10,20 +10,20 @@ export type SetSyncRemoteInput = {
   syncToken: string;
 };
 
-export function setSyncRemote(
+export async function setSyncRemote(
   db: DbClient,
   projectId: string,
   input: SetSyncRemoteInput,
-): SyncRemote {
+): Promise<SyncRemote> {
   const now = new Date();
-  const existing = db
+  const existing = await db
     .select({ projectId: syncRemotes.projectId })
     .from(syncRemotes)
     .where(eq(syncRemotes.projectId, projectId))
     .get();
 
   if (existing !== undefined) {
-    const rows = db
+    const rows = await db
       .update(syncRemotes)
       .set({
         serverUrl: input.serverUrl,
@@ -41,7 +41,7 @@ export function setSyncRemote(
     return row;
   }
 
-  const rows = db
+  const rows = await db
     .insert(syncRemotes)
     .values({
       projectId,
@@ -60,11 +60,17 @@ export function setSyncRemote(
   return row;
 }
 
-export function getSyncRemote(db: DbClient, projectId: string): SyncRemote | undefined {
+export async function getSyncRemote(
+  db: DbClient,
+  projectId: string,
+): Promise<SyncRemote | undefined> {
   return db.select().from(syncRemotes).where(eq(syncRemotes.projectId, projectId)).get();
 }
 
-export function deleteSyncRemoteByProjectId(db: DbClient, projectId: string): number {
-  const result = db.delete(syncRemotes).where(eq(syncRemotes.projectId, projectId)).run();
-  return result.changes;
+export async function deleteSyncRemoteByProjectId(
+  db: DbClient,
+  projectId: string,
+): Promise<number> {
+  const result = await db.delete(syncRemotes).where(eq(syncRemotes.projectId, projectId)).run();
+  return result.rowsAffected;
 }

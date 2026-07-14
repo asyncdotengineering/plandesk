@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDb } from './client.js';
+import { createDb, type Db } from './client.js';
 import { migrate } from './migrate.js';
 import {
   exportProject,
@@ -190,14 +190,14 @@ function toComparable(exported: PlandeskExportV1): ComparableExport {
   };
 }
 
-function buildFixtureProject(db: ReturnType<typeof createDb>): string {
-  const project = createProject(db, {
+async function buildFixtureProject(db: Db): Promise<string> {
+  const project = await createProject(db, {
     name: 'Export Fixture',
     description: 'Round-trip test project',
   });
-  updateProject(db, project.id, { canvasLayout: '{"zoom":1.25}' });
+  await updateProject(db, project.id, { canvasLayout: '{"zoom":1.25}' });
 
-  const design = createTask(db, {
+  const design = await createTask(db, {
     projectId: project.id,
     id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     label: 'Design',
@@ -208,7 +208,7 @@ function buildFixtureProject(db: ReturnType<typeof createDb>): string {
     assignee: 'alex',
     dueDate: new Date('2026-07-01T00:00:00.000Z'),
   });
-  const build = createTask(db, {
+  const build = await createTask(db, {
     projectId: project.id,
     id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     label: 'Build',
@@ -217,12 +217,12 @@ function buildFixtureProject(db: ReturnType<typeof createDb>): string {
     y: 200,
   });
 
-  const backend = createTag(db, { projectId: project.id, name: 'backend', color: '#2563eb' });
-  const urgent = createTag(db, { projectId: project.id, name: 'urgent', color: null });
-  setTaskTags(db, design.id, [backend.id, urgent.id]);
-  setTaskTags(db, build.id, [backend.id]);
+  const backend = await createTag(db, { projectId: project.id, name: 'backend', color: '#2563eb' });
+  const urgent = await createTag(db, { projectId: project.id, name: 'urgent', color: null });
+  await setTaskTags(db, design.id, [backend.id, urgent.id]);
+  await setTaskTags(db, build.id, [backend.id]);
 
-  createEdge(db, {
+  await createEdge(db, {
     projectId: project.id,
     id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     fromTaskId: design.id,
@@ -231,7 +231,7 @@ function buildFixtureProject(db: ReturnType<typeof createDb>): string {
     arrowDirection: 'forward',
     style: 'solid',
   });
-  createEdge(db, {
+  await createEdge(db, {
     projectId: project.id,
     id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
     fromTaskId: build.id,
@@ -241,19 +241,19 @@ function buildFixtureProject(db: ReturnType<typeof createDb>): string {
     style: 'dashed',
   });
 
-  const specsFolder = createFolder(db, {
+  const specsFolder = await createFolder(db, {
     projectId: project.id,
     id: '22222222-2222-4222-8222-222222222222',
     name: 'Specs',
   });
-  const archiveFolder = createFolder(db, {
+  const archiveFolder = await createFolder(db, {
     projectId: project.id,
     id: '33333333-3333-4333-8333-333333333333',
     name: 'Archive',
     parentFolderId: specsFolder.id,
   });
 
-  const parentDoc = createDocument(db, {
+  const parentDoc = await createDocument(db, {
     projectId: project.id,
     id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
     title: 'Parent Spec',
@@ -261,7 +261,7 @@ function buildFixtureProject(db: ReturnType<typeof createDb>): string {
     statusLine: 'Status: approved',
     folderId: specsFolder.id,
   });
-  const childDoc = createDocument(db, {
+  const childDoc = await createDocument(db, {
     projectId: project.id,
     id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
     title: 'Child Spec',
@@ -272,14 +272,14 @@ function buildFixtureProject(db: ReturnType<typeof createDb>): string {
     linkedTaskId: design.id,
   });
 
-  createComment(db, {
+  await createComment(db, {
     projectId: project.id,
     targetType: 'document',
     targetId: parentDoc.id,
     body: 'Needs review',
     passage: '§1',
   });
-  createComment(db, {
+  await createComment(db, {
     projectId: project.id,
     targetType: 'document',
     targetId: childDoc.id,
@@ -287,25 +287,25 @@ function buildFixtureProject(db: ReturnType<typeof createDb>): string {
     resolved: true,
   });
 
-  createNote(db, {
+  await createNote(db, {
     projectId: project.id,
     title: 'Working notes',
     body: '<p>Remember to check the rate limits</p>',
   });
-  createNote(db, {
+  await createNote(db, {
     projectId: project.id,
     title: 'Open questions',
     body: null,
   });
 
-  const run = createAgentRun(db, {
+  const run = await createAgentRun(db, {
     projectId: project.id,
     id: '11111111-1111-4111-8111-111111111111',
     label: 'Sprint agent',
   });
-  createAgentRunEvent(db, { runId: run.id, message: 'Starting analysis' });
-  createAgentRunEvent(db, { runId: run.id, message: 'Applied task updates' });
-  updateAgentRunStatus(db, run.id, {
+  await createAgentRunEvent(db, { runId: run.id, message: 'Starting analysis' });
+  await createAgentRunEvent(db, { runId: run.id, message: 'Applied task updates' });
+  await updateAgentRunStatus(db, run.id, {
     status: 'completed',
     completedAt: new Date('2026-06-07T12:00:00.000Z'),
   });
@@ -314,39 +314,26 @@ function buildFixtureProject(db: ReturnType<typeof createDb>): string {
 }
 
 describe('export/import portability', () => {
-  const db = createDb(':memory:');
+  let db: Db;
 
-  beforeEach(() => {
-    migrate(db);
-    db.$client.exec('DELETE FROM comments');
-    db.$client.exec('DELETE FROM agent_run_events');
-    db.$client.exec('DELETE FROM agent_runs');
-    db.$client.exec('DELETE FROM documents');
-    db.$client.exec('UPDATE folders SET parent_folder_id = NULL');
-    db.$client.exec('DELETE FROM folders');
-    db.$client.exec('DELETE FROM artifacts');
-    db.$client.exec('DELETE FROM notes');
-    db.$client.exec('DELETE FROM task_tags');
-    db.$client.exec('DELETE FROM tags');
-    db.$client.exec('DELETE FROM edges');
-    db.$client.exec('DELETE FROM tasks');
-    db.$client.exec('DELETE FROM goals');
-    db.$client.exec('DELETE FROM projects');
+  beforeEach(async () => {
+    db = await createDb(':memory:');
+    await migrate(db);
   });
 
-  it('test:export_import round-trips project graph with remapped ids', () => {
-    const sourceProjectId = buildFixtureProject(db);
-    const exported = exportProject(db, sourceProjectId);
+  it('test:export_import round-trips project graph with remapped ids', async () => {
+    const sourceProjectId = await buildFixtureProject(db);
+    const exported = await exportProject(db, sourceProjectId);
     expect(exported).toBeDefined();
     if (!exported) {
       return;
     }
     expect(exported.version).toBe(PLANDESK_EXPORT_VERSION);
 
-    const { projectId: importedProjectId } = importProject(db, exported);
+    const { projectId: importedProjectId } = await importProject(db, exported);
     expect(importedProjectId).not.toBe(sourceProjectId);
 
-    const reExported = exportProject(db, importedProjectId);
+    const reExported = await exportProject(db, importedProjectId);
     expect(reExported).toBeDefined();
     if (!reExported) {
       return;
@@ -381,13 +368,13 @@ describe('export/import portability', () => {
     }
   });
 
-  it('returns undefined when exporting an unknown project', () => {
-    expect(exportProject(db, '00000000-0000-4000-8000-000000009999')).toBeUndefined();
+  it('returns undefined when exporting an unknown project', async () => {
+    expect(await exportProject(db, '00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
-  it('imports legacy document_comments-shaped entries', () => {
-    const sourceProjectId = buildFixtureProject(db);
-    const exported = exportProject(db, sourceProjectId);
+  it('imports legacy document_comments-shaped entries', async () => {
+    const sourceProjectId = await buildFixtureProject(db);
+    const exported = await exportProject(db, sourceProjectId);
     expect(exported).toBeDefined();
     if (!exported) {
       return;
@@ -406,8 +393,8 @@ describe('export/import portability', () => {
       })),
     };
 
-    const { projectId: importedProjectId } = importProject(db, legacy);
-    const reExported = exportProject(db, importedProjectId);
+    const { projectId: importedProjectId } = await importProject(db, legacy);
+    const reExported = await exportProject(db, importedProjectId);
     expect(reExported).toBeDefined();
     if (!reExported) {
       return;
@@ -416,30 +403,30 @@ describe('export/import portability', () => {
     expect(toComparable(reExported).comments).toEqual(toComparable(exported).comments);
   });
 
-  it('throws on unsupported export version', () => {
-    const sourceProjectId = buildFixtureProject(db);
-    const exported = exportProject(db, sourceProjectId);
+  it('throws on unsupported export version', async () => {
+    const sourceProjectId = await buildFixtureProject(db);
+    const exported = await exportProject(db, sourceProjectId);
     expect(exported).toBeDefined();
     if (!exported) {
       return;
     }
     const badVersion = { ...exported, version: 'plandesk-export-v0' };
 
-    expect(() => importProject(db, badVersion)).toThrow(InvalidExportVersionError);
-    expect(() => importProject(db, badVersion)).toThrow(/Unsupported export version/);
+    await expect(importProject(db, badVersion)).rejects.toThrow(InvalidExportVersionError);
+    await expect(importProject(db, badVersion)).rejects.toThrow(/Unsupported export version/);
   });
 
-  it('test:export_import round-trips a project file byte-identical', () => {
+  it('test:export_import round-trips a project file byte-identical', async () => {
     // Files are content-addressed (id = sha256 of bytes), so re-importing the
     // same bytes into the source db would upsert onto the existing row instead
     // of creating a new one. Use a separate target db to model the realistic
     // portability case (export to JSON, import into a different workspace).
-    const sourceDb = createDb(':memory:');
-    migrate(sourceDb);
-    const project = createProject(sourceDb, { name: 'File Fixture' });
+    const sourceDb = await createDb(':memory:');
+    await migrate(sourceDb);
+    const project = await createProject(sourceDb, { name: 'File Fixture' });
     const bytes = Buffer.from('not-really-a-png-but-good-enough-for-a-test', 'utf8');
     const id = createHash('sha256').update(bytes).digest('hex');
-    createFile(sourceDb, {
+    await createFile(sourceDb, {
       id,
       projectId: project.id,
       filename: 'shot.png',
@@ -448,7 +435,7 @@ describe('export/import portability', () => {
       bytes,
     });
 
-    const exported = exportProject(sourceDb, project.id);
+    const exported = await exportProject(sourceDb, project.id);
     expect(exported).toBeDefined();
     if (!exported) {
       return;
@@ -463,11 +450,11 @@ describe('export/import portability', () => {
     });
     expect(exported.files[0]?.bytes_base64).toBe(bytes.toString('base64'));
 
-    const targetDb = createDb(':memory:');
-    migrate(targetDb);
-    const { projectId: importedProjectId } = importProject(targetDb, exported);
+    const targetDb = await createDb(':memory:');
+    await migrate(targetDb);
+    const { projectId: importedProjectId } = await importProject(targetDb, exported);
 
-    const reExported = exportProject(targetDb, importedProjectId);
+    const reExported = await exportProject(targetDb, importedProjectId);
     expect(reExported).toBeDefined();
     if (!reExported) {
       return;
@@ -475,23 +462,23 @@ describe('export/import portability', () => {
     expect(reExported.files).toHaveLength(1);
     expect(reExported.files[0]?.bytes_base64).toBe(bytes.toString('base64'));
 
-    const importedFile = getFile(targetDb, id);
+    const importedFile = await getFile(targetDb, id);
     expect(importedFile?.bytes).toEqual(bytes);
     expect(importedFile?.projectId).toBe(importedProjectId);
   });
 
-  it('test:export_import round-trips a project artifact byte-identical', () => {
-    const sourceDb = createDb(':memory:');
-    migrate(sourceDb);
-    const project = createProject(sourceDb, { name: 'Artifact Fixture' });
-    const artifact = createArtifact(sourceDb, {
+  it('test:export_import round-trips a project artifact byte-identical', async () => {
+    const sourceDb = await createDb(':memory:');
+    await migrate(sourceDb);
+    const project = await createProject(sourceDb, { name: 'Artifact Fixture' });
+    const artifact = await createArtifact(sourceDb, {
       projectId: project.id,
       title: 'Design RFC',
       kind: 'html',
       content: '<h1>Diagram</h1>',
     });
 
-    const exported = exportProject(sourceDb, project.id);
+    const exported = await exportProject(sourceDb, project.id);
     expect(exported).toBeDefined();
     if (!exported) {
       return;
@@ -504,11 +491,11 @@ describe('export/import portability', () => {
       content: '<h1>Diagram</h1>',
     });
 
-    const targetDb = createDb(':memory:');
-    migrate(targetDb);
-    const { projectId: importedProjectId } = importProject(targetDb, exported);
+    const targetDb = await createDb(':memory:');
+    await migrate(targetDb);
+    const { projectId: importedProjectId } = await importProject(targetDb, exported);
 
-    const reExported = exportProject(targetDb, importedProjectId);
+    const reExported = await exportProject(targetDb, importedProjectId);
     expect(reExported).toBeDefined();
     if (!reExported) {
       return;
@@ -519,7 +506,7 @@ describe('export/import portability', () => {
     expect(reExported.artifacts[0]?.content).toBe('<h1>Diagram</h1>');
 
     const importedArtifacts = reExported.artifacts;
-    const imported = getArtifact(targetDb, importedArtifacts[0]?.id ?? '');
+    const imported = await getArtifact(targetDb, importedArtifacts[0]?.id ?? '');
     expect(imported?.title).toBe('Design RFC');
     expect(imported?.kind).toBe('html');
     expect(imported?.content).toBe('<h1>Diagram</h1>');

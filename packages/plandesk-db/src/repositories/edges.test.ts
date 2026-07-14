@@ -1,29 +1,26 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDb } from '../client.js';
+import { createDb, type Db } from '../client.js';
 import { migrate } from '../migrate.js';
 import { createEdge, deleteEdge, getEdge, listEdges, updateEdge } from './edges.js';
 import { createProject } from './projects.js';
 import { createTaskWithDefaultGoal as createTask } from '../testing.js';
 
 describe('edges repository', () => {
-  const db = createDb(':memory:');
+  let db: Db;
   let projectId = '';
   let fromTaskId = '';
   let toTaskId = '';
 
-  beforeEach(() => {
-    migrate(db);
-    db.$client.exec('DELETE FROM edges');
-    db.$client.exec('DELETE FROM tasks');
-    db.$client.exec('DELETE FROM goals');
-    db.$client.exec('DELETE FROM projects');
-    projectId = createProject(db, { name: 'Edge Project' }).id;
-    fromTaskId = createTask(db, { projectId, label: 'From' }).id;
-    toTaskId = createTask(db, { projectId, label: 'To' }).id;
+  beforeEach(async () => {
+    db = await createDb(':memory:');
+    await migrate(db);
+    projectId = (await createProject(db, { name: 'Edge Project' })).id;
+    fromTaskId = (await createTask(db, { projectId, label: 'From' })).id;
+    toTaskId = (await createTask(db, { projectId, label: 'To' })).id;
   });
 
-  it('creates and lists edges for a project', () => {
-    const created = createEdge(db, {
+  it('creates and lists edges for a project', async () => {
+    const created = await createEdge(db, {
       projectId,
       fromTaskId,
       toTaskId,
@@ -32,19 +29,19 @@ describe('edges repository', () => {
       style: 'solid',
     });
 
-    expect(getEdge(db, created.id)).toEqual(created);
-    expect(listEdges(db, projectId)).toEqual([created]);
+    expect(await getEdge(db, created.id)).toEqual(created);
+    expect(await listEdges(db, projectId)).toEqual([created]);
   });
 
-  it('updates an edge', () => {
-    const created = createEdge(db, {
+  it('updates an edge', async () => {
+    const created = await createEdge(db, {
       projectId,
       fromTaskId,
       toTaskId,
       label: 'depends_on',
     });
 
-    const updated = updateEdge(db, created.id, {
+    const updated = await updateEdge(db, created.id, {
       label: 'unblocks',
       arrowDirection: 'both',
     });
@@ -53,15 +50,15 @@ describe('edges repository', () => {
     expect(updated?.arrowDirection).toBe('both');
   });
 
-  it('deletes an edge', () => {
-    const created = createEdge(db, {
+  it('deletes an edge', async () => {
+    const created = await createEdge(db, {
       projectId,
       fromTaskId,
       toTaskId,
     });
 
-    expect(deleteEdge(db, created.id)).toBe(true);
-    expect(getEdge(db, created.id)).toBeUndefined();
-    expect(deleteEdge(db, created.id)).toBe(false);
+    expect(await deleteEdge(db, created.id)).toBe(true);
+    expect(await getEdge(db, created.id)).toBeUndefined();
+    expect(await deleteEdge(db, created.id)).toBe(false);
   });
 });

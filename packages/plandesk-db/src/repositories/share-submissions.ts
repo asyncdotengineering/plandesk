@@ -19,8 +19,8 @@ export type UpsertSubmissionInput = {
   pulledAt: Date;
 };
 
-export function upsertSubmission(db: DbClient, input: UpsertSubmissionInput): boolean {
-  const result = db
+export async function upsertSubmission(db: DbClient, input: UpsertSubmissionInput): Promise<boolean> {
+  const result = await db
     .insert(shareSubmissions)
     .values({
       id: input.id,
@@ -38,14 +38,14 @@ export function upsertSubmission(db: DbClient, input: UpsertSubmissionInput): bo
     .onConflictDoNothing()
     .run();
 
-  return result.changes > 0;
+  return result.rowsAffected > 0;
 }
 
-export function listSubmissions(
+export async function listSubmissions(
   db: DbClient,
   projectId: string,
   status?: ShareSubmissionStatus,
-): ShareSubmission[] {
+): Promise<ShareSubmission[]> {
   const conditions = status
     ? and(eq(shareSubmissions.projectId, projectId), eq(shareSubmissions.status, status))
     : eq(shareSubmissions.projectId, projectId);
@@ -58,16 +58,19 @@ export function listSubmissions(
     .all();
 }
 
-export function getSubmission(db: DbClient, id: string): ShareSubmission | undefined {
+export async function getSubmission(
+  db: DbClient,
+  id: string,
+): Promise<ShareSubmission | undefined> {
   return db.select().from(shareSubmissions).where(eq(shareSubmissions.id, id)).get();
 }
 
-export function setSubmissionStatus(
+export async function setSubmissionStatus(
   db: DbClient,
   id: string,
   input: { status: ShareSubmissionStatus; linkedTaskId?: string | null },
-): ShareSubmission | undefined {
-  const rows = db
+): Promise<ShareSubmission | undefined> {
+  const rows = await db
     .update(shareSubmissions)
     .set({
       status: input.status,
@@ -80,8 +83,8 @@ export function setSubmissionStatus(
   return rows[0];
 }
 
-export function getPullCursor(db: DbClient, projectId: string): string | undefined {
-  const row = db
+export async function getPullCursor(db: DbClient, projectId: string): Promise<string | undefined> {
+  const row = await db
     .select({ pullCursor: syncState.pullCursor })
     .from(syncState)
     .where(eq(syncState.projectId, projectId))
@@ -90,23 +93,29 @@ export function getPullCursor(db: DbClient, projectId: string): string | undefin
   return row?.pullCursor ?? undefined;
 }
 
-export function setPullCursor(db: DbClient, projectId: string, cursor: string): void {
+export async function setPullCursor(
+  db: DbClient,
+  projectId: string,
+  cursor: string,
+): Promise<void> {
   const now = new Date();
-  const existing = db
+  const existing = await db
     .select({ projectId: syncState.projectId })
     .from(syncState)
     .where(eq(syncState.projectId, projectId))
     .get();
 
   if (existing !== undefined) {
-    db.update(syncState)
+    await db
+      .update(syncState)
       .set({ pullCursor: cursor, updatedAt: now })
       .where(eq(syncState.projectId, projectId))
       .run();
     return;
   }
 
-  db.insert(syncState)
+  await db
+    .insert(syncState)
     .values({
       projectId,
       pullCursor: cursor,
@@ -115,12 +124,18 @@ export function setPullCursor(db: DbClient, projectId: string, cursor: string): 
     .run();
 }
 
-export function deleteShareSubmissionsByProjectId(db: DbClient, projectId: string): number {
-  const result = db.delete(shareSubmissions).where(eq(shareSubmissions.projectId, projectId)).run();
-  return result.changes;
+export async function deleteShareSubmissionsByProjectId(
+  db: DbClient,
+  projectId: string,
+): Promise<number> {
+  const result = await db
+    .delete(shareSubmissions)
+    .where(eq(shareSubmissions.projectId, projectId))
+    .run();
+  return result.rowsAffected;
 }
 
-export function deleteSyncStateByProjectId(db: DbClient, projectId: string): number {
-  const result = db.delete(syncState).where(eq(syncState.projectId, projectId)).run();
-  return result.changes;
+export async function deleteSyncStateByProjectId(db: DbClient, projectId: string): Promise<number> {
+  const result = await db.delete(syncState).where(eq(syncState.projectId, projectId)).run();
+  return result.rowsAffected;
 }

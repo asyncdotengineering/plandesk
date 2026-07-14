@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDb } from '../client.js';
+import { createDb, type Db } from '../client.js';
 import { migrate } from '../migrate.js';
 import { createProject } from './projects.js';
 import { createFile, getFile, listFilesByProject } from './files.js';
@@ -10,20 +10,19 @@ function hashOf(bytes: Buffer): string {
 }
 
 describe('files repository', () => {
-  const db = createDb(':memory:');
+  let db: Db;
   let projectId = '';
 
-  beforeEach(() => {
-    migrate(db);
-    db.$client.exec('DELETE FROM files');
-    db.$client.exec('DELETE FROM projects');
-    projectId = createProject(db, { name: 'Files' }).id;
+  beforeEach(async () => {
+    db = await createDb(':memory:');
+    await migrate(db);
+    projectId = (await createProject(db, { name: 'Files' })).id;
   });
 
-  it('creates and retrieves a file by content-hash id', () => {
+  it('creates and retrieves a file by content-hash id', async () => {
     const bytes = Buffer.from('fake-png-bytes', 'utf8');
     const id = hashOf(bytes);
-    const created = createFile(db, {
+    const created = await createFile(db, {
       id,
       projectId,
       filename: 'shot.png',
@@ -34,7 +33,7 @@ describe('files repository', () => {
     expect(created.id).toBe(id);
     expect(created.bytes).toEqual(bytes);
 
-    const fetched = getFile(db, id);
+    const fetched = await getFile(db, id);
     expect(fetched?.filename).toBe('shot.png');
     expect(fetched?.mime).toBe('image/png');
     expect(fetched?.size).toBe(bytes.length);
@@ -42,14 +41,14 @@ describe('files repository', () => {
     expect(fetched?.externalUrl).toBeNull();
   });
 
-  it('returns undefined for a missing file', () => {
-    expect(getFile(db, 'deadbeef')).toBeUndefined();
+  it('returns undefined for a missing file', async () => {
+    expect(await getFile(db, 'deadbeef')).toBeUndefined();
   });
 
-  it('upserts by id: re-creating the same content hash does not duplicate the row', () => {
+  it('upserts by id: re-creating the same content hash does not duplicate the row', async () => {
     const bytes = Buffer.from('same-bytes', 'utf8');
     const id = hashOf(bytes);
-    const first = createFile(db, {
+    const first = await createFile(db, {
       id,
       projectId,
       filename: 'first.png',
@@ -57,7 +56,7 @@ describe('files repository', () => {
       size: bytes.length,
       bytes,
     });
-    const second = createFile(db, {
+    const second = await createFile(db, {
       id,
       projectId,
       filename: 'second.png',
@@ -67,12 +66,12 @@ describe('files repository', () => {
     });
     expect(second.id).toBe(first.id);
     expect(second.filename).toBe('first.png');
-    expect(listFilesByProject(db, projectId)).toHaveLength(1);
+    expect(await listFilesByProject(db, projectId)).toHaveLength(1);
   });
 
-  it('stores an external-url file with null bytes', () => {
+  it('stores an external-url file with null bytes', async () => {
     const id = hashOf(Buffer.from('external', 'utf8'));
-    const created = createFile(db, {
+    const created = await createFile(db, {
       id,
       projectId,
       filename: 'remote.png',
@@ -84,16 +83,16 @@ describe('files repository', () => {
     expect(created.externalUrl).toBe('https://cdn.example.com/remote.png');
   });
 
-  it('lists files scoped to a project', () => {
+  it('lists files scoped to a project', async () => {
     const a = hashOf(Buffer.from('a', 'utf8'));
     const b = hashOf(Buffer.from('b', 'utf8'));
-    createFile(db, { id: a, projectId, filename: 'a.png', mime: 'image/png', size: 1 });
-    createFile(db, { id: b, projectId, filename: 'b.png', mime: 'image/png', size: 1 });
-    const other = createProject(db, { name: 'Other' }).id;
+    await createFile(db, { id: a, projectId, filename: 'a.png', mime: 'image/png', size: 1 });
+    await createFile(db, { id: b, projectId, filename: 'b.png', mime: 'image/png', size: 1 });
+    const other = (await createProject(db, { name: 'Other' })).id;
     const c = hashOf(Buffer.from('c', 'utf8'));
-    createFile(db, { id: c, projectId: other, filename: 'c.png', mime: 'image/png', size: 1 });
+    await createFile(db, { id: c, projectId: other, filename: 'c.png', mime: 'image/png', size: 1 });
 
-    expect(listFilesByProject(db, projectId)).toHaveLength(2);
-    expect(listFilesByProject(db, other)).toHaveLength(1);
+    expect(await listFilesByProject(db, projectId)).toHaveLength(2);
+    expect(await listFilesByProject(db, other)).toHaveLength(1);
   });
 });
