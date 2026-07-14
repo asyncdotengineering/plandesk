@@ -25,7 +25,7 @@ import { formatDisconnectSummary, runDisconnect } from './disconnect.js';
 import { runContext } from './context.js';
 import { DEFAULT_CHECKPOINT_MESSAGE, runProgressCheckpoint } from './progress-checkpoint.js';
 import { formatPublishSummary, runPublish } from './publish.js';
-import { formatPushSummary, runPush } from './push.js';
+import { formatPushSummary, PromotePushError, runPush } from './push.js';
 import { formatPullSummary, runPull } from './pull.js';
 import { formatShareCreateSummary, InvalidShareArgsError, runShareCreate } from './share.js';
 import {
@@ -236,7 +236,12 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
       try {
         const repoDir = resolveRepoDir(parsed.repoDir);
         const { db } = await openWorkspace(parsed.dataDir);
-        const result = await runPush(db, { repoDir, projectId: parsed.projectId });
+        const result = await runPush(db, {
+          repoDir,
+          projectId: parsed.projectId,
+          toOrgId: parsed.toOrgId,
+          remoteUrl: parsed.remoteUrl,
+        });
         process.stdout.write(formatPushSummary(result));
         return 0;
       } catch (err) {
@@ -245,6 +250,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         }
         if (
           err instanceof SyncConfigError ||
+          err instanceof PromotePushError ||
           err instanceof SyncUnauthorizedError ||
           err instanceof SyncUnavailableError
         ) {

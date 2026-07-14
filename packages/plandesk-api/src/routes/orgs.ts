@@ -5,11 +5,15 @@ import {
   createToken,
   getOrg,
   getOrgMember,
+  importProject,
+  InvalidExportVersionError,
   listOrgMembers,
   orgRoles,
+  PLANDESK_EXPORT_VERSION,
   tokenScopes,
   type Db,
   type OrgRole,
+  type PlandeskExportInput,
   type TokenScope,
 } from '@plandesk/db';
 import { getAuthContext } from '../auth-context.js';
@@ -160,6 +164,47 @@ export function createOrgsRouter(db: Db): Hono {
         created_at: m.createdAt.toISOString(),
       })),
     );
+  });
+
+  // Promote a portable export into this org (one-way authority handoff).
+  router.post('/orgs/:id/import', async (c) => {
+    const orgId = c.req.param('id');
+    const org = await getOrg(db, orgId);
+    if (!org) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    // Org-scoped: token for org-B cannot import into org-A.
+    if (getAuthContext().orgId !== orgId) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (body === null || typeof body !== 'object') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    const data = body as PlandeskExportInput;
+    if (typeof data.version !== 'string' || data.version !== PLANDESK_EXPORT_VERSION) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (data.project === undefined || typeof data.project !== 'object') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+
+    try {
+      // orgId always from authenticated path/context — never from the body.
+      const { projectId } = await importProject(db, data, { orgId });
+      return c.json({ globalProjectId: projectId }, 201);
+    } catch (err) {
+      if (err instanceof InvalidExportVersionError) {
+        return c.json({ error: 'invalid_argument' }, 400);
+      }
+      throw err;
+    }
   });
 
   return router;

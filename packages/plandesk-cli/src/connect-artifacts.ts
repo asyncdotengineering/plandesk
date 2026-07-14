@@ -23,6 +23,8 @@ export type PlanDeskConfig = {
   serverUrl: string;
   projectId: string;
   projectName: string;
+  /** Hosted org after promote (`plandesk push --to`). Optional for older configs. */
+  orgId?: string;
   sync?: PlanDeskSyncConfig;
 };
 
@@ -82,6 +84,7 @@ export function buildConfigJson(input: {
   serverUrl: string;
   projectId: string;
   projectName: string;
+  orgId?: string;
   sync?: PlanDeskSyncConfig;
 }): string {
   const config: PlanDeskConfig = {
@@ -90,6 +93,9 @@ export function buildConfigJson(input: {
     projectId: input.projectId,
     projectName: input.projectName,
   };
+  if (input.orgId !== undefined && input.orgId.trim() !== '') {
+    config.orgId = input.orgId;
+  }
   if (input.sync !== undefined) {
     config.sync = {
       serverUrl: normalizeServerUrl(input.sync.serverUrl),
@@ -173,6 +179,9 @@ export function parseConfigJson(content: string): PlanDeskConfig {
     projectId: parsed.projectId,
     projectName: parsed.projectName,
   };
+  if (typeof parsed.orgId === 'string' && parsed.orgId.trim() !== '') {
+    config.orgId = parsed.orgId.trim();
+  }
   const sync = parseSyncConfig(parsed.sync);
   if (sync !== undefined) {
     config.sync = sync;

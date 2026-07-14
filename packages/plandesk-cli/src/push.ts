@@ -1,7 +1,20 @@
-import type { Db } from '@plandesk/db';
-import { ensureDefaultOrg } from '@plandesk/db';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  exportProject,
+  ensureDefaultOrg,
+  setSyncRemote,
+  type Db,
+} from '@plandesk/db';
 import { createServices } from '@plandesk/api';
-import { resolveSyncRemote, type ResolvedSync } from './sync.js';
+import {
+  buildConfigJson,
+  normalizeServerUrl,
+  readPlandeskConfig,
+  readPlandeskToken,
+  TOKEN_ENV_VAR,
+} from './connect-artifacts.js';
+import { resolveProjectId, resolveSyncRemote, SyncConfigError, type ResolvedSync } from './sync.js';
 
 export type PushOptions = {
   repoDir: string;
@@ -9,20 +22,158 @@ export type PushOptions = {
   remoteUrl?: string;
   globalProjectId?: string;
   syncToken?: string;
+  /** When set, promote the local project into this hosted org (one-way). */
+  toOrgId?: string;
 };
 
-export type PushResult = {
+export type SharePushResult = {
+  kind: 'shares';
   pushed: number;
 };
 
+export type PromotePushResult = {
+  kind: 'promote';
+  globalProjectId: string;
+  orgId: string;
+  serverUrl: string;
+};
+
+export type PushResult = SharePushResult | PromotePushResult;
+
+export class PromotePushError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PromotePushError';
+  }
+}
+
+function resolvePromoteToken(repoDir: string): string {
+  const fromEnv = process.env[TOKEN_ENV_VAR];
+  if (fromEnv !== undefined && fromEnv.trim() !== '') {
+    return fromEnv.trim();
+  }
+  const fromFile = readPlandeskToken(repoDir);
+  if (fromFile !== undefined && fromFile.trim() !== '') {
+    return fromFile.trim();
+  }
+  throw new SyncConfigError(
+    `Token is required for promote. Set ${TOKEN_ENV_VAR} or write .plandesk/token.`,
+  );
+}
+
+function resolvePromoteServerUrl(repoDir: string, remoteUrl?: string): string {
+  if (remoteUrl !== undefined && remoteUrl.trim() !== '') {
+    return normalizeServerUrl(remoteUrl);
+  }
+  const config = readPlandeskConfig(repoDir);
+  if (config === undefined) {
+    throw new SyncConfigError('Missing .plandesk/config.json. Run plandesk connect first.');
+  }
+  if (config.serverUrl.trim() === '') {
+    throw new SyncConfigError('serverUrl is required in .plandesk/config.json for promote.');
+  }
+  return normalizeServerUrl(config.serverUrl);
+}
+
+async function runPromotePush(db: Db, options: PushOptions & { toOrgId: string }): Promise<PromotePushResult> {
+  const localProjectId = resolveProjectId({
+    repoDir: options.repoDir,
+    projectId: options.projectId,
+  });
+  const blob = await exportProject(db, localProjectId);
+  if (blob === undefined) {
+    throw new PromotePushError(`project not found: ${localProjectId}`);
+  }
+
+  const serverUrl = resolvePromoteServerUrl(options.repoDir, options.remoteUrl);
+  const token = resolvePromoteToken(options.repoDir);
+  const orgId = options.toOrgId.trim();
+  if (orgId === '') {
+    throw new PromotePushError('org id is required for --to');
+  }
+
+  const importUrl = `${serverUrl}/api/v1/orgs/${encodeURIComponent(orgId)}/import`;
+  let response: Response;
+  try {
+    response = await fetch(importUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(blob),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new PromotePushError(`promote request failed: ${message}`);
+  }
+
+  if (!response.ok) {
+    let detail = '';
+    try {
+      const body = (await response.json()) as { error?: string };
+      if (typeof body.error === 'string') {
+        detail = `: ${body.error}`;
+      }
+    } catch {
+      // ignore non-JSON error bodies
+    }
+    throw new PromotePushError(
+      `promote failed with HTTP ${String(response.status)}${detail}`,
+    );
+  }
+
+  const payload = (await response.json()) as { globalProjectId?: string };
+  if (typeof payload.globalProjectId !== 'string' || payload.globalProjectId.trim() === '') {
+    throw new PromotePushError('promote response missing globalProjectId');
+  }
+  const globalProjectId = payload.globalProjectId;
+
+  await setSyncRemote(db, localProjectId, {
+    serverUrl,
+    globalProjectId,
+    syncToken: token,
+  });
+
+  // Sole record of hosted authority: repoint config (local rows are left alone).
+  const configPath = join(options.repoDir, '.plandesk', 'config.json');
+  const existing = readPlandeskConfig(options.repoDir);
+  const projectName = existing?.projectName ?? blob.project.name;
+  writeFileSync(
+    configPath,
+    buildConfigJson({
+      serverUrl,
+      orgId,
+      projectId: globalProjectId,
+      projectName,
+    }),
+    'utf8',
+  );
+
+  return {
+    kind: 'promote',
+    globalProjectId,
+    orgId,
+    serverUrl,
+  };
+}
+
 export async function runPush(db: Db, options: PushOptions): Promise<PushResult> {
+  if (options.toOrgId !== undefined) {
+    return runPromotePush(db, { ...options, toOrgId: options.toOrgId });
+  }
+
   const resolved = resolveSyncRemote(options);
   const org = await ensureDefaultOrg(db);
   const { syncService } = createServices({ db, orgId: org.id });
-  return syncService.push(resolved.projectId, resolved.syncRemote);
+  const { pushed } = await syncService.push(resolved.projectId, resolved.syncRemote);
+  return { kind: 'shares', pushed };
 }
 
 export function formatPushSummary(result: PushResult): string {
+  if (result.kind === 'promote') {
+    return `Promoted to org ${result.orgId} as ${result.globalProjectId} on ${result.serverUrl}.\n`;
+  }
   return `Pushed ${String(result.pushed)} share(s).\n`;
 }
 

@@ -3,8 +3,17 @@ import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { getRequestListener } from '@hono/node-server';
 import { join } from 'node:path';
-import { createServices } from '@plandesk/api';
-import { createProjectInDefaultOrg as createProject } from '@plandesk/db';
+import { createApp, createServices } from '@plandesk/api';
+import {
+  createOrg,
+  createProjectInDefaultOrg as createProject,
+  createToken,
+  ensureDefaultOrg,
+  exportProject,
+  getSyncRemote,
+  migrate,
+  createDb,
+} from '@plandesk/db';
 import {
   createSyncDb,
   createSyncServer,
@@ -13,7 +22,7 @@ import {
 } from '@plandesk/sync-server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs } from './args.js';
-import { buildConfigJson } from './connect-artifacts.js';
+import { buildConfigJson, parseConfigJson } from './connect-artifacts.js';
 import { main } from './cli.js';
 import { runInit } from './init.js';
 import { openWorkspace } from './workspace.js';
@@ -172,6 +181,28 @@ describe('parseArgs publish/push/pull', () => {
       projectId: 'proj-1',
       repoDir: '/tmp/repo',
       dataDir: '/tmp/ws',
+      toOrgId: undefined,
+      remoteUrl: undefined,
+    });
+    expect(
+      parseArgs([
+        'node',
+        'plandesk',
+        'push',
+        '--project',
+        'proj-1',
+        '--to',
+        'org-abc',
+        '--url',
+        'https://api.example',
+      ]),
+    ).toEqual({
+      command: 'push',
+      projectId: 'proj-1',
+      toOrgId: 'org-abc',
+      remoteUrl: 'https://api.example',
+      repoDir: undefined,
+      dataDir: undefined,
     });
     expect(
       parseArgs(['node', 'plandesk', 'pull', '--project', 'proj-1', '--data-dir', '/tmp/ws']),
@@ -444,5 +475,134 @@ describe('CLI publish/push/pull', () => {
     expect(code).toBe(0);
     expect(stdout).toContain('Pulled 0 submission(s)');
     expect(stdout).toContain('0 pending in triage');
+  });
+
+  it('push --to promotes local project into a hosted org and rewrites config', async () => {
+    // Hosted API workspace (org authority target).
+    const hostedDb = await createDb(':memory:');
+    await migrate(hostedDb);
+    const org = await ensureDefaultOrg(hostedDb);
+    const token = await createToken(hostedDb, {
+      name: 'promote',
+      orgId: org.id,
+      scope: 'full',
+    });
+    const hostedApp = createApp({ db: hostedDb, bindHost: '127.0.0.1' });
+    const server = createServer(getRequestListener(hostedApp.fetch));
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => resolve());
+    });
+    servers.push(server);
+    const addr = server.address();
+    if (addr === null || typeof addr === 'string') {
+      throw new Error('expected TCP address');
+    }
+    const serverUrl = `http://127.0.0.1:${String(addr.port)}`;
+
+    const { dataDir, repoDir, projectId } = await makeWorkspace();
+    // Point config + token at the hosted API for promote.
+    writeFileSync(
+      join(repoDir, '.plandesk', 'config.json'),
+      buildConfigJson({
+        serverUrl,
+        projectId,
+        projectName: 'Sync CLI',
+      }),
+    );
+    writeFileSync(join(repoDir, '.plandesk', 'token'), `${token.token}\n`, 'utf8');
+
+    const { code, stdout, stderr } = await captureIo(() =>
+      main([
+        'node',
+        'plandesk',
+        'push',
+        '--project',
+        projectId,
+        '--to',
+        org.id,
+        '--repo',
+        repoDir,
+        '--data-dir',
+        dataDir,
+      ]),
+    );
+
+    expect(stderr).toBe('');
+    expect(code).toBe(0);
+    expect(stdout).toContain('Promoted to org');
+    expect(stdout).toContain(org.id);
+
+    const config = parseConfigJson(readFileSync(join(repoDir, '.plandesk', 'config.json'), 'utf8'));
+    expect(config.serverUrl).toBe(serverUrl);
+    expect(config.orgId).toBe(org.id);
+    expect(config.projectId).not.toBe(projectId);
+
+    const hostedExport = await exportProject(hostedDb, config.projectId);
+    expect(hostedExport?.project.name).toBe('Sync CLI');
+
+    const { db: localDb } = await openWorkspace(dataDir);
+    const remote = await getSyncRemote(localDb, projectId);
+    expect(remote?.globalProjectId).toBe(config.projectId);
+    expect(remote?.serverUrl).toBe(serverUrl);
+
+    const columns = await localDb.$client.execute('PRAGMA table_info(projects)');
+    const names = columns.rows.map((row) => String(row['name'] ?? row[1])).sort();
+    expect(names).toEqual([
+      'canvas_layout',
+      'created_at',
+      'description',
+      'id',
+      'name',
+      'org_id',
+      'updated_at',
+    ]);
+  });
+
+  it('push --to with wrong-org token is rejected', async () => {
+    const hostedDb = await createDb(':memory:');
+    await migrate(hostedDb);
+    const orgA = await ensureDefaultOrg(hostedDb);
+    const orgB = await createOrg(hostedDb, { name: 'Other' });
+    const tokenA = await createToken(hostedDb, { name: 'A', orgId: orgA.id, scope: 'full' });
+    const hostedApp = createApp({ db: hostedDb, bindHost: '127.0.0.1' });
+    const server = createServer(getRequestListener(hostedApp.fetch));
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => resolve());
+    });
+    servers.push(server);
+    const addr = server.address();
+    if (addr === null || typeof addr === 'string') {
+      throw new Error('expected TCP address');
+    }
+    const serverUrl = `http://127.0.0.1:${String(addr.port)}`;
+
+    const { dataDir, repoDir, projectId } = await makeWorkspace();
+    writeFileSync(
+      join(repoDir, '.plandesk', 'config.json'),
+      buildConfigJson({
+        serverUrl,
+        projectId,
+        projectName: 'Sync CLI',
+      }),
+    );
+    writeFileSync(join(repoDir, '.plandesk', 'token'), `${tokenA.token}\n`, 'utf8');
+
+    const { code, stderr } = await captureIo(() =>
+      main([
+        'node',
+        'plandesk',
+        'push',
+        '--project',
+        projectId,
+        '--to',
+        orgB.id,
+        '--repo',
+        repoDir,
+        '--data-dir',
+        dataDir,
+      ]),
+    );
+    expect(code).toBe(1);
+    expect(stderr).toMatch(/promote failed|not_found/i);
   });
 });

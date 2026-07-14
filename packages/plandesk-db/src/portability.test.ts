@@ -18,7 +18,8 @@ import { createArtifact, getArtifact } from './repositories/artifacts.js';
 import { createFile, getFile } from './repositories/files.js';
 import { createFolder } from './repositories/folders.js';
 import { createNote } from './repositories/notes.js';
-import { updateProject } from './repositories/projects.js';
+import { createOrg } from './repositories/orgs.js';
+import { getProject, updateProject } from './repositories/projects.js';
 import { createProjectInDefaultOrg as createProject } from './testing.js';
 import { createTag, setTaskTags } from './repositories/tags.js';
 import { createTaskWithDefaultGoal as createTask } from './testing.js';
@@ -512,5 +513,66 @@ describe('export/import portability', () => {
     expect(imported?.kind).toBe('html');
     expect(imported?.content).toBe('<h1>Diagram</h1>');
     expect(imported?.projectId).toBe(importedProjectId);
+  });
+
+  it('importing the same file bytes into two different orgs does not collide', async () => {
+    const db = await createDb(':memory:');
+    await migrate(db);
+    const orgA = await createOrg(db, { name: 'Org A' });
+    const orgB = await createOrg(db, { name: 'Org B' });
+
+    const bytes = Buffer.from('shared-content-hash-payload', 'utf8');
+    const id = createHash('sha256').update(bytes).digest('hex');
+    const blob = {
+      version: PLANDESK_EXPORT_VERSION,
+      project: { name: 'With File', description: null, canvas_layout: null },
+      goals: [],
+      tasks: [],
+      tags: [],
+      edges: [],
+      folders: [],
+      documents: [],
+      notes: [],
+      comments: [],
+      agent_runs: [],
+      files: [
+        {
+          id,
+          filename: 'a.bin',
+          mime: 'application/octet-stream',
+          size: bytes.length,
+          bytes_base64: bytes.toString('base64'),
+          external_url: null,
+          created_at: new Date().toISOString(),
+        },
+      ],
+      artifacts: [],
+    };
+
+    const { projectId: projectA } = await importProject(db, blob, { orgId: orgA.id });
+    const { projectId: projectB } = await importProject(db, blob, { orgId: orgB.id });
+
+    expect(projectA).not.toBe(projectB);
+    expect((await getProject(db, projectA))?.orgId).toBe(orgA.id);
+    expect((await getProject(db, projectB))?.orgId).toBe(orgB.id);
+
+    const fileA = await getFile(db, projectA, id);
+    const fileB = await getFile(db, projectB, id);
+    expect(fileA?.bytes).toEqual(bytes);
+    expect(fileB?.bytes).toEqual(bytes);
+  });
+
+  it('projects table columns stay the base schema after import', async () => {
+    const columns = await db.$client.execute('PRAGMA table_info(projects)');
+    const names = columns.rows.map((row) => String(row['name'] ?? row[1])).sort();
+    expect(names).toEqual([
+      'canvas_layout',
+      'created_at',
+      'description',
+      'id',
+      'name',
+      'org_id',
+      'updated_at',
+    ]);
   });
 });

@@ -170,7 +170,14 @@ export type ParsedArgs =
       syncToken?: string;
       dataDir?: string;
     }
-  | { command: 'push'; repoDir?: string; projectId?: string; dataDir?: string }
+  | {
+      command: 'push';
+      repoDir?: string;
+      projectId?: string;
+      dataDir?: string;
+      toOrgId?: string;
+      remoteUrl?: string;
+    }
   | { command: 'pull'; repoDir?: string; projectId?: string; dataDir?: string }
   | { command: 'sync'; watch: boolean; repoDir?: string; projectId?: string; dataDir?: string }
   | {
@@ -393,6 +400,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       repoDir: flagString(flags, 'repo'),
       projectId: flagString(flags, 'project'),
       dataDir,
+      toOrgId: flagString(flags, 'to'),
+      remoteUrl: flagString(flags, 'remote') ?? flagString(flags, 'url'),
     };
   }
 
@@ -496,7 +505,7 @@ Usage:
   plandesk disconnect [--repo <dir>]
   plandesk doctor [--data-dir <dir>] [--repo <dir>]
   plandesk publish --remote <url> [--project <id>] [--sync-token <t>] [--repo <dir>] [--data-dir <dir>]
-  plandesk push [--project <id>] [--repo <dir>] [--data-dir <dir>]
+  plandesk push [--project <id>] [--to <orgId>] [--url <server>] [--repo <dir>] [--data-dir <dir>]
   plandesk pull [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk sync --watch [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>] [--repo <dir>] [--data-dir <dir>]
@@ -525,6 +534,7 @@ Options:
   --out       Output file for export
   --in        Input file for import
   --remote    Sync server URL for publish
+  --to        Hosted org id for push promote (one-way: export → import into org)
   --sync-token  Sync token for publish (default: PLANDESK_SYNC_TOKEN or .plandesk/sync-token)
   --message   (progress-checkpoint) checkpoint text (default: "checkpoint (hook)")
 `;
