@@ -29,7 +29,7 @@ import {
   type TaskStatus,
 } from '@plandesk/db';
 import { serializeTask, type PaginationParams } from '../serialize.js';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 import { normalizeTagName } from './tags.js';
 
@@ -169,6 +169,7 @@ export function createTaskService(deps: TaskServiceDeps) {
     },
 
     async create(projectId: string, input: CreateTaskInput) {
+      assertPermission(deps, 'editor');
       if (input.status !== undefined && !isTaskStatus(input.status)) {
         throw new InvalidTaskStatusError(input.status);
       }
@@ -212,6 +213,7 @@ export function createTaskService(deps: TaskServiceDeps) {
     },
 
     async update(id: string, input: UpdateTaskInput) {
+      assertPermission(deps, 'editor');
       if (input.status !== undefined && !isTaskStatus(input.status)) {
         throw new InvalidTaskStatusError(input.status);
       }
@@ -240,6 +242,7 @@ export function createTaskService(deps: TaskServiceDeps) {
     },
 
     async delete(id: string) {
+      assertPermission(deps, 'editor');
       const task = await getTask(db, id);
       if (!task) {
         return false;
@@ -259,6 +262,7 @@ export function createTaskService(deps: TaskServiceDeps) {
     },
 
     async claim(taskId: string, agentRef: string): Promise<ClaimTaskResult> {
+      assertPermission(deps, 'editor');
       const row = await claimTask(db, taskId, resolveOrgId(deps), agentRef);
       if (!row) {
         return { claimed: false, reason: 'taken_or_not_actionable' };

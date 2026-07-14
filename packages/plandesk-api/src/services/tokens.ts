@@ -5,7 +5,7 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeToken } from '../serialize.js';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 
 export type TokenServiceDeps = OrgScopedDeps & {
   db: Db;
@@ -16,6 +16,7 @@ export function createTokenService(deps: TokenServiceDeps) {
 
   return {
     async create(name: string) {
+      assertPermission(deps, 'owner');
       const orgId = resolveOrgId(deps);
       const result = await dbCreateToken(db, { name, orgId });
       return {
@@ -26,11 +27,13 @@ export function createTokenService(deps: TokenServiceDeps) {
     },
 
     async list() {
+      assertPermission(deps, 'owner');
       const orgId = resolveOrgId(deps);
       return (await dbListTokens(db, orgId)).map(serializeToken);
     },
 
     async revoke(id: string) {
+      assertPermission(deps, 'owner');
       const orgId = resolveOrgId(deps);
       const revoked = await dbRevokeToken(db, id, orgId);
       if (!revoked) {

@@ -16,7 +16,7 @@ import {
   type Project,
 } from '@plandesk/db';
 import { serializeEdge, serializeTask } from '../serialize.js';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 export type CanvasServiceDeps = OrgScopedDeps & {
@@ -95,6 +95,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
       projectId: string,
       input: { fromTaskId: string; toTaskId: string; label?: string | null; style?: string | null },
     ) {
+      assertPermission(deps, 'editor');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -124,6 +125,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
     },
 
     async putLayout(projectId: string, payload: PutCanvasLayoutInput) {
+      assertPermission(deps, 'editor');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -240,6 +242,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
     },
 
     async deleteEdge(projectId: string, edgeId: string) {
+      assertPermission(deps, 'editor');
       const edge = await getEdgeByProjectAndId(db, projectId, edgeId);
       if (!edge) {
         return false;

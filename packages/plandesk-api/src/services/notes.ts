@@ -9,7 +9,7 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeNote, type PaginationParams, type SerializedNote } from '../serialize.js';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 export type NoteServiceDeps = OrgScopedDeps & {
@@ -59,6 +59,7 @@ export function createNoteService(deps: NoteServiceDeps) {
     },
 
     async create(projectId: string, input: CreateNoteInput): Promise<SerializedNote | undefined> {
+      assertPermission(deps, 'editor');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -88,6 +89,7 @@ export function createNoteService(deps: NoteServiceDeps) {
     },
 
     async update(id: string, input: UpdateNoteInput): Promise<SerializedNote | undefined> {
+      assertPermission(deps, 'editor');
       const existing = await dbGetNote(db, id);
       if (!existing) {
         return undefined;
@@ -106,6 +108,7 @@ export function createNoteService(deps: NoteServiceDeps) {
     },
 
     async delete(id: string): Promise<boolean> {
+      assertPermission(deps, 'editor');
       const existing = await dbGetNote(db, id);
       if (!existing) {
         return false;

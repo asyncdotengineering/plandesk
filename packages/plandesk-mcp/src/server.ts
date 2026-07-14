@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import {
+  effectivePermission,
   runWithAuthContext,
   tryGetAuthContext,
   type Services,
@@ -654,9 +655,18 @@ export function createMcpApp(deps: McpAppDeps): Hono {
         return c.json({ error: 'unauthorized' }, 401);
       }
       // Re-enter with token org so MCP tool handlers see the correct tenant.
-      await runWithAuthContext({ orgId: verified.orgId, tokenScope: verified.scope }, async () => {
-        await next();
-      });
+      // Tokens without an explicit member actor act as owner; scope still caps
+      // (read-only → viewer). Matches REST org auth middleware default.
+      await runWithAuthContext(
+        {
+          orgId: verified.orgId,
+          tokenScope: verified.scope,
+          permission: effectivePermission('owner', verified.scope),
+        },
+        async () => {
+          await next();
+        },
+      );
       return;
     }
 

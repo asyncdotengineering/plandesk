@@ -13,6 +13,14 @@ export {
   ReadOnlyTokenError,
   type AuthContext,
 } from './auth-context.js';
+export {
+  effectivePermission,
+  requireRole,
+  hasAtLeast,
+  InsufficientPermissionError,
+  ROLE_RANK,
+} from './permissions.js';
+export { USER_REF_HEADER } from './auth.js';
 export { healthRouter } from './routes/health.js';
 export { mountStatic } from './static.js';
 export { createServices, type Services, type ServicesDeps } from './services/index.js';

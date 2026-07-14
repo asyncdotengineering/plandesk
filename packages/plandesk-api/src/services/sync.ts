@@ -15,7 +15,7 @@ import {
   type ShareSubmission,
   type ShareSubmissionStatus,
 } from '@plandesk/db';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 import type { ShareService } from './share.js';
 import type { TaskService } from './tasks.js';
@@ -243,6 +243,7 @@ export function createSyncService(deps: SyncServiceDeps) {
 
   return {
     async push(projectId: string, remote: SyncRemote): Promise<{ pushed: number }> {
+      assertPermission(deps, 'editor');
       const shares = await shareService.listShares(projectId);
       if (shares === undefined) {
         throw new SyncUnavailableError('project not found');
@@ -273,6 +274,7 @@ export function createSyncService(deps: SyncServiceDeps) {
       projectId: string,
       input: { serverUrl: string; syncToken: string },
     ): Promise<{ globalProjectId: string; pushed: number }> {
+      assertPermission(deps, 'editor');
       const globalProjectId = randomUUID();
       const { pushed } = await this.push(projectId, {
         serverUrl: input.serverUrl,
@@ -283,6 +285,7 @@ export function createSyncService(deps: SyncServiceDeps) {
     },
 
     async pull(projectId: string, remote: SyncRemote): Promise<{ pulled: number }> {
+      assertPermission(deps, 'editor');
       const cursor = await getPullCursor(db, projectId);
       const base = remote.serverUrl.replace(/\/$/, '');
       const url = new URL(
@@ -358,6 +361,7 @@ export function createSyncService(deps: SyncServiceDeps) {
     },
 
     async setRemote(projectId: string, remote: SyncRemote): Promise<void> {
+      assertPermission(deps, 'editor');
       await setSyncRemote(db, projectId, {
         serverUrl: remote.serverUrl,
         globalProjectId: remote.globalProjectId,
@@ -384,6 +388,7 @@ export function createSyncService(deps: SyncServiceDeps) {
       asTask?: { label?: string; description?: string },
       linkTaskId?: string,
     ): Promise<SerializedSubmission> {
+      assertPermission(deps, 'editor');
       if (asTask !== undefined && linkTaskId !== undefined) {
         throw new InvalidTriageInputError('as_task and link_task_id are mutually exclusive');
       }

@@ -2,20 +2,27 @@ import { timingSafeEqual } from 'node:crypto';
 import type { MiddlewareHandler } from 'hono';
 import {
   getDefaultOrg,
+  getOrgMember,
   isSingleOrg,
   verifyToken,
   type Db,
+  type OrgRole,
   type TokenScope,
 } from '@plandesk/db';
 import { runWithAuthContext, tryGetAuthContext, type AuthContext } from './auth-context.js';
+import { effectivePermission, hasAtLeast } from './permissions.js';
 
 const BASIC_PREFIX = 'Basic ';
 const BASIC_USER = 'plandesk';
 const BEARER_PREFIX = 'Bearer ';
 
+/** Optional actor for member-role resolution (does not elevate; only restricts). */
+export const USER_REF_HEADER = 'X-Plandesk-User-Ref';
+
 export type AppVariables = {
   orgId: string;
   tokenScope: TokenScope;
+  permission: OrgRole;
 };
 
 function decodeBasicAuth(header: string): Buffer | undefined {
@@ -57,9 +64,33 @@ export type OrgAuthOptions = {
 };
 
 /**
+ * Resolve member role for this request.
+ * - No X-Plandesk-User-Ref: treat as owner (org-level token / local user).
+ * - Header present: look up org_members; unknown user_ref → 403.
+ */
+async function resolveMemberRole(
+  db: Db,
+  orgId: string,
+  userRefHeader: string | undefined,
+): Promise<OrgRole | 'forbidden'> {
+  if (userRefHeader === undefined) {
+    return 'owner';
+  }
+  const userRef = userRefHeader.trim();
+  if (userRef === '') {
+    return 'forbidden';
+  }
+  const member = await getOrgMember(db, orgId, userRef);
+  if (member === undefined) {
+    return 'forbidden';
+  }
+  return member.role;
+}
+
+/**
  * Always-on org resolver for every request:
- * 1. Bearer token → token.orgId
- * 2. else loopback bind + single-org → default org (local, zero friction)
+ * 1. Bearer token → token.orgId + effective permission
+ * 2. else loopback bind + single-org → default org as owner (local, zero friction)
  * 3. else 401
  */
 export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHandler {
@@ -72,7 +103,16 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
       if (verified === undefined) {
         return c.json({ error: 'unauthorized' }, 401);
       }
-      const ctx: AuthContext = { orgId: verified.orgId, tokenScope: verified.scope };
+      const memberRole = await resolveMemberRole(db, verified.orgId, c.req.header(USER_REF_HEADER));
+      if (memberRole === 'forbidden') {
+        return c.json({ error: 'forbidden' }, 403);
+      }
+      const permission = effectivePermission(memberRole, verified.scope);
+      const ctx: AuthContext = {
+        orgId: verified.orgId,
+        tokenScope: verified.scope,
+        permission,
+      };
       await runWithAuthContext(ctx, async () => {
         await next();
       });
@@ -82,7 +122,12 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
     if (isLoopbackBind(bindHost) && (await isSingleOrg(db))) {
       const org = await getDefaultOrg(db);
       if (org !== undefined) {
-        const ctx: AuthContext = { orgId: org.id, tokenScope: 'full' };
+        // REQ-21: local loopback single-org is always owner — no login, no role prompt.
+        const ctx: AuthContext = {
+          orgId: org.id,
+          tokenScope: 'full',
+          permission: 'owner',
+        };
         await runWithAuthContext(ctx, async () => {
           await next();
         });
@@ -121,13 +166,16 @@ export function createAuthMiddleware(password: string): MiddlewareHandler {
   };
 }
 
-/** Reject write methods for read-only tokens with 403. */
+/**
+ * Reject pure read-only callers (viewer / read-only token) on write HTTP methods.
+ * Finer roles (commenter vs editor) are enforced in services via requireRole.
+ */
 export function createWriteGuardMiddleware(): MiddlewareHandler {
   return async (c, next) => {
     const method = c.req.method.toUpperCase();
     if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
       const ctx = tryGetAuthContext();
-      if (ctx?.tokenScope === 'read-only') {
+      if (ctx !== undefined && !hasAtLeast(ctx.permission, 'commenter')) {
         return c.json({ error: 'forbidden' }, 403);
       }
     }

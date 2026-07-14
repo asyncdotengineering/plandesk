@@ -17,7 +17,7 @@ import {
   type GoalStatus,
 } from '@plandesk/db';
 import { serializeGoal, serializeTask } from '../serialize.js';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 export type GoalServiceDeps = OrgScopedDeps & {
@@ -291,6 +291,7 @@ export function createGoalService(deps: GoalServiceDeps) {
 
   return {
     async create(projectId: string, input: CreateGoalInput) {
+      assertPermission(deps, 'editor');
       if (input.status !== undefined && !isGoalStatus(input.status)) {
         throw new InvalidGoalStatusError(input.status);
       }
@@ -347,6 +348,7 @@ export function createGoalService(deps: GoalServiceDeps) {
     },
 
     async update(goalId: string, input: UpdateGoalInput) {
+      assertPermission(deps, 'editor');
       const existing = await getGoal(db, goalId);
       if (!existing) {
         return undefined;
@@ -363,6 +365,7 @@ export function createGoalService(deps: GoalServiceDeps) {
     },
 
     async pause(goalId: string) {
+      assertPermission(deps, 'editor');
       const existing = await getGoal(db, goalId);
       if (!existing) {
         return undefined;
@@ -381,6 +384,7 @@ export function createGoalService(deps: GoalServiceDeps) {
     },
 
     async resume(goalId: string) {
+      assertPermission(deps, 'editor');
       const existing = await getGoal(db, goalId);
       if (!existing) {
         return undefined;
@@ -399,6 +403,7 @@ export function createGoalService(deps: GoalServiceDeps) {
     },
 
     async complete(goalId: string, evidence?: VerificationEvidence) {
+      assertPermission(deps, 'editor');
       const existing = await getGoal(db, goalId);
       if (!existing) {
         return undefined;

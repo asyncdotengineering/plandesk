@@ -14,7 +14,7 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeComment, type SerializedComment } from '../serialize.js';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 export type CommentServiceDeps = OrgScopedDeps & {
@@ -79,6 +79,7 @@ export function createCommentService(deps: CommentServiceDeps) {
       target: CommentTarget,
       input: CreateCommentInput,
     ): Promise<SerializedComment | undefined> {
+      assertPermission(deps, 'commenter');
       const projectId = await targetProjectId(db, target);
       if (!projectId) {
         return undefined;
@@ -106,6 +107,7 @@ export function createCommentService(deps: CommentServiceDeps) {
       artifactId: string,
       input: CreateCommentInput,
     ): Promise<SerializedComment | undefined> {
+      assertPermission(deps, 'commenter');
       if (!(await getProject(db, projectId))) {
         return undefined;
       }
@@ -179,6 +181,7 @@ export function createCommentService(deps: CommentServiceDeps) {
     },
 
     async update(id: string, input: UpdateCommentInput): Promise<SerializedComment | undefined> {
+      assertPermission(deps, 'commenter');
       const existing = await dbGetComment(db, id);
       if (!existing) {
         return undefined;
@@ -205,6 +208,7 @@ export function createCommentService(deps: CommentServiceDeps) {
     },
 
     async delete(id: string): Promise<boolean> {
+      assertPermission(deps, 'commenter');
       const existing = await dbGetComment(db, id);
       if (!existing) {
         return false;

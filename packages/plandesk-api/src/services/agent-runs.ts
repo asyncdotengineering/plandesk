@@ -10,7 +10,7 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeAgentRun, serializeAgentRunEvent, type PaginationParams } from '../serialize.js';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 export type AgentRunServiceDeps = OrgScopedDeps & {
@@ -65,6 +65,7 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
     },
 
     async start(projectId: string, label?: string | null) {
+      assertPermission(deps, 'editor');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -80,6 +81,7 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
     },
 
     async recordProgress(runId: string, message: string) {
+      assertPermission(deps, 'editor');
       const run = await getAgentRun(db, runId);
       if (!run) {
         return undefined;
@@ -95,6 +97,7 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
     },
 
     async complete(runId: string, status: 'completed' | 'failed') {
+      assertPermission(deps, 'editor');
       const run = await getAgentRun(db, runId);
       if (!run) {
         return undefined;

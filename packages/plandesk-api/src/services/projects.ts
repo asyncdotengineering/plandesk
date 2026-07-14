@@ -46,7 +46,7 @@ import {
   type SerializedDocument,
   type TaskStatusSummary,
 } from '../serialize.js';
-import { getAuthContext } from '../auth-context.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 type SerializedProject = ReturnType<typeof serializeProject>;
@@ -141,10 +141,8 @@ function validateScaffoldInput(input: ScaffoldPlanInput): void {
   }
 }
 
-export type ProjectServiceDeps = {
+export type ProjectServiceDeps = OrgScopedDeps & {
   db: Db;
-  /** Fixed org scope for unit tests; production uses request auth context. */
-  orgId?: string;
 };
 
 export type CreateProjectInput = {
@@ -165,15 +163,12 @@ function summarizeTasks(tasks: Task[]): TaskStatusSummary {
   return summary;
 }
 
-function resolveOrgId(deps: ProjectServiceDeps): string {
-  return deps.orgId ?? getAuthContext().orgId;
-}
-
 export function createProjectService(deps: ProjectServiceDeps) {
   const { db } = deps;
 
   return {
     async create(input: CreateProjectInput) {
+      assertPermission(deps, 'manager');
       const orgId = resolveOrgId(deps);
       const project = await dbCreateProject(db, { ...input, orgId });
       return serializeProject(project);
@@ -199,6 +194,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     },
 
     async update(id: string, input: UpdateProjectInput) {
+      assertPermission(deps, 'editor');
       const orgId = resolveOrgId(deps);
       try {
         await assertProjectInOrg(db, id, orgId);
@@ -216,6 +212,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     },
 
     async delete(id: string) {
+      assertPermission(deps, 'manager');
       const orgId = resolveOrgId(deps);
       try {
         await assertProjectInOrg(db, id, orgId);
@@ -255,6 +252,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
     },
 
     async scaffoldFromPlan(input: ScaffoldPlanInput): Promise<ScaffoldPlanResult> {
+      // New project needs manager; adding plan content to an existing project needs editor.
+      assertPermission(deps, input.projectId === undefined ? 'manager' : 'editor');
       validateScaffoldInput(input);
       const orgId = resolveOrgId(deps);
 

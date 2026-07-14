@@ -23,7 +23,7 @@ import {
   type SerializedDocumentFolderTree,
   type SerializedDocumentTree,
 } from '../serialize.js';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 export type DocumentServiceDeps = OrgScopedDeps & {
   db: Db;
@@ -130,6 +130,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       projectId: string,
       input: CreateDocumentInput,
     ): Promise<SerializedDocument | undefined> {
+      assertPermission(deps, 'editor');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -173,6 +174,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
     },
 
     async update(id: string, input: UpdateDocumentInput): Promise<SerializedDocument | undefined> {
+      assertPermission(deps, 'editor');
       const existing = await dbGetDocument(db, id);
       if (!existing) {
         return undefined;
@@ -216,6 +218,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
     },
 
     async delete(id: string) {
+      assertPermission(deps, 'editor');
       const existing = await dbGetDocument(db, id);
       if (!existing) {
         return false;

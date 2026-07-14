@@ -17,7 +17,7 @@ import {
   type SharePermissions,
 } from '@plandesk/db';
 import { buildClientView, type ClientView, type SharePolicy } from '../projection.js';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 export class InvalidShareError extends Error {
@@ -249,6 +249,7 @@ export function createShareService(deps: ShareServiceDeps) {
       projectId: string,
       input: CreateShareInput,
     ): Promise<{ share: SerializedShare; token: string } | undefined> {
+      assertPermission(deps, 'editor');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -288,6 +289,7 @@ export function createShareService(deps: ShareServiceDeps) {
     },
 
     async revokeShare(id: string): Promise<boolean> {
+      assertPermission(deps, 'editor');
       return (await dbRevokeShare(db, id)) !== undefined;
     },
 
@@ -303,6 +305,7 @@ export function createShareService(deps: ShareServiceDeps) {
       input: CreateResourceShareInput,
       origin: string,
     ): Promise<ResourceShareResult | undefined> {
+      assertPermission(deps, 'editor');
       let projectId: string;
       let policy: SharePolicy;
       let audienceName: string;

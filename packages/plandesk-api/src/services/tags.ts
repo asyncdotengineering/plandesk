@@ -9,7 +9,7 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeTag, type SerializedTag } from '../serialize.js';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 export type TagServiceDeps = OrgScopedDeps & {
@@ -58,6 +58,7 @@ export function createTagService(deps: TagServiceDeps) {
     },
 
     async create(projectId: string, input: CreateTagInput): Promise<SerializedTag | undefined> {
+      assertPermission(deps, 'editor');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -79,6 +80,7 @@ export function createTagService(deps: TagServiceDeps) {
     // Renaming propagates everywhere automatically: tasks reference the single
     // tag row through the join table.
     async update(id: string, input: UpdateTagInput): Promise<SerializedTag | undefined> {
+      assertPermission(deps, 'editor');
       const existing = await dbGetTag(db, id);
       if (!existing) {
         return undefined;
@@ -106,6 +108,7 @@ export function createTagService(deps: TagServiceDeps) {
 
     // Deleting a tag removes it from all its tasks (cascade on the join table).
     async delete(id: string): Promise<boolean> {
+      assertPermission(deps, 'editor');
       const existing = await dbGetTag(db, id);
       if (!existing) {
         return false;

@@ -17,6 +17,7 @@ import {
   type TokenScope,
 } from '@plandesk/db';
 import { getAuthContext } from '../auth-context.js';
+import { requireRole } from '../permissions.js';
 
 function isOrgRole(value: string): value is OrgRole {
   return (orgRoles as readonly string[]).includes(value);
@@ -75,6 +76,7 @@ export function createOrgsRouter(db: Db): Hono {
     if (getAuthContext().orgId !== orgId) {
       return c.json({ error: 'not_found' }, 404);
     }
+    requireRole(getAuthContext(), 'owner');
 
     const body = await c.req.json<{ name?: string; scope?: string }>();
     if (typeof body.name !== 'string' || body.name.trim() === '') {
@@ -114,6 +116,7 @@ export function createOrgsRouter(db: Db): Hono {
     if (getAuthContext().orgId !== orgId) {
       return c.json({ error: 'not_found' }, 404);
     }
+    requireRole(getAuthContext(), 'owner');
 
     const body = await c.req.json<{ user_ref?: string; role?: string }>();
     if (typeof body.user_ref !== 'string' || body.user_ref.trim() === '') {
@@ -154,6 +157,7 @@ export function createOrgsRouter(db: Db): Hono {
     if (getAuthContext().orgId !== orgId) {
       return c.json({ error: 'not_found' }, 404);
     }
+    requireRole(getAuthContext(), 'owner');
 
     const members = await listOrgMembers(db, orgId);
     return c.json(
@@ -177,6 +181,7 @@ export function createOrgsRouter(db: Db): Hono {
     if (getAuthContext().orgId !== orgId) {
       return c.json({ error: 'not_found' }, 404);
     }
+    requireRole(getAuthContext(), 'owner');
 
     let body: unknown;
     try {

@@ -11,7 +11,7 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeFolder, type SerializedFolder } from '../serialize.js';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 export type FolderServiceDeps = OrgScopedDeps & {
@@ -87,6 +87,7 @@ export function createFolderService(deps: FolderServiceDeps) {
       projectId: string,
       input: CreateFolderInput,
     ): Promise<SerializedFolder | undefined> {
+      assertPermission(deps, 'editor');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -119,6 +120,7 @@ export function createFolderService(deps: FolderServiceDeps) {
     },
 
     async update(id: string, input: UpdateFolderInput): Promise<SerializedFolder | undefined> {
+      assertPermission(deps, 'editor');
       const existing = await dbGetFolder(db, id);
       if (!existing) {
         return undefined;
@@ -145,6 +147,7 @@ export function createFolderService(deps: FolderServiceDeps) {
     },
 
     async delete(id: string): Promise<boolean> {
+      assertPermission(deps, 'editor');
       const existing = await dbGetFolder(db, id);
       if (!existing) {
         return false;

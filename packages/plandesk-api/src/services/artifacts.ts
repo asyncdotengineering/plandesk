@@ -13,7 +13,7 @@ import {
   type SerializedArtifact,
   type SerializedArtifactSummary,
 } from '../serialize.js';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 export type ArtifactServiceDeps = OrgScopedDeps & {
@@ -65,6 +65,7 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
       projectId: string,
       input: CreateArtifactInput,
     ): Promise<SerializedArtifact | undefined> {
+      assertPermission(deps, 'editor');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -95,6 +96,7 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
     },
 
     async update(id: string, input: UpdateArtifactInput): Promise<SerializedArtifact | undefined> {
+      assertPermission(deps, 'editor');
       const existing = await dbGetArtifact(db, id);
       if (!existing) {
         return undefined;

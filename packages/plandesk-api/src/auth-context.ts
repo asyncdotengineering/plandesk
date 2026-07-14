@@ -1,8 +1,15 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { TokenScope } from '@plandesk/db';
+import type { OrgRole, TokenScope } from '@plandesk/db';
+import { hasAtLeast } from './permissions.js';
 
+/**
+ * Request-scoped auth. Middleware resolves org + effective permission once;
+ * services read this and call requireRole — they never branch on auth kind.
+ */
 export type AuthContext = {
   orgId: string;
+  /** Effective permission: lesser of member role and token scope ceiling. */
+  permission: OrgRole;
   tokenScope: TokenScope;
 };
 
@@ -31,8 +38,9 @@ export class ReadOnlyTokenError extends Error {
   }
 }
 
+/** Reject pure read-only callers (viewer / read-only token). */
 export function assertWriteAccess(): void {
-  if (getAuthContext().tokenScope === 'read-only') {
+  if (!hasAtLeast(getAuthContext().permission, 'commenter')) {
     throw new ReadOnlyTokenError();
   }
 }

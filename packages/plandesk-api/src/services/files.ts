@@ -1,6 +1,6 @@
 import { getFile, type Db } from '@plandesk/db';
 import type { StorageAdapter, StorageResolveResult } from '../storage/adapter.js';
-import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 export type FileServiceDeps = OrgScopedDeps & {
@@ -28,6 +28,7 @@ export function createFileService(deps: FileServiceDeps) {
 
   return {
     async create(input: CreateFileInput): Promise<CreatedFile | undefined> {
+      assertPermission(deps, 'editor');
       try {
         await assertProjectInOrg(db, input.projectId, resolveOrgId(deps));
       } catch (error) {
