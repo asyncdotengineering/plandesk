@@ -16,7 +16,6 @@ import {
   type ShareMode,
   type SharePermissions,
 } from '@plandesk/db';
-import type { EventBus } from '../events.js';
 import { buildClientView, type ClientView, type SharePolicy } from '../projection.js';
 
 export class InvalidShareError extends Error {
@@ -28,7 +27,6 @@ export class InvalidShareError extends Error {
 
 export type ShareServiceDeps = {
   db: Db;
-  eventBus: EventBus;
 };
 
 export type SerializedShare = {

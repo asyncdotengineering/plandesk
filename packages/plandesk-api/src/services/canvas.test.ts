@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, createEdge, createProject, getTask, listEdges, migrate , type Db} from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
-import { createEventBus } from '../events.js';
 import { createCanvasService, InvalidCanvasError } from './canvas.js';
 
 describe('canvasService', () => {
@@ -11,11 +10,10 @@ describe('canvasService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-  const eventBus = createEventBus();
-  let projectId = '';
+    let projectId = '';
 
   function createService() {
-    return createCanvasService({ db, eventBus });
+    return createCanvasService({ db });
   }
 
   beforeEach(async () => {
@@ -143,17 +141,10 @@ describe('canvasService', () => {
       }),).rejects.toThrow(InvalidCanvasError);
   });
 
-  it('createEdge adds an edge and emits canvas_updated', async () => {
-    const bus = createEventBus();
-    const service = createCanvasService({ db, eventBus: bus });
+  it('createEdge adds an edge', async () => {
+    const service = createCanvasService({ db });
     const a = await createTask(db, { projectId, label: 'A' });
     const b = await createTask(db, { projectId, label: 'B' });
-    const received: Array<{ type: string; projectId: string }> = [];
-    bus.subscribe((event) => {
-      if (event.type === 'canvas_updated') {
-        received.push(event);
-      }
-    });
 
     const edge = await service.createEdge(projectId, {
       fromTaskId: a.id,
@@ -165,7 +156,6 @@ describe('canvasService', () => {
       to_task_id: b.id,
       label: 'blocks',
     });
-    expect(received).toEqual([{ type: 'canvas_updated', projectId }]);
   });
 
   it('createEdge rejects tasks outside the project', async () => {

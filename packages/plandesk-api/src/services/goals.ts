@@ -16,12 +16,10 @@ import {
   type DbClient,
   type GoalStatus,
 } from '@plandesk/db';
-import type { EventBus } from '../events.js';
 import { serializeGoal, serializeTask } from '../serialize.js';
 
 export type GoalServiceDeps = {
   db: Db;
-  eventBus: EventBus;
 };
 
 export class InvalidGoalTransitionError extends Error {
@@ -273,10 +271,6 @@ async function cycleTasksForGoal(db: Db, projectId: string, goalId: string) {
     .map((task) => serializeTask(task, tagsByTask.get(task.id) ?? []));
 }
 
-function emitGoalUpdated(eventBus: EventBus, goalId: string, projectId: string) {
-  eventBus.emit({ type: 'goal_updated', goalId, projectId });
-}
-
 function recordLastVerification(
   at: string,
   green: boolean,
@@ -291,7 +285,7 @@ function recordLastVerification(
 }
 
 export function createGoalService(deps: GoalServiceDeps) {
-  const { db, eventBus } = deps;
+  const { db } = deps;
 
   return {
     async create(projectId: string, input: CreateGoalInput) {
@@ -319,7 +313,7 @@ export function createGoalService(deps: GoalServiceDeps) {
         }),
       );
 
-      emitGoalUpdated(eventBus, goal.id, projectId);
+
       return serializeGoal(goal);
     },
 
@@ -354,7 +348,7 @@ export function createGoalService(deps: GoalServiceDeps) {
         return undefined;
       }
 
-      emitGoalUpdated(eventBus, goalId, existing.projectId);
+
       return serializeGoal(goal);
     },
 
@@ -372,7 +366,7 @@ export function createGoalService(deps: GoalServiceDeps) {
         return undefined;
       }
 
-      emitGoalUpdated(eventBus, goalId, existing.projectId);
+
       return serializeGoal(goal);
     },
 
@@ -390,7 +384,7 @@ export function createGoalService(deps: GoalServiceDeps) {
         return undefined;
       }
 
-      emitGoalUpdated(eventBus, goalId, existing.projectId);
+
       return serializeGoal(goal);
     },
 
@@ -425,7 +419,7 @@ export function createGoalService(deps: GoalServiceDeps) {
         if (!goal) {
           return undefined;
         }
-        emitGoalUpdated(eventBus, goalId, existing.projectId);
+  
         return serializeGoal(goal);
       }
 
@@ -456,7 +450,7 @@ export function createGoalService(deps: GoalServiceDeps) {
         if (!goal) {
           return undefined;
         }
-        emitGoalUpdated(eventBus, goalId, existing.projectId);
+  
         return serializeGoal(goal);
       }
 
@@ -483,7 +477,7 @@ export function createGoalService(deps: GoalServiceDeps) {
         return undefined;
       }
 
-      emitGoalUpdated(eventBus, goalId, existing.projectId);
+
       return serializeGoal(goal);
     },
   };

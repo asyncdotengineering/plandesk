@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
 import { getRequestListener } from '@hono/node-server';
-import { createApp, createEventBus, createServices } from '@plandesk/api';
+import { createApp, createServices } from '@plandesk/api';
 import {
   createDb,
   createProject,
@@ -39,10 +39,9 @@ async function withMcpServer(
   });
   const { token } = await createToken(db, { name: 'factory-adapter' });
 
-  const eventBus = createEventBus();
-  const services = createServices({ db, eventBus });
+    const services = createServices({ db });
   const mcpApp = createMcpApp({ services, tokenStore: createTestTokenStore(db) });
-  const app = createApp({ db, eventBus, services, mcp: mcpApp });
+  const app = createApp({ db, services, mcp: mcpApp });
 
   const server = createServer((req, res) => {
     void getRequestListener(app.fetch)(req, res);

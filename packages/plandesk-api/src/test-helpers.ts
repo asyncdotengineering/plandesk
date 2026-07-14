@@ -1,23 +1,18 @@
 import { createDb, migrate, type Db } from '@plandesk/db';
 import type { Hono } from 'hono';
-import { createEventBus, type EventBus } from './events.js';
 import { createApp } from './server.js';
 
 export async function createTestApp(opts?: {
-  eventBus?: EventBus;
   authPassword?: string;
 }): Promise<{
   app: Hono;
   db: Db;
-  eventBus: EventBus;
 }> {
   const db = await createDb(':memory:');
   await migrate(db);
-  const eventBus = opts?.eventBus ?? createEventBus();
   return {
-    app: createApp({ db, eventBus, authPassword: opts?.authPassword }),
+    app: createApp({ db, authPassword: opts?.authPassword }),
     db,
-    eventBus,
   };
 }
 

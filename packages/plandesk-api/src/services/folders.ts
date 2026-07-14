@@ -11,11 +11,9 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeFolder, type SerializedFolder } from '../serialize.js';
-import type { EventBus } from '../events.js';
 
 export type FolderServiceDeps = {
   db: Db;
-  eventBus: EventBus;
 };
 
 export type CreateFolderInput = {
@@ -68,7 +66,7 @@ async function assertNoCycle(db: Db, folderId: string, newParentFolderId: string
 }
 
 export function createFolderService(deps: FolderServiceDeps) {
-  const { db, eventBus } = deps;
+  const { db } = deps;
 
   return {
     async list(projectId: string): Promise<SerializedFolder[] | undefined> {
@@ -98,8 +96,6 @@ export function createFolderService(deps: FolderServiceDeps) {
         name: input.name,
         parentFolderId: input.parentFolderId,
       });
-
-      eventBus.emit({ type: 'folder_created', folderId: folder.id, projectId });
 
       return serializeFolder(folder);
     },
@@ -135,8 +131,6 @@ export function createFolderService(deps: FolderServiceDeps) {
         return undefined;
       }
 
-      eventBus.emit({ type: 'folder_updated', folderId: folder.id, projectId: folder.projectId });
-
       return serializeFolder(folder);
     },
 
@@ -154,7 +148,6 @@ export function createFolderService(deps: FolderServiceDeps) {
         await dbDeleteFolder(tx, id);
       });
 
-      eventBus.emit({ type: 'folder_updated', folderId: id, projectId: existing.projectId });
       return true;
     },
   };

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { liveQueryOptions } from './events.js';
 import {
   completeGoal,
   createComment,
@@ -118,6 +119,7 @@ export function useProject(id: string) {
   return useQuery({
     queryKey: queryKeys.project(id),
     queryFn: () => getProject(id),
+    ...liveQueryOptions,
   });
 }
 
@@ -125,6 +127,7 @@ export function useTasks(projectId: string, filter: { status?: TaskStatus } = {}
   return useQuery({
     queryKey: queryKeys.tasks(projectId, filter.status),
     queryFn: () => listTasks(projectId, filter),
+    ...liveQueryOptions,
   });
 }
 
@@ -172,6 +175,7 @@ export function useTags(projectId: string) {
   return useQuery({
     queryKey: queryKeys.tags(projectId),
     queryFn: () => listTags(projectId),
+    ...liveQueryOptions,
   });
 }
 
@@ -239,6 +243,7 @@ export function useCanvas(projectId: string) {
   return useQuery({
     queryKey: queryKeys.canvas(projectId),
     queryFn: () => getCanvas(projectId),
+    ...liveQueryOptions,
   });
 }
 
@@ -256,6 +261,7 @@ export function useDocuments(projectId: string) {
   return useQuery({
     queryKey: queryKeys.documents(projectId),
     queryFn: () => listDocuments(projectId),
+    ...liveQueryOptions,
   });
 }
 
@@ -273,6 +279,7 @@ export function useDocument(id: string) {
   return useQuery({
     queryKey: queryKeys.document(id),
     queryFn: () => getDocument(id),
+    ...liveQueryOptions,
   });
 }
 
@@ -302,6 +309,7 @@ export function useFolders(projectId: string) {
   return useQuery({
     queryKey: queryKeys.folders(projectId),
     queryFn: () => listFolders(projectId),
+    ...liveQueryOptions,
   });
 }
 
@@ -347,6 +355,7 @@ export function useNotes(projectId: string) {
   return useQuery({
     queryKey: queryKeys.notes(projectId),
     queryFn: () => listNotes(projectId),
+    ...liveQueryOptions,
   });
 }
 
@@ -364,6 +373,7 @@ export function useNote(id: string) {
   return useQuery({
     queryKey: queryKeys.note(id),
     queryFn: () => getNote(id),
+    ...liveQueryOptions,
   });
 }
 
@@ -392,6 +402,7 @@ export function useComments(target: CommentTarget) {
   return useQuery({
     queryKey: queryKeys.comments(target.type, target.id),
     queryFn: () => listComments(target, { includeResolved: true }),
+    ...liveQueryOptions,
   });
 }
 
@@ -440,6 +451,7 @@ export function useTaskDocument(taskId: string) {
   return useQuery({
     queryKey: queryKeys.taskDocument(taskId),
     queryFn: () => getTaskDocument(taskId),
+    ...liveQueryOptions,
   });
 }
 
@@ -474,6 +486,7 @@ export function useAgentRuns(projectId: string) {
   return useQuery({
     queryKey: queryKeys.agentRuns(projectId),
     queryFn: () => listAgentRuns(projectId),
+    ...liveQueryOptions,
   });
 }
 
@@ -514,6 +527,7 @@ export function useGoals(projectId: string) {
   return useQuery({
     queryKey: queryKeys.goals(projectId),
     queryFn: () => listGoals(projectId),
+    ...liveQueryOptions,
   });
 }
 
@@ -522,6 +536,7 @@ export function useGoal(goalId: string) {
     queryKey: queryKeys.goal(goalId),
     queryFn: () => getGoal(goalId),
     enabled: goalId !== '',
+    ...liveQueryOptions,
   });
 }
 

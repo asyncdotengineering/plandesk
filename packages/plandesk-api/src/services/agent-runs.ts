@@ -9,12 +9,10 @@ import {
   type AgentRunStatus,
   type Db,
 } from '@plandesk/db';
-import type { EventBus } from '../events.js';
 import { serializeAgentRun, serializeAgentRunEvent, type PaginationParams } from '../serialize.js';
 
 export type AgentRunServiceDeps = {
   db: Db;
-  eventBus: EventBus;
 };
 
 export class InvalidAgentRunError extends Error {
@@ -27,7 +25,7 @@ export class InvalidAgentRunError extends Error {
 const terminalStatuses = new Set<AgentRunStatus>(['completed', 'failed']);
 
 export function createAgentRunService(deps: AgentRunServiceDeps) {
-  const { db, eventBus } = deps;
+  const { db } = deps;
 
   return {
     async listForProject(projectId: string, pagination: PaginationParams = {}) {
@@ -67,11 +65,6 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
       }
 
       const run = await createAgentRun(db, { projectId, label });
-      eventBus.emit({
-        type: 'agent_run_started',
-        runId: run.id,
-        projectId,
-      });
 
       return serializeAgentRun(run);
     },
@@ -87,11 +80,6 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
       }
 
       const event = await createAgentRunEvent(db, { runId, message });
-      eventBus.emit({
-        type: 'agent_run_progress',
-        runId,
-        projectId: run.projectId,
-      });
 
       return serializeAgentRunEvent(event);
     },
@@ -113,12 +101,6 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
       if (!updated) {
         return undefined;
       }
-
-      eventBus.emit({
-        type: 'agent_run_completed',
-        runId,
-        projectId: run.projectId,
-      });
 
       return serializeAgentRun(updated);
     },

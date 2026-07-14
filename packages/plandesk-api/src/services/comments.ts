@@ -13,12 +13,10 @@ import {
   type CommentTargetType,
   type Db,
 } from '@plandesk/db';
-import type { EventBus } from '../events.js';
 import { serializeComment, type SerializedComment } from '../serialize.js';
 
 export type CommentServiceDeps = {
   db: Db;
-  eventBus: EventBus;
 };
 
 export type CommentTarget = {
@@ -71,40 +69,8 @@ async function targetProjectId(
   }
 }
 
-function emitCommentCreated(
-  eventBus: EventBus,
-  commentId: string,
-  projectId: string,
-  target: { type: CommentTargetType; id: string },
-): void {
-  eventBus.emit({
-    type: 'comment_created',
-    commentId,
-    projectId,
-    target_type: target.type,
-    target_id: target.id,
-    ...(target.type === 'document' ? { documentId: target.id } : {}),
-  });
-}
-
-function emitCommentUpdated(
-  eventBus: EventBus,
-  commentId: string,
-  projectId: string,
-  target: { type: CommentTargetType; id: string },
-): void {
-  eventBus.emit({
-    type: 'comment_updated',
-    commentId,
-    projectId,
-    target_type: target.type,
-    target_id: target.id,
-    ...(target.type === 'document' ? { documentId: target.id } : {}),
-  });
-}
-
 export function createCommentService(deps: CommentServiceDeps) {
-  const { db, eventBus } = deps;
+  const { db } = deps;
 
   return {
     async create(
@@ -127,8 +93,6 @@ export function createCommentService(deps: CommentServiceDeps) {
         anchor: input.anchor,
       });
 
-      emitCommentCreated(eventBus, comment.id, projectId, target);
-
       return serializeComment(comment);
     },
 
@@ -148,7 +112,6 @@ export function createCommentService(deps: CommentServiceDeps) {
       }
       assertNonEmptyBody(input.body);
 
-      const target = { type: 'artifact' as const, id: artifactId };
       const comment = await createComment(db, {
         projectId,
         targetType: 'artifact',
@@ -157,8 +120,6 @@ export function createCommentService(deps: CommentServiceDeps) {
         passage: input.passage,
         anchor: input.anchor,
       });
-
-      emitCommentCreated(eventBus, comment.id, projectId, target);
 
       return serializeComment(comment);
     },
@@ -234,11 +195,6 @@ export function createCommentService(deps: CommentServiceDeps) {
         return undefined;
       }
 
-      emitCommentUpdated(eventBus, id, projectId, {
-        type: comment.targetType,
-        id: comment.targetId,
-      });
-
       return serializeComment(comment);
     },
 
@@ -260,11 +216,6 @@ export function createCommentService(deps: CommentServiceDeps) {
       if (!deleted) {
         return false;
       }
-
-      emitCommentUpdated(eventBus, id, projectId, {
-        type: existing.targetType,
-        id: existing.targetId,
-      });
 
       return true;
     },

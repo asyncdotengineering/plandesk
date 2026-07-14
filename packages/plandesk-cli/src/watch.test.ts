@@ -2,16 +2,16 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PlankDeskEvent, SyncService } from '@plandesk/api';
+import type { SyncService } from '@plandesk/api';
 import { createProject } from '@plandesk/db';
 import { buildConfigJson } from './connect-artifacts.js';
 import { runInit } from './init.js';
 import { writeSyncToken } from './sync.js';
-import type { EventStream } from './watch.js';
+import type { EventStream, WatchChangeEvent } from './watch.js';
 import { runWatch } from './watch.js';
 import { openWorkspace } from './workspace.js';
 
-function makeEventStream(events: PlankDeskEvent[]): EventStream {
+function makeEventStream(events: WatchChangeEvent[]): EventStream {
   let resolveWait: (() => void) | undefined;
   const waitPromise = new Promise<void>((resolve) => {
     resolveWait = resolve;
@@ -83,9 +83,9 @@ describe('runWatch', () => {
 
     let sigintHandler: (() => void) | undefined;
     const events = makeEventStream([
-      { type: 'task_updated', taskId: 't1', projectId },
-      { type: 'task_updated', taskId: 't2', projectId: 'other-project' },
-      { type: 'canvas_updated', projectId },
+      { projectId },
+      { projectId: 'other-project' },
+      { projectId },
     ]);
 
     const run = runWatch(

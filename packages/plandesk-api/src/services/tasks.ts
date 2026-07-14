@@ -27,7 +27,6 @@ import {
   type Task,
   type TaskStatus,
 } from '@plandesk/db';
-import type { EventBus } from '../events.js';
 import { serializeTask, type PaginationParams } from '../serialize.js';
 import { normalizeTagName } from './tags.js';
 
@@ -69,7 +68,6 @@ function prerequisiteAndDependent(
 
 export type TaskServiceDeps = {
   db: Db;
-  eventBus: EventBus;
 };
 
 export type CreateTaskInput = {
@@ -124,7 +122,7 @@ async function resolveTagIdsByName(
 }
 
 export function createTaskService(deps: TaskServiceDeps) {
-  const { db, eventBus } = deps;
+  const { db } = deps;
 
   return {
     async get(id: string) {
@@ -195,12 +193,6 @@ export function createTaskService(deps: TaskServiceDeps) {
         return { task: row, tags: await listTagsForTask(tx, row.id) };
       });
 
-      eventBus.emit({
-        type: 'task_updated',
-        taskId: task.id,
-        projectId,
-      });
-
       return serializeTask(task, tags);
     },
 
@@ -229,12 +221,6 @@ export function createTaskService(deps: TaskServiceDeps) {
         return undefined;
       }
 
-      eventBus.emit({
-        type: 'task_updated',
-        taskId: result.task.id,
-        projectId: result.task.projectId,
-      });
-
       return serializeTask(result.task, result.tags);
     },
 
@@ -254,7 +240,6 @@ export function createTaskService(deps: TaskServiceDeps) {
         await dbDeleteTask(tx, id);
       });
 
-      eventBus.emit({ type: 'canvas_updated', projectId });
       return true;
     },
 

@@ -13,11 +13,9 @@ import {
   type SerializedArtifact,
   type SerializedArtifactSummary,
 } from '../serialize.js';
-import type { EventBus } from '../events.js';
 
 export type ArtifactServiceDeps = {
   db: Db;
-  eventBus: EventBus;
 };
 
 export type CreateArtifactInput = {
@@ -46,7 +44,7 @@ function assertNonEmptyTitle(title: string): void {
 }
 
 export function createArtifactService(deps: ArtifactServiceDeps) {
-  const { db, eventBus } = deps;
+  const { db } = deps;
 
   return {
     async listByProject(projectId: string): Promise<SerializedArtifactSummary[] | undefined> {
@@ -75,12 +73,6 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
         content: input.content,
       });
 
-      eventBus.emit({
-        type: 'artifact_created',
-        artifactId: artifact.id,
-        projectId,
-      });
-
       return serializeArtifact(artifact);
     },
 
@@ -106,12 +98,6 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
       if (!artifact) {
         return undefined;
       }
-
-      eventBus.emit({
-        type: 'artifact_updated',
-        artifactId: artifact.id,
-        projectId: artifact.projectId,
-      });
 
       return serializeArtifact(artifact);
     },

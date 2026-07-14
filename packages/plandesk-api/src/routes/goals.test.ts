@@ -2,16 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { createDb, createGoal, createProject, migrate , type Db} from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createApp } from '../server.js';
-import { createEventBus } from '../events.js';
 import { createServices } from '../services/index.js';
 import { parseJson } from '../test-helpers.js';
 
 async function createTestApp() {
   const db = await createDb(':memory:');
   await migrate(db);
-  const eventBus = createEventBus();
-  const services = createServices({ db, eventBus });
-  const app = createApp({ db, eventBus, services });
+    const services = createServices({ db });
+  const app = createApp({ db, services });
   return { app, db, services };
 }
 

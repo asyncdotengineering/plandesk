@@ -9,11 +9,9 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeNote, type PaginationParams, type SerializedNote } from '../serialize.js';
-import type { EventBus } from '../events.js';
 
 export type NoteServiceDeps = {
   db: Db;
-  eventBus: EventBus;
 };
 
 export type CreateNoteInput = {
@@ -40,7 +38,7 @@ function assertNonEmptyTitle(title: string): void {
 }
 
 export function createNoteService(deps: NoteServiceDeps) {
-  const { db, eventBus } = deps;
+  const { db } = deps;
 
   return {
     async list(
@@ -68,8 +66,6 @@ export function createNoteService(deps: NoteServiceDeps) {
         body: input.body,
       });
 
-      eventBus.emit({ type: 'note_created', noteId: note.id, projectId });
-
       return serializeNote(note);
     },
 
@@ -96,8 +92,6 @@ export function createNoteService(deps: NoteServiceDeps) {
         return undefined;
       }
 
-      eventBus.emit({ type: 'note_updated', noteId: note.id, projectId: note.projectId });
-
       return serializeNote(note);
     },
 
@@ -114,7 +108,6 @@ export function createNoteService(deps: NoteServiceDeps) {
 
       await deleteCommentsByTarget(db, 'note', id);
 
-      eventBus.emit({ type: 'note_updated', noteId: id, projectId: existing.projectId });
       return true;
     },
   };

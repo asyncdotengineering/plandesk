@@ -20,8 +20,8 @@ type AgentRunResponse = {
 
 describe('agent-runs routes', () => {
   it('GET /projects/:id/agent-runs returns runs with nested events', async () => {
-    const { app, db, eventBus } = await createTestApp();
-    const { agentRunService } = createServices({ db, eventBus });
+    const { app, db } = await createTestApp();
+    const { agentRunService } = createServices({ db });
 
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
@@ -70,8 +70,8 @@ describe('agent-runs routes', () => {
   });
 
   it('GET /projects/:id/agent-runs honors limit and offset', async () => {
-    const { app, db, eventBus } = await createTestApp();
-    const { agentRunService } = createServices({ db, eventBus });
+    const { app, db } = await createTestApp();
+    const { agentRunService } = createServices({ db });
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -102,8 +102,8 @@ describe('agent-runs routes', () => {
   });
 
   it('POST /agent-runs/:id/progress records an event on a running run', async () => {
-    const { app, db, eventBus } = await createTestApp();
-    const { agentRunService } = createServices({ db, eventBus });
+    const { app, db } = await createTestApp();
+    const { agentRunService } = createServices({ db });
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
         method: 'POST',
@@ -146,8 +146,8 @@ describe('agent-runs routes', () => {
   });
 
   it('POST /agent-runs/:id/progress returns 400 for a missing message', async () => {
-    const { app, db, eventBus } = await createTestApp();
-    const { agentRunService } = createServices({ db, eventBus });
+    const { app, db } = await createTestApp();
+    const { agentRunService } = createServices({ db });
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
         method: 'POST',
@@ -169,8 +169,8 @@ describe('agent-runs routes', () => {
   });
 
   it('POST /agent-runs/:id/progress returns 400 for a completed run', async () => {
-    const { app, db, eventBus } = await createTestApp();
-    const { agentRunService } = createServices({ db, eventBus });
+    const { app, db } = await createTestApp();
+    const { agentRunService } = createServices({ db });
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
         method: 'POST',

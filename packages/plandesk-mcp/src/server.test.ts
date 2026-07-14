@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { getRequestListener } from '@hono/node-server';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { createApp, createEventBus, createServices, type PlankDeskEvent } from '@plandesk/api';
+import { createApp, createServices } from '@plandesk/api';
 import {
   createDb,
   createEdge,
@@ -43,7 +43,6 @@ async function withMcpServer(
     token: string;
     projectId: string;
     app: ReturnType<typeof createApp>;
-    eventBus: ReturnType<typeof createEventBus>;
     services: ReturnType<typeof createServices>;
   }) => Promise<void>,
 ): Promise<void> {
@@ -52,10 +51,9 @@ async function withMcpServer(
   const project = await createProject(db, { name: 'MCP Test Project', description: 'via MCP' });
   const { token } = await createToken(db, { name: 'test' });
 
-  const eventBus = createEventBus();
-  const services = createServices({ db, eventBus });
+  const services = createServices({ db });
   const mcpApp = createMcpApp({ services, tokenStore: createTestTokenStore(db) });
-  const app = createApp({ db, eventBus, services, mcp: mcpApp });
+  const app = createApp({ db, services, mcp: mcpApp });
 
   const server = createServer((req, res) => {
     void getRequestListener(app.fetch)(req, res);
@@ -75,7 +73,7 @@ async function withMcpServer(
   const baseUrl = `http://127.0.0.1:${String(address.port)}`;
 
   try {
-    await run({ baseUrl, db, token, projectId: project.id, app, eventBus, services });
+    await run({ baseUrl, db, token, projectId: project.id, app, services });
   } finally {
     await new Promise<void>((resolve, reject) => {
       server.close((err) => {
@@ -193,13 +191,9 @@ describe('createMcpApp', () => {
     });
   });
 
-  it('test:mcp_update_task updates via MCP, REST reflects change, SSE fires', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db, app, eventBus }) => {
+  it('test:mcp_update_task updates via MCP, REST reflects change', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db, app }) => {
       const task = await createTask(db, { projectId, label: 'MCP task', status: 'todo' });
-      const received: PlankDeskEvent[] = [];
-      eventBus.subscribe((event) => {
-        received.push(event);
-      });
 
       const client = await connectClient(baseUrl, token);
       const result = await client.callTool({
@@ -212,12 +206,6 @@ describe('createMcpApp', () => {
       expect(tasksRes.status).toBe(200);
       const tasks = (await tasksRes.json()) as Array<{ id: string; status: string }>;
       expect(tasks.find((row) => row.id === task.id)?.status).toBe('in_progress');
-
-      expect(received).toContainEqual({
-        type: 'task_updated',
-        taskId: task.id,
-        projectId,
-      });
 
       await client.close();
     });
@@ -373,11 +361,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_folder, update_folder, and folder-aware documents work via MCP', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, eventBus }) => {
-      const received: PlankDeskEvent[] = [];
-      eventBus.subscribe((event) => {
-        received.push(event);
-      });
+    await withMcpServer(async ({ baseUrl, token, projectId }) => {
 
       const client = await connectClient(baseUrl, token);
 
@@ -395,7 +379,6 @@ describe('createMcpApp', () => {
       expect(createdFolderPayload.folder.name).toBe('Specs');
       expect(createdFolderPayload.folder.project_id).toBe(projectId);
       expect(createdFolderPayload.folder.parent_folder_id).toBeNull();
-      expect(received.some((e) => e.type === 'folder_created')).toBe(true);
       const folderId = createdFolderPayload.folder.id;
 
       const createdChild = await client.callTool({
@@ -421,7 +404,6 @@ describe('createMcpApp', () => {
       expect((JSON.parse(renamedText) as { folder: { name: string } }).folder.name).toBe(
         'Old specs',
       );
-      expect(received.some((e) => e.type === 'folder_updated')).toBe(true);
 
       const cycle = await client.callTool({
         name: 'update_folder',
@@ -518,11 +500,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_note, list_notes, get_note, and update_note work via MCP', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, eventBus }) => {
-      const received: PlankDeskEvent[] = [];
-      eventBus.subscribe((event) => {
-        received.push(event);
-      });
+    await withMcpServer(async ({ baseUrl, token, projectId }) => {
 
       const client = await connectClient(baseUrl, token);
 
@@ -541,7 +519,6 @@ describe('createMcpApp', () => {
       expect(createdPayload.note.project_id).toBe(projectId);
       // Markdown body is converted to rich-text HTML.
       expect(createdPayload.note.body).toContain('<h2>');
-      expect(received.some((e) => e.type === 'note_created')).toBe(true);
       const noteId = createdPayload.note.id;
 
       const listed = await client.callTool({
@@ -787,11 +764,7 @@ describe('createMcpApp', () => {
   });
 
   it('scaffold_project_from_plan creates project atomically via MCP', async () => {
-    await withMcpServer(async ({ baseUrl, token, db, eventBus }) => {
-      const received: PlankDeskEvent[] = [];
-      eventBus.subscribe((event) => {
-        received.push(event);
-      });
+    await withMcpServer(async ({ baseUrl, token, db }) => {
 
       const client = await connectClient(baseUrl, token);
       const result = await client.callTool({
@@ -824,8 +797,6 @@ describe('createMcpApp', () => {
       expect(payload.scaffold.key_to_id.setup).toBeTruthy();
       expect(payload.scaffold.tasks[1]).toMatchObject({ x: 240, y: 0 });
       expect(await listTasks(db, payload.scaffold.project.id)).toHaveLength(2);
-      expect(received.some((e) => e.type === 'canvas_updated')).toBe(true);
-      expect(received.filter((e) => e.type === 'document_created')).toHaveLength(1);
 
       await client.close();
     });
@@ -972,11 +943,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_task sets tags (auto-created by name), update_task replaces the full set, list_tags lists them', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, eventBus }) => {
-      const received: PlankDeskEvent[] = [];
-      eventBus.subscribe((event) => {
-        received.push(event);
-      });
+    await withMcpServer(async ({ baseUrl, token, projectId }) => {
 
       const client = await connectClient(baseUrl, token);
 
@@ -1019,12 +986,6 @@ describe('createMcpApp', () => {
       // replaced-away tags remain as project tags for reuse
       expect(listedPayload.tags.map((tag) => tag.name)).toEqual(['api', 'backend', 'urgent']);
       expect(listedPayload.tags[0]?.project_id).toBe(projectId);
-
-      expect(
-        received.some(
-          (event) => event.type === 'task_updated' && event.taskId === createdPayload.task.id,
-        ),
-      ).toBe(true);
 
       await client.close();
     });
@@ -1115,11 +1076,7 @@ describe('createMcpApp', () => {
   });
 
   it('list_comments, add_comment, and resolve_comment work via MCP', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db, eventBus }) => {
-      const received: PlankDeskEvent[] = [];
-      eventBus.subscribe((event) => {
-        received.push(event);
-      });
+    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
 
       const doc = await createDocument(db, { projectId, title: 'Review doc' });
       const resolved = await createComment(db, {
@@ -1169,7 +1126,6 @@ describe('createMcpApp', () => {
       };
       expect(addedPayload.comment.body).toBe('Agent suggestion');
       expect(addedPayload.comment.passage).toBe('§3');
-      expect(received.some((e) => e.type === 'comment_created')).toBe(true);
 
       const resolvedResult = await client.callTool({
         name: 'resolve_comment',

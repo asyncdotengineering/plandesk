@@ -18,7 +18,6 @@ import {
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
-import { createEventBus, type TaskUpdatedEvent } from '../events.js';
 import { InvalidTagError } from './tags.js';
 import { createTaskService, InvalidGoalReferenceError } from './tasks.js';
 
@@ -29,11 +28,10 @@ describe('taskService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-  const eventBus = createEventBus();
-  let projectId = '';
+    let projectId = '';
 
   function createService() {
-    return createTaskService({ db, eventBus });
+    return createTaskService({ db });
   }
 
   beforeEach(async () => {
@@ -99,15 +97,8 @@ describe('taskService', () => {
     );
   });
 
-  it('creates a task and emits task_updated', async () => {
-    const bus = createEventBus();
-    const service = createTaskService({ db, eventBus: bus });
-    const received: TaskUpdatedEvent[] = [];
-    bus.subscribe((event) => {
-      if (event.type === 'task_updated') {
-        received.push(event);
-      }
-    });
+  it('creates a task', async () => {
+    const service = createTaskService({ db });
 
     const created = await service.create(projectId, {
       label: 'New task',
@@ -126,7 +117,6 @@ describe('taskService', () => {
     if (!created) {
       throw new Error('expected created task');
     }
-    expect(received).toEqual([{ type: 'task_updated', taskId: created.id, projectId }]);
   });
 
   it('returns undefined when creating a task for a missing project', async () => {
@@ -157,19 +147,12 @@ describe('taskService', () => {
     ).toBeUndefined();
   });
 
-  it('emits task_updated after a successful update', async () => {
-    const bus = createEventBus();
-    const service = createTaskService({ db, eventBus: bus });
+  it('updates a task successfully', async () => {
+    const service = createTaskService({ db });
     const created = await createTask(db, { projectId, label: 'Emit', status: 'todo' });
-    const received: TaskUpdatedEvent[] = [];
-    bus.subscribe((event) => {
-      if (event.type === 'task_updated') {
-        received.push(event);
-      }
-    });
 
-    await service.update(created.id, { status: 'done' });
-    expect(received).toEqual([{ type: 'task_updated', taskId: created.id, projectId }]);
+    const updated = await service.update(created.id, { status: 'done' });
+    expect(updated).toMatchObject({ id: created.id, status: 'done' });
   });
 
   it('deletes a task, cascades edges, and nulls linked documents', async () => {

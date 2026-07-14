@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Db } from '@plandesk/db';
-import type { PlankDeskEvent, SyncService } from '@plandesk/api';
+import type { SyncService } from '@plandesk/api';
 import { createServices } from '@plandesk/api';
 import { normalizeServerUrl, parseConfigJson } from './connect-artifacts.js';
 import { resolveSyncRemote } from './sync.js';
@@ -13,9 +13,17 @@ export class LocalServerUnreachableError extends Error {
   }
 }
 
-export class SseDisconnectedError extends Error {
+export class WatchDisconnectedError extends Error {
   constructor() {
-    super('Local Plan Desk server SSE disconnected. Restart plandesk sync --watch.');
+    super('Local Plan Desk server watch poll disconnected. Restart plandesk sync --watch.');
+    this.name = 'WatchDisconnectedError';
+  }
+}
+
+/** @deprecated Use WatchDisconnectedError. Kept for existing callers. */
+export class SseDisconnectedError extends WatchDisconnectedError {
+  constructor() {
+    super();
     this.name = 'SseDisconnectedError';
   }
 }
@@ -29,8 +37,13 @@ export type WatchOptions = {
   localServerUrl?: string;
 };
 
+/** Yielded when a watched project's data may have changed. */
+export type WatchChangeEvent = {
+  projectId: string;
+};
+
 export type EventStream = {
-  [Symbol.asyncIterator](): AsyncIterator<PlankDeskEvent>;
+  [Symbol.asyncIterator](): AsyncIterator<WatchChangeEvent>;
   close(): void;
 };
 
@@ -40,83 +53,16 @@ export type WatchRunnerDeps = {
   onSigint: (handler: () => void) => () => void;
   writeStdout: (text: string) => void;
   writeStderr: (text: string) => void;
+  pollIntervalMs?: number;
 };
+
+const DEFAULT_POLL_MS = 2500;
 
 function defaultOnSigint(handler: () => void): () => void {
   process.on('SIGINT', handler);
   return () => {
     process.removeListener('SIGINT', handler);
   };
-}
-
-function parseSseChunk(chunk: string): PlankDeskEvent[] {
-  const events: PlankDeskEvent[] = [];
-  for (const part of chunk.split('\n\n')) {
-    for (const line of part.split('\n')) {
-      if (line.startsWith('data: ')) {
-        events.push(JSON.parse(line.slice(6)) as PlankDeskEvent);
-      }
-    }
-  }
-  return events;
-}
-
-function hasProjectId(event: PlankDeskEvent): event is PlankDeskEvent & { projectId: string } {
-  return 'projectId' in event && typeof event.projectId === 'string';
-}
-
-export async function createFetchEventStream(
-  url: string,
-  signal: AbortSignal,
-): Promise<EventStream> {
-  let response: Response;
-  try {
-    response = await fetch(url, { signal });
-  } catch {
-    throw new LocalServerUnreachableError();
-  }
-
-  if (!response.ok || response.body === null) {
-    throw new LocalServerUnreachableError();
-  }
-
-  const reader = response.body.getReader() as ReadableStreamDefaultReader<Uint8Array>;
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let closed = false;
-
-  const stream: EventStream = {
-    async *[Symbol.asyncIterator]() {
-      while (!closed) {
-        const chunk = await reader.read();
-        if (chunk.done) {
-          if (!signal.aborted) {
-            throw new SseDisconnectedError();
-          }
-          return;
-        }
-        buffer += decoder.decode(chunk.value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() ?? '';
-        for (const part of parts) {
-          for (const event of parseSseChunk(part)) {
-            yield event;
-          }
-        }
-      }
-      if (buffer.length > 0) {
-        for (const event of parseSseChunk(buffer)) {
-          yield event;
-        }
-      }
-    },
-    close() {
-      closed = true;
-      void reader.cancel();
-    },
-  };
-
-  return stream;
 }
 
 function resolveLocalServerUrl(repoDir: string, override?: string): string {
@@ -131,6 +77,110 @@ function resolveLocalServerUrl(repoDir: string, override?: string): string {
   return normalizeServerUrl(config.serverUrl);
 }
 
+function projectIdFromPollUrl(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const parts = pathname.split('/').filter((p) => p.length > 0);
+    // .../api/v1/projects/:id
+    const idx = parts.lastIndexOf('projects');
+    const segment = idx >= 0 ? parts[idx + 1] : undefined;
+    if (segment !== undefined) {
+      return decodeURIComponent(segment);
+    }
+  } catch {
+    // fall through
+  }
+  return '';
+}
+
+/**
+ * Polls project state and yields a change signal each successful poll after the
+ * baseline. Replaces the former SSE stream at `/api/v1/events`. watchPush
+ * debounces the actual push.
+ */
+export async function createFetchEventStream(
+  url: string,
+  signal: AbortSignal,
+  pollIntervalMs: number = DEFAULT_POLL_MS,
+): Promise<EventStream> {
+  let closed = false;
+  const projectId = projectIdFromPollUrl(url);
+  let baselineTaken = false;
+
+  // Fail fast if the server is unreachable (same as former SSE open).
+  try {
+    const probe = await fetch(url, { signal });
+    if (!probe.ok) {
+      throw new LocalServerUnreachableError();
+    }
+    await probe.json();
+    baselineTaken = true;
+  } catch (err) {
+    if (err instanceof LocalServerUnreachableError) {
+      throw err;
+    }
+    if (signal.aborted) {
+      // fall through to empty stream
+    } else {
+      throw new LocalServerUnreachableError();
+    }
+  }
+
+  const stream: EventStream = {
+    async *[Symbol.asyncIterator]() {
+      while (!closed && !signal.aborted) {
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, pollIntervalMs);
+          const onAbort = () => {
+            clearTimeout(timer);
+            resolve();
+          };
+          if (signal.aborted) {
+            clearTimeout(timer);
+            resolve();
+            return;
+          }
+          signal.addEventListener('abort', onAbort, { once: true });
+        });
+
+        if (closed || signal.aborted) {
+          return;
+        }
+
+        let response: Response;
+        try {
+          response = await fetch(url, { signal });
+        } catch {
+          if (signal.aborted || closed) {
+            return;
+          }
+          throw new LocalServerUnreachableError();
+        }
+
+        if (!response.ok) {
+          if (signal.aborted || closed) {
+            return;
+          }
+          throw new LocalServerUnreachableError();
+        }
+
+        await response.json();
+
+        if (baselineTaken) {
+          yield { projectId };
+        } else {
+          baselineTaken = true;
+        }
+      }
+    },
+    close() {
+      closed = true;
+    },
+  };
+
+  return stream;
+}
+
 export async function runWatch(
   db: Db,
   options: WatchOptions,
@@ -139,9 +189,10 @@ export async function runWatch(
   const resolved = resolveSyncRemote(options);
   const localServerUrl = resolveLocalServerUrl(options.repoDir, options.localServerUrl);
   const defaultSyncService = createServices({ db }).syncService;
+  const pollIntervalMs = partialDeps?.pollIntervalMs ?? DEFAULT_POLL_MS;
 
   const deps: WatchRunnerDeps = {
-    createEventStream: createFetchEventStream,
+    createEventStream: (url, signal) => createFetchEventStream(url, signal, pollIntervalMs),
     syncService: defaultSyncService,
     onSigint: defaultOnSigint,
     writeStdout: (text) => {
@@ -167,7 +218,10 @@ export async function runWatch(
     `Watching ${resolved.projectId} → pushing to ${resolved.syncRemote.serverUrl} on change (Ctrl-C to stop).\n`,
   );
 
-  const stream = await deps.createEventStream(`${localServerUrl}/api/v1/events`, abort.signal);
+  const stream = await deps.createEventStream(
+    `${localServerUrl}/api/v1/projects/${encodeURIComponent(resolved.projectId)}`,
+    abort.signal,
+  );
   let cleanedUp = false;
   const cleanup = () => {
     if (cleanedUp) {
@@ -181,12 +235,12 @@ export async function runWatch(
 
   const consumeStream = async (): Promise<void> => {
     for await (const event of stream) {
-      if (hasProjectId(event) && event.projectId === resolved.projectId) {
+      if (event.projectId === resolved.projectId || event.projectId === '') {
         watcher.onChange();
       }
     }
     if (!abort.signal.aborted) {
-      throw new SseDisconnectedError();
+      throw new WatchDisconnectedError();
     }
   };
 

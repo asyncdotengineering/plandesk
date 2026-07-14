@@ -11,7 +11,6 @@ import {
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
-import { createEventBus } from '../events.js';
 import { createDocumentService, InvalidDocumentError } from './documents.js';
 
 describe('documentService', () => {
@@ -21,11 +20,10 @@ describe('documentService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-  const eventBus = createEventBus();
-  let projectId = '';
+    let projectId = '';
 
   function createService() {
-    return createDocumentService({ db, eventBus });
+    return createDocumentService({ db });
   }
 
   beforeEach(async () => {

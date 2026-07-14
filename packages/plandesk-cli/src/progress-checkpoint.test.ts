@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getRequestListener } from '@hono/node-server';
-import { createApp, createEventBus, createServices } from '@plandesk/api';
+import { createApp, createServices } from '@plandesk/api';
 import { createDb, createProject, migrate, type Db } from '@plandesk/db';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildConfigJson } from './connect-artifacts.js';
@@ -20,9 +20,8 @@ async function withTestServer(
   const db = await createDb(':memory:');
   await migrate(db);
   const project = await createProject(db, { name: 'Checkpoint project' });
-  const eventBus = createEventBus();
-  const services = createServices({ db, eventBus });
-  const app = createApp({ db, eventBus, services });
+    const services = createServices({ db });
+  const app = createApp({ db, services });
 
   const server: Server = createServer((req, res) => {
     void getRequestListener(app.fetch)(req, res);

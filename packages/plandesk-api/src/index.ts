@@ -3,7 +3,6 @@ export { createAuthMiddleware } from './auth.js';
 export { healthRouter } from './routes/health.js';
 export { mountStatic } from './static.js';
 export { createServices, type Services, type ServicesDeps } from './services/index.js';
-export { createEventBus, type EventBus, type PlankDeskEvent } from './events.js';
 export type { ProjectService } from './services/projects.js';
 export type { GoalService, VerificationEvidence } from './services/goals.js';
 export {

@@ -15,12 +15,10 @@ import {
   type Db,
   type Project,
 } from '@plandesk/db';
-import type { EventBus } from '../events.js';
 import { serializeEdge, serializeTask } from '../serialize.js';
 
 export type CanvasServiceDeps = {
   db: Db;
-  eventBus: EventBus;
 };
 
 export type CanvasNodeInput = {
@@ -65,7 +63,7 @@ function serializeLayout(projectLayout: string | null): unknown {
 }
 
 export function createCanvasService(deps: CanvasServiceDeps) {
-  const { db, eventBus } = deps;
+  const { db } = deps;
 
   async function buildCanvas(projectId: string, project: Project) {
     const tasks = await listTasks(db, projectId);
@@ -112,8 +110,6 @@ export function createCanvasService(deps: CanvasServiceDeps) {
         label: input.label ?? null,
         style: input.style ?? null,
       });
-
-      eventBus.emit({ type: 'canvas_updated', projectId });
 
       return serializeEdge(edge);
     },
@@ -227,8 +223,6 @@ export function createCanvasService(deps: CanvasServiceDeps) {
         return undefined;
       }
 
-      eventBus.emit({ type: 'canvas_updated', projectId });
-
       return buildCanvas(projectId, updatedProject);
     },
 
@@ -239,7 +233,6 @@ export function createCanvasService(deps: CanvasServiceDeps) {
       }
 
       await dbDeleteEdge(db, edgeId);
-      eventBus.emit({ type: 'canvas_updated', projectId });
       return true;
     },
   };

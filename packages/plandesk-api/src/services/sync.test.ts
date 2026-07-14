@@ -18,7 +18,6 @@ import {
   createSyncToken,
   migrate as migrateSyncServer,
 } from '@plandesk/sync-server';
-import { createEventBus, type PlankDeskEvent } from '../events.js';
 import { createShareService } from './share.js';
 import { createTaskService } from './tasks.js';
 import {
@@ -48,8 +47,7 @@ describe('syncService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-  const eventBus = createEventBus();
-
+  
   beforeEach(async () => {
     await migrate(db);
     await db.$client.execute('DELETE FROM share_submissions');
@@ -66,9 +64,9 @@ describe('syncService', () => {
   });
 
   function createService() {
-    const taskService = createTaskService({ db, eventBus });
-    const shareService = createShareService({ db, eventBus });
-    return createSyncService({ db, eventBus, taskService, shareService });
+    const taskService = createTaskService({ db });
+    const shareService = createShareService({ db });
+    return createSyncService({ db, taskService, shareService });
   }
 
   const remote = {
@@ -180,16 +178,11 @@ describe('syncService', () => {
     expect(await listSubmissions(db, project.id)).toHaveLength(0);
   });
 
-  it('emits submissions_pulled when new rows are materialized', async () => {
+  it('materializes new rows on pull', async () => {
     const project = await createProject(db, { name: 'Events' });
-    const bus = createEventBus();
-    const taskService = createTaskService({ db, eventBus: bus });
-    const shareService = createShareService({ db, eventBus: bus });
-    const service = createSyncService({ db, eventBus: bus, taskService, shareService });
-    const received: PlankDeskEvent[] = [];
-    bus.subscribe((event) => {
-      received.push(event);
-    });
+    const taskService = createTaskService({ db });
+    const shareService = createShareService({ db });
+    const service = createSyncService({ db, taskService, shareService });
 
     vi.stubGlobal(
       'fetch',
@@ -207,7 +200,7 @@ describe('syncService', () => {
       syncToken: 'plandesk_sync_test',
     });
 
-    expect(received).toContainEqual({ type: 'submissions_pulled', projectId: project.id });
+    expect(await listSubmissions(db, project.id)).toHaveLength(1);
   });
 
   it('listTriage returns serialized pending submissions', async () => {
@@ -553,8 +546,7 @@ describe('syncService push', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-  const eventBus = createEventBus();
-  const servers: Array<{ close: () => void }> = [];
+    const servers: Array<{ close: () => void }> = [];
   const remote = {
     serverUrl: 'https://sync.example',
     globalProjectId: 'gid-1',
@@ -582,9 +574,9 @@ describe('syncService push', () => {
   });
 
   function createService() {
-    const taskService = createTaskService({ db, eventBus });
-    const shareService = createShareService({ db, eventBus });
-    return createSyncService({ db, eventBus, taskService, shareService });
+    const taskService = createTaskService({ db });
+    const shareService = createShareService({ db });
+    return createSyncService({ db, taskService, shareService });
   }
 
   it('publishProject round-trips projection to portal view', async () => {
@@ -592,7 +584,7 @@ describe('syncService push', () => {
     servers.push(syncServer);
 
     const service = createService();
-    const shareService = createShareService({ db, eventBus });
+    const shareService = createShareService({ db });
     const project = await createProject(db, { name: 'Push Project' });
     await createTask(db, { projectId: project.id, label: 'Visible task' });
     const created = await shareService.createShare(project.id, {
@@ -645,7 +637,7 @@ describe('syncService push', () => {
     servers.push(syncServer);
 
     const service = createService();
-    const shareService = createShareService({ db, eventBus });
+    const shareService = createShareService({ db });
     const project = await createProject(db, { name: 'Revoked push' });
     const active = await shareService.createShare(project.id, {
       audienceName: 'Active',
@@ -741,7 +733,7 @@ describe('syncService push', () => {
     servers.push(syncServer);
 
     const service = createService();
-    const shareService = createShareService({ db, eventBus });
+    const shareService = createShareService({ db });
     const project = await createProject(db, { name: 'Bad token' });
     await shareService.createShare(project.id, { audienceName: 'Client', mode: 'public' });
 

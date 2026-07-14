@@ -2,7 +2,6 @@ import { Outlet, createRootRoute, useLocation, useParams } from '@tanstack/react
 import { CommandMenu, CommandMenuProvider } from '../components/layout/CommandMenu.js';
 import { Sidebar } from '../components/layout/Sidebar.js';
 import { Toaster } from '@/components/ui/sonner';
-import { useSseInvalidation } from '../lib/events.js';
 import { useProject } from '../lib/queries.js';
 
 const VIEW_LABELS: Record<string, string> = {
@@ -65,8 +64,6 @@ function Crumb() {
 }
 
 function RootLayout() {
-  useSseInvalidation();
-
   return (
     <CommandMenuProvider>
       <div className="app">

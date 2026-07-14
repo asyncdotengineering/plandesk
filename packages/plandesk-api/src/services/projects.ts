@@ -35,7 +35,6 @@ import {
   type Task,
   type TaskStatus,
 } from '@plandesk/db';
-import type { EventBus } from '../events.js';
 import {
   emptyTaskStatusSummary,
   serializeDocument,
@@ -142,7 +141,6 @@ function validateScaffoldInput(input: ScaffoldPlanInput): void {
 
 export type ProjectServiceDeps = {
   db: Db;
-  eventBus: EventBus;
 };
 
 export type CreateProjectInput = {
@@ -164,7 +162,7 @@ function summarizeTasks(tasks: Task[]): TaskStatusSummary {
 }
 
 export function createProjectService(deps: ProjectServiceDeps) {
-  const { db, eventBus } = deps;
+  const { db } = deps;
 
   return {
     async create(input: CreateProjectInput) {
@@ -224,7 +222,6 @@ export function createProjectService(deps: ProjectServiceDeps) {
         await dbDeleteProject(tx, id);
       });
 
-      eventBus.emit({ type: 'canvas_updated', projectId: id });
       return true;
     },
 
@@ -311,11 +308,6 @@ export function createProjectService(deps: ProjectServiceDeps) {
           documentRows.push(document);
         }
       });
-
-      eventBus.emit({ type: 'canvas_updated', projectId });
-      for (const doc of documentRows) {
-        eventBus.emit({ type: 'document_created', documentId: doc.id, projectId });
-      }
 
       const project = await dbGetProject(db, projectId);
       if (!project) {

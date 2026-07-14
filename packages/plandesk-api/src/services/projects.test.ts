@@ -20,7 +20,6 @@ import {
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
-import { createEventBus, type PlankDeskEvent } from '../events.js';
 import { createProjectService, InvalidScaffoldError } from './projects.js';
 
 describe('projectService', () => {
@@ -30,8 +29,7 @@ describe('projectService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-  const eventBus = createEventBus();
-
+  
   beforeEach(async () => {
     await migrate(db);
     await db.$client.execute('DELETE FROM comments');
@@ -45,7 +43,7 @@ describe('projectService', () => {
   });
 
   function createService() {
-    return createProjectService({ db, eventBus });
+    return createProjectService({ db });
   }
 
   it('creates and lists projects with ISO timestamps', async () => {
@@ -152,12 +150,7 @@ describe('projectService', () => {
   });
 
   it('scaffolds a project with tasks, edges, and documents atomically', async () => {
-    const bus = createEventBus();
-    const service = createProjectService({ db, eventBus: bus });
-    const received: PlankDeskEvent[] = [];
-    bus.subscribe((event) => {
-      received.push(event);
-    });
+    const service = createProjectService({ db });
 
     const result = await service.scaffoldFromPlan({
       name: 'Scaffolded',
@@ -189,8 +182,6 @@ describe('projectService', () => {
     expect(await listTasks(db, result.project.id)).toHaveLength(3);
     expect(await listEdges(db, result.project.id)).toHaveLength(1);
     expect(await listDocuments(db, result.project.id)).toHaveLength(1);
-    expect(received.filter((e) => e.type === 'canvas_updated')).toHaveLength(1);
-    expect(received.filter((e) => e.type === 'document_created')).toHaveLength(1);
   });
 
   it('scaffolds into an existing project when project_id is given (no new project)', async () => {

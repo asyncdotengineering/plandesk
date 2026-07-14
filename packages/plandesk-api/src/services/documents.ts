@@ -23,11 +23,8 @@ import {
   type SerializedDocumentFolderTree,
   type SerializedDocumentTree,
 } from '../serialize.js';
-import type { EventBus } from '../events.js';
-
 export type DocumentServiceDeps = {
   db: Db;
-  eventBus: EventBus;
 };
 
 export type CreateDocumentInput = {
@@ -76,7 +73,7 @@ async function assertFolderInProject(db: Db, projectId: string, folderId: string
 }
 
 export function createDocumentService(deps: DocumentServiceDeps) {
-  const { db, eventBus } = deps;
+  const { db } = deps;
 
   return {
     async listTree(
@@ -146,12 +143,6 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         linkedTaskId: input.linkedTaskId,
       });
 
-      eventBus.emit({
-        type: 'document_created',
-        documentId: document.id,
-        projectId,
-      });
-
       return serializeDocument(document);
     },
 
@@ -218,7 +209,6 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         await dbDeleteDocument(tx, id);
       });
 
-      eventBus.emit({ type: 'canvas_updated', projectId: existing.projectId });
       return true;
     },
   };

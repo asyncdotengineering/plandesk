@@ -10,7 +10,6 @@ import {
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
-import { createEventBus, type GoalUpdatedEvent } from '../events.js';
 import {
   createGoalService,
   evaluateEvidence,
@@ -85,11 +84,10 @@ describe('goalService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-  const eventBus = createEventBus();
-  let projectId = '';
+    let projectId = '';
 
   function createService() {
-    return createGoalService({ db, eventBus });
+    return createGoalService({ db });
   }
 
   async function markAllCycleTasksDone(goalId: string) {
@@ -108,15 +106,8 @@ describe('goalService', () => {
     projectId = (await createProject(db, { name: 'Project' })).id;
   });
 
-  it('creates a goal and emits goal_updated', async () => {
-    const bus = createEventBus();
-    const service = createGoalService({ db, eventBus: bus });
-    const received: GoalUpdatedEvent[] = [];
-    bus.subscribe((event) => {
-      if (event.type === 'goal_updated') {
-        received.push(event);
-      }
-    });
+  it('creates a goal', async () => {
+    const service = createGoalService({ db });
 
     const goal = await service.create(projectId, {
       objective: 'Ship goals',
@@ -135,7 +126,6 @@ describe('goalService', () => {
     if (!goal) {
       throw new Error('expected created goal');
     }
-    expect(received).toEqual([{ type: 'goal_updated', goalId: goal.id, projectId }]);
   });
 
   it('rejects invalid verification_surface on create and update', async () => {

@@ -12,11 +12,6 @@ const sampleProject = {
   updated_at: '2026-06-07T00:00:00.000Z',
 };
 
-class MockEventSource {
-  onmessage: ((event: MessageEvent) => void) | null = null;
-  close(): void {}
-}
-
 function renderApp() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -28,10 +23,6 @@ function renderApp() {
     </QueryClientProvider>,
   );
 }
-
-beforeEach(() => {
-  vi.stubGlobal('EventSource', MockEventSource);
-});
 
 afterEach(() => {
   vi.unstubAllGlobals();

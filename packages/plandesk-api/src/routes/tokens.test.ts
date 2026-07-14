@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { createDb, migrate, verifyToken , type Db} from '@plandesk/db';
-import { createApp, createEventBus, createServices } from '../index.js';
+import { createApp, createServices } from '../index.js';
 import { createTestApp, parseJson } from '../test-helpers.js';
 
 type CreateTokenResponse = {
@@ -35,9 +35,8 @@ function createMcpAuthProbe(db: Db): Hono {
 async function createTestAppWithMcp() {
   const db = await createDb(':memory:');
   await migrate(db);
-  const eventBus = createEventBus();
-  const services = createServices({ db, eventBus });
-  const app = createApp({ db, eventBus, services, mcp: createMcpAuthProbe(db) });
+    const services = createServices({ db });
+  const app = createApp({ db, services, mcp: createMcpAuthProbe(db) });
   return { app, db };
 }
 

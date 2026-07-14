@@ -1,32 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { createDb, createProject, listTagsForTask, migrate, type Db } from '@plandesk/db';
-import { createEventBus, type PlankDeskEvent } from '../events.js';
 import { createTagService, InvalidTagError } from './tags.js';
 import { createTaskService } from './tasks.js';
 
 async function setup() {
   const db = await createDb(':memory:');
   await migrate(db);
-  const eventBus = createEventBus();
-  const received: PlankDeskEvent[] = [];
-  eventBus.subscribe((event) => {
-    received.push(event);
-  });
-  const tagService = createTagService({ db, eventBus });
-  const taskService = createTaskService({ db, eventBus });
+  const tagService = createTagService({ db });
+  const taskService = createTaskService({ db });
   const project = await createProject(db, { name: 'Tags' });
-  return { db, eventBus, received, tagService, taskService, projectId: project.id };
+  return { db, tagService, taskService, projectId: project.id };
 }
 
 describe('tag service', () => {
-  it('creates, lists, updates, and deletes a tag with tag_updated events', async () => {
-    const { tagService, received, projectId } = await setup();
+  it('creates, lists, updates, and deletes a tag', async () => {
+    const { tagService, projectId } = await setup();
 
     const created = await tagService.create(projectId, { name: 'backend', color: '#2563eb' });
     expect(created?.name).toBe('backend');
     expect(created?.color).toBe('#2563eb');
     expect(created?.project_id).toBe(projectId);
-    expect(received).toContainEqual({ type: 'tag_updated', projectId });
 
     const listed = await tagService.list(projectId);
     expect(listed?.map((tag) => tag.name)).toEqual(['backend']);
@@ -34,12 +27,10 @@ describe('tag service', () => {
     const updated = await tagService.update(created?.id ?? '', { name: 'infra', color: null });
     expect(updated?.name).toBe('infra');
     expect(updated?.color).toBeNull();
-    expect(received.filter((e) => e.type === 'tag_updated')).toHaveLength(2);
 
     const deleted = await tagService.delete(created?.id ?? '');
     expect(deleted).toBe(true);
     expect(await tagService.list(projectId)).toEqual([]);
-    expect(received.filter((e) => e.type === 'tag_updated')).toHaveLength(3);
   });
 
   it('rejects empty and duplicate names', async () => {

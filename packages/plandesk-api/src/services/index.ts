@@ -1,5 +1,4 @@
 import type { Db } from '@plandesk/db';
-import { createEventBus, type EventBus } from '../events.js';
 import { createStorageAdapter, type StorageAdapter } from '../storage/index.js';
 import { createCanvasService, type CanvasService } from './canvas.js';
 import { createCommentService, type CommentService } from './comments.js';
@@ -19,12 +18,10 @@ import { createSyncService, type SyncService } from './sync.js';
 
 export type ServicesDeps = {
   db: Db;
-  eventBus?: EventBus;
   storage?: StorageAdapter;
 };
 
 export type Services = {
-  eventBus: EventBus;
   projectService: ProjectService;
   goalService: GoalService;
   taskService: TaskService;
@@ -43,26 +40,24 @@ export type Services = {
 };
 
 export function createServices(deps: ServicesDeps): Services {
-  const eventBus = deps.eventBus ?? createEventBus();
   const storage = deps.storage ?? createStorageAdapter({ db: deps.db });
-  const projectService = createProjectService({ db: deps.db, eventBus });
-  const goalService = createGoalService({ db: deps.db, eventBus });
-  const taskService = createTaskService({ db: deps.db, eventBus });
-  const tagService = createTagService({ db: deps.db, eventBus });
-  const canvasService = createCanvasService({ db: deps.db, eventBus });
-  const documentService = createDocumentService({ db: deps.db, eventBus });
-  const folderService = createFolderService({ db: deps.db, eventBus });
-  const noteService = createNoteService({ db: deps.db, eventBus });
-  const commentService = createCommentService({ db: deps.db, eventBus });
-  const agentRunService = createAgentRunService({ db: deps.db, eventBus });
+  const projectService = createProjectService({ db: deps.db });
+  const goalService = createGoalService({ db: deps.db });
+  const taskService = createTaskService({ db: deps.db });
+  const tagService = createTagService({ db: deps.db });
+  const canvasService = createCanvasService({ db: deps.db });
+  const documentService = createDocumentService({ db: deps.db });
+  const folderService = createFolderService({ db: deps.db });
+  const noteService = createNoteService({ db: deps.db });
+  const commentService = createCommentService({ db: deps.db });
+  const agentRunService = createAgentRunService({ db: deps.db });
   const tokenService = createTokenService({ db: deps.db });
-  const shareService = createShareService({ db: deps.db, eventBus });
-  const syncService = createSyncService({ db: deps.db, eventBus, taskService, shareService });
+  const shareService = createShareService({ db: deps.db });
+  const syncService = createSyncService({ db: deps.db, taskService, shareService });
   const fileService = createFileService({ db: deps.db, storage });
-  const artifactService = createArtifactService({ db: deps.db, eventBus });
+  const artifactService = createArtifactService({ db: deps.db });
 
   return {
-    eventBus,
     projectService,
     goalService,
     taskService,

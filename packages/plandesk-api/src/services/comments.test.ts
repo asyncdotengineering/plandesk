@@ -13,7 +13,6 @@ import {
   upsertSubmission,
   type Db,
 } from '@plandesk/db';
-import { createEventBus, type PlankDeskEvent } from '../events.js';
 import { createCommentService, InvalidCommentError } from './comments.js';
 
 describe('commentService', () => {
@@ -23,15 +22,14 @@ describe('commentService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-  const eventBus = createEventBus();
-  let projectId = '';
+    let projectId = '';
   let documentId = '';
   let taskId = '';
   let noteId = '';
   let submissionId = '';
 
   function createService() {
-    return createCommentService({ db, eventBus });
+    return createCommentService({ db });
   }
 
   beforeEach(async () => {
@@ -60,12 +58,7 @@ describe('commentService', () => {
     });
   });
 
-  it('creates a comment and emits comment_created', async () => {
-    const received: PlankDeskEvent[] = [];
-    eventBus.subscribe((event) => {
-      received.push(event);
-    });
-
+  it('creates a comment', async () => {
     const service = createService();
     const comment = await service.create(
       { type: 'document', id: documentId },
@@ -84,14 +77,6 @@ describe('commentService', () => {
       resolved: false,
     });
     expect(comment?.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(received).toContainEqual({
-      type: 'comment_created',
-      commentId: comment?.id,
-      documentId,
-      projectId,
-      target_type: 'document',
-      target_id: documentId,
-    });
   });
 
   it('creates comments on tasks and notes', async () => {
@@ -178,12 +163,7 @@ describe('commentService', () => {
     expect(await service.listByProject(missing)).toBeUndefined();
   });
 
-  it('updates and deletes comments with comment_updated events', async () => {
-    const received: PlankDeskEvent[] = [];
-    eventBus.subscribe((event) => {
-      received.push(event);
-    });
-
+  it('updates and deletes comments', async () => {
     const service = createService();
     const created = await service.create({ type: 'document', id: documentId }, { body: 'Before' });
     expect(created).toBeDefined();
@@ -194,21 +174,12 @@ describe('commentService', () => {
     const updated = await service.update(created.id, { body: 'After', resolved: true });
     expect(updated?.body).toBe('After');
     expect(updated?.resolved).toBe(true);
-    expect(received).toContainEqual({
-      type: 'comment_updated',
-      commentId: created.id,
-      documentId,
-      projectId,
-      target_type: 'document',
-      target_id: documentId,
-    });
 
     expect(await service.delete(created.id)).toBe(true);
     expect(await getComment(db, created.id)).toBeUndefined();
     expect(
       await listCommentsByTarget(db, 'document', documentId, { includeResolved: true }),
     ).toHaveLength(0);
-    expect(received.filter((e) => e.type === 'comment_updated')).toHaveLength(2);
   });
 
   it('updates and deletes task comments', async () => {

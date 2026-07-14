@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getRequestListener } from '@hono/node-server';
-import { createApp, createEventBus, createServices } from '@plandesk/api';
+import { createApp, createServices } from '@plandesk/api';
 import {
   createDb,
   createProject,
@@ -35,10 +35,9 @@ async function withTestServer(
   const db = await createDb(':memory:');
   await migrate(db);
   const project = await createProject(db, { name: 'connect-repo' });
-  const eventBus = createEventBus();
-  const services = createServices({ db, eventBus });
+    const services = createServices({ db });
   const mcpApp = createMcpApp({ services, tokenStore: createTestTokenStore(db) });
-  const app = createApp({ db, eventBus, services, mcp: mcpApp });
+  const app = createApp({ db, services, mcp: mcpApp });
 
   const server = createServer((req, res) => {
     void getRequestListener(app.fetch)(req, res);
@@ -323,10 +322,9 @@ describe('CLI connect/disconnect', () => {
     const db = await createDb(':memory:');
     await migrate(db);
     const project = await createProject(db, { name: 'cli-connect' });
-    const eventBus = createEventBus();
-    const services = createServices({ db, eventBus });
+        const services = createServices({ db });
     const mcpApp = createMcpApp({ services, tokenStore: createTestTokenStore(db) });
-    const app = createApp({ db, eventBus, services, mcp: mcpApp });
+    const app = createApp({ db, services, mcp: mcpApp });
     const server = createServer((req, res) => {
       void getRequestListener(app.fetch)(req, res);
     });

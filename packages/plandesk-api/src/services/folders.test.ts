@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, createProject, getDocument, getFolder, migrate , type Db} from '@plandesk/db';
-import { createEventBus, type PlankDeskEvent } from '../events.js';
 import { createDocumentService } from './documents.js';
 import { createFolderService, InvalidFolderError } from './folders.js';
 
@@ -11,15 +10,14 @@ describe('folderService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-  const eventBus = createEventBus();
-  let projectId = '';
+    let projectId = '';
 
   function createService() {
-    return createFolderService({ db, eventBus });
+    return createFolderService({ db });
   }
 
   function createDocService() {
-    return createDocumentService({ db, eventBus });
+    return createDocumentService({ db });
   }
 
   beforeEach(async () => {
@@ -31,17 +29,14 @@ describe('folderService', () => {
     projectId = (await createProject(db, { name: 'Folders' })).id;
   });
 
-  it('emits folder_created on create', async () => {
-    const events: PlankDeskEvent[] = [];
-    const unsub = eventBus.subscribe((event) => events.push(event));
+  it('creates a folder', async () => {
     const folder = await createService().create(projectId, { name: 'Specs' });
-    unsub();
     expect(folder?.name).toBe('Specs');
     expect(folder?.parent_folder_id).toBeNull();
-    expect(events).toEqual([{ type: 'folder_created', folderId: folder?.id, projectId }]);
+    expect(await getFolder(db, folder!.id)).toBeDefined();
   });
 
-  it('emits folder_updated on update and delete', async () => {
+  it('updates and deletes a folder', async () => {
     const service = createService();
     const folder = await service.create(projectId, { name: 'Before' });
     expect(folder).toBeDefined();
@@ -49,16 +44,10 @@ describe('folderService', () => {
       return;
     }
 
-    const events: PlankDeskEvent[] = [];
-    const unsub = eventBus.subscribe((event) => events.push(event));
-    await service.update(folder.id, { name: 'After' });
-    await service.delete(folder.id);
-    unsub();
-
-    expect(events).toEqual([
-      { type: 'folder_updated', folderId: folder.id, projectId },
-      { type: 'folder_updated', folderId: folder.id, projectId },
-    ]);
+    const updated = await service.update(folder.id, { name: 'After' });
+    expect(updated?.name).toBe('After');
+    expect(await service.delete(folder.id)).toBe(true);
+    expect(await getFolder(db, folder.id)).toBeUndefined();
   });
 
   it('returns undefined when the project does not exist', async () => {

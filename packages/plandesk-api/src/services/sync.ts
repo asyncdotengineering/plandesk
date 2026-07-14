@@ -15,7 +15,6 @@ import {
   type ShareSubmission,
   type ShareSubmissionStatus,
 } from '@plandesk/db';
-import type { EventBus } from '../events.js';
 import type { ShareService } from './share.js';
 import type { TaskService } from './tasks.js';
 
@@ -99,7 +98,6 @@ export function serializeSubmission(row: ShareSubmission): SerializedSubmission 
 
 export type SyncServiceDeps = {
   db: Db;
-  eventBus: EventBus;
   taskService: TaskService;
   shareService: ShareService;
 };
@@ -239,7 +237,7 @@ function createWatchPush(
 }
 
 export function createSyncService(deps: SyncServiceDeps) {
-  const { db, eventBus, taskService, shareService } = deps;
+  const { db, taskService, shareService } = deps;
 
   return {
     async push(projectId: string, remote: SyncRemote): Promise<{ pushed: number }> {
@@ -340,7 +338,6 @@ export function createSyncService(deps: SyncServiceDeps) {
       }
 
       if (pulled > 0) {
-        eventBus.emit({ type: 'submissions_pulled', projectId });
       }
 
       return { pulled };
@@ -426,7 +423,6 @@ export function createSyncService(deps: SyncServiceDeps) {
           throw new InvalidTriageError();
         }
 
-        eventBus.emit({ type: 'submissions_pulled', projectId });
         await ackSubmission(remote, submissionId, 'accepted');
         return serializeSubmission(updated);
       }
@@ -457,7 +453,6 @@ export function createSyncService(deps: SyncServiceDeps) {
           throw new InvalidTriageError();
         }
 
-        eventBus.emit({ type: 'submissions_pulled', projectId });
         await ackSubmission(remote, submissionId, 'accepted');
         return serializeSubmission(updated);
       }
@@ -467,7 +462,6 @@ export function createSyncService(deps: SyncServiceDeps) {
         throw new InvalidTriageError();
       }
 
-      eventBus.emit({ type: 'submissions_pulled', projectId });
       await ackSubmission(remote, submissionId, 'rejected');
       return serializeSubmission(updated);
     },

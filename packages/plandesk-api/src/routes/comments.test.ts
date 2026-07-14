@@ -9,7 +9,6 @@ import {
   upsertSubmission,
 } from '@plandesk/db';
 import { createTestApp, parseJson } from '../test-helpers.js';
-import type { PlankDeskEvent } from '../events.js';
 
 type CommentResponse = {
   id: string;
@@ -25,11 +24,7 @@ type CommentResponse = {
 
 describe('comments routes', () => {
   it('creates, lists, updates, and deletes document comments via REST', async () => {
-    const { app, eventBus } = await createTestApp();
-    const received: PlankDeskEvent[] = [];
-    eventBus.subscribe((event) => {
-      received.push(event);
-    });
+    const { app } = await createTestApp();
 
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
@@ -60,14 +55,6 @@ describe('comments routes', () => {
       passage: '§1',
       resolved: false,
     });
-    expect(received).toContainEqual({
-      type: 'comment_created',
-      commentId: created.id,
-      documentId: doc.id,
-      projectId: project.id,
-      target_type: 'document',
-      target_id: doc.id,
-    });
 
     const listRes = await app.request(`/api/v1/documents/${doc.id}/comments`);
     expect(listRes.status).toBe(200);
@@ -89,14 +76,6 @@ describe('comments routes', () => {
     const updated = await parseJson<CommentResponse>(patchRes);
     expect(updated.body).toBe('Updated');
     expect(updated.resolved).toBe(true);
-    expect(received).toContainEqual({
-      type: 'comment_updated',
-      commentId: created.id,
-      documentId: doc.id,
-      projectId: project.id,
-      target_type: 'document',
-      target_id: doc.id,
-    });
 
     const openOnlyRes = await app.request(`/api/v1/documents/${doc.id}/comments`);
     expect(await parseJson<CommentResponse[]>(openOnlyRes)).toHaveLength(0);

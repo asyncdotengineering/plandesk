@@ -8,12 +8,10 @@ import {
   updateTag as dbUpdateTag,
   type Db,
 } from '@plandesk/db';
-import type { EventBus } from '../events.js';
 import { serializeTag, type SerializedTag } from '../serialize.js';
 
 export type TagServiceDeps = {
   db: Db;
-  eventBus: EventBus;
 };
 
 export type CreateTagInput = {
@@ -42,7 +40,7 @@ export function normalizeTagName(name: string): string {
 }
 
 export function createTagService(deps: TagServiceDeps) {
-  const { db, eventBus } = deps;
+  const { db } = deps;
 
   return {
     async list(projectId: string): Promise<SerializedTag[] | undefined> {
@@ -65,7 +63,6 @@ export function createTagService(deps: TagServiceDeps) {
       }
 
       const tag = await dbCreateTag(db, { projectId, name, color: input.color });
-      eventBus.emit({ type: 'tag_updated', projectId });
       return serializeTag(tag);
     },
 
@@ -94,7 +91,6 @@ export function createTagService(deps: TagServiceDeps) {
         return undefined;
       }
 
-      eventBus.emit({ type: 'tag_updated', projectId: tag.projectId });
       return serializeTag(tag);
     },
 
@@ -110,7 +106,6 @@ export function createTagService(deps: TagServiceDeps) {
         return false;
       }
 
-      eventBus.emit({ type: 'tag_updated', projectId: existing.projectId });
       return true;
     },
   };

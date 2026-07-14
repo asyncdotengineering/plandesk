@@ -13,8 +13,6 @@ import { createFilesRouter } from './routes/files.js';
 import { createFoldersRouter } from './routes/folders.js';
 import { createNotesRouter } from './routes/notes.js';
 import { createSharesRouter } from './routes/shares.js';
-import type { EventBus } from './events.js';
-import { createEventsRouter } from './routes/events.js';
 import { createTokensRouter } from './routes/tokens.js';
 import { createAgentRunsRouter } from './routes/agent-runs.js';
 import { createGoalsRouter } from './routes/goals.js';
@@ -24,16 +22,14 @@ import { createServices, type Services } from './services/index.js';
 
 export type AppDeps = {
   db: Db;
-  eventBus?: EventBus;
   services?: Services;
   mcp?: Hono;
   authPassword?: string;
 };
 
 export function createApp(deps: AppDeps): Hono {
-  const services = deps.services ?? createServices({ db: deps.db, eventBus: deps.eventBus });
+  const services = deps.services ?? createServices({ db: deps.db });
   const {
-    eventBus,
     projectService,
     goalService,
     taskService,
@@ -73,7 +69,6 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createTokensRouter(tokenService));
   app.route('/api/v1', createAgentRunsRouter(agentRunService));
   app.route('/api/v1', createSubmissionsRouter(syncService, projectService));
-  app.route('/api/v1', createEventsRouter(eventBus));
 
   // Mount the MCP router BEFORE the static/SPA handler. The MCP transport uses
   // GET /mcp/ for its server->client SSE stream; if the SPA catch-all (app.get('*'))

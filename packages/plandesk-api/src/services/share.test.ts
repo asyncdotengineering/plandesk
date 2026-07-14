@@ -11,7 +11,6 @@ import {
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
-import { createEventBus } from '../events.js';
 import { createProjectService } from './projects.js';
 import { createShareService, InvalidShareError, serializeShare } from './share.js';
 import { createSyncService } from './sync.js';
@@ -24,8 +23,7 @@ describe('shareService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-  const eventBus = createEventBus();
-
+  
   beforeEach(async () => {
     await migrate(db);
     await db.$client.execute('DELETE FROM share_submissions');
@@ -42,7 +40,7 @@ describe('shareService', () => {
   });
 
   function createService() {
-    return createShareService({ db, eventBus });
+    return createShareService({ db });
   }
 
   it('creates a share and returns the raw token once', async () => {
@@ -279,7 +277,7 @@ describe('shareService', () => {
   });
 
   it('cascade deletes shares when a project is deleted', async () => {
-    const projectService = createProjectService({ db, eventBus });
+    const projectService = createProjectService({ db });
     const shareService = createService();
     const project = await createProject(db, { name: 'Cascade shares' });
     await shareService.createShare(project.id, { audienceName: 'Gone', mode: 'invite' });
@@ -290,13 +288,12 @@ describe('shareService', () => {
   });
 
   it('cascade deletes pulled submissions when a project is deleted', async () => {
-    const projectService = createProjectService({ db, eventBus });
+    const projectService = createProjectService({ db });
     const project = await createProject(db, { name: 'Cascade submissions' });
-    const taskService = createTaskService({ db, eventBus });
-    const shareServiceForSync = createShareService({ db, eventBus });
+    const taskService = createTaskService({ db });
+    const shareServiceForSync = createShareService({ db });
     const syncService = createSyncService({
       db,
-      eventBus,
       taskService,
       shareService: shareServiceForSync,
     });
