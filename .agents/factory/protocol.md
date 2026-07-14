@@ -67,10 +67,26 @@ Model output is metadata.
 
 ## Protecting work in flight
 
+- **Stage the moment a dispatch returns — before you review it.** `git add` the
+  changed paths as step one, ahead of any verification. Review takes minutes,
+  and unstaged work is defenceless for all of them. This is not bookkeeping; it
+  is the cheapest real protection available:
+
+  | State when a worker runs `git checkout -- <file>` | Outcome |
+  | --- | --- |
+  | unstaged | work **destroyed** |
+  | **staged** | work **survives** — git restores from the index |
+  | committed | survives `git checkout HEAD -- <file>` too |
+
+  A real incident hinged on exactly this: a worker undid its own broken codemod
+  with `git checkout -- <testfiles>`, which also erased an earlier dispatch's
+  unstaged work. Staged, it would have been restored from the index untouched.
+  Staging also gives a clean review boundary — `git diff --staged` is the
+  worker's output, and anything you fix afterwards shows up unstaged.
 - **Commit every verified work item immediately** ([factory.md](factory.md):
-  one work item, one commit). Verified-but-uncommitted work is unprotected:
-  a later dispatch's `git checkout` can erase it, and there is no recovering it.
-  Never defer a commit to batch it with a later gate.
+  one work item, one commit). Staging survives `git checkout -- <path>`; only a
+  commit survives `git checkout HEAD -- <path>`. Never defer a commit to batch
+  it with a later gate.
 - **Never recover source from `dist/`.** Compiled output has no type
   annotations; "restoring" TypeScript from it produces code that emits but
   cannot typecheck, which then invites suppressions to hide the damage. If
