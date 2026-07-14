@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "files": {
+    ".agents/factory/autonomous-stand.md": "51d9568b914b9f4e23be07c2b46d64da37561a5f93c03d97a4b7091fced77b51",
+    ".agents/factory/lanes.md": "f189ab8dd30db3a3c48f891dd342871385545c2a78872475407ecf503a5f01e3",
+    ".agents/factory/verifiers/tests-pass.md": "50a0739c67254ad60cd23e7c1782617cbb05be5e6988ba9131eba3c751aca2f3",
+    ".agents/factory/workers/claude.md": "710fcc79b9b9447687b5eba46de4206804b168281649dd9520a114cdffb424d6",
+    ".agents/factory/workers/cursor.md": "48e7cc818c80407e147feb8af38569e5bea80fb6e4924b088b3143c6e97f2c30",
+    ".agents/factory/workers/pi.md": "9e371ed0ba998bf1bb3a98b2f3c8d2572c7a3cd886c72e0f42eec01c0822687c",
+    ".agents/curator/triage.md": "2615fca745d6ae616dbe6019948eccf2ff12ab337586f3f33745bd5c2dcb4209",
+    ".agents/curator/provenance.md": "2e241b4d4354a92380b3e27b6c62e63e2a36b408167dcddb6341ebe0718b6f38",
+    ".agents/curator/automation.md": "cf2038786677d38b03d37550c4341c65be95b4221361f22174bee3a4d19839ae",
+    ".agents/curator/intake.md": "dcfc05c84eec019e9b5daaa7c9349f96e9139445b48b29fb1937b4ed7e3958a4",
+    ".agents/curator/plan-writer.md": "4bc6eb88bfbdd47af8e98ca7033166125fc9cf10c7c5add82c3bba55dcd94442",
+    ".agents/curator/autonomy.md": "02010ec736c0e8dad3a25e54cdaa34487af4fd70f2cbb771e2a5c692be8fc127",
+    ".agents/curator/hooks/session-start.sh": "50b1559ced68b9aa7b458819b9aa1908f84999d9d38eb5fe257bf07f999fa13f",
+    ".agents/curator/hooks/checkpoint.sh": "83ec6753811f6ccb475f41be023a1a1b76bb300c74223ecff3a1ed392c06b2ec",
+    ".agents/curator/hooks/settings.snippet.json": "17bf6fc390e19706b052c2d8a31259049df8ce7279f0f37ae078d9c328ba3617",
+    ".agents/curator/hooks/README.md": "370ea61df472d97213d9b4b3b2eeecc5727b5679ba51c407db6f957463a905c5"
+  }
+}
