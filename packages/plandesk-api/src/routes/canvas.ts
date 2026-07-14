@@ -4,8 +4,8 @@ import { InvalidCanvasError, type CanvasService } from '../services/canvas.js';
 export function createCanvasRouter(canvasService: CanvasService): Hono {
   const router = new Hono();
 
-  router.get('/projects/:id/canvas', (c) => {
-    const canvas = canvasService.get(c.req.param('id'));
+  router.get('/projects/:id/canvas', async (c) => {
+    const canvas = await canvasService.get(c.req.param('id'));
     if (!canvas) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -46,7 +46,7 @@ export function createCanvasRouter(canvasService: CanvasService): Hono {
     }
 
     try {
-      const canvas = canvasService.putLayout(c.req.param('id'), {
+      const canvas = await canvasService.putLayout(c.req.param('id'), {
         nodes: body.nodes as Parameters<CanvasService['putLayout']>[1]['nodes'],
         edges: body.edges as Parameters<CanvasService['putLayout']>[1]['edges'],
         layout: body.layout,
@@ -65,8 +65,8 @@ export function createCanvasRouter(canvasService: CanvasService): Hono {
     }
   });
 
-  router.delete('/projects/:id/edges/:edgeId', (c) => {
-    const deleted = canvasService.deleteEdge(c.req.param('id'), c.req.param('edgeId'));
+  router.delete('/projects/:id/edges/:edgeId', async (c) => {
+    const deleted = await canvasService.deleteEdge(c.req.param('id'), c.req.param('edgeId'));
     if (!deleted) {
       return c.json({ error: 'not_found' }, 404);
     }

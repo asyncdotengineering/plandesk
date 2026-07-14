@@ -104,7 +104,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
       const dataDir = resolveDataDir(parsed.dataDir);
       const workspacePort = readWorkspaceJson(dataDir)?.port;
       const port = parsed.port ?? workspacePort ?? DEFAULT_PORT;
-      runServe({ port, dataDir: parsed.dataDir, host: parsed.host, strictPort: parsed.strictPort });
+      await runServe({ port, dataDir: parsed.dataDir, host: parsed.host, strictPort: parsed.strictPort });
       return 0;
     }
     case 'url': {
@@ -117,8 +117,8 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'token': {
       try {
-        const { db } = openWorkspace(parsed.dataDir);
-        const token = runTokenCreate(db, parsed.name);
+        const { db } = await openWorkspace(parsed.dataDir);
+        const token = await runTokenCreate(db, parsed.name);
         process.stdout.write(`${token}\n`);
         return 0;
       } catch (err) {
@@ -130,8 +130,8 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'export': {
       try {
-        const { db } = openWorkspace(parsed.dataDir);
-        runExport(db, parsed.projectId, parsed.outPath);
+        const { db } = await openWorkspace(parsed.dataDir);
+        await runExport(db, parsed.projectId, parsed.outPath);
         process.stdout.write(`Exported project ${parsed.projectId} to ${parsed.outPath}\n`);
         return 0;
       } catch (err) {
@@ -147,8 +147,8 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'import': {
       try {
-        const { db } = openWorkspace(parsed.dataDir);
-        const projectId = runImport(db, parsed.inPath);
+        const { db } = await openWorkspace(parsed.dataDir);
+        const projectId = await runImport(db, parsed.inPath);
         process.stdout.write(`${projectId}\n`);
         return 0;
       } catch (err) {
@@ -208,7 +208,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     case 'publish': {
       try {
         const repoDir = resolveRepoDir(parsed.repoDir);
-        const { db } = openWorkspace(parsed.dataDir);
+        const { db } = await openWorkspace(parsed.dataDir);
         const result = await runPublish(db, {
           repoDir,
           projectId: parsed.projectId,
@@ -235,7 +235,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     case 'push': {
       try {
         const repoDir = resolveRepoDir(parsed.repoDir);
-        const { db } = openWorkspace(parsed.dataDir);
+        const { db } = await openWorkspace(parsed.dataDir);
         const result = await runPush(db, { repoDir, projectId: parsed.projectId });
         process.stdout.write(formatPushSummary(result));
         return 0;
@@ -257,7 +257,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     case 'pull': {
       try {
         const repoDir = resolveRepoDir(parsed.repoDir);
-        const { db } = openWorkspace(parsed.dataDir);
+        const { db } = await openWorkspace(parsed.dataDir);
         const result = await runPull(db, { repoDir, projectId: parsed.projectId });
         process.stdout.write(formatPullSummary(result));
         return 0;
@@ -283,7 +283,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
       }
       try {
         const repoDir = resolveRepoDir(parsed.repoDir);
-        const { db } = openWorkspace(parsed.dataDir);
+        const { db } = await openWorkspace(parsed.dataDir);
         await runWatch(db, { repoDir, projectId: parsed.projectId });
         return 0;
       } catch (err) {
@@ -306,8 +306,8 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     case 'share': {
       try {
         const repoDir = resolveRepoDir(parsed.repoDir);
-        const { db } = openWorkspace(parsed.dataDir);
-        const result = runShareCreate(db, {
+        const { db } = await openWorkspace(parsed.dataDir);
+        const result = await runShareCreate(db, {
           repoDir,
           projectId: parsed.projectId,
           audienceName: parsed.audience,

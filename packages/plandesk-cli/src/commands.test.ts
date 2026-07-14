@@ -44,7 +44,7 @@ async function captureIo(
 // that run `init` never share its tmp path with other test files — concurrent
 // writers otherwise race on ports.json.tmp (one's rename consumes the other's).
 let portRegistryStateDir: string | undefined;
-beforeEach(() => {
+beforeEach(async () => {
   portRegistryStateDir = mkdtempSync(join(tmpdir(), 'plandesk-cmd-state-'));
   process.env.PLANDESK_STATE_DIR = portRegistryStateDir;
 });
@@ -57,7 +57,7 @@ afterEach(() => {
 });
 
 describe('parseArgs export/import/doctor', () => {
-  it('parses export with project, out, and data-dir', () => {
+  it('parses export with project, out, and data-dir', async () => {
     expect(
       parseArgs([
         'node',
@@ -78,7 +78,7 @@ describe('parseArgs export/import/doctor', () => {
     });
   });
 
-  it('parses import with in and data-dir', () => {
+  it('parses import with in and data-dir', async () => {
     expect(
       parseArgs(['node', 'plandesk', 'import', '--in', '/tmp/in.json', '--data-dir', '/tmp/ws']),
     ).toEqual({
@@ -88,35 +88,35 @@ describe('parseArgs export/import/doctor', () => {
     });
   });
 
-  it('parses doctor with data-dir', () => {
+  it('parses doctor with data-dir', async () => {
     expect(parseArgs(['node', 'plandesk', 'doctor', '--data-dir', '/tmp/ws'])).toEqual({
       command: 'doctor',
       dataDir: '/tmp/ws',
     });
   });
 
-  it('returns unknown when export is missing --project', () => {
+  it('returns unknown when export is missing --project', async () => {
     expect(parseArgs(['node', 'plandesk', 'export', '--out', '/tmp/out.json'])).toEqual({
       command: 'unknown',
       name: 'export (missing --project)',
     });
   });
 
-  it('returns unknown when import is missing --in', () => {
+  it('returns unknown when import is missing --in', async () => {
     expect(parseArgs(['node', 'plandesk', 'import'])).toEqual({
       command: 'unknown',
       name: 'import (missing --in)',
     });
   });
 
-  it('parses context with repo', () => {
+  it('parses context with repo', async () => {
     expect(parseArgs(['node', 'plandesk', 'context', '--json', '--repo', '/tmp/repo'])).toEqual({
       command: 'context',
       repoDir: '/tmp/repo',
     });
   });
 
-  it('parses progress-checkpoint with message and repo', () => {
+  it('parses progress-checkpoint with message and repo', async () => {
     expect(
       parseArgs([
         'node',
@@ -134,7 +134,7 @@ describe('parseArgs export/import/doctor', () => {
     });
   });
 
-  it('parses progress-checkpoint with no flags', () => {
+  it('parses progress-checkpoint with no flags', async () => {
     expect(parseArgs(['node', 'plandesk', 'progress-checkpoint'])).toEqual({
       command: 'progress-checkpoint',
       message: undefined,
@@ -164,9 +164,9 @@ describe('CLI export/import/doctor', () => {
 
   it('exports a project to plandesk-export-v1 JSON', async () => {
     const dataDir = await makeWorkspace();
-    const { db } = openWorkspace(dataDir);
-    const project = createProject(db, { name: 'CLI Export Project' });
-    createTask(db, { projectId: project.id, label: 'Task A' });
+    const { db } = await openWorkspace(dataDir);
+    const project = await createProject(db, { name: 'CLI Export Project' });
+    await createTask(db, { projectId: project.id, label: 'Task A' });
 
     const outPath = join(dataDir, 'export.json');
     const { code, stdout } = await captureIo(() =>
@@ -212,10 +212,10 @@ describe('CLI export/import/doctor', () => {
 
   it('round-trips export then import via CLI', async () => {
     const dataDir = await makeWorkspace();
-    const { db } = openWorkspace(dataDir);
-    const project = createProject(db, { name: 'Round Trip' });
-    createTask(db, { projectId: project.id, label: 'Alpha' });
-    createTask(db, { projectId: project.id, label: 'Beta' });
+    const { db } = await openWorkspace(dataDir);
+    const project = await createProject(db, { name: 'Round Trip' });
+    await createTask(db, { projectId: project.id, label: 'Alpha' });
+    await createTask(db, { projectId: project.id, label: 'Beta' });
 
     const outPath = join(dataDir, 'round-trip.json');
     const exportResult = await captureIo(() =>
@@ -240,10 +240,10 @@ describe('CLI export/import/doctor', () => {
 
     const importedProjectId = importResult.stdout.trim();
     expect(importedProjectId).not.toBe(project.id);
-    expect(getProject(db, importedProjectId)?.name).toBe('Round Trip');
+    expect((await getProject(db, importedProjectId))?.name).toBe('Round Trip');
 
-    const reExported = exportProject(db, importedProjectId);
-    const original = exportProject(db, project.id);
+    const reExported = await exportProject(db, importedProjectId);
+    const original = await exportProject(db, project.id);
     expect(reExported?.project).toEqual(original?.project);
     expect(reExported?.tasks.map((task) => task.label).sort()).toEqual(
       original?.tasks.map((task) => task.label).sort(),
@@ -288,9 +288,9 @@ describe('CLI export/import/doctor', () => {
 
   it('reports healthy workspace via doctor', async () => {
     const dataDir = await makeWorkspace();
-    const { db } = openWorkspace(dataDir);
-    const project = createProject(db, { name: 'Doctor Project' });
-    createTask(db, { projectId: project.id, label: 'Check' });
+    const { db } = await openWorkspace(dataDir);
+    const project = await createProject(db, { name: 'Doctor Project' });
+    await createTask(db, { projectId: project.id, label: 'Check' });
 
     const { code, stdout } = await captureIo(() =>
       main(['node', 'plandesk', 'doctor', '--data-dir', dataDir]),
@@ -419,13 +419,13 @@ describe('CLI context/progress-checkpoint no-binding smoke test', () => {
 });
 
 describe('preview command dispatch', () => {
-  it('parses the explicit open subcommand with paths and flags', () => {
+  it('parses the explicit open subcommand with paths and flags', async () => {
     expect(
       parseArgs(['node', 'plandesk', 'open', 'a.md', 'b.html', '--port', '4000', '--no-open']),
     ).toEqual({ command: 'preview', paths: ['a.md', 'b.html'], port: 4000, host: undefined, open: false });
   });
 
-  it('treats preview and annotate as aliases of open', () => {
+  it('treats preview and annotate as aliases of open', async () => {
     expect(parseArgs(['node', 'plandesk', 'preview', 'x.md'])).toMatchObject({
       command: 'preview',
       paths: ['x.md'],
@@ -437,7 +437,7 @@ describe('preview command dispatch', () => {
     });
   });
 
-  it('routes a bare existing previewable file to preview (plandesk *.md)', () => {
+  it('routes a bare existing previewable file to preview (plandesk *.md)', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'plandesk-preview-'));
     try {
       const md = join(dir, 'report.md');
@@ -454,14 +454,14 @@ describe('preview command dispatch', () => {
     }
   });
 
-  it('does not route a non-existent .md arg to preview (guards against shadowing)', () => {
+  it('does not route a non-existent .md arg to preview (guards against shadowing)', async () => {
     expect(parseArgs(['node', 'plandesk', 'does-not-exist.md'])).toEqual({
       command: 'unknown',
       name: 'does-not-exist.md',
     });
   });
 
-  it('never lets a file shadow a reserved subcommand', () => {
+  it('never lets a file shadow a reserved subcommand', async () => {
     // `serve` is reserved even if a file named `serve` existed in cwd.
     expect(parseArgs(['node', 'plandesk', 'serve'])).toMatchObject({ command: 'serve' });
   });

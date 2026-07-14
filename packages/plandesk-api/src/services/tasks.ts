@@ -1,4 +1,5 @@
 import {
+  withTransaction,
   createTag,
   createTask,
   deleteCommentsByTarget,
@@ -102,7 +103,11 @@ export type ListTasksFilter = {
 };
 
 // Resolves tag names to ids, auto-creating tags that do not exist yet.
-function resolveTagIdsByName(db: DbClient, projectId: string, names: string[]): string[] {
+async function resolveTagIdsByName(
+  db: DbClient,
+  projectId: string,
+  names: string[],
+): Promise<string[]> {
   const seen = new Set<string>();
   const ids: string[] = [];
   for (const raw of names) {
@@ -111,7 +116,8 @@ function resolveTagIdsByName(db: DbClient, projectId: string, names: string[]): 
       continue;
     }
     seen.add(name);
-    const tag = getTagByName(db, projectId, name) ?? createTag(db, { projectId, name });
+    const existing = await getTagByName(db, projectId, name);
+    const tag = existing ?? (await createTag(db, { projectId, name }));
     ids.push(tag.id);
   }
   return ids;
@@ -121,15 +127,15 @@ export function createTaskService(deps: TaskServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    get(id: string) {
-      const task = getTask(db, id);
+    async get(id: string) {
+      const task = await getTask(db, id);
       if (!task) {
         return undefined;
       }
-      return serializeTask(task, listTagsForTask(db, id));
+      return serializeTask(task, await listTagsForTask(db, id));
     },
 
-    listByProject(
+    async listByProject(
       projectId: string,
       filter: ListTasksFilter = {},
       pagination: PaginationParams = {},
@@ -138,41 +144,41 @@ export function createTaskService(deps: TaskServiceDeps) {
         throw new InvalidTaskStatusError(filter.status);
       }
 
-      const project = getProject(db, projectId);
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
       const statusFilter = filter.status;
-      const tasks = listTasks(db, projectId, {
+      const tasks = await listTasks(db, projectId, {
         ...(statusFilter !== undefined ? { status: statusFilter } : {}),
         ...(filter.tags !== undefined ? { tagNames: filter.tags.map(normalizeTagName) } : {}),
         ...pagination,
       });
-      const tagsByTask = listTagsByTaskForProject(db, projectId);
+      const tagsByTask = await listTagsByTaskForProject(db, projectId);
       return tasks.map((task) => serializeTask(task, tagsByTask.get(task.id) ?? []));
     },
 
-    create(projectId: string, input: CreateTaskInput) {
+    async create(projectId: string, input: CreateTaskInput) {
       if (input.status !== undefined && !isTaskStatus(input.status)) {
         throw new InvalidTaskStatusError(input.status);
       }
 
-      const project = getProject(db, projectId);
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
       if (
         input.goalId !== undefined &&
-        !listGoals(db, projectId).some((g) => g.id === input.goalId)
+        !(await listGoals(db, projectId)).some((g) => g.id === input.goalId)
       ) {
         throw new InvalidGoalReferenceError(input.goalId);
       }
 
-      const { task, tags } = db.transaction((tx) => {
-        const goalId = input.goalId ?? getOrCreateDefaultGoal(tx, projectId).id;
-        const row = createTask(tx, {
+      const { task, tags } = await withTransaction(db, async (tx) => {
+        const goalId = input.goalId ?? (await getOrCreateDefaultGoal(tx, projectId)).id;
+        const row = await createTask(tx, {
           projectId,
           goalId,
           label: input.label,
@@ -184,9 +190,9 @@ export function createTaskService(deps: TaskServiceDeps) {
           dueDate: input.dueDate,
         });
         if (input.tags !== undefined) {
-          setTaskTags(tx, row.id, resolveTagIdsByName(tx, projectId, input.tags));
+          await setTaskTags(tx, row.id, await resolveTagIdsByName(tx, projectId, input.tags));
         }
-        return { task: row, tags: listTagsForTask(tx, row.id) };
+        return { task: row, tags: await listTagsForTask(tx, row.id) };
       });
 
       eventBus.emit({
@@ -198,26 +204,26 @@ export function createTaskService(deps: TaskServiceDeps) {
       return serializeTask(task, tags);
     },
 
-    update(id: string, input: UpdateTaskInput) {
+    async update(id: string, input: UpdateTaskInput) {
       if (input.status !== undefined && !isTaskStatus(input.status)) {
         throw new InvalidTaskStatusError(input.status);
       }
 
-      const existing = getTask(db, id);
+      const existing = await getTask(db, id);
       if (!existing) {
         return undefined;
       }
 
       const { tags: tagNames, ...columns } = input;
-      const result = db.transaction((tx) => {
-        const row = updateTask(tx, id, columns);
+      const result = await withTransaction(db, async (tx) => {
+        const row = await updateTask(tx, id, columns);
         if (!row) {
           return undefined;
         }
         if (tagNames !== undefined) {
-          setTaskTags(tx, id, resolveTagIdsByName(tx, existing.projectId, tagNames));
+          await setTaskTags(tx, id, await resolveTagIdsByName(tx, existing.projectId, tagNames));
         }
-        return { task: row, tags: listTagsForTask(tx, id) };
+        return { task: row, tags: await listTagsForTask(tx, id) };
       });
       if (!result) {
         return undefined;
@@ -232,20 +238,20 @@ export function createTaskService(deps: TaskServiceDeps) {
       return serializeTask(result.task, result.tags);
     },
 
-    delete(id: string) {
-      const task = getTask(db, id);
+    async delete(id: string) {
+      const task = await getTask(db, id);
       if (!task) {
         return false;
       }
 
       const projectId = task.projectId;
 
-      db.transaction((tx) => {
-        deleteCommentsByTarget(tx, 'task', id);
-        deleteEdgesByTaskId(tx, id);
-        nullDocumentsLinkedTask(tx, id);
-        deleteTaskTagsByTaskId(tx, id);
-        dbDeleteTask(tx, id);
+      await withTransaction(db, async (tx) => {
+        await deleteCommentsByTarget(tx, 'task', id);
+        await deleteEdgesByTaskId(tx, id);
+        await nullDocumentsLinkedTask(tx, id);
+        await deleteTaskTagsByTaskId(tx, id);
+        await dbDeleteTask(tx, id);
       });
 
       eventBus.emit({ type: 'canvas_updated', projectId });
@@ -255,18 +261,18 @@ export function createTaskService(deps: TaskServiceDeps) {
     // filter.goalId scopes candidates to one goal; when omitted, the project's sole
     // active goal is resolved. filter.tags (OR semantics) composes with goal scope;
     // prerequisite completion is still evaluated against all tasks in the project.
-    nextActionable(
+    async nextActionable(
       projectId: string,
       filter: { goalId?: string; tags?: string[] } = {},
-    ): NextActionableResult | undefined {
-      const project = getProject(db, projectId);
+    ): Promise<NextActionableResult | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
       let goalId = filter.goalId;
       if (goalId === undefined) {
-        const active = listGoals(db, projectId).filter((goal) => goal.status === 'active');
+        const active = (await listGoals(db, projectId)).filter((goal) => goal.status === 'active');
         if (active.length === 0) {
           return { next_task: null, reason: 'no_active_goal', blocked: [] };
         }
@@ -274,19 +280,19 @@ export function createTaskService(deps: TaskServiceDeps) {
           return { next_task: null, reason: 'multiple_active_goals', blocked: [] };
         }
         goalId = active[0]?.id;
-      } else if (!listGoals(db, projectId).some((goal) => goal.id === goalId)) {
+      } else if (!(await listGoals(db, projectId)).some((goal) => goal.id === goalId)) {
         return undefined;
       }
 
-      const tasks = listTasks(db, projectId).sort(
+      const tasks = (await listTasks(db, projectId)).sort(
         (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
       );
-      const edges = listEdges(db, projectId);
+      const edges = await listEdges(db, projectId);
       const taskById = new Map<string, Task>(tasks.map((task) => [task.id, task]));
-      const tagsByTask = listTagsByTaskForProject(db, projectId);
+      const tagsByTask = await listTagsByTaskForProject(db, projectId);
       const tagMatches =
         filter.tags !== undefined && filter.tags.length > 0
-          ? taskIdsWithAnyTagName(db, projectId, filter.tags.map(normalizeTagName))
+          ? await taskIdsWithAnyTagName(db, projectId, filter.tags.map(normalizeTagName))
           : undefined;
       const serialize = (task: Task) => serializeTask(task, tagsByTask.get(task.id) ?? []);
 

@@ -50,19 +50,19 @@ function assertNonEmptyBody(body: string): void {
   }
 }
 
-function targetProjectId(
+async function targetProjectId(
   db: Db,
   target: { type: CommentTargetType; id: string },
-): string | undefined {
+): Promise<string | undefined> {
   switch (target.type) {
     case 'document':
-      return dbGetDocument(db, target.id)?.projectId;
+      return (await dbGetDocument(db, target.id))?.projectId;
     case 'task':
-      return getTask(db, target.id)?.projectId;
+      return (await getTask(db, target.id))?.projectId;
     case 'note':
-      return dbGetNote(db, target.id)?.projectId;
+      return (await dbGetNote(db, target.id))?.projectId;
     case 'submission':
-      return getSubmission(db, target.id)?.projectId;
+      return (await getSubmission(db, target.id))?.projectId;
     case 'artifact':
       // An artifact is a file on disk, not a DB entity — its project is
       // supplied by the caller (the connected repo's project), not resolved
@@ -107,15 +107,18 @@ export function createCommentService(deps: CommentServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    create(target: CommentTarget, input: CreateCommentInput): SerializedComment | undefined {
-      const projectId = targetProjectId(db, target);
+    async create(
+      target: CommentTarget,
+      input: CreateCommentInput,
+    ): Promise<SerializedComment | undefined> {
+      const projectId = await targetProjectId(db, target);
       if (!projectId) {
         return undefined;
       }
 
       assertNonEmptyBody(input.body);
 
-      const comment = createComment(db, {
+      const comment = await createComment(db, {
         projectId,
         targetType: target.type,
         targetId: target.id,
@@ -132,12 +135,12 @@ export function createCommentService(deps: CommentServiceDeps) {
     // Artifact comments are project-scoped: the caller supplies the project
     // (the connected repo's), and the file identity is the target id. Slashes
     // in the file identity mean it travels in the body/query, never a path seg.
-    createForArtifact(
+    async createForArtifact(
       projectId: string,
       artifactId: string,
       input: CreateCommentInput,
-    ): SerializedComment | undefined {
-      if (!getProject(db, projectId)) {
+    ): Promise<SerializedComment | undefined> {
+      if (!(await getProject(db, projectId))) {
         return undefined;
       }
       if (artifactId.trim() === '') {
@@ -146,7 +149,7 @@ export function createCommentService(deps: CommentServiceDeps) {
       assertNonEmptyBody(input.body);
 
       const target = { type: 'artifact' as const, id: artifactId };
-      const comment = createComment(db, {
+      const comment = await createComment(db, {
         projectId,
         targetType: 'artifact',
         targetId: artifactId,
@@ -160,52 +163,56 @@ export function createCommentService(deps: CommentServiceDeps) {
       return serializeComment(comment);
     },
 
-    listForArtifact(
+    async listForArtifact(
       projectId: string,
       artifactId: string,
       options?: { includeResolved?: boolean },
-    ): SerializedComment[] | undefined {
-      if (!getProject(db, projectId)) {
+    ): Promise<SerializedComment[] | undefined> {
+      if (!(await getProject(db, projectId))) {
         return undefined;
       }
-      return dbListCommentsByTarget(db, 'artifact', artifactId, options).map(serializeComment);
+      return (await dbListCommentsByTarget(db, 'artifact', artifactId, options)).map(
+        serializeComment,
+      );
     },
 
-    listByTarget(
+    async listByTarget(
       target: CommentTarget,
       options?: { includeResolved?: boolean },
-    ): SerializedComment[] | undefined {
-      const projectId = targetProjectId(db, target);
+    ): Promise<SerializedComment[] | undefined> {
+      const projectId = await targetProjectId(db, target);
       if (!projectId) {
         return undefined;
       }
-      return dbListCommentsByTarget(db, target.type, target.id, options).map(serializeComment);
+      return (await dbListCommentsByTarget(db, target.type, target.id, options)).map(
+        serializeComment,
+      );
     },
 
-    resolveTargetProjectId(target: CommentTarget): string | undefined {
+    async resolveTargetProjectId(target: CommentTarget): Promise<string | undefined> {
       return targetProjectId(db, target);
     },
 
-    listByDocument(
+    async listByDocument(
       documentId: string,
       options?: { includeResolved?: boolean },
-    ): SerializedComment[] | undefined {
+    ): Promise<SerializedComment[] | undefined> {
       return this.listByTarget({ type: 'document', id: documentId }, options);
     },
 
-    listByProject(
+    async listByProject(
       projectId: string,
       options?: { includeResolved?: boolean },
-    ): SerializedComment[] | undefined {
-      const project = getProject(db, projectId);
+    ): Promise<SerializedComment[] | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
-      return dbListCommentsByProject(db, projectId, options).map(serializeComment);
+      return (await dbListCommentsByProject(db, projectId, options)).map(serializeComment);
     },
 
-    update(id: string, input: UpdateCommentInput): SerializedComment | undefined {
-      const existing = dbGetComment(db, id);
+    async update(id: string, input: UpdateCommentInput): Promise<SerializedComment | undefined> {
+      const existing = await dbGetComment(db, id);
       if (!existing) {
         return undefined;
       }
@@ -214,12 +221,12 @@ export function createCommentService(deps: CommentServiceDeps) {
         assertNonEmptyBody(input.body);
       }
 
-      const comment = dbUpdateComment(db, id, input);
+      const comment = await dbUpdateComment(db, id, input);
       if (!comment) {
         return undefined;
       }
 
-      const projectId = targetProjectId(db, {
+      const projectId = await targetProjectId(db, {
         type: comment.targetType,
         id: comment.targetId,
       });
@@ -235,13 +242,13 @@ export function createCommentService(deps: CommentServiceDeps) {
       return serializeComment(comment);
     },
 
-    delete(id: string): boolean {
-      const existing = dbGetComment(db, id);
+    async delete(id: string): Promise<boolean> {
+      const existing = await dbGetComment(db, id);
       if (!existing) {
         return false;
       }
 
-      const projectId = targetProjectId(db, {
+      const projectId = await targetProjectId(db, {
         type: existing.targetType,
         id: existing.targetId,
       });
@@ -249,7 +256,7 @@ export function createCommentService(deps: CommentServiceDeps) {
         return false;
       }
 
-      const deleted = dbDeleteComment(db, id);
+      const deleted = await dbDeleteComment(db, id);
       if (!deleted) {
         return false;
       }

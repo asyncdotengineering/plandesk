@@ -3,9 +3,9 @@ import { toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createListArtifactsHandler(
   artifactService: ArtifactService,
-): (args: { project_id: string }) => ToolResult {
-  return ({ project_id }) => {
-    const artifacts = artifactService.listByProject(project_id);
+): (args: { project_id: string }) => Promise<ToolResult> {
+  return async ({ project_id }) => {
+    const artifacts = await artifactService.listByProject(project_id);
     if (!artifacts) {
       return toolNotFound();
     }

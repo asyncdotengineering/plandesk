@@ -245,11 +245,11 @@ export function createShareService(deps: ShareServiceDeps) {
   const { db } = deps;
 
   return {
-    createShare(
+    async createShare(
       projectId: string,
       input: CreateShareInput,
-    ): { share: SerializedShare; token: string } | undefined {
-      const project = getProject(db, projectId);
+    ): Promise<{ share: SerializedShare; token: string } | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
@@ -258,7 +258,7 @@ export function createShareService(deps: ShareServiceDeps) {
         throw new InvalidShareError('Share audience name must not be empty');
       }
 
-      const { share, token } = dbCreateShare(db, {
+      const { share, token } = await dbCreateShare(db, {
         projectId,
         audienceName: input.audienceName,
         mode: input.mode,
@@ -271,41 +271,41 @@ export function createShareService(deps: ShareServiceDeps) {
       return { share: serializeShare(share), token };
     },
 
-    listShares(projectId: string): SerializedShare[] | undefined {
-      const project = getProject(db, projectId);
+    async listShares(projectId: string): Promise<SerializedShare[] | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
-      return dbListShares(db, projectId).map(serializeShare);
+      return (await dbListShares(db, projectId)).map(serializeShare);
     },
 
-    revokeShare(id: string): boolean {
-      return dbRevokeShare(db, id) !== undefined;
+    async revokeShare(id: string): Promise<boolean> {
+      return (await dbRevokeShare(db, id)) !== undefined;
     },
 
-    buildClientView(projectId: string, shareId: string): ClientView | undefined {
-      const share = dbGetShare(db, shareId);
+    async buildClientView(projectId: string, shareId: string): Promise<ClientView | undefined> {
+      const share = await dbGetShare(db, shareId);
       if (!share || share.projectId !== projectId) {
         return undefined;
       }
       return buildClientView(db, projectId, share);
     },
 
-    createResourceShare(
+    async createResourceShare(
       input: CreateResourceShareInput,
       origin: string,
-    ): ResourceShareResult | undefined {
+    ): Promise<ResourceShareResult | undefined> {
       let projectId: string;
       let policy: SharePolicy;
       let audienceName: string;
 
       if (input.resource.kind === 'task') {
-        const task = getTask(db, input.resource.id);
+        const task = await getTask(db, input.resource.id);
         if (!task) {
           return undefined;
         }
         projectId = task.projectId;
-        const linkedDocumentIds = listDocuments(db, projectId)
+        const linkedDocumentIds = (await listDocuments(db, projectId))
           .filter((doc) => doc.linkedTaskId === task.id)
           .map((doc) => doc.id);
         policy = {
@@ -315,7 +315,7 @@ export function createShareService(deps: ShareServiceDeps) {
         };
         audienceName = `Agent link: ${task.label}`;
       } else {
-        const document = getDocument(db, input.resource.id);
+        const document = await getDocument(db, input.resource.id);
         if (!document) {
           return undefined;
         }
@@ -329,7 +329,7 @@ export function createShareService(deps: ShareServiceDeps) {
           ? null
           : (input.expiresAt ?? new Date(Date.now() + RESOURCE_SHARE_DEFAULT_TTL_MS));
 
-      const { share, token } = dbCreateShare(db, {
+      const { share, token } = await dbCreateShare(db, {
         projectId,
         audienceName,
         mode: 'public',
@@ -346,8 +346,8 @@ export function createShareService(deps: ShareServiceDeps) {
       };
     },
 
-    getResourceMarkdown(token: string, origin: string): ResourceMarkdownResult {
-      const share = getShareByTokenHashRaw(db, hashShareToken(token));
+    async getResourceMarkdown(token: string, origin: string): Promise<ResourceMarkdownResult> {
+      const share = await getShareByTokenHashRaw(db, hashShareToken(token));
       if (!share) {
         return { status: 'not_found' };
       }
@@ -357,7 +357,7 @@ export function createShareService(deps: ShareServiceDeps) {
         return { status: 'gone' };
       }
 
-      const view = buildClientView(db, share.projectId, share);
+      const view = await buildClientView(db, share.projectId, share);
       if (!view) {
         return { status: 'not_found' };
       }

@@ -8,9 +8,9 @@ type ToolResult = {
 
 export function createGetProjectHandler(
   projectService: ProjectService,
-): (args: { project_id: string }) => ToolResult {
-  return ({ project_id }) => {
-    const project = projectService.get(project_id);
+): (args: { project_id: string }) => Promise<ToolResult> {
+  return async ({ project_id }) => {
+    const project = await projectService.get(project_id);
     if (!project) {
       return {
         content: [{ type: 'text' as const, text: JSON.stringify({ error: 'not_found' }) }],

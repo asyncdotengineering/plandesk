@@ -9,7 +9,7 @@ function basicAuth(password: string): string {
 
 describe('createAuthMiddleware', () => {
   it('returns 401 for REST without credentials when auth is enabled', async () => {
-    const { app } = createTestApp({ authPassword: 'secret' });
+    const { app } = await createTestApp({ authPassword: 'secret' });
     const res = await app.request('/api/v1/health');
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: 'unauthorized' });
@@ -17,7 +17,7 @@ describe('createAuthMiddleware', () => {
   });
 
   it('allows REST with correct basic credentials', async () => {
-    const { app } = createTestApp({ authPassword: 'secret' });
+    const { app } = await createTestApp({ authPassword: 'secret' });
     const res = await app.request('/api/v1/health', {
       headers: { Authorization: basicAuth('secret') },
     });
@@ -26,7 +26,7 @@ describe('createAuthMiddleware', () => {
   });
 
   it('returns 401 for wrong password', async () => {
-    const { app } = createTestApp({ authPassword: 'secret' });
+    const { app } = await createTestApp({ authPassword: 'secret' });
     const res = await app.request('/api/v1/health', {
       headers: { Authorization: basicAuth('wrong') },
     });

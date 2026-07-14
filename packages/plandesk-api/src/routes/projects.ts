@@ -12,12 +12,12 @@ export function createProjectsRouter(
 ): Hono {
   const router = new Hono();
 
-  router.get('/projects', (c) => {
+  router.get('/projects', async (c) => {
     const pagination = parsePaginationParams(c.req.query('limit'), c.req.query('offset'));
     if (pagination === 'invalid') {
       return c.json({ error: 'invalid_argument' }, 400);
     }
-    return c.json(projectService.list(pagination));
+    return c.json(await projectService.list(pagination));
   });
 
   router.post('/projects', async (c) => {
@@ -25,15 +25,15 @@ export function createProjectsRouter(
     if (typeof body.name !== 'string' || body.name.trim() === '') {
       return c.json({ error: 'invalid_argument' }, 400);
     }
-    const project = projectService.create({
+    const project = await projectService.create({
       name: body.name,
       description: body.description,
     });
     return c.json(project, 201);
   });
 
-  router.get('/projects/:id', (c) => {
-    const project = projectService.get(c.req.param('id'));
+  router.get('/projects/:id', async (c) => {
+    const project = await projectService.get(c.req.param('id'));
     if (!project) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -45,7 +45,7 @@ export function createProjectsRouter(
     if (body.name !== undefined && (typeof body.name !== 'string' || body.name.trim() === '')) {
       return c.json({ error: 'invalid_argument' }, 400);
     }
-    const project = projectService.update(c.req.param('id'), {
+    const project = await projectService.update(c.req.param('id'), {
       ...(body.name !== undefined ? { name: body.name } : {}),
       ...(body.description !== undefined ? { description: body.description } : {}),
     });
@@ -55,8 +55,8 @@ export function createProjectsRouter(
     return c.json(project);
   });
 
-  router.delete('/projects/:id', (c) => {
-    const deleted = projectService.delete(c.req.param('id'));
+  router.delete('/projects/:id', async (c) => {
+    const deleted = await projectService.delete(c.req.param('id'));
     if (!deleted) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -99,7 +99,7 @@ export function createProjectsRouter(
     }
 
     try {
-      const task = taskService.create(c.req.param('id'), {
+      const task = await taskService.create(c.req.param('id'), {
         label: body.label,
         ...(body.status !== undefined ? { status: body.status } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
@@ -128,7 +128,7 @@ export function createProjectsRouter(
     }
   });
 
-  router.get('/projects/:id/tasks', (c) => {
+  router.get('/projects/:id/tasks', async (c) => {
     try {
       const pagination = parsePaginationParams(c.req.query('limit'), c.req.query('offset'));
       if (pagination === 'invalid') {
@@ -138,7 +138,7 @@ export function createProjectsRouter(
       // Repeated ?tag= params filter with OR semantics (task matches if it has
       // ANY of the given tags).
       const tags = c.req.queries('tag');
-      const tasks = taskService.listByProject(
+      const tasks = await taskService.listByProject(
         c.req.param('id'),
         { status, ...(tags !== undefined && tags.length > 0 ? { tags } : {}) },
         pagination,
@@ -155,8 +155,8 @@ export function createProjectsRouter(
     }
   });
 
-  router.get('/projects/:id/next-task', (c) => {
-    const result = taskService.nextActionable(c.req.param('id'));
+  router.get('/projects/:id/next-task', async (c) => {
+    const result = await taskService.nextActionable(c.req.param('id'));
     if (!result) {
       return c.json({ error: 'not_found' }, 404);
     }

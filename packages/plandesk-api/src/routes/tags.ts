@@ -14,8 +14,8 @@ type UpdateTagBody = {
 export function createTagsRouter(tagService: TagService): Hono {
   const router = new Hono();
 
-  router.get('/projects/:id/tags', (c) => {
-    const tags = tagService.list(c.req.param('id'));
+  router.get('/projects/:id/tags', async (c) => {
+    const tags = await tagService.list(c.req.param('id'));
     if (!tags) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -29,7 +29,7 @@ export function createTagsRouter(tagService: TagService): Hono {
     }
 
     try {
-      const tag = tagService.create(c.req.param('id'), {
+      const tag = await tagService.create(c.req.param('id'), {
         name: body.name,
         color: body.color,
       });
@@ -51,7 +51,7 @@ export function createTagsRouter(tagService: TagService): Hono {
     const body = await c.req.json<UpdateTagBody>();
 
     try {
-      const tag = tagService.update(c.req.param('id'), {
+      const tag = await tagService.update(c.req.param('id'), {
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.color !== undefined ? { color: body.color } : {}),
       });
@@ -69,8 +69,8 @@ export function createTagsRouter(tagService: TagService): Hono {
     }
   });
 
-  router.delete('/tags/:id', (c) => {
-    const deleted = tagService.delete(c.req.param('id'));
+  router.delete('/tags/:id', async (c) => {
+    const deleted = await tagService.delete(c.req.param('id'));
     if (!deleted) {
       return c.json({ error: 'not_found' }, 404);
     }

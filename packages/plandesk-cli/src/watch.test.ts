@@ -47,14 +47,14 @@ describe('runWatch', () => {
     dataDir: string;
     repoDir: string;
     projectId: string;
-    db: ReturnType<typeof openWorkspace>['db'];
+    db: Awaited<ReturnType<typeof openWorkspace>>['db'];
   }> {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-watch-ws-'));
     const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-watch-repo-'));
     tempDirs.push(dataDir, repoDir);
     await runInit(dataDir);
-    const { db } = openWorkspace(dataDir);
-    const project = createProject(db, { name: 'Watch test' });
+    const { db } = await openWorkspace(dataDir);
+    const project = await createProject(db, { name: 'Watch test' });
     mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
     writeFileSync(
       join(repoDir, '.plandesk', 'config.json'),

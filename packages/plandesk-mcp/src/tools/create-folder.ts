@@ -4,10 +4,10 @@ import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from 
 
 export function createCreateFolderHandler(
   folderService: FolderService,
-): (args: { project_id: string; name: string; parent_folder_id?: string }) => ToolResult {
-  return (args) => {
+): (args: { project_id: string; name: string; parent_folder_id?: string }) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const folder = folderService.create(args.project_id, {
+      const folder = await folderService.create(args.project_id, {
         name: args.name,
         ...(args.parent_folder_id !== undefined ? { parentFolderId: args.parent_folder_id } : {}),
       });

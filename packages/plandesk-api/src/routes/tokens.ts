@@ -9,14 +9,14 @@ export function createTokensRouter(tokenService: TokenService): Hono {
     if (typeof body.name !== 'string' || body.name.trim() === '') {
       return c.json({ error: 'invalid_argument' }, 400);
     }
-    const created = tokenService.create(body.name.trim());
+    const created = await tokenService.create(body.name.trim());
     return c.json(created, 201);
   });
 
-  router.get('/mcp-tokens', (c) => c.json(tokenService.list()));
+  router.get('/mcp-tokens', async (c) => c.json(await tokenService.list()));
 
-  router.delete('/mcp-tokens/:id', (c) => {
-    const revoked = tokenService.revoke(c.req.param('id'));
+  router.delete('/mcp-tokens/:id', async (c) => {
+    const revoked = await tokenService.revoke(c.req.param('id'));
     if (!revoked) {
       return c.json({ error: 'not_found' }, 404);
     }

@@ -4,9 +4,9 @@ import type { TaskStatus } from '@plandesk/db';
 
 export function createListTasksHandler(
   taskService: TaskService,
-): (args: { project_id: string; status?: TaskStatus; tags?: string[] }) => ToolResult {
-  return (args) => {
-    const tasks = taskService.listByProject(args.project_id, {
+): (args: { project_id: string; status?: TaskStatus; tags?: string[] }) => Promise<ToolResult> {
+  return async (args) => {
+    const tasks = await taskService.listByProject(args.project_id, {
       ...(args.status !== undefined ? { status: args.status } : {}),
       ...(args.tags !== undefined ? { tags: args.tags } : {}),
     });

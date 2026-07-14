@@ -3,12 +3,12 @@ import { toolInvalidArgument, toolSuccess, type ToolResult } from './result.js';
 
 export function createCreateProjectHandler(
   projectService: ProjectService,
-): (args: { name: string; description?: string }) => ToolResult {
-  return (args) => {
+): (args: { name: string; description?: string }) => Promise<ToolResult> {
+  return async (args) => {
     if (args.name.trim() === '') {
       return toolInvalidArgument();
     }
-    const project = projectService.create({
+    const project = await projectService.create({
       name: args.name,
       ...(args.description !== undefined ? { description: args.description } : {}),
     });

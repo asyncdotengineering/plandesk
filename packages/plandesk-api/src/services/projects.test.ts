@@ -17,52 +17,58 @@ import {
   listEdges,
   listTasks,
   migrate,
+  type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus, type PlankDeskEvent } from '../events.js';
 import { createProjectService, InvalidScaffoldError } from './projects.js';
 
 describe('projectService', () => {
-  const db = createDb(':memory:');
+  let db: Db;
+
+  beforeEach(async () => {
+    db = await createDb(':memory:');
+    await migrate(db);
+  });
   const eventBus = createEventBus();
 
-  beforeEach(() => {
-    migrate(db);
-    db.$client.exec('DELETE FROM comments');
-    db.$client.exec('DELETE FROM agent_run_events');
-    db.$client.exec('DELETE FROM agent_runs');
-    db.$client.exec('DELETE FROM edges');
-    db.$client.exec('DELETE FROM documents');
-    db.$client.exec('DELETE FROM tasks');
-    db.$client.exec('DELETE FROM goals');
-    db.$client.exec('DELETE FROM projects');
+  beforeEach(async () => {
+    await migrate(db);
+    await db.$client.execute('DELETE FROM comments');
+    await db.$client.execute('DELETE FROM agent_run_events');
+    await db.$client.execute('DELETE FROM agent_runs');
+    await db.$client.execute('DELETE FROM edges');
+    await db.$client.execute('DELETE FROM documents');
+    await db.$client.execute('DELETE FROM tasks');
+    await db.$client.execute('DELETE FROM goals');
+    await db.$client.execute('DELETE FROM projects');
   });
 
   function createService() {
     return createProjectService({ db, eventBus });
   }
 
-  it('creates and lists projects with ISO timestamps', () => {
+  it('creates and lists projects with ISO timestamps', async () => {
     const service = createService();
-    const created = service.create({ name: 'Alpha', description: 'First project' });
+    const created = await service.create({ name: 'Alpha', description: 'First project' });
     expect(created.name).toBe('Alpha');
     expect(created.description).toBe('First project');
     expect(created.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(created.updated_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 
-    const projects = service.list();
+    const projects = await service.list();
     expect(projects).toHaveLength(1);
     expect(projects[0]?.id).toBe(created.id);
   });
 
-  it('returns project detail with task counts by status', () => {
+  it('returns project detail with task counts by status', async () => {
     const service = createService();
-    const project = createProject(db, { name: 'Counts' });
-    createTask(db, { projectId: project.id, label: 'A', status: 'todo' });
-    createTask(db, { projectId: project.id, label: 'B', status: 'todo' });
-    createTask(db, { projectId: project.id, label: 'C', status: 'done' });
+    const project = await createProject(db, { name: 'Counts' });
+    await createTask(db, { projectId: project.id, label: 'A', status: 'todo' });
+    await createTask(db, { projectId: project.id, label: 'B', status: 'todo' });
+    await createTask(db, { projectId: project.id, label: 'C', status: 'done' });
 
-    const detail = service.get(project.id);
+    const detail = await service.get(project.id);
     expect(detail).toMatchObject({
       id: project.id,
       name: 'Counts',
@@ -76,76 +82,76 @@ describe('projectService', () => {
     });
   });
 
-  it('returns undefined for a missing project', () => {
+  it('returns undefined for a missing project', async () => {
     const service = createService();
-    expect(service.get('00000000-0000-4000-8000-000000009999')).toBeUndefined();
+    expect(await service.get('00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
-  it('updates a project name and description', () => {
+  it('updates a project name and description', async () => {
     const service = createService();
-    const created = service.create({ name: 'Before', description: 'Old' });
-    const updated = service.update(created.id, { name: 'After', description: 'New' });
+    const created = await service.create({ name: 'Before', description: 'Old' });
+    const updated = await service.update(created.id, { name: 'After', description: 'New' });
     expect(updated).toMatchObject({ id: created.id, name: 'After', description: 'New' });
   });
 
-  it('returns undefined when updating a missing project', () => {
+  it('returns undefined when updating a missing project', async () => {
     const service = createService();
     expect(
-      service.update('00000000-0000-4000-8000-000000009999', { name: 'Ghost' }),
+      await service.update('00000000-0000-4000-8000-000000009999', { name: 'Ghost' }),
     ).toBeUndefined();
   });
 
-  it('paginates project list', () => {
+  it('paginates project list', async () => {
     const service = createService();
-    service.create({ name: 'A' });
-    service.create({ name: 'B' });
-    service.create({ name: 'C' });
-    expect(service.list({ limit: 2, offset: 1 })).toHaveLength(2);
-    expect(service.list({ limit: 2, offset: 1 })[0]?.name).toBe('B');
+    await service.create({ name: 'A' });
+    await service.create({ name: 'B' });
+    await service.create({ name: 'C' });
+    expect(await service.list({ limit: 2, offset: 1 })).toHaveLength(2);
+    expect((await service.list({ limit: 2, offset: 1 }))[0]?.name).toBe('B');
   });
 
-  it('cascade deletes project children in FK-safe order', () => {
+  it('cascade deletes project children in FK-safe order', async () => {
     const service = createService();
-    const project = createProject(db, { name: 'Cascade' });
-    const task = createTask(db, { projectId: project.id, label: 'Task' });
-    const edge = createEdge(db, {
+    const project = await createProject(db, { name: 'Cascade' });
+    const task = await createTask(db, { projectId: project.id, label: 'Task' });
+    const edge = await createEdge(db, {
       projectId: project.id,
       fromTaskId: task.id,
       toTaskId: task.id,
     });
-    const doc = createDocument(db, {
+    const doc = await createDocument(db, {
       projectId: project.id,
       title: 'Doc',
       linkedTaskId: task.id,
     });
-    const comment = createComment(db, {
+    const comment = await createComment(db, {
       projectId: project.id,
       targetType: 'document',
       targetId: doc.id,
       body: 'Feedback',
     });
-    const run = createAgentRun(db, { projectId: project.id, label: 'Run' });
+    const run = await createAgentRun(db, { projectId: project.id, label: 'Run' });
     createAgentRunEvent(db, { runId: run.id, message: 'progress' });
 
-    expect(service.delete(project.id)).toBe(true);
-    expect(getProject(db, project.id)).toBeUndefined();
-    expect(listTasks(db, project.id)).toHaveLength(0);
-    expect(listEdges(db, project.id)).toHaveLength(0);
-    expect(listDocuments(db, project.id)).toHaveLength(0);
-    expect(listCommentsByProject(db, project.id, { includeResolved: true })).toHaveLength(0);
-    expect(listAgentRuns(db, project.id)).toHaveLength(0);
-    expect(getTask(db, task.id)).toBeUndefined();
-    expect(getDocument(db, doc.id)).toBeUndefined();
-    expect(getComment(db, comment.id)).toBeUndefined();
+    expect(await service.delete(project.id)).toBe(true);
+    expect(await getProject(db, project.id)).toBeUndefined();
+    expect(await listTasks(db, project.id)).toHaveLength(0);
+    expect(await listEdges(db, project.id)).toHaveLength(0);
+    expect(await listDocuments(db, project.id)).toHaveLength(0);
+    expect(await listCommentsByProject(db, project.id, { includeResolved: true })).toHaveLength(0);
+    expect(await listAgentRuns(db, project.id)).toHaveLength(0);
+    expect(await getTask(db, task.id)).toBeUndefined();
+    expect(await getDocument(db, doc.id)).toBeUndefined();
+    expect(await getComment(db, comment.id)).toBeUndefined();
     expect(edge).toBeDefined();
   });
 
-  it('returns false when deleting a missing project', () => {
+  it('returns false when deleting a missing project', async () => {
     const service = createService();
-    expect(service.delete('00000000-0000-4000-8000-000000009999')).toBe(false);
+    expect(await service.delete('00000000-0000-4000-8000-000000009999')).toBe(false);
   });
 
-  it('scaffolds a project with tasks, edges, and documents atomically', () => {
+  it('scaffolds a project with tasks, edges, and documents atomically', async () => {
     const bus = createEventBus();
     const service = createProjectService({ db, eventBus: bus });
     const received: PlankDeskEvent[] = [];
@@ -153,7 +159,7 @@ describe('projectService', () => {
       received.push(event);
     });
 
-    const result = service.scaffoldFromPlan({
+    const result = await service.scaffoldFromPlan({
       name: 'Scaffolded',
       description: 'From plan',
       tasks: [
@@ -180,17 +186,17 @@ describe('projectService', () => {
       title: 'Spec',
       linked_task_id: result.key_to_id.b,
     });
-    expect(listTasks(db, result.project.id)).toHaveLength(3);
-    expect(listEdges(db, result.project.id)).toHaveLength(1);
-    expect(listDocuments(db, result.project.id)).toHaveLength(1);
+    expect(await listTasks(db, result.project.id)).toHaveLength(3);
+    expect(await listEdges(db, result.project.id)).toHaveLength(1);
+    expect(await listDocuments(db, result.project.id)).toHaveLength(1);
     expect(received.filter((e) => e.type === 'canvas_updated')).toHaveLength(1);
     expect(received.filter((e) => e.type === 'document_created')).toHaveLength(1);
   });
 
-  it('scaffolds into an existing project when project_id is given (no new project)', () => {
+  it('scaffolds into an existing project when project_id is given (no new project)', async () => {
     const service = createService();
-    const existing = createProject(db, { name: 'Existing' });
-    const result = service.scaffoldFromPlan({
+    const existing = await createProject(db, { name: 'Existing' });
+    const result = await service.scaffoldFromPlan({
       projectId: existing.id,
       tasks: [
         { key: 'a', label: 'Task A' },
@@ -202,16 +208,16 @@ describe('projectService', () => {
     // Targets the bound project, never creates a duplicate.
     expect(result.project.id).toBe(existing.id);
     expect(result.counts).toEqual({ tasks: 2, edges: 1, documents: 1 });
-    expect(listTasks(db, existing.id)).toHaveLength(2);
-    expect(listEdges(db, existing.id)).toHaveLength(1);
-    expect(listDocuments(db, existing.id)).toHaveLength(1);
+    expect(await listTasks(db, existing.id)).toHaveLength(2);
+    expect(await listEdges(db, existing.id)).toHaveLength(1);
+    expect(await listDocuments(db, existing.id)).toHaveLength(1);
   });
 
-  it('offsets new task rows below existing nodes in a non-empty project', () => {
+  it('offsets new task rows below existing nodes in a non-empty project', async () => {
     const service = createService();
-    const existing = createProject(db, { name: 'Existing' });
-    createTask(db, { projectId: existing.id, label: 'Old', x: 0, y: 320 });
-    const result = service.scaffoldFromPlan({
+    const existing = await createProject(db, { name: 'Existing' });
+    await createTask(db, { projectId: existing.id, label: 'Old', x: 0, y: 320 });
+    const result = await service.scaffoldFromPlan({
       projectId: existing.id,
       tasks: [{ key: 'n', label: 'New' }],
     });
@@ -219,23 +225,21 @@ describe('projectService', () => {
     expect(result.tasks[0]).toMatchObject({ x: 0, y: 480 });
   });
 
-  it('rejects scaffolding into a missing project and persists nothing', () => {
+  it('rejects scaffolding into a missing project and persists nothing', async () => {
     const service = createService();
-    expect(() =>
-      service.scaffoldFromPlan({ projectId: 'nope', tasks: [{ key: 'a', label: 'A' }] }),
-    ).toThrow(InvalidScaffoldError);
+    await expect(service.scaffoldFromPlan({ projectId: 'nope', tasks: [{ key: 'a', label: 'A' }] }),).rejects.toThrow(InvalidScaffoldError);
   });
 
-  it('rejects a new-project scaffold with no name', () => {
+  it('rejects a new-project scaffold with no name', async () => {
     const service = createService();
-    expect(() => service.scaffoldFromPlan({ tasks: [{ key: 'a', label: 'A' }] })).toThrow(
+    await expect(service.scaffoldFromPlan({ tasks: [{ key: 'a', label: 'A' }] })).rejects.toThrow(
       InvalidScaffoldError,
     );
   });
 
-  it('assigns grid positions when x and y are omitted', () => {
+  it('assigns grid positions when x and y are omitted', async () => {
     const service = createService();
-    const result = service.scaffoldFromPlan({
+    const result = await service.scaffoldFromPlan({
       name: 'Grid',
       tasks: [
         { key: 't0', label: '0' },
@@ -251,41 +255,35 @@ describe('projectService', () => {
     expect(result.tasks[4]).toMatchObject({ x: 0, y: 160 });
   });
 
-  it('rejects duplicate task keys and persists nothing', () => {
+  it('rejects duplicate task keys and persists nothing', async () => {
     const service = createService();
-    expect(() =>
-      service.scaffoldFromPlan({
+    await expect(service.scaffoldFromPlan({
         name: 'Dup',
         tasks: [
           { key: 'dup', label: 'One' },
           { key: 'dup', label: 'Two' },
         ],
-      }),
-    ).toThrow(InvalidScaffoldError);
-    expect(service.list()).toHaveLength(0);
+      }),).rejects.toThrow(InvalidScaffoldError);
+    expect(await service.list()).toHaveLength(0);
   });
 
-  it('rejects unknown edge keys and persists nothing', () => {
+  it('rejects unknown edge keys and persists nothing', async () => {
     const service = createService();
-    expect(() =>
-      service.scaffoldFromPlan({
+    await expect(service.scaffoldFromPlan({
         name: 'Bad edge',
         tasks: [{ key: 'a', label: 'A' }],
         edges: [{ from: 'a', to: 'missing' }],
-      }),
-    ).toThrow(InvalidScaffoldError);
-    expect(service.list()).toHaveLength(0);
+      }),).rejects.toThrow(InvalidScaffoldError);
+    expect(await service.list()).toHaveLength(0);
   });
 
-  it('rejects self-edges and persists nothing', () => {
+  it('rejects self-edges and persists nothing', async () => {
     const service = createService();
-    expect(() =>
-      service.scaffoldFromPlan({
+    await expect(service.scaffoldFromPlan({
         name: 'Self',
         tasks: [{ key: 'a', label: 'A' }],
         edges: [{ from: 'a', to: 'a' }],
-      }),
-    ).toThrow(InvalidScaffoldError);
-    expect(service.list()).toHaveLength(0);
+      }),).rejects.toThrow(InvalidScaffoldError);
+    expect(await service.list()).toHaveLength(0);
   });
 });

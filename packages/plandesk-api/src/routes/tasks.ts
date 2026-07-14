@@ -29,7 +29,7 @@ export function createTasksRouter(taskService: TaskService): Hono {
     }
 
     try {
-      const task = taskService.update(c.req.param('id'), {
+      const task = await taskService.update(c.req.param('id'), {
         ...(body.label !== undefined ? { label: body.label } : {}),
         ...(body.status !== undefined ? { status: body.status } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
@@ -51,8 +51,8 @@ export function createTasksRouter(taskService: TaskService): Hono {
     }
   });
 
-  router.delete('/tasks/:id', (c) => {
-    const deleted = taskService.delete(c.req.param('id'));
+  router.delete('/tasks/:id', async (c) => {
+    const deleted = await taskService.delete(c.req.param('id'));
     if (!deleted) {
       return c.json({ error: 'not_found' }, 404);
     }

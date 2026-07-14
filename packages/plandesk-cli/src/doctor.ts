@@ -59,29 +59,27 @@ function curatorArtifactReport(repoDir: string): CuratorDoctorReport {
   };
 }
 
-function listTables(db: Db): string[] {
-  const rows = db.$client
-    .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-    .all() as { name: string }[];
-  return rows.map((row) => row.name);
+async function listTables(db: Db): Promise<string[]> {
+  const result = await db.$client.execute(
+    "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
+  );
+  return result.rows.map((row) => String(row.name));
 }
 
-function countRows(db: Db, table: (typeof EXPECTED_TABLES)[number]): number {
-  const row = db.$client.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as {
-    count: number;
-  };
-  return row.count;
+async function countRows(db: Db, table: (typeof EXPECTED_TABLES)[number]): Promise<number> {
+  const result = await db.$client.execute(`SELECT COUNT(*) AS count FROM ${table}`);
+  const row = result.rows[0];
+  return Number(row?.count ?? 0);
 }
 
-function hasMigrations(db: Db): boolean {
-  const tables = listTables(db);
+async function hasMigrations(db: Db): Promise<boolean> {
+  const tables = await listTables(db);
   if (!tables.includes('__drizzle_migrations')) {
     return false;
   }
-  const row = db.$client.prepare('SELECT COUNT(*) AS count FROM __drizzle_migrations').get() as {
-    count: number;
-  };
-  return row.count > 0;
+  const result = await db.$client.execute('SELECT COUNT(*) AS count FROM __drizzle_migrations');
+  const row = result.rows[0];
+  return Number(row?.count ?? 0) > 0;
 }
 
 export async function runDoctor(dataDirOverride?: string, repoDir?: string): Promise<DoctorReport> {
@@ -91,8 +89,8 @@ export async function runDoctor(dataDirOverride?: string, repoDir?: string): Pro
 
   let db: Db;
   try {
-    db = createDb(dbPath);
-    migrate(db);
+    db = await createDb(dbPath);
+    await migrate(db);
   } catch (err) {
     if (isDbCorruptionError(err)) {
       throw new CorruptWorkspaceError();
@@ -100,19 +98,19 @@ export async function runDoctor(dataDirOverride?: string, repoDir?: string): Pro
     throw err;
   }
 
-  const tables = listTables(db);
+  const tables = await listTables(db);
   const missingTables = EXPECTED_TABLES.filter((table) => !tables.includes(table));
   if (missingTables.length > 0) {
     issues.push(`missing tables: ${missingTables.join(', ')}`);
   }
 
-  const migrationsApplied = hasMigrations(db);
+  const migrationsApplied = await hasMigrations(db);
   if (!migrationsApplied) {
     issues.push('no migrations applied');
   }
 
-  const projectCount = tables.includes('projects') ? countRows(db, 'projects') : 0;
-  const taskCount = tables.includes('tasks') ? countRows(db, 'tasks') : 0;
+  const projectCount = tables.includes('projects') ? await countRows(db, 'projects') : 0;
+  const taskCount = tables.includes('tasks') ? await countRows(db, 'tasks') : 0;
 
   let binding: BindingDoctorReport | undefined;
   let curator: CuratorDoctorReport | undefined;

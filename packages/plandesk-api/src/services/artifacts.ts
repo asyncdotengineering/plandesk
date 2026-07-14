@@ -49,23 +49,26 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    listByProject(projectId: string): SerializedArtifactSummary[] | undefined {
-      const project = getProject(db, projectId);
+    async listByProject(projectId: string): Promise<SerializedArtifactSummary[] | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
-      return dbListArtifactsByProject(db, projectId).map(serializeArtifactSummary);
+      return (await dbListArtifactsByProject(db, projectId)).map(serializeArtifactSummary);
     },
 
-    create(projectId: string, input: CreateArtifactInput): SerializedArtifact | undefined {
-      const project = getProject(db, projectId);
+    async create(
+      projectId: string,
+      input: CreateArtifactInput,
+    ): Promise<SerializedArtifact | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
       assertNonEmptyTitle(input.title);
 
-      const artifact = dbCreateArtifact(db, {
+      const artifact = await dbCreateArtifact(db, {
         projectId,
         title: input.title,
         kind: input.kind,
@@ -81,16 +84,16 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
       return serializeArtifact(artifact);
     },
 
-    get(id: string): SerializedArtifact | undefined {
-      const artifact = dbGetArtifact(db, id);
+    async get(id: string): Promise<SerializedArtifact | undefined> {
+      const artifact = await dbGetArtifact(db, id);
       if (!artifact) {
         return undefined;
       }
       return serializeArtifact(artifact);
     },
 
-    update(id: string, input: UpdateArtifactInput): SerializedArtifact | undefined {
-      const existing = dbGetArtifact(db, id);
+    async update(id: string, input: UpdateArtifactInput): Promise<SerializedArtifact | undefined> {
+      const existing = await dbGetArtifact(db, id);
       if (!existing) {
         return undefined;
       }
@@ -99,7 +102,7 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
         assertNonEmptyTitle(input.title);
       }
 
-      const artifact = dbUpdateArtifact(db, id, input);
+      const artifact = await dbUpdateArtifact(db, id, input);
       if (!artifact) {
         return undefined;
       }

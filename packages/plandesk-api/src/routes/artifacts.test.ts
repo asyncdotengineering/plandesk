@@ -21,8 +21,8 @@ type ArtifactSummary = {
 
 describe('artifacts routes', () => {
   it('creates, lists, gets, patches, and returns 404 for missing artifact', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Artifacts' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Artifacts' });
 
     const createRes = await app.request(`/api/v1/projects/${project.id}/artifacts`, {
       method: 'POST',
@@ -79,8 +79,8 @@ describe('artifacts routes', () => {
   });
 
   it('POST rejects missing or blank title with 400', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Validate' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Validate' });
 
     const noTitle = await app.request(`/api/v1/projects/${project.id}/artifacts`, {
       method: 'POST',
@@ -98,8 +98,8 @@ describe('artifacts routes', () => {
   });
 
   it('POST rejects invalid kind with 400', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Kind validate' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Kind validate' });
 
     const res = await app.request(`/api/v1/projects/${project.id}/artifacts`, {
       method: 'POST',

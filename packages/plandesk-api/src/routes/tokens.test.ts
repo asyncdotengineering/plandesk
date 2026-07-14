@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { createDb, migrate, verifyToken } from '@plandesk/db';
+import { createDb, migrate, verifyToken , type Db} from '@plandesk/db';
 import { createApp, createEventBus, createServices } from '../index.js';
 import { createTestApp, parseJson } from '../test-helpers.js';
 
@@ -17,13 +17,13 @@ type TokenListItem = {
   revoked_at: string | null;
 };
 
-function createMcpAuthProbe(db: ReturnType<typeof createDb>): Hono {
+function createMcpAuthProbe(db: Db): Hono {
   const mcp = new Hono();
   mcp.use('*', async (c, next) => {
     const header = c.req.header('Authorization');
     const match = header === undefined ? null : /^Bearer\s+(.+)$/i.exec(header);
     const raw = match?.[1]?.trim();
-    if (raw === undefined || verifyToken(db, raw) === undefined) {
+    if (raw === undefined || (await verifyToken(db, raw)) === undefined) {
       return c.json({ error: 'unauthorized' }, 401);
     }
     await next();
@@ -32,9 +32,9 @@ function createMcpAuthProbe(db: ReturnType<typeof createDb>): Hono {
   return mcp;
 }
 
-function createTestAppWithMcp() {
-  const db = createDb(':memory:');
-  migrate(db);
+async function createTestAppWithMcp() {
+  const db = await createDb(':memory:');
+  await migrate(db);
   const eventBus = createEventBus();
   const services = createServices({ db, eventBus });
   const app = createApp({ db, eventBus, services, mcp: createMcpAuthProbe(db) });
@@ -43,7 +43,7 @@ function createTestAppWithMcp() {
 
 describe('mcp-tokens routes', () => {
   it('POST /api/v1/mcp-tokens creates token with raw shown once', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/mcp-tokens', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -58,7 +58,7 @@ describe('mcp-tokens routes', () => {
   });
 
   it('POST /api/v1/mcp-tokens rejects missing name', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/mcp-tokens', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -70,7 +70,7 @@ describe('mcp-tokens routes', () => {
   });
 
   it('GET /api/v1/mcp-tokens lists tokens without secrets', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const createRes = await app.request('/api/v1/mcp-tokens', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -93,7 +93,7 @@ describe('mcp-tokens routes', () => {
   });
 
   it('DELETE /api/v1/mcp-tokens/:id revokes token', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const createRes = await app.request('/api/v1/mcp-tokens', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -110,7 +110,7 @@ describe('mcp-tokens routes', () => {
   });
 
   it('DELETE /api/v1/mcp-tokens/:id returns 404 when missing', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/mcp-tokens/00000000-0000-4000-8000-000000009999', {
       method: 'DELETE',
     });
@@ -119,7 +119,7 @@ describe('mcp-tokens routes', () => {
   });
 
   it('regression: MCP token revoke → subsequent MCP call returns 401', async () => {
-    const { app } = createTestAppWithMcp();
+    const { app } = await createTestAppWithMcp();
     const createRes = await app.request('/api/v1/mcp-tokens', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -6,7 +6,7 @@ export function createSyncPushHandler(
   syncService: SyncService,
 ): (args: { project_id: string }) => Promise<ToolResult> {
   return async (args) => {
-    const remote = syncService.getRemote(args.project_id);
+    const remote = await syncService.getRemote(args.project_id);
     if (remote === undefined) {
       return toolInvalidArgument(
         'not published — the happy path is the CLI: `plandesk deploy <target>` to stand up a sync server, then `plandesk publish --remote <url>` (it reads the repo binding and stores the sync token). The publish_project MCP tool also works if you already have server_url + sync_token.',

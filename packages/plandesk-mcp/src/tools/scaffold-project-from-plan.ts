@@ -32,10 +32,10 @@ type ScaffoldArgs = {
 
 export function createScaffoldProjectFromPlanHandler(
   projectService: ProjectService,
-): (args: ScaffoldArgs) => ToolResult {
-  return (args) => {
+): (args: ScaffoldArgs) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const result = projectService.scaffoldFromPlan({
+      const result = await projectService.scaffoldFromPlan({
         ...(args.project_id !== undefined ? { projectId: args.project_id } : {}),
         ...(args.name !== undefined ? { name: args.name } : {}),
         ...(args.description !== undefined ? { description: args.description } : {}),

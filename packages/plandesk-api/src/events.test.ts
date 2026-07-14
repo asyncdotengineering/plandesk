@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createEventBus, type PlankDeskEvent } from './events.js';
 
 describe('createEventBus', () => {
-  it('delivers events to subscribers', () => {
+  it('delivers events to subscribers', async () => {
     const bus = createEventBus();
     const received: PlankDeskEvent[] = [];
     const unsub = bus.subscribe((event) => {
@@ -17,7 +17,7 @@ describe('createEventBus', () => {
     expect(received).toHaveLength(1);
   });
 
-  it('unsubscribes and does not leak listeners', () => {
+  it('unsubscribes and does not leak listeners', async () => {
     const bus = createEventBus();
     const listener = vi.fn();
     const unsub = bus.subscribe(listener);
@@ -30,7 +30,7 @@ describe('createEventBus', () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
-  it('fans out to multiple subscribers', () => {
+  it('fans out to multiple subscribers', async () => {
     const bus = createEventBus();
     const a = vi.fn();
     const b = vi.fn();

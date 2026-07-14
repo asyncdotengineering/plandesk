@@ -3,9 +3,9 @@ import { toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createGetNoteHandler(
   noteService: NoteService,
-): (args: { note_id: string }) => ToolResult {
-  return ({ note_id }) => {
-    const note = noteService.get(note_id);
+): (args: { note_id: string }) => Promise<ToolResult> {
+  return async ({ note_id }) => {
+    const note = await noteService.get(note_id);
     if (!note) {
       return toolNotFound();
     }

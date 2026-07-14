@@ -8,67 +8,69 @@ import {
   createProject,
   createShare,
   migrate,
+  type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { buildClientView } from './projection.js';
 
 describe('buildClientView', () => {
-  const db = createDb(':memory:');
+  let db: Db;
 
-  beforeEach(() => {
-    migrate(db);
-    db.$client.exec('DELETE FROM comments');
-    db.$client.exec('DELETE FROM agent_run_events');
-    db.$client.exec('DELETE FROM agent_runs');
-    db.$client.exec('DELETE FROM shares');
-    db.$client.exec('DELETE FROM edges');
-    db.$client.exec('DELETE FROM documents');
-    db.$client.exec('DELETE FROM tasks');
-    db.$client.exec('DELETE FROM goals');
-    db.$client.exec('DELETE FROM projects');
+  beforeEach(async () => {
+    db = await createDb(':memory:');
+    await migrate(db);
+    await db.$client.execute('DELETE FROM comments');
+    await db.$client.execute('DELETE FROM agent_run_events');
+    await db.$client.execute('DELETE FROM agent_runs');
+    await db.$client.execute('DELETE FROM shares');
+    await db.$client.execute('DELETE FROM edges');
+    await db.$client.execute('DELETE FROM documents');
+    await db.$client.execute('DELETE FROM tasks');
+    await db.$client.execute('DELETE FROM goals');
+    await db.$client.execute('DELETE FROM projects');
   });
 
-  it('projection_no_internal: omits agent runs, comments, assignee, and description by default', () => {
-    const project = createProject(db, { name: 'Portal', description: 'Client view' });
-    const sharedTask = createTask(db, {
+  it('projection_no_internal: omits agent runs, comments, assignee, and description by default', async () => {
+    const project = await createProject(db, { name: 'Portal', description: 'Client view' });
+    const sharedTask = await createTask(db, {
       projectId: project.id,
       label: 'Shared',
       status: 'todo',
       description: 'Internal details',
       assignee: 'agent@internal',
     });
-    const hiddenTask = createTask(db, {
+    const hiddenTask = await createTask(db, {
       projectId: project.id,
       label: 'Hidden',
       status: 'done',
       description: 'Secret',
       assignee: 'owner@internal',
     });
-    createEdge(db, {
+    await createEdge(db, {
       projectId: project.id,
       fromTaskId: sharedTask.id,
       toTaskId: hiddenTask.id,
       label: 'blocks',
     });
-    const sharedDoc = createDocument(db, {
+    const sharedDoc = await createDocument(db, {
       projectId: project.id,
       title: 'Shared spec',
       body: '<p>Visible</p>',
     });
-    createDocument(db, {
+    await createDocument(db, {
       projectId: project.id,
       title: 'Internal notes',
       body: '<p>Secret</p>',
     });
-    createComment(db, {
+    await createComment(db, {
       projectId: project.id,
       targetType: 'document',
       targetId: sharedDoc.id,
       body: 'Internal comment',
     });
-    createAgentRun(db, { projectId: project.id, label: 'Internal run' });
+    await createAgentRun(db, { projectId: project.id, label: 'Internal run' });
 
-    const { share } = createShare(db, {
+    const { share } = await createShare(db, {
       projectId: project.id,
       audienceName: 'Acme',
       permissions: { read: true, submit: false },
@@ -79,7 +81,7 @@ describe('buildClientView', () => {
       },
     });
 
-    const view = buildClientView(db, project.id, share);
+    const view = await buildClientView(db, project.id, share);
     expect(view).toBeDefined();
 
     const serialized = JSON.stringify(view);
@@ -114,45 +116,45 @@ describe('buildClientView', () => {
     });
   });
 
-  it('includes edges only when both endpoints are shared', () => {
-    const project = createProject(db, { name: 'Edges' });
-    const a = createTask(db, { projectId: project.id, label: 'A' });
-    const b = createTask(db, { projectId: project.id, label: 'B' });
-    const c = createTask(db, { projectId: project.id, label: 'C' });
-    const ab = createEdge(db, {
+  it('includes edges only when both endpoints are shared', async () => {
+    const project = await createProject(db, { name: 'Edges' });
+    const a = await createTask(db, { projectId: project.id, label: 'A' });
+    const b = await createTask(db, { projectId: project.id, label: 'B' });
+    const c = await createTask(db, { projectId: project.id, label: 'C' });
+    const ab = await createEdge(db, {
       projectId: project.id,
       fromTaskId: a.id,
       toTaskId: b.id,
       label: 'ab',
     });
-    createEdge(db, {
+    await createEdge(db, {
       projectId: project.id,
       fromTaskId: b.id,
       toTaskId: c.id,
       label: 'bc',
     });
 
-    const { share } = createShare(db, {
+    const { share } = await createShare(db, {
       projectId: project.id,
       audienceName: 'Edge test',
       permissions: { read: true, submit: false },
       policy: { tasks: [a.id, b.id], documentIds: [], fields: {} },
     });
 
-    const view = buildClientView(db, project.id, share);
+    const view = await buildClientView(db, project.id, share);
     expect(view?.edges).toEqual([{ id: ab.id, from: a.id, to: b.id, label: 'ab' }]);
   });
 
-  it('includes assignee and description when policy fields opt in', () => {
-    const project = createProject(db, { name: 'Fields' });
-    const task = createTask(db, {
+  it('includes assignee and description when policy fields opt in', async () => {
+    const project = await createProject(db, { name: 'Fields' });
+    const task = await createTask(db, {
       projectId: project.id,
       label: 'Open',
       description: 'Details',
       assignee: 'client@example.com',
     });
 
-    const { share } = createShare(db, {
+    const { share } = await createShare(db, {
       projectId: project.id,
       audienceName: 'Fields',
       permissions: { read: true, submit: false },
@@ -163,7 +165,7 @@ describe('buildClientView', () => {
       },
     });
 
-    const view = buildClientView(db, project.id, share);
+    const view = await buildClientView(db, project.id, share);
     expect(view?.tasks[0]).toMatchObject({
       id: task.id,
       description: 'Details',
@@ -171,17 +173,17 @@ describe('buildClientView', () => {
     });
   });
 
-  it('returns undefined when the project is missing', () => {
-    const project = createProject(db, { name: 'Ghost' });
-    const { share } = createShare(db, {
+  it('returns undefined when the project is missing', async () => {
+    const project = await createProject(db, { name: 'Ghost' });
+    const { share } = await createShare(db, {
       projectId: project.id,
       audienceName: 'Ghost',
       permissions: { read: true, submit: false },
       policy: { tasks: 'all', documentIds: [], fields: {} },
     });
-    db.$client.exec('DELETE FROM shares');
-    db.$client.exec('DELETE FROM projects');
+    await db.$client.execute('DELETE FROM shares');
+    await db.$client.execute('DELETE FROM projects');
 
-    expect(buildClientView(db, project.id, share)).toBeUndefined();
+    expect(await buildClientView(db, project.id, share)).toBeUndefined();
   });
 });

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createAgentRun, createDb, createProject, migrate } from '@plandesk/db';
+import { createAgentRun, createDb, createProject, migrate , type Db} from '@plandesk/db';
 import {
   createEventBus,
   type AgentRunCompletedEvent,
@@ -9,7 +9,12 @@ import {
 import { createAgentRunService, InvalidAgentRunError } from './agent-runs.js';
 
 describe('agentRunService', () => {
-  const db = createDb(':memory:');
+  let db: Db;
+
+  beforeEach(async () => {
+    db = await createDb(':memory:');
+    await migrate(db);
+  });
   const eventBus = createEventBus();
   let projectId = '';
 
@@ -17,15 +22,15 @@ describe('agentRunService', () => {
     return createAgentRunService({ db, eventBus });
   }
 
-  beforeEach(() => {
-    migrate(db);
-    db.$client.exec('DELETE FROM agent_run_events');
-    db.$client.exec('DELETE FROM agent_runs');
-    db.$client.exec('DELETE FROM projects');
-    projectId = createProject(db, { name: 'Agent' }).id;
+  beforeEach(async () => {
+    await migrate(db);
+    await db.$client.execute('DELETE FROM agent_run_events');
+    await db.$client.execute('DELETE FROM agent_runs');
+    await db.$client.execute('DELETE FROM projects');
+    projectId = (await createProject(db, { name: 'Agent' })).id;
   });
 
-  it('starts a run and emits agent_run_started', () => {
+  it('starts a run and emits agent_run_started', async () => {
     const service = createService();
     const started: AgentRunStartedEvent[] = [];
     eventBus.subscribe((event) => {
@@ -34,7 +39,7 @@ describe('agentRunService', () => {
       }
     });
 
-    const run = service.start(projectId, 'Worker');
+    const run = await service.start(projectId, 'Worker');
     expect(run).toMatchObject({
       project_id: projectId,
       status: 'running',
@@ -47,9 +52,9 @@ describe('agentRunService', () => {
     expect(started).toEqual([{ type: 'agent_run_started', runId: run.id, projectId }]);
   });
 
-  it('records progress and emits agent_run_progress', () => {
+  it('records progress and emits agent_run_progress', async () => {
     const service = createService();
-    const run = service.start(projectId);
+    const run = await service.start(projectId);
     if (!run) {
       throw new Error('expected run');
     }
@@ -60,14 +65,14 @@ describe('agentRunService', () => {
       }
     });
 
-    const event = service.recordProgress(run.id, 'Halfway');
+    const event = await service.recordProgress(run.id, 'Halfway');
     expect(event).toMatchObject({ run_id: run.id, message: 'Halfway' });
     expect(progress).toEqual([{ type: 'agent_run_progress', runId: run.id, projectId }]);
   });
 
-  it('completes a run and emits agent_run_completed', () => {
+  it('completes a run and emits agent_run_completed', async () => {
     const service = createService();
-    const run = service.start(projectId);
+    const run = await service.start(projectId);
     if (!run) {
       throw new Error('expected run');
     }
@@ -78,38 +83,38 @@ describe('agentRunService', () => {
       }
     });
 
-    const finished = service.complete(run.id, 'completed');
+    const finished = await service.complete(run.id, 'completed');
     expect(finished).toMatchObject({ status: 'completed' });
     expect(finished?.completed_at).toBeTruthy();
     expect(completed).toEqual([{ type: 'agent_run_completed', runId: run.id, projectId }]);
   });
 
-  it('rejects progress on a completed run', () => {
+  it('rejects progress on a completed run', async () => {
     const service = createService();
-    const run = service.start(projectId);
+    const run = await service.start(projectId);
     if (!run) {
       throw new Error('expected run');
     }
-    service.complete(run.id, 'completed');
-    expect(() => service.recordProgress(run.id, 'Late')).toThrow(InvalidAgentRunError);
+    await service.complete(run.id, 'completed');
+    await expect(service.recordProgress(run.id, 'Late')).rejects.toThrow(InvalidAgentRunError);
   });
 
-  it('lists runs with events newest-first', () => {
+  it('lists runs with events newest-first', async () => {
     const service = createService();
-    const olderRun = createAgentRun(db, {
+    const olderRun = await createAgentRun(db, {
       projectId,
       label: 'Older',
       startedAt: new Date('2026-06-08T10:00:00.000Z'),
     });
-    const newerRun = createAgentRun(db, {
+    const newerRun = await createAgentRun(db, {
       projectId,
       label: 'Newer',
       startedAt: new Date('2026-06-08T11:00:00.000Z'),
     });
-    service.recordProgress(newerRun.id, 'Step one');
-    service.complete(olderRun.id, 'failed');
+    await service.recordProgress(newerRun.id, 'Step one');
+    await service.complete(olderRun.id, 'failed');
 
-    const listed = service.listForProject(projectId);
+    const listed = await service.listForProject(projectId);
     expect(listed).toHaveLength(2);
     expect(listed?.[0]?.label).toBe('Newer');
     expect(listed?.[0]?.events).toEqual([expect.objectContaining({ message: 'Step one' })]);
@@ -118,8 +123,8 @@ describe('agentRunService', () => {
     expect(listed?.[1]?.status).toBe('failed');
   });
 
-  it('returns undefined for a missing project', () => {
+  it('returns undefined for a missing project', async () => {
     const service = createService();
-    expect(service.listForProject('00000000-0000-4000-8000-000000009999')).toBeUndefined();
+    expect(await service.listForProject('00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 });

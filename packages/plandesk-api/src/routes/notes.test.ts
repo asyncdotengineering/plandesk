@@ -13,8 +13,8 @@ type NoteResponse = {
 
 describe('notes routes', () => {
   it('creates, lists, gets, patches, and deletes a note', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Notes' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Notes' });
 
     const createRes = await app.request(`/api/v1/projects/${project.id}/notes`, {
       method: 'POST',
@@ -57,8 +57,8 @@ describe('notes routes', () => {
   });
 
   it('POST rejects missing or blank title with 400', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Validate' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Validate' });
 
     const noTitle = await app.request(`/api/v1/projects/${project.id}/notes`, {
       method: 'POST',
@@ -76,8 +76,8 @@ describe('notes routes', () => {
   });
 
   it('PATCH rejects blanking the title with 400', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Patch validate' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Patch validate' });
     const createRes = await app.request(`/api/v1/projects/${project.id}/notes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -94,7 +94,7 @@ describe('notes routes', () => {
   });
 
   it('returns 404 for missing project list and missing note', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const listRes = await app.request(
       '/api/v1/projects/00000000-0000-4000-8000-000000009999/notes',
     );
@@ -110,8 +110,8 @@ describe('notes routes', () => {
   });
 
   it('GET /projects/:id/notes returns 400 for invalid pagination', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Paginate notes' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Paginate notes' });
     const res = await app.request(`/api/v1/projects/${project.id}/notes?offset=-1`);
     expect(res.status).toBe(400);
   });

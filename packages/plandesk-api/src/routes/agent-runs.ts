@@ -5,12 +5,12 @@ import { parsePaginationParams } from '../serialize.js';
 export function createAgentRunsRouter(agentRunService: AgentRunService): Hono {
   const router = new Hono();
 
-  router.get('/projects/:id/agent-runs', (c) => {
+  router.get('/projects/:id/agent-runs', async (c) => {
     const pagination = parsePaginationParams(c.req.query('limit'), c.req.query('offset'));
     if (pagination === 'invalid') {
       return c.json({ error: 'invalid_argument' }, 400);
     }
-    const runs = agentRunService.listForProject(c.req.param('id'), pagination);
+    const runs = await agentRunService.listForProject(c.req.param('id'), pagination);
     if (!runs) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -24,7 +24,7 @@ export function createAgentRunsRouter(agentRunService: AgentRunService): Hono {
     }
 
     try {
-      const event = agentRunService.recordProgress(c.req.param('id'), body.message);
+      const event = await agentRunService.recordProgress(c.req.param('id'), body.message);
       if (!event) {
         return c.json({ error: 'not_found' }, 404);
       }

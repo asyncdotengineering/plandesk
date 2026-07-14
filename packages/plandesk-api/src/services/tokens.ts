@@ -14,8 +14,8 @@ export function createTokenService(deps: TokenServiceDeps) {
   const { db } = deps;
 
   return {
-    create(name: string) {
-      const result = dbCreateToken(db, { name });
+    async create(name: string) {
+      const result = await dbCreateToken(db, { name });
       return {
         id: result.id,
         name: result.name,
@@ -23,12 +23,12 @@ export function createTokenService(deps: TokenServiceDeps) {
       };
     },
 
-    list() {
-      return dbListTokens(db).map(serializeToken);
+    async list() {
+      return (await dbListTokens(db)).map(serializeToken);
     },
 
-    revoke(id: string) {
-      const revoked = dbRevokeToken(db, id);
+    async revoke(id: string) {
+      const revoked = await dbRevokeToken(db, id);
       if (!revoked) {
         return undefined;
       }

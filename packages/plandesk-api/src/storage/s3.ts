@@ -46,12 +46,12 @@ export function createS3Adapter(deps: S3AdapterDeps): StorageAdapter {
       );
     },
 
-    resolve(id) {
-      const file = getFile(db, id);
+    async resolve(id) {
+      const file = await getFile(db, id);
       if (!file?.externalUrl) {
-        return Promise.resolve(null);
+        return null;
       }
-      return Promise.resolve({ redirectUrl: file.externalUrl });
+      return { redirectUrl: file.externalUrl };
     },
   };
 }

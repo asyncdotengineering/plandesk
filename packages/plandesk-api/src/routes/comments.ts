@@ -35,7 +35,7 @@ async function handleCreateComment(
   }
 
   try {
-    const comment = commentService.create(target, {
+    const comment = await commentService.create(target, {
       body: body.body,
       passage: body.passage,
       anchor: body.anchor,
@@ -54,9 +54,9 @@ async function handleCreateComment(
   }
 }
 
-function handleListComments(c: Context, commentService: CommentService, target: CommentTarget) {
+async function handleListComments(c: Context, commentService: CommentService, target: CommentTarget) {
   const includeResolved = parseIncludeResolved(c.req.query('include_resolved'));
-  const comments = commentService.listByTarget(target, { includeResolved });
+  const comments = await commentService.listByTarget(target, { includeResolved });
   if (!comments) {
     return c.json({ error: 'not_found' }, 404);
   }
@@ -98,9 +98,9 @@ export function createCommentsRouter(commentService: CommentService): Hono {
     handleListComments(c, commentService, { type: 'submission', id: c.req.param('id') }),
   );
 
-  router.get('/projects/:id/comments', (c) => {
+  router.get('/projects/:id/comments', async (c) => {
     const includeResolved = parseIncludeResolved(c.req.query('include_resolved'));
-    const comments = commentService.listByProject(c.req.param('id'), { includeResolved });
+    const comments = await commentService.listByProject(c.req.param('id'), { includeResolved });
     if (!comments) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -116,7 +116,7 @@ export function createCommentsRouter(commentService: CommentService): Hono {
       return c.json({ error: 'invalid_argument' }, 400);
     }
     try {
-      const comment = commentService.createForArtifact(c.req.param('id'), body.artifact_id, {
+      const comment = await commentService.createForArtifact(c.req.param('id'), body.artifact_id, {
         body: body.body,
         passage: body.passage,
         anchor: body.anchor,
@@ -133,13 +133,13 @@ export function createCommentsRouter(commentService: CommentService): Hono {
     }
   });
 
-  router.get('/projects/:id/artifact-comments', (c) => {
+  router.get('/projects/:id/artifact-comments', async (c) => {
     const artifactId = c.req.query('artifact_id');
     if (artifactId === undefined || artifactId === '') {
       return c.json({ error: 'invalid_argument' }, 400);
     }
     const includeResolved = parseIncludeResolved(c.req.query('include_resolved'));
-    const comments = commentService.listForArtifact(c.req.param('id'), artifactId, {
+    const comments = await commentService.listForArtifact(c.req.param('id'), artifactId, {
       includeResolved,
     });
     if (!comments) {
@@ -152,7 +152,7 @@ export function createCommentsRouter(commentService: CommentService): Hono {
     const body = await c.req.json<UpdateCommentBody>();
 
     try {
-      const comment = commentService.update(c.req.param('id'), {
+      const comment = await commentService.update(c.req.param('id'), {
         ...(body.body !== undefined ? { body: body.body } : {}),
         ...(body.resolved !== undefined ? { resolved: body.resolved } : {}),
       });
@@ -170,8 +170,8 @@ export function createCommentsRouter(commentService: CommentService): Hono {
     }
   });
 
-  router.delete('/comments/:id', (c) => {
-    const deleted = commentService.delete(c.req.param('id'));
+  router.delete('/comments/:id', async (c) => {
+    const deleted = await commentService.delete(c.req.param('id'));
     if (!deleted) {
       return c.json({ error: 'not_found' }, 404);
     }

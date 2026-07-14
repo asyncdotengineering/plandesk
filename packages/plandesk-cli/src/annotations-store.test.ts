@@ -24,7 +24,7 @@ describe('annotation store', () => {
     return dir;
   }
 
-  it('adds and lists an annotation including its anchor JSON', () => {
+  it('adds and lists an annotation including its anchor JSON', async () => {
     const storeDir = createStoreDir();
     const absPath = join(storeDir, 'artifact.md');
     const anchor = JSON.stringify({
@@ -52,7 +52,7 @@ describe('annotation store', () => {
     expect(new Date(added.createdAt).toISOString()).toBe(added.createdAt);
   });
 
-  it('resolves an existing annotation', () => {
+  it('resolves an existing annotation', async () => {
     const storeDir = createStoreDir();
     const absPath = join(storeDir, 'artifact.html');
     const added = addAnnotation(absPath, '<p>Text</p>', { body: 'Done' }, storeDir);
@@ -61,12 +61,12 @@ describe('annotation store', () => {
     expect(listAnnotations(absPath, storeDir)[0]?.resolved).toBe(true);
   });
 
-  it('returns an empty list for an unknown file', () => {
+  it('returns an empty list for an unknown file', async () => {
     const storeDir = createStoreDir();
     expect(listAnnotations('/unknown/artifact.md', storeDir)).toEqual([]);
   });
 
-  it('detects content changes after a write', () => {
+  it('detects content changes after a write', async () => {
     const storeDir = createStoreDir();
     const absPath = join(storeDir, 'artifact.md');
     addAnnotation(absPath, 'original content', { body: 'Note' }, storeDir);
@@ -75,7 +75,7 @@ describe('annotation store', () => {
     expect(isStale(absPath, 'changed content', storeDir)).toBe(true);
   });
 
-  it('rejects an empty annotation body', () => {
+  it('rejects an empty annotation body', async () => {
     const storeDir = createStoreDir();
     expect(() =>
       addAnnotation('/artifact.md', 'content', { body: '   \n\t' }, storeDir),

@@ -1,4 +1,5 @@
 import {
+  withTransaction,
   createDocument as dbCreateDocument,
   deleteCommentsByTarget,
   deleteDocument as dbDeleteDocument,
@@ -54,22 +55,22 @@ export class InvalidDocumentError extends Error {
   }
 }
 
-function assertTaskInProject(db: Db, projectId: string, taskId: string): void {
-  const task = getTask(db, taskId);
+async function assertTaskInProject(db: Db, projectId: string, taskId: string): Promise<void> {
+  const task = await getTask(db, taskId);
   if (!task || task.projectId !== projectId) {
     throw new InvalidDocumentError('Task does not belong to project');
   }
 }
 
-function assertParentInProject(db: Db, projectId: string, parentId: string): void {
-  const parent = dbGetDocument(db, parentId);
+async function assertParentInProject(db: Db, projectId: string, parentId: string): Promise<void> {
+  const parent = await dbGetDocument(db, parentId);
   if (!parent || parent.projectId !== projectId) {
     throw new InvalidDocumentError('Parent document does not belong to project');
   }
 }
 
-function assertFolderInProject(db: Db, projectId: string, folderId: string): void {
-  if (!getFolderByProjectAndId(db, projectId, folderId)) {
+async function assertFolderInProject(db: Db, projectId: string, folderId: string): Promise<void> {
+  if (!(await getFolderByProjectAndId(db, projectId, folderId))) {
     throw new InvalidDocumentError('Folder does not belong to project');
   }
 }
@@ -78,55 +79,64 @@ export function createDocumentService(deps: DocumentServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    listTree(
+    async listTree(
       projectId: string,
       pagination: PaginationParams = {},
-    ): SerializedDocumentTree[] | undefined {
-      const project = getProject(db, projectId);
+    ): Promise<SerializedDocumentTree[] | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
-      return buildDocumentTree(dbListDocuments(db, projectId, pagination));
+      return buildDocumentTree(await dbListDocuments(db, projectId, pagination));
     },
 
-    listFolderTree(projectId: string): SerializedDocumentFolderTree | undefined {
-      const project = getProject(db, projectId);
+    async listFolderTree(projectId: string): Promise<SerializedDocumentFolderTree | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
-      return buildFolderTree(dbListFolders(db, projectId), dbListDocuments(db, projectId));
+      return buildFolderTree(
+        await dbListFolders(db, projectId),
+        await dbListDocuments(db, projectId),
+      );
     },
 
-    listByFolder(projectId: string, folderId: string): SerializedDocumentTree[] | undefined {
-      const project = getProject(db, projectId);
+    async listByFolder(
+      projectId: string,
+      folderId: string,
+    ): Promise<SerializedDocumentTree[] | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
-      if (!getFolderByProjectAndId(db, projectId, folderId)) {
+      if (!(await getFolderByProjectAndId(db, projectId, folderId))) {
         return undefined;
       }
-      return buildDocumentTree(dbListDocuments(db, projectId, { folderId }));
+      return buildDocumentTree(await dbListDocuments(db, projectId, { folderId }));
     },
 
-    create(projectId: string, input: CreateDocumentInput): SerializedDocument | undefined {
-      const project = getProject(db, projectId);
+    async create(
+      projectId: string,
+      input: CreateDocumentInput,
+    ): Promise<SerializedDocument | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
       if (input.linkedTaskId !== undefined && input.linkedTaskId !== null) {
-        assertTaskInProject(db, projectId, input.linkedTaskId);
+        await assertTaskInProject(db, projectId, input.linkedTaskId);
       }
 
       if (input.parentId !== undefined && input.parentId !== null) {
-        assertParentInProject(db, projectId, input.parentId);
+        await assertParentInProject(db, projectId, input.parentId);
       }
 
       if (input.folderId !== undefined && input.folderId !== null) {
-        assertFolderInProject(db, projectId, input.folderId);
+        await assertFolderInProject(db, projectId, input.folderId);
       }
 
-      const document = dbCreateDocument(db, {
+      const document = await dbCreateDocument(db, {
         projectId,
         title: input.title,
         body: input.body,
@@ -145,36 +155,36 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       return serializeDocument(document);
     },
 
-    get(id: string): SerializedDocument | undefined {
-      const document = dbGetDocument(db, id);
+    async get(id: string): Promise<SerializedDocument | undefined> {
+      const document = await dbGetDocument(db, id);
       if (!document) {
         return undefined;
       }
       return serializeDocument(document);
     },
 
-    update(id: string, input: UpdateDocumentInput): SerializedDocument | undefined {
-      const existing = dbGetDocument(db, id);
+    async update(id: string, input: UpdateDocumentInput): Promise<SerializedDocument | undefined> {
+      const existing = await dbGetDocument(db, id);
       if (!existing) {
         return undefined;
       }
 
       if (input.linkedTaskId !== undefined && input.linkedTaskId !== null) {
-        assertTaskInProject(db, existing.projectId, input.linkedTaskId);
+        await assertTaskInProject(db, existing.projectId, input.linkedTaskId);
       }
 
       if (input.parentId !== undefined && input.parentId !== null) {
         if (input.parentId === id) {
           throw new InvalidDocumentError('Document cannot be its own parent');
         }
-        assertParentInProject(db, existing.projectId, input.parentId);
+        await assertParentInProject(db, existing.projectId, input.parentId);
       }
 
       if (input.folderId !== undefined && input.folderId !== null) {
-        assertFolderInProject(db, existing.projectId, input.folderId);
+        await assertFolderInProject(db, existing.projectId, input.folderId);
       }
 
-      const document = dbUpdateDocument(db, id, input);
+      const document = await dbUpdateDocument(db, id, input);
       if (!document) {
         return undefined;
       }
@@ -182,13 +192,13 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       return serializeDocument(document);
     },
 
-    getByTask(taskId: string): SerializedDocument | undefined {
-      const task = getTask(db, taskId);
+    async getByTask(taskId: string): Promise<SerializedDocument | undefined> {
+      const task = await getTask(db, taskId);
       if (!task) {
         return undefined;
       }
 
-      const document = dbGetDocumentByTask(db, taskId);
+      const document = await dbGetDocumentByTask(db, taskId);
       if (!document) {
         return undefined;
       }
@@ -196,16 +206,16 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       return serializeDocument(document);
     },
 
-    delete(id: string) {
-      const existing = dbGetDocument(db, id);
+    async delete(id: string) {
+      const existing = await dbGetDocument(db, id);
       if (!existing) {
         return false;
       }
 
-      db.transaction((tx) => {
-        detachDocumentChildren(tx, id);
-        deleteCommentsByTarget(tx, 'document', id);
-        dbDeleteDocument(tx, id);
+      await withTransaction(db, async (tx) => {
+        await detachDocumentChildren(tx, id);
+        await deleteCommentsByTarget(tx, 'document', id);
+        await dbDeleteDocument(tx, id);
       });
 
       eventBus.emit({ type: 'canvas_updated', projectId: existing.projectId });

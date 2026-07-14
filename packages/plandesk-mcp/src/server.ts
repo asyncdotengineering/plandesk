@@ -99,7 +99,7 @@ import { createUpdateDocumentHandler } from './tools/update-document.js';
 import { createUpdateTaskHandler } from './tools/update-task.js';
 
 export type TokenStore = {
-  verify(raw: string): { id: string; name: string } | undefined;
+  verify(raw: string): Promise<{ id: string; name: string } | undefined>;
 };
 
 export type McpAppDeps = {
@@ -630,7 +630,7 @@ export function createMcpApp(deps: McpAppDeps): Hono {
     if (raw === undefined) {
       return c.json({ error: 'unauthorized' }, 401);
     }
-    const verified = deps.tokenStore.verify(raw);
+    const verified = await deps.tokenStore.verify(raw);
     if (!verified) {
       return c.json({ error: 'unauthorized' }, 401);
     }

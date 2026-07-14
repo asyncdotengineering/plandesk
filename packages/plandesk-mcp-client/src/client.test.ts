@@ -16,7 +16,7 @@ import { createPlandeskClient } from './client.js';
 
 function createTestTokenStore(db: Db) {
   return {
-    verify(raw: string) {
+    async verify(raw: string) {
       return verifyToken(db, raw);
     },
   };
@@ -31,13 +31,13 @@ async function withMcpServer(
     projectName: string;
   }) => Promise<void>,
 ): Promise<void> {
-  const db = createDb(':memory:');
-  migrate(db);
-  const project = createProject(db, {
+  const db = await createDb(':memory:');
+  await migrate(db);
+  const project = await createProject(db, {
     name: 'Factory Adapter Project',
     description: 'via MCP client',
   });
-  const { token } = createToken(db, { name: 'factory-adapter' });
+  const { token } = await createToken(db, { name: 'factory-adapter' });
 
   const eventBus = createEventBus();
   const services = createServices({ db, eventBus });
@@ -148,8 +148,8 @@ describe('createPlandeskClient', () => {
 
   it('surfaces 401 for revoked token', async () => {
     await withMcpServer(async ({ baseUrl, db }) => {
-      const row = createToken(db, { name: 'revoked' });
-      revokeToken(db, row.id);
+      const row = await createToken(db, { name: 'revoked' });
+      await revokeToken(db, row.id);
 
       await expect(createPlandeskClient({ url: baseUrl, token: row.token })).rejects.toThrow(
         /401|authentication failed/i,

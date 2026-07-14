@@ -12,10 +12,10 @@ export function createCreateDocumentHandler(
   linked_task_id?: string;
   parent_id?: string;
   folder_id?: string;
-}) => ToolResult {
-  return (args) => {
+}) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const document = documentService.create(args.project_id, {
+      const document = await documentService.create(args.project_id, {
         title: args.title,
         ...(args.body !== undefined ? { body: ensureHtmlBody(args.body) } : {}),
         ...(args.linked_task_id !== undefined ? { linkedTaskId: args.linked_task_id } : {}),

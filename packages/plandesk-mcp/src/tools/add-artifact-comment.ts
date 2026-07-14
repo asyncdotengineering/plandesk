@@ -10,10 +10,10 @@ export function createAddArtifactCommentHandler(
   body: string;
   passage?: string;
   anchor?: string;
-}) => ToolResult {
-  return (args) => {
+}) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const comment = commentService.createForArtifact(args.project_id, args.artifact_id, {
+      const comment = await commentService.createForArtifact(args.project_id, args.artifact_id, {
         body: args.body,
         passage: args.passage,
         anchor: args.anchor,

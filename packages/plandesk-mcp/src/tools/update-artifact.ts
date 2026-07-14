@@ -10,10 +10,10 @@ export function createUpdateArtifactHandler(
   title?: string;
   content?: string;
   kind?: ArtifactKind;
-}) => ToolResult {
-  return (args) => {
+}) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const artifact = artifactService.update(args.artifact_id, {
+      const artifact = await artifactService.update(args.artifact_id, {
         ...(args.title !== undefined ? { title: args.title } : {}),
         ...(args.content !== undefined ? { content: args.content } : {}),
         ...(args.kind !== undefined ? { kind: args.kind } : {}),

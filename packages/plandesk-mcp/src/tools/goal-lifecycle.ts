@@ -8,30 +8,19 @@ import {
 } from '@plandesk/api';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
-function handleLifecycle(
-  goalService: GoalService,
-  goalId: string,
-  action: 'pause' | 'resume',
-): ToolResult;
-function handleLifecycle(
-  goalService: GoalService,
-  goalId: string,
-  action: 'complete',
-  evidence?: VerificationEvidence,
-): ToolResult;
-function handleLifecycle(
+async function handleLifecycle(
   goalService: GoalService,
   goalId: string,
   action: 'pause' | 'resume' | 'complete',
   evidence?: VerificationEvidence,
-): ToolResult {
+): Promise<ToolResult> {
   try {
     const goal =
       action === 'pause'
-        ? goalService.pause(goalId)
+        ? await goalService.pause(goalId)
         : action === 'resume'
-          ? goalService.resume(goalId)
-          : goalService.complete(goalId, evidence);
+          ? await goalService.resume(goalId)
+          : await goalService.complete(goalId, evidence);
     if (!goal) {
       return toolNotFound();
     }
@@ -55,18 +44,18 @@ function handleLifecycle(
 
 export function createPauseGoalHandler(
   goalService: GoalService,
-): (args: { goal_id: string }) => ToolResult {
-  return (args) => handleLifecycle(goalService, args.goal_id, 'pause');
+): (args: { goal_id: string }) => Promise<ToolResult> {
+  return async (args) => handleLifecycle(goalService, args.goal_id, 'pause');
 }
 
 export function createResumeGoalHandler(
   goalService: GoalService,
-): (args: { goal_id: string }) => ToolResult {
-  return (args) => handleLifecycle(goalService, args.goal_id, 'resume');
+): (args: { goal_id: string }) => Promise<ToolResult> {
+  return async (args) => handleLifecycle(goalService, args.goal_id, 'resume');
 }
 
 export function createCompleteGoalHandler(
   goalService: GoalService,
-): (args: { goal_id: string; evidence?: VerificationEvidence }) => ToolResult {
-  return (args) => handleLifecycle(goalService, args.goal_id, 'complete', args.evidence);
+): (args: { goal_id: string; evidence?: VerificationEvidence }) => Promise<ToolResult> {
+  return async (args) => handleLifecycle(goalService, args.goal_id, 'complete', args.evidence);
 }

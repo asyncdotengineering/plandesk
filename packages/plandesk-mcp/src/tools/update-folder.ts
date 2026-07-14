@@ -4,10 +4,10 @@ import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from 
 
 export function createUpdateFolderHandler(
   folderService: FolderService,
-): (args: { folder_id: string; name?: string; parent_folder_id?: string | null }) => ToolResult {
-  return (args) => {
+): (args: { folder_id: string; name?: string; parent_folder_id?: string | null }) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const folder = folderService.update(args.folder_id, {
+      const folder = await folderService.update(args.folder_id, {
         ...(args.name !== undefined ? { name: args.name } : {}),
         ...(args.parent_folder_id !== undefined
           ? { parentFolderId: args.parent_folder_id }

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { createDb, createGoal, createProject, migrate } from '@plandesk/db';
+import { createDb, createGoal, createProject, migrate , type Db} from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createApp } from '../server.js';
 import { createEventBus } from '../events.js';
 import { createServices } from '../services/index.js';
 import { parseJson } from '../test-helpers.js';
 
-function createTestApp() {
-  const db = createDb(':memory:');
-  migrate(db);
+async function createTestApp() {
+  const db = await createDb(':memory:');
+  await migrate(db);
   const eventBus = createEventBus();
   const services = createServices({ db, eventBus });
   const app = createApp({ db, eventBus, services });
@@ -17,8 +17,8 @@ function createTestApp() {
 
 describe('goals routes', () => {
   it('POST /projects/:id/goals creates a goal', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Goals' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Goals' });
 
     const res = await app.request(`/api/v1/projects/${project.id}/goals`, {
       method: 'POST',
@@ -36,9 +36,9 @@ describe('goals routes', () => {
   });
 
   it('GET /projects/:id/goals lists goals and 404s missing project', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'List' });
-    createGoal(db, { projectId: project.id, objective: 'One' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'List' });
+    await createGoal(db, { projectId: project.id, objective: 'One' });
 
     const res = await app.request(`/api/v1/projects/${project.id}/goals`);
     expect(res.status).toBe(200);
@@ -52,10 +52,10 @@ describe('goals routes', () => {
   });
 
   it('GET /goals/:id returns goal with cycle_tasks', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Detail' });
-    const goal = createGoal(db, { projectId: project.id, objective: 'Detail goal' });
-    const task = createTask(db, { projectId: project.id, goalId: goal.id, label: 'Child' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Detail' });
+    const goal = await createGoal(db, { projectId: project.id, objective: 'Detail goal' });
+    const task = await createTask(db, { projectId: project.id, goalId: goal.id, label: 'Child' });
 
     const res = await app.request(`/api/v1/goals/${goal.id}`);
     expect(res.status).toBe(200);
@@ -65,9 +65,9 @@ describe('goals routes', () => {
   });
 
   it('PATCH /goals/:id updates contract fields', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Patch' });
-    const goal = createGoal(db, { projectId: project.id, objective: 'Before' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Patch' });
+    const goal = await createGoal(db, { projectId: project.id, objective: 'Before' });
 
     const res = await app.request(`/api/v1/goals/${goal.id}`, {
       method: 'PATCH',
@@ -81,14 +81,14 @@ describe('goals routes', () => {
   });
 
   it('lifecycle routes enforce transition guards and completion blocking', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Lifecycle' });
-    const goal = createGoal(db, {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Lifecycle' });
+    const goal = await createGoal(db, {
       projectId: project.id,
       objective: 'Lifecycle',
       status: 'active',
     });
-    const open = createTask(db, {
+    const open = await createTask(db, {
       projectId: project.id,
       goalId: goal.id,
       label: 'Open',
@@ -111,22 +111,22 @@ describe('goals routes', () => {
     expect(blockedBody.error).toBe('blocked_by_incomplete_tasks');
     expect(blockedBody.incomplete_task_ids).toEqual([open.id]);
 
-    db.$client.prepare('UPDATE tasks SET status = ? WHERE id = ?').run('done', open.id);
+    await db.$client.execute({ sql: 'UPDATE tasks SET status = ? WHERE id = ?', args: ['done', open.id] });
     const completeRes = await app.request(`/api/v1/goals/${goal.id}/complete`, { method: 'POST' });
     expect(completeRes.status).toBe(200);
     expect((await parseJson<{ status: string }>(completeRes)).status).toBe('complete');
   });
 
   it('POST /goals/:id/complete requires evidence when verification_surface is set', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Evidence' });
-    const goal = createGoal(db, {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Evidence' });
+    const goal = await createGoal(db, {
       projectId: project.id,
       objective: 'Gated',
       status: 'active',
       verificationSurface: JSON.stringify({ kind: 'gate_command', command: 'pnpm test' }),
     });
-    const task = createTask(db, {
+    const task = await createTask(db, {
       projectId: project.id,
       goalId: goal.id,
       label: 'Done',
@@ -148,11 +148,17 @@ describe('goals routes', () => {
     expect(redBody.status).toBe('blocked');
     expect(redBody.last_verification.green).toBe(false);
 
-    db.$client.prepare('UPDATE goals SET status = ? WHERE id = ?').run('active', goal.id);
-    for (const row of db.$client
-      .prepare('SELECT id FROM tasks WHERE goal_id = ? AND status = ?')
-      .all(goal.id, 'scope') as Array<{ id: string }>) {
-      db.$client.prepare('UPDATE tasks SET status = ? WHERE id = ?').run('done', row.id);
+    await db.$client.execute({ sql: 'UPDATE goals SET status = ? WHERE id = ?', args: ['active', goal.id] });
+    for (const row of (
+      await db.$client.execute({
+        sql: 'SELECT id FROM tasks WHERE goal_id = ? AND status = ?',
+        args: [goal.id, 'scope'],
+      })
+    ).rows) {
+      await db.$client.execute({
+        sql: 'UPDATE tasks SET status = ? WHERE id = ?',
+        args: ['done', String(row.id)],
+      });
     }
     const green = await app.request(`/api/v1/goals/${goal.id}/complete`, {
       method: 'POST',

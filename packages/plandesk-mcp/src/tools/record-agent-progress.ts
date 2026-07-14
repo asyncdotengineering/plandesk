@@ -4,10 +4,10 @@ import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from 
 
 export function createRecordAgentProgressHandler(
   agentRunService: AgentRunService,
-): (args: { run_id: string; message: string }) => ToolResult {
-  return (args) => {
+): (args: { run_id: string; message: string }) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const event = agentRunService.recordProgress(args.run_id, args.message);
+      const event = await agentRunService.recordProgress(args.run_id, args.message);
       if (!event) {
         return toolNotFound();
       }

@@ -30,8 +30,8 @@ import { createMcpApp } from './server.js';
 
 function createTestTokenStore(db: Db) {
   return {
-    verify(raw: string) {
-      return verifyToken(db, raw);
+    async verify(raw: string) {
+      return await verifyToken(db, raw);
     },
   };
 }
@@ -47,10 +47,10 @@ async function withMcpServer(
     services: ReturnType<typeof createServices>;
   }) => Promise<void>,
 ): Promise<void> {
-  const db = createDb(':memory:');
-  migrate(db);
-  const project = createProject(db, { name: 'MCP Test Project', description: 'via MCP' });
-  const { token } = createToken(db, { name: 'test' });
+  const db = await createDb(':memory:');
+  await migrate(db);
+  const project = await createProject(db, { name: 'MCP Test Project', description: 'via MCP' });
+  const { token } = await createToken(db, { name: 'test' });
 
   const eventBus = createEventBus();
   const services = createServices({ db, eventBus });
@@ -138,8 +138,8 @@ describe('createMcpApp', () => {
 
   it('regression: MCP token revoke → subsequent MCP call returns 401', async () => {
     await withMcpServer(async ({ baseUrl, db }) => {
-      const row = createToken(db, { name: 'revoke-me' });
-      revokeToken(db, row.id);
+      const row = await createToken(db, { name: 'revoke-me' });
+      await revokeToken(db, row.id);
 
       const res = await fetch(`${baseUrl}/mcp`, {
         method: 'POST',
@@ -195,7 +195,7 @@ describe('createMcpApp', () => {
 
   it('test:mcp_update_task updates via MCP, REST reflects change, SSE fires', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db, app, eventBus }) => {
-      const task = createTask(db, { projectId, label: 'MCP task', status: 'todo' });
+      const task = await createTask(db, { projectId, label: 'MCP task', status: 'todo' });
       const received: PlankDeskEvent[] = [];
       eventBus.subscribe((event) => {
         received.push(event);
@@ -240,7 +240,7 @@ describe('createMcpApp', () => {
 
   it('update_task returns invalid_argument for bad status', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
-      const task = createTask(db, { projectId, label: 'Bad status' });
+      const task = await createTask(db, { projectId, label: 'Bad status' });
       const client = await connectClient(baseUrl, token);
       const result = await client.callTool({
         name: 'update_task',
@@ -283,7 +283,7 @@ describe('createMcpApp', () => {
       };
       expect(createdPayload.project.name).toBe('MCP Created');
 
-      const doc = createDocument(db, {
+      const doc = await createDocument(db, {
         projectId,
         title: 'MCP Doc',
         body: '# Body',
@@ -333,8 +333,8 @@ describe('createMcpApp', () => {
   it('create_document and update_document persist linked_task_id (round-trip)', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
       const client = await connectClient(baseUrl, token);
-      const task = createTask(db, { projectId, label: 'Link target' });
-      const other = createTask(db, { projectId, label: 'Other target' });
+      const task = await createTask(db, { projectId, label: 'Link target' });
+      const other = await createTask(db, { projectId, label: 'Other target' });
 
       // create with a link (this path already worked; guard it against regression)
       const created = await client.callTool({
@@ -737,8 +737,8 @@ describe('createMcpApp', () => {
 
   it('create_share_link mints a resource-scoped link with a working markdown_url', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db, app }) => {
-      const task = createTask(db, { projectId, label: 'Shareable task', status: 'todo' });
-      createDocument(db, { projectId, title: 'Spec', body: '# Spec body', linkedTaskId: task.id });
+      const task = await createTask(db, { projectId, label: 'Shareable task', status: 'todo' });
+      await createDocument(db, { projectId, title: 'Spec', body: '# Spec body', linkedTaskId: task.id });
 
       const client = await connectClient(baseUrl, token);
       const result = await client.callTool({
@@ -769,8 +769,8 @@ describe('createMcpApp', () => {
 
   it('create_share_link requires exactly one of task_id/document_id', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
-      const task = createTask(db, { projectId, label: 'Either' });
-      const doc = createDocument(db, { projectId, title: 'Either doc' });
+      const task = await createTask(db, { projectId, label: 'Either' });
+      const doc = await createDocument(db, { projectId, title: 'Either doc' });
       const client = await connectClient(baseUrl, token);
 
       const neither = await client.callTool({ name: 'create_share_link', arguments: {} });
@@ -823,7 +823,7 @@ describe('createMcpApp', () => {
       expect(payload.scaffold.counts).toEqual({ tasks: 2, edges: 1, documents: 1 });
       expect(payload.scaffold.key_to_id.setup).toBeTruthy();
       expect(payload.scaffold.tasks[1]).toMatchObject({ x: 240, y: 0 });
-      expect(listTasks(db, payload.scaffold.project.id)).toHaveLength(2);
+      expect(await listTasks(db, payload.scaffold.project.id)).toHaveLength(2);
       expect(received.some((e) => e.type === 'canvas_updated')).toBe(true);
       expect(received.filter((e) => e.type === 'document_created')).toHaveLength(1);
 
@@ -877,7 +877,7 @@ describe('createMcpApp', () => {
       const listedPayload = JSON.parse(listedText) as { goals: Array<{ id: string }> };
       expect(listedPayload.goals.some((goal) => goal.id === createdPayload.goal.id)).toBe(true);
 
-      const task = createTask(db, {
+      const task = await createTask(db, {
         projectId,
         goalId: createdPayload.goal.id,
         label: 'Cycle task',
@@ -901,7 +901,10 @@ describe('createMcpApp', () => {
       });
       expect(blocked.isError).toBe(true);
 
-      db.$client.prepare('UPDATE tasks SET status = ? WHERE id = ?').run('done', task.id);
+      await db.$client.execute({
+        sql: 'UPDATE tasks SET status = ? WHERE id = ?',
+        args: ['done', task.id],
+      });
       const completed = await client.callTool({
         name: 'complete_goal',
         arguments: { goal_id: createdPayload.goal.id },
@@ -920,10 +923,10 @@ describe('createMcpApp', () => {
 
   it('get_next_task returns actionable task and blocked context', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
-      const actionable = createTask(db, { projectId, label: 'Actionable', status: 'todo' });
-      const prerequisite = createTask(db, { projectId, label: 'Prerequisite', status: 'todo' });
-      const blocked = createTask(db, { projectId, label: 'Blocked', status: 'todo' });
-      createEdge(db, {
+      const actionable = await createTask(db, { projectId, label: 'Actionable', status: 'todo' });
+      const prerequisite = await createTask(db, { projectId, label: 'Prerequisite', status: 'todo' });
+      const blocked = await createTask(db, { projectId, label: 'Blocked', status: 'todo' });
+      await createEdge(db, {
         projectId,
         fromTaskId: prerequisite.id,
         toTaskId: blocked.id,
@@ -1041,15 +1044,15 @@ describe('createMcpApp', () => {
 
   it('list_tasks and get_next_task tags filters use OR semantics', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, services }) => {
-      const frontend = services.taskService.create(projectId, {
+      const frontend = await services.taskService.create(projectId, {
         label: 'Frontend',
         tags: ['frontend'],
       });
-      const backend = services.taskService.create(projectId, {
+      const backend = await services.taskService.create(projectId, {
         label: 'Backend',
         tags: ['backend'],
       });
-      services.taskService.create(projectId, { label: 'Untagged' });
+      await services.taskService.create(projectId, { label: 'Untagged' });
 
       const client = await connectClient(baseUrl, token);
 
@@ -1100,7 +1103,7 @@ describe('createMcpApp', () => {
       });
       expect(badCreate.isError).toBe(true);
 
-      const task = createTask(db, { projectId, label: 'Ok' });
+      const task = await createTask(db, { projectId, label: 'Ok' });
       const badUpdate = await client.callTool({
         name: 'update_task',
         arguments: { task_id: task.id, tags: [' '] },
@@ -1118,15 +1121,15 @@ describe('createMcpApp', () => {
         received.push(event);
       });
 
-      const doc = createDocument(db, { projectId, title: 'Review doc' });
-      const resolved = createComment(db, {
+      const doc = await createDocument(db, { projectId, title: 'Review doc' });
+      const resolved = await createComment(db, {
         projectId,
         targetType: 'document',
         targetId: doc.id,
         body: 'Already done',
       });
-      updateComment(db, resolved.id, { resolved: true });
-      const open = createComment(db, {
+      await updateComment(db, resolved.id, { resolved: true });
+      const open = await createComment(db, {
         projectId,
         targetType: 'document',
         targetId: doc.id,
@@ -1230,8 +1233,8 @@ describe('createMcpApp', () => {
 
   it('list_comments rejects cross-project target', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
-      const otherProject = createProject(db, { name: 'Other project' });
-      const foreignDoc = createDocument(db, { projectId: otherProject.id, title: 'Foreign' });
+      const otherProject = await createProject(db, { name: 'Other project' });
+      const foreignDoc = await createDocument(db, { projectId: otherProject.id, title: 'Foreign' });
 
       const client = await connectClient(baseUrl, token);
       const result = await client.callTool({
@@ -1252,7 +1255,7 @@ describe('createMcpApp', () => {
 
   it('add_comment returns invalid_argument for empty body', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
-      const doc = createDocument(db, { projectId, title: 'Doc' });
+      const doc = await createDocument(db, { projectId, title: 'Doc' });
       const client = await connectClient(baseUrl, token);
       const result = await client.callTool({
         name: 'add_comment',
@@ -1283,7 +1286,7 @@ describe('createMcpApp', () => {
   });
 
   it('publish_project round-trips sync loop through triage accept', async () => {
-    const syncDb = createSyncDb(':memory:');
+    const syncDb = await createSyncDb(':memory:');
     await migrateSyncServer(syncDb);
     const { token: syncToken } = await createSyncToken(syncDb, { label: 'mcp-test' });
     const syncApp = createSyncServer({ db: syncDb });
@@ -1305,7 +1308,7 @@ describe('createMcpApp', () => {
 
     try {
       await withMcpServer(async ({ baseUrl, token, projectId, app, services }) => {
-        const share = services.shareService.createShare(projectId, {
+        const share = await services.shareService.createShare(projectId, {
           audienceName: 'Client',
           mode: 'public',
           permissions: { read: true, submit: true },

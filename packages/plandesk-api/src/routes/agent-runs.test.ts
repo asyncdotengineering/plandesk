@@ -20,7 +20,7 @@ type AgentRunResponse = {
 
 describe('agent-runs routes', () => {
   it('GET /projects/:id/agent-runs returns runs with nested events', async () => {
-    const { app, db, eventBus } = createTestApp();
+    const { app, db, eventBus } = await createTestApp();
     const { agentRunService } = createServices({ db, eventBus });
 
     const projectRes = await app.request('/api/v1/projects', {
@@ -37,13 +37,13 @@ describe('agent-runs routes', () => {
     });
     const otherProject = await parseJson<{ id: string }>(otherProjectRes);
 
-    const run = agentRunService.start(project.id, 'Worker');
+    const run = await agentRunService.start(project.id, 'Worker');
     if (!run) {
       throw new Error('expected run');
     }
-    agentRunService.recordProgress(run.id, 'Planning');
-    agentRunService.complete(run.id, 'completed');
-    agentRunService.start(otherProject.id, 'Other run');
+    await agentRunService.recordProgress(run.id, 'Planning');
+    await agentRunService.complete(run.id, 'completed');
+    await agentRunService.start(otherProject.id, 'Other run');
 
     const listRes = await app.request(`/api/v1/projects/${project.id}/agent-runs`);
     expect(listRes.status).toBe(200);
@@ -61,7 +61,7 @@ describe('agent-runs routes', () => {
   });
 
   it('returns 404 for a missing project', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request(
       '/api/v1/projects/00000000-0000-4000-8000-000000009999/agent-runs',
     );
@@ -70,7 +70,7 @@ describe('agent-runs routes', () => {
   });
 
   it('GET /projects/:id/agent-runs honors limit and offset', async () => {
-    const { app, db, eventBus } = createTestApp();
+    const { app, db, eventBus } = await createTestApp();
     const { agentRunService } = createServices({ db, eventBus });
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
@@ -78,8 +78,8 @@ describe('agent-runs routes', () => {
       body: JSON.stringify({ name: 'Paginate runs' }),
     });
     const project = await parseJson<{ id: string }>(projectRes);
-    agentRunService.start(project.id, 'Run 1');
-    agentRunService.start(project.id, 'Run 2');
+    await agentRunService.start(project.id, 'Run 1');
+    await agentRunService.start(project.id, 'Run 2');
 
     const res = await app.request(`/api/v1/projects/${project.id}/agent-runs?limit=1&offset=0`);
     expect(res.status).toBe(200);
@@ -88,7 +88,7 @@ describe('agent-runs routes', () => {
   });
 
   it('GET /projects/:id/agent-runs returns 400 for invalid pagination', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
         method: 'POST',
@@ -102,7 +102,7 @@ describe('agent-runs routes', () => {
   });
 
   it('POST /agent-runs/:id/progress records an event on a running run', async () => {
-    const { app, db, eventBus } = createTestApp();
+    const { app, db, eventBus } = await createTestApp();
     const { agentRunService } = createServices({ db, eventBus });
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
@@ -111,7 +111,7 @@ describe('agent-runs routes', () => {
         body: JSON.stringify({ name: 'Progress' }),
       }),
     );
-    const run = agentRunService.start(project.id, 'Worker');
+    const run = await agentRunService.start(project.id, 'Worker');
     if (!run) {
       throw new Error('expected run');
     }
@@ -132,7 +132,7 @@ describe('agent-runs routes', () => {
   });
 
   it('POST /agent-runs/:id/progress returns 404 for an unknown run', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request(
       '/api/v1/agent-runs/00000000-0000-4000-8000-000000009999/progress',
       {
@@ -146,7 +146,7 @@ describe('agent-runs routes', () => {
   });
 
   it('POST /agent-runs/:id/progress returns 400 for a missing message', async () => {
-    const { app, db, eventBus } = createTestApp();
+    const { app, db, eventBus } = await createTestApp();
     const { agentRunService } = createServices({ db, eventBus });
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
@@ -155,7 +155,7 @@ describe('agent-runs routes', () => {
         body: JSON.stringify({ name: 'Missing message' }),
       }),
     );
-    const run = agentRunService.start(project.id, 'Worker');
+    const run = await agentRunService.start(project.id, 'Worker');
     if (!run) {
       throw new Error('expected run');
     }
@@ -169,7 +169,7 @@ describe('agent-runs routes', () => {
   });
 
   it('POST /agent-runs/:id/progress returns 400 for a completed run', async () => {
-    const { app, db, eventBus } = createTestApp();
+    const { app, db, eventBus } = await createTestApp();
     const { agentRunService } = createServices({ db, eventBus });
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
@@ -178,11 +178,11 @@ describe('agent-runs routes', () => {
         body: JSON.stringify({ name: 'Terminal run' }),
       }),
     );
-    const run = agentRunService.start(project.id, 'Worker');
+    const run = await agentRunService.start(project.id, 'Worker');
     if (!run) {
       throw new Error('expected run');
     }
-    agentRunService.complete(run.id, 'completed');
+    await agentRunService.complete(run.id, 'completed');
 
     const res = await app.request(`/api/v1/agent-runs/${run.id}/progress`, {
       method: 'POST',

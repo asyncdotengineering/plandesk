@@ -8,6 +8,7 @@ import {
   hashShareToken,
   listShares,
   migrate,
+  type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus } from '../events.js';
@@ -17,21 +18,26 @@ import { createSyncService } from './sync.js';
 import { createTaskService } from './tasks.js';
 
 describe('shareService', () => {
-  const db = createDb(':memory:');
+  let db: Db;
+
+  beforeEach(async () => {
+    db = await createDb(':memory:');
+    await migrate(db);
+  });
   const eventBus = createEventBus();
 
-  beforeEach(() => {
-    migrate(db);
-    db.$client.exec('DELETE FROM share_submissions');
-    db.$client.exec('DELETE FROM sync_state');
-    db.$client.exec('DELETE FROM shares');
-    db.$client.exec('DELETE FROM documents');
-    db.$client.exec('DELETE FROM tasks');
-    db.$client.exec('DELETE FROM goals');
-    db.$client.exec('DELETE FROM projects');
+  beforeEach(async () => {
+    await migrate(db);
+    await db.$client.execute('DELETE FROM share_submissions');
+    await db.$client.execute('DELETE FROM sync_state');
+    await db.$client.execute('DELETE FROM shares');
+    await db.$client.execute('DELETE FROM documents');
+    await db.$client.execute('DELETE FROM tasks');
+    await db.$client.execute('DELETE FROM goals');
+    await db.$client.execute('DELETE FROM projects');
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.restoreAllMocks();
   });
 
@@ -39,11 +45,11 @@ describe('shareService', () => {
     return createShareService({ db, eventBus });
   }
 
-  it('creates a share and returns the raw token once', () => {
+  it('creates a share and returns the raw token once', async () => {
     const service = createService();
-    const project = createProject(db, { name: 'Share me' });
+    const project = await createProject(db, { name: 'Share me' });
 
-    const result = service.createShare(project.id, {
+    const result = await service.createShare(project.id, {
       audienceName: 'Acme',
       mode: 'invite',
     });
@@ -60,55 +66,55 @@ describe('shareService', () => {
     expect(JSON.stringify(result?.share)).not.toContain(result?.token ?? '');
   });
 
-  it('lists shares for a project', () => {
+  it('lists shares for a project', async () => {
     const service = createService();
-    const project = createProject(db, { name: 'List shares' });
-    service.createShare(project.id, { audienceName: 'A', mode: 'public' });
-    service.createShare(project.id, { audienceName: 'B', mode: 'invite' });
+    const project = await createProject(db, { name: 'List shares' });
+    await service.createShare(project.id, { audienceName: 'A', mode: 'public' });
+    await service.createShare(project.id, { audienceName: 'B', mode: 'invite' });
 
-    const shares = service.listShares(project.id);
+    const shares = await service.listShares(project.id);
     expect(shares).toHaveLength(2);
     expect(shares?.map((s) => s.audience_name).sort()).toEqual(['A', 'B']);
   });
 
-  it('returns undefined for missing projects', () => {
+  it('returns undefined for missing projects', async () => {
     const service = createService();
     expect(
-      service.createShare('00000000-0000-4000-8000-000000009999', {
+      await service.createShare('00000000-0000-4000-8000-000000009999', {
         audienceName: 'Ghost',
         mode: 'invite',
       }),
     ).toBeUndefined();
-    expect(service.listShares('00000000-0000-4000-8000-000000009999')).toBeUndefined();
+    expect(await service.listShares('00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
-  it('throws InvalidShareError for empty audience names', () => {
+  it('throws InvalidShareError for empty audience names', async () => {
     const service = createService();
-    const project = createProject(db, { name: 'Invalid' });
-    expect(() => service.createShare(project.id, { audienceName: '   ', mode: 'invite' })).toThrow(
+    const project = await createProject(db, { name: 'Invalid' });
+    await expect(service.createShare(project.id, { audienceName: '   ', mode: 'invite' })).rejects.toThrow(
       InvalidShareError,
     );
   });
 
-  it('revokes a share', () => {
+  it('revokes a share', async () => {
     const service = createService();
-    const project = createProject(db, { name: 'Revoke' });
-    const created = service.createShare(project.id, {
+    const project = await createProject(db, { name: 'Revoke' });
+    const created = await service.createShare(project.id, {
       audienceName: 'Revoke',
       mode: 'invite',
     });
     if (!created) {
       throw new Error('expected share to be created');
     }
-    expect(service.revokeShare(created.share.id)).toBe(true);
-    expect(getShare(db, created.share.id)?.revokedAt).toBeTruthy();
-    expect(service.revokeShare(created.share.id)).toBe(false);
+    expect(await service.revokeShare(created.share.id)).toBe(true);
+    expect((await getShare(db, created.share.id))?.revokedAt).toBeTruthy();
+    expect(await service.revokeShare(created.share.id)).toBe(false);
   });
 
-  it('buildClientView loads the share projection', () => {
+  it('buildClientView loads the share projection', async () => {
     const service = createService();
-    const project = createProject(db, { name: 'View' });
-    const created = service.createShare(project.id, {
+    const project = await createProject(db, { name: 'View' });
+    const created = await service.createShare(project.id, {
       audienceName: 'Viewers',
       mode: 'public',
     });
@@ -116,22 +122,22 @@ describe('shareService', () => {
       throw new Error('expected share to be created');
     }
 
-    const view = service.buildClientView(project.id, created.share.id);
+    const view = await service.buildClientView(project.id, created.share.id);
     expect(view?.project.name).toBe('View');
     expect(view?.share.audience_name).toBe('Viewers');
   });
 
-  it('serializeShare never includes token_hash', () => {
-    const project = createProject(db, { name: 'Serialize' });
+  it('serializeShare never includes token_hash', async () => {
+    const project = await createProject(db, { name: 'Serialize' });
     const service = createService();
-    const created = service.createShare(project.id, {
+    const created = await service.createShare(project.id, {
       audienceName: 'Serialize',
       mode: 'invite',
     });
     if (!created) {
       throw new Error('expected share to be created');
     }
-    const row = getShare(db, created.share.id);
+    const row = await getShare(db, created.share.id);
     expect(row).toBeDefined();
     if (!row) {
       return;
@@ -141,22 +147,22 @@ describe('shareService', () => {
     expect(JSON.stringify(serialized)).not.toContain(created.token);
   });
 
-  it('createResourceShare for a task inlines the linked document, includes the agent preamble, and absolutizes a relative image', () => {
+  it('createResourceShare for a task inlines the linked document, includes the agent preamble, and absolutizes a relative image', async () => {
     const service = createService();
-    const project = createProject(db, { name: 'Resource shares' });
-    const task = createTask(db, {
+    const project = await createProject(db, { name: 'Resource shares' });
+    const task = await createTask(db, {
       projectId: project.id,
       label: 'Ship the thing',
       description: 'See ![before](/api/v1/files/abc123) for context.',
     });
-    createDocument(db, {
+    await createDocument(db, {
       projectId: project.id,
       title: 'Spec',
       body: '<p>Do the work.</p><img src="/api/v1/files/def456" alt="diagram">',
       linkedTaskId: task.id,
     });
 
-    const created = service.createResourceShare(
+    const created = await service.createResourceShare(
       { resource: { kind: 'task', id: task.id } },
       'https://plandesk.example',
     );
@@ -167,7 +173,7 @@ describe('shareService', () => {
     expect(created.markdownUrl).toBe(`https://plandesk.example/api/v1/share/${created.token}.md`);
     expect(created.expiresAt).toBeTruthy();
 
-    const markdown = service.getResourceMarkdown(created.token, 'https://plandesk.example');
+    const markdown = await service.getResourceMarkdown(created.token, 'https://plandesk.example');
     if (markdown.status !== 'ok') {
       throw new Error('expected markdown');
     }
@@ -180,16 +186,16 @@ describe('shareService', () => {
     expect(markdown.markdown).toMatch(/- https:\/\/plandesk\.example\/api\/v1\/files\/def456/);
   });
 
-  it('createResourceShare for a document shares just that document', () => {
+  it('createResourceShare for a document shares just that document', async () => {
     const service = createService();
-    const project = createProject(db, { name: 'Doc share' });
-    const doc = createDocument(db, {
+    const project = await createProject(db, { name: 'Doc share' });
+    const doc = await createDocument(db, {
       projectId: project.id,
       title: 'RFC',
       body: '<h2>Design</h2>',
     });
 
-    const created = service.createResourceShare(
+    const created = await service.createResourceShare(
       { resource: { kind: 'document', id: doc.id } },
       'https://plandesk.example',
     );
@@ -197,7 +203,7 @@ describe('shareService', () => {
       throw new Error('expected resource share to be created');
     }
 
-    const markdown = service.getResourceMarkdown(created.token, 'https://plandesk.example');
+    const markdown = await service.getResourceMarkdown(created.token, 'https://plandesk.example');
     if (markdown.status !== 'ok') {
       throw new Error('expected markdown');
     }
@@ -205,87 +211,87 @@ describe('shareService', () => {
     expect(markdown.markdown).toContain('## Design');
   });
 
-  it('createResourceShare defaults to a 24h expiry; explicit null never expires', () => {
+  it('createResourceShare defaults to a 24h expiry; explicit null never expires', async () => {
     const service = createService();
-    const project = createProject(db, { name: 'Expiry' });
-    const task = createTask(db, { projectId: project.id, label: 'Expire me' });
+    const project = await createProject(db, { name: 'Expiry' });
+    const task = await createTask(db, { projectId: project.id, label: 'Expire me' });
 
-    const defaulted = service.createResourceShare(
+    const defaulted = await service.createResourceShare(
       { resource: { kind: 'task', id: task.id } },
       'https://plandesk.example',
     );
     expect(defaulted?.expiresAt).toBeTruthy();
 
-    const forever = service.createResourceShare(
+    const forever = await service.createResourceShare(
       { resource: { kind: 'task', id: task.id }, expiresAt: null },
       'https://plandesk.example',
     );
     expect(forever?.expiresAt).toBeNull();
   });
 
-  it('createResourceShare returns undefined for a missing task or document', () => {
+  it('createResourceShare returns undefined for a missing task or document', async () => {
     const service = createService();
     expect(
-      service.createResourceShare(
+      await service.createResourceShare(
         { resource: { kind: 'task', id: '00000000-0000-4000-8000-000000009999' } },
         'https://plandesk.example',
       ),
     ).toBeUndefined();
     expect(
-      service.createResourceShare(
+      await service.createResourceShare(
         { resource: { kind: 'document', id: '00000000-0000-4000-8000-000000009999' } },
         'https://plandesk.example',
       ),
     ).toBeUndefined();
   });
 
-  it('getResourceMarkdown returns gone for a revoked or expired token, not_found for an unknown one', () => {
+  it('getResourceMarkdown returns gone for a revoked or expired token, not_found for an unknown one', async () => {
     const service = createService();
-    const project = createProject(db, { name: 'Gone' });
-    const task = createTask(db, { projectId: project.id, label: 'Revoke me' });
+    const project = await createProject(db, { name: 'Gone' });
+    const task = await createTask(db, { projectId: project.id, label: 'Revoke me' });
 
-    const revoked = service.createResourceShare(
+    const revoked = await service.createResourceShare(
       { resource: { kind: 'task', id: task.id } },
       'https://plandesk.example',
     );
     if (!revoked) {
       throw new Error('expected share to be created');
     }
-    const revokedRow = getShareByTokenHashRaw(db, hashShareToken(revoked.token));
+    const revokedRow = await getShareByTokenHashRaw(db, hashShareToken(revoked.token));
     if (!revokedRow) {
       throw new Error('expected share row');
     }
-    expect(service.revokeShare(revokedRow.id)).toBe(true);
-    expect(service.getResourceMarkdown(revoked.token, 'https://plandesk.example').status).toBe('gone');
+    expect(await service.revokeShare(revokedRow.id)).toBe(true);
+    expect((await service.getResourceMarkdown(revoked.token, 'https://plandesk.example')).status).toBe('gone');
 
-    const expired = service.createResourceShare(
+    const expired = await service.createResourceShare(
       { resource: { kind: 'task', id: task.id }, expiresAt: new Date(Date.now() - 1000) },
       'https://plandesk.example',
     );
     if (!expired) {
       throw new Error('expected share to be created');
     }
-    expect(service.getResourceMarkdown(expired.token, 'https://plandesk.example').status).toBe('gone');
+    expect((await service.getResourceMarkdown(expired.token, 'https://plandesk.example')).status).toBe('gone');
 
     expect(
-      service.getResourceMarkdown('plandesk_share_unknown-token', 'https://plandesk.example').status,
+      (await service.getResourceMarkdown('plandesk_share_unknown-token', 'https://plandesk.example')).status,
     ).toBe('not_found');
   });
 
-  it('cascade deletes shares when a project is deleted', () => {
+  it('cascade deletes shares when a project is deleted', async () => {
     const projectService = createProjectService({ db, eventBus });
     const shareService = createService();
-    const project = createProject(db, { name: 'Cascade shares' });
-    shareService.createShare(project.id, { audienceName: 'Gone', mode: 'invite' });
+    const project = await createProject(db, { name: 'Cascade shares' });
+    await shareService.createShare(project.id, { audienceName: 'Gone', mode: 'invite' });
 
-    expect(listShares(db, project.id)).toHaveLength(1);
-    expect(projectService.delete(project.id)).toBe(true);
-    expect(listShares(db, project.id)).toHaveLength(0);
+    expect(await listShares(db, project.id)).toHaveLength(1);
+    expect(await projectService.delete(project.id)).toBe(true);
+    expect(await listShares(db, project.id)).toHaveLength(0);
   });
 
   it('cascade deletes pulled submissions when a project is deleted', async () => {
     const projectService = createProjectService({ db, eventBus });
-    const project = createProject(db, { name: 'Cascade submissions' });
+    const project = await createProject(db, { name: 'Cascade submissions' });
     const taskService = createTaskService({ db, eventBus });
     const shareServiceForSync = createShareService({ db, eventBus });
     const syncService = createSyncService({
@@ -322,9 +328,9 @@ describe('shareService', () => {
       globalProjectId: 'gid-1',
       syncToken: 'plandesk_sync_test',
     });
-    expect(syncService.listTriage(project.id)).toHaveLength(1);
+    expect(await syncService.listTriage(project.id)).toHaveLength(1);
 
-    expect(projectService.delete(project.id)).toBe(true);
-    expect(syncService.listTriage(project.id)).toHaveLength(0);
+    expect(await projectService.delete(project.id)).toBe(true);
+    expect(await syncService.listTriage(project.id)).toHaveLength(0);
   });
 });

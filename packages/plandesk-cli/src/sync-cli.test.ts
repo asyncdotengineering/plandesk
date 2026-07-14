@@ -84,7 +84,7 @@ async function startTestSyncServer(): Promise<{
 // runs here never share its tmp path with other test files — concurrent writers
 // otherwise race on ports.json.tmp (one's rename consumes the other's).
 let portRegistryStateDir: string | undefined;
-beforeEach(() => {
+beforeEach(async () => {
   portRegistryStateDir = mkdtempSync(join(tmpdir(), 'plandesk-sync-state-'));
   process.env.PLANDESK_STATE_DIR = portRegistryStateDir;
 });
@@ -97,7 +97,7 @@ afterEach(() => {
 });
 
 describe('parseArgs publish/push/pull', () => {
-  it('parses publish with remote, project, sync-token, and repo', () => {
+  it('parses publish with remote, project, sync-token, and repo', async () => {
     expect(
       parseArgs([
         'node',
@@ -124,14 +124,14 @@ describe('parseArgs publish/push/pull', () => {
     });
   });
 
-  it('returns unknown when publish is missing --remote', () => {
+  it('returns unknown when publish is missing --remote', async () => {
     expect(parseArgs(['node', 'plandesk', 'publish', '--project', 'proj-1'])).toEqual({
       command: 'unknown',
       name: 'publish (missing --remote)',
     });
   });
 
-  it('parses sync --watch with project and repo', () => {
+  it('parses sync --watch with project and repo', async () => {
     expect(
       parseArgs([
         'node',
@@ -154,7 +154,7 @@ describe('parseArgs publish/push/pull', () => {
     });
   });
 
-  it('parses push and pull with project and repo', () => {
+  it('parses push and pull with project and repo', async () => {
     expect(
       parseArgs([
         'node',
@@ -205,8 +205,8 @@ describe('CLI publish/push/pull', () => {
     const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-sync-cli-repo-'));
     tempDirs.push(dataDir, repoDir);
     await runInit(dataDir);
-    const { db } = openWorkspace(dataDir);
-    const project = createProject(db, { name: 'Sync CLI' });
+    const { db } = await openWorkspace(dataDir);
+    const project = await createProject(db, { name: 'Sync CLI' });
     mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
     writeFileSync(
       join(repoDir, '.plandesk', 'config.json'),
@@ -245,9 +245,9 @@ describe('CLI publish/push/pull', () => {
     expect(tokenMatch).not.toBeNull();
     const token = tokenMatch?.[0] ?? '';
 
-    const { db } = openWorkspace(dataDir);
+    const { db } = await openWorkspace(dataDir);
     const { shareService } = createServices({ db });
-    const shares = shareService.listShares(projectId) ?? [];
+    const shares = await (await shareService.listShares(projectId)) ?? [];
     expect(shares).toHaveLength(1);
     expect(shares[0]?.audience_name).toBe('Acme Corp');
     expect(shares[0]?.mode).toBe('public');
@@ -332,9 +332,9 @@ describe('CLI publish/push/pull', () => {
     const syncServer = await startTestSyncServer();
     servers.push(syncServer);
     const { dataDir, repoDir, projectId } = await makeWorkspace();
-    const { db } = openWorkspace(dataDir);
+    const { db } = await openWorkspace(dataDir);
     const { shareService } = createServices({ db });
-    shareService.createShare(projectId, { audienceName: 'Client', mode: 'public' });
+    await shareService.createShare(projectId, { audienceName: 'Client', mode: 'public' });
 
     const { code, stdout } = await captureIo(() =>
       main([
@@ -377,9 +377,9 @@ describe('CLI publish/push/pull', () => {
     const syncServer = await startTestSyncServer();
     servers.push(syncServer);
     const { dataDir, repoDir, projectId } = await makeWorkspace();
-    const { db } = openWorkspace(dataDir);
+    const { db } = await openWorkspace(dataDir);
     const { shareService } = createServices({ db });
-    shareService.createShare(projectId, { audienceName: 'Client', mode: 'public' });
+    await shareService.createShare(projectId, { audienceName: 'Client', mode: 'public' });
 
     const publish = await captureIo(() =>
       main([

@@ -15,12 +15,12 @@ type UpdateNoteBody = {
 export function createNotesRouter(noteService: NoteService): Hono {
   const router = new Hono();
 
-  router.get('/projects/:id/notes', (c) => {
+  router.get('/projects/:id/notes', async (c) => {
     const pagination = parsePaginationParams(c.req.query('limit'), c.req.query('offset'));
     if (pagination === 'invalid') {
       return c.json({ error: 'invalid_argument' }, 400);
     }
-    const notes = noteService.list(c.req.param('id'), pagination);
+    const notes = await noteService.list(c.req.param('id'), pagination);
     if (!notes) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -34,7 +34,7 @@ export function createNotesRouter(noteService: NoteService): Hono {
     }
 
     try {
-      const note = noteService.create(c.req.param('id'), {
+      const note = await noteService.create(c.req.param('id'), {
         title: body.title,
         body: body.body,
       });
@@ -52,8 +52,8 @@ export function createNotesRouter(noteService: NoteService): Hono {
     }
   });
 
-  router.get('/notes/:id', (c) => {
-    const note = noteService.get(c.req.param('id'));
+  router.get('/notes/:id', async (c) => {
+    const note = await noteService.get(c.req.param('id'));
     if (!note) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -64,7 +64,7 @@ export function createNotesRouter(noteService: NoteService): Hono {
     const body = await c.req.json<UpdateNoteBody>();
 
     try {
-      const note = noteService.update(c.req.param('id'), {
+      const note = await noteService.update(c.req.param('id'), {
         ...(body.title !== undefined ? { title: body.title } : {}),
         ...(body.body !== undefined ? { body: body.body } : {}),
       });
@@ -82,8 +82,8 @@ export function createNotesRouter(noteService: NoteService): Hono {
     }
   });
 
-  router.delete('/notes/:id', (c) => {
-    const deleted = noteService.delete(c.req.param('id'));
+  router.delete('/notes/:id', async (c) => {
+    const deleted = await noteService.delete(c.req.param('id'));
     if (!deleted) {
       return c.json({ error: 'not_found' }, 404);
     }

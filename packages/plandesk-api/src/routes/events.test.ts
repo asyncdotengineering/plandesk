@@ -19,9 +19,9 @@ function parseSseChunk(chunk: string): PlankDeskEvent[] {
 describe('events routes', () => {
   it('test:sse_task_update receives task_updated within 500 ms of PATCH', async () => {
     const eventBus = createEventBus();
-    const { app, db } = createTestApp({ eventBus });
-    const projectId = createProject(db, { name: 'SSE' }).id;
-    const task = createTask(db, { projectId, label: 'Task', status: 'todo' });
+    const { app, db } = await createTestApp({ eventBus });
+    const projectId = (await createProject(db, { name: 'SSE' })).id;
+    const task = await createTask(db, { projectId, label: 'Task', status: 'todo' });
 
     const received: PlankDeskEvent[] = [];
     const ac = new AbortController();
@@ -91,7 +91,7 @@ describe('events routes', () => {
 
   it('unsubscribes on disconnect without leaking listeners', async () => {
     const eventBus = createEventBus();
-    const { app } = createTestApp({ eventBus });
+    const { app } = await createTestApp({ eventBus });
     const ac = new AbortController();
 
     const res = await app.request('/api/v1/events', { signal: ac.signal });

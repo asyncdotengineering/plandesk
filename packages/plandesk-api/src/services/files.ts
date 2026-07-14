@@ -26,7 +26,7 @@ export function createFileService(deps: FileServiceDeps) {
 
   return {
     async create(input: CreateFileInput): Promise<CreatedFile | undefined> {
-      const project = getProject(db, input.projectId);
+      const project = await getProject(db, input.projectId);
       if (!project) {
         return undefined;
       }
@@ -41,7 +41,7 @@ export function createFileService(deps: FileServiceDeps) {
       // Content-addressed dedup means the persisted row may reflect an
       // earlier upload of the same bytes — read it back rather than echoing
       // this call's input, so the response always matches what is stored.
-      const file = getFile(db, id);
+      const file = await getFile(db, id);
       if (!file) {
         throw new Error(`Storage adapter did not persist file metadata for ${id}`);
       }

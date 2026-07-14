@@ -3,9 +3,9 @@ import { toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createListNotesHandler(
   noteService: NoteService,
-): (args: { project_id: string }) => ToolResult {
-  return ({ project_id }) => {
-    const notes = noteService.list(project_id);
+): (args: { project_id: string }) => Promise<ToolResult> {
+  return async ({ project_id }) => {
+    const notes = await noteService.list(project_id);
     if (!notes) {
       return toolNotFound();
     }

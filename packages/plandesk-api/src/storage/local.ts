@@ -10,9 +10,9 @@ export function createLocalBlobAdapter(deps: LocalBlobAdapterDeps): StorageAdapt
   const { db } = deps;
 
   return {
-    put(input) {
+    async put(input) {
       const id = createHash('sha256').update(input.bytes).digest('hex');
-      createFile(db, {
+      await createFile(db, {
         id,
         projectId: input.projectId,
         filename: input.filename,
@@ -20,21 +20,21 @@ export function createLocalBlobAdapter(deps: LocalBlobAdapterDeps): StorageAdapt
         size: input.bytes.length,
         bytes: input.bytes,
       });
-      return Promise.resolve({ id, url: fileUrl(id) });
+      return { id, url: fileUrl(id) };
     },
 
-    resolve(id) {
-      const file = getFile(db, id);
+    async resolve(id) {
+      const file = await getFile(db, id);
       if (!file) {
-        return Promise.resolve(null);
+        return null;
       }
       if (file.externalUrl) {
-        return Promise.resolve({ redirectUrl: file.externalUrl });
+        return { redirectUrl: file.externalUrl };
       }
       if (!file.bytes) {
-        return Promise.resolve(null);
+        return null;
       }
-      return Promise.resolve({ bytes: file.bytes, mime: file.mime, filename: file.filename });
+      return { bytes: file.bytes, mime: file.mime, filename: file.filename };
     },
   };
 }

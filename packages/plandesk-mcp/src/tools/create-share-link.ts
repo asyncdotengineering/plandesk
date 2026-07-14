@@ -13,8 +13,8 @@ export function createCreateShareLinkHandler(
   task_id?: string;
   document_id?: string;
   expires?: '24h' | '7d' | 'never';
-}) => ToolResult {
-  return (args) => {
+}) => Promise<ToolResult> {
+  return async (args) => {
     const hasTask = args.task_id !== undefined;
     const hasDocument = args.document_id !== undefined;
     if (hasTask === hasDocument) {
@@ -24,7 +24,7 @@ export function createCreateShareLinkHandler(
     const expires = args.expires ?? '24h';
     const expiresAt = expires === 'never' ? null : new Date(Date.now() + EXPIRES_MS[expires]);
 
-    const result = shareService.createResourceShare(
+    const result = await shareService.createResourceShare(
       {
         resource: hasTask
           ? { kind: 'task', id: args.task_id as string }

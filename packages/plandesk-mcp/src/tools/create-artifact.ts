@@ -10,10 +10,10 @@ export function createCreateArtifactHandler(
   title: string;
   content: string;
   kind?: ArtifactKind;
-}) => ToolResult {
-  return (args) => {
+}) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const artifact = artifactService.create(args.project_id, {
+      const artifact = await artifactService.create(args.project_id, {
         title: args.title,
         content: args.content,
         kind: args.kind,

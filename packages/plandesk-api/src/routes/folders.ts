@@ -14,8 +14,8 @@ type UpdateFolderBody = {
 export function createFoldersRouter(folderService: FolderService): Hono {
   const router = new Hono();
 
-  router.get('/projects/:id/folders', (c) => {
-    const folders = folderService.list(c.req.param('id'));
+  router.get('/projects/:id/folders', async (c) => {
+    const folders = await folderService.list(c.req.param('id'));
     if (!folders) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -29,7 +29,7 @@ export function createFoldersRouter(folderService: FolderService): Hono {
     }
 
     try {
-      const folder = folderService.create(c.req.param('id'), {
+      const folder = await folderService.create(c.req.param('id'), {
         name: body.name,
         parentFolderId: body.parent_folder_id,
       });
@@ -47,8 +47,8 @@ export function createFoldersRouter(folderService: FolderService): Hono {
     }
   });
 
-  router.get('/folders/:id', (c) => {
-    const folder = folderService.get(c.req.param('id'));
+  router.get('/folders/:id', async (c) => {
+    const folder = await folderService.get(c.req.param('id'));
     if (!folder) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -59,7 +59,7 @@ export function createFoldersRouter(folderService: FolderService): Hono {
     const body = await c.req.json<UpdateFolderBody>();
 
     try {
-      const folder = folderService.update(c.req.param('id'), {
+      const folder = await folderService.update(c.req.param('id'), {
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.parent_folder_id !== undefined ? { parentFolderId: body.parent_folder_id } : {}),
       });
@@ -77,8 +77,8 @@ export function createFoldersRouter(folderService: FolderService): Hono {
     }
   });
 
-  router.delete('/folders/:id', (c) => {
-    const deleted = folderService.delete(c.req.param('id'));
+  router.delete('/folders/:id', async (c) => {
+    const deleted = await folderService.delete(c.req.param('id'));
     if (!deleted) {
       return c.json({ error: 'not_found' }, 404);
     }

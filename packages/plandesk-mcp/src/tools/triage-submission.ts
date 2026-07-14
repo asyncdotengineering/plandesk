@@ -16,12 +16,12 @@ export function createTriageSubmissionHandler(
   link_task_id?: string;
 }) => Promise<ToolResult> {
   return async (args) => {
-    const submission = syncService.getSubmission(args.submission_id);
+    const submission = await syncService.getSubmission(args.submission_id);
     if (submission === undefined) {
       return toolNotFound();
     }
 
-    const remote = syncService.getRemote(submission.project_id);
+    const remote = await syncService.getRemote(submission.project_id);
     if (remote === undefined) {
       return toolInvalidArgument('not published — run publish_project');
     }

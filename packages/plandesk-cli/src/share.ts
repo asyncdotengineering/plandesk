@@ -50,7 +50,10 @@ function parseExpires(raw: string | undefined): Date | undefined {
   return new Date(Date.now() + amount * unitMs);
 }
 
-export function runShareCreate(db: Db, options: ShareCreateOptions): ShareCreateResult {
+export async function runShareCreate(
+  db: Db,
+  options: ShareCreateOptions,
+): Promise<ShareCreateResult> {
   const projectId = resolveProjectId({ repoDir: options.repoDir, projectId: options.projectId });
   const expiresAt = parseExpires(options.expires);
   const invitedEmails =
@@ -63,7 +66,7 @@ export function runShareCreate(db: Db, options: ShareCreateOptions): ShareCreate
   const mode = options.public ? 'public' : 'invite';
 
   const { shareService } = createServices({ db });
-  const created = shareService.createShare(projectId, {
+  const created = await shareService.createShare(projectId, {
     audienceName: options.audienceName,
     mode,
     permissions: options.allowSubmit ? { read: true, submit: true } : undefined,

@@ -16,7 +16,7 @@ const PROJECT_ID = '00000000-0000-4000-8000-000000000001';
 const TASK_ID = '00000000-0000-4000-8000-000000000002';
 
 describe('tool registry tag schemas', () => {
-  it('registers list_tags with a schema for every v1 tool', () => {
+  it('registers list_tags with a schema for every v1 tool', async () => {
     expect(v1ToolNames).toContain('list_tags');
     expect(v1ToolNames).toHaveLength(46);
     for (const name of v1ToolNames) {
@@ -24,7 +24,7 @@ describe('tool registry tag schemas', () => {
     }
   });
 
-  it('create_task accepts an optional tags string array', () => {
+  it('create_task accepts an optional tags string array', async () => {
     expect(createTaskInputSchema.safeParse({ project_id: PROJECT_ID, label: 'T' }).success).toBe(
       true,
     );
@@ -44,13 +44,13 @@ describe('tool registry tag schemas', () => {
     ).toBe(false);
   });
 
-  it('update_task accepts tags including [] to clear the set', () => {
+  it('update_task accepts tags including [] to clear the set', async () => {
     expect(updateTaskInputSchema.safeParse({ task_id: TASK_ID, tags: [] }).success).toBe(true);
     expect(updateTaskInputSchema.safeParse({ task_id: TASK_ID, tags: ['a'] }).success).toBe(true);
     expect(updateTaskInputSchema.safeParse({ task_id: TASK_ID, tags: [1] }).success).toBe(false);
   });
 
-  it('get_next_task accepts an optional goal_id filter', () => {
+  it('get_next_task accepts an optional goal_id filter', async () => {
     const GOAL_ID = '00000000-0000-4000-8000-000000000003';
     expect(getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID }).success).toBe(true);
     expect(
@@ -61,7 +61,7 @@ describe('tool registry tag schemas', () => {
     ).toBe(false);
   });
 
-  it('list_tasks and get_next_task accept an optional tags filter', () => {
+  it('list_tasks and get_next_task accept an optional tags filter', async () => {
     expect(listTasksInputSchema.safeParse({ project_id: PROJECT_ID }).success).toBe(true);
     expect(
       listTasksInputSchema.safeParse({ project_id: PROJECT_ID, tags: ['a', 'b'] }).success,
@@ -75,12 +75,12 @@ describe('tool registry tag schemas', () => {
     );
   });
 
-  it('list_tags requires a project id', () => {
+  it('list_tags requires a project id', async () => {
     expect(listTagsInputSchema.safeParse({ project_id: PROJECT_ID }).success).toBe(true);
     expect(listTagsInputSchema.safeParse({}).success).toBe(false);
   });
 
-  it('triage_submission accepts an optional link_task_id alongside as_task', () => {
+  it('triage_submission accepts an optional link_task_id alongside as_task', async () => {
     expect(
       triageSubmissionInputSchema.safeParse({
         submission_id: '00000000-0000-4000-8000-000000000003',
@@ -97,14 +97,14 @@ describe('tool registry tag schemas', () => {
     ).toBe(false);
   });
 
-  it('documents replace-set and OR-filter semantics in the tag field descriptions', () => {
+  it('documents replace-set and OR-filter semantics in the tag field descriptions', async () => {
     expect(createTaskInputSchema.shape.tags.description).toMatch(/auto-created/i);
     expect(updateTaskInputSchema.shape.tags.description).toMatch(/replaces the full tag set/i);
     expect(listTasksInputSchema.shape.tags.description).toMatch(/OR semantics/i);
     expect(getNextTaskInputSchema.shape.tags.description).toMatch(/OR semantics/i);
   });
 
-  it('add_comment requires target_type and target_id', () => {
+  it('add_comment requires target_type and target_id', async () => {
     const DOC_ID = '00000000-0000-4000-8000-000000000004';
     expect(
       addCommentInputSchema.safeParse({
@@ -129,7 +129,7 @@ describe('tool registry tag schemas', () => {
     );
   });
 
-  it('list_comments accepts optional target_type and target_id', () => {
+  it('list_comments accepts optional target_type and target_id', async () => {
     const DOC_ID = '00000000-0000-4000-8000-000000000004';
     expect(listCommentsInputSchema.safeParse({ project_id: PROJECT_ID }).success).toBe(true);
     expect(

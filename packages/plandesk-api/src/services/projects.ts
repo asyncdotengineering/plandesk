@@ -1,4 +1,5 @@
 import {
+  withTransaction,
   clearDocumentParentRefsByProject,
   clearFolderParentRefsByProject,
   createDocument,
@@ -154,7 +155,7 @@ export type UpdateProjectInput = {
   description?: string | null;
 };
 
-function summarizeTasks(tasks: ReturnType<typeof listTasks>): TaskStatusSummary {
+function summarizeTasks(tasks: Task[]): TaskStatusSummary {
   const summary = emptyTaskStatusSummary();
   for (const task of tasks) {
     summary[task.status] += 1;
@@ -166,68 +167,68 @@ export function createProjectService(deps: ProjectServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    create(input: CreateProjectInput) {
-      const project = dbCreateProject(db, input);
+    async create(input: CreateProjectInput) {
+      const project = await dbCreateProject(db, input);
       return serializeProject(project);
     },
 
-    list(pagination: PaginationParams = {}) {
-      return dbListProjects(db, pagination).map(serializeProject);
+    async list(pagination: PaginationParams = {}) {
+      return (await dbListProjects(db, pagination)).map(serializeProject);
     },
 
-    get(id: string) {
-      const project = dbGetProject(db, id);
+    async get(id: string) {
+      const project = await dbGetProject(db, id);
       if (!project) {
         return undefined;
       }
-      const summary = summarizeTasks(listTasks(db, id));
+      const summary = summarizeTasks(await listTasks(db, id));
       return serializeProjectDetail(project, summary);
     },
 
-    update(id: string, input: UpdateProjectInput) {
-      const project = dbUpdateProject(db, id, input);
+    async update(id: string, input: UpdateProjectInput) {
+      const project = await dbUpdateProject(db, id, input);
       if (!project) {
         return undefined;
       }
       return serializeProject(project);
     },
 
-    delete(id: string) {
-      const project = dbGetProject(db, id);
+    async delete(id: string) {
+      const project = await dbGetProject(db, id);
       if (!project) {
         return false;
       }
 
-      db.transaction((tx) => {
-        const runs = listAgentRuns(tx, id);
+      await withTransaction(db, async (tx) => {
+        const runs = await listAgentRuns(tx, id);
         for (const run of runs) {
-          deleteAgentRunEventsByRunId(tx, run.id);
+          await deleteAgentRunEventsByRunId(tx, run.id);
         }
         for (const run of runs) {
-          deleteAgentRun(tx, run.id);
+          await deleteAgentRun(tx, run.id);
         }
-        deleteEdgesByProjectId(tx, id);
-        clearDocumentParentRefsByProject(tx, id);
-        deleteCommentsByProjectId(tx, id);
-        deleteDocumentsByProjectId(tx, id);
-        clearFolderParentRefsByProject(tx, id);
-        deleteFoldersByProjectId(tx, id);
-        deleteNotesByProjectId(tx, id);
-        deleteTagsByProjectId(tx, id);
-        deleteTasksByProjectId(tx, id);
-        deleteGoalsByProjectId(tx, id);
-        deleteShareSubmissionsByProjectId(tx, id);
-        deleteSyncStateByProjectId(tx, id);
-        deleteSyncRemoteByProjectId(tx, id);
-        deleteSharesByProjectId(tx, id);
-        dbDeleteProject(tx, id);
+        await deleteEdgesByProjectId(tx, id);
+        await clearDocumentParentRefsByProject(tx, id);
+        await deleteCommentsByProjectId(tx, id);
+        await deleteDocumentsByProjectId(tx, id);
+        await clearFolderParentRefsByProject(tx, id);
+        await deleteFoldersByProjectId(tx, id);
+        await deleteNotesByProjectId(tx, id);
+        await deleteTagsByProjectId(tx, id);
+        await deleteTasksByProjectId(tx, id);
+        await deleteGoalsByProjectId(tx, id);
+        await deleteShareSubmissionsByProjectId(tx, id);
+        await deleteSyncStateByProjectId(tx, id);
+        await deleteSyncRemoteByProjectId(tx, id);
+        await deleteSharesByProjectId(tx, id);
+        await dbDeleteProject(tx, id);
       });
 
       eventBus.emit({ type: 'canvas_updated', projectId: id });
       return true;
     },
 
-    scaffoldFromPlan(input: ScaffoldPlanInput): ScaffoldPlanResult {
+    async scaffoldFromPlan(input: ScaffoldPlanInput): Promise<ScaffoldPlanResult> {
       validateScaffoldInput(input);
 
       const taskRows: Task[] = [];
@@ -236,17 +237,17 @@ export function createProjectService(deps: ProjectServiceDeps) {
       const keyToId = new Map<string, string>();
       let projectId = '';
 
-      db.transaction((tx) => {
+      await withTransaction(db, async (tx) => {
         // Row offset so tasks scaffolded INTO a non-empty project are laid out
         // below its existing nodes instead of stacking on top of them.
         let startRow = 0;
         if (input.projectId !== undefined) {
-          const existing = dbGetProject(tx, input.projectId);
+          const existing = await dbGetProject(tx, input.projectId);
           if (!existing) {
             throw new InvalidScaffoldError(`project not found: ${input.projectId}`);
           }
           projectId = existing.id;
-          const existingTasks = listTasks(tx, existing.id);
+          const existingTasks = await listTasks(tx, existing.id);
           if (existingTasks.length > 0) {
             const maxY = existingTasks.reduce((m, t) => Math.max(m, t.y ?? 0), 0);
             startRow = Math.floor(maxY / 160) + 1;
@@ -257,18 +258,18 @@ export function createProjectService(deps: ProjectServiceDeps) {
               'name is required to create a new project (or pass projectId to add to an existing one)',
             );
           }
-          const project = dbCreateProject(tx, {
+          const project = await dbCreateProject(tx, {
             name: input.name,
             description: input.description,
           });
           projectId = project.id;
         }
-        const defaultGoal = getOrCreateDefaultGoal(tx, projectId);
+        const defaultGoal = await getOrCreateDefaultGoal(tx, projectId);
 
-        input.tasks.forEach((taskInput, i) => {
+        for (const [i, taskInput] of input.tasks.entries()) {
           const x = taskInput.x ?? (i % 4) * 240;
           const y = taskInput.y ?? (startRow + Math.floor(i / 4)) * 160;
-          const task = createTask(tx, {
+          const task = await createTask(tx, {
             projectId,
             goalId: defaultGoal.id,
             label: taskInput.label,
@@ -279,7 +280,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
           });
           keyToId.set(taskInput.key, task.id);
           taskRows.push(task);
-        });
+        }
 
         for (const edgeInput of input.edges ?? []) {
           const fromTaskId = keyToId.get(edgeInput.from);
@@ -287,7 +288,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
           if (fromTaskId === undefined || toTaskId === undefined) {
             throw new InvalidScaffoldError('edge references unknown task key');
           }
-          const edge = createEdge(tx, {
+          const edge = await createEdge(tx, {
             projectId,
             fromTaskId,
             toTaskId,
@@ -300,7 +301,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
         for (const docInput of input.documents ?? []) {
           const linkedTaskId =
             docInput.linkTo !== undefined ? keyToId.get(docInput.linkTo) : undefined;
-          const document = createDocument(tx, {
+          const document = await createDocument(tx, {
             projectId,
             title: docInput.title,
             body: docInput.body,
@@ -316,7 +317,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
         eventBus.emit({ type: 'document_created', documentId: doc.id, projectId });
       }
 
-      const project = dbGetProject(db, projectId);
+      const project = await dbGetProject(db, projectId);
       if (!project) {
         throw new Error('scaffolded project missing after transaction');
       }

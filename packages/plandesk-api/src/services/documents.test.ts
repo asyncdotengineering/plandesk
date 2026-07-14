@@ -8,13 +8,19 @@ import {
   getComment,
   listCommentsByTarget,
   migrate,
+  type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createEventBus } from '../events.js';
 import { createDocumentService, InvalidDocumentError } from './documents.js';
 
 describe('documentService', () => {
-  const db = createDb(':memory:');
+  let db: Db;
+
+  beforeEach(async () => {
+    db = await createDb(':memory:');
+    await migrate(db);
+  });
   const eventBus = createEventBus();
   let projectId = '';
 
@@ -22,22 +28,22 @@ describe('documentService', () => {
     return createDocumentService({ db, eventBus });
   }
 
-  beforeEach(() => {
-    migrate(db);
-    db.$client.exec('DELETE FROM comments');
-    db.$client.exec('DELETE FROM documents');
-    db.$client.exec('UPDATE folders SET parent_folder_id = NULL');
-    db.$client.exec('DELETE FROM folders');
-    db.$client.exec('DELETE FROM tasks');
-    db.$client.exec('DELETE FROM goals');
-    db.$client.exec('DELETE FROM projects');
-    projectId = createProject(db, { name: 'Docs' }).id;
+  beforeEach(async () => {
+    await migrate(db);
+    await db.$client.execute('DELETE FROM comments');
+    await db.$client.execute('DELETE FROM documents');
+    await db.$client.execute('UPDATE folders SET parent_folder_id = NULL');
+    await db.$client.execute('DELETE FROM folders');
+    await db.$client.execute('DELETE FROM tasks');
+    await db.$client.execute('DELETE FROM goals');
+    await db.$client.execute('DELETE FROM projects');
+    projectId = (await createProject(db, { name: 'Docs' })).id;
   });
 
-  it('creates a document with structured content', () => {
+  it('creates a document with structured content', async () => {
     const service = createService();
-    const task = createTask(db, { projectId, label: 'Task' });
-    const document = service.create(projectId, {
+    const task = await createTask(db, { projectId, label: 'Task' });
+    const document = await service.create(projectId, {
       title: 'Spec',
       body: '# Overview',
       statusLine: 'Status: draft',
@@ -54,12 +60,12 @@ describe('documentService', () => {
     expect(document?.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  it('returns nested document tree', () => {
+  it('returns nested document tree', async () => {
     const service = createService();
-    const parent = createDocument(db, { projectId, title: 'Parent' });
-    createDocument(db, { projectId, title: 'Child', parentId: parent.id });
+    const parent = await createDocument(db, { projectId, title: 'Parent' });
+    await createDocument(db, { projectId, title: 'Child', parentId: parent.id });
 
-    const tree = service.listTree(projectId);
+    const tree = await service.listTree(projectId);
     expect(tree).toHaveLength(1);
     expect(tree?.[0]?.title).toBe('Parent');
     expect(tree?.[0]?.children).toHaveLength(1);
@@ -67,47 +73,47 @@ describe('documentService', () => {
     expect(tree?.[0]?.children[0]?.parent_id).toBe(parent.id);
   });
 
-  it('creates a document inside a folder and moves it via update', () => {
+  it('creates a document inside a folder and moves it via update', async () => {
     const service = createService();
-    const folder = createFolder(db, { projectId, name: 'Specs' });
-    const document = service.create(projectId, { title: 'In folder', folderId: folder.id });
+    const folder = await createFolder(db, { projectId, name: 'Specs' });
+    const document = await service.create(projectId, { title: 'In folder', folderId: folder.id });
     expect(document?.folder_id).toBe(folder.id);
     if (!document) {
       return;
     }
 
-    const moved = service.update(document.id, { folderId: null });
+    const moved = await service.update(document.id, { folderId: null });
     expect(moved?.folder_id).toBeNull();
   });
 
-  it('rejects a folder from another project on create and update', () => {
+  it('rejects a folder from another project on create and update', async () => {
     const service = createService();
-    const otherProjectId = createProject(db, { name: 'Other' }).id;
-    const foreignFolder = createFolder(db, { projectId: otherProjectId, name: 'Foreign' });
+    const otherProjectId = (await createProject(db, { name: 'Other' })).id;
+    const foreignFolder = await createFolder(db, { projectId: otherProjectId, name: 'Foreign' });
 
-    expect(() => service.create(projectId, { title: 'Doc', folderId: foreignFolder.id })).toThrow(
+    await expect(service.create(projectId, { title: 'Doc', folderId: foreignFolder.id })).rejects.toThrow(
       InvalidDocumentError,
     );
 
-    const document = service.create(projectId, { title: 'Doc' });
+    const document = await service.create(projectId, { title: 'Doc' });
     expect(document).toBeDefined();
     if (!document) {
       return;
     }
-    expect(() => service.update(document.id, { folderId: foreignFolder.id })).toThrow(
+    await expect(service.update(document.id, { folderId: foreignFolder.id })).rejects.toThrow(
       InvalidDocumentError,
     );
   });
 
-  it('listFolderTree nests folders with their documents', () => {
+  it('listFolderTree nests folders with their documents', async () => {
     const service = createService();
-    const parent = createFolder(db, { projectId, name: 'Parent' });
-    const child = createFolder(db, { projectId, name: 'Child', parentFolderId: parent.id });
-    createDocument(db, { projectId, title: 'Root doc' });
-    createDocument(db, { projectId, title: 'Parent doc', folderId: parent.id });
-    createDocument(db, { projectId, title: 'Child doc', folderId: child.id });
+    const parent = await createFolder(db, { projectId, name: 'Parent' });
+    const child = await createFolder(db, { projectId, name: 'Child', parentFolderId: parent.id });
+    await createDocument(db, { projectId, title: 'Root doc' });
+    await createDocument(db, { projectId, title: 'Parent doc', folderId: parent.id });
+    await createDocument(db, { projectId, title: 'Child doc', folderId: child.id });
 
-    const tree = service.listFolderTree(projectId);
+    const tree = await service.listFolderTree(projectId);
     expect(tree).toBeDefined();
     expect(tree?.documents.map((doc) => doc.title)).toEqual(['Root doc']);
     expect(tree?.folders).toHaveLength(1);
@@ -119,83 +125,79 @@ describe('documentService', () => {
     expect(parentNode?.folders[0]?.documents.map((doc) => doc.title)).toEqual(['Child doc']);
   });
 
-  it('listByFolder returns only documents in the folder', () => {
+  it('listByFolder returns only documents in the folder', async () => {
     const service = createService();
-    const folder = createFolder(db, { projectId, name: 'Specs' });
-    createDocument(db, { projectId, title: 'Root doc' });
-    createDocument(db, { projectId, title: 'In folder', folderId: folder.id });
+    const folder = await createFolder(db, { projectId, name: 'Specs' });
+    await createDocument(db, { projectId, title: 'Root doc' });
+    await createDocument(db, { projectId, title: 'In folder', folderId: folder.id });
 
-    const docs = service.listByFolder(projectId, folder.id);
+    const docs = await service.listByFolder(projectId, folder.id);
     expect(docs?.map((doc) => doc.title)).toEqual(['In folder']);
 
-    expect(service.listByFolder(projectId, '00000000-0000-4000-8000-000000009999')).toBeUndefined();
+    expect(await service.listByFolder(projectId, '00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
-  it('rejects cross-project task link on create', () => {
+  it('rejects cross-project task link on create', async () => {
     const service = createService();
-    const otherProjectId = createProject(db, { name: 'Other' }).id;
-    const foreignTask = createTask(db, { projectId: otherProjectId, label: 'Foreign' });
+    const otherProjectId = (await createProject(db, { name: 'Other' })).id;
+    const foreignTask = await createTask(db, { projectId: otherProjectId, label: 'Foreign' });
 
-    expect(() =>
-      service.create(projectId, {
+    await expect(service.create(projectId, {
         title: 'Bad link',
         linkedTaskId: foreignTask.id,
-      }),
-    ).toThrow(InvalidDocumentError);
+      }),).rejects.toThrow(InvalidDocumentError);
   });
 
-  it('rejects cross-project task link on update', () => {
+  it('rejects cross-project task link on update', async () => {
     const service = createService();
-    const document = createDocument(db, { projectId, title: 'Doc' });
-    const otherProjectId = createProject(db, { name: 'Other' }).id;
-    const foreignTask = createTask(db, { projectId: otherProjectId, label: 'Foreign' });
+    const document = await createDocument(db, { projectId, title: 'Doc' });
+    const otherProjectId = (await createProject(db, { name: 'Other' })).id;
+    const foreignTask = await createTask(db, { projectId: otherProjectId, label: 'Foreign' });
 
-    expect(() =>
-      service.update(document.id, {
+    await expect(service.update(document.id, {
         linkedTaskId: foreignTask.id,
-      }),
-    ).toThrow(InvalidDocumentError);
+      }),).rejects.toThrow(InvalidDocumentError);
   });
 
-  it('gets document linked to a task', () => {
+  it('gets document linked to a task', async () => {
     const service = createService();
-    const task = createTask(db, { projectId, label: 'Task' });
-    const document = createDocument(db, {
+    const task = await createTask(db, { projectId, label: 'Task' });
+    const document = await createDocument(db, {
       projectId,
       title: 'Linked',
       linkedTaskId: task.id,
     });
 
-    expect(service.getByTask(task.id)?.id).toBe(document.id);
-    expect(service.getByTask('00000000-0000-4000-8000-000000009999')).toBeUndefined();
+    expect((await service.getByTask(task.id))?.id).toBe(document.id);
+    expect(await service.getByTask('00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
-  it('deletes document comments when deleting a document', () => {
+  it('deletes document comments when deleting a document', async () => {
     const service = createService();
-    const document = createDocument(db, { projectId, title: 'Doc' });
-    const comment = createComment(db, {
+    const document = await createDocument(db, { projectId, title: 'Doc' });
+    const comment = await createComment(db, {
       projectId,
       targetType: 'document',
       targetId: document.id,
       body: 'Note',
     });
 
-    expect(service.delete(document.id)).toBe(true);
-    expect(getComment(db, comment.id)).toBeUndefined();
+    expect(await service.delete(document.id)).toBe(true);
+    expect(await getComment(db, comment.id)).toBeUndefined();
     expect(
-      listCommentsByTarget(db, 'document', document.id, { includeResolved: true }),
+      await listCommentsByTarget(db, 'document', document.id, { includeResolved: true }),
     ).toHaveLength(0);
   });
 
-  it('updates a document and bumps updated_at', () => {
+  it('updates a document and bumps updated_at', async () => {
     const service = createService();
-    const created = service.create(projectId, { title: 'Before', body: 'v1' });
+    const created = await service.create(projectId, { title: 'Before', body: 'v1' });
     expect(created).toBeDefined();
     if (!created) {
       return;
     }
 
-    const updated = service.update(created.id, {
+    const updated = await service.update(created.id, {
       title: 'After',
       body: 'v2',
       statusLine: 'Status: review',

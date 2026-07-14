@@ -1,4 +1,5 @@
 import {
+  withTransaction,
   createGoal,
   createTask,
   getGoal,
@@ -219,9 +220,13 @@ function acceptanceBlockMarker(goalId: string): string {
   return `Acceptance-block-for: ${goalId}`;
 }
 
-function hasUnresolvedBlockingTask(db: DbClient, projectId: string, goalId: string): boolean {
+async function hasUnresolvedBlockingTask(
+  db: DbClient,
+  projectId: string,
+  goalId: string,
+): Promise<boolean> {
   const marker = acceptanceBlockMarker(goalId);
-  return listTasks(db, projectId).some(
+  return (await listTasks(db, projectId)).some(
     (task) =>
       task.goalId === goalId && task.status === 'scope' && task.description?.includes(marker),
   );
@@ -229,11 +234,15 @@ function hasUnresolvedBlockingTask(db: DbClient, projectId: string, goalId: stri
 
 // When acceptance finally passes, the remediation task filed on the earlier red
 // result is obsolete — resolve it so a completed goal never shows open work.
-function resolveBlockingTasks(db: DbClient, projectId: string, goalId: string): void {
+async function resolveBlockingTasks(
+  db: DbClient,
+  projectId: string,
+  goalId: string,
+): Promise<void> {
   const marker = acceptanceBlockMarker(goalId);
-  for (const task of listTasks(db, projectId)) {
+  for (const task of await listTasks(db, projectId)) {
     if (task.goalId === goalId && task.status !== 'done' && task.description?.includes(marker)) {
-      updateTask(db, task.id, { status: 'done' });
+      await updateTask(db, task.id, { status: 'done' });
     }
   }
 }
@@ -257,9 +266,9 @@ function buildBlockingTaskDescription(
   return lines.join('\n');
 }
 
-function cycleTasksForGoal(db: Db, projectId: string, goalId: string) {
-  const tagsByTask = listTagsByTaskForProject(db, projectId);
-  return listTasks(db, projectId)
+async function cycleTasksForGoal(db: Db, projectId: string, goalId: string) {
+  const tagsByTask = await listTagsByTaskForProject(db, projectId);
+  return (await listTasks(db, projectId))
     .filter((task) => task.goalId === goalId)
     .map((task) => serializeTask(task, tagsByTask.get(task.id) ?? []));
 }
@@ -285,18 +294,18 @@ export function createGoalService(deps: GoalServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    create(projectId: string, input: CreateGoalInput) {
+    async create(projectId: string, input: CreateGoalInput) {
       if (input.status !== undefined && !isGoalStatus(input.status)) {
         throw new InvalidGoalStatusError(input.status);
       }
       validateVerificationSurfaceInput(input.verificationSurface);
 
-      const project = getProject(db, projectId);
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
-      const goal = db.transaction((tx) =>
+      const goal = await withTransaction(db, async (tx) =>
         createGoal(tx, {
           projectId,
           objective: input.objective,
@@ -314,33 +323,33 @@ export function createGoalService(deps: GoalServiceDeps) {
       return serializeGoal(goal);
     },
 
-    get(goalId: string) {
-      const goal = getGoal(db, goalId);
+    async get(goalId: string) {
+      const goal = await getGoal(db, goalId);
       if (!goal) {
         return undefined;
       }
       return {
         ...serializeGoal(goal),
-        cycle_tasks: cycleTasksForGoal(db, goal.projectId, goalId),
+        cycle_tasks: await cycleTasksForGoal(db, goal.projectId, goalId),
       };
     },
 
-    listByProject(projectId: string) {
-      const project = getProject(db, projectId);
+    async listByProject(projectId: string) {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
-      return listGoals(db, projectId).map(serializeGoal);
+      return (await listGoals(db, projectId)).map(serializeGoal);
     },
 
-    update(goalId: string, input: UpdateGoalInput) {
-      const existing = getGoal(db, goalId);
+    async update(goalId: string, input: UpdateGoalInput) {
+      const existing = await getGoal(db, goalId);
       if (!existing) {
         return undefined;
       }
       validateVerificationSurfaceInput(input.verificationSurface);
 
-      const goal = db.transaction((tx) => updateGoal(tx, goalId, input));
+      const goal = await withTransaction(db, async (tx) => updateGoal(tx, goalId, input));
       if (!goal) {
         return undefined;
       }
@@ -349,8 +358,8 @@ export function createGoalService(deps: GoalServiceDeps) {
       return serializeGoal(goal);
     },
 
-    pause(goalId: string) {
-      const existing = getGoal(db, goalId);
+    async pause(goalId: string) {
+      const existing = await getGoal(db, goalId);
       if (!existing) {
         return undefined;
       }
@@ -358,7 +367,7 @@ export function createGoalService(deps: GoalServiceDeps) {
         throw new InvalidGoalTransitionError('Goal can only be paused from active status');
       }
 
-      const goal = db.transaction((tx) => updateGoalStatus(tx, goalId, 'paused'));
+      const goal = await withTransaction(db, async (tx) => updateGoalStatus(tx, goalId, 'paused'));
       if (!goal) {
         return undefined;
       }
@@ -367,8 +376,8 @@ export function createGoalService(deps: GoalServiceDeps) {
       return serializeGoal(goal);
     },
 
-    resume(goalId: string) {
-      const existing = getGoal(db, goalId);
+    async resume(goalId: string) {
+      const existing = await getGoal(db, goalId);
       if (!existing) {
         return undefined;
       }
@@ -376,7 +385,7 @@ export function createGoalService(deps: GoalServiceDeps) {
         throw new InvalidGoalTransitionError('Goal can only be resumed from paused status');
       }
 
-      const goal = db.transaction((tx) => updateGoalStatus(tx, goalId, 'active'));
+      const goal = await withTransaction(db, async (tx) => updateGoalStatus(tx, goalId, 'active'));
       if (!goal) {
         return undefined;
       }
@@ -385,8 +394,8 @@ export function createGoalService(deps: GoalServiceDeps) {
       return serializeGoal(goal);
     },
 
-    complete(goalId: string, evidence?: VerificationEvidence) {
-      const existing = getGoal(db, goalId);
+    async complete(goalId: string, evidence?: VerificationEvidence) {
+      const existing = await getGoal(db, goalId);
       if (!existing) {
         return undefined;
       }
@@ -395,7 +404,7 @@ export function createGoalService(deps: GoalServiceDeps) {
       }
 
       if (existing.status !== 'blocked') {
-        const incomplete = listTasks(db, existing.projectId)
+        const incomplete = (await listTasks(db, existing.projectId))
           .filter((task) => task.goalId === goalId && task.status !== 'done')
           .map((task) => task.id);
         if (incomplete.length > 0) {
@@ -407,7 +416,7 @@ export function createGoalService(deps: GoalServiceDeps) {
       const at = new Date().toISOString();
 
       if (!surface) {
-        const goal = db.transaction((tx) =>
+        const goal = await withTransaction(db, async (tx) =>
           updateGoal(tx, goalId, {
             status: 'complete',
             lastVerification: recordLastVerification(at, true, null),
@@ -433,15 +442,15 @@ export function createGoalService(deps: GoalServiceDeps) {
       );
 
       if (evaluation.green) {
-        const goal = db.transaction((tx) => {
-          const updated = updateGoal(tx, goalId, {
+        const goal = await withTransaction(db, async (tx) => {
+          const updated = await updateGoal(tx, goalId, {
             status: 'complete',
             lastVerification,
           });
           if (!updated) {
             return undefined;
           }
-          resolveBlockingTasks(tx, existing.projectId, goalId);
+          await resolveBlockingTasks(tx, existing.projectId, goalId);
           return updated;
         });
         if (!goal) {
@@ -451,16 +460,16 @@ export function createGoalService(deps: GoalServiceDeps) {
         return serializeGoal(goal);
       }
 
-      const goal = db.transaction((tx) => {
-        const updated = updateGoal(tx, goalId, {
+      const goal = await withTransaction(db, async (tx) => {
+        const updated = await updateGoal(tx, goalId, {
           status: 'blocked',
           lastVerification,
         });
         if (!updated) {
           return undefined;
         }
-        if (!hasUnresolvedBlockingTask(tx, existing.projectId, goalId)) {
-          createTask(tx, {
+        if (!(await hasUnresolvedBlockingTask(tx, existing.projectId, goalId))) {
+          await createTask(tx, {
             projectId: existing.projectId,
             goalId,
             label: `Fix acceptance failure: ${truncateObjective(existing.objective)}`,

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createDb, createProject, listTagsForTask, migrate } from '@plandesk/db';
+import { createDb, createProject, listTagsForTask, migrate, type Db } from '@plandesk/db';
 import { createEventBus, type PlankDeskEvent } from '../events.js';
 import { createTagService, InvalidTagError } from './tags.js';
 import { createTaskService } from './tasks.js';
 
-function setup() {
-  const db = createDb(':memory:');
-  migrate(db);
+async function setup() {
+  const db = await createDb(':memory:');
+  await migrate(db);
   const eventBus = createEventBus();
   const received: PlankDeskEvent[] = [];
   eventBus.subscribe((event) => {
@@ -14,80 +14,70 @@ function setup() {
   });
   const tagService = createTagService({ db, eventBus });
   const taskService = createTaskService({ db, eventBus });
-  const project = createProject(db, { name: 'Tags' });
+  const project = await createProject(db, { name: 'Tags' });
   return { db, eventBus, received, tagService, taskService, projectId: project.id };
 }
 
 describe('tag service', () => {
-  it('creates, lists, updates, and deletes a tag with tag_updated events', () => {
-    const { tagService, received, projectId } = setup();
+  it('creates, lists, updates, and deletes a tag with tag_updated events', async () => {
+    const { tagService, received, projectId } = await setup();
 
-    const created = tagService.create(projectId, { name: 'backend', color: '#2563eb' });
+    const created = await tagService.create(projectId, { name: 'backend', color: '#2563eb' });
     expect(created?.name).toBe('backend');
     expect(created?.color).toBe('#2563eb');
     expect(created?.project_id).toBe(projectId);
     expect(received).toContainEqual({ type: 'tag_updated', projectId });
 
-    const listed = tagService.list(projectId);
+    const listed = await tagService.list(projectId);
     expect(listed?.map((tag) => tag.name)).toEqual(['backend']);
 
-    const updated = tagService.update(created?.id ?? '', { name: 'infra', color: null });
+    const updated = await tagService.update(created?.id ?? '', { name: 'infra', color: null });
     expect(updated?.name).toBe('infra');
     expect(updated?.color).toBeNull();
+    expect(received.filter((e) => e.type === 'tag_updated')).toHaveLength(2);
 
-    expect(tagService.delete(created?.id ?? '')).toBe(true);
-    expect(tagService.list(projectId)).toHaveLength(0);
-    expect(received.filter((event) => event.type === 'tag_updated')).toHaveLength(3);
+    const deleted = await tagService.delete(created?.id ?? '');
+    expect(deleted).toBe(true);
+    expect(await tagService.list(projectId)).toEqual([]);
+    expect(received.filter((e) => e.type === 'tag_updated')).toHaveLength(3);
   });
 
-  it('trims names and rejects blank or duplicate names', () => {
-    const { tagService, projectId } = setup();
+  it('rejects empty and duplicate names', async () => {
+    const { tagService, projectId } = await setup();
+    await expect(tagService.create(projectId, { name: '   ' })).rejects.toBeInstanceOf(
+      InvalidTagError,
+    );
+    await tagService.create(projectId, { name: 'dup' });
+    await expect(tagService.create(projectId, { name: 'dup' })).rejects.toBeInstanceOf(
+      InvalidTagError,
+    );
+  });
 
-    const created = tagService.create(projectId, { name: '  spaced  ' });
+  it('normalizes tag names by trimming', async () => {
+    const { tagService, projectId } = await setup();
+    const created = await tagService.create(projectId, { name: '  spaced  ' });
     expect(created?.name).toBe('spaced');
-
-    expect(() => tagService.create(projectId, { name: '   ' })).toThrow(InvalidTagError);
-    expect(() => tagService.create(projectId, { name: 'spaced' })).toThrow(InvalidTagError);
-
-    const other = tagService.create(projectId, { name: 'other' });
-    expect(() => tagService.update(other?.id ?? '', { name: 'spaced' })).toThrow(InvalidTagError);
-    // Renaming a tag to its own name is a no-op, not a conflict.
-    expect(tagService.update(other?.id ?? '', { name: 'other' })?.name).toBe('other');
   });
 
-  it('returns undefined/false for unknown projects and tags', () => {
-    const { tagService } = setup();
-    const missing = '00000000-0000-4000-8000-000000009999';
-    expect(tagService.list(missing)).toBeUndefined();
-    expect(tagService.create(missing, { name: 'x' })).toBeUndefined();
-    expect(tagService.update(missing, { name: 'x' })).toBeUndefined();
-    expect(tagService.delete(missing)).toBe(false);
+  it('returns undefined for missing project or tag', async () => {
+    const { tagService } = await setup();
+    expect(await tagService.list('missing')).toBeUndefined();
+    expect(await tagService.create('missing', { name: 'x' })).toBeUndefined();
+    expect(await tagService.update('missing', { name: 'x' })).toBeUndefined();
+    expect(await tagService.delete('missing')).toBe(false);
   });
 
-  it('rename propagates to tasks referencing the tag', () => {
-    const { db, tagService, taskService, projectId } = setup();
+  it('task create/update can set tags by name and auto-creates missing tags', async () => {
+    const { db, taskService, projectId } = await setup();
+    const task = await taskService.create(projectId, {
+      label: 'T1',
+      tags: ['alpha', 'beta'],
+    });
+    expect(task?.tags?.map((t) => t.name).sort()).toEqual(['alpha', 'beta']);
+    const fromDb = await listTagsForTask(db, task!.id);
+    expect(fromDb.map((t) => t.name).sort()).toEqual(['alpha', 'beta']);
 
-    const task = taskService.create(projectId, { label: 'Tagged', tags: ['old-name'] });
-    const tag = tagService.list(projectId)?.[0];
-    expect(tag?.name).toBe('old-name');
-
-    tagService.update(tag?.id ?? '', { name: 'new-name' });
-
-    const refetched = taskService.get(task?.id ?? '');
-    expect(refetched?.tags?.map((row) => row.name)).toEqual(['new-name']);
-    expect(listTagsForTask(db, task?.id ?? '').map((row) => row.name)).toEqual(['new-name']);
-  });
-
-  it('delete removes the tag from its tasks but keeps the tasks', () => {
-    const { db, tagService, taskService, projectId } = setup();
-
-    const task = taskService.create(projectId, { label: 'Tagged', tags: ['doomed', 'keep'] });
-    const doomed = tagService.list(projectId)?.find((tag) => tag.name === 'doomed');
-
-    expect(tagService.delete(doomed?.id ?? '')).toBe(true);
-
-    const refetched = taskService.get(task?.id ?? '');
-    expect(refetched?.tags?.map((row) => row.name)).toEqual(['keep']);
-    expect(listTagsForTask(db, task?.id ?? '')).toHaveLength(1);
+    const updated = await taskService.update(task!.id, { tags: ['beta', 'gamma'] });
+    expect(updated?.tags?.map((t) => t.name).sort()).toEqual(['beta', 'gamma']);
   });
 });

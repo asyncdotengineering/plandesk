@@ -13,10 +13,10 @@ export function createCreateTaskHandler(
   y?: number;
   goal_id?: string;
   tags?: string[];
-}) => ToolResult {
-  return (args) => {
+}) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const task = taskService.create(args.project_id, {
+      const task = await taskService.create(args.project_id, {
         label: args.label,
         ...(args.status !== undefined ? { status: args.status as TaskStatus } : {}),
         ...(args.description !== undefined ? { description: args.description } : {}),

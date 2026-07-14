@@ -44,12 +44,12 @@ function resolveLinkedTaskId(body: {
 export function createDocumentsRouter(documentService: DocumentService): Hono {
   const router = new Hono();
 
-  router.get('/projects/:id/documents', (c) => {
+  router.get('/projects/:id/documents', async (c) => {
     const pagination = parsePaginationParams(c.req.query('limit'), c.req.query('offset'));
     if (pagination === 'invalid') {
       return c.json({ error: 'invalid_argument' }, 400);
     }
-    const tree = documentService.listTree(c.req.param('id'), pagination);
+    const tree = await documentService.listTree(c.req.param('id'), pagination);
     if (!tree) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -63,7 +63,7 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
     }
 
     try {
-      const document = documentService.create(c.req.param('id'), {
+      const document = await documentService.create(c.req.param('id'), {
         title: body.title,
         body: body.body,
         statusLine: body.status_line,
@@ -85,8 +85,8 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
     }
   });
 
-  router.get('/documents/:id', (c) => {
-    const document = documentService.get(c.req.param('id'));
+  router.get('/documents/:id', async (c) => {
+    const document = await documentService.get(c.req.param('id'));
     if (!document) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -98,7 +98,7 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
     const linkedTaskId = resolveLinkedTaskId(body);
 
     try {
-      const document = documentService.update(c.req.param('id'), {
+      const document = await documentService.update(c.req.param('id'), {
         ...(body.title !== undefined ? { title: body.title } : {}),
         ...(body.body !== undefined ? { body: body.body } : {}),
         ...(body.status_line !== undefined ? { statusLine: body.status_line } : {}),
@@ -120,16 +120,16 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
     }
   });
 
-  router.delete('/documents/:id', (c) => {
-    const deleted = documentService.delete(c.req.param('id'));
+  router.delete('/documents/:id', async (c) => {
+    const deleted = await documentService.delete(c.req.param('id'));
     if (!deleted) {
       return c.json({ error: 'not_found' }, 404);
     }
     return c.body(null, 204);
   });
 
-  router.get('/tasks/:id/document', (c) => {
-    const document = documentService.getByTask(c.req.param('id'));
+  router.get('/tasks/:id/document', async (c) => {
+    const document = await documentService.getByTask(c.req.param('id'));
     if (!document) {
       return c.json({ error: 'not_found' }, 404);
     }

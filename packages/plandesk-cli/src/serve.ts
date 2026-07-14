@@ -53,17 +53,20 @@ export function createListenErrorHandler(
   };
 }
 
-export function startServer(options: ServeOptions, exit: ExitFn = defaultExit): Server {
+export async function startServer(
+  options: ServeOptions,
+  exit: ExitFn = defaultExit,
+): Promise<Server> {
   const { host, authPassword } = validateServeBind(options);
   const dataDir = resolveDataDir(options.dataDir);
   const dbPath = workspaceDbPath(dataDir);
-  const db = createDb(dbPath);
-  migrate(db);
+  const db = await createDb(dbPath);
+  await migrate(db);
 
   const eventBus = createEventBus();
   const services = createServices({ db, eventBus });
   const tokenStore = {
-    verify(raw: string) {
+    async verify(raw: string) {
       return verifyToken(db, raw);
     },
   };
@@ -148,8 +151,8 @@ export function startServer(options: ServeOptions, exit: ExitFn = defaultExit): 
   return server;
 }
 
-export function runServe(options: ServeOptions): Server {
-  const server = startServer(options);
+export async function runServe(options: ServeOptions): Promise<Server> {
+  const server = await startServer(options);
   const dataDir = resolveDataDir(options.dataDir);
 
   const shutdown = () => {

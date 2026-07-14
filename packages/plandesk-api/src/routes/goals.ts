@@ -89,7 +89,7 @@ export function createGoalsRouter(goalService: GoalService): Hono {
     }
 
     try {
-      const goal = goalService.create(c.req.param('id'), {
+      const goal = await goalService.create(c.req.param('id'), {
         objective: body.objective,
         ...(body.status !== undefined ? { status: body.status } : {}),
         ...mapGoalInput(body),
@@ -103,16 +103,16 @@ export function createGoalsRouter(goalService: GoalService): Hono {
     }
   });
 
-  router.get('/projects/:id/goals', (c) => {
-    const goals = goalService.listByProject(c.req.param('id'));
+  router.get('/projects/:id/goals', async (c) => {
+    const goals = await goalService.listByProject(c.req.param('id'));
     if (!goals) {
       return c.json({ error: 'not_found' }, 404);
     }
     return c.json(goals);
   });
 
-  router.get('/goals/:id', (c) => {
-    const goal = goalService.get(c.req.param('id'));
+  router.get('/goals/:id', async (c) => {
+    const goal = await goalService.get(c.req.param('id'));
     if (!goal) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -126,7 +126,7 @@ export function createGoalsRouter(goalService: GoalService): Hono {
     }
 
     try {
-      const goal = goalService.update(c.req.param('id'), mapGoalInput(body));
+      const goal = await goalService.update(c.req.param('id'), mapGoalInput(body));
       if (!goal) {
         return c.json({ error: 'not_found' }, 404);
       }
@@ -136,9 +136,9 @@ export function createGoalsRouter(goalService: GoalService): Hono {
     }
   });
 
-  router.post('/goals/:id/pause', (c) => {
+  router.post('/goals/:id/pause', async (c) => {
     try {
-      const goal = goalService.pause(c.req.param('id'));
+      const goal = await goalService.pause(c.req.param('id'));
       if (!goal) {
         return c.json({ error: 'not_found' }, 404);
       }
@@ -148,9 +148,9 @@ export function createGoalsRouter(goalService: GoalService): Hono {
     }
   });
 
-  router.post('/goals/:id/resume', (c) => {
+  router.post('/goals/:id/resume', async (c) => {
     try {
-      const goal = goalService.resume(c.req.param('id'));
+      const goal = await goalService.resume(c.req.param('id'));
       if (!goal) {
         return c.json({ error: 'not_found' }, 404);
       }
@@ -168,7 +168,7 @@ export function createGoalsRouter(goalService: GoalService): Hono {
       // empty body is valid when the goal has no verification_surface
     }
     try {
-      const goal = goalService.complete(c.req.param('id'), body.evidence);
+      const goal = await goalService.complete(c.req.param('id'), body.evidence);
       if (!goal) {
         return c.json({ error: 'not_found' }, 404);
       }

@@ -20,7 +20,7 @@ type CanvasResponse = {
 
 describe('canvas routes', () => {
   it('test:canvas_roundtrip persists nodes and labeled edges', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -97,9 +97,9 @@ describe('canvas routes', () => {
   });
 
   it('concurrency regression: layout PUT does not clobber PATCH status', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Concurrency' });
-    const task = createTask(db, {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Concurrency' });
+    const task = await createTask(db, {
       projectId: project.id,
       label: 'Agent task',
       status: 'todo',
@@ -143,7 +143,7 @@ describe('canvas routes', () => {
       y: 600,
     });
 
-    const persisted = getTask(db, task.id);
+    const persisted = await getTask(db, task.id);
     expect(persisted?.status).toBe('in_progress');
     expect(persisted?.label).toBe('Agent task');
     expect(persisted?.x).toBe(500);
@@ -151,7 +151,7 @@ describe('canvas routes', () => {
   });
 
   it('PUT /canvas returns 400 when edge references a missing task', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -178,14 +178,14 @@ describe('canvas routes', () => {
   });
 
   it('GET /canvas returns 404 for missing project', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/projects/00000000-0000-4000-8000-000000009999/canvas');
     expect(res.status).toBe(404);
     expect(await parseJson(res)).toEqual({ error: 'not_found' });
   });
 
   it('PUT /canvas returns 404 for missing project', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/projects/00000000-0000-4000-8000-000000009999/canvas', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -196,7 +196,7 @@ describe('canvas routes', () => {
   });
 
   it('PUT /canvas returns 400 for invalid payload shape', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -215,11 +215,11 @@ describe('canvas routes', () => {
   });
 
   it('DELETE /projects/:id/edges/:edgeId removes an edge', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Edge delete' });
-    const taskA = createTask(db, { projectId: project.id, label: 'A' });
-    const taskB = createTask(db, { projectId: project.id, label: 'B' });
-    const edge = createEdge(db, {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Edge delete' });
+    const taskA = await createTask(db, { projectId: project.id, label: 'A' });
+    const taskB = await createTask(db, { projectId: project.id, label: 'B' });
+    const edge = await createEdge(db, {
       projectId: project.id,
       fromTaskId: taskA.id,
       toTaskId: taskB.id,
@@ -237,8 +237,8 @@ describe('canvas routes', () => {
   });
 
   it('DELETE /projects/:id/edges/:edgeId returns 404 when missing', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Missing edge' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Missing edge' });
 
     const res = await app.request(
       `/api/v1/projects/${project.id}/edges/00000000-0000-4000-8000-000000009999`,

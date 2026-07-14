@@ -6,7 +6,7 @@ export function createSyncPullHandler(
   syncService: SyncService,
 ): (args: { project_id: string }) => Promise<ToolResult> {
   return async (args) => {
-    const remote = syncService.getRemote(args.project_id);
+    const remote = await syncService.getRemote(args.project_id);
     if (remote === undefined) {
       return toolInvalidArgument('not published — run publish_project');
     }

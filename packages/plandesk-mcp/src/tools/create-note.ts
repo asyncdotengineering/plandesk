@@ -5,10 +5,10 @@ import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from 
 
 export function createCreateNoteHandler(
   noteService: NoteService,
-): (args: { project_id: string; title: string; body?: string }) => ToolResult {
-  return (args) => {
+): (args: { project_id: string; title: string; body?: string }) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const note = noteService.create(args.project_id, {
+      const note = await noteService.create(args.project_id, {
         title: args.title,
         ...(args.body !== undefined ? { body: ensureHtmlBody(args.body) } : {}),
       });

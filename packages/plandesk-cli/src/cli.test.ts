@@ -29,7 +29,7 @@ import { createListenErrorHandler, startServer, validateServeBind } from './serv
 // Isolate the machine-global port registry (~/.plandesk/ports.json) so tests
 // that run `init`/`serve` never read or write the real one on this machine.
 let portRegistryStateDir: string | undefined;
-beforeEach(() => {
+beforeEach(async () => {
   portRegistryStateDir = mkdtempSync(join(tmpdir(), 'plandesk-state-'));
   process.env.PLANDESK_STATE_DIR = portRegistryStateDir;
 });
@@ -42,14 +42,14 @@ afterEach(() => {
 });
 
 describe('parseArgs', () => {
-  it('parses init with data-dir override', () => {
+  it('parses init with data-dir override', async () => {
     expect(parseArgs(['node', 'plandesk', 'init', '--data-dir', '/tmp/ws'])).toEqual({
       command: 'init',
       dataDir: '/tmp/ws',
     });
   });
 
-  it('parses serve with default port (no flag → undefined, resolved from workspace.json in cli.ts)', () => {
+  it('parses serve with default port (no flag → undefined, resolved from workspace.json in cli.ts)', async () => {
     expect(parseArgs(['node', 'plandesk', 'serve'])).toEqual({
       command: 'serve',
       port: undefined,
@@ -57,7 +57,7 @@ describe('parseArgs', () => {
     });
   });
 
-  it('parses serve with --strict-port', () => {
+  it('parses serve with --strict-port', async () => {
     expect(parseArgs(['node', 'plandesk', 'serve', '--strict-port'])).toEqual({
       command: 'serve',
       port: undefined,
@@ -65,7 +65,7 @@ describe('parseArgs', () => {
     });
   });
 
-  it('parses url command', () => {
+  it('parses url command', async () => {
     expect(parseArgs(['node', 'plandesk', 'url'])).toEqual({
       command: 'url',
       repoDir: undefined,
@@ -83,7 +83,7 @@ describe('parseArgs', () => {
     });
   });
 
-  it('parses serve with port, host, and data-dir', () => {
+  it('parses serve with port, host, and data-dir', async () => {
     expect(
       parseArgs([
         'node',
@@ -105,29 +105,29 @@ describe('parseArgs', () => {
     });
   });
 
-  it('returns help (crash course) for empty argv', () => {
+  it('returns help (crash course) for empty argv', async () => {
     expect(parseArgs(['node', 'plandesk'])).toEqual({ command: 'help', full: false });
   });
 
-  it('returns full help with --commands', () => {
+  it('returns full help with --commands', async () => {
     expect(parseArgs(['node', 'plandesk', 'help', '--commands'])).toEqual({
       command: 'help',
       full: true,
     });
   });
 
-  it('parses version as command and flag', () => {
+  it('parses version as command and flag', async () => {
     expect(parseArgs(['node', 'plandesk', 'version'])).toEqual({ command: 'version' });
     expect(parseArgs(['node', 'plandesk', '--version'])).toEqual({ command: 'version' });
   });
 
-  it('parses onboard as a command', () => {
+  it('parses onboard as a command', async () => {
     expect(parseArgs(['node', 'plandesk', 'onboard'])).toEqual({ command: 'onboard' });
   });
 });
 
 describe('crashCourse', () => {
-  it('orients both humans and agents with real doc links', () => {
+  it('orients both humans and agents with real doc links', async () => {
     const out = crashCourse();
     expect(out).toContain('https://plandesk.asyncdot.com/start.md');
     expect(out).toContain('READ THESE');
@@ -139,7 +139,7 @@ describe('crashCourse', () => {
 });
 
 describe('onboard guide', () => {
-  it('teaches the model without assuming any worker CLI or delegation skill exists', () => {
+  it('teaches the model without assuming any worker CLI or delegation skill exists', async () => {
     const out = ONBOARD_GUIDE;
     // Portability invariant: the guide must tell the agent to self-execute when
     // no worker is installed — never assume a delegate skill or worker CLI ships
@@ -152,7 +152,7 @@ describe('onboard guide', () => {
     expect(out).not.toContain('/delegate');
   });
 
-  it('printOnboard writes the guide to the provided sink', () => {
+  it('printOnboard writes the guide to the provided sink', async () => {
     let captured = '';
     printOnboard((s) => {
       captured += s;
@@ -162,24 +162,24 @@ describe('onboard guide', () => {
 });
 
 describe('bind host', () => {
-  it('defaults serve bind host to loopback (LAN is opt-in)', () => {
+  it('defaults serve bind host to loopback (LAN is opt-in)', async () => {
     expect(DEFAULT_BIND_HOST).toBe('127.0.0.1');
     expect(resolveBindHost()).toBe('127.0.0.1');
   });
 
-  it('honors --host over PLANDESK_HOST', () => {
+  it('honors --host over PLANDESK_HOST', async () => {
     vi.stubEnv('PLANDESK_HOST', '192.168.1.5');
     expect(resolveBindHost('0.0.0.0')).toBe('0.0.0.0');
     vi.unstubAllEnvs();
   });
 
-  it('reads PLANDESK_HOST when --host is absent', () => {
+  it('reads PLANDESK_HOST when --host is absent', async () => {
     vi.stubEnv('PLANDESK_HOST', '0.0.0.0');
     expect(resolveBindHost()).toBe('0.0.0.0');
     vi.unstubAllEnvs();
   });
 
-  it('classifies loopback hosts', () => {
+  it('classifies loopback hosts', async () => {
     expect(isLoopbackHost('127.0.0.1')).toBe(true);
     expect(isLoopbackHost('localhost')).toBe(true);
     expect(isLoopbackHost('::1')).toBe(true);
@@ -189,7 +189,7 @@ describe('bind host', () => {
 });
 
 describe('validateServeBind', () => {
-  it('allows non-loopback bind without a password (open LAN access)', () => {
+  it('allows non-loopback bind without a password (open LAN access)', async () => {
     vi.stubEnv('PLANDESK_AUTH_PASSWORD', '');
     expect(validateServeBind({ port: 3847, host: '0.0.0.0' })).toEqual({
       host: '0.0.0.0',
@@ -198,7 +198,7 @@ describe('validateServeBind', () => {
     vi.unstubAllEnvs();
   });
 
-  it('passes authPassword when PLANDESK_AUTH_PASSWORD is set', () => {
+  it('passes authPassword when PLANDESK_AUTH_PASSWORD is set', async () => {
     vi.stubEnv('PLANDESK_AUTH_PASSWORD', 'secret');
     expect(validateServeBind({ port: 3847, host: '0.0.0.0' })).toEqual({
       host: '0.0.0.0',
@@ -209,13 +209,13 @@ describe('validateServeBind', () => {
 });
 
 describe('resolveAuthPassword', () => {
-  it('returns undefined when unset', () => {
+  it('returns undefined when unset', async () => {
     vi.stubEnv('PLANDESK_AUTH_PASSWORD', '');
     expect(resolveAuthPassword()).toBeUndefined();
     vi.unstubAllEnvs();
   });
 
-  it('reads PLANDESK_AUTH_PASSWORD', () => {
+  it('reads PLANDESK_AUTH_PASSWORD', async () => {
     vi.stubEnv('PLANDESK_AUTH_PASSWORD', 'secret');
     expect(resolveAuthPassword()).toBe('secret');
     vi.unstubAllEnvs();
@@ -338,7 +338,7 @@ describe('runInit legacy backfill', () => {
 });
 
 describe('createListenErrorHandler', () => {
-  it('reports port-in-use and exits with code 1', () => {
+  it('reports port-in-use and exits with code 1', async () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     let exitCode = 0;
     const exit = ((code: number) => {
@@ -358,7 +358,7 @@ describe('createListenErrorHandler', () => {
 });
 
 describe('startServer', () => {
-  const servers: Array<ReturnType<typeof startServer> | ReturnType<typeof createServer>> = [];
+  const servers: Array<{ close: (cb?: (err?: Error) => void) => void }> = [];
 
   afterEach(() => {
     for (const server of servers.splice(0)) {
@@ -382,7 +382,7 @@ describe('startServer', () => {
       servers.push(probe);
     });
 
-    const server = startServer({ port, dataDir });
+    const server = await startServer({ port, dataDir });
     servers.push(server);
 
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -445,7 +445,7 @@ describe('startServer', () => {
       exitCode = code;
     }) as (code: number) => never;
 
-    const server = startServer({ port, dataDir }, exit);
+    const server = await startServer({ port, dataDir }, exit);
     servers.push(server);
 
     await new Promise((resolve) => setTimeout(resolve, 150));
@@ -473,7 +473,7 @@ describe('startServer', () => {
       exitCode = code;
     }) as (code: number) => never;
 
-    startServer({ port, dataDir, strictPort: true }, exit);
+    await startServer({ port, dataDir, strictPort: true }, exit);
 
     await new Promise((resolve) => setTimeout(resolve, 150));
     expect(exitCode).toBe(1);
@@ -483,17 +483,17 @@ describe('startServer', () => {
 });
 
 describe('resolveDataDir', () => {
-  it('uses override when provided', () => {
+  it('uses override when provided', async () => {
     expect(resolveDataDir('/tmp/custom')).toBe('/tmp/custom');
   });
 
-  it('reads PLANDESK_DATA_DIR when override is absent', () => {
+  it('reads PLANDESK_DATA_DIR when override is absent', async () => {
     vi.stubEnv('PLANDESK_DATA_DIR', '/data');
     expect(resolveDataDir()).toBe('/data');
     vi.unstubAllEnvs();
   });
 
-  it('finds local .plandesk/ dir when present', () => {
+  it('finds local .plandesk/ dir when present', async () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-resolve-'));
     const plandeskDir = join(tmpDir, '.plandesk');
     mkdirSync(plandeskDir);
@@ -506,7 +506,7 @@ describe('resolveDataDir', () => {
 });
 
 describe('findLocalPlandeskDir', () => {
-  it('returns undefined when no .plandesk/ exists in the tree', () => {
+  it('returns undefined when no .plandesk/ exists in the tree', async () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-find-'));
     try {
       expect(findLocalPlandeskDir(tmpDir)).toBeUndefined();
@@ -515,7 +515,7 @@ describe('findLocalPlandeskDir', () => {
     }
   });
 
-  it('finds .plandesk/ in the given directory', () => {
+  it('finds .plandesk/ in the given directory', async () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-find-'));
     const plandeskDir = join(tmpDir, '.plandesk');
     mkdirSync(plandeskDir);
@@ -526,7 +526,7 @@ describe('findLocalPlandeskDir', () => {
     }
   });
 
-  it('finds .plandesk/ in a parent directory', () => {
+  it('finds .plandesk/ in a parent directory', async () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-find-'));
     const plandeskDir = join(tmpDir, '.plandesk');
     const child = join(tmpDir, 'sub', 'deep');
@@ -541,17 +541,17 @@ describe('findLocalPlandeskDir', () => {
 });
 
 describe('resolveInitDataDir', () => {
-  it('uses override when provided', () => {
+  it('uses override when provided', async () => {
     expect(resolveInitDataDir('/tmp/custom')).toBe('/tmp/custom');
   });
 
-  it('reads PLANDESK_DATA_DIR when override is absent', () => {
+  it('reads PLANDESK_DATA_DIR when override is absent', async () => {
     vi.stubEnv('PLANDESK_DATA_DIR', '/data');
     expect(resolveInitDataDir()).toBe('/data');
     vi.unstubAllEnvs();
   });
 
-  it('defaults to .plandesk/ in cwd (not ~/.plandesk)', () => {
+  it('defaults to .plandesk/ in cwd (not ~/.plandesk)', async () => {
     const result = resolveInitDataDir();
     expect(result).toBe(join(process.cwd(), '.plandesk'));
   });

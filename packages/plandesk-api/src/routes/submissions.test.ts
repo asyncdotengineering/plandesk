@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createDb, createProject, migrate, upsertSubmission } from '@plandesk/db';
+import { createDb, createProject, migrate, upsertSubmission , type Db} from '@plandesk/db';
 import { createApp } from '../server.js';
 import { createEventBus } from '../events.js';
 import { createServices, type Services } from '../services/index.js';
@@ -11,17 +11,17 @@ const remote = {
   syncToken: 'plandesk_sync_test',
 };
 
-function createTestAppWithServices() {
-  const db = createDb(':memory:');
-  migrate(db);
+async function createTestAppWithServices() {
+  const db = await createDb(':memory:');
+  await migrate(db);
   const eventBus = createEventBus();
   const services: Services = createServices({ db, eventBus });
   const app = createApp({ db, eventBus, services });
   return { app, db, services };
 }
 
-function seedSubmission(db: ReturnType<typeof createDb>, projectId: string) {
-  upsertSubmission(db, {
+async function seedSubmission(db: Db, projectId: string) {
+  await upsertSubmission(db, {
     id: 'sub-1',
     projectId,
     hostedShareId: 'hosted-share-1',
@@ -34,16 +34,16 @@ function seedSubmission(db: ReturnType<typeof createDb>, projectId: string) {
   });
 }
 
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
 describe('submissions routes', () => {
   it('GET /projects/:id/submissions defaults to pending and 404s for missing project', async () => {
-    const { app, db } = createTestAppWithServices();
-    const project = createProject(db, { name: 'Inbox' });
-    seedSubmission(db, project.id);
+    const { app, db } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Inbox' });
+    await seedSubmission(db, project.id);
 
     const res = await app.request(`/api/v1/projects/${project.id}/submissions`);
     expect(res.status).toBe(200);
@@ -58,9 +58,9 @@ describe('submissions routes', () => {
   });
 
   it('GET supports an explicit status filter and rejects invalid ones', async () => {
-    const { app, db } = createTestAppWithServices();
-    const project = createProject(db, { name: 'Inbox filter' });
-    seedSubmission(db, project.id);
+    const { app, db } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Inbox filter' });
+    await seedSubmission(db, project.id);
 
     const acceptedRes = await app.request(
       `/api/v1/projects/${project.id}/submissions?status=accepted`,
@@ -75,9 +75,9 @@ describe('submissions routes', () => {
   });
 
   it('POST /submissions/:id/triage returns not_published when the project has no sync remote', async () => {
-    const { app, db } = createTestAppWithServices();
-    const project = createProject(db, { name: 'Unpublished' });
-    seedSubmission(db, project.id);
+    const { app, db } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Unpublished' });
+    await seedSubmission(db, project.id);
 
     const res = await app.request('/api/v1/submissions/sub-1/triage', {
       method: 'POST',
@@ -89,9 +89,9 @@ describe('submissions routes', () => {
   });
 
   it('POST triage accept creates a scope task even if a different status is requested', async () => {
-    const { app, db, services } = createTestAppWithServices();
-    const project = createProject(db, { name: 'Accept' });
-    seedSubmission(db, project.id);
+    const { app, db, services } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Accept' });
+    await seedSubmission(db, project.id);
     services.syncService.setRemote(project.id, remote);
 
     vi.stubGlobal(
@@ -119,9 +119,9 @@ describe('submissions routes', () => {
   });
 
   it('POST triage reject marks the submission rejected', async () => {
-    const { app, db, services } = createTestAppWithServices();
-    const project = createProject(db, { name: 'Reject' });
-    seedSubmission(db, project.id);
+    const { app, db, services } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Reject' });
+    await seedSubmission(db, project.id);
     services.syncService.setRemote(project.id, remote);
 
     vi.stubGlobal(
@@ -140,9 +140,9 @@ describe('submissions routes', () => {
   });
 
   it('POST triage 400s on an invalid action and 404s on an unknown submission', async () => {
-    const { app, db, services } = createTestAppWithServices();
-    const project = createProject(db, { name: 'Invalid' });
-    seedSubmission(db, project.id);
+    const { app, db, services } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Invalid' });
+    await seedSubmission(db, project.id);
     services.syncService.setRemote(project.id, remote);
 
     const invalidRes = await app.request('/api/v1/submissions/sub-1/triage', {
@@ -161,12 +161,12 @@ describe('submissions routes', () => {
   });
 
   it('POST triage accept with link_task_id links to an existing task and creates no new task', async () => {
-    const { app, db, services } = createTestAppWithServices();
-    const project = createProject(db, { name: 'Merge' });
-    seedSubmission(db, project.id);
-    services.syncService.setRemote(project.id, remote);
+    const { app, db, services } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Merge' });
+    await seedSubmission(db, project.id);
+    await services.syncService.setRemote(project.id, remote);
 
-    const existing = services.taskService.create(project.id, {
+    const existing = await services.taskService.create(project.id, {
       label: 'Existing task',
       status: 'scope',
       description: 'already here',

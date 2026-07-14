@@ -19,7 +19,7 @@ export async function runPull(db: Db, options: PullOptions): Promise<PullResult>
   const resolved = resolveSyncRemote(options);
   const { syncService } = createServices({ db });
   const { pulled } = await syncService.pull(resolved.projectId, resolved.syncRemote);
-  const pending = syncService.listTriage(resolved.projectId, 'pending').length;
+  const pending = (await syncService.listTriage(resolved.projectId, 'pending')).length;
   return { pulled, pending };
 }
 

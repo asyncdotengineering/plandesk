@@ -8,7 +8,7 @@ describe('ensureHtmlBody', () => {
     marked.setOptions({ async: false });
   });
 
-  it('renders markdown even when the shared marked singleton is polluted with an async extension', () => {
+  it('renders markdown even when the shared marked singleton is polluted with an async extension', async () => {
     // The CLI previewer registers an async marked-shiki extension at import time,
     // which flips the process-global `marked` singleton into async mode. Because
     // `plandesk serve` runs the CLI and the MCP server in one process sharing one
@@ -20,24 +20,24 @@ describe('ensureHtmlBody', () => {
     expect(html).toContain('<h2>Heading</h2>');
     expect(html).toContain('<strong>markdown</strong>');
   });
-  it('converts markdown to HTML', () => {
+  it('converts markdown to HTML', async () => {
     const html = ensureHtmlBody('## Hosts\n\n- one\n- two\n\nA paragraph.');
     expect(html).toContain('<h2>Hosts</h2>');
     expect(html).toContain('<li>one</li>');
     expect(html).toContain('<p>A paragraph.</p>');
   });
 
-  it('passes HTML through untouched', () => {
+  it('passes HTML through untouched', async () => {
     const html = '<h2>Hosts</h2><p>Already rich text.</p>';
     expect(ensureHtmlBody(html)).toBe(html);
   });
 
-  it('passes empty and whitespace-only bodies through', () => {
+  it('passes empty and whitespace-only bodies through', async () => {
     expect(ensureHtmlBody('')).toBe('');
     expect(ensureHtmlBody('  \n')).toBe('  \n');
   });
 
-  it('converts inline markdown emphasis and code', () => {
+  it('converts inline markdown emphasis and code', async () => {
     const html = ensureHtmlBody('Use `get_next_task` and **never** guess ids.');
     expect(html).toContain('<code>get_next_task</code>');
     expect(html).toContain('<strong>never</strong>');

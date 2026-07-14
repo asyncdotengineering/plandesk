@@ -13,8 +13,8 @@ type UploadedFileResponse = {
 
 describe('files routes', () => {
   it('uploads a file and serves it back with an image content-type', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Files' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Files' });
 
     const bytes = Buffer.from('fake-png-bytes', 'utf8');
     const contentBase64 = bytes.toString('base64');
@@ -42,8 +42,8 @@ describe('files routes', () => {
   });
 
   it('serves a non-image mime as an attachment download, never inline', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Docs upload' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Docs upload' });
 
     const bytes = Buffer.from('<script>alert(1)</script>', 'utf8');
     const createRes = await app.request(`/api/v1/projects/${project.id}/files`, {
@@ -66,8 +66,8 @@ describe('files routes', () => {
   });
 
   it('sanitizes a hostile filename in Content-Disposition', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Hostile filename' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Hostile filename' });
 
     const bytes = Buffer.from('payload', 'utf8');
     const createRes = await app.request(`/api/v1/projects/${project.id}/files`, {
@@ -89,8 +89,8 @@ describe('files routes', () => {
   });
 
   it('rejects a payload larger than 10MB with 413', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Too big' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Too big' });
 
     const bytes = Buffer.alloc(10 * 1024 * 1024 + 1, 1);
     const res = await app.request(`/api/v1/projects/${project.id}/files`, {
@@ -106,8 +106,8 @@ describe('files routes', () => {
   });
 
   it('rejects a missing mime with 400', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'No mime' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'No mime' });
 
     const res = await app.request(`/api/v1/projects/${project.id}/files`, {
       method: 'POST',
@@ -118,7 +118,7 @@ describe('files routes', () => {
   });
 
   it('returns 404 for an unknown project on upload and an unknown file on get', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
 
     const uploadRes = await app.request(
       '/api/v1/projects/00000000-0000-4000-8000-000000009999/files',
@@ -139,8 +139,8 @@ describe('files routes', () => {
   });
 
   it('dedups identical bytes uploaded twice: same id, first filename wins', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Dedup' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Dedup' });
     const bytes = Buffer.from('same-content', 'utf8');
     const contentBase64 = bytes.toString('base64');
 
@@ -166,9 +166,7 @@ describe('files routes', () => {
     expect(second.id).toBe(first.id);
     expect(second.filename).toBe('first.png');
 
-    const filesTable = db.$client.prepare('SELECT COUNT(*) AS count FROM files').get() as {
-      count: number;
-    };
-    expect(filesTable.count).toBe(1);
+    const countRow = (await db.$client.execute('SELECT COUNT(*) AS count FROM files')).rows[0];
+    expect(Number(countRow?.['count'])).toBe(1);
   });
 });

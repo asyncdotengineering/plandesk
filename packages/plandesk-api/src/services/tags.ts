@@ -45,34 +45,34 @@ export function createTagService(deps: TagServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    list(projectId: string): SerializedTag[] | undefined {
-      const project = getProject(db, projectId);
+    async list(projectId: string): Promise<SerializedTag[] | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
-      return dbListTags(db, projectId).map(serializeTag);
+      return (await dbListTags(db, projectId)).map(serializeTag);
     },
 
-    create(projectId: string, input: CreateTagInput): SerializedTag | undefined {
-      const project = getProject(db, projectId);
+    async create(projectId: string, input: CreateTagInput): Promise<SerializedTag | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
       const name = normalizeTagName(input.name);
-      if (getTagByName(db, projectId, name)) {
+      if (await getTagByName(db, projectId, name)) {
         throw new InvalidTagError(`Tag already exists: ${name}`);
       }
 
-      const tag = dbCreateTag(db, { projectId, name, color: input.color });
+      const tag = await dbCreateTag(db, { projectId, name, color: input.color });
       eventBus.emit({ type: 'tag_updated', projectId });
       return serializeTag(tag);
     },
 
     // Renaming propagates everywhere automatically: tasks reference the single
     // tag row through the join table.
-    update(id: string, input: UpdateTagInput): SerializedTag | undefined {
-      const existing = dbGetTag(db, id);
+    async update(id: string, input: UpdateTagInput): Promise<SerializedTag | undefined> {
+      const existing = await dbGetTag(db, id);
       if (!existing) {
         return undefined;
       }
@@ -80,13 +80,13 @@ export function createTagService(deps: TagServiceDeps) {
       let name: string | undefined;
       if (input.name !== undefined) {
         name = normalizeTagName(input.name);
-        const conflict = getTagByName(db, existing.projectId, name);
+        const conflict = await getTagByName(db, existing.projectId, name);
         if (conflict && conflict.id !== id) {
           throw new InvalidTagError(`Tag already exists: ${name}`);
         }
       }
 
-      const tag = dbUpdateTag(db, id, {
+      const tag = await dbUpdateTag(db, id, {
         ...(name !== undefined ? { name } : {}),
         ...(input.color !== undefined ? { color: input.color } : {}),
       });
@@ -99,13 +99,13 @@ export function createTagService(deps: TagServiceDeps) {
     },
 
     // Deleting a tag removes it from all its tasks (cascade on the join table).
-    delete(id: string): boolean {
-      const existing = dbGetTag(db, id);
+    async delete(id: string): Promise<boolean> {
+      const existing = await dbGetTag(db, id);
       if (!existing) {
         return false;
       }
 
-      const deleted = dbDeleteTag(db, id);
+      const deleted = await dbDeleteTag(db, id);
       if (!deleted) {
         return false;
       }

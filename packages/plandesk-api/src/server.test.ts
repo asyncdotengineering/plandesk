@@ -3,20 +3,20 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Hono } from 'hono';
-import { createDb, migrate } from '@plandesk/db';
+import { createDb, migrate , type Db} from '@plandesk/db';
 import { createApp } from './server.js';
 import { createTestApp } from './test-helpers.js';
 
 describe('createApp', () => {
   it('returns ok from GET /api/v1/health', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/health');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
   });
 
   it('returns 404 for unknown API paths', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/unknown');
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: 'not_found' });
@@ -30,8 +30,8 @@ describe('createApp', () => {
     const previous = process.env.PLANDESK_WEB_DIST;
     process.env.PLANDESK_WEB_DIST = distDir;
     try {
-      const db = createDb(':memory:');
-      migrate(db);
+      const db = await createDb(':memory:');
+      await migrate(db);
       const stubMcp = new Hono();
       stubMcp.all('*', (c) => c.json({ mcp: true }));
       const app = createApp({ db, mcp: stubMcp });

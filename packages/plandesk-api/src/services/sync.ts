@@ -243,7 +243,7 @@ export function createSyncService(deps: SyncServiceDeps) {
 
   return {
     async push(projectId: string, remote: SyncRemote): Promise<{ pushed: number }> {
-      const shares = shareService.listShares(projectId);
+      const shares = await shareService.listShares(projectId);
       if (shares === undefined) {
         throw new SyncUnavailableError('project not found');
       }
@@ -252,12 +252,12 @@ export function createSyncService(deps: SyncServiceDeps) {
       let pushed = 0;
 
       for (const serialized of active) {
-        const shareRow = getShare(db, serialized.id);
+        const shareRow = await getShare(db, serialized.id);
         if (shareRow === undefined) {
           continue;
         }
 
-        const view = shareService.buildClientView(projectId, serialized.id);
+        const view = await shareService.buildClientView(projectId, serialized.id);
         if (view === undefined) {
           continue;
         }
@@ -283,7 +283,7 @@ export function createSyncService(deps: SyncServiceDeps) {
     },
 
     async pull(projectId: string, remote: SyncRemote): Promise<{ pulled: number }> {
-      const cursor = getPullCursor(db, projectId);
+      const cursor = await getPullCursor(db, projectId);
       const base = remote.serverUrl.replace(/\/$/, '');
       const url = new URL(
         `${base}/api/sync/v1/projects/${encodeURIComponent(remote.globalProjectId)}/submissions`,
@@ -314,7 +314,7 @@ export function createSyncService(deps: SyncServiceDeps) {
       let maxCreatedAt = cursor;
 
       for (const submission of remoteSubmissions) {
-        const inserted = upsertSubmission(db, {
+        const inserted = await upsertSubmission(db, {
           id: submission.id,
           projectId,
           hostedShareId: submission.share_id,
@@ -336,7 +336,7 @@ export function createSyncService(deps: SyncServiceDeps) {
       }
 
       if (maxCreatedAt !== undefined && maxCreatedAt !== cursor) {
-        setPullCursor(db, projectId, maxCreatedAt);
+        await setPullCursor(db, projectId, maxCreatedAt);
       }
 
       if (pulled > 0) {
@@ -346,25 +346,28 @@ export function createSyncService(deps: SyncServiceDeps) {
       return { pulled };
     },
 
-    listTriage(projectId: string, status?: ShareSubmissionStatus): SerializedSubmission[] {
-      return listSubmissions(db, projectId, status).map(serializeSubmission);
+    async listTriage(
+      projectId: string,
+      status?: ShareSubmissionStatus,
+    ): Promise<SerializedSubmission[]> {
+      return (await listSubmissions(db, projectId, status)).map(serializeSubmission);
     },
 
-    getSubmission(submissionId: string): SerializedSubmission | undefined {
-      const submission = dbGetSubmission(db, submissionId);
+    async getSubmission(submissionId: string): Promise<SerializedSubmission | undefined> {
+      const submission = await dbGetSubmission(db, submissionId);
       return submission === undefined ? undefined : serializeSubmission(submission);
     },
 
-    setRemote(projectId: string, remote: SyncRemote): void {
-      setSyncRemote(db, projectId, {
+    async setRemote(projectId: string, remote: SyncRemote): Promise<void> {
+      await setSyncRemote(db, projectId, {
         serverUrl: remote.serverUrl,
         globalProjectId: remote.globalProjectId,
         syncToken: remote.syncToken,
       });
     },
 
-    getRemote(projectId: string): SyncRemote | undefined {
-      const row = getSyncRemote(db, projectId);
+    async getRemote(projectId: string): Promise<SyncRemote | undefined> {
+      const row = await getSyncRemote(db, projectId);
       if (row === undefined) {
         return undefined;
       }
@@ -386,7 +389,7 @@ export function createSyncService(deps: SyncServiceDeps) {
         throw new InvalidTriageInputError('as_task and link_task_id are mutually exclusive');
       }
 
-      const submission = dbGetSubmission(db, submissionId);
+      const submission = await dbGetSubmission(db, submissionId);
       if (submission === undefined) {
         throw new InvalidTriageError();
       }
@@ -408,14 +411,14 @@ export function createSyncService(deps: SyncServiceDeps) {
       const projectId = submission.projectId;
 
       if (action === 'accept' && linkTaskId !== undefined) {
-        const existingTask = taskService.get(linkTaskId);
+        const existingTask = await taskService.get(linkTaskId);
         if (existingTask === undefined || existingTask.project_id !== projectId) {
           throw new InvalidTriageInputError(
             'link_task_id does not reference an existing task in this project',
           );
         }
 
-        const updated = setSubmissionStatus(db, submissionId, {
+        const updated = await setSubmissionStatus(db, submissionId, {
           status: 'accepted',
           linkedTaskId: linkTaskId,
         });
@@ -434,12 +437,10 @@ export function createSyncService(deps: SyncServiceDeps) {
         // caller — enforced here at the single service chokepoint so both the HTTP
         // route and the MCP tool are covered.
         //
-        // create + setSubmissionStatus run as two synchronous steps, but the submission
-        // was validated to exist immediately above with no intervening await, so under
-        // better-sqlite3's single-connection sync model the row cannot vanish and
-        // setSubmissionStatus cannot spuriously return undefined. taskService.create
-        // self-transacts, so an outer transaction here is neither possible nor needed.
-        const task = taskService.create(projectId, {
+        // create + setSubmissionStatus run as two sequential steps after validating
+        // the submission exists. taskService.create self-transacts, so an outer
+        // transaction here is neither possible nor needed.
+        const task = await taskService.create(projectId, {
           label: asTask?.label ?? submission.title,
           status: 'scope',
           description: asTask?.description ?? buildDesc(submission),
@@ -448,7 +449,7 @@ export function createSyncService(deps: SyncServiceDeps) {
           throw new InvalidTriageError('project not found');
         }
 
-        const updated = setSubmissionStatus(db, submissionId, {
+        const updated = await setSubmissionStatus(db, submissionId, {
           status: 'accepted',
           linkedTaskId: task.id,
         });
@@ -461,7 +462,7 @@ export function createSyncService(deps: SyncServiceDeps) {
         return serializeSubmission(updated);
       }
 
-      const updated = setSubmissionStatus(db, submissionId, { status: 'rejected' });
+      const updated = await setSubmissionStatus(db, submissionId, { status: 'rejected' });
       if (updated === undefined) {
         throw new InvalidTriageError();
       }

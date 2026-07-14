@@ -21,8 +21,8 @@ function isValidKind(kind: string): kind is (typeof artifactKinds)[number] {
 export function createArtifactsRouter(artifactService: ArtifactService): Hono {
   const router = new Hono();
 
-  router.get('/projects/:id/artifacts', (c) => {
-    const artifacts = artifactService.listByProject(c.req.param('id'));
+  router.get('/projects/:id/artifacts', async (c) => {
+    const artifacts = await artifactService.listByProject(c.req.param('id'));
     if (!artifacts) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -39,7 +39,7 @@ export function createArtifactsRouter(artifactService: ArtifactService): Hono {
     }
 
     try {
-      const artifact = artifactService.create(c.req.param('id'), {
+      const artifact = await artifactService.create(c.req.param('id'), {
         title: body.title,
         kind: body.kind,
         content: body.content,
@@ -58,8 +58,8 @@ export function createArtifactsRouter(artifactService: ArtifactService): Hono {
     }
   });
 
-  router.get('/artifacts/:id', (c) => {
-    const artifact = artifactService.get(c.req.param('id'));
+  router.get('/artifacts/:id', async (c) => {
+    const artifact = await artifactService.get(c.req.param('id'));
     if (!artifact) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -73,7 +73,7 @@ export function createArtifactsRouter(artifactService: ArtifactService): Hono {
     }
 
     try {
-      const artifact = artifactService.update(c.req.param('id'), {
+      const artifact = await artifactService.update(c.req.param('id'), {
         ...(body.title !== undefined ? { title: body.title } : {}),
         ...(body.kind !== undefined ? { kind: body.kind } : {}),
         ...(body.content !== undefined ? { content: body.content } : {}),

@@ -23,7 +23,7 @@ import { main } from './cli.js';
 
 function createTestTokenStore(db: Db) {
   return {
-    verify(raw: string) {
+    async verify(raw: string) {
       return verifyToken(db, raw);
     },
   };
@@ -32,9 +32,9 @@ function createTestTokenStore(db: Db) {
 async function withTestServer(
   run: (ctx: { baseUrl: string; db: Db; projectId: string; projectName: string }) => Promise<void>,
 ): Promise<void> {
-  const db = createDb(':memory:');
-  migrate(db);
-  const project = createProject(db, { name: 'connect-repo' });
+  const db = await createDb(':memory:');
+  await migrate(db);
+  const project = await createProject(db, { name: 'connect-repo' });
   const eventBus = createEventBus();
   const services = createServices({ db, eventBus });
   const mcpApp = createMcpApp({ services, tokenStore: createTestTokenStore(db) });
@@ -112,7 +112,7 @@ describe('runConnect', () => {
   it('writes connect artifacts with env-var mcp config and gitignored token', async () => {
     await withTestServer(async ({ baseUrl, db, projectId, projectName }) => {
       const repoDir = makeRepo(projectName);
-      const { token } = createToken(db, { name: 'connect-test' });
+      const { token } = await createToken(db, { name: 'connect-test' });
 
       const result = await runConnect({
         repoDir,
@@ -232,7 +232,7 @@ describe('runConnect', () => {
   it('allows explicit rebind with --project', async () => {
     await withTestServer(async ({ baseUrl, db, projectId }) => {
       const repoDir = makeRepo('connect-repo');
-      const other = createProject(db, { name: 'other-project' });
+      const other = await createProject(db, { name: 'other-project' });
       await runConnect({
         repoDir,
         project: projectId,
@@ -259,7 +259,7 @@ describe('runConnect', () => {
   it('validates binding via doctor', async () => {
     await withTestServer(async ({ baseUrl, db, projectId, projectName }) => {
       const repoDir = makeRepo(projectName);
-      const { token } = createToken(db, { name: 'doctor' });
+      const { token } = await createToken(db, { name: 'doctor' });
       await runConnect({
         repoDir,
         project: projectId,
@@ -281,7 +281,7 @@ describe('runConnect', () => {
   it('reports token invalid (not valid) when the bound token is revoked', async () => {
     await withTestServer(async ({ baseUrl, db, projectId, projectName }) => {
       const repoDir = makeRepo(projectName);
-      const row = createToken(db, { name: 'doctor-revoked' });
+      const row = await createToken(db, { name: 'doctor-revoked' });
       await runConnect({
         repoDir,
         project: projectId,
@@ -289,7 +289,7 @@ describe('runConnect', () => {
         token: row.token,
         interactive: false,
       });
-      revokeToken(db, row.id);
+      await revokeToken(db, row.id);
 
       const report = await runBindingDoctor(repoDir);
       expect(report.serverReachable).toBe(true);
@@ -320,9 +320,9 @@ describe('CLI connect/disconnect', () => {
   });
 
   it('dispatches connect via main', async () => {
-    const db = createDb(':memory:');
-    migrate(db);
-    const project = createProject(db, { name: 'cli-connect' });
+    const db = await createDb(':memory:');
+    await migrate(db);
+    const project = await createProject(db, { name: 'cli-connect' });
     const eventBus = createEventBus();
     const services = createServices({ db, eventBus });
     const mcpApp = createMcpApp({ services, tokenStore: createTestTokenStore(db) });

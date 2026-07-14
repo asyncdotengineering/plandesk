@@ -25,7 +25,7 @@ type CommentResponse = {
 
 describe('comments routes', () => {
   it('creates, lists, updates, and deletes document comments via REST', async () => {
-    const { app, eventBus } = createTestApp();
+    const { app, eventBus } = await createTestApp();
     const received: PlankDeskEvent[] = [];
     eventBus.subscribe((event) => {
       received.push(event);
@@ -116,11 +116,11 @@ describe('comments routes', () => {
   });
 
   it('creates and lists task and note comments via REST', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Targets' });
-    const goalId = getOrCreateDefaultGoal(db, project.id).id;
-    const task = createTask(db, { projectId: project.id, goalId, label: 'Ship' });
-    const note = createNote(db, { projectId: project.id, title: 'Memo' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Targets' });
+    const goalId = (await getOrCreateDefaultGoal(db, project.id)).id;
+    const task = await createTask(db, { projectId: project.id, goalId, label: 'Ship' });
+    const note = await createNote(db, { projectId: project.id, title: 'Memo' });
 
     const taskCreateRes = await app.request(`/api/v1/tasks/${task.id}/comments`, {
       method: 'POST',
@@ -158,9 +158,9 @@ describe('comments routes', () => {
   });
 
   it('creates and lists submission comments via REST', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Submissions' });
-    upsertSubmission(db, {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Submissions' });
+    await upsertSubmission(db, {
       id: 'sub-1',
       projectId: project.id,
       hostedShareId: 'hosted-share-1',
@@ -191,8 +191,8 @@ describe('comments routes', () => {
   });
 
   it('creates and lists project-scoped artifact annotations with an anchor', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Artifacts' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Artifacts' });
     const artifactId = 'sha256:abc123::docs/report with spaces.md';
     const anchor = JSON.stringify({ type: 'TextQuoteSelector', exact: 'CSP', start: 10, end: 13 });
 
@@ -229,12 +229,12 @@ describe('comments routes', () => {
   });
 
   it('returns 400 for empty body and 404 for missing resources', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Validate' });
-    const goalId = getOrCreateDefaultGoal(db, project.id).id;
-    const doc = createDocument(db, { projectId: project.id, title: 'Doc' });
-    const task = createTask(db, { projectId: project.id, goalId, label: 'Task' });
-    const note = createNote(db, { projectId: project.id, title: 'Note' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Validate' });
+    const goalId = (await getOrCreateDefaultGoal(db, project.id)).id;
+    const doc = await createDocument(db, { projectId: project.id, title: 'Doc' });
+    const task = await createTask(db, { projectId: project.id, goalId, label: 'Task' });
+    const note = await createNote(db, { projectId: project.id, title: 'Note' });
     const missing = '00000000-0000-4000-8000-000000009999';
 
     const emptyRes = await app.request(`/api/v1/documents/${doc.id}/comments`, {
@@ -290,10 +290,10 @@ describe('comments routes', () => {
   });
 
   it('deleting a document cascades comments', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Cascade doc' });
-    const doc = createDocument(db, { projectId: project.id, title: 'Doc' });
-    const comment = createComment(db, {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Cascade doc' });
+    const doc = await createDocument(db, { projectId: project.id, title: 'Doc' });
+    const comment = await createComment(db, {
       projectId: project.id,
       targetType: 'document',
       targetId: doc.id,

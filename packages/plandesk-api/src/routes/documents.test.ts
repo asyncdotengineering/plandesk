@@ -21,14 +21,14 @@ type DocumentTreeNode = DocumentResponse & {
 
 describe('documents routes', () => {
   it('test:doc_link creates a linked document and resolves via task endpoint', async () => {
-    const { app, db } = createTestApp();
+    const { app, db } = await createTestApp();
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Docs' }),
     });
     const project = await parseJson<{ id: string }>(projectRes);
-    const task = createTask(db, { projectId: project.id, label: 'Implement' });
+    const task = await createTask(db, { projectId: project.id, label: 'Implement' });
 
     const createRes = await app.request(`/api/v1/projects/${project.id}/documents`, {
       method: 'POST',
@@ -53,14 +53,14 @@ describe('documents routes', () => {
   });
 
   it('accepts linkedTaskId alias on create', async () => {
-    const { app, db } = createTestApp();
+    const { app, db } = await createTestApp();
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Alias' }),
     });
     const project = await parseJson<{ id: string }>(projectRes);
-    const task = createTask(db, { projectId: project.id, label: 'Task' });
+    const task = await createTask(db, { projectId: project.id, label: 'Task' });
 
     const createRes = await app.request(`/api/v1/projects/${project.id}/documents`, {
       method: 'POST',
@@ -76,7 +76,7 @@ describe('documents routes', () => {
   });
 
   it('GET /projects/:id/documents returns nested tree', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -108,7 +108,7 @@ describe('documents routes', () => {
   });
 
   it('GET /documents/:id returns document body', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -130,7 +130,7 @@ describe('documents routes', () => {
   });
 
   it('PATCH /documents/:id updates fields', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -165,15 +165,15 @@ describe('documents routes', () => {
   });
 
   it('rejects cross-project task link with 400', async () => {
-    const { app, db } = createTestApp();
+    const { app, db } = await createTestApp();
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Main' }),
     });
     const project = await parseJson<{ id: string }>(projectRes);
-    const otherProject = createProject(db, { name: 'Other' });
-    const foreignTask = createTask(db, { projectId: otherProject.id, label: 'Foreign' });
+    const otherProject = await createProject(db, { name: 'Other' });
+    const foreignTask = await createTask(db, { projectId: otherProject.id, label: 'Foreign' });
 
     const createRes = await app.request(`/api/v1/projects/${project.id}/documents`, {
       method: 'POST',
@@ -188,7 +188,7 @@ describe('documents routes', () => {
   });
 
   it('returns 404 for missing project, document, and task document', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
 
     const treeRes = await app.request(
       '/api/v1/projects/00000000-0000-4000-8000-000000009999/documents',
@@ -205,7 +205,7 @@ describe('documents routes', () => {
   });
 
   it('POST rejects missing title', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -223,8 +223,8 @@ describe('documents routes', () => {
   });
 
   it('DELETE /api/v1/documents/:id detaches children and deletes document', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Doc delete' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Doc delete' });
     const parent = await app.request(`/api/v1/projects/${project.id}/documents`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -252,7 +252,7 @@ describe('documents routes', () => {
   });
 
   it('DELETE /api/v1/documents/:id returns 404 when missing', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/documents/00000000-0000-4000-8000-000000009999', {
       method: 'DELETE',
     });
@@ -260,8 +260,8 @@ describe('documents routes', () => {
   });
 
   it('GET /api/v1/projects/:id/documents returns 400 for invalid pagination', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Paginate docs' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Paginate docs' });
     const res = await app.request(`/api/v1/projects/${project.id}/documents?offset=-1`);
     expect(res.status).toBe(400);
   });

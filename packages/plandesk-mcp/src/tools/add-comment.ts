@@ -10,10 +10,10 @@ export function createAddCommentHandler(
   target_id: string;
   body: string;
   passage?: string;
-}) => ToolResult {
-  return (args) => {
+}) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const comment = commentService.create(
+      const comment = await commentService.create(
         { type: args.target_type, id: args.target_id },
         {
           body: args.body,

@@ -5,9 +5,9 @@ type ToolResult = {
   structuredContent?: Record<string, unknown>;
 };
 
-export function createListProjectsHandler(projectService: ProjectService): () => ToolResult {
-  return () => {
-    const projects = projectService.list();
+export function createListProjectsHandler(projectService: ProjectService): () => Promise<ToolResult> {
+  return async () => {
+    const projects = await projectService.list();
     return {
       content: [{ type: 'text' as const, text: JSON.stringify({ projects }) }],
       structuredContent: { projects },

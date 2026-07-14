@@ -33,7 +33,7 @@ import {
 } from './connect-artifacts.js';
 
 describe('connect artifacts', () => {
-  it('builds commit-safe config.json without secrets', () => {
+  it('builds commit-safe config.json without secrets', async () => {
     const json = buildConfigJson({
       serverUrl: 'http://127.0.0.1:3847',
       projectId: 'proj-1',
@@ -48,7 +48,7 @@ describe('connect artifacts', () => {
     });
   });
 
-  it('preserves optional sync section without sync token', () => {
+  it('preserves optional sync section without sync token', async () => {
     const json = buildConfigJson({
       serverUrl: 'http://127.0.0.1:3847',
       projectId: 'proj-1',
@@ -71,7 +71,7 @@ describe('connect artifacts', () => {
     });
   });
 
-  it('merges mcp.json with a token-file headersHelper', () => {
+  it('merges mcp.json with a token-file headersHelper', async () => {
     const existing = JSON.stringify({
       mcpServers: {
         other: { type: 'http', url: 'http://example.test/mcp/' },
@@ -93,7 +93,7 @@ describe('connect artifacts', () => {
     expect(entry.headersHelper).toContain(`\${${TOKEN_ENV_VAR}:-`);
   });
 
-  it('headersHelper resolves the token from a parent directory and honors the env override', () => {
+  it('headersHelper resolves the token from a parent directory and honors the env override', async () => {
     const helper = buildHeadersHelper();
     const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-helper-'));
     try {
@@ -119,7 +119,7 @@ describe('connect artifacts', () => {
     }
   });
 
-  it('removes only the plandesk mcp entry', () => {
+  it('removes only the plandesk mcp entry', async () => {
     const existing = JSON.stringify({
       mcpServers: {
         plandesk: buildMcpServerEntry('http://127.0.0.1:3847'),
@@ -136,7 +136,7 @@ describe('connect artifacts', () => {
     ).toBeUndefined();
   });
 
-  it('inserts and replaces sentinel blocks idempotently', () => {
+  it('inserts and replaces sentinel blocks idempotently', async () => {
     const original = '# Repo\n\nSome notes.\n';
     const first = insertSentinelBlock(original);
     expect(first).toContain(SENTINEL_START);
@@ -148,13 +148,13 @@ describe('connect artifacts', () => {
     expect(second.match(new RegExp(SENTINEL_END, 'g'))?.length).toBe(1);
   });
 
-  it('removes sentinel blocks without touching surrounding content', () => {
+  it('removes sentinel blocks without touching surrounding content', async () => {
     const content = `# Title\n\n${buildSentinelBlock()}\n\nTail content\n`;
     const next = removeSentinelBlock(content);
     expect(next?.trimEnd()).toBe('# Title\n\nTail content');
   });
 
-  it('appends gitignore line only once', () => {
+  it('appends gitignore line only once', async () => {
     expect(appendGitignoreLine(undefined, GITIGNORE_TOKEN_LINE)).toBe('.plandesk/token\n');
     const once = appendGitignoreLine('node_modules/\n', GITIGNORE_TOKEN_LINE);
     const twice = appendGitignoreLine(once, GITIGNORE_TOKEN_LINE);
@@ -169,7 +169,7 @@ describe('connect artifacts', () => {
   });
 
   describe('workspace.json helpers', () => {
-    it('round-trips write and read', () => {
+    it('round-trips write and read', async () => {
       const dir = mkdtempSync(join(tmpdir(), 'plandesk-ws-'));
       try {
         expect(readWorkspaceJson(dir)).toBeUndefined();
@@ -181,7 +181,7 @@ describe('connect artifacts', () => {
       }
     });
 
-    it('returns undefined for missing or malformed file', () => {
+    it('returns undefined for missing or malformed file', async () => {
       const dir = mkdtempSync(join(tmpdir(), 'plandesk-ws-bad-'));
       try {
         writeFileSync(join(dir, 'workspace.json'), '{"version":"old","port":3401}', 'utf8');
@@ -195,12 +195,12 @@ describe('connect artifacts', () => {
   });
 
   describe('server.json helpers', () => {
-    it('isPidAlive returns true for own PID and false for a dead PID', () => {
+    it('isPidAlive returns true for own PID and false for a dead PID', async () => {
       expect(isPidAlive(process.pid)).toBe(true);
       expect(isPidAlive(999999999)).toBe(false);
     });
 
-    it('round-trips writeServerInfo and readServerInfo with a live PID', () => {
+    it('round-trips writeServerInfo and readServerInfo with a live PID', async () => {
       const dir = mkdtempSync(join(tmpdir(), 'plandesk-srv-'));
       try {
         expect(readServerInfo(dir)).toBeUndefined();
@@ -218,7 +218,7 @@ describe('connect artifacts', () => {
       }
     });
 
-    it('readServerInfo returns undefined when PID is dead', () => {
+    it('readServerInfo returns undefined when PID is dead', async () => {
       const dir = mkdtempSync(join(tmpdir(), 'plandesk-srv-dead-'));
       try {
         writeServerInfo(dir, {
@@ -233,7 +233,7 @@ describe('connect artifacts', () => {
       }
     });
 
-    it('deleteServerInfo removes the file and is idempotent', () => {
+    it('deleteServerInfo removes the file and is idempotent', async () => {
       const dir = mkdtempSync(join(tmpdir(), 'plandesk-srv-del-'));
       try {
         writeServerInfo(dir, {
@@ -254,7 +254,7 @@ describe('connect artifacts', () => {
     });
   });
 
-  it('ships RFC skill template verbatim', () => {
+  it('ships RFC skill template verbatim', async () => {
     expect(buildSkillMarkdown()).toBe(`${PLANDESK_SKILL_TEMPLATE}\n`);
   });
 
@@ -271,14 +271,14 @@ describe('connect artifacts', () => {
       },
     });
 
-    it('creates the hooks block when settings.json is absent', () => {
+    it('creates the hooks block when settings.json is absent', async () => {
       const merged = mergeCuratorHooksJson(undefined, snippet);
       const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
       expect(parsed.hooks.SessionStart).toHaveLength(1);
       expect(parsed.hooks.Stop).toHaveLength(1);
     });
 
-    it('merges additively without touching an unrelated event', () => {
+    it('merges additively without touching an unrelated event', async () => {
       const existing = JSON.stringify({
         hooks: { PostToolUse: [{ hooks: [{ type: 'command', command: 'echo other' }] }] },
       });
@@ -291,7 +291,7 @@ describe('connect artifacts', () => {
       expect(parsed.hooks.Stop).toHaveLength(1);
     });
 
-    it('is idempotent — merging the same snippet twice does not duplicate entries', () => {
+    it('is idempotent — merging the same snippet twice does not duplicate entries', async () => {
       const once = mergeCuratorHooksJson(undefined, snippet);
       const twice = mergeCuratorHooksJson(once, snippet);
       expect(twice).toBe(once);
@@ -300,7 +300,7 @@ describe('connect artifacts', () => {
       expect(parsed.hooks.Stop).toHaveLength(1);
     });
 
-    it('keeps a pre-existing entry on the same event alongside the new one', () => {
+    it('keeps a pre-existing entry on the same event alongside the new one', async () => {
       const existing = JSON.stringify({
         hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'echo mine' }] }] },
       });

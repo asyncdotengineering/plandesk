@@ -3,13 +3,16 @@ import type { Hono } from 'hono';
 import { createEventBus, type EventBus } from './events.js';
 import { createApp } from './server.js';
 
-export function createTestApp(opts?: { eventBus?: EventBus; authPassword?: string }): {
+export async function createTestApp(opts?: {
+  eventBus?: EventBus;
+  authPassword?: string;
+}): Promise<{
   app: Hono;
   db: Db;
   eventBus: EventBus;
-} {
-  const db = createDb(':memory:');
-  migrate(db);
+}> {
+  const db = await createDb(':memory:');
+  await migrate(db);
   const eventBus = opts?.eventBus ?? createEventBus();
   return {
     app: createApp({ db, eventBus, authPassword: opts?.authPassword }),

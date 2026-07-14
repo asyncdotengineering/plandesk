@@ -12,10 +12,10 @@ export function createUpdateTaskHandler(
   x?: number;
   y?: number;
   tags?: string[];
-}) => ToolResult {
-  return (args) => {
+}) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const task = taskService.update(args.task_id, {
+      const task = await taskService.update(args.task_id, {
         ...(args.status !== undefined ? { status: args.status as TaskStatus } : {}),
         ...(args.label !== undefined ? { label: args.label } : {}),
         ...(args.description !== undefined ? { description: args.description } : {}),

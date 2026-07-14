@@ -68,19 +68,19 @@ export function isDbCorruptionError(err: unknown): boolean {
   return false;
 }
 
-export function openWorkspace(dataDirOverride?: string): {
+export async function openWorkspace(dataDirOverride?: string): Promise<{
   db: Db;
   dataDir: string;
   dbPath: string;
-} {
+}> {
   const dataDir = resolveDataDir(dataDirOverride);
   const dbPath = workspaceDbPath(dataDir);
   if (!existsSync(dbPath)) {
     throw new WorkspaceNotFoundError(workspaceNotFoundMessage(dataDir, dbPath));
   }
   try {
-    const db = createDb(dbPath);
-    migrate(db);
+    const db = await createDb(dbPath);
+    await migrate(db);
     return { db, dataDir, dbPath };
   } catch (err) {
     if (isDbCorruptionError(err)) {

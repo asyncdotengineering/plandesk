@@ -1,4 +1,5 @@
 import {
+  withTransaction,
   createEdge,
   createTask,
   getOrCreateDefaultGoal,
@@ -12,6 +13,7 @@ import {
   updateProject,
   updateTask,
   type Db,
+  type Project,
 } from '@plandesk/db';
 import type { EventBus } from '../events.js';
 import { serializeEdge, serializeTask } from '../serialize.js';
@@ -65,9 +67,9 @@ function serializeLayout(projectLayout: string | null): unknown {
 export function createCanvasService(deps: CanvasServiceDeps) {
   const { db, eventBus } = deps;
 
-  function buildCanvas(projectId: string, project: NonNullable<ReturnType<typeof getProject>>) {
-    const tasks = listTasks(db, projectId);
-    const edgeRows = listEdges(db, projectId);
+  async function buildCanvas(projectId: string, project: Project) {
+    const tasks = await listTasks(db, projectId);
+    const edgeRows = await listEdges(db, projectId);
 
     return {
       nodes: tasks.map((task) => serializeTask(task)),
@@ -77,8 +79,8 @@ export function createCanvasService(deps: CanvasServiceDeps) {
   }
 
   return {
-    get(projectId: string) {
-      const project = getProject(db, projectId);
+    async get(projectId: string) {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
@@ -86,16 +88,16 @@ export function createCanvasService(deps: CanvasServiceDeps) {
       return buildCanvas(projectId, project);
     },
 
-    createEdge(
+    async createEdge(
       projectId: string,
       input: { fromTaskId: string; toTaskId: string; label?: string | null; style?: string | null },
     ) {
-      const project = getProject(db, projectId);
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
-      const taskIds = new Set(listTasks(db, projectId).map((task) => task.id));
+      const taskIds = new Set((await listTasks(db, projectId)).map((task) => task.id));
       if (!taskIds.has(input.fromTaskId)) {
         throw new InvalidCanvasError('Edge references missing from task');
       }
@@ -103,7 +105,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
         throw new InvalidCanvasError('Edge references missing to task');
       }
 
-      const edge = createEdge(db, {
+      const edge = await createEdge(db, {
         projectId,
         fromTaskId: input.fromTaskId,
         toTaskId: input.toTaskId,
@@ -116,22 +118,22 @@ export function createCanvasService(deps: CanvasServiceDeps) {
       return serializeEdge(edge);
     },
 
-    putLayout(projectId: string, payload: PutCanvasLayoutInput) {
-      const project = getProject(db, projectId);
+    async putLayout(projectId: string, payload: PutCanvasLayoutInput) {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
       for (const node of payload.nodes) {
         if (node.id !== undefined) {
-          const existing = getTask(db, node.id);
+          const existing = await getTask(db, node.id);
           if (existing && existing.projectId !== projectId) {
             throw new InvalidCanvasError('Task does not belong to project');
           }
         }
       }
 
-      const taskIds = new Set(listTasks(db, projectId).map((task) => task.id));
+      const taskIds = new Set((await listTasks(db, projectId)).map((task) => task.id));
 
       for (const edge of payload.edges) {
         if (
@@ -145,12 +147,12 @@ export function createCanvasService(deps: CanvasServiceDeps) {
         }
       }
 
-      db.transaction((tx) => {
+      await withTransaction(db, async (tx) => {
         for (const node of payload.nodes) {
           if (node.id !== undefined) {
-            const existing = getTask(tx, node.id);
+            const existing = await getTask(tx, node.id);
             if (existing) {
-              updateTask(tx, node.id, { x: node.x, y: node.y });
+              await updateTask(tx, node.id, { x: node.x, y: node.y });
               continue;
             }
           }
@@ -159,9 +161,9 @@ export function createCanvasService(deps: CanvasServiceDeps) {
             throw new InvalidCanvasError('New canvas node requires label');
           }
 
-          const created = createTask(tx, {
+          const created = await createTask(tx, {
             projectId,
-            goalId: getOrCreateDefaultGoal(tx, projectId).id,
+            goalId: (await getOrCreateDefaultGoal(tx, projectId)).id,
             id: node.id,
             label: node.label,
             status: 'todo',
@@ -180,14 +182,14 @@ export function createCanvasService(deps: CanvasServiceDeps) {
           }
         }
 
-        const existingEdges = listEdges(tx, projectId);
+        const existingEdges = await listEdges(tx, projectId);
         const payloadEdgeIds = new Set(
           payload.edges.map((edge) => edge.id).filter((id): id is string => id !== undefined),
         );
 
         for (const existingEdge of existingEdges) {
           if (!payloadEdgeIds.has(existingEdge.id)) {
-            dbDeleteEdge(tx, existingEdge.id);
+            await dbDeleteEdge(tx, existingEdge.id);
           }
         }
 
@@ -201,26 +203,26 @@ export function createCanvasService(deps: CanvasServiceDeps) {
           };
 
           if (edgeInput.id !== undefined) {
-            const existing = getEdgeByProjectAndId(tx, projectId, edgeInput.id);
+            const existing = await getEdgeByProjectAndId(tx, projectId, edgeInput.id);
             if (existing) {
-              updateEdge(tx, edgeInput.id, edgeData);
+              await updateEdge(tx, edgeInput.id, edgeData);
               continue;
             }
-            createEdge(tx, { projectId, id: edgeInput.id, ...edgeData });
+            await createEdge(tx, { projectId, id: edgeInput.id, ...edgeData });
             continue;
           }
 
-          createEdge(tx, { projectId, ...edgeData });
+          await createEdge(tx, { projectId, ...edgeData });
         }
 
         const layoutJson =
           payload.layout === undefined ? undefined : JSON.stringify(payload.layout);
-        updateProject(tx, projectId, {
+        await updateProject(tx, projectId, {
           ...(layoutJson !== undefined ? { canvasLayout: layoutJson } : {}),
         });
       });
 
-      const updatedProject = getProject(db, projectId);
+      const updatedProject = await getProject(db, projectId);
       if (!updatedProject) {
         return undefined;
       }
@@ -230,13 +232,13 @@ export function createCanvasService(deps: CanvasServiceDeps) {
       return buildCanvas(projectId, updatedProject);
     },
 
-    deleteEdge(projectId: string, edgeId: string) {
-      const edge = getEdgeByProjectAndId(db, projectId, edgeId);
+    async deleteEdge(projectId: string, edgeId: string) {
+      const edge = await getEdgeByProjectAndId(db, projectId, edgeId);
       if (!edge) {
         return false;
       }
 
-      dbDeleteEdge(db, edgeId);
+      await dbDeleteEdge(db, edgeId);
       eventBus.emit({ type: 'canvas_updated', projectId });
       return true;
     },

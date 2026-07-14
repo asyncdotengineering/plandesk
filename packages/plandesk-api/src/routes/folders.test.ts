@@ -13,8 +13,8 @@ type FolderResponse = {
 
 describe('folders routes', () => {
   it('creates, lists, gets, patches, and deletes a folder', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Folders' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Folders' });
 
     const createRes = await app.request(`/api/v1/projects/${project.id}/folders`, {
       method: 'POST',
@@ -52,8 +52,8 @@ describe('folders routes', () => {
   });
 
   it('nests a folder under a parent and re-parents to root', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Nesting' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Nesting' });
 
     const parentRes = await app.request(`/api/v1/projects/${project.id}/folders`, {
       method: 'POST',
@@ -81,8 +81,8 @@ describe('folders routes', () => {
   });
 
   it('PATCH rejects a re-parent that would create a cycle with 400', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Cycles' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Cycles' });
 
     const aRes = await app.request(`/api/v1/projects/${project.id}/folders`, {
       method: 'POST',
@@ -114,8 +114,8 @@ describe('folders routes', () => {
   });
 
   it('DELETE moves child folders and documents to the parent instead of orphaning', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Delete semantics' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Delete semantics' });
 
     const rootRes = await app.request(`/api/v1/projects/${project.id}/folders`, {
       method: 'POST',
@@ -135,17 +135,17 @@ describe('folders routes', () => {
       body: JSON.stringify({ name: 'Leaf', parent_folder_id: mid.id }),
     });
     const leaf = await parseJson<FolderResponse>(leafRes);
-    const doc = createDocument(db, { projectId: project.id, title: 'In mid', folderId: mid.id });
+    const doc = await createDocument(db, { projectId: project.id, title: 'In mid', folderId: mid.id });
 
     const deleteRes = await app.request(`/api/v1/folders/${mid.id}`, { method: 'DELETE' });
     expect(deleteRes.status).toBe(204);
-    expect(getFolder(db, leaf.id)?.parentFolderId).toBe(root.id);
-    expect(getDocument(db, doc.id)?.folderId).toBe(root.id);
+    expect((await getFolder(db, leaf.id))?.parentFolderId).toBe(root.id);
+    expect((await getDocument(db, doc.id))?.folderId).toBe(root.id);
   });
 
   it('POST rejects missing or blank name with 400', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Validate' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Validate' });
 
     const noName = await app.request(`/api/v1/projects/${project.id}/folders`, {
       method: 'POST',
@@ -163,7 +163,7 @@ describe('folders routes', () => {
   });
 
   it('returns 404 for missing project list and missing folder', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const listRes = await app.request(
       '/api/v1/projects/00000000-0000-4000-8000-000000009999/folders',
     );
@@ -179,8 +179,8 @@ describe('folders routes', () => {
   });
 
   it('documents routes accept folder_id on create and patch', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Docs in folders' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Docs in folders' });
     const folderRes = await app.request(`/api/v1/projects/${project.id}/folders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

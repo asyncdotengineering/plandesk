@@ -31,7 +31,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
       return c.json({ error: 'invalid_expires' }, 400);
     }
     const origin = new URL(c.req.url).origin;
-    const result = shareService.createResourceShare(
+    const result = await shareService.createResourceShare(
       { resource: { kind, id }, expiresAt: resolveExpiresAt(body.expires) },
       origin,
     );
@@ -49,7 +49,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
 
   // Hono doesn't match a literal `.md` suffix inside a param, so the route
   // takes the raw segment and the handler enforces + strips the extension.
-  router.get('/share/:tokenWithExt', (c) => {
+  router.get('/share/:tokenWithExt', async (c) => {
     const raw = c.req.param('tokenWithExt');
     if (!raw.endsWith('.md')) {
       return c.notFound();
@@ -57,7 +57,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
     const token = raw.slice(0, -'.md'.length);
     const origin = new URL(c.req.url).origin;
 
-    const result = shareService.getResourceMarkdown(token, origin);
+    const result = await shareService.getResourceMarkdown(token, origin);
     if (result.status === 'not_found') {
       return c.json({ error: 'not_found' }, 404);
     }

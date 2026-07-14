@@ -12,10 +12,10 @@ export function createUpdateDocumentHandler(
   status_line?: string;
   linked_task_id?: string | null;
   folder_id?: string | null;
-}) => ToolResult {
-  return (args) => {
+}) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const document = documentService.update(args.document_id, {
+      const document = await documentService.update(args.document_id, {
         ...(args.title !== undefined ? { title: args.title } : {}),
         ...(args.body !== undefined ? { body: ensureHtmlBody(args.body) } : {}),
         ...(args.status_line !== undefined ? { statusLine: args.status_line } : {}),

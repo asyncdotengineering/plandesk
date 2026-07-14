@@ -13,7 +13,7 @@ export class InvalidImportFileError extends Error {
   }
 }
 
-export function runImport(db: Db, inPath: string): string {
+export async function runImport(db: Db, inPath: string): Promise<string> {
   let raw: string;
   try {
     raw = readFileSync(inPath, 'utf8');
@@ -34,7 +34,7 @@ export function runImport(db: Db, inPath: string): string {
   }
 
   try {
-    const { projectId } = importProject(db, data as PlandeskExportInput);
+    const { projectId } = await importProject(db, data as PlandeskExportInput);
     return projectId;
   } catch (err) {
     if (err instanceof InvalidExportVersionError) {

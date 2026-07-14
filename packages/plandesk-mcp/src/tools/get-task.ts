@@ -3,9 +3,9 @@ import { toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createGetTaskHandler(
   taskService: TaskService,
-): (args: { task_id: string }) => ToolResult {
-  return (args) => {
-    const task = taskService.get(args.task_id);
+): (args: { task_id: string }) => Promise<ToolResult> {
+  return async (args) => {
+    const task = await taskService.get(args.task_id);
     if (!task) {
       return toolNotFound();
     }

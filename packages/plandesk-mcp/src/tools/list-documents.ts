@@ -3,17 +3,17 @@ import { toolNotFound, toolSuccessPayload, type ToolResult } from './result.js';
 
 export function createListDocumentsHandler(
   documentService: DocumentService,
-): (args: { project_id: string; folder_id?: string }) => ToolResult {
-  return ({ project_id, folder_id }) => {
+): (args: { project_id: string; folder_id?: string }) => Promise<ToolResult> {
+  return async ({ project_id, folder_id }) => {
     if (folder_id !== undefined) {
-      const documents = documentService.listByFolder(project_id, folder_id);
+      const documents = await documentService.listByFolder(project_id, folder_id);
       if (!documents) {
         return toolNotFound();
       }
       return toolSuccessPayload({ documents });
     }
 
-    const tree = documentService.listFolderTree(project_id);
+    const tree = await documentService.listFolderTree(project_id);
     if (!tree) {
       return toolNotFound();
     }

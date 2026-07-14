@@ -43,23 +43,26 @@ export function createNoteService(deps: NoteServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    list(projectId: string, pagination: PaginationParams = {}): SerializedNote[] | undefined {
-      const project = getProject(db, projectId);
+    async list(
+      projectId: string,
+      pagination: PaginationParams = {},
+    ): Promise<SerializedNote[] | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
-      return dbListNotes(db, projectId, pagination).map(serializeNote);
+      return (await dbListNotes(db, projectId, pagination)).map(serializeNote);
     },
 
-    create(projectId: string, input: CreateNoteInput): SerializedNote | undefined {
-      const project = getProject(db, projectId);
+    async create(projectId: string, input: CreateNoteInput): Promise<SerializedNote | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
       assertNonEmptyTitle(input.title);
 
-      const note = dbCreateNote(db, {
+      const note = await dbCreateNote(db, {
         projectId,
         title: input.title,
         body: input.body,
@@ -70,16 +73,16 @@ export function createNoteService(deps: NoteServiceDeps) {
       return serializeNote(note);
     },
 
-    get(id: string): SerializedNote | undefined {
-      const note = dbGetNote(db, id);
+    async get(id: string): Promise<SerializedNote | undefined> {
+      const note = await dbGetNote(db, id);
       if (!note) {
         return undefined;
       }
       return serializeNote(note);
     },
 
-    update(id: string, input: UpdateNoteInput): SerializedNote | undefined {
-      const existing = dbGetNote(db, id);
+    async update(id: string, input: UpdateNoteInput): Promise<SerializedNote | undefined> {
+      const existing = await dbGetNote(db, id);
       if (!existing) {
         return undefined;
       }
@@ -88,7 +91,7 @@ export function createNoteService(deps: NoteServiceDeps) {
         assertNonEmptyTitle(input.title);
       }
 
-      const note = dbUpdateNote(db, id, input);
+      const note = await dbUpdateNote(db, id, input);
       if (!note) {
         return undefined;
       }
@@ -98,18 +101,18 @@ export function createNoteService(deps: NoteServiceDeps) {
       return serializeNote(note);
     },
 
-    delete(id: string): boolean {
-      const existing = dbGetNote(db, id);
+    async delete(id: string): Promise<boolean> {
+      const existing = await dbGetNote(db, id);
       if (!existing) {
         return false;
       }
 
-      const deleted = dbDeleteNote(db, id);
+      const deleted = await dbDeleteNote(db, id);
       if (!deleted) {
         return false;
       }
 
-      deleteCommentsByTarget(db, 'note', id);
+      await deleteCommentsByTarget(db, 'note', id);
 
       eventBus.emit({ type: 'note_updated', noteId: id, projectId: existing.projectId });
       return true;

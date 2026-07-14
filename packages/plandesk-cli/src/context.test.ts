@@ -18,9 +18,9 @@ async function withTestServer(
     projectId: string;
   }) => Promise<void>,
 ): Promise<void> {
-  const db = createDb(':memory:');
-  migrate(db);
-  const project = createProject(db, { name: 'Context project' });
+  const db = await createDb(':memory:');
+  await migrate(db);
+  const project = await createProject(db, { name: 'Context project' });
   const eventBus = createEventBus();
   const services = createServices({ db, eventBus });
   const app = createApp({ db, eventBus, services });
@@ -104,7 +104,7 @@ describe('runContext', () => {
     await withTestServer(async ({ baseUrl, db, projectId }) => {
       const repoDir = makeRepo();
       bindRepo(repoDir, baseUrl, projectId);
-      const task = createTask(db, { projectId, label: 'Ship the thing', status: 'todo' });
+      const task = await createTask(db, { projectId, label: 'Ship the thing', status: 'todo' });
 
       const context = await runContext(repoDir);
       expect(context).toEqual({
@@ -121,23 +121,23 @@ describe('runContext', () => {
       const repoDir = makeRepo();
       bindRepo(repoDir, baseUrl, projectId);
 
-      const task = createTask(db, {
+      const task = await createTask(db, {
         projectId,
         label: 'Ship board-as-memory hooks',
         status: 'in_progress',
       });
-      services.documentService.create(projectId, {
+      await services.documentService.create(projectId, {
         title: 'Design: hooks',
         body: 'the plan',
         statusLine: 'Ready to implement',
         linkedTaskId: task.id,
       });
-      const run = services.agentRunService.start(projectId, 'Worker');
+      const run = await services.agentRunService.start(projectId, 'Worker');
       if (!run) {
         throw new Error('expected run');
       }
-      services.agentRunService.recordProgress(run.id, 'first update');
-      services.agentRunService.recordProgress(run.id, 'second update');
+      await services.agentRunService.recordProgress(run.id, 'first update');
+      await services.agentRunService.recordProgress(run.id, 'second update');
 
       const context = await runContext(repoDir);
       expect(context).toMatchObject({
@@ -172,9 +172,9 @@ describe('runContext', () => {
     await withTestServer(async ({ baseUrl, db, services, projectId }) => {
       const repoDir = makeRepo();
       bindRepo(repoDir, baseUrl, projectId);
-      const task = createTask(db, { projectId, label: 'Big doc task', status: 'in_progress' });
+      const task = await createTask(db, { projectId, label: 'Big doc task', status: 'in_progress' });
       const bigBody = 'x'.repeat(9000);
-      services.documentService.create(projectId, {
+      await services.documentService.create(projectId, {
         title: 'Design: big',
         body: bigBody,
         statusLine: null,

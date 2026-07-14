@@ -26,9 +26,9 @@ export function createSubmissionsRouter(
 ): Hono {
   const router = new Hono();
 
-  router.get('/projects/:id/submissions', (c) => {
+  router.get('/projects/:id/submissions', async (c) => {
     const projectId = c.req.param('id');
-    if (!projectService.get(projectId)) {
+    if (!(await projectService.get(projectId))) {
       return c.json({ error: 'not_found' }, 404);
     }
 
@@ -37,7 +37,7 @@ export function createSubmissionsRouter(
       return c.json({ error: 'invalid_argument' }, 400);
     }
 
-    return c.json(syncService.listTriage(projectId, statusParam));
+    return c.json(await syncService.listTriage(projectId, statusParam));
   });
 
   router.post('/submissions/:id/triage', async (c) => {
@@ -48,12 +48,12 @@ export function createSubmissionsRouter(
       return c.json({ error: 'invalid_argument' }, 400);
     }
 
-    const submission = syncService.getSubmission(submissionId);
+    const submission = await syncService.getSubmission(submissionId);
     if (submission === undefined) {
       return c.json({ error: 'not_found' }, 404);
     }
 
-    const remote = syncService.getRemote(submission.project_id);
+    const remote = await syncService.getRemote(submission.project_id);
     if (remote === undefined) {
       return c.json({ error: 'not_published' }, 400);
     }

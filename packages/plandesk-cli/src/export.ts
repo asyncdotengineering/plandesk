@@ -8,8 +8,8 @@ export class ProjectNotFoundError extends Error {
   }
 }
 
-export function runExport(db: Db, projectId: string, outPath: string): void {
-  const exported = exportProject(db, projectId);
+export async function runExport(db: Db, projectId: string, outPath: string): Promise<void> {
+  const exported = await exportProject(db, projectId);
   if (exported === undefined) {
     throw new ProjectNotFoundError(projectId);
   }

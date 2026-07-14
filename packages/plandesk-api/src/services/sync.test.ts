@@ -7,6 +7,7 @@ import {
   listSubmissions,
   listTasks,
   migrate,
+  type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createServer, type Server } from 'node:http';
@@ -41,20 +42,25 @@ const remoteSubmission = {
 };
 
 describe('syncService', () => {
-  const db = createDb(':memory:');
+  let db: Db;
+
+  beforeEach(async () => {
+    db = await createDb(':memory:');
+    await migrate(db);
+  });
   const eventBus = createEventBus();
 
-  beforeEach(() => {
-    migrate(db);
-    db.$client.exec('DELETE FROM share_submissions');
-    db.$client.exec('DELETE FROM sync_state');
-    db.$client.exec('DELETE FROM tasks');
-    db.$client.exec('DELETE FROM goals');
-    db.$client.exec('DELETE FROM projects');
+  beforeEach(async () => {
+    await migrate(db);
+    await db.$client.execute('DELETE FROM share_submissions');
+    await db.$client.execute('DELETE FROM sync_state');
+    await db.$client.execute('DELETE FROM tasks');
+    await db.$client.execute('DELETE FROM goals');
+    await db.$client.execute('DELETE FROM projects');
     vi.restoreAllMocks();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -72,7 +78,7 @@ describe('syncService', () => {
   };
 
   it('pull_idempotent: pulling the same submission twice yields one triage row', async () => {
-    const project = createProject(db, { name: 'Pull' });
+    const project = await createProject(db, { name: 'Pull' });
     const service = createService();
 
     vi.stubGlobal(
@@ -93,7 +99,7 @@ describe('syncService', () => {
       syncToken: 'plandesk_sync_test',
     });
     expect(first.pulled).toBe(1);
-    expect(listSubmissions(db, project.id)).toHaveLength(1);
+    expect(await listSubmissions(db, project.id)).toHaveLength(1);
 
     const second = await service.pull(project.id, {
       serverUrl: 'https://sync.example',
@@ -101,11 +107,11 @@ describe('syncService', () => {
       syncToken: 'plandesk_sync_test',
     });
     expect(second.pulled).toBe(0);
-    expect(listSubmissions(db, project.id)).toHaveLength(1);
+    expect(await listSubmissions(db, project.id)).toHaveLength(1);
   });
 
   it('advances pull cursor to the max created_at', async () => {
-    const project = createProject(db, { name: 'Cursor' });
+    const project = await createProject(db, { name: 'Cursor' });
     const service = createService();
 
     vi.stubGlobal(
@@ -131,11 +137,11 @@ describe('syncService', () => {
       syncToken: 'plandesk_sync_test',
     });
 
-    expect(getPullCursor(db, project.id)).toBe('2026-01-16T12:00:00.000Z');
+    expect(await getPullCursor(db, project.id)).toBe('2026-01-16T12:00:00.000Z');
   });
 
   it('throws SyncUnauthorizedError on 401 without mutating local state', async () => {
-    const project = createProject(db, { name: 'Auth' });
+    const project = await createProject(db, { name: 'Auth' });
     const service = createService();
 
     vi.stubGlobal(
@@ -154,12 +160,12 @@ describe('syncService', () => {
         syncToken: 'bad-token',
       }),
     ).rejects.toBeInstanceOf(SyncUnauthorizedError);
-    expect(listSubmissions(db, project.id)).toHaveLength(0);
-    expect(getPullCursor(db, project.id)).toBeUndefined();
+    expect(await listSubmissions(db, project.id)).toHaveLength(0);
+    expect(await getPullCursor(db, project.id)).toBeUndefined();
   });
 
   it('throws SyncUnavailableError when fetch fails', async () => {
-    const project = createProject(db, { name: 'Down' });
+    const project = await createProject(db, { name: 'Down' });
     const service = createService();
 
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
@@ -171,11 +177,11 @@ describe('syncService', () => {
         syncToken: 'plandesk_sync_test',
       }),
     ).rejects.toBeInstanceOf(SyncUnavailableError);
-    expect(listSubmissions(db, project.id)).toHaveLength(0);
+    expect(await listSubmissions(db, project.id)).toHaveLength(0);
   });
 
   it('emits submissions_pulled when new rows are materialized', async () => {
-    const project = createProject(db, { name: 'Events' });
+    const project = await createProject(db, { name: 'Events' });
     const bus = createEventBus();
     const taskService = createTaskService({ db, eventBus: bus });
     const shareService = createShareService({ db, eventBus: bus });
@@ -205,7 +211,7 @@ describe('syncService', () => {
   });
 
   it('listTriage returns serialized pending submissions', async () => {
-    const project = createProject(db, { name: 'Triage' });
+    const project = await createProject(db, { name: 'Triage' });
     const service = createService();
 
     vi.stubGlobal(
@@ -224,7 +230,7 @@ describe('syncService', () => {
       syncToken: 'plandesk_sync_test',
     });
 
-    const triage = service.listTriage(project.id, 'pending');
+    const triage = await service.listTriage(project.id, 'pending');
     expect(triage).toHaveLength(1);
     expect(triage[0]).toMatchObject({
       id: 'sub-remote-1',
@@ -251,7 +257,7 @@ describe('syncService', () => {
   }
 
   it('triage accept creates task, acks hosted, and sets local accepted', async () => {
-    const project = createProject(db, { name: 'Accept' });
+    const project = await createProject(db, { name: 'Accept' });
     const service = await pullSubmission(project.id);
 
     const fetchMock = vi.fn().mockResolvedValue(
@@ -267,7 +273,7 @@ describe('syncService', () => {
     expect(result.status).toBe('accepted');
     expect(result.linked_task_id).toBeTruthy();
 
-    const tasks = listTasks(db, project.id);
+    const tasks = await listTasks(db, project.id);
     expect(tasks).toHaveLength(1);
     expect(tasks[0]?.label).toBe('Bug report');
     // Accept with no as_task (the MCP-style call) must land in `scope`, never `todo` —
@@ -276,7 +282,7 @@ describe('syncService', () => {
     expect(tasks[0]?.description).toContain('Something broke');
     expect(tasks[0]?.description).toContain('Reported by Alex (client) via Plan Desk');
 
-    const local = getSubmission(db, 'sub-remote-1');
+    const local = await getSubmission(db, 'sub-remote-1');
     expect(local?.status).toBe('accepted');
     expect(local?.linkedTaskId).toBe(result.linked_task_id);
 
@@ -290,7 +296,7 @@ describe('syncService', () => {
   });
 
   it('triage reject sets local rejected and acks hosted', async () => {
-    const project = createProject(db, { name: 'Reject' });
+    const project = await createProject(db, { name: 'Reject' });
     const service = await pullSubmission(project.id);
 
     const fetchMock = vi.fn().mockResolvedValue(
@@ -305,7 +311,7 @@ describe('syncService', () => {
 
     expect(result.status).toBe('rejected');
     expect(result.linked_task_id).toBeNull();
-    expect(listTasks(db, project.id)).toHaveLength(0);
+    expect(await listTasks(db, project.id)).toHaveLength(0);
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://sync.example/api/sync/v1/projects/gid-1/submissions/sub-remote-1/ack',
@@ -317,7 +323,7 @@ describe('syncService', () => {
   });
 
   it('triage re-accept is idempotent and does not create a duplicate task', async () => {
-    const project = createProject(db, { name: 'Idempotent' });
+    const project = await createProject(db, { name: 'Idempotent' });
     const service = await pullSubmission(project.id);
 
     vi.stubGlobal(
@@ -334,11 +340,11 @@ describe('syncService', () => {
     const second = await service.triage('sub-remote-1', 'accept', remote);
 
     expect(second).toEqual(first);
-    expect(listTasks(db, project.id)).toHaveLength(1);
+    expect(await listTasks(db, project.id)).toHaveLength(1);
   });
 
   it('triage accept keeps task and local accepted when ack fails', async () => {
-    const project = createProject(db, { name: 'Ack fail' });
+    const project = await createProject(db, { name: 'Ack fail' });
     const service = await pullSubmission(project.id);
 
     vi.stubGlobal(
@@ -350,12 +356,12 @@ describe('syncService', () => {
       SyncUnavailableError,
     );
 
-    expect(listTasks(db, project.id)).toHaveLength(1);
-    expect(getSubmission(db, 'sub-remote-1')?.status).toBe('accepted');
+    expect(await listTasks(db, project.id)).toHaveLength(1);
+    expect((await getSubmission(db, 'sub-remote-1'))?.status).toBe('accepted');
   });
 
   it('triage retry re-acks after an ack failure (recovers local/remote divergence)', async () => {
-    const project = createProject(db, { name: 'Recover ack' });
+    const project = await createProject(db, { name: 'Recover ack' });
     const service = await pullSubmission(project.id);
 
     const fetchMock = vi
@@ -373,13 +379,13 @@ describe('syncService', () => {
     await expect(service.triage('sub-remote-1', 'accept', remote)).rejects.toBeInstanceOf(
       SyncUnavailableError,
     );
-    expect(getSubmission(db, 'sub-remote-1')?.status).toBe('accepted');
+    expect((await getSubmission(db, 'sub-remote-1'))?.status).toBe('accepted');
 
     // Retry: the submission is already accepted, so instead of short-circuiting we re-ack
     // the remote (idempotent) — the recovery path. No duplicate task is created.
     const result = await service.triage('sub-remote-1', 'accept', remote);
     expect(result.status).toBe('accepted');
-    expect(listTasks(db, project.id)).toHaveLength(1);
+    expect(await listTasks(db, project.id)).toHaveLength(1);
     expect(fetchMock).toHaveBeenLastCalledWith(
       'https://sync.example/api/sync/v1/projects/gid-1/submissions/sub-remote-1/ack',
       expect.objectContaining({ method: 'POST', body: JSON.stringify({ status: 'accepted' }) }),
@@ -394,8 +400,8 @@ describe('syncService', () => {
   });
 
   it('triage accept-as-merge links an existing task without creating a new one', async () => {
-    const project = createProject(db, { name: 'Merge' });
-    const existingTask = createTask(db, { projectId: project.id, label: 'Existing task' });
+    const project = await createProject(db, { name: 'Merge' });
+    const existingTask = await createTask(db, { projectId: project.id, label: 'Existing task' });
     const service = await pullSubmission(project.id);
 
     const fetchMock = vi.fn().mockResolvedValue(
@@ -417,11 +423,11 @@ describe('syncService', () => {
     expect(result.status).toBe('accepted');
     expect(result.linked_task_id).toBe(existingTask.id);
 
-    const tasks = listTasks(db, project.id);
+    const tasks = await listTasks(db, project.id);
     expect(tasks).toHaveLength(1);
     expect(tasks[0]?.id).toBe(existingTask.id);
 
-    const local = getSubmission(db, 'sub-remote-1');
+    const local = await getSubmission(db, 'sub-remote-1');
     expect(local?.status).toBe('accepted');
     expect(local?.linkedTaskId).toBe(existingTask.id);
 
@@ -435,46 +441,46 @@ describe('syncService', () => {
   });
 
   it('triage rejects when both as_task and link_task_id are provided', async () => {
-    const project = createProject(db, { name: 'Mutually exclusive' });
-    const existingTask = createTask(db, { projectId: project.id, label: 'Existing task' });
+    const project = await createProject(db, { name: 'Mutually exclusive' });
+    const existingTask = await createTask(db, { projectId: project.id, label: 'Existing task' });
     const service = await pullSubmission(project.id);
 
     await expect(
       service.triage('sub-remote-1', 'accept', remote, { label: 'New task' }, existingTask.id),
     ).rejects.toBeInstanceOf(InvalidTriageInputError);
 
-    expect(listTasks(db, project.id)).toHaveLength(1);
-    expect(getSubmission(db, 'sub-remote-1')?.status).toBe('pending');
+    expect(await listTasks(db, project.id)).toHaveLength(1);
+    expect((await getSubmission(db, 'sub-remote-1'))?.status).toBe('pending');
   });
 
   it('triage rejects link_task_id for a task that does not exist', async () => {
-    const project = createProject(db, { name: 'Missing link target' });
+    const project = await createProject(db, { name: 'Missing link target' });
     const service = await pullSubmission(project.id);
 
     await expect(
       service.triage('sub-remote-1', 'accept', remote, undefined, 'missing-task-id'),
     ).rejects.toBeInstanceOf(InvalidTriageInputError);
 
-    expect(listTasks(db, project.id)).toHaveLength(0);
-    expect(getSubmission(db, 'sub-remote-1')?.status).toBe('pending');
+    expect(await listTasks(db, project.id)).toHaveLength(0);
+    expect((await getSubmission(db, 'sub-remote-1'))?.status).toBe('pending');
   });
 
   it('triage rejects link_task_id for a task belonging to a different project', async () => {
-    const project = createProject(db, { name: 'Cross-project source' });
-    const otherProject = createProject(db, { name: 'Cross-project other' });
-    const otherTask = createTask(db, { projectId: otherProject.id, label: 'Other project task' });
+    const project = await createProject(db, { name: 'Cross-project source' });
+    const otherProject = await createProject(db, { name: 'Cross-project other' });
+    const otherTask = await createTask(db, { projectId: otherProject.id, label: 'Other project task' });
     const service = await pullSubmission(project.id);
 
     await expect(
       service.triage('sub-remote-1', 'accept', remote, undefined, otherTask.id),
     ).rejects.toBeInstanceOf(InvalidTriageInputError);
 
-    expect(getSubmission(db, 'sub-remote-1')?.status).toBe('pending');
+    expect((await getSubmission(db, 'sub-remote-1'))?.status).toBe('pending');
   });
 
   it('triage accept-as-merge re-run is idempotent and does not create an orphan task', async () => {
-    const project = createProject(db, { name: 'Merge idempotent' });
-    const existingTask = createTask(db, { projectId: project.id, label: 'Existing task' });
+    const project = await createProject(db, { name: 'Merge idempotent' });
+    const existingTask = await createTask(db, { projectId: project.id, label: 'Existing task' });
     const service = await pullSubmission(project.id);
 
     vi.stubGlobal(
@@ -503,7 +509,7 @@ describe('syncService', () => {
     );
 
     expect(second).toEqual(first);
-    expect(listTasks(db, project.id)).toHaveLength(1);
+    expect(await listTasks(db, project.id)).toHaveLength(1);
   });
 });
 
@@ -541,7 +547,12 @@ async function startTestSyncServer(): Promise<{
 }
 
 describe('syncService push', () => {
-  const db = createDb(':memory:');
+  let db: Db;
+
+  beforeEach(async () => {
+    db = await createDb(':memory:');
+    await migrate(db);
+  });
   const eventBus = createEventBus();
   const servers: Array<{ close: () => void }> = [];
   const remote = {
@@ -550,19 +561,19 @@ describe('syncService push', () => {
     syncToken: 'plandesk_sync_test',
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
-    migrate(db);
-    db.$client.exec('DELETE FROM share_submissions');
-    db.$client.exec('DELETE FROM sync_state');
-    db.$client.exec('DELETE FROM shares');
-    db.$client.exec('DELETE FROM tasks');
-    db.$client.exec('DELETE FROM goals');
-    db.$client.exec('DELETE FROM projects');
+    await migrate(db);
+    await db.$client.execute('DELETE FROM share_submissions');
+    await db.$client.execute('DELETE FROM sync_state');
+    await db.$client.execute('DELETE FROM shares');
+    await db.$client.execute('DELETE FROM tasks');
+    await db.$client.execute('DELETE FROM goals');
+    await db.$client.execute('DELETE FROM projects');
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     while (servers.length > 0) {
       servers.pop()?.close();
     }
@@ -582,9 +593,9 @@ describe('syncService push', () => {
 
     const service = createService();
     const shareService = createShareService({ db, eventBus });
-    const project = createProject(db, { name: 'Push Project' });
-    createTask(db, { projectId: project.id, label: 'Visible task' });
-    const created = shareService.createShare(project.id, {
+    const project = await createProject(db, { name: 'Push Project' });
+    await createTask(db, { projectId: project.id, label: 'Visible task' });
+    const created = await shareService.createShare(project.id, {
       audienceName: 'Client',
       mode: 'public',
       permissions: { read: true, submit: false },
@@ -635,19 +646,19 @@ describe('syncService push', () => {
 
     const service = createService();
     const shareService = createShareService({ db, eventBus });
-    const project = createProject(db, { name: 'Revoked push' });
-    const active = shareService.createShare(project.id, {
+    const project = await createProject(db, { name: 'Revoked push' });
+    const active = await shareService.createShare(project.id, {
       audienceName: 'Active',
       mode: 'public',
     });
-    const revoked = shareService.createShare(project.id, {
+    const revoked = await shareService.createShare(project.id, {
       audienceName: 'Revoked',
       mode: 'public',
     });
     if (!active || !revoked) {
       throw new Error('expected shares');
     }
-    shareService.revokeShare(revoked.share.id);
+    await shareService.revokeShare(revoked.share.id);
 
     const { globalProjectId } = await service.publishProject(project.id, {
       serverUrl: syncServer.serverUrl,
@@ -664,7 +675,7 @@ describe('syncService push', () => {
 
   it('watchPush coalesces rapid onChange calls into one debounced push', async () => {
     vi.useFakeTimers();
-    const project = createProject(db, { name: 'Watch' });
+    const project = await createProject(db, { name: 'Watch' });
     const service = createService();
     const pushSpy = vi.spyOn(service, 'push').mockResolvedValue({ pushed: 1 });
 
@@ -684,7 +695,7 @@ describe('syncService push', () => {
 
   it('watchPush dispose cancels a pending push', async () => {
     vi.useFakeTimers();
-    const project = createProject(db, { name: 'Watch dispose' });
+    const project = await createProject(db, { name: 'Watch dispose' });
     const service = createService();
     const pushSpy = vi.spyOn(service, 'push').mockResolvedValue({ pushed: 1 });
 
@@ -699,7 +710,7 @@ describe('syncService push', () => {
 
   it('watchPush tolerates push errors and schedules the next push', async () => {
     vi.useFakeTimers();
-    const project = createProject(db, { name: 'Watch errors' });
+    const project = await createProject(db, { name: 'Watch errors' });
     const service = createService();
     const pushSpy = vi
       .spyOn(service, 'push')
@@ -731,8 +742,8 @@ describe('syncService push', () => {
 
     const service = createService();
     const shareService = createShareService({ db, eventBus });
-    const project = createProject(db, { name: 'Bad token' });
-    shareService.createShare(project.id, { audienceName: 'Client', mode: 'public' });
+    const project = await createProject(db, { name: 'Bad token' });
+    await shareService.createShare(project.id, { audienceName: 'Client', mode: 'public' });
 
     await expect(
       service.push(project.id, {
@@ -741,6 +752,6 @@ describe('syncService push', () => {
         syncToken: 'bad-sync-token',
       }),
     ).rejects.toBeInstanceOf(SyncUnauthorizedError);
-    expect(listSubmissions(db, project.id)).toHaveLength(0);
+    expect(await listSubmissions(db, project.id)).toHaveLength(0);
   });
 });

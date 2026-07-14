@@ -11,7 +11,7 @@ export function createPublishProjectHandler(
         serverUrl: args.server_url,
         syncToken: args.sync_token,
       });
-      syncService.setRemote(args.project_id, {
+      await syncService.setRemote(args.project_id, {
         serverUrl: args.server_url,
         globalProjectId,
         syncToken: args.sync_token,

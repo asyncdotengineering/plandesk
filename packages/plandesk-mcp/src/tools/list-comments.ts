@@ -9,8 +9,8 @@ export function createListCommentsHandler(
   target_type?: CommentTargetType;
   target_id?: string;
   include_resolved?: boolean;
-}) => ToolResult {
-  return (args) => {
+}) => Promise<ToolResult> {
+  return async (args) => {
     const includeResolved = args.include_resolved ?? false;
 
     if (args.target_type !== undefined || args.target_id !== undefined) {
@@ -18,7 +18,7 @@ export function createListCommentsHandler(
         return toolInvalidArgument();
       }
 
-      const targetProjectId = commentService.resolveTargetProjectId({
+      const targetProjectId = await commentService.resolveTargetProjectId({
         type: args.target_type,
         id: args.target_id,
       });
@@ -29,7 +29,7 @@ export function createListCommentsHandler(
         return toolInvalidArgument();
       }
 
-      const comments = commentService.listByTarget(
+      const comments = await commentService.listByTarget(
         { type: args.target_type, id: args.target_id },
         { includeResolved },
       );
@@ -39,7 +39,7 @@ export function createListCommentsHandler(
       return toolSuccess('comments', comments);
     }
 
-    const comments = commentService.listByProject(args.project_id, { includeResolved });
+    const comments = await commentService.listByProject(args.project_id, { includeResolved });
     if (!comments) {
       return toolNotFound();
     }

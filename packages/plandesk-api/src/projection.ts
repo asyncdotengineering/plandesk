@@ -47,15 +47,19 @@ function buildProgress(tasks: ClientViewTask[]): Record<string, number> {
   return progress;
 }
 
-export function buildClientView(db: Db, projectId: string, share: Share): ClientView | undefined {
-  const project = getProject(db, projectId);
+export async function buildClientView(
+  db: Db,
+  projectId: string,
+  share: Share,
+): Promise<ClientView | undefined> {
+  const project = await getProject(db, projectId);
   if (!project) {
     return undefined;
   }
 
   const policy = parseSharePolicy(share);
   const permissions = parseSharePermissions(share);
-  const allTasks = listTasks(db, projectId);
+  const allTasks = await listTasks(db, projectId);
 
   const sharedTasks: ClientViewTask[] = [];
   for (const task of allTasks) {
@@ -85,7 +89,7 @@ export function buildClientView(db: Db, projectId: string, share: Share): Client
   }
 
   const sharedTaskIds = new Set(sharedTasks.map((task) => task.id));
-  const sharedEdges = listEdges(db, projectId)
+  const sharedEdges = (await listEdges(db, projectId))
     .filter((edge) => sharedTaskIds.has(edge.fromTaskId) && sharedTaskIds.has(edge.toTaskId))
     .map((edge) => ({
       id: edge.id,
@@ -95,7 +99,7 @@ export function buildClientView(db: Db, projectId: string, share: Share): Client
     }));
 
   const documentIdSet = new Set(policy.documentIds);
-  const sharedDocuments = listDocuments(db, projectId)
+  const sharedDocuments = (await listDocuments(db, projectId))
     .filter((doc) => documentIdSet.has(doc.id))
     .map((doc) => ({
       id: doc.id,

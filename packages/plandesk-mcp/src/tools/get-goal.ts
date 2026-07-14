@@ -3,9 +3,9 @@ import { toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createGetGoalHandler(
   goalService: GoalService,
-): (args: { goal_id: string }) => ToolResult {
-  return (args) => {
-    const goal = goalService.get(args.goal_id);
+): (args: { goal_id: string }) => Promise<ToolResult> {
+  return async (args) => {
+    const goal = await goalService.get(args.goal_id);
     if (!goal) {
       return toolNotFound();
     }

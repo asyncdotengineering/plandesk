@@ -14,8 +14,8 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 describe('tags routes', () => {
   it('creates, lists, patches, and deletes a tag', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Tags' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Tags' });
 
     const createRes = await app.request(`/api/v1/projects/${project.id}/tags`, {
       method: 'POST',
@@ -53,8 +53,8 @@ describe('tags routes', () => {
   });
 
   it('rejects blank and duplicate names with 400', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Validate' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Validate' });
 
     const blank = await app.request(`/api/v1/projects/${project.id}/tags`, {
       method: 'POST',
@@ -90,7 +90,7 @@ describe('tags routes', () => {
   });
 
   it('returns 404 for unknown project and tag', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const missing = '00000000-0000-4000-8000-000000009999';
 
     expect((await app.request(`/api/v1/projects/${missing}/tags`)).status).toBe(404);
@@ -116,8 +116,8 @@ describe('tags routes', () => {
   });
 
   it('task create/patch accept tags; rename and delete propagate to task listings', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Task tags' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Task tags' });
 
     const createTaskRes = await app.request(`/api/v1/projects/${project.id}/tasks`, {
       method: 'POST',
@@ -167,8 +167,8 @@ describe('tags routes', () => {
   });
 
   it('GET /projects/:id/tasks?tag=… filters with OR semantics', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Filter' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Filter' });
 
     const make = async (label: string, tags: string[]) => {
       const res = await app.request(`/api/v1/projects/${project.id}/tasks`, {
@@ -200,8 +200,8 @@ describe('tags routes', () => {
   });
 
   it('rejects non-string-array tags on task create and patch', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Bad tags' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Bad tags' });
 
     const badCreate = await app.request(`/api/v1/projects/${project.id}/tasks`, {
       method: 'POST',

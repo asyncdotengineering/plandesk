@@ -10,10 +10,10 @@ export function createCreateEdgeHandler(
   to_task_id: string;
   label?: string;
   style?: string;
-}) => ToolResult {
-  return (args) => {
+}) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const edge = canvasService.createEdge(args.project_id, {
+      const edge = await canvasService.createEdge(args.project_id, {
         fromTaskId: args.from_task_id,
         toTaskId: args.to_task_id,
         ...(args.label !== undefined ? { label: args.label } : {}),

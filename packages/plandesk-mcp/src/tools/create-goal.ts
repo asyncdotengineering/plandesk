@@ -14,10 +14,10 @@ export function createCreateGoalHandler(
   stop_condition?: string;
   budget?: string;
   status?: string;
-}) => ToolResult {
-  return (args) => {
+}) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const goal = goalService.create(args.project_id, {
+      const goal = await goalService.create(args.project_id, {
         objective: args.objective,
         ...(args.verification_surface !== undefined
           ? { verificationSurface: args.verification_surface }

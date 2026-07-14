@@ -30,43 +30,43 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    listForProject(projectId: string, pagination: PaginationParams = {}) {
-      const project = getProject(db, projectId);
+    async listForProject(projectId: string, pagination: PaginationParams = {}) {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
-      const runs = listAgentRuns(db, projectId, pagination)
-        .slice()
-        .sort((a, b) => {
-          const timeDiff = b.startedAt.getTime() - a.startedAt.getTime();
-          if (timeDiff !== 0) {
-            return timeDiff;
-          }
-          return b.id.localeCompare(a.id);
-        });
-
-      return runs.map((run) => {
-        const serialized = serializeAgentRun(run);
-        const events = listAgentRunEvents(db, run.id).map((event) => {
-          const serialized = serializeAgentRunEvent(event);
-          return {
-            id: serialized.id,
-            message: serialized.message,
-            created_at: serialized.created_at,
-          };
-        });
-        return { ...serialized, events };
+      const runs = (await listAgentRuns(db, projectId, pagination)).slice().sort((a, b) => {
+        const timeDiff = b.startedAt.getTime() - a.startedAt.getTime();
+        if (timeDiff !== 0) {
+          return timeDiff;
+        }
+        return b.id.localeCompare(a.id);
       });
+
+      return Promise.all(
+        runs.map(async (run) => {
+          const serialized = serializeAgentRun(run);
+          const events = (await listAgentRunEvents(db, run.id)).map((event) => {
+            const serializedEvent = serializeAgentRunEvent(event);
+            return {
+              id: serializedEvent.id,
+              message: serializedEvent.message,
+              created_at: serializedEvent.created_at,
+            };
+          });
+          return { ...serialized, events };
+        }),
+      );
     },
 
-    start(projectId: string, label?: string | null) {
-      const project = getProject(db, projectId);
+    async start(projectId: string, label?: string | null) {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
-      const run = createAgentRun(db, { projectId, label });
+      const run = await createAgentRun(db, { projectId, label });
       eventBus.emit({
         type: 'agent_run_started',
         runId: run.id,
@@ -76,8 +76,8 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
       return serializeAgentRun(run);
     },
 
-    recordProgress(runId: string, message: string) {
-      const run = getAgentRun(db, runId);
+    async recordProgress(runId: string, message: string) {
+      const run = await getAgentRun(db, runId);
       if (!run) {
         return undefined;
       }
@@ -86,7 +86,7 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
         throw new InvalidAgentRunError('Agent run is already complete');
       }
 
-      const event = createAgentRunEvent(db, { runId, message });
+      const event = await createAgentRunEvent(db, { runId, message });
       eventBus.emit({
         type: 'agent_run_progress',
         runId,
@@ -96,8 +96,8 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
       return serializeAgentRunEvent(event);
     },
 
-    complete(runId: string, status: 'completed' | 'failed') {
-      const run = getAgentRun(db, runId);
+    async complete(runId: string, status: 'completed' | 'failed') {
+      const run = await getAgentRun(db, runId);
       if (!run) {
         return undefined;
       }
@@ -106,7 +106,7 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
         throw new InvalidAgentRunError('Agent run is already complete');
       }
 
-      const updated = updateAgentRunStatus(db, runId, {
+      const updated = await updateAgentRunStatus(db, runId, {
         status,
         completedAt: new Date(),
       });

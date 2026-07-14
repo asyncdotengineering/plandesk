@@ -1,4 +1,5 @@
 import {
+  withTransaction,
   createFolder as dbCreateFolder,
   deleteFolder as dbDeleteFolder,
   getFolder as dbGetFolder,
@@ -40,14 +41,18 @@ function assertNonEmptyName(name: string): void {
   }
 }
 
-function assertParentInProject(db: Db, projectId: string, parentFolderId: string): void {
-  const parent = dbGetFolder(db, parentFolderId);
+async function assertParentInProject(
+  db: Db,
+  projectId: string,
+  parentFolderId: string,
+): Promise<void> {
+  const parent = await dbGetFolder(db, parentFolderId);
   if (!parent || parent.projectId !== projectId) {
     throw new InvalidFolderError('Parent folder does not belong to project');
   }
 }
 
-function assertNoCycle(db: Db, folderId: string, newParentFolderId: string): void {
+async function assertNoCycle(db: Db, folderId: string, newParentFolderId: string): Promise<void> {
   const visited = new Set<string>();
   let current: string | null = newParentFolderId;
   while (current !== null) {
@@ -58,7 +63,7 @@ function assertNoCycle(db: Db, folderId: string, newParentFolderId: string): voi
       return;
     }
     visited.add(current);
-    current = dbGetFolder(db, current)?.parentFolderId ?? null;
+    current = (await dbGetFolder(db, current))?.parentFolderId ?? null;
   }
 }
 
@@ -66,26 +71,29 @@ export function createFolderService(deps: FolderServiceDeps) {
   const { db, eventBus } = deps;
 
   return {
-    list(projectId: string): SerializedFolder[] | undefined {
-      const project = getProject(db, projectId);
+    async list(projectId: string): Promise<SerializedFolder[] | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
-      return dbListFolders(db, projectId).map(serializeFolder);
+      return (await dbListFolders(db, projectId)).map(serializeFolder);
     },
 
-    create(projectId: string, input: CreateFolderInput): SerializedFolder | undefined {
-      const project = getProject(db, projectId);
+    async create(
+      projectId: string,
+      input: CreateFolderInput,
+    ): Promise<SerializedFolder | undefined> {
+      const project = await getProject(db, projectId);
       if (!project) {
         return undefined;
       }
 
       assertNonEmptyName(input.name);
       if (input.parentFolderId !== undefined && input.parentFolderId !== null) {
-        assertParentInProject(db, projectId, input.parentFolderId);
+        await assertParentInProject(db, projectId, input.parentFolderId);
       }
 
-      const folder = dbCreateFolder(db, {
+      const folder = await dbCreateFolder(db, {
         projectId,
         name: input.name,
         parentFolderId: input.parentFolderId,
@@ -96,16 +104,16 @@ export function createFolderService(deps: FolderServiceDeps) {
       return serializeFolder(folder);
     },
 
-    get(id: string): SerializedFolder | undefined {
-      const folder = dbGetFolder(db, id);
+    async get(id: string): Promise<SerializedFolder | undefined> {
+      const folder = await dbGetFolder(db, id);
       if (!folder) {
         return undefined;
       }
       return serializeFolder(folder);
     },
 
-    update(id: string, input: UpdateFolderInput): SerializedFolder | undefined {
-      const existing = dbGetFolder(db, id);
+    async update(id: string, input: UpdateFolderInput): Promise<SerializedFolder | undefined> {
+      const existing = await dbGetFolder(db, id);
       if (!existing) {
         return undefined;
       }
@@ -118,11 +126,11 @@ export function createFolderService(deps: FolderServiceDeps) {
         if (input.parentFolderId === id) {
           throw new InvalidFolderError('Folder cannot be its own parent');
         }
-        assertParentInProject(db, existing.projectId, input.parentFolderId);
-        assertNoCycle(db, id, input.parentFolderId);
+        await assertParentInProject(db, existing.projectId, input.parentFolderId);
+        await assertNoCycle(db, id, input.parentFolderId);
       }
 
-      const folder = dbUpdateFolder(db, id, input);
+      const folder = await dbUpdateFolder(db, id, input);
       if (!folder) {
         return undefined;
       }
@@ -132,18 +140,18 @@ export function createFolderService(deps: FolderServiceDeps) {
       return serializeFolder(folder);
     },
 
-    delete(id: string): boolean {
-      const existing = dbGetFolder(db, id);
+    async delete(id: string): Promise<boolean> {
+      const existing = await dbGetFolder(db, id);
       if (!existing) {
         return false;
       }
 
       // Never orphan: children folders and contained documents move to the
       // deleted folder's parent (or root when the folder was at root).
-      db.transaction((tx) => {
-        reparentChildFolders(tx, id, existing.parentFolderId);
-        moveDocumentsToFolder(tx, id, existing.parentFolderId);
-        dbDeleteFolder(tx, id);
+      await withTransaction(db, async (tx) => {
+        await reparentChildFolders(tx, id, existing.parentFolderId);
+        await moveDocumentsToFolder(tx, id, existing.parentFolderId);
+        await dbDeleteFolder(tx, id);
       });
 
       eventBus.emit({ type: 'folder_updated', folderId: id, projectId: existing.projectId });

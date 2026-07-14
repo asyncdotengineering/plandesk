@@ -11,7 +11,7 @@ import {
 
 describe('projects routes', () => {
   it('POST /api/v1/projects creates a project', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -26,7 +26,7 @@ describe('projects routes', () => {
   });
 
   it('POST /api/v1/projects rejects missing name', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -38,7 +38,7 @@ describe('projects routes', () => {
   });
 
   it('GET /api/v1/projects lists projects', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -53,15 +53,15 @@ describe('projects routes', () => {
   });
 
   it('GET /api/v1/projects/:id returns detail with summary counts', async () => {
-    const { app, db } = createTestApp();
+    const { app, db } = await createTestApp();
     const createRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Detail' }),
     });
     const created = await parseJson<ProjectResponse>(createRes);
-    createTask(db, { projectId: created.id, label: 'T1', status: 'todo' });
-    createTask(db, { projectId: created.id, label: 'T2', status: 'done' });
+    await createTask(db, { projectId: created.id, label: 'T1', status: 'todo' });
+    await createTask(db, { projectId: created.id, label: 'T2', status: 'done' });
 
     const res = await app.request(`/api/v1/projects/${created.id}`);
     expect(res.status).toBe(200);
@@ -76,22 +76,22 @@ describe('projects routes', () => {
   });
 
   it('GET /api/v1/projects/:id returns 404 when missing', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/projects/00000000-0000-4000-8000-000000009999');
     expect(res.status).toBe(404);
     expect(await parseJson(res)).toEqual({ error: 'not_found' });
   });
 
   it('GET /api/v1/projects/:id/tasks lists tasks with status filter', async () => {
-    const { app, db } = createTestApp();
+    const { app, db } = await createTestApp();
     const createRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Tasks' }),
     });
     const created = await parseJson<ProjectResponse>(createRes);
-    createTask(db, { projectId: created.id, label: 'Todo', status: 'todo' });
-    createTask(db, { projectId: created.id, label: 'Done', status: 'done' });
+    await createTask(db, { projectId: created.id, label: 'Todo', status: 'todo' });
+    await createTask(db, { projectId: created.id, label: 'Done', status: 'done' });
 
     const allRes = await app.request(`/api/v1/projects/${created.id}/tasks`);
     expect(allRes.status).toBe(200);
@@ -105,14 +105,14 @@ describe('projects routes', () => {
   });
 
   it('GET /api/v1/projects/:id/tasks returns 404 for missing project', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/projects/00000000-0000-4000-8000-000000009999/tasks');
     expect(res.status).toBe(404);
     expect(await parseJson(res)).toEqual({ error: 'not_found' });
   });
 
   it('GET /api/v1/projects/:id/tasks returns 400 for invalid status filter', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const createRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -126,7 +126,7 @@ describe('projects routes', () => {
   });
 
   it('POST /api/v1/projects/:id/tasks creates a task', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const createRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -160,7 +160,7 @@ describe('projects routes', () => {
   });
 
   it('POST /api/v1/projects/:id/tasks returns 400 for invalid status', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const createRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -179,7 +179,7 @@ describe('projects routes', () => {
   });
 
   it('POST /api/v1/projects/:id/tasks returns 404 for missing project', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/projects/00000000-0000-4000-8000-000000009999/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -189,7 +189,7 @@ describe('projects routes', () => {
   });
 
   it('PATCH /api/v1/projects/:id renames a project', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const createRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -210,7 +210,7 @@ describe('projects routes', () => {
   });
 
   it('PATCH /api/v1/projects/:id returns 404 when missing', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/projects/00000000-0000-4000-8000-000000009999', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -220,10 +220,10 @@ describe('projects routes', () => {
   });
 
   it('DELETE /api/v1/projects/:id cascade deletes project data', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Delete me' });
-    const task = createTask(db, { projectId: project.id, label: 'Task' });
-    createTask(db, { projectId: project.id, label: 'Other' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Delete me' });
+    const task = await createTask(db, { projectId: project.id, label: 'Task' });
+    await createTask(db, { projectId: project.id, label: 'Other' });
 
     const res = await app.request(`/api/v1/projects/${project.id}`, { method: 'DELETE' });
     expect(res.status).toBe(204);
@@ -233,11 +233,11 @@ describe('projects routes', () => {
 
     const tasksRes = await app.request(`/api/v1/projects/${project.id}/tasks`);
     expect(tasksRes.status).toBe(404);
-    expect(getTask(db, task.id)).toBeUndefined();
+    expect(await getTask(db, task.id)).toBeUndefined();
   });
 
   it('DELETE /api/v1/projects/:id returns 404 when missing', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/projects/00000000-0000-4000-8000-000000009999', {
       method: 'DELETE',
     });
@@ -245,7 +245,7 @@ describe('projects routes', () => {
   });
 
   it('GET /api/v1/projects honors limit and offset', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -269,7 +269,7 @@ describe('projects routes', () => {
   });
 
   it('GET /api/v1/projects returns 400 for invalid pagination', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/projects?limit=-1');
     expect(res.status).toBe(400);
   });
@@ -277,9 +277,9 @@ describe('projects routes', () => {
 
 describe('tasks routes', () => {
   it('PATCH /api/v1/tasks/:id updates a task', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Patch' });
-    const task = createTask(db, { projectId: project.id, label: 'Before', status: 'todo' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Patch' });
+    const task = await createTask(db, { projectId: project.id, label: 'Before', status: 'todo' });
 
     const res = await app.request(`/api/v1/tasks/${task.id}`, {
       method: 'PATCH',
@@ -312,7 +312,7 @@ describe('tasks routes', () => {
   });
 
   it('PATCH /api/v1/tasks/:id returns 404 when missing', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/tasks/00000000-0000-4000-8000-000000009999', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -324,9 +324,9 @@ describe('tasks routes', () => {
   });
 
   it('PATCH /api/v1/tasks/:id returns 400 for invalid status', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Invalid' });
-    const task = createTask(db, { projectId: project.id, label: 'Task' });
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Invalid' });
+    const task = await createTask(db, { projectId: project.id, label: 'Task' });
 
     const res = await app.request(`/api/v1/tasks/${task.id}`, {
       method: 'PATCH',
@@ -339,10 +339,10 @@ describe('tasks routes', () => {
   });
 
   it('DELETE /api/v1/tasks/:id deletes task and cascades edges', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Delete task' });
-    const task = createTask(db, { projectId: project.id, label: 'Task' });
-    createEdge(db, {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Delete task' });
+    const task = await createTask(db, { projectId: project.id, label: 'Task' });
+    await createEdge(db, {
       projectId: project.id,
       fromTaskId: task.id,
       toTaskId: task.id,
@@ -350,12 +350,12 @@ describe('tasks routes', () => {
 
     const res = await app.request(`/api/v1/tasks/${task.id}`, { method: 'DELETE' });
     expect(res.status).toBe(204);
-    expect(getTask(db, task.id)).toBeUndefined();
-    expect(listEdges(db, project.id)).toHaveLength(0);
+    expect(await getTask(db, task.id)).toBeUndefined();
+    expect(await listEdges(db, project.id)).toHaveLength(0);
   });
 
   it('DELETE /api/v1/tasks/:id returns 404 when missing', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request('/api/v1/tasks/00000000-0000-4000-8000-000000009999', {
       method: 'DELETE',
     });
@@ -363,11 +363,11 @@ describe('tasks routes', () => {
   });
 
   it('GET /projects/:id/next-task returns the next actionable task', async () => {
-    const { app, db } = createTestApp();
-    const project = createProject(db, { name: 'Next task' });
-    const blocker = createTask(db, { projectId: project.id, label: 'Blocker', status: 'todo' });
-    const blocked = createTask(db, { projectId: project.id, label: 'Blocked', status: 'todo' });
-    createEdge(db, {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Next task' });
+    const blocker = await createTask(db, { projectId: project.id, label: 'Blocker', status: 'todo' });
+    const blocked = await createTask(db, { projectId: project.id, label: 'Blocked', status: 'todo' });
+    await createEdge(db, {
       projectId: project.id,
       fromTaskId: blocker.id,
       toTaskId: blocked.id,
@@ -388,7 +388,7 @@ describe('tasks routes', () => {
   });
 
   it('GET /projects/:id/next-task returns 404 for a missing project', async () => {
-    const { app } = createTestApp();
+    const { app } = await createTestApp();
     const res = await app.request(
       '/api/v1/projects/00000000-0000-4000-8000-000000009999/next-task',
     );

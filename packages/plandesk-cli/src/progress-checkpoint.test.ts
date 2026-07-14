@@ -17,9 +17,9 @@ async function withTestServer(
     projectId: string;
   }) => Promise<void>,
 ): Promise<void> {
-  const db = createDb(':memory:');
-  migrate(db);
-  const project = createProject(db, { name: 'Checkpoint project' });
+  const db = await createDb(':memory:');
+  await migrate(db);
+  const project = await createProject(db, { name: 'Checkpoint project' });
   const eventBus = createEventBus();
   const services = createServices({ db, eventBus });
   const app = createApp({ db, eventBus, services });
@@ -92,11 +92,11 @@ describe('runProgressCheckpoint', () => {
     await withTestServer(async ({ baseUrl, services, projectId }) => {
       const repoDir = makeRepo();
       bindRepo(repoDir, baseUrl, projectId);
-      const run = services.agentRunService.start(projectId, 'Worker');
+      const run = await services.agentRunService.start(projectId, 'Worker');
       if (!run) {
         throw new Error('expected run');
       }
-      services.agentRunService.complete(run.id, 'completed');
+      await services.agentRunService.complete(run.id, 'completed');
 
       expect(await runProgressCheckpoint(repoDir, 'checkpoint')).toEqual({ posted: false });
     });
@@ -106,7 +106,7 @@ describe('runProgressCheckpoint', () => {
     await withTestServer(async ({ baseUrl, services, projectId }) => {
       const repoDir = makeRepo();
       bindRepo(repoDir, baseUrl, projectId);
-      const run = services.agentRunService.start(projectId, 'Worker');
+      const run = await services.agentRunService.start(projectId, 'Worker');
       if (!run) {
         throw new Error('expected run');
       }
@@ -114,7 +114,7 @@ describe('runProgressCheckpoint', () => {
       const result = await runProgressCheckpoint(repoDir, 'checkpoint (hook)');
       expect(result).toEqual({ posted: true });
 
-      const runs = services.agentRunService.listForProject(projectId);
+      const runs = await services.agentRunService.listForProject(projectId);
       expect(runs?.[0]?.events).toHaveLength(1);
       expect(runs?.[0]?.events[0]).toMatchObject({ message: 'checkpoint (hook)' });
     });

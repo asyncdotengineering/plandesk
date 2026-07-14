@@ -19,14 +19,14 @@ afterEach(() => {
 });
 
 describe('openWorkspace on a missing database', () => {
-  it('throws instead of auto-creating an empty workspace.db (issue #4)', () => {
+  it('throws instead of auto-creating an empty workspace.db (issue #4)', async () => {
     const dataDir = makeTempDir();
-    expect(() => openWorkspace(dataDir)).toThrow(WorkspaceNotFoundError);
+    await expect(openWorkspace(dataDir)).rejects.toThrow(WorkspaceNotFoundError);
     expect(existsSync(join(dataDir, 'workspace.db'))).toBe(false);
-    expect(() => openWorkspace(dataDir)).toThrow(/plandesk init/);
+    await expect(openWorkspace(dataDir)).rejects.toThrow(/plandesk init/);
   });
 
-  it('names the connect binding when one is present', () => {
+  it('names the connect binding when one is present', async () => {
     const dataDir = makeTempDir();
     mkdirSync(dataDir, { recursive: true });
     writeFileSync(
@@ -39,7 +39,9 @@ describe('openWorkspace on a missing database', () => {
       }),
       'utf8',
     );
-    expect(() => openWorkspace(dataDir)).toThrow(/connect binding \(http:\/\/127\.0\.0\.1:3456\)/);
+    await expect(openWorkspace(dataDir)).rejects.toThrow(
+      /connect binding \(http:\/\/127\.0\.0\.1:3456\)/,
+    );
     expect(existsSync(join(dataDir, 'workspace.db'))).toBe(false);
   });
 });

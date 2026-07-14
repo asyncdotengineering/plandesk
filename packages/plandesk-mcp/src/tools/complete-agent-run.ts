@@ -4,10 +4,10 @@ import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from 
 
 export function createCompleteAgentRunHandler(
   agentRunService: AgentRunService,
-): (args: { run_id: string; status: 'completed' | 'failed' }) => ToolResult {
-  return (args) => {
+): (args: { run_id: string; status: 'completed' | 'failed' }) => Promise<ToolResult> {
+  return async (args) => {
     try {
-      const run = agentRunService.complete(args.run_id, args.status);
+      const run = await agentRunService.complete(args.run_id, args.status);
       if (!run) {
         return toolNotFound();
       }

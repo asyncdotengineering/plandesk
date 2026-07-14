@@ -62,8 +62,8 @@ export async function runInit(dataDirOverride?: string): Promise<string> {
   const dataDir = resolveInitDataDir(dataDirOverride);
   mkdirSync(dataDir, { recursive: true });
   const dbPath = workspaceDbPath(dataDir);
-  const db = createDb(dbPath);
-  migrate(db);
+  const db = await createDb(dbPath);
+  await migrate(db);
 
   const existing = readWorkspaceJson(dataDir);
   if (existing === undefined) {
