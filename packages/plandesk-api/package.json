@@ -22,13 +22,14 @@
     "prepack": "node -e \"const fs=require('fs');const s='../../apps/plandesk-web/dist';if(fs.existsSync(s)){fs.rmSync('web',{recursive:true,force:true});fs.cpSync(s,'web',{recursive:true});console.log('bundled web SPA')}else{console.warn('web dist missing; published serve will lack UI')}\""
   },
   "devDependencies": {
-    "@plandesk/db": "workspace:*",
+    "@cloudflare/workers-types": "^4.20250609.0",
     "@plandesk/sync-server": "workspace:*",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.4",
+    "@plandesk/db": "workspace:*",
     "hono": "^4.12.23"
   },
   "description": "Plan Desk REST + SSE API and service layer (local-first planning workspace).",

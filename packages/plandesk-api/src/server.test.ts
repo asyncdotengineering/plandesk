@@ -3,8 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Hono } from 'hono';
-import { createDb, migrate , type Db} from '@plandesk/db';
+import { createDb, migrate } from '@plandesk/db';
 import { createApp } from './server.js';
+import { mountStatic } from './static.js';
 import { createTestApp } from './test-helpers.js';
 
 describe('createApp', () => {
@@ -35,6 +36,8 @@ describe('createApp', () => {
       const stubMcp = new Hono();
       stubMcp.all('*', (c) => c.json({ mcp: true }));
       const app = createApp({ db, mcp: stubMcp });
+      // Node path mounts SPA after createApp (edge uses platform assets instead).
+      mountStatic(app, distDir);
 
       // The MCP transport uses GET /mcp/ for its SSE stream. Before the fix the
       // SPA catch-all shadowed it and returned a 404, breaking reconnect.

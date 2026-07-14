@@ -1,0 +1,26 @@
+name = "plandesk-api"
+main = "src/worker.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Turso URL + auth token and S3/R2 credentials are secrets — never commit them.
+#   wrangler secret put PLANDESK_DB_URL
+#   wrangler secret put PLANDESK_DB_TOKEN
+#   wrangler secret put PLANDESK_S3_BUCKET
+#   wrangler secret put PLANDESK_S3_REGION
+#   wrangler secret put PLANDESK_S3_ACCESS_KEY_ID
+#   wrangler secret put PLANDESK_S3_SECRET_ACCESS_KEY
+# Optional:
+#   wrangler secret put PLANDESK_S3_ENDPOINT
+#   wrangler secret put PLANDESK_AUTH_PASSWORD
+
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "plandesk-files"
+preview_bucket_name = "plandesk-files-preview"
+
+# Built SPA (published package ships web/ next to this package).
+[assets]
+directory = "web"
+binding = "ASSETS"
+not_found_handling = "single-page-application"

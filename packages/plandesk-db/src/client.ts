@@ -23,8 +23,18 @@ function normalizeUrl(path: string): string {
   return `file:${path}`;
 }
 
-export async function createDb(path: string) {
-  const client = createClient({ url: normalizeUrl(path) });
+/**
+ * Open a libSQL/SQLite database.
+ * @param path file path, `:memory:`, or remote `libsql:`/`https:` URL
+ * @param authToken optional Turso/libSQL auth token (remote only; never used for local files)
+ */
+export async function createDb(path: string, authToken?: string) {
+  const url = normalizeUrl(path);
+  const client = createClient(
+    authToken !== undefined && authToken.length > 0
+      ? { url, authToken }
+      : { url },
+  );
   await client.execute('PRAGMA foreign_keys = ON');
   return drizzle(client, { schema });
 }

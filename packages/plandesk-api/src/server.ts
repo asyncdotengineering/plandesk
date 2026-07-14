@@ -22,7 +22,6 @@ import { createAgentRunsRouter } from './routes/agent-runs.js';
 import { createGoalsRouter } from './routes/goals.js';
 import { createSubmissionsRouter } from './routes/submissions.js';
 import { createOrgsRouter } from './routes/orgs.js';
-import { mountStatic } from './static.js';
 import { createServices, type Services } from './services/index.js';
 import { ProjectNotInOrgError } from './services/scope.js';
 import { ReadOnlyTokenError } from './auth-context.js';
@@ -103,7 +102,10 @@ export function createApp(deps: AppDeps): Hono {
     app.route('/mcp', deps.mcp);
   }
 
-  mountStatic(app);
+  // SPA static files are NOT mounted here. Node mounts them via `mountStatic`
+  // in the serve entry; Workers/Vercel serve the SPA through platform assets.
+  // Keeping static out of createApp prevents node:fs and @hono/node-server
+  // from entering the edge bundle graph.
 
   app.notFound((c) => c.json({ error: 'not_found' }, 404));
 

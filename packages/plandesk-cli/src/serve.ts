@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import { getRequestListener } from '@hono/node-server';
-import { createApp, createServices } from '@plandesk/api';
+import { createApp, createServices, mountStatic } from '@plandesk/api';
 import { createDb, ensureDefaultOrg, migrate, verifyToken } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
@@ -73,6 +73,8 @@ export async function startServer(
   };
   const mcpApp = createMcpApp({ services, tokenStore });
   const app = createApp({ db, services, mcp: mcpApp, authPassword, bindHost: host });
+  // Node-only: serve the bundled web SPA from disk. Edge entries use platform assets.
+  mountStatic(app);
 
   const server = createServer((req, res) => {
     void getRequestListener(app.fetch)(req, res);
