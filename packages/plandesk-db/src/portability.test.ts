@@ -18,7 +18,8 @@ import { createArtifact, getArtifact } from './repositories/artifacts.js';
 import { createFile, getFile } from './repositories/files.js';
 import { createFolder } from './repositories/folders.js';
 import { createNote } from './repositories/notes.js';
-import { createProject, updateProject } from './repositories/projects.js';
+import { updateProject } from './repositories/projects.js';
+import { createProjectInDefaultOrg as createProject } from './testing.js';
 import { createTag, setTaskTags } from './repositories/tags.js';
 import { createTaskWithDefaultGoal as createTask } from './testing.js';
 
@@ -462,7 +463,7 @@ describe('export/import portability', () => {
     expect(reExported.files).toHaveLength(1);
     expect(reExported.files[0]?.bytes_base64).toBe(bytes.toString('base64'));
 
-    const importedFile = await getFile(targetDb, id);
+    const importedFile = await getFile(targetDb, importedProjectId, id);
     expect(importedFile?.bytes).toEqual(bytes);
     expect(importedFile?.projectId).toBe(importedProjectId);
   });

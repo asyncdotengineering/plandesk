@@ -10,7 +10,7 @@ import {
   listShares,
   revokeShare,
 } from './shares.js';
-import { createProject } from './projects.js';
+import { createProjectInDefaultOrg as createProject } from '../testing.js';
 
 describe('shares repository', () => {
   let db: Db;

@@ -11,6 +11,48 @@ type MigrationJournal = {
 };
 
 const DOWN_SQL: Record<string, string[]> = {
+  '0014_sloppy_photon': [
+    // Reverse composite files PK → single-column id PK
+    `CREATE TABLE \`__old_files\` (
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`project_id\` text NOT NULL,
+	\`filename\` text NOT NULL,
+	\`mime\` text NOT NULL,
+	\`size\` integer NOT NULL,
+	\`bytes\` blob,
+	\`external_url\` text,
+	\`created_at\` text NOT NULL,
+	FOREIGN KEY (\`project_id\`) REFERENCES \`projects\`(\`id\`) ON UPDATE no action ON DELETE no action
+);`,
+    'INSERT INTO `__old_files` (`id`, `project_id`, `filename`, `mime`, `size`, `bytes`, `external_url`, `created_at`) SELECT `id`, `project_id`, `filename`, `mime`, `size`, `bytes`, `external_url`, `created_at` FROM `files`;',
+    'DROP TABLE `files`;',
+    'ALTER TABLE `__old_files` RENAME TO `files`;',
+    // Drop org_id/scope from mcp_tokens
+    `CREATE TABLE \`__old_mcp_tokens\` (
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`name\` text NOT NULL,
+	\`token_hash\` text NOT NULL,
+	\`created_at\` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
+	\`revoked_at\` integer
+);`,
+    'INSERT INTO `__old_mcp_tokens` (`id`, `name`, `token_hash`, `created_at`, `revoked_at`) SELECT `id`, `name`, `token_hash`, `created_at`, `revoked_at` FROM `mcp_tokens`;',
+    'DROP TABLE `mcp_tokens`;',
+    'ALTER TABLE `__old_mcp_tokens` RENAME TO `mcp_tokens`;',
+    // Drop org_id from projects
+    `CREATE TABLE \`__old_projects\` (
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`name\` text NOT NULL,
+	\`description\` text,
+	\`canvas_layout\` text,
+	\`created_at\` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
+	\`updated_at\` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
+);`,
+    'INSERT INTO `__old_projects` (`id`, `name`, `description`, `canvas_layout`, `created_at`, `updated_at`) SELECT `id`, `name`, `description`, `canvas_layout`, `created_at`, `updated_at` FROM `projects`;',
+    'DROP TABLE `projects`;',
+    'ALTER TABLE `__old_projects` RENAME TO `projects`;',
+    'DROP TABLE IF EXISTS `org_members`;',
+    'DROP TABLE IF EXISTS `orgs`;',
+  ],
   '0013_curious_hedge_knight': ['DROP TABLE IF EXISTS `artifacts`;'],
   '0012_needy_nico_minoru': ['DROP TABLE IF EXISTS `files`;'],
   '0011_lush_bushwacker': ['ALTER TABLE `comments` DROP COLUMN `anchor`;'],

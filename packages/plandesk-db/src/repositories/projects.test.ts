@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type Db } from '../client.js';
 import { migrate } from '../migrate.js';
 import {
-  createProject,
   deleteProject,
   getProject,
-  listProjects,
   updateProject,
 } from './projects.js';
+import { listProjectsInDefaultOrg as listProjects } from '../testing.js';
+import { createProjectInDefaultOrg as createProject } from '../testing.js';
 
 describe('projects repository', () => {
   let db: Db;

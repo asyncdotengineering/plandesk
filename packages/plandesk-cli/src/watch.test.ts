@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SyncService } from '@plandesk/api';
-import { createProject } from '@plandesk/db';
+import { createProjectInDefaultOrg as createProject } from '@plandesk/db';
 import { buildConfigJson } from './connect-artifacts.js';
 import { runInit } from './init.js';
 import { writeSyncToken } from './sync.js';

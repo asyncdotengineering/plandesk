@@ -7,8 +7,8 @@ import { getRequestListener } from '@hono/node-server';
 import { createApp, createServices } from '@plandesk/api';
 import {
   createDb,
-  createProject,
-  createToken,
+  createProjectInDefaultOrg as createProject,
+  createTokenInDefaultOrg as createToken,
   migrate,
   revokeToken,
   verifyToken,
@@ -35,7 +35,7 @@ async function withTestServer(
   const db = await createDb(':memory:');
   await migrate(db);
   const project = await createProject(db, { name: 'connect-repo' });
-    const services = createServices({ db });
+    const services = createServices({ db, orgId: project.orgId });
   const mcpApp = createMcpApp({ services, tokenStore: createTestTokenStore(db) });
   const app = createApp({ db, services, mcp: mcpApp });
 
@@ -322,7 +322,7 @@ describe('CLI connect/disconnect', () => {
     const db = await createDb(':memory:');
     await migrate(db);
     const project = await createProject(db, { name: 'cli-connect' });
-        const services = createServices({ db });
+        const services = createServices({ db, orgId: project.orgId });
     const mcpApp = createMcpApp({ services, tokenStore: createTestTokenStore(db) });
     const app = createApp({ db, services, mcp: mcpApp });
     const server = createServer((req, res) => {

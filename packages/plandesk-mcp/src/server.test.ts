@@ -7,8 +7,8 @@ import { createApp, createServices } from '@plandesk/api';
 import {
   createDb,
   createEdge,
-  createProject,
-  createToken,
+  createProjectInDefaultOrg as createProject,
+  createTokenInDefaultOrg as createToken,
   createDocument,
   createComment,
   listTasks,
@@ -51,9 +51,11 @@ async function withMcpServer(
   const project = await createProject(db, { name: 'MCP Test Project', description: 'via MCP' });
   const { token } = await createToken(db, { name: 'test' });
 
-  const services = createServices({ db });
+  const services = createServices({ db, orgId: project.orgId });
   const mcpApp = createMcpApp({ services, tokenStore: createTestTokenStore(db) });
-  const app = createApp({ db, services, mcp: mcpApp });
+  // Default bindHost is loopback (local zero-token). Tests that need token
+  // enforcement can pass Authorization; unauthorized tests use a missing/revoked token.
+  const app = createApp({ db, services, mcp: mcpApp, bindHost: '127.0.0.1' });
 
   const server = createServer((req, res) => {
     void getRequestListener(app.fetch)(req, res);
@@ -126,9 +128,12 @@ describe('createMcpApp', () => {
     }
   });
 
-  it('returns 401 without Authorization header', async () => {
+  it('returns 401 for an invalid bearer token', async () => {
     await withMcpServer(async ({ baseUrl }) => {
-      const res = await fetch(`${baseUrl}/mcp`, { method: 'POST' });
+      const res = await fetch(`${baseUrl}/mcp`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer plandesk_mcp_not-a-real-token' },
+      });
       expect(res.status).toBe(401);
       expect(await res.json()).toEqual({ error: 'unauthorized' });
     });

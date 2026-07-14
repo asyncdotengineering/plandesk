@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDb, createProject, getDocument, getFolder, migrate , type Db} from '@plandesk/db';
+import { createDb, createProjectInDefaultOrg as createProject, getDocument, getFolder, migrate , type Db} from '@plandesk/db';
 import { createDocumentService } from './documents.js';
 import { createFolderService, InvalidFolderError } from './folders.js';
 
@@ -11,13 +11,14 @@ describe('folderService', () => {
     await migrate(db);
   });
     let projectId = '';
+  let orgId = '';
 
   function createService() {
-    return createFolderService({ db });
+    return createFolderService({ db, orgId });
   }
 
   function createDocService() {
-    return createDocumentService({ db });
+    return createDocumentService({ db, orgId });
   }
 
   beforeEach(async () => {
@@ -26,7 +27,9 @@ describe('folderService', () => {
     await db.$client.execute('UPDATE folders SET parent_folder_id = NULL');
     await db.$client.execute('DELETE FROM folders');
     await db.$client.execute('DELETE FROM projects');
-    projectId = (await createProject(db, { name: 'Folders' })).id;
+    const project = await createProject(db, { name: 'Folders' });
+    projectId = project.id;
+    orgId = project.orgId;
   });
 
   it('creates a folder', async () => {

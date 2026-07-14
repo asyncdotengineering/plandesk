@@ -9,8 +9,10 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeTag, type SerializedTag } from '../serialize.js';
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
-export type TagServiceDeps = {
+export type TagServiceDeps = OrgScopedDeps & {
   db: Db;
 };
 
@@ -44,17 +46,25 @@ export function createTagService(deps: TagServiceDeps) {
 
   return {
     async list(projectId: string): Promise<SerializedTag[] | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       return (await dbListTags(db, projectId)).map(serializeTag);
     },
 
     async create(projectId: string, input: CreateTagInput): Promise<SerializedTag | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       const name = normalizeTagName(input.name);

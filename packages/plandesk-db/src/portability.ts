@@ -9,6 +9,7 @@ import { createFile, listFilesByProject } from './repositories/files.js';
 import { createFolder, listFolders } from './repositories/folders.js';
 import { createNote } from './repositories/notes.js';
 import { createGoal, getOrCreateDefaultGoal, listGoals } from './repositories/goals.js';
+import { ensureDefaultOrg } from './repositories/orgs.js';
 import { createProject, getProject, updateProject } from './repositories/projects.js';
 import { createTag, listTags, listTagsByTaskForProject, setTaskTags } from './repositories/tags.js';
 import { createComment, listCommentsByProject } from './repositories/comments.js';
@@ -449,9 +450,11 @@ export async function importProject(
       agentRunIdMap.set(run.id, randomUUID());
     }
 
+    const org = await ensureDefaultOrg(tx);
     const project = await createProject(tx, {
       name: data.project.name,
       description: data.project.description,
+      orgId: org.id,
     });
     if (data.project.canvas_layout !== null) {
       await updateProject(tx, project.id, { canvasLayout: data.project.canvas_layout });

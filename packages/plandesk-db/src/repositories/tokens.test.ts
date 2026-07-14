@@ -1,14 +1,18 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type Db } from '../client.js';
 import { migrate } from '../migrate.js';
-import { createToken, listTokens, revokeToken, verifyToken } from './tokens.js';
+import { ensureDefaultOrg } from './orgs.js';
+import { listTokens, revokeToken, verifyToken } from './tokens.js';
+import { createTokenInDefaultOrg as createToken } from '../testing.js';
 
 describe('mcp_tokens repository', () => {
   let db: Db;
+  let orgId = '';
 
   beforeEach(async () => {
     db = await createDb(':memory:');
     await migrate(db);
+    orgId = (await ensureDefaultOrg(db)).id;
   });
 
   it('creates a token with plandesk_mcp_ prefix and stores sha256 only', async () => {
@@ -18,11 +22,12 @@ describe('mcp_tokens repository', () => {
     expect(token).toMatch(/^plandesk_mcp_/);
     expect(id).toBeTruthy();
 
-    const listed = await listTokens(db);
+    const listed = await listTokens(db, orgId);
     expect(listed).toHaveLength(1);
     expect(listed[0]).toMatchObject({
       id,
       name: 'CI bot',
+      scope: 'full',
       revoked_at: null,
     });
     expect(typeof listed[0]?.created_at).toBe('string');
@@ -42,7 +47,12 @@ describe('mcp_tokens repository', () => {
 
   it('verifies a valid token', async () => {
     const { token, id } = await createToken(db, { name: 'valid' });
-    expect(await verifyToken(db, token)).toEqual({ id, name: 'valid' });
+    expect(await verifyToken(db, token)).toEqual({
+      id,
+      name: 'valid',
+      orgId,
+      scope: 'full',
+    });
   });
 
   it('rejects unknown tokens', async () => {

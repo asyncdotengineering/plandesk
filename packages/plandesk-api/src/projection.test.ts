@@ -5,7 +5,7 @@ import {
   createDocument,
   createComment,
   createEdge,
-  createProject,
+  createProjectInDefaultOrg as createProject,
   createShare,
   migrate,
   type Db,

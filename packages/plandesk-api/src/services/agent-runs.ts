@@ -10,8 +10,10 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeAgentRun, serializeAgentRunEvent, type PaginationParams } from '../serialize.js';
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
-export type AgentRunServiceDeps = {
+export type AgentRunServiceDeps = OrgScopedDeps & {
   db: Db;
 };
 
@@ -29,9 +31,13 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
 
   return {
     async listForProject(projectId: string, pagination: PaginationParams = {}) {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       const runs = (await listAgentRuns(db, projectId, pagination)).slice().sort((a, b) => {
@@ -59,9 +65,13 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
     },
 
     async start(projectId: string, label?: string | null) {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       const run = await createAgentRun(db, { projectId, label });

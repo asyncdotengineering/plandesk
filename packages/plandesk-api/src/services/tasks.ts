@@ -28,6 +28,8 @@ import {
   type TaskStatus,
 } from '@plandesk/db';
 import { serializeTask, type PaginationParams } from '../serialize.js';
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 import { normalizeTagName } from './tags.js';
 
 type SerializedTask = ReturnType<typeof serializeTask>;
@@ -66,7 +68,7 @@ function prerequisiteAndDependent(
   return { prerequisite: edge.fromTaskId, dependent: edge.toTaskId };
 }
 
-export type TaskServiceDeps = {
+export type TaskServiceDeps = OrgScopedDeps & {
   db: Db;
 };
 
@@ -142,9 +144,13 @@ export function createTaskService(deps: TaskServiceDeps) {
         throw new InvalidTaskStatusError(filter.status);
       }
 
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       const statusFilter = filter.status;
@@ -162,9 +168,13 @@ export function createTaskService(deps: TaskServiceDeps) {
         throw new InvalidTaskStatusError(input.status);
       }
 
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       if (
@@ -250,9 +260,13 @@ export function createTaskService(deps: TaskServiceDeps) {
       projectId: string,
       filter: { goalId?: string; tags?: string[] } = {},
     ): Promise<NextActionableResult | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       let goalId = filter.goalId;

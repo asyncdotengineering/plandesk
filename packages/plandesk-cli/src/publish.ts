@@ -1,4 +1,5 @@
 import type { Db } from '@plandesk/db';
+import { ensureDefaultOrg } from '@plandesk/db';
 import { createServices } from '@plandesk/api';
 import { ensureSyncGitignore, resolvePublishInput, setConfigSync, writeSyncToken } from './sync.js';
 
@@ -18,7 +19,8 @@ export type PublishResult = {
 
 export async function runPublish(db: Db, options: PublishOptions): Promise<PublishResult> {
   const input = resolvePublishInput(options);
-  const { syncService } = createServices({ db });
+  const org = await ensureDefaultOrg(db);
+  const { syncService } = createServices({ db, orgId: org.id });
   const { globalProjectId, pushed } = await syncService.publishProject(input.projectId, {
     serverUrl: input.serverUrl,
     syncToken: input.syncToken,

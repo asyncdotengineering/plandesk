@@ -15,6 +15,8 @@ import {
   type ShareSubmission,
   type ShareSubmissionStatus,
 } from '@plandesk/db';
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 import type { ShareService } from './share.js';
 import type { TaskService } from './tasks.js';
 
@@ -96,7 +98,7 @@ export function serializeSubmission(row: ShareSubmission): SerializedSubmission 
   };
 }
 
-export type SyncServiceDeps = {
+export type SyncServiceDeps = OrgScopedDeps & {
   db: Db;
   taskService: TaskService;
   shareService: ShareService;

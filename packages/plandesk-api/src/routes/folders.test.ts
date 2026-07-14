@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDocument, createProject, getDocument, getFolder } from '@plandesk/db';
+import { createDocument, createProjectInDefaultOrg as createProject, getDocument, getFolder } from '@plandesk/db';
 import { createTestApp, parseJson } from '../test-helpers.js';
 
 type FolderResponse = {

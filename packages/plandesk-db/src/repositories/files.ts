@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
-import { files } from '../schema.js';
+import { files, projects } from '../schema.js';
 
 export type File = typeof files.$inferSelect;
 
@@ -28,18 +28,50 @@ export async function createFile(db: DbClient, input: NewFile): Promise<File> {
       externalUrl: input.externalUrl ?? null,
       createdAt: input.createdAt ?? new Date().toISOString(),
     })
-    .onConflictDoNothing({ target: files.id })
+    .onConflictDoNothing({ target: [files.projectId, files.id] })
     .returning()
     .all();
-  const row = rows[0] ?? (await getFile(db, input.id));
+  const row = rows[0] ?? (await getFile(db, input.projectId, input.id));
   if (!row) {
     throw new Error('Failed to create file');
   }
   return row;
 }
 
-export async function getFile(db: DbClient, id: string): Promise<File | undefined> {
-  return db.select().from(files).where(eq(files.id, id)).get();
+export async function getFile(
+  db: DbClient,
+  projectId: string,
+  id: string,
+): Promise<File | undefined> {
+  return db
+    .select()
+    .from(files)
+    .where(and(eq(files.projectId, projectId), eq(files.id, id)))
+    .get();
+}
+
+/** Resolve a content-hash id within an org (no cross-org leakage). */
+export async function getFileInOrg(
+  db: DbClient,
+  fileId: string,
+  orgId: string,
+): Promise<File | undefined> {
+  const row = await db
+    .select({
+      id: files.id,
+      projectId: files.projectId,
+      filename: files.filename,
+      mime: files.mime,
+      size: files.size,
+      bytes: files.bytes,
+      externalUrl: files.externalUrl,
+      createdAt: files.createdAt,
+    })
+    .from(files)
+    .innerJoin(projects, eq(files.projectId, projects.id))
+    .where(and(eq(files.id, fileId), eq(projects.orgId, orgId)))
+    .get();
+  return row;
 }
 
 export async function listFilesByProject(db: DbClient, projectId: string): Promise<File[]> {

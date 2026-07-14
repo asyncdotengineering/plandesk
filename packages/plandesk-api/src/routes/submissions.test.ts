@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createDb, createProject, migrate, upsertSubmission , type Db} from '@plandesk/db';
+import { createDb, createProjectInDefaultOrg as createProject, migrate, upsertSubmission , type Db} from '@plandesk/db';
 import { createApp } from '../server.js';
 import { createServices, type Services } from '../services/index.js';
 import { parseJson } from '../test-helpers.js';
@@ -13,7 +13,8 @@ const remote = {
 async function createTestAppWithServices() {
   const db = await createDb(':memory:');
   await migrate(db);
-    const services: Services = createServices({ db });
+  const project = await createProject(db, { name: '__seed__' });
+  const services: Services = createServices({ db, orgId: project.orgId });
   const app = createApp({ db, services });
   return { app, db, services };
 }

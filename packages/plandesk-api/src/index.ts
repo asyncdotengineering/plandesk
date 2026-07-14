@@ -1,8 +1,22 @@
 export { createApp, type AppDeps } from './server.js';
-export { createAuthMiddleware } from './auth.js';
+export {
+  createAuthMiddleware,
+  createOrgAuthMiddleware,
+  createWriteGuardMiddleware,
+  isLoopbackBind,
+  type OrgAuthOptions,
+} from './auth.js';
+export {
+  runWithAuthContext,
+  tryGetAuthContext,
+  getAuthContext,
+  ReadOnlyTokenError,
+  type AuthContext,
+} from './auth-context.js';
 export { healthRouter } from './routes/health.js';
 export { mountStatic } from './static.js';
 export { createServices, type Services, type ServicesDeps } from './services/index.js';
+export { assertProjectInOrg, ProjectNotInOrgError } from './services/scope.js';
 export type { ProjectService } from './services/projects.js';
 export type { GoalService, VerificationEvidence } from './services/goals.js';
 export {

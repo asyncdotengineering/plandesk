@@ -1,7 +1,11 @@
 import { Hono } from 'hono';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import type { Services } from '@plandesk/api';
+import {
+  runWithAuthContext,
+  tryGetAuthContext,
+  type Services,
+} from '@plandesk/api';
 import { createAddCommentHandler } from './tools/add-comment.js';
 import { createAddArtifactCommentHandler } from './tools/add-artifact-comment.js';
 import { createAttachFileHandler } from './tools/attach-file.js';
@@ -99,7 +103,9 @@ import { createUpdateDocumentHandler } from './tools/update-document.js';
 import { createUpdateTaskHandler } from './tools/update-task.js';
 
 export type TokenStore = {
-  verify(raw: string): Promise<{ id: string; name: string } | undefined>;
+  verify(
+    raw: string,
+  ): Promise<{ id: string; name: string; orgId: string; scope: 'read-only' | 'full' } | undefined>;
 };
 
 export type McpAppDeps = {
@@ -626,15 +632,28 @@ export function createMcpApp(deps: McpAppDeps): Hono {
   const app = new Hono();
 
   app.use('*', async (c, next) => {
+    // Parent createApp org-auth may already have set the request auth context
+    // (loopback single-org). Prefer an explicit Bearer when present.
     const raw = extractBearerToken(c.req.header('Authorization'));
-    if (raw === undefined) {
-      return c.json({ error: 'unauthorized' }, 401);
+    if (raw !== undefined) {
+      const verified = await deps.tokenStore.verify(raw);
+      if (!verified) {
+        return c.json({ error: 'unauthorized' }, 401);
+      }
+      // Re-enter with token org so MCP tool handlers see the correct tenant.
+      await runWithAuthContext({ orgId: verified.orgId, tokenScope: verified.scope }, async () => {
+        await next();
+      });
+      return;
     }
-    const verified = await deps.tokenStore.verify(raw);
-    if (!verified) {
-      return c.json({ error: 'unauthorized' }, 401);
+
+    // No bearer: allow if parent middleware already established auth context.
+    if (tryGetAuthContext() !== undefined) {
+      await next();
+      return;
     }
-    await next();
+
+    return c.json({ error: 'unauthorized' }, 401);
   });
 
   // Match both `/mcp` and the RFC §4.3 documented `/mcp/` (trailing slash), so

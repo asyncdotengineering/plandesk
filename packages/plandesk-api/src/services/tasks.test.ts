@@ -4,7 +4,7 @@ import {
   createDocument,
   createEdge,
   createGoal,
-  createProject,
+  createProjectInDefaultOrg as createProject,
   createTag,
   getDocument,
   getOrCreateDefaultGoal,
@@ -29,9 +29,10 @@ describe('taskService', () => {
     await migrate(db);
   });
     let projectId = '';
+  let orgId = '';
 
   function createService() {
-    return createTaskService({ db });
+    return createTaskService({ db, orgId });
   }
 
   beforeEach(async () => {
@@ -43,7 +44,9 @@ describe('taskService', () => {
     await db.$client.execute('DELETE FROM tasks');
     await db.$client.execute('DELETE FROM goals');
     await db.$client.execute('DELETE FROM projects');
-    projectId = (await createProject(db, { name: 'Project' })).id;
+    const project = await createProject(db, { name: 'Project' });
+    projectId = project.id;
+    orgId = project.orgId;
   });
 
   it('lists tasks for a project with optional status filter', async () => {
@@ -98,7 +101,7 @@ describe('taskService', () => {
   });
 
   it('creates a task', async () => {
-    const service = createTaskService({ db });
+    const service = createTaskService({ db, orgId });
 
     const created = await service.create(projectId, {
       label: 'New task',
@@ -148,7 +151,7 @@ describe('taskService', () => {
   });
 
   it('updates a task successfully', async () => {
-    const service = createTaskService({ db });
+    const service = createTaskService({ db, orgId });
     const created = await createTask(db, { projectId, label: 'Emit', status: 'todo' });
 
     const updated = await service.update(created.id, { status: 'done' });

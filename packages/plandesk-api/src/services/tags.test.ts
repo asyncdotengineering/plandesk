@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { createDb, createProject, listTagsForTask, migrate, type Db } from '@plandesk/db';
+import { createDb, createProjectInDefaultOrg as createProject, listTagsForTask, migrate, type Db } from '@plandesk/db';
 import { createTagService, InvalidTagError } from './tags.js';
 import { createTaskService } from './tasks.js';
 
 async function setup() {
   const db = await createDb(':memory:');
   await migrate(db);
-  const tagService = createTagService({ db });
-  const taskService = createTaskService({ db });
   const project = await createProject(db, { name: 'Tags' });
+  const orgId = project.orgId;
+  const tagService = createTagService({ db, orgId });
+  const taskService = createTaskService({ db, orgId });
   return { db, tagService, taskService, projectId: project.id };
 }
 

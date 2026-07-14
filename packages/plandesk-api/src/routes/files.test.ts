@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { createProject } from '@plandesk/db';
+import { createProjectInDefaultOrg as createProject } from '@plandesk/db';
 import { createTestApp, parseJson } from '../test-helpers.js';
 
 type UploadedFileResponse = {

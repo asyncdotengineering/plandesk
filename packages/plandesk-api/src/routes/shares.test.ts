@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createDb, createDocument, createProject, migrate , type Db} from '@plandesk/db';
+import {
+  createDb,
+  createDocument,
+  createProjectInDefaultOrg as createProject,
+  ensureDefaultOrg,
+  migrate,
+  type Db,
+} from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createServices } from '../services/index.js';
 import { createApp } from '../server.js';
@@ -7,8 +14,9 @@ import { createApp } from '../server.js';
 async function createTestAppWithServices() {
   const db = await createDb(':memory:');
   await migrate(db);
-  const services = createServices({ db });
-  return { app: createApp({ db, services }), db, services };
+  const org = await ensureDefaultOrg(db);
+  const services = createServices({ db, orgId: org.id });
+  return { app: createApp({ db, services }), db, services, orgId: org.id };
 }
 
 describe('shares routes', () => {

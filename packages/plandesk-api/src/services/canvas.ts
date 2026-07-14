@@ -16,8 +16,10 @@ import {
   type Project,
 } from '@plandesk/db';
 import { serializeEdge, serializeTask } from '../serialize.js';
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
-export type CanvasServiceDeps = {
+export type CanvasServiceDeps = OrgScopedDeps & {
   db: Db;
 };
 
@@ -78,21 +80,28 @@ export function createCanvasService(deps: CanvasServiceDeps) {
 
   return {
     async get(projectId: string) {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        const project = await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+        return buildCanvas(projectId, project);
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
-
-      return buildCanvas(projectId, project);
     },
 
     async createEdge(
       projectId: string,
       input: { fromTaskId: string; toTaskId: string; label?: string | null; style?: string | null },
     ) {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       const taskIds = new Set((await listTasks(db, projectId)).map((task) => task.id));
@@ -115,9 +124,13 @@ export function createCanvasService(deps: CanvasServiceDeps) {
     },
 
     async putLayout(projectId: string, payload: PutCanvasLayoutInput) {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       for (const node of payload.nodes) {

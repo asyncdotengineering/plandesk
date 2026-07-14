@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createDb,
   createDocument,
-  createProject,
+  createProjectInDefaultOrg as createProject,
+  ensureDefaultOrg,
   getShare,
   getShareByTokenHashRaw,
   hashShareToken,
@@ -18,14 +19,12 @@ import { createTaskService } from './tasks.js';
 
 describe('shareService', () => {
   let db: Db;
+  let orgId = '';
 
   beforeEach(async () => {
     db = await createDb(':memory:');
     await migrate(db);
-  });
-  
-  beforeEach(async () => {
-    await migrate(db);
+    orgId = (await ensureDefaultOrg(db)).id;
     await db.$client.execute('DELETE FROM share_submissions');
     await db.$client.execute('DELETE FROM sync_state');
     await db.$client.execute('DELETE FROM shares');
@@ -40,12 +39,13 @@ describe('shareService', () => {
   });
 
   function createService() {
-    return createShareService({ db });
+    return createShareService({ db, orgId });
   }
 
   it('creates a share and returns the raw token once', async () => {
     const service = createService();
     const project = await createProject(db, { name: 'Share me' });
+    orgId = project.orgId;
 
     const result = await service.createShare(project.id, {
       audienceName: 'Acme',
@@ -277,7 +277,7 @@ describe('shareService', () => {
   });
 
   it('cascade deletes shares when a project is deleted', async () => {
-    const projectService = createProjectService({ db });
+    const projectService = createProjectService({ db, orgId });
     const shareService = createService();
     const project = await createProject(db, { name: 'Cascade shares' });
     await shareService.createShare(project.id, { audienceName: 'Gone', mode: 'invite' });
@@ -288,10 +288,10 @@ describe('shareService', () => {
   });
 
   it('cascade deletes pulled submissions when a project is deleted', async () => {
-    const projectService = createProjectService({ db });
+    const projectService = createProjectService({ db, orgId });
     const project = await createProject(db, { name: 'Cascade submissions' });
-    const taskService = createTaskService({ db });
-    const shareServiceForSync = createShareService({ db });
+    const taskService = createTaskService({ db, orgId });
+    const shareServiceForSync = createShareService({ db, orgId });
     const syncService = createSyncService({
       db,
       taskService,

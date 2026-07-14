@@ -13,8 +13,10 @@ import {
   type SerializedArtifact,
   type SerializedArtifactSummary,
 } from '../serialize.js';
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
-export type ArtifactServiceDeps = {
+export type ArtifactServiceDeps = OrgScopedDeps & {
   db: Db;
 };
 
@@ -48,9 +50,13 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
 
   return {
     async listByProject(projectId: string): Promise<SerializedArtifactSummary[] | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       return (await dbListArtifactsByProject(db, projectId)).map(serializeArtifactSummary);
     },
@@ -59,9 +65,13 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
       projectId: string,
       input: CreateArtifactInput,
     ): Promise<SerializedArtifact | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       assertNonEmptyTitle(input.title);

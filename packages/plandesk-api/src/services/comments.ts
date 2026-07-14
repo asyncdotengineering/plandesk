@@ -14,8 +14,10 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeComment, type SerializedComment } from '../serialize.js';
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
-export type CommentServiceDeps = {
+export type CommentServiceDeps = OrgScopedDeps & {
   db: Db;
 };
 
@@ -165,9 +167,13 @@ export function createCommentService(deps: CommentServiceDeps) {
       projectId: string,
       options?: { includeResolved?: boolean },
     ): Promise<SerializedComment[] | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       return (await dbListCommentsByProject(db, projectId, options)).map(serializeComment);
     },

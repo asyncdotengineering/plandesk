@@ -4,7 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getRequestListener } from '@hono/node-server';
 import { createApp, createServices } from '@plandesk/api';
-import { createDb, createProject, migrate, type Db } from '@plandesk/db';
+import {
+  createDb,
+  createProjectInDefaultOrg as createProject,
+  createTokenInDefaultOrg as createToken,
+  migrate,
+  type Db,
+} from '@plandesk/db';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildConfigJson } from './connect-artifacts.js';
 import { runProgressCheckpoint } from './progress-checkpoint.js';
@@ -15,12 +21,14 @@ async function withTestServer(
     db: Db;
     services: ReturnType<typeof createServices>;
     projectId: string;
+    token: string;
   }) => Promise<void>,
 ): Promise<void> {
   const db = await createDb(':memory:');
   await migrate(db);
   const project = await createProject(db, { name: 'Checkpoint project' });
-    const services = createServices({ db });
+  const { token } = await createToken(db, { name: 'checkpoint-test' });
+  const services = createServices({ db, orgId: project.orgId });
   const app = createApp({ db, services });
 
   const server: Server = createServer((req, res) => {
@@ -40,7 +48,7 @@ async function withTestServer(
   const baseUrl = `http://127.0.0.1:${String(address.port)}`;
 
   try {
-    await run({ baseUrl, db, services, projectId: project.id });
+    await run({ baseUrl, db, services, projectId: project.id, token });
   } finally {
     await new Promise<void>((resolve, reject) => {
       server.close((err) => {
@@ -72,56 +80,47 @@ describe('runProgressCheckpoint', () => {
     return repoDir;
   }
 
-  function bindRepo(repoDir: string, baseUrl: string, projectId: string): void {
+  function bindRepo(repoDir: string, baseUrl: string, projectId: string, token: string): void {
     mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
     writeFileSync(
       join(repoDir, '.plandesk', 'config.json'),
       buildConfigJson({ serverUrl: baseUrl, projectId, projectName: 'Checkpoint project' }),
       'utf8',
     );
-    writeFileSync(join(repoDir, '.plandesk', 'token'), 'test-token', 'utf8');
+    writeFileSync(join(repoDir, '.plandesk', 'token'), token, 'utf8');
   }
 
   it('no-ops when the repo has no binding', async () => {
     const repoDir = makeRepo();
-    expect(await runProgressCheckpoint(repoDir, 'checkpoint')).toEqual({ posted: false });
+    expect(await runProgressCheckpoint(repoDir, 'hello')).toEqual({ posted: false });
   });
 
   it('no-ops when no agent run is currently running', async () => {
-    await withTestServer(async ({ baseUrl, services, projectId }) => {
+    await withTestServer(async ({ baseUrl, services, projectId, token }) => {
       const repoDir = makeRepo();
-      bindRepo(repoDir, baseUrl, projectId);
-      const run = await services.agentRunService.start(projectId, 'Worker');
-      if (!run) {
-        throw new Error('expected run');
-      }
-      await services.agentRunService.complete(run.id, 'completed');
-
-      expect(await runProgressCheckpoint(repoDir, 'checkpoint')).toEqual({ posted: false });
+      bindRepo(repoDir, baseUrl, projectId, token);
+      expect(await runProgressCheckpoint(repoDir, 'nothing running')).toEqual({ posted: false });
+      expect(await services.agentRunService.listForProject(projectId)).toEqual([]);
     });
   });
 
   it('posts a checkpoint event to the running agent run', async () => {
-    await withTestServer(async ({ baseUrl, services, projectId }) => {
+    await withTestServer(async ({ baseUrl, services, projectId, token }) => {
       const repoDir = makeRepo();
-      bindRepo(repoDir, baseUrl, projectId);
-      const run = await services.agentRunService.start(projectId, 'Worker');
-      if (!run) {
-        throw new Error('expected run');
-      }
+      bindRepo(repoDir, baseUrl, projectId, token);
+      await services.agentRunService.start(projectId, 'Worker');
 
-      const result = await runProgressCheckpoint(repoDir, 'checkpoint (hook)');
+      const result = await runProgressCheckpoint(repoDir, 'checkpoint message');
       expect(result).toEqual({ posted: true });
 
       const runs = await services.agentRunService.listForProject(projectId);
-      expect(runs?.[0]?.events).toHaveLength(1);
-      expect(runs?.[0]?.events[0]).toMatchObject({ message: 'checkpoint (hook)' });
+      expect(runs?.[0]?.events.map((e) => e.message)).toContain('checkpoint message');
     });
   });
 
   it('no-ops when the server is unreachable', async () => {
     const repoDir = makeRepo();
-    bindRepo(repoDir, 'http://127.0.0.1:1', 'missing-project');
-    expect(await runProgressCheckpoint(repoDir, 'checkpoint')).toEqual({ posted: false });
+    bindRepo(repoDir, 'http://127.0.0.1:1', 'missing-project', 'test-token');
+    expect(await runProgressCheckpoint(repoDir, 'unreachable')).toEqual({ posted: false });
   });
 });

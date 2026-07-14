@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import { getRequestListener } from '@hono/node-server';
 import { createApp, createServices } from '@plandesk/api';
-import { createDb, migrate, verifyToken } from '@plandesk/db';
+import { createDb, ensureDefaultOrg, migrate, verifyToken } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
 import {
@@ -62,6 +62,8 @@ export async function startServer(
   const dbPath = workspaceDbPath(dataDir);
   const db = await createDb(dbPath);
   await migrate(db);
+  // Local bootstrap: exactly one default org when none exist (REQ-21).
+  await ensureDefaultOrg(db);
 
   const services = createServices({ db });
   const tokenStore = {
@@ -70,7 +72,7 @@ export async function startServer(
     },
   };
   const mcpApp = createMcpApp({ services, tokenStore });
-  const app = createApp({ db, services, mcp: mcpApp, authPassword });
+  const app = createApp({ db, services, mcp: mcpApp, authPassword, bindHost: host });
 
   const server = createServer((req, res) => {
     void getRequestListener(app.fetch)(req, res);

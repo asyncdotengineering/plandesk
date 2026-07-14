@@ -22,8 +22,46 @@ export type AgentRunStatus = (typeof agentRunStatuses)[number];
 export const commentTargetTypes = ['document', 'task', 'note', 'submission', 'artifact'] as const;
 export type CommentTargetType = (typeof commentTargetTypes)[number];
 
+export const orgRoles = ['owner', 'manager', 'editor', 'commenter', 'viewer'] as const;
+export type OrgRole = (typeof orgRoles)[number];
+
+export const tokenScopes = ['read-only', 'full'] as const;
+export type TokenScope = (typeof tokenScopes)[number];
+
+/** Stable id for the single local org; migration backfill uses the same value. */
+export const DEFAULT_ORG_ID = '00000000-0000-4000-8000-0000000000a1';
+
+export const orgs = sqliteTable('orgs', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+});
+
+export const orgMembers = sqliteTable(
+  'org_members',
+  {
+    orgId: text('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    userRef: text('user_ref').notNull(),
+    role: text('role', { enum: orgRoles }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  },
+  (table) => [primaryKey({ columns: [table.orgId, table.userRef] })],
+);
+
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
+  orgId: text('org_id')
+    .notNull()
+    .references(() => orgs.id),
   name: text('name').notNull(),
   description: text('description'),
   canvasLayout: text('canvas_layout'),
@@ -221,8 +259,12 @@ export const agentRunEvents = sqliteTable('agent_run_events', {
 
 export const mcpTokens = sqliteTable('mcp_tokens', {
   id: text('id').primaryKey(),
+  orgId: text('org_id')
+    .notNull()
+    .references(() => orgs.id),
   name: text('name').notNull(),
   tokenHash: text('token_hash').notNull(),
+  scope: text('scope', { enum: tokenScopes }).notNull().default('full'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
@@ -297,19 +339,24 @@ export const artifacts = sqliteTable('artifacts', {
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
 });
 
-export const files = sqliteTable('files', {
-  // sha256 hex of the bytes — content-addressed for dedup.
-  id: text('id').primaryKey(),
-  projectId: text('project_id')
-    .notNull()
-    .references(() => projects.id),
-  filename: text('filename').notNull(),
-  mime: text('mime').notNull(),
-  size: integer('size').notNull(),
-  bytes: blob('bytes', { mode: 'buffer' }),
-  externalUrl: text('external_url'),
-  createdAt: text('created_at').notNull(),
-});
+export const files = sqliteTable(
+  'files',
+  {
+    // Content hash (sha256 hex). PK is (project_id, id) so identical bytes
+    // in different projects/orgs never collide; dedup is per-project.
+    id: text('id').notNull(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    filename: text('filename').notNull(),
+    mime: text('mime').notNull(),
+    size: integer('size').notNull(),
+    bytes: blob('bytes', { mode: 'buffer' }),
+    externalUrl: text('external_url'),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.projectId, table.id] })],
+);
 
 export const syncRemotes = sqliteTable('sync_remotes', {
   projectId: text('project_id')

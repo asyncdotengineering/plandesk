@@ -1,4 +1,5 @@
 import type { Db } from '@plandesk/db';
+import { ensureDefaultOrg } from '@plandesk/db';
 import { createServices } from '@plandesk/api';
 import { resolveProjectId } from './sync.js';
 
@@ -65,7 +66,8 @@ export async function runShareCreate(
       : undefined;
   const mode = options.public ? 'public' : 'invite';
 
-  const { shareService } = createServices({ db });
+  const org = await ensureDefaultOrg(db);
+  const { shareService } = createServices({ db, orgId: org.id });
   const created = await shareService.createShare(projectId, {
     audienceName: options.audienceName,
     mode,

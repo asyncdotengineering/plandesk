@@ -1,18 +1,27 @@
-import { createDb, migrate, type Db } from '@plandesk/db';
+import { createDb, ensureDefaultOrg, migrate, type Db } from '@plandesk/db';
 import type { Hono } from 'hono';
 import { createApp } from './server.js';
 
 export async function createTestApp(opts?: {
   authPassword?: string;
+  bindHost?: string;
 }): Promise<{
   app: Hono;
   db: Db;
+  orgId: string;
 }> {
   const db = await createDb(':memory:');
   await migrate(db);
+  // Migration seeds the default org; ensureDefaultOrg is idempotent.
+  const org = await ensureDefaultOrg(db);
   return {
-    app: createApp({ db, authPassword: opts?.authPassword }),
+    app: createApp({
+      db,
+      authPassword: opts?.authPassword,
+      bindHost: opts?.bindHost ?? '127.0.0.1',
+    }),
     db,
+    orgId: org.id,
   };
 }
 

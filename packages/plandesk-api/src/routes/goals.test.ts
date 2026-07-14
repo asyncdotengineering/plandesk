@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDb, createGoal, createProject, migrate , type Db} from '@plandesk/db';
+import { createDb, createGoal, createProjectInDefaultOrg as createProject, migrate , type Db} from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createApp } from '../server.js';
 import { createServices } from '../services/index.js';
@@ -8,7 +8,8 @@ import { parseJson } from '../test-helpers.js';
 async function createTestApp() {
   const db = await createDb(':memory:');
   await migrate(db);
-    const services = createServices({ db });
+  const seed = await createProject(db, { name: '__seed__' });
+  const services = createServices({ db, orgId: seed.orgId });
   const app = createApp({ db, services });
   return { app, db, services };
 }

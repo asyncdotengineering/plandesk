@@ -9,8 +9,10 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeNote, type PaginationParams, type SerializedNote } from '../serialize.js';
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
-export type NoteServiceDeps = {
+export type NoteServiceDeps = OrgScopedDeps & {
   db: Db;
 };
 
@@ -45,17 +47,25 @@ export function createNoteService(deps: NoteServiceDeps) {
       projectId: string,
       pagination: PaginationParams = {},
     ): Promise<SerializedNote[] | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       return (await dbListNotes(db, projectId, pagination)).map(serializeNote);
     },
 
     async create(projectId: string, input: CreateNoteInput): Promise<SerializedNote | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       assertNonEmptyTitle(input.title);

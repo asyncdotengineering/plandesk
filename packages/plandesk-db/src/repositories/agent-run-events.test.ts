@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type Db } from '../client.js';
 import { migrate } from '../migrate.js';
 import { createAgentRun } from './agent-runs.js';
-import { createProject } from './projects.js';
+import { createProjectInDefaultOrg as createProject } from '../testing.js';
 import { createAgentRunEvent, listAgentRunEvents } from './agent-run-events.js';
 
 describe('agent run events repository', () => {

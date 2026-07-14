@@ -5,8 +5,9 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeToken } from '../serialize.js';
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 
-export type TokenServiceDeps = {
+export type TokenServiceDeps = OrgScopedDeps & {
   db: Db;
 };
 
@@ -15,7 +16,8 @@ export function createTokenService(deps: TokenServiceDeps) {
 
   return {
     async create(name: string) {
-      const result = await dbCreateToken(db, { name });
+      const orgId = resolveOrgId(deps);
+      const result = await dbCreateToken(db, { name, orgId });
       return {
         id: result.id,
         name: result.name,
@@ -24,11 +26,13 @@ export function createTokenService(deps: TokenServiceDeps) {
     },
 
     async list() {
-      return (await dbListTokens(db)).map(serializeToken);
+      const orgId = resolveOrgId(deps);
+      return (await dbListTokens(db, orgId)).map(serializeToken);
     },
 
     async revoke(id: string) {
-      const revoked = await dbRevokeToken(db, id);
+      const orgId = resolveOrgId(deps);
+      const revoked = await dbRevokeToken(db, id, orgId);
       if (!revoked) {
         return undefined;
       }

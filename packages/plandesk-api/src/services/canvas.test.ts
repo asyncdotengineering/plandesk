@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDb, createEdge, createProject, getTask, listEdges, migrate , type Db} from '@plandesk/db';
+import { createDb, createEdge, createProjectInDefaultOrg as createProject, getTask, listEdges, migrate , type Db} from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createCanvasService, InvalidCanvasError } from './canvas.js';
 
@@ -11,9 +11,10 @@ describe('canvasService', () => {
     await migrate(db);
   });
     let projectId = '';
+  let orgId = '';
 
   function createService() {
-    return createCanvasService({ db });
+    return createCanvasService({ db, orgId });
   }
 
   beforeEach(async () => {
@@ -22,7 +23,9 @@ describe('canvasService', () => {
     await db.$client.execute('DELETE FROM tasks');
     await db.$client.execute('DELETE FROM goals');
     await db.$client.execute('DELETE FROM projects');
-    projectId = (await createProject(db, { name: 'Canvas' })).id;
+    const project = await createProject(db, { name: 'Canvas' });
+    projectId = project.id;
+    orgId = project.orgId;
   });
 
   it('returns canvas nodes, edges, and layout', async () => {
@@ -142,7 +145,7 @@ describe('canvasService', () => {
   });
 
   it('createEdge adds an edge', async () => {
-    const service = createCanvasService({ db });
+    const service = createCanvasService({ db, orgId });
     const a = await createTask(db, { projectId, label: 'A' });
     const b = await createTask(db, { projectId, label: 'B' });
 

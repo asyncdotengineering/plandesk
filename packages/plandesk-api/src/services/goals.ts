@@ -17,8 +17,10 @@ import {
   type GoalStatus,
 } from '@plandesk/db';
 import { serializeGoal, serializeTask } from '../serialize.js';
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
-export type GoalServiceDeps = {
+export type GoalServiceDeps = OrgScopedDeps & {
   db: Db;
 };
 
@@ -294,9 +296,13 @@ export function createGoalService(deps: GoalServiceDeps) {
       }
       validateVerificationSurfaceInput(input.verificationSurface);
 
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       const goal = await withTransaction(db, async (tx) =>
@@ -329,9 +335,13 @@ export function createGoalService(deps: GoalServiceDeps) {
     },
 
     async listByProject(projectId: string) {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       return (await listGoals(db, projectId)).map(serializeGoal);
     },

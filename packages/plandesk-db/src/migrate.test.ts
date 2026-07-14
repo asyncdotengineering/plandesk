@@ -4,8 +4,10 @@ import { migrate, migrateDown, migrateDownAll } from './migrate.js';
 import { seed, FIXTURE_PROJECT_ID } from './seed.js';
 import { getProject } from './repositories/projects.js';
 import { randomUUID } from 'node:crypto';
-import { createProject } from './repositories/projects.js';
-import { createTaskWithDefaultGoal as createTask } from './testing.js';
+import {
+  createProjectInDefaultOrg as createProject,
+  createTaskWithDefaultGoal as createTask,
+} from './testing.js';
 
 async function insertLegacyTask(db: Db, projectId: string, label: string): Promise<string> {
   const id = randomUUID();
@@ -20,6 +22,8 @@ async function insertLegacyTask(db: Db, projectId: string, label: string): Promi
 
 const EXPECTED_TABLES = [
   'projects',
+  'orgs',
+  'org_members',
   'goals',
   'tasks',
   'edges',
@@ -95,6 +99,12 @@ describe('migrate', () => {
     expect((await getProject(db, FIXTURE_PROJECT_ID))?.name).toBe('Fixture Project');
 
     expect(await hasColumn(db, 'comments', 'anchor')).toBe(true);
+    expect(await hasColumn(db, 'projects', 'org_id')).toBe(true);
+
+    await migrateDown(db, 1);
+    expect(await listTables(db)).not.toContain('orgs');
+    expect(await listTables(db)).not.toContain('org_members');
+    expect(await hasColumn(db, 'projects', 'org_id')).toBe(false);
 
     await migrateDown(db, 1);
     expect(await listTables(db)).not.toContain('artifacts');
@@ -144,6 +154,8 @@ describe('migrate', () => {
 
     await migrate(db);
     expect(await hasColumn(db, 'projects', 'canvas_layout')).toBe(true);
+    expect(await hasColumn(db, 'projects', 'org_id')).toBe(true);
+    expect(await listTables(db)).toContain('orgs');
     expect(await listTables(db)).toContain('shares');
     expect(await listTables(db)).toContain('share_submissions');
     expect(await listTables(db)).toContain('sync_state');
@@ -172,11 +184,19 @@ describe('migrate', () => {
   it('0008 backfill assigns a default goal to pre-existing tasks', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    await migrateDown(db, 6);
+    // 0014+0013+0012+0011+0010+0009+0008 = 7 downs to pre-goals schema
+    await migrateDown(db, 7);
     expect(await hasColumn(db, 'tasks', 'goal_id')).toBe(false);
     expect(await listTables(db)).not.toContain('goals');
 
-    const project = await createProject(db, { name: 'Legacy project' });
+    // Schema is pre-orgs; insert project with the pre-0014 shape.
+    const projectId = randomUUID();
+    const now = Date.now();
+    await db.$client.execute({
+      sql: `INSERT INTO projects (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+      args: [projectId, 'Legacy project', now, now],
+    });
+    const project = { id: projectId };
     const legacyTaskId = await insertLegacyTask(db, project.id, 'Legacy task');
 
     await migrate(db);
@@ -209,7 +229,7 @@ describe('migrate', () => {
     await createTask(db, { projectId: project.id, label: 'Task A' });
     await createTask(db, { projectId: project.id, label: 'Task B' });
 
-    await migrateDown(db, 6);
+    await migrateDown(db, 7);
     expect(await listTables(db)).not.toContain('goals');
     expect(await hasColumn(db, 'tasks', 'goal_id')).toBe(false);
 
@@ -240,12 +260,19 @@ describe('migrate', () => {
   it('0010 backfill migrates document_comments to comments with project_id', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    await migrateDown(db, 4);
+    // 0014+0013+0012+0011+0010 = 5 downs to document_comments schema
+    await migrateDown(db, 5);
     expect(await listTables(db)).toContain('document_comments');
     expect(await listTables(db)).not.toContain('comments');
 
-    const project = await createProject(db, { name: 'Legacy comments' });
+    // Pre-orgs schema — insert project via raw SQL.
+    const projectId = randomUUID();
     const now = Date.now();
+    await db.$client.execute({
+      sql: `INSERT INTO projects (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+      args: [projectId, 'Legacy comments', now, now],
+    });
+    const project = { id: projectId };
     const docId = randomUUID();
     const commentId = randomUUID();
     await db.$client.execute({
@@ -284,7 +311,7 @@ describe('migrate', () => {
     expect(await listTables(db)).toContain('comments');
     expect(await listTables(db)).not.toContain('document_comments');
 
-    await migrateDown(db, 4);
+    await migrateDown(db, 5);
     expect(await listTables(db)).toContain('document_comments');
     expect(await listTables(db)).not.toContain('comments');
 
@@ -298,7 +325,7 @@ describe('migrate', () => {
     await migrate(db);
     expect(await hasColumn(db, 'goals', 'last_verification')).toBe(true);
 
-    await migrateDown(db, 5);
+    await migrateDown(db, 6);
     expect(await hasColumn(db, 'goals', 'last_verification')).toBe(false);
 
     await migrate(db);
@@ -313,10 +340,15 @@ describe('migrate', () => {
   it('regression: 0008 rebuild survives tasks referenced by edges, docs, submissions', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    await migrateDown(db, 6); // back to 0007 (pre-goals)
+    await migrateDown(db, 7); // back to 0007 (pre-goals)
 
-    const project = await createProject(db, { name: 'FK project' });
+    const projectId = randomUUID();
     const now = Date.now();
+    await db.$client.execute({
+      sql: `INSERT INTO projects (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+      args: [projectId, 'FK project', now, now],
+    });
+    const project = { id: projectId };
     const t1 = await insertLegacyTask(db, project.id, 'Task 1');
     const t2 = await insertLegacyTask(db, project.id, 'Task 2');
     await db.$client.execute({

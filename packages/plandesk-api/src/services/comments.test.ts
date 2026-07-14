@@ -4,7 +4,7 @@ import {
   createDb,
   createDocument,
   createNote,
-  createProject,
+  createProjectInDefaultOrg as createProject,
   createTask,
   getComment,
   getOrCreateDefaultGoal,
@@ -23,13 +23,14 @@ describe('commentService', () => {
     await migrate(db);
   });
     let projectId = '';
+  let orgId = '';
   let documentId = '';
   let taskId = '';
   let noteId = '';
   let submissionId = '';
 
   function createService() {
-    return createCommentService({ db });
+    return createCommentService({ db, orgId });
   }
 
   beforeEach(async () => {
@@ -41,7 +42,9 @@ describe('commentService', () => {
     await db.$client.execute('DELETE FROM documents');
     await db.$client.execute('DELETE FROM goals');
     await db.$client.execute('DELETE FROM projects');
-    projectId = (await createProject(db, { name: 'Comments' })).id;
+    const project = await createProject(db, { name: 'Comments' });
+    projectId = project.id;
+    orgId = project.orgId;
     const goalId = (await getOrCreateDefaultGoal(db, projectId)).id;
     documentId = (await createDocument(db, { projectId, title: 'Doc' })).id;
     taskId = (await createTask(db, { projectId, goalId, label: 'Task' })).id;

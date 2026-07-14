@@ -19,6 +19,8 @@ import { createSyncService, type SyncService } from './sync.js';
 export type ServicesDeps = {
   db: Db;
   storage?: StorageAdapter;
+  /** Fixed org scope for unit tests; production request path uses auth context. */
+  orgId?: string;
 };
 
 export type Services = {
@@ -40,22 +42,23 @@ export type Services = {
 };
 
 export function createServices(deps: ServicesDeps): Services {
+  const scoped = { db: deps.db, orgId: deps.orgId };
   const storage = deps.storage ?? createStorageAdapter({ db: deps.db });
-  const projectService = createProjectService({ db: deps.db });
-  const goalService = createGoalService({ db: deps.db });
-  const taskService = createTaskService({ db: deps.db });
-  const tagService = createTagService({ db: deps.db });
-  const canvasService = createCanvasService({ db: deps.db });
-  const documentService = createDocumentService({ db: deps.db });
-  const folderService = createFolderService({ db: deps.db });
-  const noteService = createNoteService({ db: deps.db });
-  const commentService = createCommentService({ db: deps.db });
-  const agentRunService = createAgentRunService({ db: deps.db });
-  const tokenService = createTokenService({ db: deps.db });
-  const shareService = createShareService({ db: deps.db });
-  const syncService = createSyncService({ db: deps.db, taskService, shareService });
-  const fileService = createFileService({ db: deps.db, storage });
-  const artifactService = createArtifactService({ db: deps.db });
+  const projectService = createProjectService(scoped);
+  const goalService = createGoalService(scoped);
+  const taskService = createTaskService(scoped);
+  const tagService = createTagService(scoped);
+  const canvasService = createCanvasService(scoped);
+  const documentService = createDocumentService(scoped);
+  const folderService = createFolderService(scoped);
+  const noteService = createNoteService(scoped);
+  const commentService = createCommentService(scoped);
+  const agentRunService = createAgentRunService(scoped);
+  const tokenService = createTokenService(scoped);
+  const shareService = createShareService(scoped);
+  const syncService = createSyncService({ ...scoped, taskService, shareService });
+  const fileService = createFileService({ ...scoped, storage });
+  const artifactService = createArtifactService(scoped);
 
   return {
     projectService,

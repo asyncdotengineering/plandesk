@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { createFile, getFile, type Db } from '@plandesk/db';
+import { createFile, getFile, getFileInOrg, type Db } from '@plandesk/db';
+import { tryGetAuthContext } from '../auth-context.js';
 import { fileUrl, type StorageAdapter } from './adapter.js';
 
 export type LocalBlobAdapterDeps = {
@@ -24,7 +25,13 @@ export function createLocalBlobAdapter(deps: LocalBlobAdapterDeps): StorageAdapt
     },
 
     async resolve(id) {
-      const file = await getFile(db, id);
+      const auth = tryGetAuthContext();
+      const file =
+        auth !== undefined
+          ? await getFileInOrg(db, id, auth.orgId)
+          : // Fallback for non-request paths: content hash is not globally unique;
+            // without org context we cannot safely resolve.
+            undefined;
       if (!file) {
         return null;
       }

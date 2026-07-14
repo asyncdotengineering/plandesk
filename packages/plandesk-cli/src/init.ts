@@ -1,6 +1,6 @@
 import { createServer } from 'node:net';
 import { mkdirSync } from 'node:fs';
-import { createDb, migrate } from '@plandesk/db';
+import { createDb, ensureDefaultOrg, migrate } from '@plandesk/db';
 import { resolveInitDataDir, workspaceDbPath } from './args.js';
 import {
   isPortOwnedByAnotherProject,
@@ -64,6 +64,8 @@ export async function runInit(dataDirOverride?: string): Promise<string> {
   const dbPath = workspaceDbPath(dataDir);
   const db = await createDb(dbPath);
   await migrate(db);
+  // Seed the single local org so loopback auth has a tenant (REQ-21).
+  await ensureDefaultOrg(db);
 
   const existing = readWorkspaceJson(dataDir);
   if (existing === undefined) {

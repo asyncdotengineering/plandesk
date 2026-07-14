@@ -1,4 +1,5 @@
 import type { Db } from '@plandesk/db';
+import { ensureDefaultOrg } from '@plandesk/db';
 import { createServices } from '@plandesk/api';
 import { resolveSyncRemote, type ResolvedSync } from './sync.js';
 
@@ -16,7 +17,8 @@ export type PushResult = {
 
 export async function runPush(db: Db, options: PushOptions): Promise<PushResult> {
   const resolved = resolveSyncRemote(options);
-  const { syncService } = createServices({ db });
+  const org = await ensureDefaultOrg(db);
+  const { syncService } = createServices({ db, orgId: org.id });
   return syncService.push(resolved.projectId, resolved.syncRemote);
 }
 

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createDb,
-  createProject,
+  createProjectInDefaultOrg as createProject,
+  ensureDefaultOrg,
   getPullCursor,
   getSubmission,
   listSubmissions,
@@ -42,14 +43,12 @@ const remoteSubmission = {
 
 describe('syncService', () => {
   let db: Db;
+  let orgId = '';
 
   beforeEach(async () => {
     db = await createDb(':memory:');
     await migrate(db);
-  });
-  
-  beforeEach(async () => {
-    await migrate(db);
+    orgId = (await ensureDefaultOrg(db)).id;
     await db.$client.execute('DELETE FROM share_submissions');
     await db.$client.execute('DELETE FROM sync_state');
     await db.$client.execute('DELETE FROM tasks');
@@ -64,8 +63,8 @@ describe('syncService', () => {
   });
 
   function createService() {
-    const taskService = createTaskService({ db });
-    const shareService = createShareService({ db });
+    const taskService = createTaskService({ db, orgId });
+    const shareService = createShareService({ db, orgId });
     return createSyncService({ db, taskService, shareService });
   }
 
@@ -77,6 +76,7 @@ describe('syncService', () => {
 
   it('pull_idempotent: pulling the same submission twice yields one triage row', async () => {
     const project = await createProject(db, { name: 'Pull' });
+    orgId = project.orgId;
     const service = createService();
 
     vi.stubGlobal(
@@ -180,8 +180,8 @@ describe('syncService', () => {
 
   it('materializes new rows on pull', async () => {
     const project = await createProject(db, { name: 'Events' });
-    const taskService = createTaskService({ db });
-    const shareService = createShareService({ db });
+    const taskService = createTaskService({ db, orgId });
+    const shareService = createShareService({ db, orgId });
     const service = createSyncService({ db, taskService, shareService });
 
     vi.stubGlobal(
@@ -541,12 +541,8 @@ async function startTestSyncServer(): Promise<{
 
 describe('syncService push', () => {
   let db: Db;
-
-  beforeEach(async () => {
-    db = await createDb(':memory:');
-    await migrate(db);
-  });
-    const servers: Array<{ close: () => void }> = [];
+  let orgId = '';
+  const servers: Array<{ close: () => void }> = [];
   const remote = {
     serverUrl: 'https://sync.example',
     globalProjectId: 'gid-1',
@@ -556,7 +552,9 @@ describe('syncService push', () => {
   beforeEach(async () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    db = await createDb(':memory:');
     await migrate(db);
+    orgId = (await ensureDefaultOrg(db)).id;
     await db.$client.execute('DELETE FROM share_submissions');
     await db.$client.execute('DELETE FROM sync_state');
     await db.$client.execute('DELETE FROM shares');
@@ -574,8 +572,8 @@ describe('syncService push', () => {
   });
 
   function createService() {
-    const taskService = createTaskService({ db });
-    const shareService = createShareService({ db });
+    const taskService = createTaskService({ db, orgId });
+    const shareService = createShareService({ db, orgId });
     return createSyncService({ db, taskService, shareService });
   }
 
@@ -584,7 +582,7 @@ describe('syncService push', () => {
     servers.push(syncServer);
 
     const service = createService();
-    const shareService = createShareService({ db });
+    const shareService = createShareService({ db, orgId });
     const project = await createProject(db, { name: 'Push Project' });
     await createTask(db, { projectId: project.id, label: 'Visible task' });
     const created = await shareService.createShare(project.id, {
@@ -637,7 +635,7 @@ describe('syncService push', () => {
     servers.push(syncServer);
 
     const service = createService();
-    const shareService = createShareService({ db });
+    const shareService = createShareService({ db, orgId });
     const project = await createProject(db, { name: 'Revoked push' });
     const active = await shareService.createShare(project.id, {
       audienceName: 'Active',
@@ -733,7 +731,7 @@ describe('syncService push', () => {
     servers.push(syncServer);
 
     const service = createService();
-    const shareService = createShareService({ db });
+    const shareService = createShareService({ db, orgId });
     const project = await createProject(db, { name: 'Bad token' });
     await shareService.createShare(project.id, { audienceName: 'Client', mode: 'public' });
 

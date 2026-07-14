@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
-import { getFile, type Db } from '@plandesk/db';
-import { fileUrl, type StorageAdapter } from './adapter.js';
+import { getFileInOrg, type Db } from '@plandesk/db';
+import { tryGetAuthContext } from '../auth-context.js';
+import { type StorageAdapter } from './adapter.js';
 
 export type S3AdapterConfig = {
   bucket: string;
@@ -47,7 +48,11 @@ export function createS3Adapter(deps: S3AdapterDeps): StorageAdapter {
     },
 
     async resolve(id) {
-      const file = await getFile(db, id);
+      const auth = tryGetAuthContext();
+      if (auth === undefined) {
+        return null;
+      }
+      const file = await getFileInOrg(db, id, auth.orgId);
       if (!file?.externalUrl) {
         return null;
       }

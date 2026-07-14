@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
 import { projects } from '../schema.js';
 
 export type Project = typeof projects.$inferSelect;
 export type NewProject = {
   name: string;
+  orgId: string;
   description?: string | null;
   id?: string;
 };
@@ -23,6 +24,7 @@ export async function createProject(db: DbClient, input: NewProject): Promise<Pr
     .insert(projects)
     .values({
       id,
+      orgId: input.orgId,
       name: input.name,
       description: input.description ?? null,
       createdAt: now,
@@ -41,6 +43,18 @@ export async function getProject(db: DbClient, id: string): Promise<Project | un
   return db.select().from(projects).where(eq(projects.id, id)).get();
 }
 
+export async function getProjectInOrg(
+  db: DbClient,
+  projectId: string,
+  orgId: string,
+): Promise<Project | undefined> {
+  return db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.orgId, orgId)))
+    .get();
+}
+
 export type ListProjectsOptions = {
   limit?: number;
   offset?: number;
@@ -48,9 +62,10 @@ export type ListProjectsOptions = {
 
 export async function listProjects(
   db: DbClient,
+  orgId: string,
   options?: ListProjectsOptions,
 ): Promise<Project[]> {
-  let query = db.select().from(projects).$dynamic();
+  let query = db.select().from(projects).where(eq(projects.orgId, orgId)).$dynamic();
   if (options?.limit !== undefined) {
     query = query.limit(options.limit);
   }

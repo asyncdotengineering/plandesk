@@ -11,8 +11,10 @@ import {
   type Db,
 } from '@plandesk/db';
 import { serializeFolder, type SerializedFolder } from '../serialize.js';
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
-export type FolderServiceDeps = {
+export type FolderServiceDeps = OrgScopedDeps & {
   db: Db;
 };
 
@@ -70,9 +72,13 @@ export function createFolderService(deps: FolderServiceDeps) {
 
   return {
     async list(projectId: string): Promise<SerializedFolder[] | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       return (await dbListFolders(db, projectId)).map(serializeFolder);
     },
@@ -81,9 +87,13 @@ export function createFolderService(deps: FolderServiceDeps) {
       projectId: string,
       input: CreateFolderInput,
     ): Promise<SerializedFolder | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       assertNonEmptyName(input.name);

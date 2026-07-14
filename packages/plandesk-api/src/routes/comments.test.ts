@@ -3,7 +3,7 @@ import {
   createComment,
   createDocument,
   createNote,
-  createProject,
+  createProjectInDefaultOrg as createProject,
   createTask,
   getOrCreateDefaultGoal,
   upsertSubmission,

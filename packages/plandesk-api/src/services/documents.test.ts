@@ -4,7 +4,7 @@ import {
   createDb,
   createDocument,
   createFolder,
-  createProject,
+  createProjectInDefaultOrg as createProject,
   getComment,
   listCommentsByTarget,
   migrate,
@@ -21,9 +21,10 @@ describe('documentService', () => {
     await migrate(db);
   });
     let projectId = '';
+  let orgId = '';
 
   function createService() {
-    return createDocumentService({ db });
+    return createDocumentService({ db, orgId });
   }
 
   beforeEach(async () => {
@@ -35,7 +36,9 @@ describe('documentService', () => {
     await db.$client.execute('DELETE FROM tasks');
     await db.$client.execute('DELETE FROM goals');
     await db.$client.execute('DELETE FROM projects');
-    projectId = (await createProject(db, { name: 'Docs' })).id;
+    const project = await createProject(db, { name: 'Docs' });
+    projectId = project.id;
+    orgId = project.orgId;
   });
 
   it('creates a document with structured content', async () => {

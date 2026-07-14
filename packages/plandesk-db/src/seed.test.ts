@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDb } from './client.js';
 import { migrate } from './migrate.js';
-import { listProjects } from './repositories/projects.js';
+import { listProjectsInDefaultOrg as listProjects } from './testing.js';
 import { FIXTURE_PROJECT_ID, seed } from './seed.js';
 
 describe('seed', () => {

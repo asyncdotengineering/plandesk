@@ -1,19 +1,22 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createAgentRun, createDb, createProject, migrate, type Db } from '@plandesk/db';
+import { createAgentRun, createDb, createProjectInDefaultOrg as createProject, migrate, type Db } from '@plandesk/db';
 import { createAgentRunService, InvalidAgentRunError } from './agent-runs.js';
 
 describe('agentRunService', () => {
   let db: Db;
   let projectId = '';
+  let orgId = '';
 
   beforeEach(async () => {
     db = await createDb(':memory:');
     await migrate(db);
-    projectId = (await createProject(db, { name: 'Agent' })).id;
+    const project = await createProject(db, { name: 'Agent' });
+    projectId = project.id;
+    orgId = project.orgId;
   });
 
   function createService() {
-    return createAgentRunService({ db });
+    return createAgentRunService({ db, orgId });
   }
 
   it('starts a run', async () => {

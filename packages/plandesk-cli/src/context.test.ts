@@ -4,7 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getRequestListener } from '@hono/node-server';
 import { createApp, createServices } from '@plandesk/api';
-import { createDb, createProject, migrate, type Db } from '@plandesk/db';
+import {
+  createDb,
+  createProjectInDefaultOrg as createProject,
+  createTokenInDefaultOrg as createToken,
+  migrate,
+  type Db,
+} from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildConfigJson } from './connect-artifacts.js';
@@ -16,12 +22,14 @@ async function withTestServer(
     db: Db;
     services: ReturnType<typeof createServices>;
     projectId: string;
+    token: string;
   }) => Promise<void>,
 ): Promise<void> {
   const db = await createDb(':memory:');
   await migrate(db);
   const project = await createProject(db, { name: 'Context project' });
-    const services = createServices({ db });
+  const { token } = await createToken(db, { name: 'context-test' });
+  const services = createServices({ db, orgId: project.orgId });
   const app = createApp({ db, services });
 
   const server: Server = createServer((req, res) => {
@@ -41,7 +49,7 @@ async function withTestServer(
   const baseUrl = `http://127.0.0.1:${String(address.port)}`;
 
   try {
-    await run({ baseUrl, db, services, projectId: project.id });
+    await run({ baseUrl, db, services, projectId: project.id, token });
   } finally {
     await new Promise<void>((resolve, reject) => {
       server.close((err) => {
@@ -73,14 +81,14 @@ describe('runContext', () => {
     return repoDir;
   }
 
-  function bindRepo(repoDir: string, baseUrl: string, projectId: string): void {
+  function bindRepo(repoDir: string, baseUrl: string, projectId: string, token: string): void {
     mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
     writeFileSync(
       join(repoDir, '.plandesk', 'config.json'),
       buildConfigJson({ serverUrl: baseUrl, projectId, projectName: 'Context project' }),
       'utf8',
     );
-    writeFileSync(join(repoDir, '.plandesk', 'token'), 'test-token', 'utf8');
+    writeFileSync(join(repoDir, '.plandesk', 'token'), token, 'utf8');
   }
 
   it('returns {} when the repo has no binding', async () => {
@@ -100,9 +108,9 @@ describe('runContext', () => {
   });
 
   it('reports the next actionable task when idle', async () => {
-    await withTestServer(async ({ baseUrl, db, projectId }) => {
+    await withTestServer(async ({ baseUrl, db, projectId, token }) => {
       const repoDir = makeRepo();
-      bindRepo(repoDir, baseUrl, projectId);
+      bindRepo(repoDir, baseUrl, projectId, token);
       const task = await createTask(db, { projectId, label: 'Ship the thing', status: 'todo' });
 
       const context = await runContext(repoDir);
@@ -116,9 +124,9 @@ describe('runContext', () => {
   });
 
   it('reports the current task, linked doc, and last progress; skips next_task', async () => {
-    await withTestServer(async ({ baseUrl, db, services, projectId }) => {
+    await withTestServer(async ({ baseUrl, db, services, projectId, token }) => {
       const repoDir = makeRepo();
-      bindRepo(repoDir, baseUrl, projectId);
+      bindRepo(repoDir, baseUrl, projectId, token);
 
       const task = await createTask(db, {
         projectId,
@@ -150,7 +158,7 @@ describe('runContext', () => {
 
   it('returns all-null fields (not an error) when the server is unreachable', async () => {
     const repoDir = makeRepo();
-    bindRepo(repoDir, 'http://127.0.0.1:1', 'missing-project');
+    bindRepo(repoDir, 'http://127.0.0.1:1', 'missing-project', 'test-token');
     expect(await runContext(repoDir)).toEqual({
       current_task: null,
       linked_doc: null,
@@ -168,9 +176,9 @@ describe('runContext', () => {
   });
 
   it('caps a large linked-doc body so it does not re-inflate the context', async () => {
-    await withTestServer(async ({ baseUrl, db, services, projectId }) => {
+    await withTestServer(async ({ baseUrl, db, services, projectId, token }) => {
       const repoDir = makeRepo();
-      bindRepo(repoDir, baseUrl, projectId);
+      bindRepo(repoDir, baseUrl, projectId, token);
       const task = await createTask(db, { projectId, label: 'Big doc task', status: 'in_progress' });
       const bigBody = 'x'.repeat(9000);
       await services.documentService.create(projectId, {

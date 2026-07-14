@@ -6,7 +6,8 @@ import {
   createDocument,
   createComment,
   createEdge,
-  createProject,
+  createProjectInDefaultOrg as createProject,
+  ensureDefaultOrg,
   getDocument,
   getComment,
   getProject,
@@ -24,14 +25,12 @@ import { createProjectService, InvalidScaffoldError } from './projects.js';
 
 describe('projectService', () => {
   let db: Db;
+  let orgId = '';
 
   beforeEach(async () => {
     db = await createDb(':memory:');
     await migrate(db);
-  });
-  
-  beforeEach(async () => {
-    await migrate(db);
+    orgId = (await ensureDefaultOrg(db)).id;
     await db.$client.execute('DELETE FROM comments');
     await db.$client.execute('DELETE FROM agent_run_events');
     await db.$client.execute('DELETE FROM agent_runs');
@@ -43,7 +42,7 @@ describe('projectService', () => {
   });
 
   function createService() {
-    return createProjectService({ db });
+    return createProjectService({ db, orgId });
   }
 
   it('creates and lists projects with ISO timestamps', async () => {
@@ -62,6 +61,7 @@ describe('projectService', () => {
   it('returns project detail with task counts by status', async () => {
     const service = createService();
     const project = await createProject(db, { name: 'Counts' });
+    orgId = project.orgId;
     await createTask(db, { projectId: project.id, label: 'A', status: 'todo' });
     await createTask(db, { projectId: project.id, label: 'B', status: 'todo' });
     await createTask(db, { projectId: project.id, label: 'C', status: 'done' });
@@ -150,7 +150,7 @@ describe('projectService', () => {
   });
 
   it('scaffolds a project with tasks, edges, and documents atomically', async () => {
-    const service = createProjectService({ db });
+    const service = createProjectService({ db, orgId });
 
     const result = await service.scaffoldFromPlan({
       name: 'Scaffolded',
@@ -218,7 +218,9 @@ describe('projectService', () => {
 
   it('rejects scaffolding into a missing project and persists nothing', async () => {
     const service = createService();
-    await expect(service.scaffoldFromPlan({ projectId: 'nope', tasks: [{ key: 'a', label: 'A' }] }),).rejects.toThrow(InvalidScaffoldError);
+    await expect(
+      service.scaffoldFromPlan({ projectId: 'nope', tasks: [{ key: 'a', label: 'A' }] }),
+    ).rejects.toThrow(InvalidScaffoldError);
   });
 
   it('rejects a new-project scaffold with no name', async () => {

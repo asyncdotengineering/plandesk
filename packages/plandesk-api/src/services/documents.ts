@@ -23,7 +23,9 @@ import {
   type SerializedDocumentFolderTree,
   type SerializedDocumentTree,
 } from '../serialize.js';
-export type DocumentServiceDeps = {
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
+export type DocumentServiceDeps = OrgScopedDeps & {
   db: Db;
 };
 
@@ -80,17 +82,25 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       projectId: string,
       pagination: PaginationParams = {},
     ): Promise<SerializedDocumentTree[] | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       return buildDocumentTree(await dbListDocuments(db, projectId, pagination));
     },
 
     async listFolderTree(projectId: string): Promise<SerializedDocumentFolderTree | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       return buildFolderTree(
         await dbListFolders(db, projectId),
@@ -102,9 +112,13 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       projectId: string,
       folderId: string,
     ): Promise<SerializedDocumentTree[] | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       if (!(await getFolderByProjectAndId(db, projectId, folderId))) {
         return undefined;
@@ -116,9 +130,13 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       projectId: string,
       input: CreateDocumentInput,
     ): Promise<SerializedDocument | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       if (input.linkedTaskId !== undefined && input.linkedTaskId !== null) {

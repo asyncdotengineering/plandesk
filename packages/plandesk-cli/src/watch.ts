@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Db } from '@plandesk/db';
+import { ensureDefaultOrg, type Db } from '@plandesk/db';
 import type { SyncService } from '@plandesk/api';
 import { createServices } from '@plandesk/api';
 import { normalizeServerUrl, parseConfigJson } from './connect-artifacts.js';
@@ -188,7 +188,8 @@ export async function runWatch(
 ): Promise<void> {
   const resolved = resolveSyncRemote(options);
   const localServerUrl = resolveLocalServerUrl(options.repoDir, options.localServerUrl);
-  const defaultSyncService = createServices({ db }).syncService;
+  const org = await ensureDefaultOrg(db);
+  const defaultSyncService = createServices({ db, orgId: org.id }).syncService;
   const pollIntervalMs = partialDeps?.pollIntervalMs ?? DEFAULT_POLL_MS;
 
   const deps: WatchRunnerDeps = {

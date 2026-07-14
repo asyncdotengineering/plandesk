@@ -1,13 +1,14 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
-import { mcpTokens } from '../schema.js';
+import { mcpTokens, type TokenScope } from '../schema.js';
 
 export type McpToken = typeof mcpTokens.$inferSelect;
 
 export type McpTokenPublic = {
   id: string;
   name: string;
+  scope: TokenScope;
   created_at: string;
   revoked_at: string | null;
 };
@@ -15,7 +16,15 @@ export type McpTokenPublic = {
 export type CreateTokenResult = {
   id: string;
   name: string;
+  scope: TokenScope;
   token: string;
+};
+
+export type VerifiedToken = {
+  id: string;
+  name: string;
+  orgId: string;
+  scope: TokenScope;
 };
 
 function hashToken(raw: string): string {
@@ -30,6 +39,7 @@ function toPublic(row: McpToken): McpTokenPublic {
   return {
     id: row.id,
     name: row.name,
+    scope: row.scope,
     created_at: row.createdAt.toISOString(),
     revoked_at: row.revokedAt?.toISOString() ?? null,
   };
@@ -37,30 +47,33 @@ function toPublic(row: McpToken): McpTokenPublic {
 
 export async function createToken(
   db: DbClient,
-  input: { name: string },
+  input: { name: string; orgId: string; scope?: TokenScope },
 ): Promise<CreateTokenResult> {
   const id = randomUUID();
   const token = generateRawToken();
   const tokenHash = hashToken(token);
+  const scope = input.scope ?? 'full';
   const now = new Date();
 
   await db
     .insert(mcpTokens)
     .values({
       id,
+      orgId: input.orgId,
       name: input.name,
       tokenHash,
+      scope,
       createdAt: now,
     })
     .run();
 
-  return { id, name: input.name, token };
+  return { id, name: input.name, scope, token };
 }
 
 export async function verifyToken(
   db: DbClient,
   raw: string,
-): Promise<{ id: string; name: string } | undefined> {
+): Promise<VerifiedToken | undefined> {
   const tokenHash = hashToken(raw);
   const row = await db
     .select()
@@ -72,20 +85,31 @@ export async function verifyToken(
     return undefined;
   }
 
-  return { id: row.id, name: row.name };
+  return { id: row.id, name: row.name, orgId: row.orgId, scope: row.scope };
 }
 
-export async function listTokens(db: DbClient): Promise<McpTokenPublic[]> {
-  const rows = await db.select().from(mcpTokens).all();
+export async function listTokens(
+  db: DbClient,
+  orgId: string,
+): Promise<McpTokenPublic[]> {
+  const rows = await db.select().from(mcpTokens).where(eq(mcpTokens.orgId, orgId)).all();
   return rows.map(toPublic);
 }
 
-export async function revokeToken(db: DbClient, id: string): Promise<McpTokenPublic | undefined> {
+export async function revokeToken(
+  db: DbClient,
+  id: string,
+  orgId?: string,
+): Promise<McpTokenPublic | undefined> {
   const now = new Date();
+  const condition =
+    orgId === undefined
+      ? and(eq(mcpTokens.id, id), isNull(mcpTokens.revokedAt))
+      : and(eq(mcpTokens.id, id), eq(mcpTokens.orgId, orgId), isNull(mcpTokens.revokedAt));
   const rows = await db
     .update(mcpTokens)
     .set({ revokedAt: now })
-    .where(and(eq(mcpTokens.id, id), isNull(mcpTokens.revokedAt)))
+    .where(condition)
     .returning()
     .all();
 

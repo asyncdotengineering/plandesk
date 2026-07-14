@@ -17,6 +17,8 @@ import {
   type SharePermissions,
 } from '@plandesk/db';
 import { buildClientView, type ClientView, type SharePolicy } from '../projection.js';
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 export class InvalidShareError extends Error {
   constructor(message: string) {
@@ -25,7 +27,7 @@ export class InvalidShareError extends Error {
   }
 }
 
-export type ShareServiceDeps = {
+export type ShareServiceDeps = OrgScopedDeps & {
   db: Db;
 };
 
@@ -247,9 +249,13 @@ export function createShareService(deps: ShareServiceDeps) {
       projectId: string,
       input: CreateShareInput,
     ): Promise<{ share: SerializedShare; token: string } | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       if (input.audienceName.trim() === '') {
@@ -270,9 +276,13 @@ export function createShareService(deps: ShareServiceDeps) {
     },
 
     async listShares(projectId: string): Promise<SerializedShare[] | undefined> {
-      const project = await getProject(db, projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       return (await dbListShares(db, projectId)).map(serializeShare);
     },

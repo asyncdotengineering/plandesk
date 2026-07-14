@@ -1,7 +1,9 @@
-import { getFile, getProject, type Db } from '@plandesk/db';
+import { getFile, type Db } from '@plandesk/db';
 import type { StorageAdapter, StorageResolveResult } from '../storage/adapter.js';
+import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
-export type FileServiceDeps = {
+export type FileServiceDeps = OrgScopedDeps & {
   db: Db;
   storage: StorageAdapter;
 };
@@ -26,9 +28,13 @@ export function createFileService(deps: FileServiceDeps) {
 
   return {
     async create(input: CreateFileInput): Promise<CreatedFile | undefined> {
-      const project = await getProject(db, input.projectId);
-      if (!project) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, input.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       const { id, url } = await storage.put({
@@ -41,7 +47,7 @@ export function createFileService(deps: FileServiceDeps) {
       // Content-addressed dedup means the persisted row may reflect an
       // earlier upload of the same bytes — read it back rather than echoing
       // this call's input, so the response always matches what is stored.
-      const file = await getFile(db, id);
+      const file = await getFile(db, input.projectId, id);
       if (!file) {
         throw new Error(`Storage adapter did not persist file metadata for ${id}`);
       }

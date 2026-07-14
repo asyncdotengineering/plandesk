@@ -1,6 +1,10 @@
 import { Hono } from 'hono';
 import type { Db } from '@plandesk/db';
-import { createAuthMiddleware } from './auth.js';
+import {
+  createAuthMiddleware,
+  createOrgAuthMiddleware,
+  createWriteGuardMiddleware,
+} from './auth.js';
 import { healthRouter } from './routes/health.js';
 import { createProjectsRouter } from './routes/projects.js';
 import { createTasksRouter } from './routes/tasks.js';
@@ -17,14 +21,19 @@ import { createTokensRouter } from './routes/tokens.js';
 import { createAgentRunsRouter } from './routes/agent-runs.js';
 import { createGoalsRouter } from './routes/goals.js';
 import { createSubmissionsRouter } from './routes/submissions.js';
+import { createOrgsRouter } from './routes/orgs.js';
 import { mountStatic } from './static.js';
 import { createServices, type Services } from './services/index.js';
+import { ProjectNotInOrgError } from './services/scope.js';
+import { ReadOnlyTokenError } from './auth-context.js';
 
 export type AppDeps = {
   db: Db;
   services?: Services;
   mcp?: Hono;
   authPassword?: string;
+  /** Server bind host — loopback default-org only when this is loopback. Default 127.0.0.1. */
+  bindHost?: string;
 };
 
 export function createApp(deps: AppDeps): Hono {
@@ -47,13 +56,29 @@ export function createApp(deps: AppDeps): Hono {
     shareService,
   } = services;
 
+  const bindHost = deps.bindHost ?? '127.0.0.1';
   const app = new Hono();
+
+  // Always-on org resolution (token or loopback single-org).
+  app.use('*', createOrgAuthMiddleware({ db: deps.db, bindHost }));
+  app.use('*', createWriteGuardMiddleware());
 
   if (deps.authPassword !== undefined && deps.authPassword.length > 0) {
     app.use('*', createAuthMiddleware(deps.authPassword));
   }
 
+  app.onError((err, c) => {
+    if (err instanceof ProjectNotInOrgError) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    if (err instanceof ReadOnlyTokenError) {
+      return c.json({ error: 'forbidden' }, 403);
+    }
+    throw err;
+  });
+
   app.route('/api/v1', healthRouter);
+  app.route('/api/v1', createOrgsRouter(deps.db));
   app.route('/api/v1', createProjectsRouter(projectService, taskService));
   app.route('/api/v1', createGoalsRouter(goalService));
   app.route('/api/v1', createTasksRouter(taskService));

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
   createGoal,
-  createProject,
+  createProjectInDefaultOrg as createProject,
   getGoal,
   InvalidGoalStatusError,
   listTasks,
@@ -85,9 +85,10 @@ describe('goalService', () => {
     await migrate(db);
   });
     let projectId = '';
+  let orgId = '';
 
   function createService() {
-    return createGoalService({ db });
+    return createGoalService({ db, orgId });
   }
 
   async function markAllCycleTasksDone(goalId: string) {
@@ -103,11 +104,13 @@ describe('goalService', () => {
     await db.$client.execute('DELETE FROM tasks');
     await db.$client.execute('DELETE FROM goals');
     await db.$client.execute('DELETE FROM projects');
-    projectId = (await createProject(db, { name: 'Project' })).id;
+    const project = await createProject(db, { name: 'Project' });
+    projectId = project.id;
+    orgId = project.orgId;
   });
 
   it('creates a goal', async () => {
-    const service = createGoalService({ db });
+    const service = createGoalService({ db, orgId });
 
     const goal = await service.create(projectId, {
       objective: 'Ship goals',

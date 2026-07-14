@@ -46,6 +46,8 @@ import {
   type SerializedDocument,
   type TaskStatusSummary,
 } from '../serialize.js';
+import { getAuthContext } from '../auth-context.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 type SerializedProject = ReturnType<typeof serializeProject>;
 type SerializedTask = ReturnType<typeof serializeTask>;
@@ -141,6 +143,8 @@ function validateScaffoldInput(input: ScaffoldPlanInput): void {
 
 export type ProjectServiceDeps = {
   db: Db;
+  /** Fixed org scope for unit tests; production uses request auth context. */
+  orgId?: string;
 };
 
 export type CreateProjectInput = {
@@ -161,29 +165,49 @@ function summarizeTasks(tasks: Task[]): TaskStatusSummary {
   return summary;
 }
 
+function resolveOrgId(deps: ProjectServiceDeps): string {
+  return deps.orgId ?? getAuthContext().orgId;
+}
+
 export function createProjectService(deps: ProjectServiceDeps) {
   const { db } = deps;
 
   return {
     async create(input: CreateProjectInput) {
-      const project = await dbCreateProject(db, input);
+      const orgId = resolveOrgId(deps);
+      const project = await dbCreateProject(db, { ...input, orgId });
       return serializeProject(project);
     },
 
     async list(pagination: PaginationParams = {}) {
-      return (await dbListProjects(db, pagination)).map(serializeProject);
+      const orgId = resolveOrgId(deps);
+      return (await dbListProjects(db, orgId, pagination)).map(serializeProject);
     },
 
     async get(id: string) {
-      const project = await dbGetProject(db, id);
-      if (!project) {
-        return undefined;
+      const orgId = resolveOrgId(deps);
+      try {
+        const project = await assertProjectInOrg(db, id, orgId);
+        const summary = summarizeTasks(await listTasks(db, id));
+        return serializeProjectDetail(project, summary);
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
-      const summary = summarizeTasks(await listTasks(db, id));
-      return serializeProjectDetail(project, summary);
     },
 
     async update(id: string, input: UpdateProjectInput) {
+      const orgId = resolveOrgId(deps);
+      try {
+        await assertProjectInOrg(db, id, orgId);
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       const project = await dbUpdateProject(db, id, input);
       if (!project) {
         return undefined;
@@ -192,9 +216,14 @@ export function createProjectService(deps: ProjectServiceDeps) {
     },
 
     async delete(id: string) {
-      const project = await dbGetProject(db, id);
-      if (!project) {
-        return false;
+      const orgId = resolveOrgId(deps);
+      try {
+        await assertProjectInOrg(db, id, orgId);
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return false;
+        }
+        throw error;
       }
 
       await withTransaction(db, async (tx) => {
@@ -227,6 +256,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
     async scaffoldFromPlan(input: ScaffoldPlanInput): Promise<ScaffoldPlanResult> {
       validateScaffoldInput(input);
+      const orgId = resolveOrgId(deps);
 
       const taskRows: Task[] = [];
       const edgeRows: Edge[] = [];
@@ -235,13 +265,16 @@ export function createProjectService(deps: ProjectServiceDeps) {
       let projectId = '';
 
       await withTransaction(db, async (tx) => {
-        // Row offset so tasks scaffolded INTO a non-empty project are laid out
-        // below its existing nodes instead of stacking on top of them.
         let startRow = 0;
         if (input.projectId !== undefined) {
-          const existing = await dbGetProject(tx, input.projectId);
-          if (!existing) {
-            throw new InvalidScaffoldError(`project not found: ${input.projectId}`);
+          let existing;
+          try {
+            existing = await assertProjectInOrg(tx, input.projectId, orgId);
+          } catch (error) {
+            if (error instanceof ProjectNotInOrgError) {
+              throw new InvalidScaffoldError(`project not found: ${input.projectId}`);
+            }
+            throw error;
           }
           projectId = existing.id;
           const existingTasks = await listTasks(tx, existing.id);
@@ -258,6 +291,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
           const project = await dbCreateProject(tx, {
             name: input.name,
             description: input.description,
+            orgId,
           });
           projectId = project.id;
         }

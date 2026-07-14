@@ -1,19 +1,22 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDb, createProject, getNote, migrate, type Db } from '@plandesk/db';
+import { createDb, createProjectInDefaultOrg as createProject, getNote, migrate, type Db } from '@plandesk/db';
 import { createNoteService, InvalidNoteError } from './notes.js';
 
 describe('noteService', () => {
   let db: Db;
   let projectId = '';
+  let orgId = '';
 
   beforeEach(async () => {
     db = await createDb(':memory:');
     await migrate(db);
-    projectId = (await createProject(db, { name: 'Notes' })).id;
+    const project = await createProject(db, { name: 'Notes' });
+    projectId = project.id;
+    orgId = project.orgId;
   });
 
   function createService() {
-    return createNoteService({ db });
+    return createNoteService({ db, orgId });
   }
 
   it('creates a note', async () => {

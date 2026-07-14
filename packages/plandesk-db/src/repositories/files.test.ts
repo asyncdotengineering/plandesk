@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type Db } from '../client.js';
 import { migrate } from '../migrate.js';
-import { createProject } from './projects.js';
+import { createProjectInDefaultOrg as createProject } from '../testing.js';
 import { createFile, getFile, listFilesByProject } from './files.js';
 
 function hashOf(bytes: Buffer): string {
@@ -33,7 +33,7 @@ describe('files repository', () => {
     expect(created.id).toBe(id);
     expect(created.bytes).toEqual(bytes);
 
-    const fetched = await getFile(db, id);
+    const fetched = await getFile(db, projectId, id);
     expect(fetched?.filename).toBe('shot.png');
     expect(fetched?.mime).toBe('image/png');
     expect(fetched?.size).toBe(bytes.length);
@@ -42,7 +42,7 @@ describe('files repository', () => {
   });
 
   it('returns undefined for a missing file', async () => {
-    expect(await getFile(db, 'deadbeef')).toBeUndefined();
+    expect(await getFile(db, projectId, 'deadbeef')).toBeUndefined();
   });
 
   it('upserts by id: re-creating the same content hash does not duplicate the row', async () => {
