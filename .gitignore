@@ -22,3 +22,7 @@ packages/plandesk-api/web/
 
 # server config file (plandesk.server.json) can hold secrets — never commit it
 plandesk.server.json
+
+# transient dispatch state (briefs, logs, results) — factory.md
+runs/
+.handoff/
