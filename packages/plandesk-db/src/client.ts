@@ -1,6 +1,9 @@
-import { createClient } from '@libsql/client';
+import { createClient, type Client } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import * as schema from './schema.js';
+
+/** Re-exported so callers can type the raw driver behind `db.$client` without their own `@libsql/client` dependency. */
+export type { Client };
 
 export type Db = Awaited<ReturnType<typeof createDb>>;
 export type DbTx = Parameters<Parameters<Db['transaction']>[0]>[0];

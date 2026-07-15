@@ -26,3 +26,4 @@ plandesk.server.json
 # transient dispatch state (briefs, logs, results) — factory.md
 runs/
 .handoff/
+scratchpad/

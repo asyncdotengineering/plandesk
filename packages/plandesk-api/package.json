@@ -28,8 +28,11 @@
     "vitest": "^3.2.6"
   },
   "dependencies": {
+    "@better-auth/api-key": "1.6.23",
     "@hono/node-server": "^2.0.4",
+    "@libsql/kysely-libsql": "^0.4.1",
     "@plandesk/db": "workspace:*",
+    "better-auth": "1.6.23",
     "hono": "^4.12.23"
   },
   "description": "Plan Desk REST + SSE API and service layer (local-first planning workspace).",

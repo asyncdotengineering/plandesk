@@ -8,6 +8,7 @@ import {
 import { healthRouter } from './routes/health.js';
 import { createAuthRouter } from './routes/auth.js';
 import type { GithubConfig } from './github.js';
+import { createBetterAuth } from './better-auth.js';
 import { createProjectsRouter } from './routes/projects.js';
 import { createTasksRouter } from './routes/tasks.js';
 import { createTagsRouter } from './routes/tags.js';
@@ -42,6 +43,12 @@ export type AppDeps = {
    * Self-hosting must never require registering an app (REQ-20).
    */
   github?: GithubConfig;
+  /**
+   * better-auth foundation (migration slice 1/6) — mirrors `github`: omit it
+   * and /api/auth/* simply 404s, same as before this existed. Nothing in
+   * this app reads from better-auth yet; every existing route is untouched.
+   */
+  betterAuth?: { secret: string; baseURL: string };
 };
 
 export function createApp(deps: AppDeps): Hono {
@@ -110,6 +117,20 @@ export function createApp(deps: AppDeps): Hono {
   // transport, breaking reconnect. The MCP router must own every method on /mcp/*.
   if (deps.mcp) {
     app.route('/mcp', deps.mcp);
+  }
+
+  // Foundation only (migration slice 1/6) — nothing issues requests here yet.
+  // Mounted at /api/auth/*, one segment away from the existing /api/v1/auth/*
+  // (routes/auth.ts) so it can never shadow it. It still passes through the
+  // global org-auth/write-guard middleware above like every other route;
+  // teaching that middleware about better-auth's own endpoints is later-slice
+  // work, not this one.
+  const betterAuthInstance =
+    deps.betterAuth !== undefined
+      ? createBetterAuth({ client: deps.db.$client, secret: deps.betterAuth.secret, baseURL: deps.betterAuth.baseURL })
+      : undefined;
+  if (betterAuthInstance) {
+    app.on(['GET', 'POST'], '/api/auth/*', (c) => betterAuthInstance.handler(c.req.raw));
   }
 
   // SPA static files are NOT mounted here. Node mounts them via `mountStatic`
