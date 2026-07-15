@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -24,7 +24,8 @@ import {
   readWorkspaceJson,
   writeWorkspaceJson,
 } from './connect-artifacts.js';
-import { createListenErrorHandler, startServer, validateServeBind } from './serve.js';
+import { createListenErrorHandler, resolveServeRuntime, startServer, validateServeBind } from './serve.js';
+import { resolveServerConfig, SERVER_CONFIG_FILENAME } from './config.js';
 
 // Isolate the machine-global port registry (~/.plandesk/ports.json) so tests
 // that run `init`/`serve` never read or write the real one on this machine.
@@ -123,6 +124,102 @@ describe('parseArgs', () => {
 
   it('parses onboard as a command', async () => {
     expect(parseArgs(['node', 'plandesk', 'onboard'])).toEqual({ command: 'onboard' });
+  });
+
+  it('parses migrate with --db and --db-token', () => {
+    expect(
+      parseArgs(['node', 'plandesk', 'migrate', '--db', 'libsql://x', '--db-token', 'tok']),
+    ).toEqual({
+      command: 'migrate',
+      dbUrl: 'libsql://x',
+      dbToken: 'tok',
+      dataDir: undefined,
+      configPath: undefined,
+    });
+  });
+
+  it('parses serve with --config', () => {
+    expect(parseArgs(['node', 'plandesk', 'serve', '--config', '/tmp/plandesk.server.json'])).toEqual({
+      command: 'serve',
+      port: undefined,
+      strictPort: false,
+      configPath: '/tmp/plandesk.server.json',
+    });
+  });
+});
+
+describe('resolveServeRuntime (config file alone, env overrides — REQ-1/REQ-2)', () => {
+  const tempDirs: string[] = [];
+
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir !== undefined) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+    delete process.env.PLANDESK_HOST;
+    delete process.env.PLANDESK_PORT;
+  });
+
+  it('boots host/port from a config file alone (no env)', () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-cfg-'));
+    tempDirs.push(dataDir);
+    writeFileSync(
+      join(dataDir, SERVER_CONFIG_FILENAME),
+      JSON.stringify({ host: '0.0.0.0', port: 3939 }),
+    );
+    const runtime = resolveServeRuntime({
+      port: undefined,
+      dataDir,
+      host: undefined,
+      strictPort: false,
+      configPath: undefined,
+    });
+    expect(runtime.host).toBe('0.0.0.0');
+    expect(runtime.port).toBe(3939);
+  });
+
+  it('env host/port override the config file', () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-env-'));
+    tempDirs.push(dataDir);
+    writeFileSync(join(dataDir, SERVER_CONFIG_FILENAME), JSON.stringify({ host: '0.0.0.0', port: 3939 }));
+    process.env.PLANDESK_HOST = '1.1.1.1';
+    process.env.PLANDESK_PORT = '7000';
+    const runtime = resolveServeRuntime({
+      port: undefined,
+      dataDir,
+      host: undefined,
+      strictPort: false,
+      configPath: undefined,
+    });
+    expect(runtime.host).toBe('1.1.1.1');
+    expect(runtime.port).toBe(7000);
+  });
+
+  it('flag overrides env and file', () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-flag-'));
+    tempDirs.push(dataDir);
+    writeFileSync(join(dataDir, SERVER_CONFIG_FILENAME), JSON.stringify({ host: '0.0.0.0', port: 3939 }));
+    process.env.PLANDESK_HOST = '1.1.1.1';
+    const runtime = resolveServeRuntime({
+      port: 1234,
+      dataDir,
+      host: '9.9.9.9',
+      strictPort: false,
+      configPath: undefined,
+    });
+    expect(runtime.host).toBe('9.9.9.9');
+    expect(runtime.port).toBe(1234);
+  });
+
+  it('a malformed config file surfaces a clear error', () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-bad-'));
+    tempDirs.push(dataDir);
+    writeFileSync(join(dataDir, SERVER_CONFIG_FILENAME), '{ broken');
+    expect(() =>
+      resolveServeRuntime({ port: undefined, dataDir, host: undefined, strictPort: false }),
+    ).toThrow(/invalid JSON/);
   });
 });
 

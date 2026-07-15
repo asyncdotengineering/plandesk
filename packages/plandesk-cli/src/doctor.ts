@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { createDb, migrate, type Db } from '@plandesk/db';
 import { resolveDataDir, workspaceDbPath } from './args.js';
+import { formatConfigForDoctor, resolveServerConfig, type ResolvedServerConfig } from './config.js';
 import {
   formatBindingDoctorReport,
   runBindingDoctor,
@@ -34,6 +35,10 @@ export type DoctorReport = {
   issues: string[];
   binding?: BindingDoctorReport;
   curator?: CuratorDoctorReport;
+  /** Resolved server config + per-key source (REQ-4). */
+  config?: ResolvedServerConfig;
+  /** Set when the server targets a remote DB (self-host topology). */
+  dbRemote?: string;
 };
 
 export type CuratorDoctorReport = {
@@ -82,10 +87,48 @@ async function hasMigrations(db: Db): Promise<boolean> {
   return Number(row?.count ?? 0) > 0;
 }
 
-export async function runDoctor(dataDirOverride?: string, repoDir?: string): Promise<DoctorReport> {
+export async function runDoctor(
+  dataDirOverride?: string,
+  repoDir?: string,
+  configPath?: string,
+): Promise<DoctorReport> {
   const dataDir = resolveDataDir(dataDirOverride);
   const dbPath = workspaceDbPath(dataDir);
   const issues: string[] = [];
+
+  // Resolve server config up front so the report always shows where each key
+  // came from (REQ-4). This never throws on a missing file.
+  const config = resolveServerConfig({ configPath, dataDir });
+
+  // Remote DB (self-host topology): the operator owns migrations (REQ-8), so
+  // doctor does not open or migrate it. Report the config and skip the local
+  // file inspection that only applies to the local topology.
+  if (config.values.dbUrl !== undefined) {
+    let binding: BindingDoctorReport | undefined;
+    let curator: CuratorDoctorReport | undefined;
+    if (repoDir !== undefined) {
+      binding = await runBindingDoctor(repoDir);
+      if (binding.present) {
+        issues.push(...binding.issues);
+      }
+      curator = curatorArtifactReport(repoDir);
+    }
+    return {
+      healthy: issues.length === 0,
+      dataDir,
+      dbPath: config.values.dbUrl,
+      tables: [],
+      missingTables: [],
+      migrationsApplied: true,
+      projectCount: 0,
+      taskCount: 0,
+      issues,
+      binding,
+      curator,
+      config,
+      dbRemote: config.values.dbUrl,
+    };
+  }
 
   let db: Db;
   try {
@@ -134,6 +177,7 @@ export async function runDoctor(dataDirOverride?: string, repoDir?: string): Pro
     issues,
     binding,
     curator,
+    config,
   };
 }
 
@@ -141,14 +185,19 @@ export function formatDoctorReport(report: DoctorReport): string {
   const lines: string[] = [];
   lines.push(`Plan Desk doctor — ${report.healthy ? 'OK' : 'FAIL'}`);
   lines.push(`data-dir: ${report.dataDir}`);
-  lines.push(`database: ${report.dbPath}`);
-  lines.push(`migrations: ${report.migrationsApplied ? 'applied' : 'missing'}`);
-  lines.push(`tables: ${String(report.tables.length)}`);
-  if (report.missingTables.length > 0) {
-    lines.push(`missing: ${report.missingTables.join(', ')}`);
+  if (report.dbRemote !== undefined) {
+    lines.push(`database: ${report.dbRemote} (remote — managed by operator)`);
+    lines.push(`schema: run 'plandesk migrate --db ${report.dbRemote}'`);
+  } else {
+    lines.push(`database: ${report.dbPath}`);
+    lines.push(`migrations: ${report.migrationsApplied ? 'applied' : 'missing'}`);
+    lines.push(`tables: ${String(report.tables.length)}`);
+    if (report.missingTables.length > 0) {
+      lines.push(`missing: ${report.missingTables.join(', ')}`);
+    }
+    lines.push(`projects: ${String(report.projectCount)}`);
+    lines.push(`tasks: ${String(report.taskCount)}`);
   }
-  lines.push(`projects: ${String(report.projectCount)}`);
-  lines.push(`tasks: ${String(report.taskCount)}`);
   if (report.binding !== undefined) {
     lines.push(...formatBindingDoctorReport(report.binding));
   }
@@ -159,6 +208,10 @@ export function formatDoctorReport(report: DoctorReport): string {
     if (report.curator.missing.length > 0) {
       lines.push(`curator-missing: ${report.curator.missing.join(', ')}`);
     }
+  }
+  if (report.config !== undefined) {
+    lines.push('config:');
+    lines.push(...formatConfigForDoctor(report.config));
   }
   for (const issue of report.issues) {
     lines.push(`issue: ${issue}`);

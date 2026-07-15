@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createProjectInDefaultOrg as createProject, exportProject, getProject, PLANDESK_EXPORT_VERSION } from '@plandesk/db';
+import { createDb, createProjectInDefaultOrg as createProject, exportProject, getProject, PLANDESK_EXPORT_VERSION } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs, workspaceDbPath } from './args.js';
@@ -377,6 +377,59 @@ describe('CLI export/import/doctor', () => {
 
     expect(code).toBe(0);
     expect(stdout.trim().length).toBeGreaterThan(10);
+  });
+
+  it('doctor redacts secret config values and never prints them (REQ-4)', async () => {
+    const dataDir = await makeWorkspace();
+    const secretPassword = 'super-secret-password-XYZ';
+    const secretToken = 'super-secret-db-token-ABC';
+    process.env.PLANDESK_AUTH_PASSWORD = secretPassword;
+    process.env.PLANDESK_DB_TOKEN = secretToken;
+    try {
+      const { code, stdout } = await captureIo(() =>
+        main(['node', 'plandesk', 'doctor', '--data-dir', dataDir]),
+      );
+      expect(code).toBe(0);
+      // The secret values must never appear anywhere in the output.
+      expect(stdout).not.toContain(secretPassword);
+      expect(stdout).not.toContain(secretToken);
+      // But their presence + source is reported, redacted.
+      expect(stdout).toContain('auth-password: <redacted> (env)');
+      expect(stdout).toContain('db-token: <redacted> (env)');
+      // Non-secret keys print their value + source.
+      expect(stdout).toContain('host: 127.0.0.1 (default)');
+      expect(stdout).toContain('storage: local (default)');
+    } finally {
+      delete process.env.PLANDESK_AUTH_PASSWORD;
+      delete process.env.PLANDESK_DB_TOKEN;
+    }
+  });
+
+  it('migrate applies schema to a database url (operator self-host path, REQ-8)', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'plandesk-migrate-'));
+    tempDirs.push(tmp);
+    const dbFile = join(tmp, 'migrated.db');
+    const { code, stdout } = await captureIo(() =>
+      main(['node', 'plandesk', 'migrate', '--db', dbFile]),
+    );
+    expect(code).toBe(0);
+    expect(stdout).toContain('Applied migrations');
+
+    const db = await createDb(dbFile);
+    const result = await db.$client.execute(
+      "SELECT name FROM sqlite_master WHERE type='table'",
+    );
+    const names = result.rows.map((row) => String(row.name));
+    expect(names).toContain('projects');
+    expect(names).toContain('__drizzle_migrations');
+  });
+
+  it('migrate exits 1 with a clear message when no database url is configured', async () => {
+    const { code, stderr } = await captureIo(() =>
+      main(['node', 'plandesk', 'migrate', '--data-dir', '/no/such/dir']),
+    );
+    expect(code).toBe(1);
+    expect(stderr).toContain('No database URL configured');
   });
 });
 

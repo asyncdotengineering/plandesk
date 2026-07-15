@@ -1,0 +1,40 @@
+# Plan Desk — self-host quickstart (REQ-6).
+#
+# Copy-paste runnable. Builds the server image (Dockerfile.server) and runs the
+# full Plan Desk server on port 3847.
+#
+#   docker compose -f docker-compose.hosted.yml up --build
+#   open http://127.0.0.1:3847
+#
+# Two ways to give it a database:
+#   1. Durable (recommended for anything real): point PLANDESK_DB_URL at your own
+#      libSQL/Turso database. Leave the volume for plandesk.server.json only.
+#         PLANDESK_DB_URL=libsql://your-db.turso.io  (set in .env or the env)
+#         PLANDESK_DB_TOKEN=...                       (the db auth token)
+#      Then apply the schema once:  docker compose -f docker-compose.hosted.yml run --rm plandesk migrate --db "$PLANDESK_DB_URL" --db-token "$PLANDESK_DB_TOKEN"
+#   2. Local file (zero-config): leave PLANDESK_DB_URL unset and the server uses
+#      a SQLite file on the mounted volume (migrated automatically at boot).
+#
+# Set PLANDESK_AUTH_PASSWORD for any host reachable beyond your own machine.
+# See apps/docs → Self-Hosting for the full topology guide.
+
+services:
+  plandesk:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - '3847:3847'
+    environment:
+      PLANDESK_HOST: '0.0.0.0'
+      # Required for anything beyond a trusted loopback host.
+      PLANDESK_AUTH_PASSWORD: ${PLANDESK_AUTH_PASSWORD:?Set PLANDESK_AUTH_PASSWORD in .env or the environment}
+      # Optional: your own libSQL/Turso database. Unset → local file on the volume.
+      PLANDESK_DB_URL: ${PLANDESK_DB_URL:-}
+      PLANDESK_DB_TOKEN: ${PLANDESK_DB_TOKEN:-}
+    volumes:
+      - plandesk-data:/data
+    restart: unless-stopped
+
+volumes:
+  plandesk-data:

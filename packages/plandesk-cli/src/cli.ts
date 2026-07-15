@@ -5,8 +5,9 @@ import { cwd } from 'node:process';
 import { runInit } from './init.js';
 import { printOnboard } from './onboard.js';
 import { crashCourse, DEFAULT_PORT, findLocalPlandeskDir, parseArgs, resolveDataDir, usage } from './args.js';
-import { readWorkspaceJson, resolveEffectivePort } from './connect-artifacts.js';
-import { runServe } from './serve.js';
+import { resolveEffectivePort } from './connect-artifacts.js';
+import { runServe, resolveServeRuntime } from './serve.js';
+import { resolveServerConfig, ConfigFileError } from './config.js';
 import { runPreview } from './preview.js';
 import { runTokenCreate } from './token.js';
 import { runExport, ProjectNotFoundError } from './export.js';
@@ -43,6 +44,7 @@ import {
   WorkspaceNotFoundError,
 } from './workspace.js';
 import { InvalidShareError, SyncUnauthorizedError, SyncUnavailableError } from '@plandesk/api';
+import { createDb, migrate } from '@plandesk/db';
 
 function reportCorruptDb(): number {
   process.stderr.write(`${CORRUPT_DB_HINT}\n`);
@@ -99,11 +101,23 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
       return 0;
     }
     case 'serve': {
-      const dataDir = resolveDataDir(parsed.dataDir);
-      const workspacePort = readWorkspaceJson(dataDir)?.port;
-      const port = parsed.port ?? workspacePort ?? DEFAULT_PORT;
-      await runServe({ port, dataDir: parsed.dataDir, host: parsed.host, strictPort: parsed.strictPort });
-      return 0;
+      try {
+        const runtime = resolveServeRuntime(parsed);
+        await runServe({
+          port: runtime.port,
+          dataDir: runtime.dataDir,
+          host: runtime.host,
+          strictPort: runtime.strictPort,
+          configPath: runtime.configPath,
+        });
+        return 0;
+      } catch (err) {
+        if (err instanceof ConfigFileError) {
+          process.stderr.write(`${err.message}\n`);
+          return 1;
+        }
+        throw err;
+      }
     }
     case 'url': {
       const repoDir = resolveRepoDir(parsed.repoDir);
@@ -192,13 +206,43 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         const repoDir = resolveRepoDir(parsed.repoDir);
         const shouldCheckBinding =
           parsed.repoDir !== undefined || existsSync(join(repoDir, '.plandesk', 'config.json'));
-        const report = await runDoctor(parsed.dataDir, shouldCheckBinding ? repoDir : undefined);
+        const report = await runDoctor(
+          parsed.dataDir,
+          shouldCheckBinding ? repoDir : undefined,
+          parsed.configPath,
+        );
         process.stdout.write(formatDoctorReport(report));
         return report.healthy ? 0 : 1;
       } catch (err) {
         if (err instanceof CorruptWorkspaceError) {
           process.stderr.write(`${err.message}\n`);
           return 2;
+        }
+        throw err;
+      }
+    }
+    case 'migrate': {
+      try {
+        const cfg = resolveServerConfig({
+          configPath: parsed.configPath,
+          dataDir: resolveDataDir(parsed.dataDir),
+        });
+        const dbUrl = parsed.dbUrl ?? cfg.values.dbUrl;
+        if (dbUrl === undefined) {
+          process.stderr.write(
+            'No database URL configured. Pass --db <url>, set PLANDESK_DB_URL, or set dbUrl in plandesk.server.json.\n',
+          );
+          return 1;
+        }
+        const dbToken = parsed.dbToken ?? cfg.values.dbToken;
+        const db = await createDb(dbUrl, dbToken);
+        await migrate(db);
+        process.stdout.write(`Applied migrations to ${dbUrl}\n`);
+        return 0;
+      } catch (err) {
+        if (err instanceof ConfigFileError) {
+          process.stderr.write(`${err.message}\n`);
+          return 1;
         }
         throw err;
       }

@@ -1,0 +1,70 @@
+# syntax=docker/dockerfile:1
+#
+# Plan Desk server image — the self-host topology (REQ-5).
+#
+# Runs the full Plan Desk server (`plandesk serve`) on a host the operator
+# controls. The operator supplies their own database via PLANDESK_DB_URL
+# (libSQL/Turso); no dependency on asyncdot infrastructure and no GitHub app
+# required (REQ-20). When PLANDESK_DB_URL is unset the container falls back to
+# a local file database on the mounted volume, so the image is also a working
+# single-container quickstart.
+#
+# Build:   docker build -f Dockerfile.server -t plandesk-server .
+# Run:     see docker-compose.hosted.yml, or:
+#          docker run -p 3847:3847 -e PLANDESK_DB_URL=libsql://... \
+#            -e PLANDESK_DB_TOKEN=... -e PLANDESK_AUTH_PASSWORD=... plandesk-server
+
+FROM node:22-bookworm-slim AS build
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY packages ./packages
+COPY apps ./apps
+
+RUN pnpm install --frozen-lockfile
+RUN pnpm build
+# NOTE: `pnpm prune --prod` is intentionally NOT used — in this workspace it
+# deletes the per-package node_modules/@plandesk/* symlinks, which breaks
+# `@plandesk/db` resolution at runtime. We accept a slightly larger image to
+# keep workspace resolution intact (still one slim, non-root container).
+
+FROM node:22-slim AS runtime
+
+RUN groupadd --system plandesk \
+  && useradd --system --gid plandesk --home-dir /app plandesk \
+  && mkdir -p /data \
+  && chown plandesk:plandesk /data
+
+WORKDIR /app
+
+# Copy the root store (node_modules/.pnpm) and the full package trees. Each
+# package's node_modules holds pnpm workspace symlinks (@plandesk/* + deps)
+# that resolve into the root .pnpm store — cherry-picking only dist/ breaks
+# `@plandesk/db` resolution at runtime. Dev deps were already pruned above.
+COPY --from=build --chown=plandesk:plandesk /app/node_modules ./node_modules
+COPY --from=build --chown=plandesk:plandesk /app/package.json ./package.json
+COPY --from=build --chown=plandesk:plandesk /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=build --chown=plandesk:plandesk /app/packages ./packages
+COPY --from=build --chown=plandesk:plandesk /app/apps/plandesk-web/dist ./apps/plandesk-web/dist
+
+ENV NODE_ENV=production
+# Default data dir for the local-file fallback and for plandesk.server.json.
+ENV PLANDESK_DATA_DIR=/data
+# Port-registry / runtime state lives in the writable volume too (defaults to
+# ~/.plandesk otherwise, which is not writable for the non-root user).
+ENV PLANDESK_STATE_DIR=/data
+
+USER plandesk
+
+EXPOSE 3847
+
+# Bind all interfaces inside the container; the operator fronts it with TLS.
+# Host/port/db/storage/github are all resolved env > plandesk.server.json > default.
+CMD ["node", "packages/plandesk-cli/bin/plandesk", "serve", "--host", "0.0.0.0"]

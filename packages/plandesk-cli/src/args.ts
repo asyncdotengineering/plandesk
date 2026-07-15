@@ -124,6 +124,7 @@ const RESERVED_COMMANDS = new Set([
   'factory',
   'context',
   'progress-checkpoint',
+  'migrate',
   'help',
   'onboard',
   'version',
@@ -144,7 +145,7 @@ export function isPreviewableFile(path: string): boolean {
 
 export type ParsedArgs =
   | { command: 'init'; dataDir?: string }
-  | { command: 'serve'; port?: number; dataDir?: string; host?: string; strictPort: boolean }
+  | { command: 'serve'; port?: number; dataDir?: string; host?: string; strictPort: boolean; configPath?: string }
   | { command: 'url'; repoDir?: string; lan: boolean }
   | { command: 'token'; subcommand: 'create'; name: string; dataDir?: string }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
@@ -159,7 +160,14 @@ export type ParsedArgs =
       print: boolean;
     }
   | { command: 'disconnect'; repoDir?: string }
-  | { command: 'doctor'; dataDir?: string; repoDir?: string }
+  | { command: 'doctor'; dataDir?: string; repoDir?: string; configPath?: string }
+  | {
+      command: 'migrate';
+      dbUrl?: string;
+      dbToken?: string;
+      dataDir?: string;
+      configPath?: string;
+    }
   | {
       command: 'push';
       repoDir?: string;
@@ -304,6 +312,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       dataDir,
       host: flagString(flags, 'host'),
       strictPort: flags['strict-port'] === true,
+      configPath: flagString(flags, 'config'),
     };
   }
 
@@ -365,7 +374,22 @@ export function parseArgs(argv: string[]): ParsedArgs {
   }
 
   if (command === 'doctor') {
-    return { command: 'doctor', dataDir, repoDir: flagString(flags, 'repo') };
+    return {
+      command: 'doctor',
+      dataDir,
+      repoDir: flagString(flags, 'repo'),
+      configPath: flagString(flags, 'config'),
+    };
+  }
+
+  if (command === 'migrate') {
+    return {
+      command: 'migrate',
+      dbUrl: flagString(flags, 'db'),
+      dbToken: flagString(flags, 'db-token'),
+      dataDir,
+      configPath: flagString(flags, 'config'),
+    };
   }
 
   if (command === 'push') {
@@ -460,14 +484,15 @@ Usage:
   plandesk <file.md|file.html> [more…]       # preview & annotate files in the browser (glob-friendly)
   plandesk open <paths…> [--port <n>] [--host <addr>] [--no-open]   # explicit previewer
   plandesk init [--data-dir <dir>]
-  plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>]
+  plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>] [--config <file>]
   plandesk url [--repo <dir>] [--lan]
   plandesk token create --name <name> [--data-dir <dir>]
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]
   plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
   plandesk disconnect [--repo <dir>]
-  plandesk doctor [--data-dir <dir>] [--repo <dir>]
+  plandesk doctor [--data-dir <dir>] [--repo <dir>] [--config <file>]
+  plandesk migrate --db <url> [--db-token <token>] [--config <file>] [--data-dir <dir>]   # apply schema migrations to a remote (self-host) database
   plandesk push [--project <id>] [--to <orgId>] [--url <server>] [--repo <dir>] [--data-dir <dir>]
   plandesk pull [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>] [--repo <dir>] [--data-dir <dir>]
@@ -484,6 +509,7 @@ Options:
   --repo      Target repository directory (default: cwd)
   --port      HTTP port for serve (default: workspace.json port → ${String(DEFAULT_PORT)}; auto-rotates if busy)
   --strict-port  Fail instead of rotating when the serve port is in use
+  --config   Server config file (plandesk.server.json) — env still overrides (default: <data-dir>/plandesk.server.json)
   --lan       (url) print the LAN-accessible URL instead of loopback
   --host      Bind address (default: 127.0.0.1 — loopback only; opt into LAN with --host 0.0.0.0 or PLANDESK_HOST)
   --project   Project id or name for connect/export

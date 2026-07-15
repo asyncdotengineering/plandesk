@@ -1,13 +1,15 @@
 import { createServer, type Server } from 'node:http';
 import { getRequestListener } from '@hono/node-server';
-import { createApp, createServices, githubConfigFromEnv, mountStatic } from '@plandesk/api';
+import { createApp, createServices, createS3Adapter, mountStatic } from '@plandesk/api';
 import { createDb, ensureDefaultOrg, migrate, verifyToken } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
+import { resolveServerConfig } from './config.js';
 import {
   deleteServerInfo,
   isPortOwnedByAnotherProject,
   readPortRegistry,
+  readWorkspaceJson,
   reservePort,
   writeServerInfo,
 } from './connect-artifacts.js';
@@ -19,6 +21,8 @@ export type ServeOptions = {
   host?: string;
   authPassword?: string;
   strictPort?: boolean;
+  /** Explicit `--config <path>` for plandesk.server.json. */
+  configPath?: string;
 };
 
 /** How many sequential ports to try before giving up (Vite/Expo-style rotation). */
@@ -53,19 +57,72 @@ export function createListenErrorHandler(
   };
 }
 
+export type ServeRuntime = {
+  port: number;
+  host: string;
+  dataDir?: string;
+  configPath?: string;
+  strictPort: boolean;
+};
+
+/**
+ * Resolve serve host/port/dataDir from flags > workspace.json > config file >
+ * default. Extracted so the precedence (and "boots from a config file alone",
+ * REQ-1/REQ-2) is unit-testable without binding a socket.
+ */
+export function resolveServeRuntime(
+  parsed: {
+    port?: number;
+    dataDir?: string;
+    host?: string;
+    strictPort: boolean;
+    configPath?: string;
+  },
+): ServeRuntime {
+  const dataDir = resolveDataDir(parsed.dataDir);
+  const cfg = resolveServerConfig({ configPath: parsed.configPath, dataDir });
+  const workspacePort = readWorkspaceJson(dataDir)?.port;
+  const port = parsed.port ?? workspacePort ?? cfg.values.port;
+  const host = parsed.host ?? cfg.values.host;
+  return { port, host, dataDir: parsed.dataDir, configPath: parsed.configPath, strictPort: parsed.strictPort };
+}
+
 export async function startServer(
   options: ServeOptions,
   exit: ExitFn = defaultExit,
 ): Promise<Server> {
-  const { host, authPassword } = validateServeBind(options);
+  const { host } = validateServeBind(options);
   const dataDir = resolveDataDir(options.dataDir);
-  const dbPath = workspaceDbPath(dataDir);
-  const db = await createDb(dbPath);
-  await migrate(db);
-  // Local bootstrap: exactly one default org when none exist (REQ-21).
-  await ensureDefaultOrg(db);
 
-  const services = createServices({ db });
+  // Server config: env > file > default (see config.ts). Flags layer above this
+  // at the cli boundary; here we read env/file for db, storage, github, and the
+  // file-only fallback for authPassword.
+  const cfg = resolveServerConfig({ configPath: options.configPath, dataDir });
+  // flag (options.authPassword) > env > file — resolveServerConfig already
+  // folded env > file, so this is the full precedence.
+  const authPassword = options.authPassword ?? cfg.values.authPassword;
+
+  // Database: a remote libSQL URL (self-host/cloud) is opened as-is and NOT
+  // migrated at boot — the operator owns those migrations (REQ-8). No URL →
+  // local file SQLite, migrated and bootstrapped at boot (the local topology).
+  const dbUrl = cfg.values.dbUrl;
+  const dbPath = workspaceDbPath(dataDir);
+  const dbDisplay = dbUrl ?? dbPath;
+  const db =
+    dbUrl !== undefined
+      ? await createDb(dbUrl, cfg.values.dbToken)
+      : await createDb(dbPath);
+  if (dbUrl === undefined) {
+    await migrate(db);
+    // Local bootstrap: exactly one default org when none exist (REQ-21).
+    await ensureDefaultOrg(db);
+  }
+
+  const storage =
+    cfg.values.storage.kind === 's3'
+      ? createS3Adapter({ db, config: cfg.values.storage })
+      : undefined;
+  const services = createServices({ db, ...(storage !== undefined ? { storage } : {}) });
   const tokenStore = {
     async verify(raw: string) {
       return verifyToken(db, raw);
@@ -78,9 +135,10 @@ export async function startServer(
     mcp: mcpApp,
     authPassword,
     bindHost: host,
-    // Self-hosters who never registered a GitHub app get undefined here, and
-    // the server simply has no GitHub sign-in (REQ-20).
-    github: githubConfigFromEnv(process.env),
+    // GitHub sign-in comes from the resolved config (env > file). With no
+    // client id/secret configured, the server simply has no GitHub sign-in
+    // (REQ-20) — the supported self-host path, not a degraded one.
+    github: cfg.values.github,
   });
   // Node-only: serve the bundled web SPA from disk. Edge entries use platform assets.
   mountStatic(app);
@@ -101,7 +159,7 @@ export async function startServer(
       host,
       startedAt: new Date().toISOString(),
     });
-    process.stdout.write(`Plan Desk → http://${host}:${String(boundPort)}  (db: ${dbPath})\n`);
+    process.stdout.write(`Plan Desk → http://${host}:${String(boundPort)}  (db: ${dbDisplay})\n`);
     if (boundPort !== options.port) {
       process.stdout.write(
         `Note: port ${String(options.port)} was in use — started on ${String(boundPort)}. ` +

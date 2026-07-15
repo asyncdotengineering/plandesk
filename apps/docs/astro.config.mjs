@@ -63,7 +63,12 @@ export default defineConfig({
         },
         {
           label: 'Self-Hosting',
-          items: [{ slug: 'self-hosting/docker' }, { slug: 'self-hosting/sync-server' }],
+          items: [
+            { slug: 'self-hosting/topologies' },
+            { slug: 'self-hosting/server-config' },
+            { slug: 'self-hosting/docker' },
+            { slug: 'self-hosting/sync-server' },
+          ],
         },
         {
           label: 'Connecting Agents',
