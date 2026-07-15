@@ -377,6 +377,7 @@ describe('web session auth — self-host without a GitHub app (REQ-20)', () => {
     const { app } = await createTestApp({ bindHost: '0.0.0.0' });
     expect((await app.request('/api/v1/auth/github')).status).toBe(404);
     expect((await app.request('/api/v1/auth/github/callback?code=c&state=s')).status).toBe(404);
+    expect((await app.request('/api/v1/auth/device/start', { method: 'POST' })).status).toBe(404);
   });
 
   it('a GitHub-less instance still authenticates with a token', async () => {
@@ -395,13 +396,10 @@ describe('web session auth — self-host without a GitHub app (REQ-20)', () => {
     expect(res.status).toBe(201);
   });
 
-  it('githubEnabled:true → /auth/methods still reports token until device flow exists', async () => {
+  it('githubEnabled:true → /auth/methods reports device', async () => {
     const { app } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
     const res = await app.request('/api/v1/auth/methods');
-    // `method` reports what this server can actually serve. GitHub sign-in is
-    // available to the BROWSER, but there are no /auth/device/* endpoints yet,
-    // so a CLI must paste a token. Flip to 'device' with the endpoints, not before.
-    expect(await parseJson(res)).toEqual({ method: 'token', githubEnabled: true });
+    expect(await parseJson(res)).toEqual({ method: 'device', githubEnabled: true });
   });
 
   it('/auth/methods needs no credential — the sign-in screen reads it first', async () => {
@@ -436,5 +434,52 @@ describe('web session auth — local mode is untouched (REQ-21)', () => {
       kind: 'token',
       user_ref: null,
     });
+  });
+});
+
+describe('GitHub device auth', () => {
+  it('starts, polls, provisions the same org, and discards GitHub credentials', async () => {
+    let polls = 0;
+    const fetch: FetchLike = (url, init) => {
+      if (url.includes('login/device/code')) {
+        return Promise.resolve(new Response(JSON.stringify({ device_code: 'device-secret', user_code: 'ABCD-1234', verification_uri: 'https://github.com/login/device', interval: 1, expires_in: 900 }), { status: 200 }));
+      }
+      if (url.includes('login/oauth/access_token')) {
+        polls++;
+        return Promise.resolve(new Response(JSON.stringify(polls === 1 ? { error: 'authorization_pending' } : { access_token: 'gho_device_secret' }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ id: 99, login: 'device-user', name: 'Device User' }), { status: 200 }));
+    };
+    const { app, db } = await createTestApp({ bindHost: '0.0.0.0', github: { clientId: 'client', clientSecret: 'secret', callbackUrl: 'https://x.test/cb', fetch } });
+    const start = await app.request('/api/v1/auth/device/start', { method: 'POST' });
+    const started = await parseJson<{ auth_id: string; user_code: string }>(start);
+    expect(started.user_code).toBe('ABCD-1234');
+    expect(JSON.stringify(started)).not.toContain('device-secret');
+
+    expect(await parseJson(await app.request('/api/v1/auth/device/poll', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ auth_id: started.auth_id }) }))).toEqual({ status: 'pending' });
+    const success = await parseJson<{ token: string; org_id: string; login: string }>(await app.request('/api/v1/auth/device/poll', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ auth_id: started.auth_id }) }));
+    expect(success.login).toBe('device-user');
+    expect(success.token).not.toContain('gho_device_secret');
+    expect((await db.$client.execute({ sql: 'SELECT * FROM pending_auth WHERE auth_id = ?', args: [started.auth_id] })).rows).toHaveLength(0);
+
+    const second = await app.request('/api/v1/auth/device/start', { method: 'POST' });
+    const secondStart = await parseJson<{ auth_id: string }>(second);
+    polls = 1;
+    const secondSuccess = await parseJson<{ org_id: string }>(await app.request('/api/v1/auth/device/poll', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ auth_id: secondStart.auth_id }) }));
+    expect(secondSuccess.org_id).toBe(success.org_id);
+  });
+
+  it.each([
+    ['authorization_pending', { status: 'pending' }],
+    // RFC 8628 §3.5: slow_down is a signal, not a value — the server must not
+    // hand back an interval, because only the client knows what to add 5 to.
+    ['slow_down', { status: 'pending', slow_down: true }],
+    ['expired_token', { status: 'expired' }],
+  ] as const)('maps GitHub %s', async (error, expected) => {
+    const fetch: FetchLike = (url) => Promise.resolve(new Response(JSON.stringify(url.includes('device/code') ? { device_code: 'secret', user_code: 'CODE', verification_uri: 'https://github.com/login/device', expires_in: 900 } : { error }), { status: 200 }));
+    const { app } = await createTestApp({ bindHost: '0.0.0.0', github: { clientId: 'client', clientSecret: 'secret', callbackUrl: 'https://x.test/cb', fetch } });
+    const start = await parseJson<{ auth_id: string }>(await app.request('/api/v1/auth/device/start', { method: 'POST' }));
+    const result = await app.request('/api/v1/auth/device/poll', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ auth_id: start.auth_id }) });
+    expect(await parseJson(result)).toEqual(expected);
   });
 });

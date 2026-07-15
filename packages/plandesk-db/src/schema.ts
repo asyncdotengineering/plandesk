@@ -75,6 +75,15 @@ export const sessions = sqliteTable('sessions', {
   expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
+export const pendingAuth = sqliteTable('pending_auth', {
+  authId: text('auth_id').primaryKey(),
+  deviceCode: text('device_code').notNull(),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+});
+
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
   orgId: text('org_id')

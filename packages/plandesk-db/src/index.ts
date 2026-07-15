@@ -18,6 +18,7 @@ export * from './repositories/artifacts.js';
 export * from './repositories/comments.js';
 export * from './repositories/tokens.js';
 export * from './repositories/sessions.js';
+export * from './repositories/pending-auth.js';
 export * from './repositories/shares.js';
 export * from './repositories/share-submissions.js';
 export * from './repositories/sync-remotes.js';

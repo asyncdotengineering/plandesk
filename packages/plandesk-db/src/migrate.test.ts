@@ -99,6 +99,7 @@ describe('migrate', () => {
     await seed(db);
     expect((await getProject(db, FIXTURE_PROJECT_ID))?.name).toBe('Fixture Project');
 
+    await migrateDown(db, 1); // 0016 pending_auth
     expect(await hasColumn(db, 'comments', 'anchor')).toBe(true);
     expect(await hasColumn(db, 'projects', 'org_id')).toBe(true);
 
@@ -189,8 +190,8 @@ describe('migrate', () => {
   it('0008 backfill assigns a default goal to pre-existing tasks', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    // 0015+0014+0013+0012+0011+0010+0009+0008 = 8 downs to pre-goals schema
-    await migrateDown(db, 8);
+    // 0016+0015+0014+0013+0012+0011+0010+0009+0008 = 9 downs to pre-goals schema
+    await migrateDown(db, 9);
     expect(await hasColumn(db, 'tasks', 'goal_id')).toBe(false);
     expect(await listTables(db)).not.toContain('goals');
 
@@ -234,7 +235,7 @@ describe('migrate', () => {
     await createTask(db, { projectId: project.id, label: 'Task A' });
     await createTask(db, { projectId: project.id, label: 'Task B' });
 
-    await migrateDown(db, 8);
+    await migrateDown(db, 9);
     expect(await listTables(db)).not.toContain('goals');
     expect(await hasColumn(db, 'tasks', 'goal_id')).toBe(false);
 
@@ -265,8 +266,8 @@ describe('migrate', () => {
   it('0010 backfill migrates document_comments to comments with project_id', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    // 0015+0014+0013+0012+0011+0010 = 6 downs to document_comments schema
-    await migrateDown(db, 6);
+    // 0016+0015+0014+0013+0012+0011+0010 = 7 downs to document_comments schema
+    await migrateDown(db, 7);
     expect(await listTables(db)).toContain('document_comments');
     expect(await listTables(db)).not.toContain('comments');
 
@@ -316,7 +317,7 @@ describe('migrate', () => {
     expect(await listTables(db)).toContain('comments');
     expect(await listTables(db)).not.toContain('document_comments');
 
-    await migrateDown(db, 6);
+    await migrateDown(db, 7);
     expect(await listTables(db)).toContain('document_comments');
     expect(await listTables(db)).not.toContain('comments');
 
@@ -330,7 +331,7 @@ describe('migrate', () => {
     await migrate(db);
     expect(await hasColumn(db, 'goals', 'last_verification')).toBe(true);
 
-    await migrateDown(db, 7);
+    await migrateDown(db, 8);
     expect(await hasColumn(db, 'goals', 'last_verification')).toBe(false);
 
     await migrate(db);
@@ -345,7 +346,7 @@ describe('migrate', () => {
   it('regression: 0008 rebuild survives tasks referenced by edges, docs, submissions', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    await migrateDown(db, 8); // back to 0007 (pre-goals)
+    await migrateDown(db, 9); // back to 0007 (pre-goals)
 
     const projectId = randomUUID();
     const now = Date.now();
@@ -375,7 +376,7 @@ describe('migrate', () => {
 
     // up (rebuild), down, and up again must all succeed with references present.
     await expect(migrate(db)).resolves.not.toThrow();
-    await expect(migrateDown(db, 7)).resolves.not.toThrow();
+    await expect(migrateDown(db, 8)).resolves.not.toThrow();
     await expect(migrate(db)).resolves.not.toThrow();
 
     const edge = (await db.$client.execute('SELECT from_task_id, to_task_id FROM edges')).rows[0];

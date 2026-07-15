@@ -22,7 +22,7 @@ Plan Desk stays local-first while letting you share a project — read-only and 
  │  services (only write path) + SSE       │         │  /api/sync/v1/*   (sync token — owner)        │
  │  ShareService → ClientView (allow-list) │  pull   │  /api/portal/v1/* (participant token — guest) │
  │  syncService: publish / push / pull /   │ ◀────── │  store: libSQL (Node) | D1 (Cloudflare edge)  │
- │    triage / sync --watch                │         │  shares · participants · submissions · log    │
+ │    triage / pull                         │         │  shares · participants · submissions · log    │
  └────────────────────────────────────────┘         └──────────────────────────────────────────────┘
         ▲  MCP token (agent)                                  ▲  participant token (named guest)
    coding agent                                          the same web app, in read-only "portal" mode
@@ -30,7 +30,7 @@ Plan Desk stays local-first while letting you share a project — read-only and 
 
 ## The flow
 
-- **Outbound (owner → hosted).** `syncService.push` builds an **allow-list `ClientView`** for each share — only the tasks, edges, progress, and documents you've shared; internal documents, comments, agent runs, and assignees are _structurally absent_, never serialized — and PUTs it to the sync server. `plandesk sync --watch` does this debounced on every local change, so the guest sees status move in ~2s.
+- **Outbound (owner → hosted).** `syncService.push` builds an **allow-list `ClientView`** for each share — only the tasks, edges, progress, and documents you've shared; internal documents, comments, agent runs, and assignees are _structurally absent_, never serialized — and promotes it to the hosted organization. The portal computes the view from the hosted project and polls for updates.
 - **Participant (guest → hosted).** A guest opens `/p/:shareToken`, **joins with their name** (invite-scoped or public) to get a scoped session, and views the live client view (session-gated, isolated to that one share). They can file issues into a **moderated inbox**. The view polls, so status changes appear within the poll interval.
 - **Inbound (hosted → owner).** `plandesk pull` brings submissions into a **local triage inbox**. Accepting one creates a **real task through the normal write path** — so it appears on your canvas/board and your agent can `get_next_task` it — and the status is acked back so the guest sees `accepted`.
 - **Agent-operable.** The whole loop is available over MCP — `sync_pull`, `list_submissions`, `triage_submission` — so an agent can pull a client's bug, triage it, scaffold it, and work it.

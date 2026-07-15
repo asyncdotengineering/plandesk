@@ -99,6 +99,8 @@ const PUBLIC_AUTH_PATHS = new Set([
   '/api/v1/auth/github',
   '/api/v1/auth/github/callback',
   '/api/v1/auth/methods',
+  '/api/v1/auth/device/start',
+  '/api/v1/auth/device/poll',
   '/api/v1/auth/logout',
 ]);
 

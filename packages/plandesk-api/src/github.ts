@@ -13,6 +13,7 @@
 const AUTHORIZE_URL = 'https://github.com/login/oauth/authorize';
 const ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const USER_URL = 'https://api.github.com/user';
+const DEVICE_CODE_URL = 'https://github.com/login/device/code';
 
 /**
  * The slice of fetch this module uses. Declared rather than `typeof fetch`:
@@ -46,6 +47,19 @@ export class GithubOAuthError extends Error {
     this.name = 'GithubOAuthError';
   }
 }
+
+export type GithubDeviceStart = {
+  deviceCode: string;
+  userCode: string;
+  verificationUri: string;
+  interval: number;
+  expiresIn: number;
+};
+
+export type GithubDevicePoll =
+  | { status: 'pending'; slowDown?: true }
+  | { status: 'expired' }
+  | { status: 'success'; identity: GithubIdentity };
 
 export type GithubEnv = {
   PLANDESK_GITHUB_CLIENT_ID?: string;
@@ -158,6 +172,54 @@ async function fetchIdentity(config: GithubConfig, accessToken: string): Promise
     login: body.login,
     name: typeof body.name === 'string' ? body.name : null,
   };
+}
+
+export async function startDeviceFlow(config: GithubConfig): Promise<GithubDeviceStart> {
+  const doFetch = config.fetch ?? fetch;
+  const response = await doFetch(DEVICE_CODE_URL, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client_id: config.clientId, scope: 'read:user' }),
+  });
+  if (!response.ok) throw new GithubOAuthError(`device start failed with status ${String(response.status)}`);
+  const body = (await response.json()) as Record<string, unknown>;
+  if (typeof body.device_code !== 'string' || typeof body.user_code !== 'string' ||
+      typeof body.verification_uri !== 'string' || typeof body.expires_in !== 'number') {
+    throw new GithubOAuthError('device start returned an invalid response');
+  }
+  return {
+    deviceCode: body.device_code,
+    userCode: body.user_code,
+    verificationUri: body.verification_uri,
+    interval: typeof body.interval === 'number' ? body.interval : 5,
+    expiresIn: body.expires_in,
+  };
+}
+
+export async function pollDeviceFlow(config: GithubConfig, deviceCode: string): Promise<GithubDevicePoll> {
+  const doFetch = config.fetch ?? fetch;
+  const response = await doFetch(ACCESS_TOKEN_URL, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: config.clientId,
+      device_code: deviceCode,
+      grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+    }),
+  });
+  if (!response.ok) throw new GithubOAuthError(`device poll failed with status ${String(response.status)}`);
+  const body = (await response.json()) as { access_token?: unknown; error?: unknown };
+  if (body.error === 'authorization_pending') return { status: 'pending' };
+  // RFC 8628 §3.5: slow_down carries no new interval — the client MUST add 5s to
+  // whatever it is currently waiting, "for this and all subsequent requests".
+  // Only the client knows that number, so pass the signal, never a value: a
+  // literal interval here would reset a backed-off client instead of raising it.
+  if (body.error === 'slow_down') return { status: 'pending', slowDown: true };
+  if (body.error === 'expired_token') return { status: 'expired' };
+  if (typeof body.access_token !== 'string' || body.access_token === '') {
+    throw new GithubOAuthError('device poll returned no access_token');
+  }
+  return { status: 'success', identity: await fetchIdentity(config, body.access_token) };
 }
 
 /**

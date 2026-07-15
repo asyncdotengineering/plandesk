@@ -109,6 +109,9 @@ export const PREVIEW_EXTENSIONS = ['.md', '.markdown', '.html', '.htm'] as const
  */
 const RESERVED_COMMANDS = new Set([
   'init',
+  'login',
+  'logout',
+  'whoami',
   'serve',
   'url',
   'token',
@@ -144,6 +147,9 @@ export function isPreviewableFile(path: string): boolean {
 }
 
 export type ParsedArgs =
+  | { command: 'login'; server?: string }
+  | { command: 'logout' }
+  | { command: 'whoami' }
   | { command: 'init'; dataDir?: string }
   | { command: 'serve'; port?: number; dataDir?: string; host?: string; strictPort: boolean; configPath?: string }
   | { command: 'url'; repoDir?: string; lan: boolean }
@@ -304,6 +310,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (command === 'init') {
     return { command: 'init', dataDir };
   }
+
+  if (command === 'login') return { command: 'login', server: flagString(flags, 'server') };
+  if (command === 'logout') return { command: 'logout' };
+  if (command === 'whoami') return { command: 'whoami' };
 
   if (command === 'serve') {
     return {
@@ -484,6 +494,9 @@ Usage:
   plandesk <file.md|file.html> [more…]       # preview & annotate files in the browser (glob-friendly)
   plandesk open <paths…> [--port <n>] [--host <addr>] [--no-open]   # explicit previewer
   plandesk init [--data-dir <dir>]
+  plandesk login [--server <url>]
+  plandesk logout
+  plandesk whoami
   plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>] [--config <file>]
   plandesk url [--repo <dir>] [--lan]
   plandesk token create --name <name> [--data-dir <dir>]

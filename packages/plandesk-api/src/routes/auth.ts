@@ -1,19 +1,25 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Hono } from 'hono';
 import {
   addOrgMember,
+  createPendingAuth,
+  createToken,
   createOrg,
   createSession,
   deleteSession,
   getOrg,
   listOrgMembershipsForUser,
+  deletePendingAuth,
+  getPendingAuth,
   type Db,
 } from '@plandesk/db';
 import { getAuthContext } from '../auth-context.js';
 import {
   authorizeUrl,
   GithubOAuthError,
+  pollDeviceFlow,
   resolveGithubIdentity,
+  startDeviceFlow,
   userRefFromGithubId,
   type GithubConfig,
   type GithubIdentity,
@@ -54,16 +60,18 @@ async function findOrCreateOrgForIdentity(
   db: Db,
   userRef: string,
   identity: GithubIdentity,
-): Promise<{ orgId: string }> {
+): Promise<{ orgId: string; orgName: string }> {
   const existing = await listOrgMembershipsForUser(db, userRef);
   const first = existing[0];
   if (first !== undefined) {
-    return { orgId: first.orgId };
+    const org = await getOrg(db, first.orgId);
+    if (org === undefined) throw new Error('Org membership points to a missing org');
+    return { orgId: org.id, orgName: org.name };
   }
 
   const org = await createOrg(db, { name: identity.name ?? identity.login });
   await addOrgMember(db, { orgId: org.id, userRef, role: 'owner' });
-  return { orgId: org.id };
+  return { orgId: org.id, orgName: org.name };
 }
 
 export function createAuthRouter(deps: AuthRouterDeps): Hono {
@@ -76,18 +84,56 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
   // GitHub" and token entry. A self-hoster who never registered a GitHub app
   // gets the token path (REQ-20).
   //
-  // `method` is the CLI transport hint, and it reports only what this server
-  // can actually serve. Device flow (`/auth/device/*`) is not implemented yet,
-  // so a CLI must paste a token even when GitHub sign-in is available in the
-  // browser. Flip this to 'device' in the same change that adds the endpoints —
-  // advertising a capability the server does not have just moves the failure
-  // from a clear message to a 404.
   router.get('/auth/methods', (c) =>
     c.json({
-      method: 'token',
+      method: github === undefined ? 'token' : 'device',
       githubEnabled: github !== undefined,
     }),
   );
+
+  router.post('/auth/device/start', async (c) => {
+    if (github === undefined) return c.json({ error: 'not_found' }, 404);
+    const flow = await startDeviceFlow(github);
+    const authId = randomUUID();
+    await createPendingAuth(db, {
+      authId,
+      deviceCode: flow.deviceCode,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+    });
+    return c.json({
+      auth_id: authId,
+      user_code: flow.userCode,
+      verification_uri: flow.verificationUri,
+      interval: flow.interval,
+      expires_in: flow.expiresIn,
+    });
+  });
+
+  router.post('/auth/device/poll', async (c) => {
+    if (github === undefined) return c.json({ error: 'not_found' }, 404);
+    const body = (await c.req.json().catch(() => ({}))) as { auth_id?: unknown };
+    if (typeof body.auth_id !== 'string' || body.auth_id === '') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    const pending = await getPendingAuth(db, body.auth_id);
+    if (pending === undefined || pending.expiresAt.getTime() <= Date.now()) {
+      if (pending !== undefined) await deletePendingAuth(db, body.auth_id);
+      return c.json({ error: 'not_found' }, 404);
+    }
+    const result = await pollDeviceFlow(github, pending.deviceCode);
+    if (result.status === 'pending') {
+      return c.json(result.slowDown === true ? { status: 'pending', slow_down: true } : { status: 'pending' });
+    }
+    if (result.status === 'expired') {
+      await deletePendingAuth(db, body.auth_id);
+      return c.json(result);
+    }
+    const userRef = userRefFromGithubId(result.identity.id);
+    const { orgId, orgName } = await findOrCreateOrgForIdentity(db, userRef, result.identity);
+    const token = await createToken(db, { name: 'CLI login', orgId, scope: 'full' });
+    await deletePendingAuth(db, body.auth_id);
+    return c.json({ token: token.token, org_id: orgId, org_name: orgName, login: result.identity.login });
+  });
 
   router.get('/auth/github', (c) => {
     if (github === undefined) {

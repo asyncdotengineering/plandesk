@@ -13,11 +13,38 @@
  * The Workers/Vercel entries read their runtime env bindings directly and never
  * import this — that keeps the cloud path file-free.
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_BIND_HOST, DEFAULT_PORT, resolveDataDir } from './args.js';
 
 export const SERVER_CONFIG_FILENAME = 'plandesk.server.json';
+export const CLI_CONFIG_FILENAME = 'config.json';
+export type CliConfig = { server: string; token: string; orgId: string };
+
+export function cliConfigPath(home = homedir()): string {
+  return join(home, '.plandesk', CLI_CONFIG_FILENAME);
+}
+
+export function readCliConfig(home = homedir()): CliConfig | undefined {
+  const path = cliConfigPath(home);
+  if (!existsSync(path)) return undefined;
+  const value = JSON.parse(readFileSync(path, 'utf8')) as Partial<CliConfig>;
+  if (typeof value.server !== 'string' || typeof value.token !== 'string' || typeof value.orgId !== 'string') {
+    throw new ConfigFileError(`${path}: invalid CLI config`);
+  }
+  return { server: value.server, token: value.token, orgId: value.orgId };
+}
+
+export function writeCliConfig(config: CliConfig, home = homedir()): void {
+  const path = cliConfigPath(home);
+  mkdirSync(join(home, '.plandesk'), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+}
+
+export function removeCliConfig(home = homedir()): void {
+  rmSync(cliConfigPath(home), { force: true });
+}
 
 export type ConfigSource = 'default' | 'file' | 'env';
 

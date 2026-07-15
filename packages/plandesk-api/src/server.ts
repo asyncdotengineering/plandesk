@@ -38,7 +38,7 @@ export type AppDeps = {
   bindHost?: string;
   /**
    * GitHub app for browser sign-in. Omit it and the instance simply has no
-   * GitHub sign-in: /auth/github 404s and /auth/methods reports token entry.
+   * GitHub sign-in: /auth/github and device endpoints 404, and /auth/methods reports token entry.
    * Self-hosting must never require registering an app (REQ-20).
    */
   github?: GithubConfig;

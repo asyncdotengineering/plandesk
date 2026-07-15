@@ -8,6 +8,7 @@ import { crashCourse, DEFAULT_PORT, findLocalPlandeskDir, parseArgs, resolveData
 import { resolveEffectivePort } from './connect-artifacts.js';
 import { runServe, resolveServeRuntime } from './serve.js';
 import { resolveServerConfig, ConfigFileError } from './config.js';
+import { runLogin, runLogout, runWhoami } from './login.js';
 import { runPreview } from './preview.js';
 import { runTokenCreate } from './token.js';
 import { runExport, ProjectNotFoundError } from './export.js';
@@ -82,6 +83,27 @@ export async function main(argv: string[] = process.argv): Promise<number> {
 
 async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
   switch (parsed.command) {
+    case 'login':
+      try {
+        await runLogin(parsed.server ?? 'https://plandesk.asyncdot.com');
+        return 0;
+      } catch (err) {
+        process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+        return 1;
+      }
+    case 'logout':
+      runLogout();
+      process.stdout.write('Logged out\n');
+      return 0;
+    case 'whoami':
+      try {
+        const config = runWhoami();
+        process.stdout.write(`server: ${config.server}\norg: ${config.orgId || '<token login>'}\n`);
+        return 0;
+      } catch (err) {
+        process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+        return 1;
+      }
     case 'help':
       process.stdout.write(parsed.full ? usage() : crashCourse());
       return 0;

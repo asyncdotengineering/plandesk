@@ -1,6 +1,6 @@
 ---
 title: CLI Reference
-description: plandesk commands — init, serve, url, token, export, import, connect, disconnect, doctor, and the collaboration tier (publish, push, pull, sync, share, deploy).
+description: plandesk commands — workspace, authentication, project, and collaboration operations.
 ---
 
 Install the CLI globally from npm (Node ≥ 20):
@@ -14,6 +14,9 @@ This provides the `plandesk` binary and bundles the web UI. All commands below a
 ```
 plandesk help [--commands]
 plandesk init [--data-dir <dir>]
+plandesk login [--server <url>]
+plandesk logout
+plandesk whoami
 plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>]
 plandesk url [--repo <dir>] [--lan]
 plandesk token create --name <name> [--data-dir <dir>]
@@ -25,10 +28,8 @@ plandesk doctor [--data-dir <dir>] [--repo <dir>]
 plandesk factory init [--repo <dir>] [--print] [--force]
 
 # Collaboration (share a project with a client or team)
-plandesk publish --remote <url> [--project <id>] [--sync-token <t>] [--repo <dir>]
-plandesk push [--project <id>] [--repo <dir>]
+plandesk push --to <org-id> [--project <id>] [--repo <dir>]
 plandesk pull [--project <id>] [--repo <dir>]
-plandesk sync --watch [--project <id>] [--repo <dir>]
 plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>]
 plandesk deploy [target]
 ```
@@ -40,6 +41,9 @@ plandesk deploy [target]
 | `<file.md\|.html>` / `open` | Preview & annotate files in the browser (see [Preview & annotate](#preview--annotate)); glob-friendly (`plandesk *.md`) |
 | `help`                   | A crash course (orientation + key commands + doc links) for humans and agents; `help --commands` prints the full grammar |
 | `init`                   | Create workspace DB, run migrations, and assign a project-local port (3400–3499) stored in `.plandesk/workspace.json`   |
+| `login`                  | Sign in to a hosted server with GitHub device flow, or paste a Plan Desk token when device flow is unavailable; saves `~/.plandesk/config.json` |
+| `logout`                 | Remove the global hosted-server credentials |
+| `whoami`                 | Print the configured hosted server and organization |
 | `serve`                  | Start REST + SSE + MCP + web UI; reads the port from `workspace.json` if no `--port` flag is given                      |
 | `url`                    | Print the server URL for this project (`$(plandesk url)` in scripts); `--lan` returns the LAN IP instead of loopback    |
 | `token create`           | Create MCP bearer token (shown once)                                                                                     |

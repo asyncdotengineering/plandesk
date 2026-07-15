@@ -19,7 +19,7 @@ These fail loudly with the exact next step — here's what each means:
 
 **`Missing .plandesk/config.json. Run plandesk connect first.`** The collaboration commands operate on a connected project. Run `plandesk connect --project "<name>"` before `publish` / `push` / `pull` / `share`.
 
-**`Sync server URL is required. Use publish --remote …`** / **`Remote URL is required.`** You haven't registered a sync server yet. Run `plandesk publish --remote https://<your-sync-server>` once — it writes the server URL and global project id into your config.
+**`Sync server URL is required.`** / **`Remote URL is required.`** The project is not configured for a hosted server. Log in with `plandesk login --server https://<your-sync-server>`, then promote with `plandesk push --to <org-id>`.
 
 **`Global project id is required. Run plandesk publish …`** Same cause — `publish` first; `push`/`pull` need the global id it records.
 
@@ -31,7 +31,7 @@ These fail loudly with the exact next step — here's what each means:
 
 **The share link shows "Loading…" forever.** The portal can't get the projection. Check, in order:
 
-1. **Nothing was pushed yet** — run `plandesk push` (or `plandesk sync --watch`) so a `ClientView` exists for that share.
+1. **Nothing was pushed yet** — run `plandesk push --to <org-id>` so the hosted project exists for that share.
 2. **Wrong sync URL** — the portal is built with `VITE_SYNC_URL` baked in; if it points at the wrong server it can't fetch. Rebuild the portal against the correct sync server URL.
 3. **Token revoked or expired** — a share past its `--expires` window, or revoked, returns 401. Mint a fresh share.
 4. **CORS** — a self-hosted sync server must allow the portal's origin (the bundled server enables CORS on `/api/portal/*`; a custom reverse proxy must not strip it).
