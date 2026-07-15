@@ -101,7 +101,8 @@ export function formatShareCreateSummary(result: ShareCreateResult): string {
   lines.push(
     '',
     'The token is shown once — only its hash is stored, so copy it now.',
-    "Run `plandesk push` to upload this share's projection to the sync server.",
+    'The share link serves a live read-only view of the hosted project, so the',
+    'project must be promoted first: `plandesk push --to <org-id>`.',
     '',
   );
   return lines.join('\n');

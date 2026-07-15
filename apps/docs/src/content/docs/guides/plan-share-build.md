@@ -3,7 +3,7 @@ title: Plan → share → build with your team
 description: Share a planned project with a client or teammate over a read-only live portal, take their issues into your plan, and build — without giving up local-first authoring.
 ---
 
-You've planned a project (if not, start with [Plan & execute a project](/guides/plan-and-execute/)). Now you want a client or another team to **watch it live and file issues** — without handing them your repo, your internal docs, or edit access. That's the collaboration tier: a hosted **rendezvous** server holds only a curated projection you push; your plan stays local and authoritative.
+You've planned a project (if not, start with [Plan & execute a project](/guides/plan-and-execute/)). Now you want a client or another team to **watch it live and file issues** — without handing them your repo, your internal docs, or edit access. That's the collaboration tier: promote the project to a hosted org (`plandesk push --to <org-id>`), and a share link serves a **curated read-only view computed live** from it. Nothing is copied to a second store, so there is no snapshot to drift out of date.
 
 The loop: **share a read-only live view → they file issues into a moderated inbox → you pull, triage into real tasks, and build → status flows back to them live.**
 
@@ -42,7 +42,7 @@ It prints a `plandesk_share_…` token **once** (only its hash is stored) and th
 - `--allow-submit` — let this audience file issues. Omit for view-only.
 - `--expires 30d` — time-box the link (`h`/`d`/`w`).
 
-Then push the curated projection and keep it live:
+Then promote the project so the share link serves it live:
 
 ```bash
 plandesk push                 # upload the allow-list ClientView once

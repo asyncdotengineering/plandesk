@@ -13,7 +13,7 @@ Plan Desk stays local-first while letting you share a project — read-only and 
 
 **1. Local-first core — the source of truth.** Plan Desk runs on your machine (`plandesk serve`, a SQLite workspace, the canvas/board/docs UI, your agent over MCP). All authoring and agent execution happen here, offline-capable. Sharing changes nothing about it.
 
-**2. Hosted sync tier — a rendezvous, not a source of truth.** A small Hono server (`@plandesk/sync-server`) that holds only what's shared: the curated projections you push, participant identities/sessions, a moderated submission inbox, and an activity log. It runs **anywhere** — your laptop, a Node box, or **Cloudflare Workers + D1** at the edge (see [Portable store](#portable-store)).
+**2. Hosted sync tier — a rendezvous, not a source of truth.** A small Hono server (`@plandesk/sync-server`) that holds only what's shared: participant identities/sessions, a moderated submission inbox, and an activity log. The client view itself is **not** stored — it is computed live from the hosted project on read, so there is no snapshot to drift. It runs **anywhere** — your laptop, a Node box, or **Cloudflare Workers + D1** at the edge (see [Portable store](#portable-store)).
 
 ```
    LOCAL (source of truth, offline-capable)            HOSTED sync tier (rendezvous; NOT source of truth)
@@ -31,9 +31,9 @@ Plan Desk stays local-first while letting you share a project — read-only and 
 ## The flow
 
 - **Outbound (owner → hosted).** `syncService.push` builds an **allow-list `ClientView`** for each share — only the tasks, edges, progress, and documents you've shared; internal documents, comments, agent runs, and assignees are _structurally absent_, never serialized — and PUTs it to the sync server. `plandesk sync --watch` does this debounced on every local change, so the guest sees status move in ~2s.
-- **Participant (guest → hosted).** A guest opens `/p/:shareToken`, **joins with their name** (invite-scoped or public) to get a scoped session, and views the projection (session-gated, isolated to that one share). They can file issues into a **moderated inbox**. An SSE ping triggers a live refetch when the projection updates.
+- **Participant (guest → hosted).** A guest opens `/p/:shareToken`, **joins with their name** (invite-scoped or public) to get a scoped session, and views the live client view (session-gated, isolated to that one share). They can file issues into a **moderated inbox**. The view polls, so status changes appear within the poll interval.
 - **Inbound (hosted → owner).** `plandesk pull` brings submissions into a **local triage inbox**. Accepting one creates a **real task through the normal write path** — so it appears on your canvas/board and your agent can `get_next_task` it — and the status is acked back so the guest sees `accepted`.
-- **Agent-operable.** The whole loop is available over MCP — `publish_project`, `sync_push`, `sync_pull`, `list_submissions`, `triage_submission` — so an agent can pull a client's bug, triage it, scaffold it, and work it.
+- **Agent-operable.** The whole loop is available over MCP — `sync_pull`, `list_submissions`, `triage_submission` — so an agent can pull a client's bug, triage it, scaffold it, and work it.
 
 ## Security by construction
 

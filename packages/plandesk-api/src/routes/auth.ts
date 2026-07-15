@@ -70,12 +70,21 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
   const router = new Hono();
   const { db, github } = deps;
 
-  // What sign-in this instance offers. The dashboard reads this to decide
-  // between "Sign in with GitHub" and token entry; a self-hoster who never
-  // registered a GitHub app gets the token path (REQ-20).
+  // What sign-in this instance offers.
+  //
+  // `githubEnabled` is for the dashboard: it decides between "Sign in with
+  // GitHub" and token entry. A self-hoster who never registered a GitHub app
+  // gets the token path (REQ-20).
+  //
+  // `method` is the CLI transport hint, and it reports only what this server
+  // can actually serve. Device flow (`/auth/device/*`) is not implemented yet,
+  // so a CLI must paste a token even when GitHub sign-in is available in the
+  // browser. Flip this to 'device' in the same change that adds the endpoints —
+  // advertising a capability the server does not have just moves the failure
+  // from a clear message to a 404.
   router.get('/auth/methods', (c) =>
     c.json({
-      method: github === undefined ? 'token' : 'device',
+      method: 'token',
       githubEnabled: github !== undefined,
     }),
   );

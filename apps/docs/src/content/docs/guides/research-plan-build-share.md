@@ -37,7 +37,7 @@ You watch it happen live and steer mid-build with **comments** — drop a note o
 
 ## 4. Share with your team
 
-When you want a client or another team to see progress — and feed issues back — share a **read-only, live** projection of the plan. They open a link, join by name, and watch status move; with submit enabled they file issues into a moderated inbox. You pull those in, triage them into real tasks, and your agent builds them — status flowing back to them live. Your repo, internal docs, and edit access never leave your machine: the projection is **allow-list** and participants can only **propose**, never write.
+When you want a client or another team to see progress — and feed issues back — promote the project to a hosted org (`plandesk push --to <org-id>`) and share a link. It serves a **read-only view computed live** from the hosted plan. They open the link, join by name, and watch status move; with submit enabled they file issues into a moderated inbox. You pull those in, triage them into real tasks, and your agent builds them — status flowing back to them live. Your repo, internal docs, and edit access never leave your machine: the view is **allow-list** and participants can only **propose**, never write.
 
 → Hands-on: [Plan → share → build with your team](/guides/plan-share-build/) · architecture: [Collaboration & sync](/reference/collaboration/)
 

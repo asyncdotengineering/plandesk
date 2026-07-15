@@ -395,10 +395,13 @@ describe('web session auth — self-host without a GitHub app (REQ-20)', () => {
     expect(res.status).toBe(201);
   });
 
-  it('githubEnabled:true → /auth/methods reports device (the CLI transport)', async () => {
+  it('githubEnabled:true → /auth/methods still reports token until device flow exists', async () => {
     const { app } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
     const res = await app.request('/api/v1/auth/methods');
-    expect(await parseJson(res)).toEqual({ method: 'device', githubEnabled: true });
+    // `method` reports what this server can actually serve. GitHub sign-in is
+    // available to the BROWSER, but there are no /auth/device/* endpoints yet,
+    // so a CLI must paste a token. Flip to 'device' with the endpoints, not before.
+    expect(await parseJson(res)).toEqual({ method: 'token', githubEnabled: true });
   });
 
   it('/auth/methods needs no credential — the sign-in screen reads it first', async () => {

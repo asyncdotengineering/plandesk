@@ -74,10 +74,8 @@ Share a planned project with a client or another team over a read-only live port
 | Command        | Purpose                                                                           |
 | -------------- | --------------------------------------------------------------------------------- |
 | `deploy`       | List deploy guides; `deploy <target>` prints one for a coding agent to run        |
-| `publish`      | Register a project with a sync server + first push (writes git-ignored token)     |
-| `push`         | Push the allow-list projection for each active share                              |
+| `push`         | Promote a local project to a hosted org (`--to <org-id>`); one-way                |
 | `pull`         | Fetch participant submissions into the local triage inbox                         |
-| `sync --watch` | Stream local changes to the portal (~2s) so participants see status live          |
 | `share create` | Mint a participant share (token shown once); prints the `<portal>/p/<token>` link |
 
 `share create` flags: `--public` (open named-join) or `--invite a@b,c@d` (invite-only); `--allow-submit` (let the audience file issues); `--expires 30d` (`h`/`d`/`w`). The sync token lives only in git-ignored `.plandesk/sync-token` (or `PLANDESK_SYNC_TOKEN`); participant tokens are stored hashed.

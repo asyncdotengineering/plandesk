@@ -3,7 +3,9 @@ title: Self-host the sync server
 description: Run the Plan Desk collaboration sync server on your own Node box or container — SQLite-backed, no cloud required.
 ---
 
-The collaboration tier has two planes: your **local-first workspace** (the source of truth) and a small **hosted sync server** — a rendezvous that holds only the curated projections you push, participant sessions, and a moderated submission inbox. [Cloudflare](/reference/collaboration/) is one way to run it; this page runs it on **your own host**. The store is portable SQLite (libSQL), so it needs nothing but Node and a writable directory.
+The collaboration tier has two planes: your **local-first workspace** (the source of truth) and a small **hosted sync server** — a rendezvous that holds participant sessions and a moderated submission inbox. [Cloudflare](/reference/collaboration/) is one way to run it; this page runs it on **your own host**. The store is portable SQLite (libSQL), so it needs nothing but Node and a writable directory.
+
+The client view itself is **not** stored here. A share link is served as a read-only view **computed live** from the hosted project at read time — there is no pushed snapshot to go stale or drift. Sharing therefore requires the project to be hosted: promote it with `plandesk push --to <org-id>` first.
 
 For a fully agent-driven deploy, `plandesk deploy fly | claude` or `plandesk deploy docker | claude` hand a coding agent a grounded runbook for those targets. This page is the manual version.
 
@@ -27,7 +29,7 @@ Two environment variables configure it:
 PORT=8080 SYNC_DB_PATH=/data/sync.db npx @plandesk/sync-server
 ```
 
-The schema is created automatically on first start. Put `SYNC_DB_PATH` on a persistent disk — that file **is** your hosted state (shares, participants, submissions, projections).
+The schema is created automatically on first start. Put `SYNC_DB_PATH` on a persistent disk — that file **is** your hosted state (shares, participants, submissions).
 
 ## Docker
 
