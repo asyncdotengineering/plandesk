@@ -56,6 +56,21 @@ The brief instructs the worker to end by writing `runs/result-<task>.json`:
 - Re-run each claimed command; a claim whose re-run exit code differs from the
   claimed one is a false claim — treat the dispatch as failed, record it, and
   do not retry the same approach blindly.
+- **A green suite does not prove an assertion is covered.** A worker maps
+  `satisfies_assertions` onto a claim by hand, so `pnpm test` exiting 0 says the
+  suite passed — never that a test for REQ-N exists. Diff the per-package test
+  counts against the pre-dispatch baseline: a requirement whose package gained
+  **zero** tests is unproven, whatever the proof file asserts. (Observed: a
+  dispatch claimed REQ-5 — an entire new CLI command — satisfied by `tests`,
+  while that package's count sat unchanged at 208.)
+- **Read what a new test asserts, not just that it passes.** A test pinned to
+  the shape the worker happened to build is green by construction and
+  discriminates nothing. For any behaviour with an external contract (an RFC, a
+  vendor API), check the assertion against the spec, not against the diff. Then
+  prove the test bites: reintroduce the bug, watch it fail, restore. (Observed:
+  a `slow_down` test asserted `{status:'pending', interval:5}` — the exact
+  literal the code returned — while RFC 8628 §3.5 requires the client to *add*
+  5s to its own interval. Green, and backwards.)
 - **Check for debris.** `git checkout` does not remove untracked files. Run
   `git status --short --untracked=all` — invented files and codemod scripts
   survive a revert and break the next build.
