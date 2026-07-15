@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import {
   addOrgMember,
-  createOrg,
   createToken,
   getOrg,
   getOrgMember,
@@ -27,43 +26,24 @@ function isTokenScope(value: string): value is TokenScope {
   return (tokenScopes as readonly string[]).includes(value);
 }
 
+/**
+ * There is deliberately no `POST /orgs`.
+ *
+ * An org is only ever created by resolving an identity — `findOrCreateOrgForIdentity`
+ * on GitHub sign-in (browser or device flow), which keys on `github:<numeric id>` and
+ * so yields exactly one org per identity — or by `ensureDefaultOrg` at `serve` boot for
+ * the local/self-host single-org case. Both bound creation by construction, which is why
+ * no quota is needed to bound it.
+ *
+ * A general authenticated create route had no caller and could not be guarded the way
+ * every route below is: with no `:id` to compare against, `getAuthContext().orgId !== orgId`
+ * has nothing to check, so any valid token from any org could mint unlimited orgs, each
+ * returning a fresh owner token — and it took `owner_ref` from the body, forging an
+ * identity the server is supposed to resolve. Removing the route closes both; a limit
+ * would only have capped how far they went.
+ */
 export function createOrgsRouter(db: Db): Hono {
   const router = new Hono();
-
-  // Create org + owner token (raw token returned once).
-  router.post('/orgs', async (c) => {
-    const body = await c.req.json<{ name?: string; owner_ref?: string }>();
-    if (typeof body.name !== 'string' || body.name.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
-    }
-    const ownerRef =
-      typeof body.owner_ref === 'string' && body.owner_ref.trim() !== ''
-        ? body.owner_ref.trim()
-        : 'owner';
-
-    const org = await createOrg(db, { name: body.name.trim() });
-    await addOrgMember(db, { orgId: org.id, userRef: ownerRef, role: 'owner' });
-    const token = await createToken(db, {
-      name: `${org.name} owner`,
-      orgId: org.id,
-      scope: 'full',
-    });
-
-    return c.json(
-      {
-        id: org.id,
-        name: org.name,
-        created_at: org.createdAt.toISOString(),
-        owner_token: {
-          id: token.id,
-          name: token.name,
-          token: token.token,
-          scope: token.scope,
-        },
-      },
-      201,
-    );
-  });
 
   router.post('/orgs/:id/tokens', async (c) => {
     const orgId = c.req.param('id');

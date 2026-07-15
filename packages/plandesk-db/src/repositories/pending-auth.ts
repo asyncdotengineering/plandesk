@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, lt } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
 import { pendingAuth } from '../schema.js';
 
@@ -25,4 +25,18 @@ export async function getPendingAuth(db: DbClient, authId: string): Promise<Pend
 
 export async function deletePendingAuth(db: DbClient, authId: string): Promise<void> {
   await db.delete(pendingAuth).where(eq(pendingAuth.authId, authId)).run();
+}
+
+/**
+ * Drop every expired row. The poll path only ever deletes the `auth_id` it was
+ * handed, so an abandoned login (start, then Ctrl-C, never poll again) would
+ * otherwise leave a row nothing reaches. `/auth/device/start` is necessarily
+ * unauthenticated, so that leak is anonymous and unbounded.
+ *
+ * Sweeping on start keeps it self-limiting: the only way to add rows is the same
+ * call that clears the dead ones, and it needs no scheduler or cross-instance
+ * state (which the serverless design has none of).
+ */
+export async function deleteExpiredPendingAuth(db: DbClient, now: Date = new Date()): Promise<void> {
+  await db.delete(pendingAuth).where(lt(pendingAuth.expiresAt, now)).run();
 }

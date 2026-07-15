@@ -9,6 +9,7 @@ import {
   deleteSession,
   getOrg,
   listOrgMembershipsForUser,
+  deleteExpiredPendingAuth,
   deletePendingAuth,
   getPendingAuth,
   type Db,
@@ -93,6 +94,9 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
 
   router.post('/auth/device/start', async (c) => {
     if (github === undefined) return c.json({ error: 'not_found' }, 404);
+    // Sweep here, on the only call that adds rows: an abandoned login is never
+    // polled again, so the poll path's expiry check would never reach it.
+    await deleteExpiredPendingAuth(db);
     const flow = await startDeviceFlow(github);
     const authId = randomUUID();
     await createPendingAuth(db, {
