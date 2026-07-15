@@ -56,7 +56,7 @@ export function createServices(deps: ServicesDeps): Services {
   const agentRunService = createAgentRunService(scoped);
   const tokenService = createTokenService(scoped);
   const shareService = createShareService(scoped);
-  const syncService = createSyncService({ ...scoped, taskService, shareService });
+  const syncService = createSyncService({ ...scoped, taskService });
   const fileService = createFileService({ ...scoped, storage });
   const artifactService = createArtifactService(scoped);
 

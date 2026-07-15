@@ -68,5 +68,18 @@ export function createSharesRouter(shareService: ShareService): Hono {
     return c.body(result.markdown, 200, { 'Content-Type': 'text/markdown; charset=utf-8' });
   });
 
+  // Public portal read: a share token resolves to exactly one project and the view
+  // is computed live on each request (not a stored snapshot). Every failure shape
+  // answers a uniform 404 so share existence is not leaked. Unauthenticated by
+  // design — the capability is the URL token, never an org membership.
+  router.get('/share/:token/view', async (c) => {
+    const token = c.req.param('token');
+    const view = await shareService.getClientView(token);
+    if (view === undefined) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json(view);
+  });
+
   return router;
 }

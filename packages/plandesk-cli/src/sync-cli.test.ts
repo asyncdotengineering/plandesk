@@ -25,6 +25,7 @@ import { parseArgs } from './args.js';
 import { buildConfigJson, parseConfigJson } from './connect-artifacts.js';
 import { main } from './cli.js';
 import { runInit } from './init.js';
+import { setConfigSync, writeSyncToken } from './sync.js';
 import { openWorkspace } from './workspace.js';
 
 async function captureIo(
@@ -105,64 +106,7 @@ afterEach(() => {
   }
 });
 
-describe('parseArgs publish/push/pull', () => {
-  it('parses publish with remote, project, sync-token, and repo', async () => {
-    expect(
-      parseArgs([
-        'node',
-        'plandesk',
-        'publish',
-        '--remote',
-        'https://sync.example',
-        '--project',
-        'proj-1',
-        '--sync-token',
-        'secret',
-        '--repo',
-        '/tmp/repo',
-        '--data-dir',
-        '/tmp/ws',
-      ]),
-    ).toEqual({
-      command: 'publish',
-      remoteUrl: 'https://sync.example',
-      projectId: 'proj-1',
-      syncToken: 'secret',
-      repoDir: '/tmp/repo',
-      dataDir: '/tmp/ws',
-    });
-  });
-
-  it('returns unknown when publish is missing --remote', async () => {
-    expect(parseArgs(['node', 'plandesk', 'publish', '--project', 'proj-1'])).toEqual({
-      command: 'unknown',
-      name: 'publish (missing --remote)',
-    });
-  });
-
-  it('parses sync --watch with project and repo', async () => {
-    expect(
-      parseArgs([
-        'node',
-        'plandesk',
-        'sync',
-        '--watch',
-        '--project',
-        'proj-1',
-        '--repo',
-        '/tmp/repo',
-        '--data-dir',
-        '/tmp/ws',
-      ]),
-    ).toEqual({
-      command: 'sync',
-      watch: true,
-      projectId: 'proj-1',
-      repoDir: '/tmp/repo',
-      dataDir: '/tmp/ws',
-    });
-  });
-
+describe('parseArgs push/pull', () => {
   it('parses push and pull with project and repo', async () => {
     expect(
       parseArgs([
@@ -214,7 +158,7 @@ describe('parseArgs publish/push/pull', () => {
   });
 });
 
-describe('CLI publish/push/pull', () => {
+describe('CLI push/pull', () => {
   const tempDirs: string[] = [];
   const servers: Array<{ close: () => void }> = [];
 
@@ -323,150 +267,14 @@ describe('CLI publish/push/pull', () => {
     expect(stderr).toContain('Invalid --expires');
   });
 
-  it('a share created via the CLI is pushable to the sync server', async () => {
+  it('pull resolves config and reports triage count', async () => {
     const syncServer = await startTestSyncServer();
     servers.push(syncServer);
     const { dataDir, repoDir } = await makeWorkspace();
 
-    const create = await captureIo(() =>
-      main([
-        'node',
-        'plandesk',
-        'share',
-        'create',
-        '--audience',
-        'Acme Corp',
-        '--public',
-        '--repo',
-        repoDir,
-        '--data-dir',
-        dataDir,
-      ]),
-    );
-    expect(create.code).toBe(0);
-
-    const publish = await captureIo(() =>
-      main([
-        'node',
-        'plandesk',
-        'publish',
-        '--remote',
-        syncServer.serverUrl,
-        '--sync-token',
-        syncServer.syncToken,
-        '--repo',
-        repoDir,
-        '--data-dir',
-        dataDir,
-      ]),
-    );
-    expect(publish.code).toBe(0);
-    expect(publish.stdout).toContain('pushed 1 share(s)');
-  });
-
-  it('publish writes sync config and gitignored sync-token', async () => {
-    const syncServer = await startTestSyncServer();
-    servers.push(syncServer);
-    const { dataDir, repoDir, projectId, orgId } = await makeWorkspace();
-    const { db } = await openWorkspace(dataDir);
-    const { shareService } = createServices({ db, orgId });
-    await shareService.createShare(projectId, { audienceName: 'Client', mode: 'public' });
-
-    const { code, stdout } = await captureIo(() =>
-      main([
-        'node',
-        'plandesk',
-        'publish',
-        '--remote',
-        syncServer.serverUrl,
-        '--sync-token',
-        syncServer.syncToken,
-        '--project',
-        projectId,
-        '--repo',
-        repoDir,
-        '--data-dir',
-        dataDir,
-      ]),
-    );
-
-    expect(code).toBe(0);
-    expect(stdout).toContain('Published');
-    expect(stdout).toContain('pushed 1 share(s)');
-
-    const config = JSON.parse(readFileSync(join(repoDir, '.plandesk', 'config.json'), 'utf8')) as {
-      sync?: { serverUrl: string; globalProjectId: string };
-    };
-    expect(config.sync?.serverUrl).toBe(syncServer.serverUrl);
-    expect(config.sync?.globalProjectId).toBeTruthy();
-    expect(JSON.stringify(config)).not.toContain(syncServer.syncToken);
-
-    const syncTokenPath = join(repoDir, '.plandesk', 'sync-token');
-    expect(existsSync(syncTokenPath)).toBe(true);
-    expect(readFileSync(syncTokenPath, 'utf8').trim()).toBe(syncServer.syncToken);
-
-    const gitignore = readFileSync(join(repoDir, '.gitignore'), 'utf8');
-    expect(gitignore).toContain('.plandesk/sync-token');
-  });
-
-  it('push resolves config and pushes shares', async () => {
-    const syncServer = await startTestSyncServer();
-    servers.push(syncServer);
-    const { dataDir, repoDir, projectId, orgId } = await makeWorkspace();
-    const { db } = await openWorkspace(dataDir);
-    const { shareService } = createServices({ db, orgId });
-    await shareService.createShare(projectId, { audienceName: 'Client', mode: 'public' });
-
-    const publish = await captureIo(() =>
-      main([
-        'node',
-        'plandesk',
-        'publish',
-        '--remote',
-        syncServer.serverUrl,
-        '--sync-token',
-        syncServer.syncToken,
-        '--project',
-        projectId,
-        '--repo',
-        repoDir,
-        '--data-dir',
-        dataDir,
-      ]),
-    );
-    expect(publish.code).toBe(0);
-
-    const { code, stdout } = await captureIo(() =>
-      main(['node', 'plandesk', 'push', '--repo', repoDir, '--data-dir', dataDir]),
-    );
-
-    expect(code).toBe(0);
-    expect(stdout).toContain('Pushed 1 share(s)');
-  });
-
-  it('pull resolves config and reports triage count', async () => {
-    const syncServer = await startTestSyncServer();
-    servers.push(syncServer);
-    const { dataDir, repoDir, projectId } = await makeWorkspace();
-
-    const publish = await captureIo(() =>
-      main([
-        'node',
-        'plandesk',
-        'publish',
-        '--remote',
-        syncServer.serverUrl,
-        '--sync-token',
-        syncServer.syncToken,
-        '--project',
-        projectId,
-        '--repo',
-        repoDir,
-        '--data-dir',
-        dataDir,
-      ]),
-    );
-    expect(publish.code).toBe(0);
+    // The projection-publish command is retired; wire the sync remote directly.
+    setConfigSync(repoDir, { serverUrl: syncServer.serverUrl, globalProjectId: 'gid-1' });
+    writeSyncToken(repoDir, syncServer.syncToken);
 
     const { code, stdout } = await captureIo(() =>
       main(['node', 'plandesk', 'pull', '--repo', repoDir, '--data-dir', dataDir]),

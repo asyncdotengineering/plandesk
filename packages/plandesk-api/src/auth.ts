@@ -107,6 +107,18 @@ export function isPublicAuthPath(path: string): boolean {
 }
 
 /**
+ * Share-token reads under /api/v1/share/. The capability is the URL token, not an
+ * org membership: each route resolves exactly one share → one project and reads
+ * only that project (buildClientView), so no org context is needed or set. This
+ * keeps the portal an unauthenticated read surface without widening org access —
+ * a share token can never resolve to an orgId or another project. (Share *creation*
+ * lives under /tasks/:id/share and /documents/:id/share, outside this prefix.)
+ */
+export function isPublicShareReadPath(path: string): boolean {
+  return path.startsWith('/api/v1/share/');
+}
+
+/**
  * Always-on org resolver for every request:
  * 1. Bearer token → token.orgId + effective permission
  * 2. else session cookie → session.orgId + the member's role
@@ -120,7 +132,7 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
   const { db, bindHost } = options;
 
   return async (c, next) => {
-    if (isPublicAuthPath(c.req.path)) {
+    if (isPublicAuthPath(c.req.path) || isPublicShareReadPath(c.req.path)) {
       await next();
       return;
     }
@@ -205,7 +217,7 @@ export function createAuthMiddleware(password: string): MiddlewareHandler {
 
     // OAuth entry/callback must stay reachable: GitHub redirects the browser
     // here and cannot present Basic credentials.
-    if (isPublicAuthPath(c.req.path)) {
+    if (isPublicAuthPath(c.req.path) || isPublicShareReadPath(c.req.path)) {
       await next();
       return;
     }

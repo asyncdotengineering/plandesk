@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, count, desc, eq, gt } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { streamSSE } from 'hono/streaming';
 import {
   createParticipantSession,
   hashToken,
@@ -12,28 +11,13 @@ import {
   verifySyncToken,
 } from './auth.js';
 import type { SyncDb } from './db/client.js';
-import { hostedShares, participants, projectionBlobs, submissions } from './db/schema.js';
-import { createShareNotifier, type ShareNotifier } from './notifier.js';
+import { hostedShares, participants, submissions } from './db/schema.js';
 
 export type SyncServerDeps = {
   db: SyncDb;
-  notifier?: ShareNotifier;
 };
 
 type ShareMode = 'invite' | 'public';
-
-type ProjectionPushBody = {
-  share: {
-    token_hash: string;
-    audience_name: string;
-    mode?: ShareMode;
-    invited_emails?: string[];
-    permissions: Record<string, unknown>;
-    expires_at: string | null;
-  };
-  version: number;
-  view: unknown;
-};
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -67,13 +51,6 @@ function extractBearerToken(header: string | undefined): string | undefined {
   }
   const match = /^Bearer\s+(.+)$/i.exec(header);
   return match?.[1]?.trim();
-}
-
-function parseExpiresAt(value: string | null): Date | null {
-  if (value === null) {
-    return null;
-  }
-  return new Date(value);
 }
 
 type SharePermissions = {
@@ -112,110 +89,12 @@ function parseSharePermissions(permissionsJson: string): SharePermissions {
 
 export function createSyncServer(deps: SyncServerDeps): Hono {
   const app = new Hono();
-  const notifier = deps.notifier ?? createShareNotifier();
 
   // The portal is a browser app that may reach this server cross-origin (always
   // in dev; in prod whenever the portal bundle and the portal API differ in
   // origin). The capability lives in the URL token, not a cookie, so a wildcard
   // origin is safe here. The /api/sync/* routes are server-to-server — no CORS.
   app.use('/api/portal/*', cors());
-
-  app.put('/api/sync/v1/projects/:gid/projection', async (c) => {
-    const raw = extractBearerToken(c.req.header('Authorization'));
-    if (raw === undefined || (await verifySyncToken(deps.db, raw)) === undefined) {
-      return c.json({ error: 'unauthorized' }, 401);
-    }
-
-    let body: ProjectionPushBody;
-    try {
-      body = await c.req.json<ProjectionPushBody>();
-    } catch {
-      return c.json({ error: 'invalid_json' }, 400);
-    }
-
-    const gid = c.req.param('gid');
-    const now = new Date();
-    const expiresAt = parseExpiresAt(body.share.expires_at);
-    const permissionsJson = JSON.stringify(body.share.permissions);
-    const mode: ShareMode = body.share.mode ?? 'invite';
-    const invitedEmailsJson = JSON.stringify((body.share.invited_emails ?? []).map(normalizeEmail));
-
-    const existing = await deps.db
-      .select({ id: hostedShares.id })
-      .from(hostedShares)
-      .where(eq(hostedShares.tokenHash, body.share.token_hash))
-      .get();
-
-    let shareId: string;
-    if (existing !== undefined) {
-      shareId = existing.id;
-      await deps.db
-        .update(hostedShares)
-        .set({
-          projectGlobalId: gid,
-          audienceName: body.share.audience_name,
-          mode,
-          invitedEmails: invitedEmailsJson,
-          permissions: permissionsJson,
-          expiresAt,
-          revokedAt: null,
-          updatedAt: now,
-        })
-        .where(eq(hostedShares.id, shareId))
-        .run();
-    } else {
-      shareId = randomUUID();
-      await deps.db
-        .insert(hostedShares)
-        .values({
-          id: shareId,
-          projectGlobalId: gid,
-          tokenHash: body.share.token_hash,
-          audienceName: body.share.audience_name,
-          mode,
-          invitedEmails: invitedEmailsJson,
-          permissions: permissionsJson,
-          expiresAt,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .run();
-    }
-
-    const blobExisting = await deps.db
-      .select({ id: projectionBlobs.id })
-      .from(projectionBlobs)
-      .where(eq(projectionBlobs.shareId, shareId))
-      .get();
-
-    const viewJson = JSON.stringify(body.view);
-    if (blobExisting !== undefined) {
-      await deps.db
-        .update(projectionBlobs)
-        .set({
-          version: body.version,
-          viewJson,
-          updatedAt: now,
-        })
-        .where(eq(projectionBlobs.shareId, shareId))
-        .run();
-    } else {
-      await deps.db
-        .insert(projectionBlobs)
-        .values({
-          id: randomUUID(),
-          shareId,
-          version: body.version,
-          viewJson,
-          updatedAt: now,
-        })
-        .run();
-    }
-
-    notifier.notify(shareId);
-
-    return c.json({ ok: true });
-  });
 
   app.get('/api/sync/v1/projects/:gid/submissions', async (c) => {
     const raw = extractBearerToken(c.req.header('Authorization'));
@@ -340,57 +219,6 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
     return c.json({ ok: true });
   });
 
-  app.get('/api/portal/v1/shares/:token/events', async (c) => {
-    const shareToken = c.req.param('token');
-    const share = await verifyShareToken(deps.db, shareToken);
-    if (share === undefined) {
-      return c.json({ error: 'unauthorized' }, 401);
-    }
-
-    return streamSSE(c, async (stream) => {
-      let active = true;
-      const unsub = notifier.subscribe(share.id, () => {
-        void stream.writeSSE({ data: JSON.stringify({ type: 'projection_updated' }) });
-      });
-
-      const cleanup = () => {
-        if (!active) {
-          return;
-        }
-        active = false;
-        clearInterval(keepAlive);
-        unsub();
-      };
-
-      await stream.write(': connected\n\n');
-
-      const keepAlive = setInterval(() => {
-        if (active) {
-          void stream.write(': keep-alive\n\n');
-        }
-      }, 25_000);
-
-      c.req.raw.signal.addEventListener('abort', cleanup, { once: true });
-      stream.onAbort(cleanup);
-
-      await new Promise<void>((resolve) => {
-        if (c.req.raw.signal.aborted) {
-          cleanup();
-          resolve();
-          return;
-        }
-        c.req.raw.signal.addEventListener(
-          'abort',
-          () => {
-            cleanup();
-            resolve();
-          },
-          { once: true },
-        );
-      });
-    });
-  });
-
   app.get('/api/portal/v1/shares/:token/meta', async (c) => {
     const shareToken = c.req.param('token');
     const share = await verifyShareToken(deps.db, shareToken);
@@ -448,40 +276,6 @@ export function createSyncServer(deps: SyncServerDeps): Hono {
       session_token: sessionToken,
       participant: { id: participant.id, name: participant.name },
       share: { audience_name: share.audienceName, permissions },
-    });
-  });
-
-  app.get('/api/portal/v1/shares/:token/view', async (c) => {
-    const shareToken = c.req.param('token');
-    const sessionRaw = extractBearerToken(c.req.header('Authorization'));
-    const session = await verifyParticipantSessionForShare(deps.db, shareToken, sessionRaw);
-    if (session === undefined) {
-      return c.json({ error: 'unauthorized' }, 401);
-    }
-
-    const blob = await deps.db
-      .select()
-      .from(projectionBlobs)
-      .where(eq(projectionBlobs.shareId, session.share.id))
-      .get();
-
-    if (blob === undefined) {
-      return c.json({ error: 'not_found' }, 404);
-    }
-
-    await logActivity(deps.db, {
-      shareId: session.share.id,
-      participantId: session.participant.id,
-      action: 'view',
-    });
-
-    const view = JSON.parse(blob.viewJson) as Record<string, unknown>;
-    const permissions = parseSharePermissions(session.share.permissions);
-
-    return c.json({
-      ...view,
-      audience_name: session.share.audienceName,
-      permissions,
     });
   });
 

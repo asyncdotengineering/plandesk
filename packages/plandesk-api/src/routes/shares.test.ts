@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   createDb,
   createDocument,
+  createOrg,
+  createProject as createProjectInOrg,
   createProjectInDefaultOrg as createProject,
   ensureDefaultOrg,
   migrate,
@@ -127,5 +129,110 @@ describe('shares routes', () => {
       body: JSON.stringify({ expires: 'forever' }),
     });
     expect(bad.status).toBe(400);
+  });
+});
+
+describe('portal view (live, unauthenticated)', () => {
+  it('serves a live read-only view that reflects mutations made after the share', async () => {
+    const { app, db, services } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Portal Live' });
+    await createTask(db, { projectId: project.id, label: 'First task', status: 'todo' });
+
+    const created = await services.shareService.createShare(project.id, {
+      audienceName: 'Reviewers',
+      mode: 'public',
+      permissions: { read: true, submit: false },
+    });
+    if (!created) {
+      throw new Error('expected share');
+    }
+
+    // Unauthenticated: the capability is the URL token, never an org membership.
+    const firstRes = await app.request(`/api/v1/share/${created.token}/view`);
+    expect(firstRes.status).toBe(200);
+    const first = (await firstRes.json()) as {
+      project: { name: string };
+      tasks: Array<{ label: string }>;
+      progress: Record<string, number>;
+    };
+    expect(first.project.name).toBe('Portal Live');
+    expect(first.tasks.map((task) => task.label)).toEqual(['First task']);
+
+    // Mutate the project AFTER the share was minted. A snapshot would be stale;
+    // only a live read sees the new task.
+    await createTask(db, { projectId: project.id, label: 'Second task', status: 'in_progress' });
+
+    const secondRes = await app.request(`/api/v1/share/${created.token}/view`);
+    expect(secondRes.status).toBe(200);
+    const second = (await secondRes.json()) as {
+      tasks: Array<{ label: string }>;
+      progress: Record<string, number>;
+    };
+    expect(second.tasks.map((task) => task.label).sort()).toEqual(['First task', 'Second task']);
+    expect(second.progress.in_progress).toBe(1);
+  });
+
+  it('a share token reads only its own project, never another org/project', async () => {
+    const { app, db, services } = await createTestAppWithServices();
+    const orgB = await createOrg(db, { name: 'Other Org' });
+    const projectA = await createProject(db, { name: 'Project A' });
+    const projectB = await createProjectInOrg(db, { name: 'Project B', orgId: orgB.id });
+    await createTask(db, { projectId: projectA.id, label: 'A task', status: 'todo' });
+    await createTask(db, { projectId: projectB.id, label: 'B secret task', status: 'todo' });
+
+    const created = await services.shareService.createShare(projectA.id, {
+      audienceName: 'Reviewers',
+      mode: 'public',
+    });
+    if (!created) {
+      throw new Error('expected share');
+    }
+
+    const res = await app.request(`/api/v1/share/${created.token}/view`);
+    expect(res.status).toBe(200);
+    const view = (await res.json()) as {
+      project: { id: string };
+      tasks: Array<{ label: string }>;
+    };
+    expect(view.project.id).toBe(projectA.id);
+    const labels = view.tasks.map((task) => task.label);
+    expect(labels).toContain('A task');
+    expect(labels).not.toContain('B secret task');
+  });
+
+  it('returns 404 for unknown, revoked, and expired tokens (no existence leak)', async () => {
+    const { app, db, services } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Expiry' });
+
+    const active = await services.shareService.createShare(project.id, {
+      audienceName: 'Active',
+      mode: 'public',
+    });
+    const revoked = await services.shareService.createShare(project.id, {
+      audienceName: 'Revoked',
+      mode: 'public',
+    });
+    const expired = await services.shareService.createShare(project.id, {
+      audienceName: 'Expired',
+      mode: 'public',
+      expiresAt: new Date(Date.now() - 60_000),
+    });
+    if (!active || !revoked || !expired) {
+      throw new Error('expected shares');
+    }
+    await services.shareService.revokeShare(revoked.share.id);
+
+    const unknownRes = await app.request('/api/v1/share/plandesk_share_unknown/view');
+    expect(unknownRes.status).toBe(404);
+    expect(await unknownRes.json()).toEqual({ error: 'not_found' });
+
+    const revokedRes = await app.request(`/api/v1/share/${revoked.token}/view`);
+    expect(revokedRes.status).toBe(404);
+
+    const expiredRes = await app.request(`/api/v1/share/${expired.token}/view`);
+    expect(expiredRes.status).toBe(404);
+
+    const activeRes = await app.request(`/api/v1/share/${active.token}/view`);
+    expect(activeRes.status).toBe(200);
   });
 });

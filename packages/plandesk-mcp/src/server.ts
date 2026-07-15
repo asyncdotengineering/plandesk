@@ -47,11 +47,9 @@ import { createListDocumentsHandler } from './tools/list-documents.js';
 import { createListProjectsHandler } from './tools/list-projects.js';
 import { createRecordAgentProgressHandler } from './tools/record-agent-progress.js';
 import { createListSubmissionsHandler } from './tools/list-submissions.js';
-import { createPublishProjectHandler } from './tools/publish-project.js';
 import { createResolveCommentHandler } from './tools/resolve-comment.js';
 import { createScaffoldProjectFromPlanHandler } from './tools/scaffold-project-from-plan.js';
 import { createSyncPullHandler } from './tools/sync-pull.js';
-import { createSyncPushHandler } from './tools/sync-push.js';
 import { createTriageSubmissionHandler } from './tools/triage-submission.js';
 import {
   attachFileInputSchema,
@@ -90,13 +88,11 @@ import {
   listDocumentsInputSchema,
   listProjectsInputSchema,
   listSubmissionsInputSchema,
-  publishProjectInputSchema,
   recordAgentProgressInputSchema,
   resolveCommentInputSchema,
   scaffoldProjectFromPlanInputSchema,
   startAgentRunInputSchema,
   syncPullInputSchema,
-  syncPushInputSchema,
   triageSubmissionInputSchema,
   updateDocumentInputSchema,
   updateTaskInputSchema,
@@ -582,27 +578,6 @@ function createMcpServer(services: Services, origin: string): McpServer {
       inputSchema: resolveCommentInputSchema.shape,
     },
     createResolveCommentHandler(services.commentService),
-  );
-
-  server.registerTool(
-    'publish_project',
-    {
-      title: 'Publish Project',
-      description:
-        'Register the project on the sync server and store the remote credentials. server_url and sync_token come from the CLI deploy flow: `plandesk deploy <target>` provisions the server and writes the token to .plandesk/sync-token; prefer `plandesk publish --remote <url>` which reads both from the repo binding.',
-      inputSchema: publishProjectInputSchema.shape,
-    },
-    createPublishProjectHandler(services.syncService),
-  );
-
-  server.registerTool(
-    'sync_push',
-    {
-      title: 'Sync Push',
-      description: 'Push client projections to the hosted sync server',
-      inputSchema: syncPushInputSchema.shape,
-    },
-    createSyncPushHandler(services.syncService),
   );
 
   server.registerTool(

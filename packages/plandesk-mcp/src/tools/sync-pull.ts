@@ -8,7 +8,7 @@ export function createSyncPullHandler(
   return async (args) => {
     const remote = await syncService.getRemote(args.project_id);
     if (remote === undefined) {
-      return toolInvalidArgument('not published — run publish_project');
+      return toolInvalidArgument('not promoted — run plandesk push');
     }
 
     try {

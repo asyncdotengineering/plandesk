@@ -369,16 +369,6 @@ export const resolveCommentInputSchema = z.object({
   comment_id: z.string().uuid(),
 });
 
-export const publishProjectInputSchema = z.object({
-  project_id: z.string().uuid(),
-  server_url: z.string().url(),
-  sync_token: z.string().min(1),
-});
-
-export const syncPushInputSchema = z.object({
-  project_id: z.string().uuid(),
-});
-
 export const syncPullInputSchema = z.object({
   project_id: z.string().uuid(),
 });
@@ -452,8 +442,6 @@ export const v1ToolNames = [
   'list_artifact_comments',
   'add_artifact_comment',
   'resolve_comment',
-  'publish_project',
-  'sync_push',
   'sync_pull',
   'list_submissions',
   'triage_submission',
@@ -504,8 +492,6 @@ export const v1ToolSchemas = {
   list_artifact_comments: listArtifactCommentsInputSchema,
   add_artifact_comment: addArtifactCommentInputSchema,
   resolve_comment: resolveCommentInputSchema,
-  publish_project: publishProjectInputSchema,
-  sync_push: syncPushInputSchema,
   sync_pull: syncPullInputSchema,
   list_submissions: listSubmissionsInputSchema,
   triage_submission: triageSubmissionInputSchema,

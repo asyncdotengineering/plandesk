@@ -117,10 +117,8 @@ const RESERVED_COMMANDS = new Set([
   'connect',
   'disconnect',
   'doctor',
-  'publish',
   'push',
   'pull',
-  'sync',
   'share',
   'deploy',
   'factory',
@@ -163,14 +161,6 @@ export type ParsedArgs =
   | { command: 'disconnect'; repoDir?: string }
   | { command: 'doctor'; dataDir?: string; repoDir?: string }
   | {
-      command: 'publish';
-      repoDir?: string;
-      projectId?: string;
-      remoteUrl: string;
-      syncToken?: string;
-      dataDir?: string;
-    }
-  | {
       command: 'push';
       repoDir?: string;
       projectId?: string;
@@ -179,7 +169,6 @@ export type ParsedArgs =
       remoteUrl?: string;
     }
   | { command: 'pull'; repoDir?: string; projectId?: string; dataDir?: string }
-  | { command: 'sync'; watch: boolean; repoDir?: string; projectId?: string; dataDir?: string }
   | {
       command: 'share';
       subcommand: 'create';
@@ -379,21 +368,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
     return { command: 'doctor', dataDir, repoDir: flagString(flags, 'repo') };
   }
 
-  if (command === 'publish') {
-    const remoteUrl = flagString(flags, 'remote');
-    if (remoteUrl === undefined || remoteUrl.trim() === '') {
-      return { command: 'unknown', name: 'publish (missing --remote)' };
-    }
-    return {
-      command: 'publish',
-      repoDir: flagString(flags, 'repo'),
-      projectId: flagString(flags, 'project'),
-      remoteUrl,
-      syncToken: flagString(flags, 'sync-token'),
-      dataDir,
-    };
-  }
-
   if (command === 'push') {
     return {
       command: 'push',
@@ -408,16 +382,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (command === 'pull') {
     return {
       command: 'pull',
-      repoDir: flagString(flags, 'repo'),
-      projectId: flagString(flags, 'project'),
-      dataDir,
-    };
-  }
-
-  if (command === 'sync') {
-    return {
-      command: 'sync',
-      watch: flags['watch'] === true,
       repoDir: flagString(flags, 'repo'),
       projectId: flagString(flags, 'project'),
       dataDir,
@@ -504,10 +468,8 @@ Usage:
   plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
   plandesk disconnect [--repo <dir>]
   plandesk doctor [--data-dir <dir>] [--repo <dir>]
-  plandesk publish --remote <url> [--project <id>] [--sync-token <t>] [--repo <dir>] [--data-dir <dir>]
   plandesk push [--project <id>] [--to <orgId>] [--url <server>] [--repo <dir>] [--data-dir <dir>]
   plandesk pull [--project <id>] [--repo <dir>] [--data-dir <dir>]
-  plandesk sync --watch [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk deploy [target]   # list deploy guides, or print one for your coding agent: plandesk deploy cloudflare | claude
   plandesk factory init [--repo <dir>] [--print] [--force]
@@ -533,9 +495,7 @@ Options:
   --force     (factory init) scaffold even in a global config dir; (factory sync) also overwrite customized files
   --out       Output file for export
   --in        Input file for import
-  --remote    Sync server URL for publish
   --to        Hosted org id for push promote (one-way: export → import into org)
-  --sync-token  Sync token for publish (default: PLANDESK_SYNC_TOKEN or .plandesk/sync-token)
   --message   (progress-checkpoint) checkpoint text (default: "checkpoint (hook)")
 `;
 }
@@ -570,7 +530,7 @@ RUN IT WITH YOUR AGENT  (optional — delegated, lane-gated execution)
 SHARE WITH YOUR TEAM  (optional)
   plandesk deploy cloudflare | claude        # agent stands up your sync server
   plandesk share create --audience "Acme" --public --allow-submit
-  plandesk push                              # they watch live + file issues; you triage
+  plandesk push --to <orgId>                   # promote the project to your hosted org; the portal reads it live
 
 READ THESE  (.md — fetchable by humans and agents; read before you act)
   Setup, paste-and-go ....... https://plandesk.asyncdot.com/start.md

@@ -35,22 +35,6 @@ export const hostedShares = sqliteTable(
   (table) => [uniqueIndex('hosted_shares_token_hash_unique').on(table.tokenHash)],
 );
 
-export const projectionBlobs = sqliteTable(
-  'projection_blobs',
-  {
-    id: text('id').primaryKey(),
-    shareId: text('share_id')
-      .notNull()
-      .references(() => hostedShares.id),
-    version: integer('version').notNull(),
-    viewJson: text('view_json').notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-      .notNull()
-      .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
-  },
-  (table) => [uniqueIndex('projection_blobs_share_id_unique').on(table.shareId)],
-);
-
 export const participants = sqliteTable(
   'participants',
   {

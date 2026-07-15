@@ -23,7 +23,7 @@ export function createTriageSubmissionHandler(
 
     const remote = await syncService.getRemote(submission.project_id);
     if (remote === undefined) {
-      return toolInvalidArgument('not published — run publish_project');
+      return toolInvalidArgument('not promoted — run plandesk push');
     }
 
     try {

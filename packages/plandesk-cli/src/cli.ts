@@ -24,7 +24,6 @@ import {
 import { formatDisconnectSummary, runDisconnect } from './disconnect.js';
 import { runContext } from './context.js';
 import { DEFAULT_CHECKPOINT_MESSAGE, runProgressCheckpoint } from './progress-checkpoint.js';
-import { formatPublishSummary, runPublish } from './publish.js';
 import { formatPushSummary, PromotePushError, runPush } from './push.js';
 import { formatPullSummary, runPull } from './pull.js';
 import { formatShareCreateSummary, InvalidShareArgsError, runShareCreate } from './share.js';
@@ -37,7 +36,6 @@ import {
   isKnownTarget,
 } from './deploy.js';
 import { SyncConfigError } from './sync.js';
-import { LocalServerUnreachableError, runWatch, SseDisconnectedError } from './watch.js';
 import {
   CORRUPT_DB_HINT,
   CorruptWorkspaceError,
@@ -205,33 +203,6 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         throw err;
       }
     }
-    case 'publish': {
-      try {
-        const repoDir = resolveRepoDir(parsed.repoDir);
-        const { db } = await openWorkspace(parsed.dataDir);
-        const result = await runPublish(db, {
-          repoDir,
-          projectId: parsed.projectId,
-          remoteUrl: parsed.remoteUrl,
-          syncToken: parsed.syncToken,
-        });
-        process.stdout.write(formatPublishSummary(result));
-        return 0;
-      } catch (err) {
-        if (err instanceof CorruptWorkspaceError) {
-          return reportCorruptDb();
-        }
-        if (
-          err instanceof SyncConfigError ||
-          err instanceof SyncUnauthorizedError ||
-          err instanceof SyncUnavailableError
-        ) {
-          process.stderr.write(`${err.message}\n`);
-          return 1;
-        }
-        throw err;
-      }
-    }
     case 'push': {
       try {
         const repoDir = resolveRepoDir(parsed.repoDir);
@@ -275,33 +246,6 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
           err instanceof SyncConfigError ||
           err instanceof SyncUnauthorizedError ||
           err instanceof SyncUnavailableError
-        ) {
-          process.stderr.write(`${err.message}\n`);
-          return 1;
-        }
-        throw err;
-      }
-    }
-    case 'sync': {
-      if (!parsed.watch) {
-        process.stderr.write('sync requires --watch\n');
-        return 1;
-      }
-      try {
-        const repoDir = resolveRepoDir(parsed.repoDir);
-        const { db } = await openWorkspace(parsed.dataDir);
-        await runWatch(db, { repoDir, projectId: parsed.projectId });
-        return 0;
-      } catch (err) {
-        if (err instanceof CorruptWorkspaceError) {
-          return reportCorruptDb();
-        }
-        if (
-          err instanceof SyncConfigError ||
-          err instanceof SyncUnauthorizedError ||
-          err instanceof SyncUnavailableError ||
-          err instanceof LocalServerUnreachableError ||
-          err instanceof SseDisconnectedError
         ) {
           process.stderr.write(`${err.message}\n`);
           return 1;

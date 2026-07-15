@@ -4,6 +4,7 @@ import {
   addOrgMember,
   createOrg,
   createProject,
+  createToken,
   listOrgs,
   verifySession,
   type Db,
@@ -18,35 +19,46 @@ type GithubUser = { id: number; login: string; name: string | null };
 /**
  * Stand-in for GitHub. Every test drives the real redirect flow through this —
  * the network is never touched.
+ *
+ * The account it reports is mutable, so a test can change what GitHub says
+ * about the same numeric id (a rename) between sign-ins.
  */
-function mockGithub(user: GithubUser, overrides: Partial<GithubConfig> = {}): GithubConfig {
+function mockGithub(
+  initialUser: GithubUser,
+  overrides: Partial<GithubConfig> = {},
+): { config: GithubConfig; setUser: (user: GithubUser) => void } {
+  let user = initialUser;
+
+  const json = (body: unknown): Promise<Response> =>
+    Promise.resolve(
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
   const doFetch: FetchLike = (url) => {
     if (url.includes('login/oauth/access_token')) {
-      return Promise.resolve(
-        new Response(JSON.stringify({ access_token: 'gho_test_token' }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
+      return json({ access_token: 'gho_test_token' });
     }
     if (url.includes('api.github.com/user')) {
-      return Promise.resolve(
-        new Response(JSON.stringify(user), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
+      return json(user);
     }
     throw new Error(`unexpected fetch to ${url}`);
   };
 
   return {
-    clientId: 'test-client-id',
-    clientSecret: 'test-client-secret',
-    callbackUrl: 'https://plandesk.test/api/v1/auth/github/callback',
-    dashboardUrl: '/',
-    fetch: doFetch,
-    ...overrides,
+    config: {
+      clientId: 'test-client-id',
+      clientSecret: 'test-client-secret',
+      callbackUrl: 'https://plandesk.test/api/v1/auth/github/callback',
+      dashboardUrl: '/',
+      fetch: doFetch,
+      ...overrides,
+    },
+    setUser: (next) => {
+      user = next;
+    },
   };
 }
 
@@ -58,11 +70,8 @@ function cookieValue(setCookie: string | null, name: string): string | undefined
   return match?.[1];
 }
 
-/** Drive the full browser flow: /auth/github → GitHub → /callback. */
-async function signIn(
-  app: Hono,
-  github: GithubConfig,
-): Promise<{ cookie: string; setCookie: string; callback: Response }> {
+/** Drive the full browser flow exactly as a browser would: entry → GitHub → callback. */
+async function signIn(app: Hono): Promise<{ cookie: string; setCookie: string; callback: Response }> {
   const start = await app.request('/api/v1/auth/github');
   expect(start.status).toBe(302);
 
@@ -82,15 +91,14 @@ async function signIn(
   const setCookie = callback.headers.get('set-cookie') ?? '';
   const session = cookieValue(setCookie, SESSION_COOKIE);
   expect(session).toBeDefined();
-  void github;
   return { cookie: `${SESSION_COOKIE}=${session ?? ''}`, setCookie, callback };
 }
 
 async function hostedApp(user: GithubUser, overrides: Partial<GithubConfig> = {}) {
-  const github = mockGithub(user, overrides);
+  const { config, setUser } = mockGithub(user, overrides);
   // Non-loopback: the hosted path, where loopback owner-trust does not apply.
-  const harness = await createTestApp({ bindHost: '0.0.0.0', github });
-  return { ...harness, github };
+  const harness = await createTestApp({ bindHost: '0.0.0.0', github: config });
+  return { ...harness, setGithubUser: setUser };
 }
 
 describe('web session auth — GitHub OAuth redirect', () => {
@@ -103,8 +111,8 @@ describe('web session auth — GitHub OAuth redirect', () => {
   });
 
   it('a browser with a session gets 200', async () => {
-    const { app, github } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
-    const { cookie, callback } = await signIn(app, github);
+    const { app } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
+    const { cookie, callback } = await signIn(app);
 
     expect(callback.status).toBe(302);
     expect(callback.headers.get('location')).toBe('/');
@@ -114,12 +122,12 @@ describe('web session auth — GitHub OAuth redirect', () => {
   });
 
   it('a session sees only its own org projects', async () => {
-    const { app, db, github } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
+    const { app, db } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
 
     const otherOrg = await createOrg(db, { name: 'Someone Else' });
     const otherProject = await createProject(db, { name: 'Not Yours', orgId: otherOrg.id });
 
-    const { cookie } = await signIn(app, github);
+    const { cookie } = await signIn(app);
 
     const created = await app.request('/api/v1/projects', {
       method: 'POST',
@@ -141,34 +149,36 @@ describe('web session auth — GitHub OAuth redirect', () => {
   });
 
   it('identity is the numeric id, not the login — a rename keeps the same org', async () => {
-    const { app, db, github } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
-    const { cookie } = await signIn(app, github);
+    const { app, db, setGithubUser } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
+    const { cookie } = await signIn(app);
     const before = await parseJson<{ user_ref: string; org: { id: string } }>(
       await app.request('/api/v1/auth/session', { headers: { Cookie: cookie } }),
     );
     expect(before.user_ref).toBe('github:1');
+    const orgsAfterFirst = (await listOrgs(db)).length;
 
-    // Same account, new login handle.
-    const renamed = mockGithub({ id: 1, login: 'ada-renamed', name: 'Ada L' });
-    const after = await signIn(app, renamed);
+    // The same GitHub account, now answering under a new login handle.
+    setGithubUser({ id: 1, login: 'ada-renamed', name: 'Ada L' });
+    const after = await signIn(app);
     const session = await parseJson<{ user_ref: string; org: { id: string } }>(
       await app.request('/api/v1/auth/session', { headers: { Cookie: after.cookie } }),
     );
 
+    // Keyed on the id, so the rename neither changes identity nor orphans the org.
     expect(session.user_ref).toBe('github:1');
     expect(session.org.id).toBe(before.org.id);
-    void db;
+    expect((await listOrgs(db)).length).toBe(orgsAfterFirst);
   });
 
   it('a second session for the same user_ref lands in the SAME org', async () => {
     const user: GithubUser = { id: 7, login: 'grace', name: 'Grace' };
-    const { app, db, github } = await hostedApp(user);
+    const { app, db } = await hostedApp(user);
 
     const orgsBefore = (await listOrgs(db)).length;
 
     // Two independent browsers, same GitHub account.
-    const first = await signIn(app, github);
-    const second = await signIn(app, mockGithub(user));
+    const first = await signIn(app);
+    const second = await signIn(app);
 
     expect(first.cookie).not.toBe(second.cookie);
 
@@ -196,8 +206,8 @@ describe('web session auth — GitHub OAuth redirect', () => {
   });
 
   it('the session cookie is HttpOnly and Secure', async () => {
-    const { app, github } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
-    const { setCookie } = await signIn(app, github);
+    const { app } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
+    const { setCookie } = await signIn(app);
 
     expect(setCookie).toContain('HttpOnly');
     expect(setCookie).toContain('Secure');
@@ -205,8 +215,8 @@ describe('web session auth — GitHub OAuth redirect', () => {
   });
 
   it('the raw cookie value is never stored — only its hash', async () => {
-    const { app, db, github } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
-    const { cookie } = await signIn(app, github);
+    const { app, db } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
+    const { cookie } = await signIn(app);
     const raw = cookie.slice(`${SESSION_COOKIE}=`.length);
 
     const rows = await db.$client.execute('SELECT token_hash FROM sessions');
@@ -215,8 +225,8 @@ describe('web session auth — GitHub OAuth redirect', () => {
   });
 
   it('logout invalidates server-side — a stolen cookie replayed after logout fails', async () => {
-    const { app, db, github } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
-    const { cookie } = await signIn(app, github);
+    const { app, db } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
+    const { cookie } = await signIn(app);
     const raw = cookie.slice(`${SESSION_COOKIE}=`.length);
 
     expect((await app.request('/api/v1/projects', { headers: { Cookie: cookie } })).status).toBe(
@@ -240,8 +250,8 @@ describe('web session auth — GitHub OAuth redirect', () => {
   });
 
   it('logout clears the browser cookie too', async () => {
-    const { app, github } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
-    const { cookie } = await signIn(app, github);
+    const { app } = await hostedApp({ id: 1, login: 'ada', name: 'Ada' });
+    const { cookie } = await signIn(app);
 
     const logout = await app.request('/api/v1/auth/logout', {
       method: 'POST',
@@ -287,14 +297,14 @@ describe('web session auth — GitHub OAuth redirect', () => {
 describe('web session auth — roles hold through the session path', () => {
   async function sessionForRole(role: OrgRole): Promise<{ app: Hono; db: Db; cookie: string }> {
     const user: GithubUser = { id: 55, login: 'vic', name: 'Vic' };
-    const { app, db, github } = await hostedApp(user);
+    const { app, db } = await hostedApp(user);
 
     // Pre-seat the identity in an existing org at `role`, so the callback joins
     // that org instead of minting a fresh owner-org.
     const org = await createOrg(db, { name: 'Team' });
     await addOrgMember(db, { orgId: org.id, userRef: 'github:55', role });
 
-    const { cookie } = await signIn(app, github);
+    const { cookie } = await signIn(app);
     return { app, db, cookie };
   }
 
@@ -370,11 +380,19 @@ describe('web session auth — self-host without a GitHub app (REQ-20)', () => {
   });
 
   it('a GitHub-less instance still authenticates with a token', async () => {
-    const { app } = await createTestApp({ bindHost: '0.0.0.0' });
-    const res = await app.request('/api/v1/auth/methods');
-    expect(await parseJson<{ githubEnabled: boolean }>(res)).toMatchObject({
-      githubEnabled: false,
+    const { app, db, orgId } = await createTestApp({ bindHost: '0.0.0.0' });
+    const token = await createToken(db, { name: 'self-host', orgId, scope: 'full' });
+
+    // No GitHub app anywhere in sight, and the instance is still fully usable.
+    const res = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: 'Self-hosted board' }),
     });
+    expect(res.status).toBe(201);
   });
 
   it('githubEnabled:true → /auth/methods reports device (the CLI transport)', async () => {
@@ -406,7 +424,6 @@ describe('web session auth — local mode is untouched (REQ-21)', () => {
 
   it('a token caller reports kind token', async () => {
     const { app, db, orgId } = await createTestApp({ bindHost: '0.0.0.0' });
-    const { createToken } = await import('@plandesk/db');
     const token = await createToken(db, { name: 't', orgId, scope: 'full' });
 
     const res = await app.request('/api/v1/auth/session', {

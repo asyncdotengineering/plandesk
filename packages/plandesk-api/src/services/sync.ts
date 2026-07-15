@@ -1,23 +1,17 @@
-import { randomUUID } from 'node:crypto';
 import {
   getPullCursor,
-  getShare,
   getSubmission as dbGetSubmission,
   getSyncRemote,
   listSubmissions,
-  parseSharePermissions,
   setPullCursor,
   setSubmissionStatus,
   setSyncRemote,
   upsertSubmission,
   type Db,
-  type Share,
   type ShareSubmission,
   type ShareSubmissionStatus,
 } from '@plandesk/db';
-import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
-import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
-import type { ShareService } from './share.js';
+import { assertPermission, type OrgScopedDeps } from './org-scope.js';
 import type { TaskService } from './tasks.js';
 
 export class SyncUnavailableError extends Error {
@@ -101,29 +95,7 @@ export function serializeSubmission(row: ShareSubmission): SerializedSubmission 
 export type SyncServiceDeps = OrgScopedDeps & {
   db: Db;
   taskService: TaskService;
-  shareService: ShareService;
 };
-
-export type WatchPushController = {
-  onChange(): void;
-  dispose(): void;
-};
-
-export type WatchPushOptions = {
-  debounceMs?: number;
-  onPushError?: (err: unknown) => void;
-};
-
-function parseInvitedEmails(raw: string | null): string[] {
-  if (raw === null || raw === '') {
-    return [];
-  }
-  const parsed = JSON.parse(raw) as unknown;
-  if (!Array.isArray(parsed)) {
-    return [];
-  }
-  return parsed.filter((value): value is string => typeof value === 'string');
-}
 
 function buildDesc(submission: ShareSubmission): string | null {
   const footer = `Reported by ${submission.participantName} (client) via Plan Desk`;
@@ -160,130 +132,10 @@ async function ackSubmission(
   }
 }
 
-async function pushProjection(remote: SyncRemote, share: Share, view: unknown): Promise<void> {
-  const base = remote.serverUrl.replace(/\/$/, '');
-  const url = `${base}/api/sync/v1/projects/${encodeURIComponent(remote.globalProjectId)}/projection`;
-
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${remote.syncToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        share: {
-          token_hash: share.tokenHash,
-          audience_name: share.audienceName,
-          permissions: parseSharePermissions(share),
-          mode: share.mode,
-          invited_emails: parseInvitedEmails(share.invitedEmails),
-          expires_at: share.expiresAt?.toISOString() ?? null,
-        },
-        version: Date.now(),
-        view,
-      }),
-    });
-  } catch {
-    throw new SyncUnavailableError();
-  }
-
-  if (response.status === 401) {
-    throw new SyncUnauthorizedError();
-  }
-  if (!response.ok) {
-    throw new SyncUnavailableError(`sync server returned ${String(response.status)}`);
-  }
-}
-
-function createWatchPush(
-  push: (projectId: string, remote: SyncRemote) => Promise<{ pushed: number }>,
-  projectId: string,
-  remote: SyncRemote,
-  opts?: WatchPushOptions,
-): WatchPushController {
-  const debounceMs = opts?.debounceMs ?? 1500;
-  const onPushError =
-    opts?.onPushError ??
-    ((err: unknown) => {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(`sync watch push failed: ${message}`);
-    });
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let disposed = false;
-
-  const runPush = () => {
-    timer = undefined;
-    void push(projectId, remote).catch(onPushError);
-  };
-
-  return {
-    onChange() {
-      if (disposed) {
-        return;
-      }
-      if (timer !== undefined) {
-        clearTimeout(timer);
-      }
-      timer = setTimeout(runPush, debounceMs);
-    },
-    dispose() {
-      disposed = true;
-      if (timer !== undefined) {
-        clearTimeout(timer);
-        timer = undefined;
-      }
-    },
-  };
-}
-
 export function createSyncService(deps: SyncServiceDeps) {
-  const { db, taskService, shareService } = deps;
+  const { db, taskService } = deps;
 
   return {
-    async push(projectId: string, remote: SyncRemote): Promise<{ pushed: number }> {
-      assertPermission(deps, 'editor');
-      const shares = await shareService.listShares(projectId);
-      if (shares === undefined) {
-        throw new SyncUnavailableError('project not found');
-      }
-
-      const active = shares.filter((share) => share.revoked_at === null);
-      let pushed = 0;
-
-      for (const serialized of active) {
-        const shareRow = await getShare(db, serialized.id);
-        if (shareRow === undefined) {
-          continue;
-        }
-
-        const view = await shareService.buildClientView(projectId, serialized.id);
-        if (view === undefined) {
-          continue;
-        }
-
-        await pushProjection(remote, shareRow, view);
-        pushed += 1;
-      }
-
-      return { pushed };
-    },
-
-    async publishProject(
-      projectId: string,
-      input: { serverUrl: string; syncToken: string },
-    ): Promise<{ globalProjectId: string; pushed: number }> {
-      assertPermission(deps, 'editor');
-      const globalProjectId = randomUUID();
-      const { pushed } = await this.push(projectId, {
-        serverUrl: input.serverUrl,
-        globalProjectId,
-        syncToken: input.syncToken,
-      });
-      return { globalProjectId, pushed };
-    },
-
     async pull(projectId: string, remote: SyncRemote): Promise<{ pulled: number }> {
       assertPermission(deps, 'editor');
       const cursor = await getPullCursor(db, projectId);
@@ -471,10 +323,6 @@ export function createSyncService(deps: SyncServiceDeps) {
 
       await ackSubmission(remote, submissionId, 'rejected');
       return serializeSubmission(updated);
-    },
-
-    watchPush(projectId: string, remote: SyncRemote, opts?: WatchPushOptions): WatchPushController {
-      return createWatchPush((id, rem) => this.push(id, rem), projectId, remote, opts);
     },
   };
 }

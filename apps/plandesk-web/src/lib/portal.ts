@@ -207,16 +207,12 @@ export async function fetchClientView(
   shareToken: string,
   sessionToken: string,
 ): Promise<ClientView> {
-  const response = await fetch(
-    `${SYNC_BASE}/api/portal/v1/shares/${encodeURIComponent(shareToken)}/view`,
-    {
-      headers: { Authorization: `Bearer ${sessionToken}` },
-    },
-  );
-
-  if (response.status === 401) {
-    throw new PortalUnauthorizedError();
-  }
+  // The portal view is computed LIVE by the hosted api from the share token — no
+  // stored snapshot, and no participant session required. sessionToken is kept in
+  // the signature for call-site stability but is not sent: the capability is the
+  // URL token, never an org membership or session.
+  void sessionToken;
+  const response = await fetch(`/api/v1/share/${encodeURIComponent(shareToken)}/view`);
 
   if (response.status === 404) {
     throw new PortalNotReadyError();

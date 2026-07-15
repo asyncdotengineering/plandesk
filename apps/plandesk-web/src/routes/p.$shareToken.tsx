@@ -3,7 +3,6 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { JoinGate } from '../components/portal/JoinGate.js';
 import { PortalPage } from '../components/portal/PortalPage.js';
-import { usePortalLiveRefetch } from '../lib/portal-events.js';
 import {
   PortalNotReadyError,
   PortalUnauthorizedError,
@@ -30,14 +29,6 @@ function PortalRoutePage() {
   });
 
   const sessionInvalid = error instanceof PortalUnauthorizedError;
-  const viewLoaded =
-    session !== null &&
-    !sessionInvalid &&
-    !isLoading &&
-    data !== undefined &&
-    !(error instanceof PortalNotReadyError);
-
-  usePortalLiveRefetch(shareToken, session, viewLoaded);
 
   useEffect(() => {
     if (sessionInvalid) {

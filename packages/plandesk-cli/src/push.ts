@@ -2,11 +2,9 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   exportProject,
-  ensureDefaultOrg,
   setSyncRemote,
   type Db,
 } from '@plandesk/db';
-import { createServices } from '@plandesk/api';
 import {
   buildConfigJson,
   normalizeServerUrl,
@@ -14,7 +12,7 @@ import {
   readPlandeskToken,
   TOKEN_ENV_VAR,
 } from './connect-artifacts.js';
-import { resolveProjectId, resolveSyncRemote, SyncConfigError, type ResolvedSync } from './sync.js';
+import { resolveProjectId, SyncConfigError, type ResolvedSync } from './sync.js';
 
 export type PushOptions = {
   repoDir: string;
@@ -26,19 +24,12 @@ export type PushOptions = {
   toOrgId?: string;
 };
 
-export type SharePushResult = {
-  kind: 'shares';
-  pushed: number;
-};
-
 export type PromotePushResult = {
   kind: 'promote';
   globalProjectId: string;
   orgId: string;
   serverUrl: string;
 };
-
-export type PushResult = SharePushResult | PromotePushResult;
 
 export class PromotePushError extends Error {
   constructor(message: string) {
@@ -158,23 +149,17 @@ async function runPromotePush(db: Db, options: PushOptions & { toOrgId: string }
   };
 }
 
-export async function runPush(db: Db, options: PushOptions): Promise<PushResult> {
-  if (options.toOrgId !== undefined) {
-    return runPromotePush(db, { ...options, toOrgId: options.toOrgId });
+export async function runPush(db: Db, options: PushOptions): Promise<PromotePushResult> {
+  if (options.toOrgId === undefined) {
+    throw new PromotePushError(
+      'push requires --to <org-id>. The projection snapshot was retired; promote the project to a hosted org instead.',
+    );
   }
-
-  const resolved = resolveSyncRemote(options);
-  const org = await ensureDefaultOrg(db);
-  const { syncService } = createServices({ db, orgId: org.id });
-  const { pushed } = await syncService.push(resolved.projectId, resolved.syncRemote);
-  return { kind: 'shares', pushed };
+  return runPromotePush(db, { ...options, toOrgId: options.toOrgId });
 }
 
-export function formatPushSummary(result: PushResult): string {
-  if (result.kind === 'promote') {
-    return `Promoted to org ${result.orgId} as ${result.globalProjectId} on ${result.serverUrl}.\n`;
-  }
-  return `Pushed ${String(result.pushed)} share(s).\n`;
+export function formatPushSummary(result: PromotePushResult): string {
+  return `Promoted to org ${result.orgId} as ${result.globalProjectId} on ${result.serverUrl}.\n`;
 }
 
 export type { ResolvedSync };

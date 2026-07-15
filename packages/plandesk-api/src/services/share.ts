@@ -375,6 +375,26 @@ export function createShareService(deps: ShareServiceDeps) {
 
       return { status: 'ok', markdown: buildShareMarkdown(view, parseSharePolicy(share), origin) };
     },
+
+    // Public portal read: a share token resolves to exactly one project and the
+    // view is COMPUTED live on each call (not read from a stored snapshot). Every
+    // failure shape — unknown token, revoked, expired, or project since deleted —
+    // collapses to undefined so the route answers a uniform 404 (no existence leak).
+    // No org context is involved; buildClientView reads only this one project, so a
+    // share token can never widen to org-wide or cross-project read.
+    async getClientView(token: string): Promise<ClientView | undefined> {
+      const share = await getShareByTokenHashRaw(db, hashShareToken(token));
+      if (!share) {
+        return undefined;
+      }
+
+      const now = new Date();
+      if (share.revokedAt !== null || (share.expiresAt !== null && share.expiresAt <= now)) {
+        return undefined;
+      }
+
+      return buildClientView(db, share.projectId, share);
+    },
   };
 }
 

@@ -1,11 +1,13 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { createSyncToken, hashToken, seedSyncToken, verifySyncToken } from './auth.js';
 import { createSyncServer } from './app.js';
 import { createSyncDb } from './db/client.js';
 import { migrate } from './db/migrate.js';
-import { activityLog, hostedShares, projectionBlobs, submissions } from './db/schema.js';
+import { activityLog, hostedShares, submissions } from './db/schema.js';
+
+type SyncDb = ReturnType<typeof createSyncDb>;
 
 describe('seedSyncToken (self-host bootstrap)', () => {
   it('seeds an owner token once and authenticates it; second call is a no-op', async () => {
@@ -31,50 +33,40 @@ async function createTestApp() {
   return { app, db, syncToken };
 }
 
-const sampleView = {
-  project: { global_id: 'gid-1', name: 'Portal Project', updated_at: '2026-01-01T00:00:00.000Z' },
-  tasks: [{ id: 't1', label: 'Task', status: 'todo', position: 0 }],
-  edges: [],
-  documents: [],
-  progress: { todo: 1, in_progress: 0, done: 0 },
-};
-
-type SharePushOptions = {
+type SeedOptions = {
+  gid?: string;
   mode?: 'invite' | 'public';
-  invited_emails?: string[];
-  audience_name?: string;
-  expires_at?: string | null;
+  invitedEmails?: string[];
+  audienceName?: string;
   permissions?: { read: boolean; submit: boolean };
+  expiresAt?: Date | null;
 };
 
-async function pushProjection(
-  app: ReturnType<typeof createSyncServer>,
-  syncToken: string,
-  gid: string,
-  shareToken: string,
-  view: unknown = sampleView,
-  version = 1,
-  shareOptions: SharePushOptions = { mode: 'public' },
-) {
-  return app.request(`/api/sync/v1/projects/${gid}/projection`, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${syncToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      share: {
-        token_hash: hashToken(shareToken),
-        audience_name: shareOptions.audience_name ?? 'Acme Corp',
-        mode: shareOptions.mode ?? 'public',
-        invited_emails: shareOptions.invited_emails,
-        permissions: shareOptions.permissions ?? { read: true, submit: false },
-        expires_at: shareOptions.expires_at ?? null,
-      },
-      version,
-      view,
-    }),
-  });
+// The projection push that previously seeded hosted_shares is gone; tests insert
+// the share row directly. Stored exactly as the push path stored it: token hashes
+// at rest, invited emails normalized + JSON-encoded.
+async function seedHostedShare(db: SyncDb, shareToken: string, options: SeedOptions = {}): Promise<string> {
+  const id = randomUUID();
+  const now = new Date();
+  await db
+    .insert(hostedShares)
+    .values({
+      id,
+      projectGlobalId: options.gid ?? 'gid-1',
+      tokenHash: hashToken(shareToken),
+      audienceName: options.audienceName ?? 'Acme Corp',
+      mode: options.mode ?? 'public',
+      invitedEmails:
+        options.invitedEmails !== undefined
+          ? JSON.stringify(options.invitedEmails.map((email) => email.trim().toLowerCase()))
+          : null,
+      permissions: JSON.stringify(options.permissions ?? { read: true, submit: false }),
+      expiresAt: options.expiresAt ?? null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
+  return id;
 }
 
 async function fetchShareMeta(app: ReturnType<typeof createSyncServer>, shareToken: string) {
@@ -91,17 +83,6 @@ async function joinShare(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, email }),
-  });
-}
-
-async function viewWithSession(
-  app: ReturnType<typeof createSyncServer>,
-  shareToken: string,
-  sessionToken: string,
-  extraHeaders: Record<string, string> = {},
-) {
-  return app.request(`/api/portal/v1/shares/${shareToken}/view`, {
-    headers: { Authorization: `Bearer ${sessionToken}`, ...extraHeaders },
   });
 }
 
@@ -131,175 +112,18 @@ async function listSubmissions(
   });
 }
 
-async function setupSubmitShare(app: ReturnType<typeof createSyncServer>, syncToken: string) {
+async function setupSubmitShare(
+  app: ReturnType<typeof createSyncServer>,
+  db: SyncDb,
+) {
   const shareToken = generateShareToken();
-  await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
-    mode: 'public',
-    permissions: { read: true, submit: true },
-  });
+  await seedHostedShare(db, shareToken, { permissions: { read: true, submit: true } });
   const joinRes = await joinShare(app, shareToken, 'Alex');
   const { session_token } = await joinRes.json<{ session_token: string }>();
   return { shareToken, session_token };
 }
 
 describe('createSyncServer', () => {
-  it('PUT projection returns 401 without Authorization', async () => {
-    const { app } = await createTestApp();
-    const res = await app.request('/api/sync/v1/projects/gid-1/projection', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ share: {}, version: 1, view: {} }),
-    });
-    expect(res.status).toBe(401);
-  });
-
-  it('PUT projection returns 401 for invalid sync token', async () => {
-    const { app } = await createTestApp();
-    const res = await pushProjection(app, 'plandesk_sync_invalid', 'gid-1', generateShareToken());
-    expect(res.status).toBe(401);
-  });
-
-  it('PUT projection stores share and blob; join + GET view returns projection', async () => {
-    const { app, syncToken } = await createTestApp();
-    const shareToken = generateShareToken();
-
-    const putRes = await pushProjection(app, syncToken, 'gid-1', shareToken);
-    expect(putRes.status).toBe(200);
-    expect(await putRes.json()).toEqual({ ok: true });
-
-    const joinRes = await joinShare(app, shareToken, 'Alex');
-    expect(joinRes.status).toBe(200);
-    const joinPayload = await joinRes.json<{
-      session_token: string;
-      participant: { id: string; name: string };
-      share: { audience_name: string; permissions: Record<string, unknown> };
-    }>();
-    expect(joinPayload.participant.name).toBe('Alex');
-    expect(joinPayload.share.audience_name).toBe('Acme Corp');
-    expect(joinPayload.share.permissions).toEqual({ read: true, submit: false });
-
-    const getRes = await viewWithSession(app, shareToken, joinPayload.session_token);
-    expect(getRes.status).toBe(200);
-    const payload = await getRes.json<Record<string, unknown>>();
-    expect(payload['project']).toEqual(sampleView.project);
-    expect(payload['audience_name']).toBe('Acme Corp');
-    expect(payload['permissions']).toEqual({ read: true, submit: false });
-  });
-
-  it('GET view returns 401 without participant session', async () => {
-    const { app, syncToken } = await createTestApp();
-    const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken);
-
-    const getRes = await app.request(`/api/portal/v1/shares/${shareToken}/view`);
-    expect(getRes.status).toBe(401);
-  });
-
-  it('GET view returns 401 for invalid participant session', async () => {
-    const { app, syncToken } = await createTestApp();
-    const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken);
-
-    const getRes = await viewWithSession(app, shareToken, 'plandesk_pt_invalid');
-    expect(getRes.status).toBe(401);
-  });
-
-  it('GET view returns 401 when session belongs to a different share', async () => {
-    const { app, syncToken } = await createTestApp();
-    const shareTokenA = generateShareToken();
-    const shareTokenB = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareTokenA);
-    await pushProjection(app, syncToken, 'gid-2', shareTokenB);
-
-    const joinRes = await joinShare(app, shareTokenA, 'Alex');
-    const { session_token } = await joinRes.json<{ session_token: string }>();
-
-    const getRes = await viewWithSession(app, shareTokenB, session_token);
-    expect(getRes.status).toBe(401);
-  });
-
-  it('GET view returns 404 when share exists but no projection blob', async () => {
-    const { app, db, syncToken } = await createTestApp();
-    const shareToken = generateShareToken();
-    const tokenHash = hashToken(shareToken);
-
-    const putRes = await pushProjection(app, syncToken, 'gid-1', shareToken);
-    expect(putRes.status).toBe(200);
-
-    const joinRes = await joinShare(app, shareToken, 'Alex');
-    const { session_token } = await joinRes.json<{ session_token: string }>();
-
-    const share = await db
-      .select({ id: hostedShares.id })
-      .from(hostedShares)
-      .where(eq(hostedShares.tokenHash, tokenHash))
-      .get();
-    expect(share).toBeDefined();
-    if (share === undefined) {
-      throw new Error('expected share row');
-    }
-
-    await db.delete(projectionBlobs).where(eq(projectionBlobs.shareId, share.id)).run();
-
-    const getRes = await viewWithSession(app, shareToken, session_token);
-    expect(getRes.status).toBe(404);
-  });
-
-  it('GET view returns 401 for unknown share token', async () => {
-    const { app } = await createTestApp();
-    const res = await viewWithSession(app, generateShareToken(), 'plandesk_pt_invalid');
-    expect(res.status).toBe(401);
-  });
-
-  it('GET view returns 401 for expired share', async () => {
-    const { app, syncToken } = await createTestApp();
-    const shareToken = generateShareToken();
-    const past = new Date(Date.now() - 60_000).toISOString();
-
-    const putRes = await app.request('/api/sync/v1/projects/gid-1/projection', {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${syncToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        share: {
-          token_hash: hashToken(shareToken),
-          audience_name: 'Expired',
-          permissions: { read: true },
-          expires_at: past,
-        },
-        version: 1,
-        view: sampleView,
-      }),
-    });
-    expect(putRes.status).toBe(200);
-
-    const joinRes = await joinShare(app, shareToken, 'Alex');
-    expect(joinRes.status).toBe(401);
-
-    const getRes = await viewWithSession(app, shareToken, 'plandesk_pt_any');
-    expect(getRes.status).toBe(401);
-  });
-
-  it('POST revoke then GET view returns 401', async () => {
-    const { app, syncToken } = await createTestApp();
-    const shareToken = generateShareToken();
-
-    await pushProjection(app, syncToken, 'gid-1', shareToken);
-    const joinRes = await joinShare(app, shareToken, 'Alex');
-    const { session_token } = await joinRes.json<{ session_token: string }>();
-
-    const revokeRes = await app.request(`/api/sync/v1/shares/${shareToken}/revoke`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${syncToken}` },
-    });
-    expect(revokeRes.status).toBe(200);
-
-    const getRes = await viewWithSession(app, shareToken, session_token);
-    expect(getRes.status).toBe(401);
-  });
-
   it('POST revoke returns 401 without sync token', async () => {
     const { app } = await createTestApp();
     const res = await app.request(`/api/sync/v1/shares/${generateShareToken()}/revoke`, {
@@ -308,49 +132,10 @@ describe('createSyncServer', () => {
     expect(res.status).toBe(401);
   });
 
-  it('PUT projection upserts share and updates version', async () => {
-    const { app, syncToken } = await createTestApp();
-    const shareToken = generateShareToken();
-
-    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1);
-    const updatedView = { ...sampleView, progress: { todo: 0, in_progress: 1, done: 0 } };
-    await pushProjection(app, syncToken, 'gid-1', shareToken, updatedView, 2);
-
-    const joinRes = await joinShare(app, shareToken, 'Alex');
-    const { session_token } = await joinRes.json<{ session_token: string }>();
-
-    const getRes = await viewWithSession(app, shareToken, session_token);
-    expect(getRes.status).toBe(200);
-    const payload = await getRes.json<{ progress: { in_progress: number } }>();
-    expect(payload.progress.in_progress).toBe(1);
-  });
-
-  it('revoked share can be reactivated by push clearing revoked_at', async () => {
-    const { app, syncToken } = await createTestApp();
-    const shareToken = generateShareToken();
-
-    await pushProjection(app, syncToken, 'gid-1', shareToken);
-    const joinRes = await joinShare(app, shareToken, 'Alex');
-    const { session_token } = await joinRes.json<{ session_token: string }>();
-
-    await app.request(`/api/sync/v1/shares/${shareToken}/revoke`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${syncToken}` },
-    });
-
-    const revokedGet = await viewWithSession(app, shareToken, session_token);
-    expect(revokedGet.status).toBe(401);
-
-    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 2);
-    const getRes = await viewWithSession(app, shareToken, session_token);
-    expect(getRes.status).toBe(200);
-  });
-
   it('stores token hashes at rest, not raw tokens', async () => {
     const { app, db, syncToken } = await createTestApp();
     const shareToken = generateShareToken();
-
-    await pushProjection(app, syncToken, 'gid-1', shareToken);
+    await seedHostedShare(db, shareToken);
     const joinRes = await joinShare(app, shareToken, 'Alex');
     const { session_token } = await joinRes.json<{ session_token: string }>();
 
@@ -372,18 +157,17 @@ describe('createSyncServer', () => {
   });
 
   it('portal endpoints send CORS headers; sync endpoints do not', async () => {
-    const { app, syncToken } = await createTestApp();
+    const { app, db } = await createTestApp();
     const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken);
-    const joinRes = await joinShare(app, shareToken, 'Alex');
-    const { session_token } = await joinRes.json<{ session_token: string }>();
+    await seedHostedShare(db, shareToken);
 
-    const portalRes = await viewWithSession(app, shareToken, session_token, {
-      Origin: 'http://localhost:5174',
+    const portalRes = await app.request(`/api/portal/v1/shares/${shareToken}/join`, {
+      method: 'OPTIONS',
+      headers: { Origin: 'http://localhost:5174' },
     });
     expect(portalRes.headers.get('access-control-allow-origin')).toBe('*');
 
-    const syncRes = await app.request('/api/sync/v1/projects/gid-1/projection', {
+    const syncRes = await app.request('/api/sync/v1/projects/gid-1/submissions', {
       method: 'OPTIONS',
       headers: { Origin: 'http://localhost:5174' },
     });
@@ -393,9 +177,9 @@ describe('createSyncServer', () => {
 
 describe('POST /join', () => {
   it('returns 400 for empty name', async () => {
-    const { app, syncToken } = await createTestApp();
+    const { app, db } = await createTestApp();
     const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken);
+    await seedHostedShare(db, shareToken);
 
     const res = await joinShare(app, shareToken, '   ');
     expect(res.status).toBe(400);
@@ -409,9 +193,9 @@ describe('POST /join', () => {
   });
 
   it('returns 401 for revoked share', async () => {
-    const { app, syncToken } = await createTestApp();
+    const { app, db, syncToken } = await createTestApp();
     const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken);
+    await seedHostedShare(db, shareToken);
     await app.request(`/api/sync/v1/shares/${shareToken}/revoke`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${syncToken}` },
@@ -422,9 +206,9 @@ describe('POST /join', () => {
   });
 
   it('logs join activity', async () => {
-    const { app, db, syncToken } = await createTestApp();
+    const { app, db } = await createTestApp();
     const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken);
+    await seedHostedShare(db, shareToken);
 
     const joinRes = await joinShare(app, shareToken, 'Alex');
     expect(joinRes.status).toBe(200);
@@ -437,11 +221,11 @@ describe('POST /join', () => {
   });
 
   it('invite mode rejects join without email (403)', async () => {
-    const { app, syncToken } = await createTestApp();
+    const { app, db } = await createTestApp();
     const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
+    await seedHostedShare(db, shareToken, {
       mode: 'invite',
-      invited_emails: ['alex@acme.com'],
+      invitedEmails: ['alex@acme.com'],
     });
 
     const res = await joinShare(app, shareToken, 'Alex');
@@ -450,11 +234,11 @@ describe('POST /join', () => {
   });
 
   it('invite mode rejects non-invited email (403)', async () => {
-    const { app, syncToken } = await createTestApp();
+    const { app, db } = await createTestApp();
     const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
+    await seedHostedShare(db, shareToken, {
       mode: 'invite',
-      invited_emails: ['alex@acme.com'],
+      invitedEmails: ['alex@acme.com'],
     });
 
     const res = await joinShare(app, shareToken, 'Alex', 'other@acme.com');
@@ -463,11 +247,11 @@ describe('POST /join', () => {
   });
 
   it('invite mode accepts invited email (case-insensitive)', async () => {
-    const { app, syncToken } = await createTestApp();
+    const { app, db } = await createTestApp();
     const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
+    await seedHostedShare(db, shareToken, {
       mode: 'invite',
-      invited_emails: ['Alex@Acme.com'],
+      invitedEmails: ['Alex@Acme.com'],
     });
 
     const res = await joinShare(app, shareToken, 'Alex', '  alex@acme.com  ');
@@ -475,55 +259,22 @@ describe('POST /join', () => {
   });
 
   it('public mode allows join without email', async () => {
-    const { app, syncToken } = await createTestApp();
+    const { app, db } = await createTestApp();
     const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
-      mode: 'public',
-    });
+    await seedHostedShare(db, shareToken, { mode: 'public' });
 
     const res = await joinShare(app, shareToken, 'Alex');
     expect(res.status).toBe(200);
-  });
-
-  it('defaults to invite mode with empty invited list when mode omitted on push', async () => {
-    const { app, syncToken } = await createTestApp();
-    const shareToken = generateShareToken();
-
-    const putRes = await app.request('/api/sync/v1/projects/gid-1/projection', {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${syncToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        share: {
-          token_hash: hashToken(shareToken),
-          audience_name: 'Acme Corp',
-          permissions: { read: true, submit: false },
-          expires_at: null,
-        },
-        version: 1,
-        view: sampleView,
-      }),
-    });
-    expect(putRes.status).toBe(200);
-
-    const metaRes = await fetchShareMeta(app, shareToken);
-    expect(metaRes.status).toBe(200);
-    expect(await metaRes.json()).toEqual({ audience_name: 'Acme Corp', mode: 'invite' });
-
-    const joinRes = await joinShare(app, shareToken, 'Alex', 'anyone@acme.com');
-    expect(joinRes.status).toBe(403);
   });
 });
 
 describe('GET /meta', () => {
   it('returns audience_name and mode for valid token', async () => {
-    const { app, syncToken } = await createTestApp();
+    const { app, db } = await createTestApp();
     const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
+    await seedHostedShare(db, shareToken, {
       mode: 'invite',
-      invited_emails: ['alex@acme.com'],
+      invitedEmails: ['alex@acme.com'],
     });
 
     const res = await fetchShareMeta(app, shareToken);
@@ -540,8 +291,8 @@ describe('GET /meta', () => {
 
 describe('POST /submissions', () => {
   it('creates a pending submission with submit permission', async () => {
-    const { app, db, syncToken } = await createTestApp();
-    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+    const { app, db } = await createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, db);
 
     const res = await submitIssue(app, shareToken, session_token, {
       title: 'Broken button',
@@ -575,8 +326,8 @@ describe('POST /submissions', () => {
   });
 
   it('returns 400 for empty title', async () => {
-    const { app, syncToken } = await createTestApp();
-    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+    const { app, db } = await createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, db);
 
     const res = await submitIssue(app, shareToken, session_token, { title: '   ' });
     expect(res.status).toBe(400);
@@ -584,23 +335,19 @@ describe('POST /submissions', () => {
   });
 
   it('returns 401 without participant session', async () => {
-    const { app, syncToken } = await createTestApp();
-    const { shareToken } = await setupSubmitShare(app, syncToken);
+    const { app, db } = await createTestApp();
+    const { shareToken } = await setupSubmitShare(app, db);
 
     const res = await submitIssue(app, shareToken, '', { title: 'Bug' });
     expect(res.status).toBe(401);
   });
 
   it('returns 401 when session belongs to a different share', async () => {
-    const { app, syncToken } = await createTestApp();
+    const { app, db } = await createTestApp();
     const shareTokenA = generateShareToken();
     const shareTokenB = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareTokenA, sampleView, 1, {
-      permissions: { read: true, submit: true },
-    });
-    await pushProjection(app, syncToken, 'gid-2', shareTokenB, sampleView, 1, {
-      permissions: { read: true, submit: true },
-    });
+    await seedHostedShare(db, shareTokenA, { permissions: { read: true, submit: true } });
+    await seedHostedShare(db, shareTokenB, { permissions: { read: true, submit: true } });
 
     const joinRes = await joinShare(app, shareTokenA, 'Alex');
     const { session_token } = await joinRes.json<{ session_token: string }>();
@@ -610,9 +357,9 @@ describe('POST /submissions', () => {
   });
 
   it('returns 403 when share lacks submit permission', async () => {
-    const { app, syncToken } = await createTestApp();
+    const { app, db } = await createTestApp();
     const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken);
+    await seedHostedShare(db, shareToken);
     const joinRes = await joinShare(app, shareToken, 'Alex');
     const { session_token } = await joinRes.json<{ session_token: string }>();
 
@@ -622,8 +369,8 @@ describe('POST /submissions', () => {
   });
 
   it('returns 429 when rate limit exceeded', async () => {
-    const { app, syncToken } = await createTestApp();
-    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+    const { app, db } = await createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, db);
 
     for (let i = 0; i < 10; i += 1) {
       const res = await submitIssue(app, shareToken, session_token, {
@@ -638,8 +385,8 @@ describe('POST /submissions', () => {
   });
 
   it('logs submit activity', async () => {
-    const { app, db, syncToken } = await createTestApp();
-    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+    const { app, db } = await createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, db);
 
     const res = await submitIssue(app, shareToken, session_token, { title: 'Bug' });
     const { submission } = await res.json<{ submission: { id: string } }>();
@@ -670,15 +417,11 @@ async function ownerPullSubmissions(
 
 describe('GET /api/sync/v1/projects/:gid/submissions', () => {
   it('returns all project submissions with participant names', async () => {
-    const { app, syncToken } = await createTestApp();
+    const { app, db, syncToken } = await createTestApp();
     const shareTokenA = generateShareToken();
     const shareTokenB = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareTokenA, sampleView, 1, {
-      permissions: { read: true, submit: true },
-    });
-    await pushProjection(app, syncToken, 'gid-1', shareTokenB, sampleView, 1, {
-      permissions: { read: true, submit: true },
-    });
+    await seedHostedShare(db, shareTokenA, { gid: 'gid-1', permissions: { read: true, submit: true } });
+    await seedHostedShare(db, shareTokenB, { gid: 'gid-1', permissions: { read: true, submit: true } });
 
     const joinA = await joinShare(app, shareTokenA, 'Alex');
     const { session_token: sessionA } = await joinA.json<{ session_token: string }>();
@@ -705,7 +448,7 @@ describe('GET /api/sync/v1/projects/:gid/submissions', () => {
 
   it('respects since filter', async () => {
     const { app, db, syncToken } = await createTestApp();
-    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+    const { shareToken, session_token } = await setupSubmitShare(app, db);
 
     const firstRes = await submitIssue(app, shareToken, session_token, { title: 'First' });
     const { submission: first } = await firstRes.json<{
@@ -771,8 +514,8 @@ async function ackSubmission(
 
 describe('POST /api/sync/v1/projects/:gid/submissions/:id/ack', () => {
   it('updates submission status and participant own-view reflects it', async () => {
-    const { app, syncToken } = await createTestApp();
-    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+    const { app, db, syncToken } = await createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, db);
 
     const submitRes = await submitIssue(app, shareToken, session_token, { title: 'Ack me' });
     const { submission } = await submitRes.json<{ submission: { id: string } }>();
@@ -797,8 +540,8 @@ describe('POST /api/sync/v1/projects/:gid/submissions/:id/ack', () => {
   });
 
   it('returns 400 for invalid status', async () => {
-    const { app, syncToken } = await createTestApp();
-    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+    const { app, db, syncToken } = await createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, db);
     const submitRes = await submitIssue(app, shareToken, session_token, { title: 'Bad ack' });
     const { submission } = await submitRes.json<{ submission: { id: string } }>();
 
@@ -813,8 +556,8 @@ describe('POST /api/sync/v1/projects/:gid/submissions/:id/ack', () => {
   });
 
   it('returns 404 when submission belongs to a different project', async () => {
-    const { app, syncToken } = await createTestApp();
-    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
+    const { app, db, syncToken } = await createTestApp();
+    const { shareToken, session_token } = await setupSubmitShare(app, db);
     const submitRes = await submitIssue(app, shareToken, session_token, { title: 'Wrong gid' });
     const { submission } = await submitRes.json<{ submission: { id: string } }>();
 
@@ -825,11 +568,9 @@ describe('POST /api/sync/v1/projects/:gid/submissions/:id/ack', () => {
 
 describe('GET /submissions', () => {
   it('returns only the calling participant submissions', async () => {
-    const { app, syncToken } = await createTestApp();
+    const { app, db } = await createTestApp();
     const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken, sampleView, 1, {
-      permissions: { read: true, submit: true },
-    });
+    await seedHostedShare(db, shareToken, { permissions: { read: true, submit: true } });
 
     const joinAlex = await joinShare(app, shareToken, 'Alex');
     const { session_token: alexSession } = await joinAlex.json<{ session_token: string }>();
@@ -853,79 +594,10 @@ describe('GET /submissions', () => {
   });
 
   it('returns 401 without participant session', async () => {
-    const { app, syncToken } = await createTestApp();
-    const { shareToken } = await setupSubmitShare(app, syncToken);
+    const { app, db } = await createTestApp();
+    const { shareToken } = await setupSubmitShare(app, db);
 
     const res = await app.request(`/api/portal/v1/shares/${shareToken}/submissions`);
     expect(res.status).toBe(401);
-  });
-});
-
-describe('submission_not_task', () => {
-  it('submitting an issue leaves the projection blob unchanged', async () => {
-    const { app, db, syncToken } = await createTestApp();
-    const { shareToken, session_token } = await setupSubmitShare(app, syncToken);
-
-    const share = await db
-      .select({ id: hostedShares.id })
-      .from(hostedShares)
-      .where(eq(hostedShares.tokenHash, hashToken(shareToken)))
-      .get();
-    expect(share).toBeDefined();
-    if (share === undefined) {
-      throw new Error('expected share row');
-    }
-
-    const before = await db
-      .select()
-      .from(projectionBlobs)
-      .where(eq(projectionBlobs.shareId, share.id))
-      .get();
-    expect(before).toBeDefined();
-    if (before === undefined) {
-      throw new Error('expected projection blob');
-    }
-
-    const res = await submitIssue(app, shareToken, session_token, {
-      title: 'Should not mutate plan',
-      body: 'proposal only',
-    });
-    expect(res.status).toBe(201);
-
-    const after = await db
-      .select()
-      .from(projectionBlobs)
-      .where(eq(projectionBlobs.shareId, share.id))
-      .get();
-    expect(after).toBeDefined();
-    if (after === undefined) {
-      throw new Error('expected projection blob after submit');
-    }
-
-    expect(after.viewJson).toBe(before.viewJson);
-    expect(after.version).toBe(before.version);
-    expect(after.updatedAt.getTime()).toBe(before.updatedAt.getTime());
-  });
-});
-
-describe('activity log', () => {
-  it('logs view on GET view', async () => {
-    const { app, db, syncToken } = await createTestApp();
-    const shareToken = generateShareToken();
-    await pushProjection(app, syncToken, 'gid-1', shareToken);
-
-    const joinRes = await joinShare(app, shareToken, 'Alex');
-    const { session_token, participant } = await joinRes.json<{
-      session_token: string;
-      participant: { id: string };
-    }>();
-
-    await viewWithSession(app, shareToken, session_token);
-
-    const entries = await db.select().from(activityLog).all();
-    expect(entries).toHaveLength(2);
-    expect(entries.map((e) => e.action).sort()).toEqual(['join', 'view']);
-    const viewEntry = entries.find((e) => e.action === 'view');
-    expect(viewEntry?.participantId).toBe(participant.id);
   });
 });
