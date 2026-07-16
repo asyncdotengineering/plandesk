@@ -1,10 +1,12 @@
 import { writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
   exportProject,
   setSyncRemote,
   type Db,
 } from '@plandesk/db';
+import { readCliConfig } from './config.js';
 import {
   buildConfigJson,
   normalizeServerUrl,
@@ -38,32 +40,53 @@ export class PromotePushError extends Error {
   }
 }
 
-function resolvePromoteToken(repoDir: string): string {
+/**
+ * Token for promote: env PLANDESK_MCP_TOKEN > global ~/.plandesk/config.json
+ * (plandesk login) > repo .plandesk/token. First non-empty wins.
+ */
+export function resolvePromoteToken(repoDir: string, home = homedir()): string {
   const fromEnv = process.env[TOKEN_ENV_VAR];
   if (fromEnv !== undefined && fromEnv.trim() !== '') {
     return fromEnv.trim();
+  }
+  const global = readCliConfig(home);
+  if (global !== undefined && global.token.trim() !== '') {
+    return global.token.trim();
   }
   const fromFile = readPlandeskToken(repoDir);
   if (fromFile !== undefined && fromFile.trim() !== '') {
     return fromFile.trim();
   }
   throw new SyncConfigError(
-    `Token is required for promote. Set ${TOKEN_ENV_VAR} or write .plandesk/token.`,
+    `Token is required for promote. Set ${TOKEN_ENV_VAR}, run plandesk login, or write .plandesk/token.`,
   );
 }
 
-function resolvePromoteServerUrl(repoDir: string, remoteUrl?: string): string {
+/**
+ * Server for promote: --remote/--url flag > repo .plandesk/config.json serverUrl
+ * > global ~/.plandesk/config.json server (from plandesk login).
+ * Repo stays ahead of global so an already-connected repo keeps its binding.
+ */
+export function resolvePromoteServerUrl(
+  repoDir: string,
+  remoteUrl?: string,
+  home = homedir(),
+): string {
   if (remoteUrl !== undefined && remoteUrl.trim() !== '') {
     return normalizeServerUrl(remoteUrl);
   }
   const config = readPlandeskConfig(repoDir);
+  if (config !== undefined && config.serverUrl.trim() !== '') {
+    return normalizeServerUrl(config.serverUrl);
+  }
+  const global = readCliConfig(home);
+  if (global !== undefined && global.server.trim() !== '') {
+    return normalizeServerUrl(global.server);
+  }
   if (config === undefined) {
-    throw new SyncConfigError('Missing .plandesk/config.json. Run plandesk connect first.');
+    throw new SyncConfigError('Missing .plandesk/config.json. Run plandesk connect or plandesk login first.');
   }
-  if (config.serverUrl.trim() === '') {
-    throw new SyncConfigError('serverUrl is required in .plandesk/config.json for promote.');
-  }
-  return normalizeServerUrl(config.serverUrl);
+  throw new SyncConfigError('serverUrl is required in .plandesk/config.json for promote.');
 }
 
 async function runPromotePush(db: Db, options: PushOptions & { toOrgId: string }): Promise<PromotePushResult> {

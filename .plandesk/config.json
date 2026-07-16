@@ -1,6 +1,6 @@
 {
   "version": "plandesk-connect-v1",
-  "serverUrl": "http://127.0.0.1:3400",
-  "projectId": "6d712835-d991-43c8-aaa7-d820102e4e18",
-  "projectName": "ai-software-factory"
+  "serverUrl": "http://127.0.0.1:3450",
+  "projectId": "30797fbd-6487-4724-ac12-57dd7ef43924",
+  "projectName": "plandesk-cloud"
 }
