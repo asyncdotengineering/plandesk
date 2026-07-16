@@ -1,4 +1,5 @@
 import {
+  createGuestSession,
   createShare as dbCreateShare,
   getDocument,
   getProject,
@@ -16,6 +17,7 @@ import {
   type ShareMode,
   type SharePermissions,
 } from '@plandesk/db';
+import { getAuthContext } from '../auth-context.js';
 import { buildClientView, type ClientView, type SharePolicy } from '../projection.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
@@ -92,6 +94,58 @@ export type ResourceMarkdownResult =
   | { status: 'ok'; markdown: string }
   | { status: 'not_found' }
   | { status: 'gone' };
+
+export type ShareMetaResult =
+  | { status: 'ok'; audienceName: string; mode: ShareMode }
+  | { status: 'not_found' };
+
+export type JoinShareInput = {
+  name: string;
+  email?: string;
+};
+
+export type JoinShareResult =
+  | {
+      status: 'ok';
+      sessionToken: string;
+      participant: { id: string; name: string };
+      share: { audienceName: string; permissions: SharePermissions };
+    }
+  | { status: 'unauthorized' }
+  | { status: 'name_required' }
+  | { status: 'email_not_invited' };
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function parseInvitedEmails(raw: string | null): string[] {
+  if (raw === null || raw === '') {
+    return [];
+  }
+  const parsed = JSON.parse(raw) as unknown;
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+  return parsed.filter((value): value is string => typeof value === 'string').map(normalizeEmail);
+}
+
+function isEmailInvited(share: Share, email: string | undefined): boolean {
+  if (email === undefined || email.trim() === '') {
+    return false;
+  }
+  return parseInvitedEmails(share.invitedEmails).includes(normalizeEmail(email));
+}
+
+function isShareLive(share: Share, now: Date = new Date()): boolean {
+  if (share.revokedAt !== null) {
+    return false;
+  }
+  if (share.expiresAt !== null && share.expiresAt <= now) {
+    return false;
+  }
+  return true;
+}
 
 // The rich-text editor stores document/comment bodies as HTML; this is a
 // deliberately small converter for that constrained, known markup (not
@@ -376,20 +430,65 @@ export function createShareService(deps: ShareServiceDeps) {
       return { status: 'ok', markdown: buildShareMarkdown(view, parseSharePolicy(share), origin) };
     },
 
-    // Public portal read: a share token resolves to exactly one project and the
-    // view is COMPUTED live on each call (not read from a stored snapshot). Every
-    // failure shape — unknown token, revoked, expired, or project since deleted —
-    // collapses to undefined so the route answers a uniform 404 (no existence leak).
-    // No org context is involved; buildClientView reads only this one project, so a
-    // share token can never widen to org-wide or cross-project read.
-    async getClientView(token: string): Promise<ClientView | undefined> {
+    // Portal meta for the join gate UI. Live shares only; unknown/revoked/expired → not_found.
+    async getShareMeta(token: string): Promise<ShareMetaResult> {
       const share = await getShareByTokenHashRaw(db, hashShareToken(token));
-      if (!share) {
+      if (!share || !isShareLive(share)) {
+        return { status: 'not_found' };
+      }
+      return { status: 'ok', audienceName: share.audienceName, mode: share.mode };
+    },
+
+    // Named join: mints a guest session scoped to this share. invite mode requires
+    // an allow-listed email (sync-server semantics: 403 email_not_invited).
+    async joinShare(token: string, input: JoinShareInput): Promise<JoinShareResult> {
+      const share = await getShareByTokenHashRaw(db, hashShareToken(token));
+      if (!share || !isShareLive(share)) {
+        return { status: 'unauthorized' };
+      }
+
+      const name = input.name.trim();
+      if (name === '') {
+        return { status: 'name_required' };
+      }
+
+      if (share.mode === 'invite' && !isEmailInvited(share, input.email)) {
+        return { status: 'email_not_invited' };
+      }
+
+      const { guest, token: sessionToken } = await createGuestSession(db, {
+        shareId: share.id,
+        projectId: share.projectId,
+        name,
+        email: input.email?.trim() || undefined,
+      });
+
+      return {
+        status: 'ok',
+        sessionToken,
+        participant: { id: guest.id, name: guest.name },
+        share: {
+          audienceName: share.audienceName,
+          permissions: parseSharePermissions(share),
+        },
+      };
+    },
+
+    // Guest-gated portal view: middleware has already verified the guest session
+    // matches this share token. The view is COMPUTED live (not a snapshot). Every
+    // failure shape collapses to undefined → uniform 404. Guest context has no
+    // orgId; buildClientView reads only this one project.
+    async getClientView(token: string): Promise<ClientView | undefined> {
+      const auth = getAuthContext();
+      if (auth.kind !== 'guest') {
         return undefined;
       }
 
-      const now = new Date();
-      if (share.revokedAt !== null || (share.expiresAt !== null && share.expiresAt <= now)) {
+      const share = await getShareByTokenHashRaw(db, hashShareToken(token));
+      if (!share || !isShareLive(share)) {
+        return undefined;
+      }
+      if (share.id !== auth.shareId || share.projectId !== auth.projectId) {
         return undefined;
       }
 

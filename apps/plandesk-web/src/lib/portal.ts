@@ -38,6 +38,9 @@ type PortalViewResponse = ClientView & {
 
 const SYNC_BASE = import.meta.env.VITE_SYNC_URL ?? '';
 
+/** API base for join/meta/view (plandesk-api). Empty = same origin (dev proxy / prod). */
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
+
 function portalSessionKey(shareToken: string): string {
   return `plandesk_portal_session_${shareToken}`;
 }
@@ -149,10 +152,10 @@ function normalizePortalResponse(raw: PortalViewResponse): ClientView {
 
 export async function fetchShareMeta(shareToken: string): Promise<ShareMeta> {
   const response = await fetch(
-    `${SYNC_BASE}/api/portal/v1/shares/${encodeURIComponent(shareToken)}/meta`,
+    `${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/meta`,
   );
 
-  if (response.status === 401) {
+  if (response.status === 401 || response.status === 404) {
     throw new PortalUnauthorizedError();
   }
 
@@ -168,7 +171,7 @@ export async function joinShare(
   input: { name: string; email?: string },
 ): Promise<JoinShareResult> {
   const response = await fetch(
-    `${SYNC_BASE}/api/portal/v1/shares/${encodeURIComponent(shareToken)}/join`,
+    `${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/join`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -207,12 +210,17 @@ export async function fetchClientView(
   shareToken: string,
   sessionToken: string,
 ): Promise<ClientView> {
-  // The portal view is computed LIVE by the hosted api from the share token — no
-  // stored snapshot, and no participant session required. sessionToken is kept in
-  // the signature for call-site stability but is not sent: the capability is the
-  // URL token, never an org membership or session.
-  void sessionToken;
-  const response = await fetch(`/api/v1/share/${encodeURIComponent(shareToken)}/view`);
+  // View is guest-session-gated: join mints the token; without it the API 401s.
+  const response = await fetch(
+    `${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/view`,
+    {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    },
+  );
+
+  if (response.status === 401) {
+    throw new PortalUnauthorizedError();
+  }
 
   if (response.status === 404) {
     throw new PortalNotReadyError();

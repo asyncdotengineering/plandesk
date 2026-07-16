@@ -27,7 +27,7 @@ export function createLocalBlobAdapter(deps: LocalBlobAdapterDeps): StorageAdapt
     async resolve(id) {
       const auth = tryGetAuthContext();
       const file =
-        auth !== undefined
+        auth !== undefined && auth.kind !== 'guest'
           ? await getFileInOrg(db, id, auth.orgId)
           : // Fallback for non-request paths: content hash is not globally unique;
             // without org context we cannot safely resolve.

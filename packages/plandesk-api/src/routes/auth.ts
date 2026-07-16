@@ -207,6 +207,9 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
   // first, which is the dashboard's cue to show sign-in.
   router.get('/auth/session', async (c) => {
     const ctx = getAuthContext();
+    if (ctx.kind === 'guest') {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
     const org = await getOrg(db, ctx.orgId);
     return c.json({
       kind: ctx.kind,

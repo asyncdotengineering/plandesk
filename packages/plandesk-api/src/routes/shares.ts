@@ -68,10 +68,53 @@ export function createSharesRouter(shareService: ShareService): Hono {
     return c.body(result.markdown, 200, { 'Content-Type': 'text/markdown; charset=utf-8' });
   });
 
-  // Public portal read: a share token resolves to exactly one project and the view
-  // is computed live on each request (not a stored snapshot). Every failure shape
-  // answers a uniform 404 so share existence is not leaked. Unauthenticated by
-  // design — the capability is the URL token, never an org membership.
+  // Pre-join: audience name + mode so the portal can render the join gate.
+  router.get('/share/:token/meta', async (c) => {
+    const token = c.req.param('token');
+    const result = await shareService.getShareMeta(token);
+    if (result.status === 'not_found') {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json({ audience_name: result.audienceName, mode: result.mode });
+  });
+
+  // Named join: gate by invite allow-list when mode=invite; mint guest session.
+  router.post('/share/:token/join', async (c) => {
+    const token = c.req.param('token');
+    let body: { name?: string; email?: string };
+    try {
+      body = await c.req.json<{ name?: string; email?: string }>();
+    } catch {
+      return c.json({ error: 'invalid_json' }, 400);
+    }
+
+    const result = await shareService.joinShare(token, {
+      name: body.name ?? '',
+      email: body.email,
+    });
+
+    if (result.status === 'unauthorized') {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+    if (result.status === 'name_required') {
+      return c.json({ error: 'name_required' }, 400);
+    }
+    if (result.status === 'email_not_invited') {
+      return c.json({ error: 'email_not_invited' }, 403);
+    }
+
+    return c.json({
+      session_token: result.sessionToken,
+      participant: result.participant,
+      share: {
+        audience_name: result.share.audienceName,
+        permissions: result.share.permissions,
+      },
+    });
+  });
+
+  // Guest-session-gated portal view (middleware sets AuthContext kind guest).
+  // Live projection per request; uniform 404 on any failure shape.
   router.get('/share/:token/view', async (c) => {
     const token = c.req.param('token');
     const view = await shareService.getClientView(token);

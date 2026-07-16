@@ -18,7 +18,14 @@ export type OrgScopedDeps = {
 };
 
 export function resolveOrgId(deps: OrgScopedDeps): string {
-  return deps.orgId ?? getAuthContext().orgId;
+  if (deps.orgId !== undefined) {
+    return deps.orgId;
+  }
+  const ctx = getAuthContext();
+  if (ctx.kind === 'guest') {
+    throw new Error('Guest context has no orgId');
+  }
+  return ctx.orgId;
 }
 
 function isOrgRole(value: OrgRole | PermissionSet): value is OrgRole {
@@ -35,8 +42,11 @@ export function resolvePermissionSet(deps: OrgScopedDeps): PermissionSet {
     return isOrgRole(deps.permission) ? orgRoleToPermissionSet(deps.permission) : deps.permission;
   }
   const ctx = tryGetAuthContext();
-  if (ctx !== undefined) {
+  if (ctx !== undefined && ctx.kind !== 'guest') {
     return ctx.permission;
+  }
+  if (ctx?.kind === 'guest') {
+    return orgRoleToPermissionSet('viewer');
   }
   return orgRoleToPermissionSet('owner');
 }

@@ -319,6 +319,28 @@ export const shares = sqliteTable('shares', {
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
 });
 
+/** Portal guest after named join — scoped to one share/project, no org membership. */
+export const guestSessions = sqliteTable(
+  'guest_sessions',
+  {
+    id: text('id').primaryKey(),
+    shareId: text('share_id')
+      .notNull()
+      .references(() => shares.id),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    name: text('name').notNull(),
+    email: text('email'),
+    tokenHash: text('token_hash').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+    revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [uniqueIndex('guest_sessions_token_hash_unique').on(table.tokenHash)],
+);
+
 export const shareSubmissionStatuses = ['pending', 'accepted', 'rejected'] as const;
 export type ShareSubmissionStatus = (typeof shareSubmissionStatuses)[number];
 

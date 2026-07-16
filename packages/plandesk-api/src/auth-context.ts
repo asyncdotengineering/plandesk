@@ -47,7 +47,21 @@ export type AuthContext =
        */
       role: OrgRole;
       permission: PermissionSet;
+    }
+  | {
+      /** Portal participant after join — no org membership, one share only. */
+      kind: 'guest';
+      shareId: string;
+      projectId: string;
+      guestSessionId: string;
     };
+
+/** Org-bearing contexts (everything except portal guests). */
+export type OrgAuthContext = Exclude<AuthContext, { kind: 'guest' }>;
+
+export function isOrgAuthContext(ctx: AuthContext): ctx is OrgAuthContext {
+  return ctx.kind !== 'guest';
+}
 
 const storage = new AsyncLocalStorage<AuthContext>();
 
@@ -63,6 +77,15 @@ export function getAuthContext(): AuthContext {
   return ctx;
 }
 
+/** Org-bearing auth only — rejects portal guests (no org membership). */
+export function getOrgAuthContext(): OrgAuthContext {
+  const ctx = getAuthContext();
+  if (!isOrgAuthContext(ctx)) {
+    throw new Error('Guest context has no org membership');
+  }
+  return ctx;
+}
+
 export function tryGetAuthContext(): AuthContext | undefined {
   return storage.getStore();
 }
@@ -74,9 +97,10 @@ export class ReadOnlyTokenError extends Error {
   }
 }
 
-/** Reject pure read-only callers (viewer / read-only token). */
+/** Reject pure read-only callers (viewer / read-only token). Guests never write. */
 export function assertWriteAccess(): void {
-  if (!hasAnyWritePermission(getAuthContext().permission)) {
+  const ctx = getAuthContext();
+  if (ctx.kind === 'guest' || !hasAnyWritePermission(ctx.permission)) {
     throw new ReadOnlyTokenError();
   }
 }

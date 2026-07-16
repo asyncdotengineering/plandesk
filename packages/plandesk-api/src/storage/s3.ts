@@ -49,7 +49,7 @@ export function createS3Adapter(deps: S3AdapterDeps): StorageAdapter {
 
     async resolve(id) {
       const auth = tryGetAuthContext();
-      if (auth === undefined) {
+      if (auth === undefined || auth.kind === 'guest') {
         return null;
       }
       const file = await getFileInOrg(db, id, auth.orgId);

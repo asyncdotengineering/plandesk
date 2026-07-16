@@ -15,7 +15,7 @@ import {
   type PlandeskExportInput,
   type TokenScope,
 } from '@plandesk/db';
-import { getAuthContext } from '../auth-context.js';
+import { getOrgAuthContext } from '../auth-context.js';
 import type { BetterAuthInstance } from '../better-auth.js';
 import {
   acceptOrganizationInvitation,
@@ -68,11 +68,11 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     }
 
     // Caller must already be authenticated as this org (token or sole default).
-    if (getAuthContext().orgId !== orgId) {
+    if (getOrgAuthContext().orgId !== orgId) {
       return c.json({ error: 'not_found' }, 404);
     }
     // Permission-set check (BA2/BA5): agent keys never hold apiKey:create.
-    requirePermission(getAuthContext(), 'apiKey', 'create');
+    requirePermission(getOrgAuthContext(), 'apiKey', 'create');
 
     const body = await c.req.json<{ name?: string; scope?: string }>();
     if (typeof body.name !== 'string' || body.name.trim() === '') {
@@ -109,10 +109,10 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     if (!org) {
       return c.json({ error: 'not_found' }, 404);
     }
-    if (getAuthContext().orgId !== orgId) {
+    if (getOrgAuthContext().orgId !== orgId) {
       return c.json({ error: 'not_found' }, 404);
     }
-    requirePermission(getAuthContext(), 'member', 'create');
+    requirePermission(getOrgAuthContext(), 'member', 'create');
 
     const body = await c.req.json<{ user_ref?: string; role?: string }>();
     if (typeof body.user_ref !== 'string' || body.user_ref.trim() === '') {
@@ -150,11 +150,11 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     if (!org) {
       return c.json({ error: 'not_found' }, 404);
     }
-    if (getAuthContext().orgId !== orgId) {
+    if (getOrgAuthContext().orgId !== orgId) {
       return c.json({ error: 'not_found' }, 404);
     }
     // Listing members is owner-only; owner alone holds member:create.
-    requirePermission(getAuthContext(), 'member', 'create');
+    requirePermission(getOrgAuthContext(), 'member', 'create');
 
     const members = await listOrgMembers(db, orgId);
     return c.json(
@@ -177,7 +177,7 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     if (!org) {
       return c.json({ error: 'not_found' }, 404);
     }
-    const authCtx = getAuthContext();
+    const authCtx = getOrgAuthContext();
     if (authCtx.orgId !== orgId) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -284,10 +284,10 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
       return c.json({ error: 'not_found' }, 404);
     }
     // Org-scoped: token for org-B cannot import into org-A.
-    if (getAuthContext().orgId !== orgId) {
+    if (getOrgAuthContext().orgId !== orgId) {
       return c.json({ error: 'not_found' }, 404);
     }
-    requirePermission(getAuthContext(), 'organization', 'update');
+    requirePermission(getOrgAuthContext(), 'organization', 'update');
 
     let body: unknown;
     try {

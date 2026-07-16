@@ -4,6 +4,9 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 /** Browser session cookie minted by the GitHub OAuth redirect flow. */
 export const SESSION_COOKIE = 'plandesk_session';
 
+/** Portal guest session after named join (share-scoped; no org membership). */
+export const GUEST_SESSION_COOKIE = 'plandesk_guest';
+
 /** Short-lived CSRF cookie holding the `state` we sent to GitHub. */
 export const OAUTH_STATE_COOKIE = 'plandesk_oauth_state';
 
@@ -12,6 +15,11 @@ export const OAUTH_STATE_TTL_SECONDS = 10 * 60;
 
 export function readSessionCookie(c: Context): string | undefined {
   const raw = getCookie(c, SESSION_COOKIE);
+  return raw !== undefined && raw.length > 0 ? raw : undefined;
+}
+
+export function readGuestSessionCookie(c: Context): string | undefined {
+  const raw = getCookie(c, GUEST_SESSION_COOKIE);
   return raw !== undefined && raw.length > 0 ? raw : undefined;
 }
 

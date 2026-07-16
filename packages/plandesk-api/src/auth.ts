@@ -3,7 +3,9 @@ import type { MiddlewareHandler } from 'hono';
 import {
   getDefaultOrg,
   getOrgMember,
+  hashShareToken,
   isSingleOrg,
+  verifyGuestSession,
   verifySession,
   verifyToken,
   type Db,
@@ -23,7 +25,7 @@ import {
   orgRoleToPermissionSet,
   resolveEffectivePermissionSet,
 } from './permissions.js';
-import { readSessionCookie } from './session.js';
+import { readGuestSessionCookie, readSessionCookie } from './session.js';
 
 const BASIC_PREFIX = 'Basic ';
 const BASIC_USER = 'plandesk';
@@ -319,15 +321,35 @@ export function isPublicAuthPath(path: string): boolean {
 }
 
 /**
- * Share-token reads under /api/v1/share/. The capability is the URL token, not an
- * org membership: each route resolves exactly one share → one project and reads
- * only that project (buildClientView), so no org context is needed or set. This
- * keeps the portal an unauthenticated read surface without widening org access —
- * a share token can never resolve to an orgId or another project. (Share *creation*
- * lives under /tasks/:id/share and /documents/:id/share, outside this prefix.)
+ * Pre-join share surfaces: meta (render "X invited you"), join (claim a guest
+ * session), and agent markdown links. The portal *view* is NOT public — it
+ * requires a guest session issued by join. Share *creation* lives under
+ * /tasks/:id/share and /documents/:id/share (org-gated).
  */
+const PUBLIC_SHARE_PATH =
+  /^\/api\/v1\/share\/[^/]+(\.md|\/meta|\/join)$/;
+
 export function isPublicShareReadPath(path: string): boolean {
-  return path.startsWith('/api/v1/share/');
+  return PUBLIC_SHARE_PATH.test(path);
+}
+
+/** Guest-gated portal view: /api/v1/share/:token/view */
+const SHARE_GUEST_VIEW_PATH = /^\/api\/v1\/share\/([^/]+)\/view$/;
+
+export function isShareGuestViewPath(path: string): boolean {
+  return SHARE_GUEST_VIEW_PATH.test(path);
+}
+
+export function extractShareTokenFromViewPath(path: string): string | undefined {
+  const match = SHARE_GUEST_VIEW_PATH.exec(path);
+  return match?.[1];
+}
+
+function extractGuestCredential(
+  authorizationHeader: string | undefined,
+  cookieToken: string | undefined,
+): string | undefined {
+  return extractBearerToken(authorizationHeader) ?? cookieToken;
 }
 
 /**
@@ -348,6 +370,39 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
   return async (c, next) => {
     if (isPublicAuthPath(c.req.path) || isPublicShareReadPath(c.req.path)) {
       await next();
+      return;
+    }
+
+    // Portal view: guest session only — never loopback/org. No credential → 401
+    // closes the pre-join bypass; wrong-share session → 404 (no existence leak).
+    if (isShareGuestViewPath(c.req.path)) {
+      const shareToken = extractShareTokenFromViewPath(c.req.path);
+      if (shareToken === undefined) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+      const guestRaw = extractGuestCredential(
+        c.req.header('Authorization'),
+        readGuestSessionCookie(c),
+      );
+      if (guestRaw === undefined) {
+        return c.json({ error: 'unauthorized' }, 401);
+      }
+      const guest = await verifyGuestSession(db, guestRaw);
+      if (guest === undefined) {
+        return c.json({ error: 'unauthorized' }, 401);
+      }
+      if (guest.share.tokenHash !== hashShareToken(shareToken)) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+      const ctx: AuthContext = {
+        kind: 'guest',
+        shareId: guest.shareId,
+        projectId: guest.projectId,
+        guestSessionId: guest.id,
+      };
+      await runWithAuthContext(ctx, async () => {
+        await next();
+      });
       return;
     }
 
@@ -498,8 +553,10 @@ export function createWriteGuardMiddleware(): MiddlewareHandler {
     const method = c.req.method.toUpperCase();
     if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
       const ctx = tryGetAuthContext();
-      if (ctx !== undefined && !hasAnyWritePermission(ctx.permission)) {
-        return c.json({ error: 'forbidden' }, 403);
+      if (ctx !== undefined) {
+        if (ctx.kind === 'guest' || !hasAnyWritePermission(ctx.permission)) {
+          return c.json({ error: 'forbidden' }, 403);
+        }
       }
     }
     await next();
