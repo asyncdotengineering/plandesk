@@ -33,6 +33,20 @@ export type AuthContext =
       /** REQ-21: local loopback single-org is always owner — no login. */
       role: 'owner';
       permission: PermissionSet;
+    }
+  | {
+      kind: 'apikey';
+      orgId: string;
+      /** better-auth user id that owns the key (referenceId). */
+      userId: string;
+      /** Optional project scope from key metadata; cross-project → 404. */
+      projectId?: string;
+      /**
+       * Live member role when present (for requireRole ladder call sites).
+       * Effective authority is always `permission` (key ∩ live role − apiKey).
+       */
+      role: OrgRole;
+      permission: PermissionSet;
     };
 
 const storage = new AsyncLocalStorage<AuthContext>();

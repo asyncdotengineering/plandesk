@@ -222,6 +222,14 @@ export function createTaskService(deps: TaskServiceDeps) {
       if (!existing) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
 
       const { tags: tagNames, ...columns } = input;
       const result = await withTransaction(db, async (tx) => {
@@ -246,6 +254,14 @@ export function createTaskService(deps: TaskServiceDeps) {
       const task = await getTask(db, id);
       if (!task) {
         return false;
+      }
+      try {
+        await assertProjectInOrg(db, task.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return false;
+        }
+        throw error;
       }
 
       const projectId = task.projectId;

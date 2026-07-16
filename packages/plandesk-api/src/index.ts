@@ -41,6 +41,16 @@ export {
   type AuthContext,
 } from './auth-context.js';
 export {
+  applyAgentKeyPermissionCeiling,
+  createScopedAgentKey,
+  verifyBetterAuthApiKey,
+  DEFAULT_AGENT_KEY_PERMISSIONS,
+  AGENT_FORBIDDEN_RESOURCES,
+  type CreateScopedAgentKeyInput,
+  type CreatedScopedAgentKey,
+  type VerifiedApiKey,
+} from './agent-keys.js';
+export {
   effectivePermission,
   requireRole,
   requirePermission,

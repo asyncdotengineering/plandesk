@@ -49,6 +49,8 @@ export type BetterAuthDeps = {
 /**
  * Erase the exact plugin tuple from the public type so TypeScript can emit a
  * stable declaration while retaining the handler, adapter context, and API.
+ * Plugin endpoints (verifyApiKey / createApiKey) are reached via runtime-
+ * validated accessors in agent-keys.ts (BA5).
  */
 export type BetterAuthInstance = Auth;
 
@@ -78,7 +80,9 @@ export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | und
         }),
     plugins: [
       organization({ ac, roles: { owner, admin, member } }),
-      apiKey(),
+      // enableMetadata: projectId + orgId on agent keys (BA5). Rate limit off —
+      // agent traffic is bursty; ceilings are permission-based, not request-count.
+      apiKey({ enableMetadata: true, rateLimit: { enabled: false } }),
       deviceAuthorization(),
     ],
   };

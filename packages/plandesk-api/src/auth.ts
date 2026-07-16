@@ -10,6 +10,10 @@ import {
   type OrgRole,
   type TokenScope,
 } from '@plandesk/db';
+import {
+  applyAgentKeyPermissionCeiling,
+  verifyBetterAuthApiKey,
+} from './agent-keys.js';
 import { runWithAuthContext, tryGetAuthContext, type AuthContext } from './auth-context.js';
 import type { BetterAuthInstance } from './better-auth.js';
 import { userRefFromGithubAccountId } from './identity.js';
@@ -194,6 +198,86 @@ async function resolveMemberRole(
   return member.role;
 }
 
+type ApiKeyMetadata = {
+  projectId?: unknown;
+  orgId?: unknown;
+};
+
+function readApiKeyMetadata(metadata: unknown): {
+  orgId: string | undefined;
+  projectId: string | undefined;
+} {
+  if (metadata === null || metadata === undefined || typeof metadata !== 'object') {
+    return { orgId: undefined, projectId: undefined };
+  }
+  const m = metadata as ApiKeyMetadata;
+  return {
+    orgId: typeof m.orgId === 'string' && m.orgId.length > 0 ? m.orgId : undefined,
+    projectId:
+      typeof m.projectId === 'string' && m.projectId.length > 0 ? m.projectId : undefined,
+  };
+}
+
+/**
+ * Resolve live better-auth member role for (userId, orgId).
+ * No member row → undefined (ceiling becomes empty permissions).
+ */
+async function resolveBetterAuthLiveRole(
+  auth: BetterAuthInstance,
+  userId: string,
+  orgId: string,
+): Promise<OrgRole | undefined> {
+  const adapter = (await auth.$context).adapter;
+  const members = await adapter.findMany<BetterAuthMemberRow>({
+    model: 'member',
+    where: [
+      { field: 'userId', value: userId },
+      { field: 'organizationId', value: orgId },
+    ],
+  });
+  const active = members[0];
+  if (active === undefined) {
+    return undefined;
+  }
+  return betterAuthRoleToOrgRole(active.role);
+}
+
+/**
+ * Try better-auth API key first (BA5). Returns:
+ * - AuthContext when the bearer is a valid better-auth key with org metadata
+ * - 'unauthorized' when the key is valid but unusable (no org)
+ * - undefined when not a better-auth key (caller falls through to mcp_tokens)
+ */
+async function resolveBetterAuthApiKeyContext(
+  auth: BetterAuthInstance,
+  bearer: string,
+): Promise<AuthContext | 'unauthorized' | undefined> {
+  const verified = await verifyBetterAuthApiKey(auth, bearer);
+  if (verified === undefined) {
+    return undefined;
+  }
+
+  const userId = verified.referenceId;
+  const { orgId, projectId } = readApiKeyMetadata(verified.metadata);
+  if (orgId === undefined) {
+    return 'unauthorized';
+  }
+
+  const liveRole = await resolveBetterAuthLiveRole(auth, userId, orgId);
+  const permission = applyAgentKeyPermissionCeiling(verified.permissions, liveRole);
+  // role for ladder call sites: live role when present, else viewer (empty ceiling).
+  const role: OrgRole = liveRole ?? 'viewer';
+
+  return {
+    kind: 'apikey',
+    orgId,
+    userId,
+    ...(projectId !== undefined ? { projectId } : {}),
+    role,
+    permission,
+  };
+}
+
 /**
  * Endpoints that must answer before the caller holds a credential: the OAuth
  * entry/callback (GitHub sends the browser here with no cookie), the method
@@ -233,11 +317,12 @@ export function isPublicShareReadPath(path: string): boolean {
 
 /**
  * Always-on org resolver for every request:
- * 1. Bearer token → token.orgId + effective permission
- * 2. else better-auth session cookie → active org + member role (when configured)
- * 3. else hand-rolled session cookie → session.orgId + the member's role
- * 4. else loopback bind + single-org → default org as owner (local, zero friction)
- * 5. else 401
+ * 1. Bearer → better-auth API key (BA5 live-role ceiling) when configured
+ * 2. else Bearer → mcp_tokens verifyToken (unchanged until BA7)
+ * 3. else better-auth session cookie → active org + member role (when configured)
+ * 4. else hand-rolled session cookie → session.orgId + the member's role
+ * 5. else loopback bind + single-org → default org as owner (local, zero friction)
+ * 6. else 401
  *
  * Every branch yields the same `{ orgId, permission }`, so services downstream
  * are identical for a browser, the CLI, and an agent.
@@ -253,6 +338,19 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
 
     const bearer = extractBearerToken(c.req.header('Authorization'));
     if (bearer !== undefined) {
+      if (betterAuth !== undefined) {
+        const apiKeyCtx = await resolveBetterAuthApiKeyContext(betterAuth, bearer);
+        if (apiKeyCtx === 'unauthorized') {
+          return c.json({ error: 'unauthorized' }, 401);
+        }
+        if (apiKeyCtx !== undefined) {
+          await runWithAuthContext(apiKeyCtx, async () => {
+            await next();
+          });
+          return;
+        }
+      }
+
       const verified = await verifyToken(db, bearer);
       if (verified === undefined) {
         return c.json({ error: 'unauthorized' }, 401);
