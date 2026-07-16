@@ -12,8 +12,13 @@ session; run \`plandesk help\` for the command crash course.
 
 ## 1. What Plan Desk is
 
-A local-first planning workspace that lives in a SQLite file in this repo
-(\`.plandesk/workspace.db\`, committed so the plan travels with the code):
+A local-first planning workspace. The board is a SQLite file on this machine
+(default: \`~/.plandesk/workspace.db\` — one global board shared by every connected
+repo). It is **not** committed to git. Travel and backup are explicit:
+\`plandesk push --to <org>\` (hosted) or \`plandesk export --project <id> --out <path>\`
+to a location you choose **outside** the repo. Opt into a repo-local db with
+\`plandesk init --local-db\` if you need the plan physically in the project tree
+(still gitignored by default):
 
 - **Goals** — durable objectives; every task belongs to one. \`get_next_task\`
   walks the active goal's frontier.

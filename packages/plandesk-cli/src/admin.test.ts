@@ -8,7 +8,7 @@ import {
   runBetterAuthMigrations,
 } from '@plandesk/api';
 import { createDb, ensureDefaultOrg, migrate } from '@plandesk/db';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parseArgs } from './args.js';
 import { main } from './cli.js';
 import { runInit } from './init.js';
@@ -42,19 +42,6 @@ async function captureIo(
     stderr: stderrChunks.join(''),
   };
 }
-
-let portRegistryStateDir: string | undefined;
-beforeEach(() => {
-  portRegistryStateDir = mkdtempSync(join(tmpdir(), 'plandesk-admin-state-'));
-  process.env.PLANDESK_STATE_DIR = portRegistryStateDir;
-});
-afterEach(() => {
-  delete process.env.PLANDESK_STATE_DIR;
-  if (portRegistryStateDir !== undefined) {
-    rmSync(portRegistryStateDir, { recursive: true, force: true });
-    portRegistryStateDir = undefined;
-  }
-});
 
 describe('plandesk admin invite-owner (BA3c REQ-3)', () => {
   it('parses admin invite-owner --email', () => {

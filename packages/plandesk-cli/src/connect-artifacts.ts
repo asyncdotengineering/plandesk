@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { PLANDESK_SKILL_TEMPLATE } from './skill-template.js';
 
 export const PLANDESK_CONNECT_VERSION = 'plandesk-connect-v1';
@@ -401,7 +401,7 @@ export function buildCommandMarkdown(): string {
 
 export const GITIGNORE_SERVER_INFO_LINE = '.plandesk/server.json';
 
-// --- workspace.json — committed, written by `plandesk init`, stores the assigned port ---
+// --- workspace.json — written by `plandesk init`, stores the board's fixed port ---
 
 export const WORKSPACE_JSON_VERSION = 'plandesk-workspace-v1';
 
@@ -433,92 +433,6 @@ export function writeWorkspaceJson(plandeskDir: string, port: number): void {
     `${JSON.stringify(workspace, null, 2)}\n`,
     'utf8',
   );
-}
-
-// --- ports.json — machine-global registry of port → owning project, so a project's
-// `init` never assigns a port already claimed by another project on this machine.
-// The per-project workspace.json alone cannot prevent cross-project collisions: a
-// liveness probe only sees ports that are *currently listening*, so two projects
-// whose servers are both stopped can be handed the same "free" port. This registry
-// records the *assignment*, independent of whether a server is up. ---
-
-export const PORT_REGISTRY_VERSION = 'plandesk-ports-v1';
-
-export type PortRegistry = {
-  version: typeof PORT_REGISTRY_VERSION;
-  // port (as string key) → absolute data dir of the project that owns it
-  assignments: Record<string, string>;
-};
-
-function portRegistryPath(): string {
-  // Overridable for tests so runs never touch the real machine registry.
-  const base = process.env.PLANDESK_STATE_DIR ?? join(homedir(), '.plandesk');
-  return join(base, 'ports.json');
-}
-
-export function readPortRegistry(): PortRegistry {
-  const empty: PortRegistry = { version: PORT_REGISTRY_VERSION, assignments: {} };
-  const path = portRegistryPath();
-  if (!existsSync(path)) {
-    return empty;
-  }
-  try {
-    const raw = JSON.parse(readFileSync(path, 'utf8')) as {
-      version?: unknown;
-      assignments?: unknown;
-    };
-    if (
-      raw.version !== PORT_REGISTRY_VERSION ||
-      typeof raw.assignments !== 'object' ||
-      raw.assignments === null
-    ) {
-      return empty;
-    }
-    return {
-      version: PORT_REGISTRY_VERSION,
-      assignments: { ...(raw.assignments as Record<string, string>) },
-    };
-  } catch {
-    return empty;
-  }
-}
-
-export function writePortRegistry(registry: PortRegistry): void {
-  const path = portRegistryPath();
-  mkdirSync(dirname(path), { recursive: true });
-  const tmpPath = `${path}.tmp`;
-  writeFileSync(tmpPath, `${JSON.stringify(registry, null, 2)}\n`, 'utf8');
-  renameSync(tmpPath, path);
-}
-
-/**
- * True when `port` is recorded to a project OTHER than `dataDir` whose data dir
- * still exists. An assignment whose owning dir is gone is stale and reclaimable.
- */
-export function isPortOwnedByAnotherProject(
-  registry: PortRegistry,
-  port: number,
-  dataDir: string,
-): boolean {
-  const owner = registry.assignments[String(port)];
-  if (owner === undefined || owner === dataDir) {
-    return false;
-  }
-  return existsSync(owner);
-}
-
-/** Record `port` as owned by `dataDir`, ensuring a project owns exactly one port. */
-export function reservePort(dataDir: string, port: number): void {
-  const registry = readPortRegistry();
-  const assignments: Record<string, string> = {};
-  for (const [existingPort, owner] of Object.entries(registry.assignments)) {
-    // Drop any prior port this project owned — a project owns exactly one.
-    if (owner !== dataDir) {
-      assignments[existingPort] = owner;
-    }
-  }
-  assignments[String(port)] = dataDir;
-  writePortRegistry({ version: PORT_REGISTRY_VERSION, assignments });
 }
 
 // --- server.json — gitignored, written by `plandesk serve` after bind, deleted on exit ---

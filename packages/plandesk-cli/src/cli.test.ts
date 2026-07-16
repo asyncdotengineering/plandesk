@@ -2,10 +2,11 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   crashCourse,
   DEFAULT_BIND_HOST,
+  DEFAULT_PORT,
   findLocalPlandeskDir,
   isLoopbackHost,
   parseArgs,
@@ -16,14 +17,8 @@ import {
   workspaceDbPath,
 } from './args.js';
 import { ONBOARD_GUIDE, printOnboard } from './onboard.js';
-import { assignPort, runInit } from './init.js';
-import {
-  isPortOwnedByAnotherProject,
-  readPortRegistry,
-  readServerInfo,
-  readWorkspaceJson,
-  writeWorkspaceJson,
-} from './connect-artifacts.js';
+import { runInit } from './init.js';
+import { readServerInfo, readWorkspaceJson, writeWorkspaceJson } from './connect-artifacts.js';
 import {
   createListenErrorHandler,
   resolveServeRuntime,
@@ -33,26 +28,20 @@ import {
 import { resolveServerConfig, SERVER_CONFIG_FILENAME } from './config.js';
 import { createDb, ensureDefaultOrg, migrate } from '@plandesk/db';
 
-// Isolate the machine-global port registry (~/.plandesk/ports.json) so tests
-// that run `init`/`serve` never read or write the real one on this machine.
-let portRegistryStateDir: string | undefined;
-beforeEach(async () => {
-  portRegistryStateDir = mkdtempSync(join(tmpdir(), 'plandesk-state-'));
-  process.env.PLANDESK_STATE_DIR = portRegistryStateDir;
-});
-afterEach(() => {
-  delete process.env.PLANDESK_STATE_DIR;
-  if (portRegistryStateDir !== undefined) {
-    rmSync(portRegistryStateDir, { recursive: true, force: true });
-    portRegistryStateDir = undefined;
-  }
-});
-
 describe('parseArgs', () => {
   it('parses init with data-dir override', async () => {
     expect(parseArgs(['node', 'plandesk', 'init', '--data-dir', '/tmp/ws'])).toEqual({
       command: 'init',
       dataDir: '/tmp/ws',
+      localDb: false,
+    });
+  });
+
+  it('parses init --local-db', async () => {
+    expect(parseArgs(['node', 'plandesk', 'init', '--local-db'])).toEqual({
+      command: 'init',
+      dataDir: undefined,
+      localDb: true,
     });
   });
 
@@ -249,6 +238,16 @@ describe('crashCourse', () => {
   });
 });
 
+describe('repo gitignore (BA0b)', () => {
+  it('ignores workspace.db and .pre-* migration backups (no un-ignore negation)', async () => {
+    // packages/plandesk-cli/src → repo root is three levels up
+    const rootGitignore = readFileSync(join(process.cwd(), '../../.gitignore'), 'utf8');
+    expect(rootGitignore).toMatch(/^\*\.db$/m);
+    expect(rootGitignore).toMatch(/^\.plandesk\/\*\.pre-\*$/m);
+    expect(rootGitignore).not.toContain('!.plandesk/workspace.db');
+  });
+});
+
 describe('onboard guide', () => {
   it('teaches the model without assuming any worker CLI or delegation skill exists', async () => {
     const out = ONBOARD_GUIDE;
@@ -261,6 +260,14 @@ describe('onboard guide', () => {
     // References only Plan-Desk-shipped surfaces, not a personal ~/.agents setup.
     expect(out).not.toContain('~/.agents');
     expect(out).not.toContain('/delegate');
+  });
+
+  it('does not claim the board is committed or travels with the code', async () => {
+    const out = ONBOARD_GUIDE;
+    expect(out).not.toMatch(/travels with the code/i);
+    expect(out).not.toMatch(/committed so the plan/i);
+    expect(out).toContain('not** committed');
+    expect(out).toContain('plandesk export');
   });
 
   it('printOnboard writes the guide to the provided sink', async () => {
@@ -334,15 +341,14 @@ describe('resolveAuthPassword', () => {
 });
 
 describe('runInit', () => {
-  it('creates a migrated workspace.db and assigns a port in workspace.json', async () => {
+  it('creates a migrated workspace.db and records the fixed default port in workspace.json', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-init-'));
     try {
       const dbPath = await runInit(dataDir);
       expect(dbPath).toBe(workspaceDbPath(dataDir));
       const ws = readWorkspaceJson(dataDir);
       expect(ws).toBeDefined();
-      expect(ws?.port).toBeGreaterThanOrEqual(3400);
-      expect(ws?.port).toBeLessThanOrEqual(3499);
+      expect(ws?.port).toBe(DEFAULT_PORT);
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }
@@ -352,9 +358,9 @@ describe('runInit', () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-init-idem-'));
     try {
       await runInit(dataDir);
-      const firstPort = readWorkspaceJson(dataDir)?.port;
+      writeWorkspaceJson(dataDir, 3999);
       await runInit(dataDir);
-      expect(readWorkspaceJson(dataDir)?.port).toBe(firstPort);
+      expect(readWorkspaceJson(dataDir)?.port).toBe(3999);
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }
@@ -395,90 +401,33 @@ describe('runInit', () => {
     }
   });
 
-  it('assigns distinct ports to two different projects even when neither server is listening', async () => {
-    const dirA = mkdtempSync(join(tmpdir(), 'plandesk-init-a-'));
-    const dirB = mkdtempSync(join(tmpdir(), 'plandesk-init-b-'));
+  it('default init targets the global data dir; --local-db creates repo-local', async () => {
+    const cwd = process.cwd();
+    const tmpRepo = mkdtempSync(join(tmpdir(), 'plandesk-init-local-'));
+    const prevDataDir = process.env.PLANDESK_DATA_DIR;
     try {
-      await runInit(dirA);
-      await runInit(dirB);
-      const portA = readWorkspaceJson(dirA)?.port;
-      const portB = readWorkspaceJson(dirB)?.port;
-      expect(portA).toBeDefined();
-      expect(portB).toBeDefined();
-      // The core invariant: no cross-project collision. Before the registry both
-      // projects took the same lowest free port because nothing was listening.
-      expect(portB).not.toBe(portA);
+      process.chdir(tmpRepo);
+      // macOS may resolve /tmp → /private/tmp after chdir; use real cwd.
+      const repoCwd = process.cwd();
+      delete process.env.PLANDESK_DATA_DIR;
+
+      // Global default (no override, no localDb) — not repo-local
+      expect(resolveInitDataDir(undefined, false)).not.toBe(join(repoCwd, '.plandesk'));
+      expect(resolveInitDataDir(undefined, false)).toMatch(/\.plandesk$/);
+      // --local-db opt-in
+      expect(resolveInitDataDir(undefined, true)).toBe(join(repoCwd, '.plandesk'));
+
+      const localDbPath = await runInit(undefined, { localDb: true });
+      expect(localDbPath).toBe(join(repoCwd, '.plandesk', 'workspace.db'));
+      expect(resolveDataDir(undefined, repoCwd)).toBe(join(repoCwd, '.plandesk'));
     } finally {
-      rmSync(dirA, { recursive: true, force: true });
-      rmSync(dirB, { recursive: true, force: true });
-    }
-  });
-
-  it('reclaims a port whose owning project directory no longer exists', async () => {
-    // Assignment is random by default, so pin the rng to always pick the
-    // lowest eligible candidate — this isolates the invariant under test
-    // (a stale entry stops excluding its port) from the random selection.
-    const rng = vi.spyOn(Math, 'random').mockReturnValue(0);
-    try {
-      const dirA = mkdtempSync(join(tmpdir(), 'plandesk-init-stale-a-'));
-      await runInit(dirA);
-      const portA = readWorkspaceJson(dirA)?.port;
-      rmSync(dirA, { recursive: true, force: true }); // A is gone → its registry entry is stale
-
-      const dirB = mkdtempSync(join(tmpdir(), 'plandesk-init-stale-b-'));
-      try {
-        await runInit(dirB);
-        // With A's dir gone, its port is reclaimable, so B takes it back rather
-        // than being pushed to a higher port by a dead assignment.
-        expect(readWorkspaceJson(dirB)?.port).toBe(portA);
-      } finally {
-        rmSync(dirB, { recursive: true, force: true });
+      process.chdir(cwd);
+      if (prevDataDir === undefined) {
+        delete process.env.PLANDESK_DATA_DIR;
+      } else {
+        process.env.PLANDESK_DATA_DIR = prevDataDir;
       }
-    } finally {
-      rng.mockRestore();
-    }
-  });
-});
-
-describe('assignPort rng injection', () => {
-  it('returns the eligible candidate at the rng-selected index, not always the lowest', async () => {
-    const dataDir = join(tmpdir(), 'plandesk-rng-test-a');
-    const lowest = await assignPort(dataDir, () => 0);
-    const highest = await assignPort(dataDir, () => 0.999999);
-    expect(lowest).toBeGreaterThanOrEqual(3400);
-    expect(lowest).toBeLessThanOrEqual(3499);
-    expect(highest).toBeGreaterThanOrEqual(3400);
-    expect(highest).toBeLessThanOrEqual(3499);
-    expect(highest).not.toBe(lowest);
-  });
-
-  it('gives two different rng values two different in-range ports when both are free/unowned', async () => {
-    const dataDir = join(tmpdir(), 'plandesk-rng-test-b');
-    const portA = await assignPort(dataDir, () => 0.1);
-    const portB = await assignPort(dataDir, () => 0.9);
-    expect(portA).not.toBe(portB);
-    expect(portA).toBeGreaterThanOrEqual(3400);
-    expect(portB).toBeLessThanOrEqual(3499);
-  });
-});
-
-describe('runInit legacy backfill', () => {
-  it('registers a pre-existing workspace.json port missing from the registry', async () => {
-    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-legacy-'));
-    const otherDir = mkdtempSync(join(tmpdir(), 'plandesk-legacy-other-'));
-    try {
-      // Simulate a legacy install: workspace.json exists but predates the registry.
-      writeWorkspaceJson(dataDir, 3450);
-      expect(readPortRegistry().assignments['3450']).toBeUndefined();
-
-      await runInit(dataDir);
-
-      expect(readPortRegistry().assignments['3450']).toBe(dataDir);
-      // A different project's assignPort must now treat 3450 as owned and skip it.
-      expect(isPortOwnedByAnotherProject(readPortRegistry(), 3450, otherDir)).toBe(true);
-    } finally {
-      rmSync(dataDir, { recursive: true, force: true });
-      rmSync(otherDir, { recursive: true, force: true });
+      rmSync(tmpRepo, { recursive: true, force: true });
     }
   });
 });
@@ -541,9 +490,6 @@ describe('startServer', () => {
     expect(info?.port).toBe(port);
     expect(info?.pid).toBe(process.pid);
 
-    // serve registers the port it actually bound, so other projects avoid it.
-    expect(readPortRegistry().assignments[String(port)]).toBe(dataDir);
-
     await new Promise<void>((resolve) => {
       server.close(() => {
         resolve();
@@ -602,60 +548,23 @@ describe('startServer', () => {
     });
   }
 
-  it('rotates to a different in-range port when the requested port is in use', async () => {
-    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-rotate-'));
-    await runInit(dataDir);
-    const port = readWorkspaceJson(dataDir)?.port;
-    if (port === undefined) {
-      throw new Error('expected an assigned port');
-    }
-    // Block the project's own assigned in-range port so rotation must pick
-    // another candidate from the 3400–3499 range, not options.port + attempt.
-    const blocker = createServer();
-    await new Promise<void>((resolve) => {
-      blocker.listen(port, DEFAULT_BIND_HOST, () => {
-        resolve();
-      });
-    });
-    servers.push(blocker);
-
-    let exitCode = 0;
-    const exit = ((code: number) => {
-      exitCode = code;
-    }) as (code: number) => never;
-
-    const server = await startServer({ port, dataDir }, exit);
-    servers.push(server);
-
-    await new Promise((resolve) => setTimeout(resolve, 150));
-
-    const address = server.address();
-    const boundPort = typeof address === 'object' && address !== null ? address.port : 0;
-    expect(exitCode).toBe(0);
-    expect(boundPort).not.toBe(port);
-    expect(boundPort).toBeGreaterThanOrEqual(3400);
-    expect(boundPort).toBeLessThanOrEqual(3499);
-
-    const res = await fetch(`http://127.0.0.1:${String(boundPort)}/api/v1/health`);
-    expect(res.status).toBe(200);
-
-    rmSync(dataDir, { recursive: true, force: true });
-  });
-
-  it('exits 1 in strict-port mode when the port is in use', async () => {
-    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-strict-'));
+  it('exits 1 when the requested port is already in use (no rotation)', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-busy-'));
     await runInit(dataDir);
     const port = await blockedPort();
 
     let exitCode = 0;
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const exit = ((code: number) => {
       exitCode = code;
     }) as (code: number) => never;
 
-    await startServer({ port, dataDir, strictPort: true }, exit);
+    await startServer({ port, dataDir }, exit);
 
     await new Promise((resolve) => setTimeout(resolve, 150));
     expect(exitCode).toBe(1);
+    expect(stderr.mock.calls.flat().join('')).toContain('already in use');
+    stderr.mockRestore();
 
     rmSync(dataDir, { recursive: true, force: true });
   });
@@ -672,11 +581,16 @@ describe('resolveDataDir', () => {
     vi.unstubAllEnvs();
   });
 
-  it('finds local .plandesk/ dir when present', async () => {
+  it('finds local workspace only when workspace.db exists (not connect-only .plandesk/)', async () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-resolve-'));
     const plandeskDir = join(tmpDir, '.plandesk');
     mkdirSync(plandeskDir);
     try {
+      // Connect-only: .plandesk/ without workspace.db → fall through to global
+      expect(resolveDataDir(undefined, tmpDir)).not.toBe(plandeskDir);
+
+      // Explicitly created local db
+      writeFileSync(join(plandeskDir, 'workspace.db'), '');
       expect(resolveDataDir(undefined, tmpDir)).toBe(plandeskDir);
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
@@ -730,8 +644,33 @@ describe('resolveInitDataDir', () => {
     vi.unstubAllEnvs();
   });
 
-  it('defaults to .plandesk/ in cwd (not ~/.plandesk)', async () => {
-    const result = resolveInitDataDir();
-    expect(result).toBe(join(process.cwd(), '.plandesk'));
+  it('defaults to the global ~/.plandesk board (not repo-local)', async () => {
+    const prev = process.env.PLANDESK_DATA_DIR;
+    delete process.env.PLANDESK_DATA_DIR;
+    try {
+      const result = resolveInitDataDir();
+      expect(result).not.toBe(join(process.cwd(), '.plandesk'));
+      expect(result.endsWith('.plandesk')).toBe(true);
+    } finally {
+      if (prev === undefined) {
+        delete process.env.PLANDESK_DATA_DIR;
+      } else {
+        process.env.PLANDESK_DATA_DIR = prev;
+      }
+    }
+  });
+
+  it('with localDb=true targets .plandesk/ in cwd', async () => {
+    const prev = process.env.PLANDESK_DATA_DIR;
+    delete process.env.PLANDESK_DATA_DIR;
+    try {
+      expect(resolveInitDataDir(undefined, true)).toBe(join(process.cwd(), '.plandesk'));
+    } finally {
+      if (prev === undefined) {
+        delete process.env.PLANDESK_DATA_DIR;
+      } else {
+        process.env.PLANDESK_DATA_DIR = prev;
+      }
+    }
   });
 });

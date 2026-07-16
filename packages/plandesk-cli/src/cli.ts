@@ -137,7 +137,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
       return 0;
     }
     case 'init': {
-      const dbPath = await runInit(parsed.dataDir);
+      const dbPath = await runInit(parsed.dataDir, { localDb: parsed.localDb });
       process.stdout.write(`Initialized workspace at ${dbPath}\n`);
       return 0;
     }
@@ -207,8 +207,8 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'export': {
       try {
-        const { db } = await openWorkspace(parsed.dataDir);
-        await runExport(db, parsed.projectId, parsed.outPath);
+        const { db, dataDir } = await openWorkspace(parsed.dataDir);
+        await runExport(db, parsed.projectId, parsed.outPath, dataDir);
         process.stdout.write(`Exported project ${parsed.projectId} to ${parsed.outPath}\n`);
         return 0;
       } catch (err) {

@@ -21,6 +21,7 @@ export function workspaceDbPath(dataDir: string): string {
 /**
  * Walk up from startDir looking for a .plandesk/ directory.
  * Returns the first one found, or undefined if none exists in the tree.
+ * Used for connect bindings / token / url — not for the workspace database.
  */
 export function findLocalPlandeskDir(startDir: string): string | undefined {
   let dir = startDir;
@@ -38,10 +39,31 @@ export function findLocalPlandeskDir(startDir: string): string | undefined {
 }
 
 /**
+ * Walk up from startDir looking for an explicitly created repo-local workspace
+ * (a .plandesk/ directory that already contains workspace.db). Connect-only
+ * .plandesk/ dirs (config + token, no db) do not count — those fall through to
+ * the global board.
+ */
+export function findLocalWorkspaceDir(startDir: string): string | undefined {
+  let dir = startDir;
+  for (;;) {
+    const candidate = join(dir, PLANDESK_DIR);
+    if (existsSync(workspaceDbPath(candidate))) {
+      return candidate;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) {
+      return undefined;
+    }
+    dir = parent;
+  }
+}
+
+/**
  * Resolve the data directory for commands that read an existing workspace
  * (serve, token, export, import, etc.).
- * Priority: explicit override → PLANDESK_DATA_DIR env → nearest .plandesk/ walking
- * up from startDir (defaults to cwd) → ~/.plandesk global fallback.
+ * Priority: explicit override → PLANDESK_DATA_DIR env → nearest repo-local
+ * workspace.db walking up from startDir (defaults to cwd) → ~/.plandesk.
  */
 export function resolveDataDir(override?: string, startDir?: string): string {
   if (override !== undefined) {
@@ -51,7 +73,7 @@ export function resolveDataDir(override?: string, startDir?: string): string {
   if (fromEnv !== undefined && fromEnv.trim() !== '') {
     return fromEnv;
   }
-  const local = findLocalPlandeskDir(startDir ?? process.cwd());
+  const local = findLocalWorkspaceDir(startDir ?? process.cwd());
   if (local !== undefined) {
     return local;
   }
@@ -59,11 +81,12 @@ export function resolveDataDir(override?: string, startDir?: string): string {
 }
 
 /**
- * Resolve the data directory for `plandesk init`, which always creates locally
- * in the current directory rather than walking up or falling back to ~/.plandesk.
- * Priority: explicit override → PLANDESK_DATA_DIR env → .plandesk/ in cwd.
+ * Resolve the data directory for `plandesk init`.
+ * Default is the machine-global board (~/.plandesk). Pass localDb=true
+ * (`--local-db`) for an opt-in repo-local workspace at ./.plandesk.
+ * Priority: explicit override → PLANDESK_DATA_DIR env → local or global.
  */
-export function resolveInitDataDir(override?: string): string {
+export function resolveInitDataDir(override?: string, localDb = false): string {
   if (override !== undefined) {
     return override;
   }
@@ -71,7 +94,10 @@ export function resolveInitDataDir(override?: string): string {
   if (fromEnv !== undefined && fromEnv.trim() !== '') {
     return fromEnv;
   }
-  return join(process.cwd(), PLANDESK_DIR);
+  if (localDb) {
+    return join(process.cwd(), PLANDESK_DIR);
+  }
+  return defaultDataDir();
 }
 
 export function isLoopbackHost(host: string): boolean {
@@ -151,7 +177,7 @@ export type ParsedArgs =
   | { command: 'login'; server?: string }
   | { command: 'logout' }
   | { command: 'whoami' }
-  | { command: 'init'; dataDir?: string }
+  | { command: 'init'; dataDir?: string; localDb: boolean }
   | { command: 'serve'; port?: number; dataDir?: string; host?: string; strictPort: boolean; configPath?: string }
   | { command: 'url'; repoDir?: string; lan: boolean }
   | { command: 'token'; subcommand: 'create'; name: string; dataDir?: string }
@@ -310,7 +336,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   }
 
   if (command === 'init') {
-    return { command: 'init', dataDir };
+    return { command: 'init', dataDir, localDb: flags['local-db'] === true };
   }
 
   if (command === 'login') return { command: 'login', server: flagString(flags, 'server') };
@@ -507,7 +533,7 @@ export function usage(): string {
 Usage:
   plandesk <file.md|file.html> [more…]       # preview & annotate files in the browser (glob-friendly)
   plandesk open <paths…> [--port <n>] [--host <addr>] [--no-open]   # explicit previewer
-  plandesk init [--data-dir <dir>]
+  plandesk init [--data-dir <dir>] [--local-db]
   plandesk login [--server <url>]
   plandesk logout
   plandesk whoami
@@ -533,10 +559,11 @@ Usage:
   plandesk version           # print the installed CLI version (also: --version)
 
 Options:
-  --data-dir  Workspace directory (default: nearest .plandesk/ walking up from cwd, then PLANDESK_DATA_DIR, then ~/.plandesk)
+  --data-dir  Workspace directory (default: PLANDESK_DATA_DIR, else nearest repo-local workspace.db, else ~/.plandesk)
+  --local-db  (init) create a repo-local .plandesk/workspace.db instead of the global board
   --repo      Target repository directory (default: cwd)
-  --port      HTTP port for serve (default: workspace.json port → ${String(DEFAULT_PORT)}; auto-rotates if busy)
-  --strict-port  Fail instead of rotating when the serve port is in use
+  --port      HTTP port for serve (default: workspace.json port → ${String(DEFAULT_PORT)})
+  --strict-port  Fail when the serve port is in use (always the case — one global board, one port)
   --config   Server config file (plandesk.server.json) — env still overrides (default: <data-dir>/plandesk.server.json)
   --lan       (url) print the LAN-accessible URL instead of loopback
   --host      Bind address (default: 127.0.0.1 — loopback only; opt into LAN with --host 0.0.0.0 or PLANDESK_HOST)
@@ -564,8 +591,8 @@ WHAT IT IS
 
 GET STARTED
   npm i -g @plandesk/cli
-  plandesk init && plandesk serve            # UI at $(plandesk url) — init assigns this project a port in
-                                             # 3400–3499; legacy workspaces without one fall back to 3847
+  plandesk init && plandesk serve            # global board at ~/.plandesk; UI at $(plandesk url)
+                                             # (default port ${String(DEFAULT_PORT)}; one board per machine)
   Then, from your project folder, paste into Claude Code or Codex:
     Read https://plandesk.asyncdot.com/start.md then set up Plan Desk for this project.
 

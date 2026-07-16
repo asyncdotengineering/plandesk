@@ -41,7 +41,7 @@ The UI subscribes to `GET /api/v1/events` for task, canvas, and agent-run change
 
 ## Data model
 
-SQLite workspace at `.plandesk/workspace.db` (project-local; `plandesk serve` walks up from cwd to find it, falls back to `~/.plandesk/workspace.db`):
+SQLite workspace at `~/.plandesk/workspace.db` by default (one global board per machine). An existing repo-local `.plandesk/workspace.db` (from `plandesk init --local-db`) is preferred when present; otherwise commands fall through to the global board:
 
 - `projects` — project metadata
 - `goals` — goal-altitude nodes (`objective`, `verification_surface`, contract fields, `status`, `last_verification`)
@@ -64,7 +64,7 @@ SQLite workspace at `.plandesk/workspace.db` (project-local; `plandesk serve` wa
 
 ## Repo binding
 
-`plandesk connect` writes `<repo>/.plandesk/` (config, skill, token). `plandesk init` also creates the workspace DB there (`<repo>/.plandesk/workspace.db`), so the same directory serves as both the binding and the data dir for project-scoped workspaces. See [plandesk connect](/connecting-agents/connect/).
+`plandesk connect` writes `<repo>/.plandesk/` (config, skill, token) — a binding, not the board. The board lives on the machine-global `~/.plandesk` by default; `plandesk init --local-db` is the opt-in for a repo-local workspace. See [plandesk connect](/connecting-agents/connect/).
 
 ## Product design
 

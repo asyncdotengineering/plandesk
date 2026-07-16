@@ -15,13 +15,10 @@ import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath }
 import { resolveServerConfig } from './config.js';
 import {
   deleteServerInfo,
-  isPortOwnedByAnotherProject,
-  readPortRegistry,
   readWorkspaceJson,
-  reservePort,
   writeServerInfo,
 } from './connect-artifacts.js';
-import { ensureLocalBetterAuthSecret, PORT_RANGE_START, PORT_RANGE_END } from './init.js';
+import { ensureLocalBetterAuthSecret } from './init.js';
 
 export type ServeOptions = {
   port: number;
@@ -32,9 +29,6 @@ export type ServeOptions = {
   /** Explicit `--config <path>` for plandesk.server.json. */
   configPath?: string;
 };
-
-/** How many sequential ports to try before giving up (Vite/Expo-style rotation). */
-export const PORT_ROTATE_ATTEMPTS = 20;
 
 export type ExitFn = (code: number) => never;
 
@@ -57,7 +51,9 @@ export function createListenErrorHandler(
 ): (err: NodeJS.ErrnoException) => void {
   return (err) => {
     if (err.code === 'EADDRINUSE') {
-      process.stderr.write(`Error: port ${String(port)} is already in use\n`);
+      process.stderr.write(
+        `Error: port ${String(port)} is already in use — the Plan Desk board is already served there (one board per machine). Stop the other process, or pass --port <n> for a different bind.\n`,
+      );
       exit(1);
       return;
     }
@@ -174,9 +170,6 @@ export async function startServer(
   const logListening = (): void => {
     const address = server.address();
     const boundPort = typeof address === 'object' && address !== null ? address.port : options.port;
-    // Record the port this project actually bound, so other projects' `init`
-    // avoids it even if this project predates the registry or rotated ports.
-    reservePort(dataDir, boundPort);
     writeServerInfo(dataDir, {
       port: boundPort,
       pid: process.pid,
@@ -184,63 +177,16 @@ export async function startServer(
       startedAt: new Date().toISOString(),
     });
     process.stdout.write(`Plan Desk → http://${host}:${String(boundPort)}  (db: ${dbDisplay})\n`);
-    if (boundPort !== options.port) {
-      process.stdout.write(
-        `Note: port ${String(options.port)} was in use — started on ${String(boundPort)}. ` +
-          `An agent connected via 'plandesk connect' expects ${String(options.port)} and won't reach this instance; ` +
-          `stop the other server, or reconnect with --url http://${host}:${String(boundPort)}.\n`,
-      );
-    }
   };
 
   server.once('close', () => {
     deleteServerInfo(dataDir);
   });
 
-  // Strict mode: bind the requested port or fail (Vite's strictPort).
-  if (options.strictPort === true) {
-    server.on('error', createListenErrorHandler(options.port, exit));
-    server.listen(options.port, host, logListening);
-    return server;
-  }
-
-  // Default: rotate to another in-range port not owned by another project
-  // (Vite/Expo-style, but registry-aware — sequential `port + attempt` could
-  // bind a port a different live project owns).
-  let attempt = 0;
-  const triedPorts = new Set<number>([options.port]);
-  const pickRotationCandidate = (): number | undefined => {
-    const registry = readPortRegistry();
-    const eligible: number[] = [];
-    for (let port = PORT_RANGE_START; port <= PORT_RANGE_END; port++) {
-      if (triedPorts.has(port) || isPortOwnedByAnotherProject(registry, port, dataDir)) {
-        continue;
-      }
-      eligible.push(port);
-    }
-    if (eligible.length === 0) {
-      return undefined;
-    }
-    return eligible[Math.floor(Math.random() * eligible.length)];
-  };
-  server.on('error', (err: NodeJS.ErrnoException) => {
-    if (err.code !== 'EADDRINUSE') {
-      throw err;
-    }
-    attempt += 1;
-    const candidate = attempt >= PORT_ROTATE_ATTEMPTS ? undefined : pickRotationCandidate();
-    if (candidate === undefined) {
-      process.stderr.write(
-        `Error: no available port in range ${String(PORT_RANGE_START)}-${String(PORT_RANGE_END)} — all attempted ports are in use\n`,
-      );
-      exit(1);
-      return;
-    }
-    triedPorts.add(candidate);
-    server.listen(candidate, host);
-  });
-  server.once('listening', logListening);
-  server.listen(options.port, host);
+  // One global board → one fixed port. Always fail clearly if the port is busy
+  // (the other listener is almost always this same board already running).
+  server.on('error', createListenErrorHandler(options.port, exit));
+  server.listen(options.port, host, logListening);
 
   return server;
 }

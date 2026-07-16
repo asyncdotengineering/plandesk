@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   createBetterAuth,
@@ -14,6 +14,7 @@ import {
   type BindingDoctorReport,
 } from './binding-doctor.js';
 import { CURATOR_DIR, CURATOR_TEMPLATES } from './curator-templates.js';
+import { LAST_EXPORT_FILE } from './export.js';
 import { CorruptWorkspaceError, isDbCorruptionError } from './workspace.js';
 import { ensureLocalBetterAuthSecret } from './init.js';
 
@@ -45,6 +46,8 @@ export type DoctorReport = {
   config?: ResolvedServerConfig;
   /** Set when the server targets a remote DB (self-host topology). */
   dbRemote?: string;
+  /** ISO timestamp of the last `plandesk export`, or null if never. */
+  lastExport: string | null;
 };
 
 export type CuratorDoctorReport = {
@@ -93,6 +96,19 @@ async function hasMigrations(db: Db): Promise<boolean> {
   return Number(row?.count ?? 0) > 0;
 }
 
+function readLastExport(dataDir: string): string | null {
+  const path = join(dataDir, LAST_EXPORT_FILE);
+  if (!existsSync(path)) {
+    return null;
+  }
+  try {
+    const raw = readFileSync(path, 'utf8').trim();
+    return raw === '' ? null : raw;
+  } catch {
+    return null;
+  }
+}
+
 export async function runDoctor(
   dataDirOverride?: string,
   repoDir?: string,
@@ -133,6 +149,7 @@ export async function runDoctor(
       curator,
       config,
       dbRemote: config.values.dbUrl,
+      lastExport: readLastExport(dataDir),
     };
   }
 
@@ -193,6 +210,7 @@ export async function runDoctor(
     binding,
     curator,
     config,
+    lastExport: readLastExport(dataDir),
   };
 }
 
@@ -213,6 +231,14 @@ export function formatDoctorReport(report: DoctorReport): string {
     lines.push(`projects: ${String(report.projectCount)}`);
     lines.push(`tasks: ${String(report.taskCount)}`);
   }
+  // Global board backup gap: rm -rf ~/.plandesk loses every project with nothing
+  // in git. Surface count + last export so the risk is visible.
+  lines.push(
+    `board: ${String(report.projectCount)} project(s) on this board; last export: ${report.lastExport ?? 'never'}`,
+  );
+  lines.push(
+    'backup: `plandesk export --project <id> --out <path>` (choose a path outside the repo) or hosted via `plandesk push --to <org>`',
+  );
   if (report.binding !== undefined) {
     lines.push(...formatBindingDoctorReport(report.binding));
   }

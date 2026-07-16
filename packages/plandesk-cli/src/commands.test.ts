@@ -9,7 +9,7 @@ import {
   PLANDESK_EXPORT_VERSION,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs, workspaceDbPath } from './args.js';
 import { main } from './cli.js';
 import { CURATOR_TEMPLATES } from './curator-templates.js';
@@ -45,22 +45,6 @@ async function captureIo(
     stderr: stderrChunks.join(''),
   };
 }
-
-// Isolate the machine-global port registry (~/.plandesk/ports.json) so tests
-// that run `init` never share its tmp path with other test files — concurrent
-// writers otherwise race on ports.json.tmp (one's rename consumes the other's).
-let portRegistryStateDir: string | undefined;
-beforeEach(async () => {
-  portRegistryStateDir = mkdtempSync(join(tmpdir(), 'plandesk-cmd-state-'));
-  process.env.PLANDESK_STATE_DIR = portRegistryStateDir;
-});
-afterEach(() => {
-  delete process.env.PLANDESK_STATE_DIR;
-  if (portRegistryStateDir !== undefined) {
-    rmSync(portRegistryStateDir, { recursive: true, force: true });
-    portRegistryStateDir = undefined;
-  }
-});
 
 describe('parseArgs export/import/doctor', () => {
   it('parses export with project, out, and data-dir', async () => {
@@ -307,6 +291,38 @@ describe('CLI export/import/doctor', () => {
     expect(stdout).toContain('migrations: applied');
     expect(stdout).toContain('projects: 1');
     expect(stdout).toContain('tasks: 1');
+    expect(stdout).toContain('board: 1 project(s) on this board; last export: never');
+    expect(stdout).toContain('plandesk export');
+    expect(stdout).toContain('plandesk push --to');
+  });
+
+  it('doctor reports last export timestamp after an export', async () => {
+    const dataDir = await makeWorkspace();
+    const { db } = await openWorkspace(dataDir);
+    const project = await createProject(db, { name: 'Export Mark' });
+    const outPath = join(dataDir, 'mark.json');
+
+    const exportResult = await captureIo(() =>
+      main([
+        'node',
+        'plandesk',
+        'export',
+        '--project',
+        project.id,
+        '--out',
+        outPath,
+        '--data-dir',
+        dataDir,
+      ]),
+    );
+    expect(exportResult.code).toBe(0);
+
+    const { code, stdout } = await captureIo(() =>
+      main(['node', 'plandesk', 'doctor', '--data-dir', dataDir]),
+    );
+    expect(code).toBe(0);
+    expect(stdout).toMatch(/last export: \d{4}-\d{2}-\d{2}T/);
+    expect(stdout).not.toContain('last export: never');
   });
 
   it('reports missing curator artifacts via doctor --repo', async () => {

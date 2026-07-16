@@ -62,7 +62,8 @@ plandesk help
 # delegation, and the MCP tools. Read this once; it teaches the agent the model.
 plandesk onboard
 
-# Initialize the local workspace DB (idempotent; repo-local .plandesk/workspace.db)
+# Initialize the machine-global board at ~/.plandesk (idempotent; not committed)
+# Opt into a repo-local db with: plandesk init --local-db
 plandesk init
 
 # Is a server already running on this project's port?
@@ -167,7 +168,7 @@ Confirm all of:
 - [ ] `.plandesk/config.json` exists and has a `projectId`
 - [ ] `.mcp.json` has a `plandesk` server entry with a `headersHelper` reading `.plandesk/token`
 - [ ] `CLAUDE.md` (and `AGENTS.md` if present) contains the `@.plandesk/skill.md` include
-- [ ] the board travels with the repo: `.plandesk/workspace.db` is **tracked** (committed), so the plan/graph is shared across clones. Per-machine state stays ignored: `.plandesk/token` (bearer minted per-clone by `connect`) and `.plandesk/server.json` (this machine's server URL/port) must remain gitignored and unstaged. Everything else under `.agents/`, `.claude/`, `.mcp.json`, `.plandesk/config.json`, `.plandesk/skill.md` is committed policy.
+- [ ] the board is **not** committed: default is `~/.plandesk/workspace.db` (one board per machine). Travel/backup is hosted (`plandesk push --to <org>`) or an explicit `plandesk export --project <id> --out <path>` outside the repo. Per-machine state stays ignored: `.plandesk/token` (bearer minted per-clone by `connect`) and `.plandesk/server.json`. Everything else under `.agents/`, `.claude/`, `.mcp.json`, `.plandesk/config.json`, `.plandesk/skill.md` is committed policy.
 - [ ] `.agents/factory/factory.md` exists (factory scaffold; unless the user opted out)
 - [ ] `.claude/settings.json` wires `SessionStart`/`Stop`/`PreCompact` to `.agents/curator/hooks/*` (hooks registered — unless the user opted out of the factory)
 

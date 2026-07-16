@@ -44,9 +44,9 @@ These fail loudly with the exact next step — here's what each means:
 
 ## The server
 
-**Port already in use.** `plandesk serve` **auto-rotates** to the next free port (3847 → 3848 → …, Vite/Expo-style) and prints the URL it actually started on — so it just works. One caveat: an agent you connected with `plandesk connect` expects the original port (3847); if `serve` rotated, either stop the other process on 3847 or reconnect with `--url http://127.0.0.1:<actual-port>`. Use `plandesk serve --strict-port` to fail instead of rotating.
+**Port already in use.** One global board → one port. If `plandesk serve` reports the port is already in use, another Plan Desk server is already bound there (or something else is). Stop the other process, or pass `--port <n>` for a different bind. There is no auto-rotation — connected agents expect a stable URL.
 
-**`Database appears corrupt or unreadable.`** Run `plandesk doctor` to diagnose. The workspace DB lives in `.plandesk/workspace.db` relative to the project directory. `plandesk serve` prints the exact path it resolved on startup — check that line if you're unsure which database you're hitting. Override with `--data-dir` or `PLANDESK_DATA_DIR`.
+**`Database appears corrupt or unreadable.`** Run `plandesk doctor` to diagnose. The default board is `~/.plandesk/workspace.db`; a repo-local `.plandesk/workspace.db` is used only if it already exists. `plandesk serve` prints the exact path it resolved on startup. Override with `--data-dir` or `PLANDESK_DATA_DIR`.
 
 ## Still stuck?
 
