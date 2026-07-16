@@ -95,7 +95,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
       projectId: string,
       input: { fromTaskId: string; toTaskId: string; label?: string | null; style?: string | null },
     ) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'edge', 'create');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -125,7 +125,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
     },
 
     async putLayout(projectId: string, payload: PutCanvasLayoutInput) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'task', 'update');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -242,7 +242,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
     },
 
     async deleteEdge(projectId: string, edgeId: string) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'edge', 'delete');
       const edge = await getEdgeByProjectAndId(db, projectId, edgeId);
       if (!edge) {
         return false;

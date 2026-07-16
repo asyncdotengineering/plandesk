@@ -137,7 +137,7 @@ export function createSyncService(deps: SyncServiceDeps) {
 
   return {
     async pull(projectId: string, remote: SyncRemote): Promise<{ pulled: number }> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'task', 'update');
       const cursor = await getPullCursor(db, projectId);
       const base = remote.serverUrl.replace(/\/$/, '');
       const url = new URL(
@@ -213,7 +213,7 @@ export function createSyncService(deps: SyncServiceDeps) {
     },
 
     async setRemote(projectId: string, remote: SyncRemote): Promise<void> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'task', 'update');
       await setSyncRemote(db, projectId, {
         serverUrl: remote.serverUrl,
         globalProjectId: remote.globalProjectId,
@@ -240,7 +240,7 @@ export function createSyncService(deps: SyncServiceDeps) {
       asTask?: { label?: string; description?: string },
       linkTaskId?: string,
     ): Promise<SerializedSubmission> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'task', 'create');
       if (asTask !== undefined && linkTaskId !== undefined) {
         throw new InvalidTriageInputError('as_task and link_task_id are mutually exclusive');
       }

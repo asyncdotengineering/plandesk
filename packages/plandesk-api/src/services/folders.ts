@@ -87,7 +87,7 @@ export function createFolderService(deps: FolderServiceDeps) {
       projectId: string,
       input: CreateFolderInput,
     ): Promise<SerializedFolder | undefined> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'create');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -120,7 +120,7 @@ export function createFolderService(deps: FolderServiceDeps) {
     },
 
     async update(id: string, input: UpdateFolderInput): Promise<SerializedFolder | undefined> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'update');
       const existing = await dbGetFolder(db, id);
       if (!existing) {
         return undefined;
@@ -147,7 +147,7 @@ export function createFolderService(deps: FolderServiceDeps) {
     },
 
     async delete(id: string): Promise<boolean> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'delete');
       const existing = await dbGetFolder(db, id);
       if (!existing) {
         return false;

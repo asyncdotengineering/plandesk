@@ -1,6 +1,10 @@
 import type { OrgRole } from '@plandesk/db';
 import { getAuthContext, tryGetAuthContext } from '../auth-context.js';
-import { requireRole } from '../permissions.js';
+import {
+  orgRoleToPermissionSet,
+  requirePermission,
+  type PermissionSet,
+} from '../permissions.js';
 
 export type OrgScopedDeps = {
   /** Fixed org scope for unit tests; production uses request auth context. */
@@ -10,30 +14,34 @@ export type OrgScopedDeps = {
    * When orgId is injected without permission (legacy unit-test path), defaults
    * to owner so role checks do not require a full request context.
    */
-  permission?: OrgRole;
+  permission?: OrgRole | PermissionSet;
 };
 
 export function resolveOrgId(deps: OrgScopedDeps): string {
   return deps.orgId ?? getAuthContext().orgId;
 }
 
+function isOrgRole(value: OrgRole | PermissionSet): value is OrgRole {
+  return typeof value === 'string';
+}
+
 /**
- * Effective permission for this call.
+ * Effective permission set for this call.
  * Priority: deps.permission → AuthContext.permission → owner (service unit tests
  * that invoke methods without request middleware; production always has context).
  */
-export function resolvePermission(deps: OrgScopedDeps): OrgRole {
+export function resolvePermissionSet(deps: OrgScopedDeps): PermissionSet {
   if (deps.permission !== undefined) {
-    return deps.permission;
+    return isOrgRole(deps.permission) ? orgRoleToPermissionSet(deps.permission) : deps.permission;
   }
   const ctx = tryGetAuthContext();
   if (ctx !== undefined) {
     return ctx.permission;
   }
-  return 'owner';
+  return orgRoleToPermissionSet('owner');
 }
 
-/** requireRole against the caller's effective permission (deps or AuthContext). */
-export function assertPermission(deps: OrgScopedDeps, minimum: OrgRole): void {
-  requireRole({ permission: resolvePermission(deps) }, minimum);
+/** requirePermission against the caller's effective permission set (deps or AuthContext). */
+export function assertPermission(deps: OrgScopedDeps, resource: string, action: string): void {
+  requirePermission({ permission: resolvePermissionSet(deps) }, resource, action);
 }

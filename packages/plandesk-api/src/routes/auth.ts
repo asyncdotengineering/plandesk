@@ -211,7 +211,7 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
     return c.json({
       kind: ctx.kind,
       user_ref: ctx.kind === 'session' ? ctx.userRef : null,
-      role: ctx.permission,
+      role: ctx.role,
       org: org === undefined ? null : { id: org.id, name: org.name },
     });
   });

@@ -58,7 +58,7 @@ export function createTagService(deps: TagServiceDeps) {
     },
 
     async create(projectId: string, input: CreateTagInput): Promise<SerializedTag | undefined> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'task', 'update');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -80,7 +80,7 @@ export function createTagService(deps: TagServiceDeps) {
     // Renaming propagates everywhere automatically: tasks reference the single
     // tag row through the join table.
     async update(id: string, input: UpdateTagInput): Promise<SerializedTag | undefined> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'task', 'update');
       const existing = await dbGetTag(db, id);
       if (!existing) {
         return undefined;
@@ -108,7 +108,7 @@ export function createTagService(deps: TagServiceDeps) {
 
     // Deleting a tag removes it from all its tasks (cascade on the join table).
     async delete(id: string): Promise<boolean> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'task', 'delete');
       const existing = await dbGetTag(db, id);
       if (!existing) {
         return false;

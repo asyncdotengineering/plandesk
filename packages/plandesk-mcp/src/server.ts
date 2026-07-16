@@ -3,6 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import {
   effectivePermission,
+  resolveEffectivePermissionSet,
   runWithAuthContext,
   tryGetAuthContext,
   type Services,
@@ -636,7 +637,8 @@ export function createMcpApp(deps: McpAppDeps): Hono {
         {
           kind: 'token',
           orgId: verified.orgId,
-          permission: effectivePermission('owner', verified.scope),
+          role: effectivePermission('owner', verified.scope),
+          permission: resolveEffectivePermissionSet('owner', verified.scope),
         },
         async () => {
           await next();

@@ -53,8 +53,8 @@ export const owner = ac.newRole({
 });
 
 export function intersectPermissions(
-  a: Record<string, string[]>,
-  b: Record<string, string[]>,
+  a: Record<string, readonly string[]>,
+  b: Record<string, readonly string[]>,
 ): Record<string, string[]> {
   const intersection: Record<string, string[]> = {};
 

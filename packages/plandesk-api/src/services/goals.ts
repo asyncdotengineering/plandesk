@@ -291,7 +291,7 @@ export function createGoalService(deps: GoalServiceDeps) {
 
   return {
     async create(projectId: string, input: CreateGoalInput) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'goal', 'create');
       if (input.status !== undefined && !isGoalStatus(input.status)) {
         throw new InvalidGoalStatusError(input.status);
       }
@@ -348,7 +348,7 @@ export function createGoalService(deps: GoalServiceDeps) {
     },
 
     async update(goalId: string, input: UpdateGoalInput) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'goal', 'update');
       const existing = await getGoal(db, goalId);
       if (!existing) {
         return undefined;
@@ -365,7 +365,7 @@ export function createGoalService(deps: GoalServiceDeps) {
     },
 
     async pause(goalId: string) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'goal', 'update');
       const existing = await getGoal(db, goalId);
       if (!existing) {
         return undefined;
@@ -384,7 +384,7 @@ export function createGoalService(deps: GoalServiceDeps) {
     },
 
     async resume(goalId: string) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'goal', 'update');
       const existing = await getGoal(db, goalId);
       if (!existing) {
         return undefined;
@@ -403,7 +403,7 @@ export function createGoalService(deps: GoalServiceDeps) {
     },
 
     async complete(goalId: string, evidence?: VerificationEvidence) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'goal', 'update');
       const existing = await getGoal(db, goalId);
       if (!existing) {
         return undefined;

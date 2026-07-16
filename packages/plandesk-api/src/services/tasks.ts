@@ -169,7 +169,7 @@ export function createTaskService(deps: TaskServiceDeps) {
     },
 
     async create(projectId: string, input: CreateTaskInput) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'task', 'create');
       if (input.status !== undefined && !isTaskStatus(input.status)) {
         throw new InvalidTaskStatusError(input.status);
       }
@@ -213,7 +213,7 @@ export function createTaskService(deps: TaskServiceDeps) {
     },
 
     async update(id: string, input: UpdateTaskInput) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'task', 'update');
       if (input.status !== undefined && !isTaskStatus(input.status)) {
         throw new InvalidTaskStatusError(input.status);
       }
@@ -242,7 +242,7 @@ export function createTaskService(deps: TaskServiceDeps) {
     },
 
     async delete(id: string) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'task', 'delete');
       const task = await getTask(db, id);
       if (!task) {
         return false;
@@ -262,7 +262,7 @@ export function createTaskService(deps: TaskServiceDeps) {
     },
 
     async claim(taskId: string, agentRef: string): Promise<ClaimTaskResult> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'task', 'update');
       const row = await claimTask(db, taskId, resolveOrgId(deps), agentRef);
       if (!row) {
         return { claimed: false, reason: 'taken_or_not_actionable' };

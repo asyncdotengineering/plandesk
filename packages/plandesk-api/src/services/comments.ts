@@ -79,7 +79,7 @@ export function createCommentService(deps: CommentServiceDeps) {
       target: CommentTarget,
       input: CreateCommentInput,
     ): Promise<SerializedComment | undefined> {
-      assertPermission(deps, 'commenter');
+      assertPermission(deps, 'comment', 'create');
       const projectId = await targetProjectId(db, target);
       if (!projectId) {
         return undefined;
@@ -107,7 +107,7 @@ export function createCommentService(deps: CommentServiceDeps) {
       artifactId: string,
       input: CreateCommentInput,
     ): Promise<SerializedComment | undefined> {
-      assertPermission(deps, 'commenter');
+      assertPermission(deps, 'comment', 'create');
       if (!(await getProject(db, projectId))) {
         return undefined;
       }
@@ -181,7 +181,7 @@ export function createCommentService(deps: CommentServiceDeps) {
     },
 
     async update(id: string, input: UpdateCommentInput): Promise<SerializedComment | undefined> {
-      assertPermission(deps, 'commenter');
+      assertPermission(deps, 'comment', 'update');
       const existing = await dbGetComment(db, id);
       if (!existing) {
         return undefined;
@@ -208,7 +208,7 @@ export function createCommentService(deps: CommentServiceDeps) {
     },
 
     async delete(id: string): Promise<boolean> {
-      assertPermission(deps, 'commenter');
+      assertPermission(deps, 'comment', 'delete');
       const existing = await dbGetComment(db, id);
       if (!existing) {
         return false;

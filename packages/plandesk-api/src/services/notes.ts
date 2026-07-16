@@ -59,7 +59,7 @@ export function createNoteService(deps: NoteServiceDeps) {
     },
 
     async create(projectId: string, input: CreateNoteInput): Promise<SerializedNote | undefined> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'create');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -89,7 +89,7 @@ export function createNoteService(deps: NoteServiceDeps) {
     },
 
     async update(id: string, input: UpdateNoteInput): Promise<SerializedNote | undefined> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'update');
       const existing = await dbGetNote(db, id);
       if (!existing) {
         return undefined;
@@ -108,7 +108,7 @@ export function createNoteService(deps: NoteServiceDeps) {
     },
 
     async delete(id: string): Promise<boolean> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'delete');
       const existing = await dbGetNote(db, id);
       if (!existing) {
         return false;

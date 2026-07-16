@@ -28,7 +28,7 @@ export function createFileService(deps: FileServiceDeps) {
 
   return {
     async create(input: CreateFileInput): Promise<CreatedFile | undefined> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'create');
       try {
         await assertProjectInOrg(db, input.projectId, resolveOrgId(deps));
       } catch (error) {

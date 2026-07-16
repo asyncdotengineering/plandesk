@@ -16,7 +16,7 @@ export function createTokenService(deps: TokenServiceDeps) {
 
   return {
     async create(name: string) {
-      assertPermission(deps, 'owner');
+      assertPermission(deps, 'apiKey', 'create');
       const orgId = resolveOrgId(deps);
       const result = await dbCreateToken(db, { name, orgId });
       return {
@@ -27,13 +27,13 @@ export function createTokenService(deps: TokenServiceDeps) {
     },
 
     async list() {
-      assertPermission(deps, 'owner');
+      assertPermission(deps, 'apiKey', 'read');
       const orgId = resolveOrgId(deps);
       return (await dbListTokens(db, orgId)).map(serializeToken);
     },
 
     async revoke(id: string) {
-      assertPermission(deps, 'owner');
+      assertPermission(deps, 'apiKey', 'delete');
       const orgId = resolveOrgId(deps);
       const revoked = await dbRevokeToken(db, id, orgId);
       if (!revoked) {

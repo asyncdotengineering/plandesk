@@ -28,7 +28,7 @@ import { createOrgsRouter } from './routes/orgs.js';
 import { createServices, type Services } from './services/index.js';
 import { ProjectNotInOrgError } from './services/scope.js';
 import { ReadOnlyTokenError } from './auth-context.js';
-import { InsufficientPermissionError } from './permissions.js';
+import { InsufficientPermissionError, PermissionDeniedError } from './permissions.js';
 
 export type AppDeps = {
   db: Db;
@@ -86,7 +86,11 @@ export function createApp(deps: AppDeps): Hono {
     if (err instanceof ProjectNotInOrgError) {
       return c.json({ error: 'not_found' }, 404);
     }
-    if (err instanceof ReadOnlyTokenError || err instanceof InsufficientPermissionError) {
+    if (
+      err instanceof ReadOnlyTokenError ||
+      err instanceof InsufficientPermissionError ||
+      err instanceof PermissionDeniedError
+    ) {
       return c.json({ error: 'forbidden' }, 403);
     }
     throw err;

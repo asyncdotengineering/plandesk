@@ -130,7 +130,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       projectId: string,
       input: CreateDocumentInput,
     ): Promise<SerializedDocument | undefined> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'create');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -174,7 +174,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
     },
 
     async update(id: string, input: UpdateDocumentInput): Promise<SerializedDocument | undefined> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'update');
       const existing = await dbGetDocument(db, id);
       if (!existing) {
         return undefined;
@@ -218,7 +218,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
     },
 
     async delete(id: string) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'delete');
       const existing = await dbGetDocument(db, id);
       if (!existing) {
         return false;

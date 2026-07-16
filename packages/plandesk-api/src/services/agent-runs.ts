@@ -65,7 +65,7 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
     },
 
     async start(projectId: string, label?: string | null) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'agent_run', 'create');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -81,7 +81,7 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
     },
 
     async recordProgress(runId: string, message: string) {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'agent_run', 'update');
       const run = await getAgentRun(db, runId);
       if (!run) {
         return undefined;
@@ -97,7 +97,7 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
     },
 
     async complete(runId: string, status: 'completed' | 'failed') {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'agent_run', 'update');
       const run = await getAgentRun(db, runId);
       if (!run) {
         return undefined;

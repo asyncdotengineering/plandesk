@@ -65,7 +65,7 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
       projectId: string,
       input: CreateArtifactInput,
     ): Promise<SerializedArtifact | undefined> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'create');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -96,7 +96,7 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
     },
 
     async update(id: string, input: UpdateArtifactInput): Promise<SerializedArtifact | undefined> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'update');
       const existing = await dbGetArtifact(db, id);
       if (!existing) {
         return undefined;

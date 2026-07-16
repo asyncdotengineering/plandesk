@@ -11,7 +11,12 @@ import {
   type TokenScope,
 } from '@plandesk/db';
 import { runWithAuthContext, tryGetAuthContext, type AuthContext } from './auth-context.js';
-import { effectivePermission, hasAtLeast } from './permissions.js';
+import {
+  effectivePermission,
+  hasAnyWritePermission,
+  orgRoleToPermissionSet,
+  resolveEffectivePermissionSet,
+} from './permissions.js';
 import { readSessionCookie } from './session.js';
 
 const BASIC_PREFIX = 'Basic ';
@@ -24,7 +29,6 @@ export const USER_REF_HEADER = 'X-Plandesk-User-Ref';
 export type AppVariables = {
   orgId: string;
   tokenScope: TokenScope;
-  permission: OrgRole;
 };
 
 function decodeBasicAuth(header: string): Buffer | undefined {
@@ -149,11 +153,12 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
       if (memberRole === 'forbidden') {
         return c.json({ error: 'forbidden' }, 403);
       }
-      const permission = effectivePermission(memberRole, verified.scope);
+      const role = effectivePermission(memberRole, verified.scope);
       const ctx: AuthContext = {
         kind: 'token',
         orgId: verified.orgId,
-        permission,
+        role,
+        permission: resolveEffectivePermissionSet(memberRole, verified.scope),
       };
       await runWithAuthContext(ctx, async () => {
         await next();
@@ -179,7 +184,8 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
         kind: 'session',
         orgId: session.orgId,
         userRef: session.userRef,
-        permission: member.role,
+        role: member.role,
+        permission: orgRoleToPermissionSet(member.role),
       };
       await runWithAuthContext(ctx, async () => {
         await next();
@@ -194,7 +200,8 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
         const ctx: AuthContext = {
           kind: 'loopback',
           orgId: org.id,
-          permission: 'owner',
+          role: 'owner',
+          permission: orgRoleToPermissionSet('owner'),
         };
         await runWithAuthContext(ctx, async () => {
           await next();
@@ -250,14 +257,14 @@ export function createAuthMiddleware(password: string): MiddlewareHandler {
 
 /**
  * Reject pure read-only callers (viewer / read-only token) on write HTTP methods.
- * Finer roles (commenter vs editor) are enforced in services via requireRole.
+ * Finer roles (commenter vs editor) are enforced in services via requirePermission.
  */
 export function createWriteGuardMiddleware(): MiddlewareHandler {
   return async (c, next) => {
     const method = c.req.method.toUpperCase();
     if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
       const ctx = tryGetAuthContext();
-      if (ctx !== undefined && !hasAtLeast(ctx.permission, 'commenter')) {
+      if (ctx !== undefined && !hasAnyWritePermission(ctx.permission)) {
         return c.json({ error: 'forbidden' }, 403);
       }
     }

@@ -1,11 +1,11 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { OrgRole } from '@plandesk/db';
-import { hasAtLeast } from './permissions.js';
+import { hasAnyWritePermission, type PermissionSet } from './permissions.js';
 
 /**
  * Request-scoped auth. Middleware resolves org + effective permission once,
- * whatever the transport; services read `orgId` and call requireRole and must
- * never branch on `kind`. Three transports, one identity model:
+ * whatever the transport; services read `orgId` and call requirePermission and
+ * must never branch on `kind`. Three transports, one identity model:
  * browser session cookie, CLI/agent token, and trusted loopback.
  */
 export type AuthContext =
@@ -14,20 +14,25 @@ export type AuthContext =
       orgId: string;
       /** Stable identity, e.g. `github:<numeric id>` — never the login. */
       userRef: string;
-      /** The member's role: a browser session has no scope ceiling above it. */
-      permission: OrgRole;
+      /** Ladder role for display and requireRole. */
+      role: OrgRole;
+      /** Resolved permission set for resource:action checks. */
+      permission: PermissionSet;
     }
   | {
       kind: 'token';
       orgId: string;
-      /** Effective permission: lesser of member role and token scope ceiling. */
-      permission: OrgRole;
+      /** Effective ladder role after token scope ceiling. */
+      role: OrgRole;
+      /** Intersected permission set for resource:action checks. */
+      permission: PermissionSet;
     }
   | {
       kind: 'loopback';
       orgId: string;
       /** REQ-21: local loopback single-org is always owner — no login. */
-      permission: 'owner';
+      role: 'owner';
+      permission: PermissionSet;
     };
 
 const storage = new AsyncLocalStorage<AuthContext>();
@@ -57,7 +62,7 @@ export class ReadOnlyTokenError extends Error {
 
 /** Reject pure read-only callers (viewer / read-only token). */
 export function assertWriteAccess(): void {
-  if (!hasAtLeast(getAuthContext().permission, 'commenter')) {
+  if (!hasAnyWritePermission(getAuthContext().permission)) {
     throw new ReadOnlyTokenError();
   }
 }

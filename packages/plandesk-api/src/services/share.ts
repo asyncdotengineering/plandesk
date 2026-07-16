@@ -249,7 +249,7 @@ export function createShareService(deps: ShareServiceDeps) {
       projectId: string,
       input: CreateShareInput,
     ): Promise<{ share: SerializedShare; token: string } | undefined> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'create');
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -289,7 +289,7 @@ export function createShareService(deps: ShareServiceDeps) {
     },
 
     async revokeShare(id: string): Promise<boolean> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'delete');
       return (await dbRevokeShare(db, id)) !== undefined;
     },
 
@@ -305,7 +305,7 @@ export function createShareService(deps: ShareServiceDeps) {
       input: CreateResourceShareInput,
       origin: string,
     ): Promise<ResourceShareResult | undefined> {
-      assertPermission(deps, 'editor');
+      assertPermission(deps, 'document', 'create');
       let projectId: string;
       let policy: SharePolicy;
       let audienceName: string;

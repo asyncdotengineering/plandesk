@@ -43,9 +43,16 @@ export {
 export {
   effectivePermission,
   requireRole,
+  requirePermission,
   hasAtLeast,
+  hasPermission,
+  hasAnyWritePermission,
+  orgRoleToPermissionSet,
+  resolveEffectivePermissionSet,
   InsufficientPermissionError,
+  PermissionDeniedError,
   ROLE_RANK,
+  type PermissionSet,
 } from './permissions.js';
 export { USER_REF_HEADER } from './auth.js';
 export { healthRouter } from './routes/health.js';
