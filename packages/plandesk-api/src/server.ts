@@ -127,7 +127,12 @@ export function createApp(deps: AppDeps): Hono {
   // work, not this one.
   const betterAuthInstance =
     deps.betterAuth !== undefined
-      ? createBetterAuth({ client: deps.db.$client, secret: deps.betterAuth.secret, baseURL: deps.betterAuth.baseURL })
+      ? createBetterAuth({
+          client: deps.db.$client,
+          secret: deps.betterAuth.secret,
+          baseURL: deps.betterAuth.baseURL,
+          github: deps.github,
+        })
       : undefined;
   if (betterAuthInstance) {
     app.on(['GET', 'POST'], '/api/auth/*', (c) => betterAuthInstance.handler(c.req.raw));

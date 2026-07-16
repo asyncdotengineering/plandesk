@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -24,8 +24,14 @@ import {
   readWorkspaceJson,
   writeWorkspaceJson,
 } from './connect-artifacts.js';
-import { createListenErrorHandler, resolveServeRuntime, startServer, validateServeBind } from './serve.js';
+import {
+  createListenErrorHandler,
+  resolveServeRuntime,
+  startServer,
+  validateServeBind,
+} from './serve.js';
 import { resolveServerConfig, SERVER_CONFIG_FILENAME } from './config.js';
+import { createDb, ensureDefaultOrg, migrate } from '@plandesk/db';
 
 // Isolate the machine-global port registry (~/.plandesk/ports.json) so tests
 // that run `init`/`serve` never read or write the real one on this machine.
@@ -139,7 +145,9 @@ describe('parseArgs', () => {
   });
 
   it('parses serve with --config', () => {
-    expect(parseArgs(['node', 'plandesk', 'serve', '--config', '/tmp/plandesk.server.json'])).toEqual({
+    expect(
+      parseArgs(['node', 'plandesk', 'serve', '--config', '/tmp/plandesk.server.json']),
+    ).toEqual({
       command: 'serve',
       port: undefined,
       strictPort: false,
@@ -183,7 +191,10 @@ describe('resolveServeRuntime (config file alone, env overrides — REQ-1/REQ-2)
   it('env host/port override the config file', () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-env-'));
     tempDirs.push(dataDir);
-    writeFileSync(join(dataDir, SERVER_CONFIG_FILENAME), JSON.stringify({ host: '0.0.0.0', port: 3939 }));
+    writeFileSync(
+      join(dataDir, SERVER_CONFIG_FILENAME),
+      JSON.stringify({ host: '0.0.0.0', port: 3939 }),
+    );
     process.env.PLANDESK_HOST = '1.1.1.1';
     process.env.PLANDESK_PORT = '7000';
     const runtime = resolveServeRuntime({
@@ -200,7 +211,10 @@ describe('resolveServeRuntime (config file alone, env overrides — REQ-1/REQ-2)
   it('flag overrides env and file', () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-flag-'));
     tempDirs.push(dataDir);
-    writeFileSync(join(dataDir, SERVER_CONFIG_FILENAME), JSON.stringify({ host: '0.0.0.0', port: 3939 }));
+    writeFileSync(
+      join(dataDir, SERVER_CONFIG_FILENAME),
+      JSON.stringify({ host: '0.0.0.0', port: 3939 }),
+    );
     process.env.PLANDESK_HOST = '1.1.1.1';
     const runtime = resolveServeRuntime({
       port: 1234,
@@ -341,6 +355,41 @@ describe('runInit', () => {
       const firstPort = readWorkspaceJson(dataDir)?.port;
       await runInit(dataDir);
       expect(readWorkspaceJson(dataDir)?.port).toBe(firstPort);
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it('creates Better Auth tables, a user-less local org, and a gitignored stable secret', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-init-auth-'));
+    try {
+      const dbPath = await runInit(dataDir);
+      const firstSecret = readFileSync(join(dataDir, 'better-auth-secret'), 'utf8').trim();
+      expect(firstSecret).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(readFileSync(join(dataDir, '.gitignore'), 'utf8').split('\n')).toContain(
+        'better-auth-secret',
+      );
+
+      await runInit(dataDir);
+      expect(readFileSync(join(dataDir, 'better-auth-secret'), 'utf8').trim()).toBe(firstSecret);
+
+      const db = await createDb(dbPath);
+      const tables = await db.$client.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('organization', 'user', 'account', 'member')",
+      );
+      expect(new Set(tables.rows.map((row) => row.name))).toEqual(
+        new Set(['account', 'member', 'organization', 'user']),
+      );
+      const localOrg = await db.$client.execute(
+        "SELECT id, slug FROM organization WHERE id = '00000000-0000-4000-8000-0000000000a1'",
+      );
+      expect(localOrg.rows).toHaveLength(1);
+      expect(localOrg.rows[0]?.slug).toBe('local');
+      const identities = await db.$client.execute('SELECT COUNT(*) AS count FROM user');
+      const members = await db.$client.execute('SELECT COUNT(*) AS count FROM member');
+      expect(Number(identities.rows[0]?.count)).toBe(0);
+      expect(Number(members.rows[0]?.count)).toBe(0);
+      db.$client.close();
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }
@@ -503,6 +552,39 @@ describe('startServer', () => {
     servers.splice(servers.indexOf(server), 1);
     expect(readServerInfo(dataDir)).toBeUndefined();
 
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  it('creates Better Auth tables during serve boot, not only through direct migrator calls', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-auth-'));
+    const db = await createDb(workspaceDbPath(dataDir));
+    await migrate(db);
+    await ensureDefaultOrg(db);
+    const before = await db.$client.execute(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='organization'",
+    );
+    expect(before.rows).toHaveLength(0);
+
+    const server = await startServer({ port: 0, dataDir });
+    servers.push(server);
+    if (!server.listening) {
+      await new Promise<void>((resolve) => server.once('listening', resolve));
+    }
+
+    const after = await db.$client.execute(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('organization', 'user', 'account')",
+    );
+    expect(new Set(after.rows.map((row) => row.name))).toEqual(
+      new Set(['account', 'organization', 'user']),
+    );
+
+    await new Promise<void>((resolve) =>
+      server.close(() => {
+        resolve();
+      }),
+    );
+    servers.splice(servers.indexOf(server), 1);
+    db.$client.close();
     rmSync(dataDir, { recursive: true, force: true });
   });
 

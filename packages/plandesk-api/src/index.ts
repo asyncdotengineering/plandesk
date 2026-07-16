@@ -1,5 +1,12 @@
 export { createApp, type AppDeps } from './server.js';
 export {
+  createBetterAuth,
+  runBetterAuthMigrations,
+  type BetterAuthDeps,
+  type BetterAuthInstance,
+} from './better-auth.js';
+export { ensureLocalBetterAuthOrganization } from './identity.js';
+export {
   createAuthMiddleware,
   createOrgAuthMiddleware,
   createWriteGuardMiddleware,

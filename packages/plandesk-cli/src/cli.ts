@@ -1,10 +1,18 @@
+import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import { cwd } from 'node:process';
 import { runInit } from './init.js';
 import { printOnboard } from './onboard.js';
-import { crashCourse, DEFAULT_PORT, findLocalPlandeskDir, parseArgs, resolveDataDir, usage } from './args.js';
+import {
+  crashCourse,
+  DEFAULT_PORT,
+  findLocalPlandeskDir,
+  parseArgs,
+  resolveDataDir,
+  usage,
+} from './args.js';
 import { resolveEffectivePort } from './connect-artifacts.js';
 import { runServe, resolveServeRuntime } from './serve.js';
 import { resolveServerConfig, ConfigFileError } from './config.js';
@@ -44,7 +52,13 @@ import {
   openWorkspace,
   WorkspaceNotFoundError,
 } from './workspace.js';
-import { InvalidShareError, SyncUnauthorizedError, SyncUnavailableError } from '@plandesk/api';
+import {
+  createBetterAuth,
+  InvalidShareError,
+  runBetterAuthMigrations,
+  SyncUnauthorizedError,
+  SyncUnavailableError,
+} from '@plandesk/api';
 import { createDb, migrate } from '@plandesk/db';
 
 function reportCorruptDb(): number {
@@ -259,6 +273,14 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         const dbToken = parsed.dbToken ?? cfg.values.dbToken;
         const db = await createDb(dbUrl, dbToken);
         await migrate(db);
+        const auth = createBetterAuth({
+          client: db.$client,
+          secret: cfg.values.sessionSecret ?? randomBytes(32).toString('base64url'),
+          baseURL: cfg.values.baseUrl ?? 'http://127.0.0.1',
+          github: cfg.values.github,
+        });
+        if (auth === undefined) throw new Error('Better-auth migrator secret was not created');
+        await runBetterAuthMigrations(auth);
         process.stdout.write(`Applied migrations to ${dbUrl}\n`);
         return 0;
       } catch (err) {

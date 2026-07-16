@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { createDb, ensureDefaultOrg, migrate } from '@plandesk/db';
 import { openWorkspace, WorkspaceNotFoundError } from './workspace.js';
 
 const tempDirs: string[] = [];
@@ -43,5 +44,25 @@ describe('openWorkspace on a missing database', () => {
       /connect binding \(http:\/\/127\.0\.0\.1:3456\)/,
     );
     expect(existsSync(join(dataDir, 'workspace.db'))).toBe(false);
+  });
+});
+
+describe('openWorkspace migrations', () => {
+  it('creates Better Auth tables for an existing pre-identity workspace', async () => {
+    const dataDir = makeTempDir();
+    const dbPath = join(dataDir, 'workspace.db');
+    const legacyDb = await createDb(dbPath);
+    await migrate(legacyDb);
+    await ensureDefaultOrg(legacyDb);
+    legacyDb.$client.close();
+
+    const { db } = await openWorkspace(dataDir);
+    const tables = await db.$client.execute(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('organization', 'user', 'account')",
+    );
+    expect(new Set(tables.rows.map((row) => row.name))).toEqual(
+      new Set(['account', 'organization', 'user']),
+    );
+    db.$client.close();
   });
 });

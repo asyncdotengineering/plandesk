@@ -1,7 +1,15 @@
 import { createServer, type Server } from 'node:http';
 import { getRequestListener } from '@hono/node-server';
-import { createApp, createServices, createS3Adapter, mountStatic } from '@plandesk/api';
-import { createDb, ensureDefaultOrg, migrate, verifyToken } from '@plandesk/db';
+import {
+  createApp,
+  createBetterAuth,
+  createServices,
+  createS3Adapter,
+  ensureLocalBetterAuthOrganization,
+  mountStatic,
+  runBetterAuthMigrations,
+} from '@plandesk/api';
+import { createDb, migrate, verifyToken } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
 import { resolveServerConfig } from './config.js';
@@ -13,7 +21,7 @@ import {
   reservePort,
   writeServerInfo,
 } from './connect-artifacts.js';
-import { PORT_RANGE_START, PORT_RANGE_END } from './init.js';
+import { ensureLocalBetterAuthSecret, PORT_RANGE_START, PORT_RANGE_END } from './init.js';
 
 export type ServeOptions = {
   port: number;
@@ -70,21 +78,25 @@ export type ServeRuntime = {
  * default. Extracted so the precedence (and "boots from a config file alone",
  * REQ-1/REQ-2) is unit-testable without binding a socket.
  */
-export function resolveServeRuntime(
-  parsed: {
-    port?: number;
-    dataDir?: string;
-    host?: string;
-    strictPort: boolean;
-    configPath?: string;
-  },
-): ServeRuntime {
+export function resolveServeRuntime(parsed: {
+  port?: number;
+  dataDir?: string;
+  host?: string;
+  strictPort: boolean;
+  configPath?: string;
+}): ServeRuntime {
   const dataDir = resolveDataDir(parsed.dataDir);
   const cfg = resolveServerConfig({ configPath: parsed.configPath, dataDir });
   const workspacePort = readWorkspaceJson(dataDir)?.port;
   const port = parsed.port ?? workspacePort ?? cfg.values.port;
   const host = parsed.host ?? cfg.values.host;
-  return { port, host, dataDir: parsed.dataDir, configPath: parsed.configPath, strictPort: parsed.strictPort };
+  return {
+    port,
+    host,
+    dataDir: parsed.dataDir,
+    configPath: parsed.configPath,
+    strictPort: parsed.strictPort,
+  };
 }
 
 export async function startServer(
@@ -109,13 +121,22 @@ export async function startServer(
   const dbPath = workspaceDbPath(dataDir);
   const dbDisplay = dbUrl ?? dbPath;
   const db =
-    dbUrl !== undefined
-      ? await createDb(dbUrl, cfg.values.dbToken)
-      : await createDb(dbPath);
+    dbUrl !== undefined ? await createDb(dbUrl, cfg.values.dbToken) : await createDb(dbPath);
+  const urlHost = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+  const betterAuthBaseURL = cfg.values.baseUrl ?? `http://${urlHost}:${String(options.port)}`;
+  let betterAuthSecret = cfg.values.sessionSecret;
   if (dbUrl === undefined) {
+    betterAuthSecret ??= ensureLocalBetterAuthSecret(dataDir);
     await migrate(db);
-    // Local bootstrap: exactly one default org when none exist (REQ-21).
-    await ensureDefaultOrg(db);
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: betterAuthSecret,
+      baseURL: betterAuthBaseURL,
+      github: cfg.values.github,
+    });
+    if (auth === undefined) throw new Error('Local better-auth secret was not created');
+    await runBetterAuthMigrations(auth);
+    await ensureLocalBetterAuthOrganization(db, auth);
   }
 
   const storage =
@@ -139,6 +160,9 @@ export async function startServer(
     // client id/secret configured, the server simply has no GitHub sign-in
     // (REQ-20) — the supported self-host path, not a degraded one.
     github: cfg.values.github,
+    ...(betterAuthSecret === undefined
+      ? {}
+      : { betterAuth: { secret: betterAuthSecret, baseURL: betterAuthBaseURL } }),
   });
   // Node-only: serve the bundled web SPA from disk. Edge entries use platform assets.
   mountStatic(app);

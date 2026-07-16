@@ -30,7 +30,7 @@
  * `withTransaction` in `@plandesk/db`'s client.ts — so sharing the
  * connection is required for correctness, not just efficiency.
  */
-import { betterAuth, type BetterAuthOptions } from 'better-auth';
+import { betterAuth, type Auth, type BetterAuthOptions } from 'better-auth';
 import { organization, deviceAuthorization } from 'better-auth/plugins';
 import { apiKey } from '@better-auth/api-key';
 import { LibsqlDialect } from '@libsql/kysely-libsql';
@@ -43,39 +43,52 @@ export type BetterAuthDeps = {
   /** Absent secret -> feature is off, still boots (mirrors `github: undefined`). */
   secret: string | undefined;
   baseURL: string;
+  github?: { clientId: string; clientSecret: string };
 };
 
 /**
- * `betterAuth(...)`'s real return type is `Auth<Options>`, generic over the
- * exact plugin/config literal passed in — TS can't print that structurally
- * (it bottoms out in an unnameable internal zod type) in a declaration file.
- * This is the narrow slice this app actually calls: the request handler
- * (mounted in server.ts) and the options object (fed to the runtime
- * migrator below). A real `Auth<Options>` value satisfies both fields.
+ * Erase the exact plugin tuple from the public type so TypeScript can emit a
+ * stable declaration while retaining the handler, adapter context, and API.
  */
-export type BetterAuthInstance = {
-  handler: (request: Request) => Promise<Response>;
-  options: BetterAuthOptions;
-};
+export type BetterAuthInstance = Auth;
 
 /** Absent secret -> undefined, the supported no-auth-mounted state (REQ-5). */
 export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | undefined {
   if (deps.secret === undefined || deps.secret.length === 0) {
     return undefined;
   }
-  return betterAuth({
+  const options: BetterAuthOptions = {
     database: { dialect: new LibsqlDialect({ client: deps.client }), type: 'sqlite' },
     secret: deps.secret,
     baseURL: deps.baseURL,
-    plugins: [organization({ ac, roles: { owner, admin, member } }), apiKey(), deviceAuthorization()],
-  });
+    emailAndPassword: { enabled: true, disableSignUp: true },
+    account: {
+      accountLinking: {
+        enabled: true,
+        requireLocalEmailVerified: true,
+        trustedProviders: ['github'],
+      },
+    },
+    ...(deps.github === undefined
+      ? {}
+      : {
+          socialProviders: {
+            github: { clientId: deps.github.clientId, clientSecret: deps.github.clientSecret },
+          },
+        }),
+    plugins: [
+      organization({ ac, roles: { owner, admin, member } }),
+      apiKey(),
+      deviceAuthorization(),
+    ],
+  };
+  return betterAuth(options);
 }
 
 /**
- * Create better-auth's 9 tables against the shared connection. Never called
- * from request-serving code in this slice — only tests and, later, an
- * explicit ops step call this, the same way `@plandesk/db`'s `migrate` is
- * opt-in rather than run on every request.
+ * Create better-auth's 9 tables against the shared connection. Node CLI boot
+ * and operator migration paths call this explicitly; edge request handlers do
+ * not migrate.
  */
 export async function runBetterAuthMigrations(auth: BetterAuthInstance): Promise<void> {
   const { getMigrations } = await import('better-auth/db/migration');

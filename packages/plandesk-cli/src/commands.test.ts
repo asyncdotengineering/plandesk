@@ -1,7 +1,13 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createDb, createProjectInDefaultOrg as createProject, exportProject, getProject, PLANDESK_EXPORT_VERSION } from '@plandesk/db';
+import {
+  createDb,
+  createProjectInDefaultOrg as createProject,
+  exportProject,
+  getProject,
+  PLANDESK_EXPORT_VERSION,
+} from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs, workspaceDbPath } from './args.js';
@@ -416,12 +422,27 @@ describe('CLI export/import/doctor', () => {
     expect(stdout).toContain('Applied migrations');
 
     const db = await createDb(dbFile);
-    const result = await db.$client.execute(
-      "SELECT name FROM sqlite_master WHERE type='table'",
-    );
+    const result = await db.$client.execute("SELECT name FROM sqlite_master WHERE type='table'");
     const names = result.rows.map((row) => String(row.name));
     expect(names).toContain('projects');
     expect(names).toContain('__drizzle_migrations');
+  });
+
+  it('migrate --db also creates the Better Auth identity tables (REQ-6, REQ-23)', async () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'plandesk-migrate-auth-'));
+    tempDirs.push(tmp);
+    const dbFile = join(tmp, 'migrated.db');
+    const { code } = await captureIo(() => main(['node', 'plandesk', 'migrate', '--db', dbFile]));
+    expect(code).toBe(0);
+
+    const db = await createDb(dbFile);
+    const result = await db.$client.execute(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('organization', 'user', 'account')",
+    );
+    expect(new Set(result.rows.map((row) => row.name))).toEqual(
+      new Set(['account', 'organization', 'user']),
+    );
+    db.$client.close();
   });
 
   it('migrate exits 1 with a clear message when no database url is configured', async () => {
@@ -475,7 +496,13 @@ describe('preview command dispatch', () => {
   it('parses the explicit open subcommand with paths and flags', async () => {
     expect(
       parseArgs(['node', 'plandesk', 'open', 'a.md', 'b.html', '--port', '4000', '--no-open']),
-    ).toEqual({ command: 'preview', paths: ['a.md', 'b.html'], port: 4000, host: undefined, open: false });
+    ).toEqual({
+      command: 'preview',
+      paths: ['a.md', 'b.html'],
+      port: 4000,
+      host: undefined,
+      open: false,
+    });
   });
 
   it('treats preview and annotate as aliases of open', async () => {

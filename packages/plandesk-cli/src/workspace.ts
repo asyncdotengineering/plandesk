@@ -1,7 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import {
+  createBetterAuth,
+  ensureLocalBetterAuthOrganization,
+  runBetterAuthMigrations,
+} from '@plandesk/api';
 import { createDb, migrate, type Db } from '@plandesk/db';
 import { resolveDataDir, workspaceDbPath } from './args.js';
+import { ensureLocalBetterAuthSecret } from './init.js';
 
 export const CORRUPT_DB_HINT =
   'Database appears corrupt or unreadable. Run `plandesk doctor` to diagnose.';
@@ -81,6 +87,14 @@ export async function openWorkspace(dataDirOverride?: string): Promise<{
   try {
     const db = await createDb(dbPath);
     await migrate(db);
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: ensureLocalBetterAuthSecret(dataDir),
+      baseURL: 'http://127.0.0.1',
+    });
+    if (auth === undefined) throw new Error('Local better-auth secret was not created');
+    await runBetterAuthMigrations(auth);
+    await ensureLocalBetterAuthOrganization(db, auth);
     return { db, dataDir, dbPath };
   } catch (err) {
     if (isDbCorruptionError(err)) {

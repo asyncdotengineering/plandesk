@@ -1,5 +1,10 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import {
+  createBetterAuth,
+  ensureLocalBetterAuthOrganization,
+  runBetterAuthMigrations,
+} from '@plandesk/api';
 import { createDb, migrate, type Db } from '@plandesk/db';
 import { resolveDataDir, workspaceDbPath } from './args.js';
 import { formatConfigForDoctor, resolveServerConfig, type ResolvedServerConfig } from './config.js';
@@ -10,6 +15,7 @@ import {
 } from './binding-doctor.js';
 import { CURATOR_DIR, CURATOR_TEMPLATES } from './curator-templates.js';
 import { CorruptWorkspaceError, isDbCorruptionError } from './workspace.js';
+import { ensureLocalBetterAuthSecret } from './init.js';
 
 const EXPECTED_TABLES = [
   'projects',
@@ -134,6 +140,15 @@ export async function runDoctor(
   try {
     db = await createDb(dbPath);
     await migrate(db);
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: config.values.sessionSecret ?? ensureLocalBetterAuthSecret(dataDir),
+      baseURL: config.values.baseUrl ?? 'http://127.0.0.1',
+      github: config.values.github,
+    });
+    if (auth === undefined) throw new Error('Local better-auth secret was not created');
+    await runBetterAuthMigrations(auth);
+    await ensureLocalBetterAuthOrganization(db, auth);
   } catch (err) {
     if (isDbCorruptionError(err)) {
       throw new CorruptWorkspaceError();
