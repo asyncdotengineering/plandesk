@@ -44,9 +44,9 @@ export type AppDeps = {
    */
   github?: GithubConfig;
   /**
-   * better-auth foundation (migration slice 1/6) — mirrors `github`: omit it
-   * and /api/auth/* simply 404s, same as before this existed. Nothing in
-   * this app reads from better-auth yet; every existing route is untouched.
+   * better-auth (GitHub sign-in + session). Omit and /api/auth/* 404s;
+   * when set, org middleware recognizes better-auth session cookies as
+   * AuthContext kind session (hand-rolled session path remains).
    */
   betterAuth?: { secret: string; baseURL: string };
 };
@@ -74,8 +74,27 @@ export function createApp(deps: AppDeps): Hono {
   const bindHost = deps.bindHost ?? '127.0.0.1';
   const app = new Hono();
 
-  // Always-on org resolution (token or loopback single-org).
-  app.use('*', createOrgAuthMiddleware({ db: deps.db, bindHost }));
+  // Create better-auth before org middleware so the same instance is recognized
+  // by AuthContext and mounted at /api/auth/* (BA4a session recognition).
+  const betterAuthInstance =
+    deps.betterAuth !== undefined
+      ? createBetterAuth({
+          client: deps.db.$client,
+          secret: deps.betterAuth.secret,
+          baseURL: deps.betterAuth.baseURL,
+          github: deps.github,
+        })
+      : undefined;
+
+  // Always-on org resolution (token, better-auth session, hand-rolled session, or loopback).
+  app.use(
+    '*',
+    createOrgAuthMiddleware({
+      db: deps.db,
+      bindHost,
+      betterAuth: betterAuthInstance,
+    }),
+  );
   app.use('*', createWriteGuardMiddleware());
 
   if (deps.authPassword !== undefined && deps.authPassword.length > 0) {
@@ -123,21 +142,9 @@ export function createApp(deps: AppDeps): Hono {
     app.route('/mcp', deps.mcp);
   }
 
-  // Foundation only (migration slice 1/6) — nothing issues requests here yet.
   // Mounted at /api/auth/*, one segment away from the existing /api/v1/auth/*
-  // (routes/auth.ts) so it can never shadow it. It still passes through the
-  // global org-auth/write-guard middleware above like every other route;
-  // teaching that middleware about better-auth's own endpoints is later-slice
-  // work, not this one.
-  const betterAuthInstance =
-    deps.betterAuth !== undefined
-      ? createBetterAuth({
-          client: deps.db.$client,
-          secret: deps.betterAuth.secret,
-          baseURL: deps.betterAuth.baseURL,
-          github: deps.github,
-        })
-      : undefined;
+  // (routes/auth.ts) so it can never shadow it. /api/auth/* is public so a
+  // stranger can reach sign-in without a plandesk credential first (BA4a).
   if (betterAuthInstance) {
     app.on(['GET', 'POST'], '/api/auth/*', (c) => betterAuthInstance.handler(c.req.raw));
   }

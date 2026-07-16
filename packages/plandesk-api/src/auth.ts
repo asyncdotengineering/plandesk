@@ -11,6 +11,8 @@ import {
   type TokenScope,
 } from '@plandesk/db';
 import { runWithAuthContext, tryGetAuthContext, type AuthContext } from './auth-context.js';
+import type { BetterAuthInstance } from './better-auth.js';
+import { userRefFromGithubAccountId } from './identity.js';
 import {
   effectivePermission,
   hasAnyWritePermission,
@@ -22,6 +24,7 @@ import { readSessionCookie } from './session.js';
 const BASIC_PREFIX = 'Basic ';
 const BASIC_USER = 'plandesk';
 const BEARER_PREFIX = 'Bearer ';
+const GITHUB_PROVIDER_ID = 'github';
 
 /** Optional actor for member-role resolution (does not elevate; only restricts). */
 export const USER_REF_HEADER = 'X-Plandesk-User-Ref';
@@ -29,6 +32,19 @@ export const USER_REF_HEADER = 'X-Plandesk-User-Ref';
 export type AppVariables = {
   orgId: string;
   tokenScope: TokenScope;
+};
+
+type BetterAuthAccountRow = {
+  accountId: string;
+  providerId: string;
+  userId: string;
+};
+
+type BetterAuthMemberRow = {
+  organizationId: string;
+  userId: string;
+  role: string;
+  createdAt: Date;
 };
 
 function decodeBasicAuth(header: string): Buffer | undefined {
@@ -67,7 +83,92 @@ export type OrgAuthOptions = {
   db: Db;
   /** Server bind address. Loopback default-org only when this is loopback. */
   bindHost: string;
+  /**
+   * better-auth instance when configured. Session cookies issued by better-auth
+   * are recognized here; omit and only token / hand-rolled session / loopback apply.
+   */
+  betterAuth?: BetterAuthInstance;
 };
+
+/**
+ * BA2 better-auth ladder roles → plandesk OrgRole for AuthContext + permission sets.
+ * member → editor, admin → manager (BA3b permission-set equivalence).
+ */
+function betterAuthRoleToOrgRole(role: string): OrgRole | undefined {
+  switch (role) {
+    case 'owner':
+      return 'owner';
+    case 'admin':
+      return 'manager';
+    case 'member':
+      return 'editor';
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Resolve a better-auth session into AuthContext.
+ * - null session → undefined (caller falls through to hand-rolled / loopback)
+ * - session but no org membership → 'unauthorized' (authenticated-but-org-less)
+ * - session + membership → AuthContext kind session
+ */
+async function resolveBetterAuthSessionContext(
+  auth: BetterAuthInstance,
+  headers: Headers,
+): Promise<AuthContext | 'unauthorized' | undefined> {
+  const session = await auth.api.getSession({ headers });
+  if (session === null) {
+    return undefined;
+  }
+
+  const adapter = (await auth.$context).adapter;
+  const userId = session.user.id;
+
+  const members = await adapter.findMany<BetterAuthMemberRow>({
+    model: 'member',
+    where: [{ field: 'userId', value: userId }],
+    sortBy: { field: 'createdAt', direction: 'asc' },
+  });
+  // Membership revoked or never granted: cookie carries no org authority.
+  if (members.length === 0) {
+    return 'unauthorized';
+  }
+
+  const active = members[0];
+  if (active === undefined) {
+    return 'unauthorized';
+  }
+  const role = betterAuthRoleToOrgRole(active.role);
+  if (role === undefined) {
+    return 'unauthorized';
+  }
+
+  const account = await adapter.findOne<BetterAuthAccountRow>({
+    model: 'account',
+    where: [
+      { field: 'userId', value: userId },
+      { field: 'providerId', value: GITHUB_PROVIDER_ID },
+    ],
+  });
+  if (account === null) {
+    return 'unauthorized';
+  }
+  let userRef: string;
+  try {
+    userRef = userRefFromGithubAccountId(account.accountId);
+  } catch {
+    return 'unauthorized';
+  }
+
+  return {
+    kind: 'session',
+    orgId: active.organizationId,
+    userRef,
+    role,
+    permission: orgRoleToPermissionSet(role),
+  };
+}
 
 /**
  * Resolve member role for this request.
@@ -96,8 +197,9 @@ async function resolveMemberRole(
 /**
  * Endpoints that must answer before the caller holds a credential: the OAuth
  * entry/callback (GitHub sends the browser here with no cookie), the method
- * probe the sign-in UI reads, and logout (which authenticates itself off the
- * cookie it is destroying).
+ * probe the sign-in UI reads, logout (which authenticates itself off the
+ * cookie it is destroying), and better-auth's own sign-in surface at /api/auth/*
+ * (chicken-and-egg: cannot require a token to obtain one).
  */
 const PUBLIC_AUTH_PATHS = new Set([
   '/api/v1/auth/github',
@@ -106,10 +208,15 @@ const PUBLIC_AUTH_PATHS = new Set([
   '/api/v1/auth/device/start',
   '/api/v1/auth/device/poll',
   '/api/v1/auth/logout',
+  '/api/auth/*',
 ]);
 
 export function isPublicAuthPath(path: string): boolean {
-  return PUBLIC_AUTH_PATHS.has(path);
+  if (PUBLIC_AUTH_PATHS.has(path)) {
+    return true;
+  }
+  // better-auth mounts under /api/auth/*; the set holds the prefix pattern.
+  return path === '/api/auth' || path.startsWith('/api/auth/');
 }
 
 /**
@@ -127,15 +234,16 @@ export function isPublicShareReadPath(path: string): boolean {
 /**
  * Always-on org resolver for every request:
  * 1. Bearer token → token.orgId + effective permission
- * 2. else session cookie → session.orgId + the member's role
- * 3. else loopback bind + single-org → default org as owner (local, zero friction)
- * 4. else 401
+ * 2. else better-auth session cookie → active org + member role (when configured)
+ * 3. else hand-rolled session cookie → session.orgId + the member's role
+ * 4. else loopback bind + single-org → default org as owner (local, zero friction)
+ * 5. else 401
  *
  * Every branch yields the same `{ orgId, permission }`, so services downstream
  * are identical for a browser, the CLI, and an agent.
  */
 export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHandler {
-  const { db, bindHost } = options;
+  const { db, bindHost, betterAuth } = options;
 
   return async (c, next) => {
     if (isPublicAuthPath(c.req.path) || isPublicShareReadPath(c.req.path)) {
@@ -164,6 +272,19 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
         await next();
       });
       return;
+    }
+
+    if (betterAuth !== undefined) {
+      const betterAuthCtx = await resolveBetterAuthSessionContext(betterAuth, c.req.raw.headers);
+      if (betterAuthCtx === 'unauthorized') {
+        return c.json({ error: 'unauthorized' }, 401);
+      }
+      if (betterAuthCtx !== undefined) {
+        await runWithAuthContext(betterAuthCtx, async () => {
+          await next();
+        });
+        return;
+      }
     }
 
     const sessionToken = readSessionCookie(c);
