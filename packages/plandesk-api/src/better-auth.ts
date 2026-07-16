@@ -35,6 +35,7 @@ import { organization, deviceAuthorization } from 'better-auth/plugins';
 import { apiKey } from '@better-auth/api-key';
 import { LibsqlDialect } from '@libsql/kysely-libsql';
 import type { Client } from '@plandesk/db';
+import { ac, admin, member, owner } from './access-control.js';
 
 export type BetterAuthDeps = {
   /** The app's existing libSQL connection — shared, never a second one. */
@@ -66,7 +67,7 @@ export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | und
     database: { dialect: new LibsqlDialect({ client: deps.client }), type: 'sqlite' },
     secret: deps.secret,
     baseURL: deps.baseURL,
-    plugins: [organization(), apiKey(), deviceAuthorization()],
+    plugins: [organization({ ac, roles: { owner, admin, member } }), apiKey(), deviceAuthorization()],
   });
 }
 
