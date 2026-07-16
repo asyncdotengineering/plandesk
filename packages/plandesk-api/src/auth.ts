@@ -148,6 +148,9 @@ async function resolveBetterAuthSessionContext(
     return 'unauthorized';
   }
 
+  // GitHub-linked users keep github:<id> as the stable ref (BA4a).
+  // Password-only members (invite bootstrap, no GitHub app — REQ-20 / BA3c)
+  // use user:<better-auth user id> so they can hold a session AuthContext.
   const account = await adapter.findOne<BetterAuthAccountRow>({
     model: 'account',
     where: [
@@ -155,14 +158,15 @@ async function resolveBetterAuthSessionContext(
       { field: 'providerId', value: GITHUB_PROVIDER_ID },
     ],
   });
-  if (account === null) {
-    return 'unauthorized';
-  }
   let userRef: string;
-  try {
-    userRef = userRefFromGithubAccountId(account.accountId);
-  } catch {
-    return 'unauthorized';
+  if (account !== null) {
+    try {
+      userRef = userRefFromGithubAccountId(account.accountId);
+    } catch {
+      return 'unauthorized';
+    }
+  } else {
+    userRef = `user:${userId}`;
   }
 
   return {
@@ -295,12 +299,23 @@ const PUBLIC_AUTH_PATHS = new Set([
   '/api/auth/*',
 ]);
 
+/** Invitation accept: invitee may have a session but zero org memberships yet. */
+const INVITATION_ACCEPT_PATH = /^\/api\/v1\/invitations\/[^/]+\/accept$/;
+
+export function isInvitationAcceptPath(path: string): boolean {
+  return INVITATION_ACCEPT_PATH.test(path);
+}
+
 export function isPublicAuthPath(path: string): boolean {
   if (PUBLIC_AUTH_PATHS.has(path)) {
     return true;
   }
   // better-auth mounts under /api/auth/*; the set holds the prefix pattern.
-  return path === '/api/auth' || path.startsWith('/api/auth/');
+  if (path === '/api/auth' || path.startsWith('/api/auth/')) {
+    return true;
+  }
+  // BA3c: accept is session-checked in-handler, not org-gated.
+  return isInvitationAcceptPath(path);
 }
 
 /**

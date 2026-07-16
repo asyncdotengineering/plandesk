@@ -16,6 +16,13 @@ import {
   type TokenScope,
 } from '@plandesk/db';
 import { getAuthContext } from '../auth-context.js';
+import type { BetterAuthInstance } from '../better-auth.js';
+import {
+  acceptOrganizationInvitation,
+  createOrganizationInvitation,
+  isAuthApiError,
+  isInvitationRole,
+} from '../invitations.js';
 import { requirePermission } from '../permissions.js';
 
 function isOrgRole(value: string): value is OrgRole {
@@ -25,6 +32,12 @@ function isOrgRole(value: string): value is OrgRole {
 function isTokenScope(value: string): value is TokenScope {
   return (tokenScopes as readonly string[]).includes(value);
 }
+
+export type OrgsRouterOptions = {
+  betterAuth?: BetterAuthInstance;
+  /** Base URL for claim links returned from invitations (no trailing slash required). */
+  baseURL?: string;
+};
 
 /**
  * There is deliberately no `POST /orgs`.
@@ -42,8 +55,10 @@ function isTokenScope(value: string): value is TokenScope {
  * identity the server is supposed to resolve. Removing the route closes both; a limit
  * would only have capped how far they went.
  */
-export function createOrgsRouter(db: Db): Hono {
+export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono {
   const router = new Hono();
+  const betterAuth = options.betterAuth;
+  const baseURL = options.baseURL ?? 'http://127.0.0.1';
 
   router.post('/orgs/:id/tokens', async (c) => {
     const orgId = c.req.param('id');
@@ -150,6 +165,115 @@ export function createOrgsRouter(db: Db): Hono {
         created_at: m.createdAt.toISOString(),
       })),
     );
+  });
+
+  /**
+   * BA3c: invite by email (link-only, no mailer). Session owner only
+   * (member:create). Returns claimUrl for the inviter to deliver by hand.
+   */
+  router.post('/orgs/:id/invitations', async (c) => {
+    const orgId = c.req.param('id');
+    const org = await getOrg(db, orgId);
+    if (!org) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    const authCtx = getAuthContext();
+    if (authCtx.orgId !== orgId) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    // Session owner only — token/loopback cannot drive better-auth createInvitation.
+    if (authCtx.kind !== 'session') {
+      return c.json({ error: 'forbidden' }, 403);
+    }
+    requirePermission(authCtx, 'member', 'create');
+
+    if (betterAuth === undefined) {
+      return c.json({ error: 'unavailable' }, 503);
+    }
+
+    const body = await c.req.json<{ email?: string; role?: string }>();
+    if (typeof body.email !== 'string' || body.email.trim() === '') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (typeof body.role !== 'string' || !isInvitationRole(body.role)) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+
+    try {
+      const created = await createOrganizationInvitation(betterAuth, {
+        email: body.email,
+        role: body.role,
+        organizationId: orgId,
+        headers: c.req.raw.headers,
+        baseURL,
+      });
+      return c.json(
+        {
+          invitationId: created.invitationId,
+          claimUrl: created.claimUrl,
+        },
+        201,
+      );
+    } catch (err) {
+      if (isAuthApiError(err)) {
+        if (err.statusCode === 403 || err.status === 'FORBIDDEN') {
+          return c.json({ error: 'forbidden' }, 403);
+        }
+        return c.json({ error: 'invalid_argument', message: err.message }, 400);
+      }
+      throw err;
+    }
+  });
+
+  /**
+   * BA3c: accept invitation. Session-gated at the handler (public path so
+   * org-less invitees can reach it); not org-gated. Single-use → 410 on retry.
+   */
+  router.post('/invitations/:invitationId/accept', async (c) => {
+    if (betterAuth === undefined) {
+      return c.json({ error: 'unavailable' }, 503);
+    }
+    const invitationId = c.req.param('invitationId');
+    if (invitationId.trim() === '') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+
+    const session = await betterAuth.api.getSession({ headers: c.req.raw.headers });
+    if (session === null) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+
+    try {
+      const result = await acceptOrganizationInvitation(betterAuth, {
+        invitationId,
+        headers: c.req.raw.headers,
+      });
+      return c.json(
+        {
+          invitationId: result.invitation.id,
+          organizationId: result.member.organizationId,
+          role: result.member.role,
+          userId: result.member.userId,
+        },
+        200,
+      );
+    } catch (err) {
+      if (isAuthApiError(err)) {
+        // Already accepted / expired / missing → single-use CAS failure.
+        if (
+          err.statusCode === 400 ||
+          err.status === 'BAD_REQUEST' ||
+          err.message.toLowerCase().includes('invitation')
+        ) {
+          return c.json({ error: 'gone', message: err.message }, 410);
+        }
+        if (err.statusCode === 403 || err.status === 'FORBIDDEN') {
+          return c.json({ error: 'forbidden' }, 403);
+        }
+        return c.json({ error: 'invalid_argument', message: err.message }, 400);
+      }
+      throw err;
+    }
   });
 
   // Promote a portable export into this org (one-way authority handoff).

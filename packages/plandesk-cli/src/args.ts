@@ -115,6 +115,7 @@ const RESERVED_COMMANDS = new Set([
   'serve',
   'url',
   'token',
+  'admin',
   'export',
   'import',
   'connect',
@@ -154,6 +155,7 @@ export type ParsedArgs =
   | { command: 'serve'; port?: number; dataDir?: string; host?: string; strictPort: boolean; configPath?: string }
   | { command: 'url'; repoDir?: string; lan: boolean }
   | { command: 'token'; subcommand: 'create'; name: string; dataDir?: string }
+  | { command: 'admin'; subcommand: 'invite-owner'; email: string; dataDir?: string }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
   | {
@@ -342,6 +344,18 @@ export function parseArgs(argv: string[]): ParsedArgs {
     return { command: 'unknown', name: command };
   }
 
+  if (command === 'admin') {
+    const subcommand = positional[1];
+    if (subcommand === 'invite-owner') {
+      const email = flagString(flags, 'email');
+      if (email === undefined || email.trim() === '') {
+        return { command: 'unknown', name: 'admin invite-owner (missing --email)' };
+      }
+      return { command: 'admin', subcommand: 'invite-owner', email, dataDir };
+    }
+    return { command: 'unknown', name: command };
+  }
+
   if (command === 'export') {
     const projectId = flagString(flags, 'project');
     const outPath = flagString(flags, 'out');
@@ -500,6 +514,7 @@ Usage:
   plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>] [--config <file>]
   plandesk url [--repo <dir>] [--lan]
   plandesk token create --name <name> [--data-dir <dir>]
+  plandesk admin invite-owner --email <email> [--data-dir <dir>]  # self-host first owner (no GitHub)
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]
   plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]

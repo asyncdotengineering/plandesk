@@ -19,6 +19,11 @@ import { resolveServerConfig, ConfigFileError } from './config.js';
 import { runLogin, runLogout, runWhoami } from './login.js';
 import { runPreview } from './preview.js';
 import { runTokenCreate } from './token.js';
+import {
+  AdminInviteOwnerError,
+  formatAdminInviteOwnerSummary,
+  runAdminInviteOwner,
+} from './admin.js';
 import { runExport, ProjectNotFoundError } from './export.js';
 import { runImport, InvalidImportFileError } from './import.js';
 import { formatDoctorReport, runDoctor } from './doctor.js';
@@ -175,6 +180,30 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         }
         throw err;
       }
+    }
+    case 'admin': {
+      if (parsed.subcommand === 'invite-owner') {
+        try {
+          const { db, dataDir } = await openWorkspace(parsed.dataDir);
+          const result = await runAdminInviteOwner(db, {
+            email: parsed.email,
+            dataDir,
+          });
+          process.stdout.write(`${formatAdminInviteOwnerSummary(result)}\n`);
+          return 0;
+        } catch (err) {
+          if (err instanceof CorruptWorkspaceError) {
+            return reportCorruptDb();
+          }
+          if (err instanceof AdminInviteOwnerError) {
+            process.stderr.write(`${err.message}\n`);
+            return 1;
+          }
+          throw err;
+        }
+      }
+      process.stderr.write(`Unknown admin subcommand\n`);
+      return 1;
     }
     case 'export': {
       try {

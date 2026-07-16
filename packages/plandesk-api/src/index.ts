@@ -12,8 +12,23 @@ export {
   createWriteGuardMiddleware,
   isLoopbackBind,
   isPublicAuthPath,
+  isInvitationAcceptPath,
   type OrgAuthOptions,
 } from './auth.js';
+export {
+  acceptOrganizationInvitation,
+  createOrganizationInvitation,
+  ensureShellOwner,
+  invitationClaimUrl,
+  isAuthApiError,
+  isInvitationRole,
+  mintOwnerInvitation,
+  mintSessionCookieHeader,
+  removeOrganizationMember,
+  updateOrganizationMemberRole,
+  INVITATION_ROLES,
+  type InvitationRole,
+} from './invitations.js';
 export {
   authorizeUrl,
   githubConfigFromEnv,
