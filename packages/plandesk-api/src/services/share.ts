@@ -1,7 +1,10 @@
 import {
+  countRecentSubmissionsByParticipant,
   createGuestSession,
+  createGuestSubmission,
   createShare as dbCreateShare,
   getDocument,
+  getGuestSessionById,
   getProject,
   getShare as dbGetShare,
   getShareByTokenHashRaw,
@@ -9,6 +12,7 @@ import {
   hashShareToken,
   listDocuments,
   listShares as dbListShares,
+  listSubmissionsByShareAndParticipant,
   parseSharePermissions,
   parseSharePolicy,
   revokeShare as dbRevokeShare,
@@ -21,6 +25,9 @@ import { getAuthContext } from '../auth-context.js';
 import { buildClientView, type ClientView, type SharePolicy } from '../projection.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
+
+const GUEST_SUBMIT_RATE_LIMIT = 10;
+const GUEST_SUBMIT_RATE_WINDOW_MS = 60_000;
 
 export class InvalidShareError extends Error {
   constructor(message: string) {
@@ -114,6 +121,32 @@ export type JoinShareResult =
   | { status: 'unauthorized' }
   | { status: 'name_required' }
   | { status: 'email_not_invited' };
+
+export type GuestSubmission = {
+  id: string;
+  title: string;
+  severity: string | null;
+  status: string;
+  created_at: string;
+};
+
+export type SubmitIssueInput = {
+  title: string;
+  body?: string;
+  severity?: string;
+  task_ref?: string;
+};
+
+export type SubmitIssueResult =
+  | { status: 'ok'; submission: GuestSubmission }
+  | { status: 'unauthorized' }
+  | { status: 'submit_not_permitted' }
+  | { status: 'title_required' }
+  | { status: 'rate_limited' };
+
+export type ListMySubmissionsResult =
+  | { status: 'ok'; submissions: GuestSubmission[] }
+  | { status: 'unauthorized' };
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -493,6 +526,108 @@ export function createShareService(deps: ShareServiceDeps) {
       }
 
       return buildClientView(db, share.projectId, share);
+    },
+
+    // Guest moderated inbox: write a pending share_submissions row the owner
+    // lists/triages on the same server (no cross-server hop).
+    async submitIssue(token: string, input: SubmitIssueInput): Promise<SubmitIssueResult> {
+      const auth = getAuthContext();
+      if (auth.kind !== 'guest') {
+        return { status: 'unauthorized' };
+      }
+
+      const share = await getShareByTokenHashRaw(db, hashShareToken(token));
+      if (!share || !isShareLive(share)) {
+        return { status: 'unauthorized' };
+      }
+      if (share.id !== auth.shareId || share.projectId !== auth.projectId) {
+        return { status: 'unauthorized' };
+      }
+
+      const permissions = parseSharePermissions(share);
+      if (permissions.submit !== true) {
+        return { status: 'submit_not_permitted' };
+      }
+
+      const title = input.title.trim();
+      if (title === '') {
+        return { status: 'title_required' };
+      }
+
+      const guest = await getGuestSessionById(db, auth.guestSessionId);
+      if (guest === undefined || guest.shareId !== share.id) {
+        return { status: 'unauthorized' };
+      }
+
+      const recent = await countRecentSubmissionsByParticipant(db, {
+        hostedShareId: share.id,
+        participantName: guest.name,
+        since: new Date(Date.now() - GUEST_SUBMIT_RATE_WINDOW_MS),
+      });
+      if (recent >= GUEST_SUBMIT_RATE_LIMIT) {
+        return { status: 'rate_limited' };
+      }
+
+      const bodyText = input.body?.trim() === '' ? null : (input.body?.trim() ?? null);
+      const severity = input.severity?.trim() === '' ? null : (input.severity?.trim() ?? null);
+      const taskRef = input.task_ref?.trim() === '' ? null : (input.task_ref?.trim() ?? null);
+
+      const row = await createGuestSubmission(db, {
+        projectId: share.projectId,
+        hostedShareId: share.id,
+        participantName: guest.name,
+        title,
+        body: bodyText,
+        severity,
+        taskRef,
+      });
+
+      return {
+        status: 'ok',
+        submission: {
+          id: row.id,
+          title: row.title,
+          severity: row.severity,
+          status: row.status,
+          created_at: row.createdAt.toISOString(),
+        },
+      };
+    },
+
+    async listMySubmissions(token: string): Promise<ListMySubmissionsResult> {
+      const auth = getAuthContext();
+      if (auth.kind !== 'guest') {
+        return { status: 'unauthorized' };
+      }
+
+      const share = await getShareByTokenHashRaw(db, hashShareToken(token));
+      if (!share || !isShareLive(share)) {
+        return { status: 'unauthorized' };
+      }
+      if (share.id !== auth.shareId || share.projectId !== auth.projectId) {
+        return { status: 'unauthorized' };
+      }
+
+      const guest = await getGuestSessionById(db, auth.guestSessionId);
+      if (guest === undefined || guest.shareId !== share.id) {
+        return { status: 'unauthorized' };
+      }
+
+      const rows = await listSubmissionsByShareAndParticipant(db, {
+        hostedShareId: share.id,
+        participantName: guest.name,
+      });
+
+      return {
+        status: 'ok',
+        submissions: rows.map((row) => ({
+          id: row.id,
+          title: row.title,
+          severity: row.severity,
+          status: row.status,
+          created_at: row.createdAt.toISOString(),
+        })),
+      };
     },
   };
 }

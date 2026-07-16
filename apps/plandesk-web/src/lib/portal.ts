@@ -36,9 +36,7 @@ type PortalViewResponse = ClientView & {
   permissions?: { read: boolean; submit: boolean };
 };
 
-const SYNC_BASE = import.meta.env.VITE_SYNC_URL ?? '';
-
-/** API base for join/meta/view (plandesk-api). Empty = same origin (dev proxy / prod). */
+/** API base for portal join/meta/view/submissions (plandesk-api). Empty = same origin. */
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 function portalSessionKey(shareToken: string): string {
@@ -240,7 +238,7 @@ export async function submitIssue(
   input: { title: string; body?: string; severity?: string; task_ref?: string },
 ): Promise<PortalSubmission> {
   const response = await fetch(
-    `${SYNC_BASE}/api/portal/v1/shares/${encodeURIComponent(shareToken)}/submissions`,
+    `${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/submissions`,
     {
       method: 'POST',
       headers: {
@@ -284,7 +282,7 @@ export async function listMySubmissions(
   sessionToken: string,
 ): Promise<PortalSubmission[]> {
   const response = await fetch(
-    `${SYNC_BASE}/api/portal/v1/shares/${encodeURIComponent(shareToken)}/submissions`,
+    `${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/submissions`,
     {
       headers: { Authorization: `Bearer ${sessionToken}` },
     },

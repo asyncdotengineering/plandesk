@@ -333,15 +333,18 @@ export function isPublicShareReadPath(path: string): boolean {
   return PUBLIC_SHARE_PATH.test(path);
 }
 
-/** Guest-gated portal view: /api/v1/share/:token/view */
-const SHARE_GUEST_VIEW_PATH = /^\/api\/v1\/share\/([^/]+)\/view$/;
+/**
+ * Guest-gated portal surfaces: view + submissions (list/submit).
+ * Never fall through to loopback/org auth — that would re-open the pre-join bypass.
+ */
+const SHARE_GUEST_PATH = /^\/api\/v1\/share\/([^/]+)\/(view|submissions)$/;
 
 export function isShareGuestViewPath(path: string): boolean {
-  return SHARE_GUEST_VIEW_PATH.test(path);
+  return SHARE_GUEST_PATH.test(path);
 }
 
 export function extractShareTokenFromViewPath(path: string): string | undefined {
-  const match = SHARE_GUEST_VIEW_PATH.exec(path);
+  const match = SHARE_GUEST_PATH.exec(path);
   return match?.[1];
 }
 
@@ -548,13 +551,24 @@ export function createAuthMiddleware(password: string): MiddlewareHandler {
  * Reject pure read-only callers (viewer / read-only token) on write HTTP methods.
  * Finer roles (commenter vs editor) are enforced in services via requirePermission.
  */
+/** Guest may POST only moderated submissions for their share (BA6b). */
+const SHARE_GUEST_SUBMIT_PATH = /^\/api\/v1\/share\/[^/]+\/submissions$/;
+
 export function createWriteGuardMiddleware(): MiddlewareHandler {
   return async (c, next) => {
     const method = c.req.method.toUpperCase();
     if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
       const ctx = tryGetAuthContext();
       if (ctx !== undefined) {
-        if (ctx.kind === 'guest' || !hasAnyWritePermission(ctx.permission)) {
+        if (ctx.kind === 'guest') {
+          // Moderated inbox only — every other write stays forbidden for guests.
+          if (method === 'POST' && SHARE_GUEST_SUBMIT_PATH.test(c.req.path)) {
+            await next();
+            return;
+          }
+          return c.json({ error: 'forbidden' }, 403);
+        }
+        if (!hasAnyWritePermission(ctx.permission)) {
           return c.json({ error: 'forbidden' }, 403);
         }
       }

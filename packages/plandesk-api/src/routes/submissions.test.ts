@@ -73,9 +73,9 @@ describe('submissions routes', () => {
     expect(invalidRes.status).toBe(400);
   });
 
-  it('POST /submissions/:id/triage returns not_published when the project has no sync remote', async () => {
+  it('POST /submissions/:id/triage works without a sync remote (single-server guest submit)', async () => {
     const { app, db } = await createTestAppWithServices();
-    const project = await createProject(db, { name: 'Unpublished' });
+    const project = await createProject(db, { name: 'Local only' });
     await seedSubmission(db, project.id);
 
     const res = await app.request('/api/v1/submissions/sub-1/triage', {
@@ -83,8 +83,10 @@ describe('submissions routes', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'accept' }),
     });
-    expect(res.status).toBe(400);
-    expect(await parseJson(res)).toEqual({ error: 'not_published' });
+    expect(res.status).toBe(200);
+    const body = await parseJson<{ status: string; linked_task_id: string | null }>(res);
+    expect(body.status).toBe('accepted');
+    expect(body.linked_task_id).toBeTruthy();
   });
 
   it('POST triage accept creates a scope task even if a different status is requested', async () => {

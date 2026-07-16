@@ -290,6 +290,108 @@ describe('portal view (guest-session gated)', () => {
   });
 });
 
+describe('BA6b guest submissions (single-server)', () => {
+  it('guest submit creates a pending triage row the owner can list', async () => {
+    const { app, db, services } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Inbox' });
+    const created = await services.shareService.createShare(project.id, {
+      audienceName: 'Clients',
+      mode: 'public',
+      permissions: { read: true, submit: true },
+    });
+    if (!created) throw new Error('expected share');
+
+    const session = await joinAsGuest(app, created.token, { name: 'Alex' });
+
+    const noSession = await app.request(`/api/v1/share/${created.token}/submissions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'Bug' }),
+    });
+    expect(noSession.status).toBe(401);
+
+    const submitted = await app.request(`/api/v1/share/${created.token}/submissions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...guestViewHeaders(session),
+      },
+      body: JSON.stringify({ title: 'Broken button', body: 'On checkout', severity: 'high' }),
+    });
+    expect(submitted.status).toBe(201);
+    const body = (await submitted.json()) as {
+      submission: { id: string; title: string; status: string; severity: string | null };
+    };
+    expect(body.submission).toMatchObject({
+      title: 'Broken button',
+      status: 'pending',
+      severity: 'high',
+    });
+
+    const mine = await app.request(`/api/v1/share/${created.token}/submissions`, {
+      headers: guestViewHeaders(session),
+    });
+    expect(mine.status).toBe(200);
+    expect(await mine.json()).toEqual([
+      expect.objectContaining({ id: body.submission.id, title: 'Broken button' }),
+    ]);
+
+    const triage = await services.syncService.listTriage(project.id, 'pending');
+    expect(triage).toHaveLength(1);
+    expect(triage[0]).toMatchObject({
+      title: 'Broken button',
+      participant_name: 'Alex',
+      status: 'pending',
+    });
+  });
+
+  it('rejects submit when share permissions.submit is false', async () => {
+    const { app, db, services } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Read only share' });
+    const created = await services.shareService.createShare(project.id, {
+      audienceName: 'Viewers',
+      mode: 'public',
+      permissions: { read: true, submit: false },
+    });
+    if (!created) throw new Error('expected share');
+
+    const session = await joinAsGuest(app, created.token);
+    const res = await app.request(`/api/v1/share/${created.token}/submissions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...guestViewHeaders(session),
+      },
+      body: JSON.stringify({ title: 'Nope' }),
+    });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: 'submit_not_permitted' });
+  });
+
+  it('rejects empty title', async () => {
+    const { app, db, services } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Title required' });
+    const created = await services.shareService.createShare(project.id, {
+      audienceName: 'Clients',
+      mode: 'public',
+      permissions: { read: true, submit: true },
+    });
+    if (!created) throw new Error('expected share');
+
+    const session = await joinAsGuest(app, created.token);
+    const res = await app.request(`/api/v1/share/${created.token}/submissions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...guestViewHeaders(session),
+      },
+      body: JSON.stringify({ title: '   ' }),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'title_required' });
+  });
+});
+
 describe('BA6a security properties — guest gate', () => {
   // Property 1: bypass closed — view without guest session fails.
   it('view without guest session returns 401 (bypass closed)', async () => {

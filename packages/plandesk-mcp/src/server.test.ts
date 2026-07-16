@@ -19,12 +19,6 @@ import {
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
-import {
-  createSyncDb,
-  createSyncServer,
-  createSyncToken,
-  migrate as migrateSyncServer,
-} from '@plandesk/sync-server';
 import { v1ToolNames } from './tools/registry.js';
 import { createMcpApp } from './server.js';
 
@@ -1239,6 +1233,67 @@ describe('createMcpApp', () => {
         arguments: { comment_id: '00000000-0000-4000-8000-000000009999' },
       });
       expect(result.isError).toBe(true);
+      await client.close();
+    });
+  });
+
+  // BA6b single-server: guest submit on plandesk-api → owner MCP list/triage (no sync-server).
+  it('guest submit → list_submissions → triage_submission on one server', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, services }) => {
+      const created = await services.shareService.createShare(projectId, {
+        audienceName: 'Reviewers',
+        mode: 'public',
+        permissions: { read: true, submit: true },
+      });
+      if (!created) {
+        throw new Error('expected share');
+      }
+
+      const joinRes = await fetch(`${baseUrl}/api/v1/share/${created.token}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Blake' }),
+      });
+      expect(joinRes.status).toBe(200);
+      const { session_token: sessionToken } = (await joinRes.json()) as { session_token: string };
+
+      const submitRes = await fetch(`${baseUrl}/api/v1/share/${created.token}/submissions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ title: 'Portal bug', body: 'Cannot join', severity: 'med' }),
+      });
+      expect(submitRes.status).toBe(201);
+      const { submission } = (await submitRes.json()) as { submission: { id: string } };
+
+      const client = await connectClient(baseUrl, token);
+      const listed = await client.callTool({
+        name: 'list_submissions',
+        arguments: { project_id: projectId, status: 'pending' },
+      });
+      expect(listed.isError).not.toBe(true);
+      const listText =
+        (listed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+      const listPayload = JSON.parse(listText) as {
+        submissions: Array<{ id: string; title: string }>;
+      };
+      expect(listPayload.submissions.map((s) => s.title)).toContain('Portal bug');
+
+      const triaged = await client.callTool({
+        name: 'triage_submission',
+        arguments: { submission_id: submission.id, action: 'accept' },
+      });
+      expect(triaged.isError).not.toBe(true);
+      const triageText =
+        (triaged.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+      const triagePayload = JSON.parse(triageText) as {
+        submission: { status: string; linked_task_id: string | null };
+      };
+      expect(triagePayload.submission.status).toBe('accepted');
+      expect(triagePayload.submission.linked_task_id).toBeTruthy();
+
       await client.close();
     });
   });

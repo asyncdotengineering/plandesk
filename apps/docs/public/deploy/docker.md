@@ -2,115 +2,92 @@
 target: docker
 store: libsql
 website: https://docs.docker.com
-summary: Run the Plan Desk sync server as a Docker container on any host, with SQLite (libSQL) on a mounted volume.
+summary: Run the Plan Desk API (portal + projects + moderated submissions) as a Docker container with SQLite on a mounted volume.
 ---
 
-# Deploy Plan Desk's sync server with Docker
+# Deploy Plan Desk API with Docker
 
-You are an AI coding agent deploying Plan Desk's **hosted sync tier** as a Docker container on a host the user controls. Follow these instructions exactly; confirm with the user only when something is genuinely ambiguous (an unusual host, an existing container, where the volume should live). Your job: run the sync server, wire the user's local project to it, and produce a shareable client-portal link.
+You are an AI coding agent deploying Plan Desk's **single hosted API** as a Docker container on a host the user controls. Follow these instructions exactly; confirm with the user only when something is genuinely ambiguous. Your job: run the API, wire the user's local project to it, and produce a shareable client-portal link.
 
-This is the rendezvous tier only — it holds the curated projections the owner pushes, never the local source of truth. Read [the collaboration architecture](https://plandesk.asyncdot.com/reference/collaboration/) if you need the model.
+There is **no separate sync-server package**. Guest join, portal view, and moderated submissions all run on `@plandesk/api`. See [collaboration architecture](https://plandesk.asyncdot.com/reference/collaboration/).
 
 Work from the **repo root**. Run steps in order. Don't skip verification.
-
-## Secrets — non-negotiable
-
-This deploy mints one secret: the owner **sync token**.
-
-- The plaintext is written **only** to `.plandesk/sync-token` (git-ignored) and passed to the container as `SYNC_BOOTSTRAP_TOKEN`.
-- The server stores **only its sha256 hash**. Never commit the plaintext, print it, or bake it into the image.
-- Pass it at **runtime** (`-e`/secrets), never in the `Dockerfile` or `docker build`.
 
 ## Prerequisites
 
 ```bash
 docker --version
-node --version   # for the token mint step
+node --version
 ```
 
-## Step 1 — Mint the owner token
+## Step 1 — Prefer the shipped compose file when present
+
+If `docker-compose.hosted.yml` exists in the checkout:
 
 ```bash
-mkdir -p .plandesk
-grep -qxF '.plandesk/sync-token' .gitignore || printf '.plandesk/sync-token\n' >> .gitignore
-
-node -e '
-const c = require("node:crypto"), fs = require("node:fs");
-const token = "plandesk_sync_" + c.randomBytes(32).toString("base64url");
-fs.writeFileSync(".plandesk/sync-token", token, { mode: 0o600 });
-process.stdout.write(token + "\n");   // you pass this to the container as SYNC_BOOTSTRAP_TOKEN
-'
+export PLANDESK_AUTH_PASSWORD='choose-a-strong-password'
+docker compose -f docker-compose.hosted.yml up --build -d
 ```
 
-Keep the printed token for Step 3. The server hashes it on boot and seeds the owner token — no database surgery.
+**API URL** is `http://<host>:3847` (or the port in the compose file). Skip to Step 4.
 
-## Step 2 — Write the Dockerfile
+## Step 2 — Or build a minimal image from the published CLI
 
 ```dockerfile
-# Dockerfile.sync
+# Dockerfile.plandesk
 FROM node:22-slim
-RUN npm i -g @plandesk/sync-server
-ENV PORT=8080 SYNC_DB_PATH=/data/sync.db
+RUN npm i -g @plandesk/cli
+ENV PLANDESK_HOST=0.0.0.0 PLANDESK_PORT=3847 PLANDESK_DATA_DIR=/data
 VOLUME /data
-EXPOSE 8080
-CMD ["plandesk-sync-server"]
+EXPOSE 3847
+CMD ["plandesk", "serve", "--host", "0.0.0.0", "--port", "3847", "--data-dir", "/data"]
 ```
 
 ```bash
-docker build -f Dockerfile.sync -t plandesk-sync .
+docker build -f Dockerfile.plandesk -t plandesk-api .
 ```
 
-## Step 3 — Run it (idempotent)
-
-If a container named `plandesk-sync` is already running, reuse it — don't double-run on the same port/volume. Otherwise:
+## Step 3 — Run it
 
 ```bash
-docker run -d --name plandesk-sync \
-  -p 8080:8080 \
-  -v plandesk-sync-data:/data \
-  -e SYNC_BOOTSTRAP_TOKEN="<token from Step 1>" \
-  plandesk-sync
-docker logs plandesk-sync | tail   # expect: "listening on …" + "Seeded owner sync token…"
+docker run -d --name plandesk-api \
+  -p 3847:3847 \
+  -v plandesk-api-data:/data \
+  -e PLANDESK_AUTH_PASSWORD="<strong-password>" \
+  plandesk-api
+docker logs plandesk-api | tail
 ```
 
-The named volume persists `/data/sync.db` — that file is your entire hosted state. **`SYNC_URL`** is `http://<host>:8080` (use the host's reachable address/domain; put TLS in front for anything public).
+**API_URL** is `http://<host>:3847` (use a reachable address; put TLS in front for anything public).
 
 ## Step 4 — Wire your project and create a share
 
 ```bash
-plandesk publish --remote "$SYNC_URL"                          # registers the global project
+plandesk login --server "$API_URL"   # or write .plandesk/token + config serverUrl
+plandesk push --to <org-id>
 plandesk share create --audience "Demo client" --public --allow-submit
-plandesk push                                                  # …or: plandesk sync --watch
 ```
 
-`share create` prints a `plandesk_share_…` token and the link template.
+`share create` prints a `plandesk_share_…` token and the portal link template.
 
-## Step 5 — Build and serve the portal
+## Step 5 — Portal
 
-The portal is the Plan Desk web app in read-only mode; it reads from `SYNC_URL` via a build-time variable, and client-routes `/p/:token` (so it needs an SPA fallback — already in source as `public/_redirects`):
-
-```bash
-VITE_SYNC_URL="$SYNC_URL" pnpm --filter plandesk-web build
-# serve apps/plandesk-web/dist/ from any static host (nginx, `npx serve`, a CDN)
-```
-
-The share link is `<portal-url>/p/<shareToken>`.
+The portal is the same web app, guest mode at `/p/:shareToken`, served by the API (or a static build of `apps/plandesk-web` pointed at this origin). No `VITE_SYNC_URL` — submissions use `/api/v1/share/:token/submissions` on this API.
 
 ## Step 6 — Verify
 
 ```bash
-curl -s "$SYNC_URL/api/portal/v1/shares/<shareToken>/meta" | jq .
-curl -s -X POST "$SYNC_URL/api/portal/v1/shares/<shareToken>/join" \
+curl -s "$API_URL/api/v1/share/<shareToken>/meta" | jq .
+curl -s -X POST "$API_URL/api/v1/share/<shareToken>/join" \
   -H 'content-type: application/json' -d '{"name":"Smoke Test"}'
 ```
 
-Then open `<portal-url>/p/<shareToken>`: the named-join gate, then the read-only board. Run `plandesk sync --watch` and flip a task locally — the portal updates within a few seconds.
+Open `<api-or-portal-url>/p/<shareToken>`: named join, then the read-only board. Submit an issue if the share allows it; it appears in owner triage on the same server.
 
 ## Report back
 
-- **Sync server:** `$SYNC_URL` (Docker container `plandesk-sync`, volume `plandesk-sync-data`).
-- **Portal + share link:** `<portal-url>/p/<shareToken>`.
-- Owner token: in `.plandesk/sync-token` (git-ignored) and the container's `SYNC_BOOTSTRAP_TOKEN`; only its hash is stored. Don't commit it.
-- Live updates: `plandesk sync --watch`.
+- **API:** `$API_URL` (container `plandesk-api`, volume `plandesk-api-data`).
+- **Portal + share link:** `<url>/p/<shareToken>`.
+- Auth password / tokens: env or git-ignored files only — never commit.
 
 If any step failed, report which and the exact error — don't paper over a half-running deploy.

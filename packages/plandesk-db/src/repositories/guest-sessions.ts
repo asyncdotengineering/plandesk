@@ -74,6 +74,31 @@ export async function verifyGuestSession(
     return undefined;
   }
 
+  return attachShareIfLive(db, guest);
+}
+
+/** Load a guest session by id when already verified via AuthContext. */
+export async function getGuestSessionById(
+  db: DbClient,
+  id: string,
+): Promise<VerifiedGuestSession | undefined> {
+  const guest = await db
+    .select()
+    .from(guestSessions)
+    .where(and(eq(guestSessions.id, id), isNull(guestSessions.revokedAt)))
+    .get();
+
+  if (guest === undefined) {
+    return undefined;
+  }
+
+  return attachShareIfLive(db, guest);
+}
+
+async function attachShareIfLive(
+  db: DbClient,
+  guest: GuestSession,
+): Promise<VerifiedGuestSession | undefined> {
   const share = await db.select().from(shares).where(eq(shares.id, guest.shareId)).get();
   if (share === undefined) {
     return undefined;

@@ -74,4 +74,4 @@ docker compose -f docker-compose.hosted.yml run --rm plandesk doctor
 
 - [Deployment topologies](./topologies/) — local vs self-host vs free-hosted, and who runs migrations.
 - [Server configuration](./server-config/) — the full `plandesk.server.json` reference.
-- [Collaboration & sync](/reference/collaboration/) — the optional *hosted sync server* (a separate, smaller service for sharing projects with external clients).
+- [Collaboration & sharing](/reference/collaboration/) — guest portal and moderated submissions on the **same** API (no separate sync-server).

@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer, type Server } from 'node:http';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { getRequestListener } from '@hono/node-server';
 import { join } from 'node:path';
@@ -11,21 +11,15 @@ import {
   ensureDefaultOrg,
   exportProject,
   getSyncRemote,
+  listSubmissions,
   migrate,
   createDb,
 } from '@plandesk/db';
-import {
-  createSyncDb,
-  createSyncServer,
-  createSyncToken,
-  migrate as migrateSyncServer,
-} from '@plandesk/sync-server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs } from './args.js';
 import { buildConfigJson, parseConfigJson } from './connect-artifacts.js';
 import { main } from './cli.js';
 import { runInit } from './init.js';
-import { setConfigSync, writeSyncToken } from './sync.js';
 import { openWorkspace } from './workspace.js';
 
 async function captureIo(
@@ -54,39 +48,6 @@ async function captureIo(
     code,
     stdout: stdoutChunks.join(''),
     stderr: stderrChunks.join(''),
-  };
-}
-
-async function startTestSyncServer(): Promise<{
-  serverUrl: string;
-  syncToken: string;
-  close: () => void;
-}> {
-  const syncDb = createSyncDb(':memory:');
-  await migrateSyncServer(syncDb);
-  const { token: syncToken } = await createSyncToken(syncDb, { label: 'cli-test' });
-  const app = createSyncServer({ db: syncDb });
-  const server: Server = createServer((req, res) => {
-    void getRequestListener(app.fetch)(req, res);
-  });
-
-  await new Promise<void>((resolve) => {
-    server.listen(0, '127.0.0.1', () => {
-      resolve();
-    });
-  });
-
-  const address = server.address();
-  if (address === null || typeof address !== 'object') {
-    throw new Error('expected TCP address');
-  }
-
-  return {
-    serverUrl: `http://127.0.0.1:${String(address.port)}`,
-    syncToken,
-    close: () => {
-      server.close();
-    },
   };
 }
 
@@ -267,22 +228,69 @@ describe('CLI push/pull', () => {
     expect(stderr).toContain('Invalid --expires');
   });
 
-  it('pull resolves config and reports triage count', async () => {
-    const syncServer = await startTestSyncServer();
-    servers.push(syncServer);
-    const { dataDir, repoDir } = await makeWorkspace();
+  it('single-server: guest submit lands in owner triage without a separate sync-server', async () => {
+    // BA6b: guest submit writes share_submissions on plandesk-api; owner lists locally.
+    const hostedDb = await createDb(':memory:');
+    await migrate(hostedDb);
+    const org = await ensureDefaultOrg(hostedDb);
+    const project = await createProject(hostedDb, { name: 'Hosted collab' });
+    const services = createServices({ db: hostedDb, orgId: org.id });
+    const hostedApp = createApp({ db: hostedDb, services, bindHost: '127.0.0.1' });
+    const server = createServer(getRequestListener(hostedApp.fetch));
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => resolve());
+    });
+    servers.push(server);
 
-    // The projection-publish command is retired; wire the sync remote directly.
-    setConfigSync(repoDir, { serverUrl: syncServer.serverUrl, globalProjectId: 'gid-1' });
-    writeSyncToken(repoDir, syncServer.syncToken);
+    const created = await services.shareService.createShare(project.id, {
+      audienceName: 'Acme',
+      mode: 'public',
+      permissions: { read: true, submit: true },
+    });
+    if (!created) {
+      throw new Error('expected share');
+    }
 
-    const { code, stdout } = await captureIo(() =>
-      main(['node', 'plandesk', 'pull', '--repo', repoDir, '--data-dir', dataDir]),
-    );
+    const joinRes = await hostedApp.request(`/api/v1/share/${created.token}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Alex' }),
+    });
+    expect(joinRes.status).toBe(200);
+    const { session_token: sessionToken } = (await joinRes.json()) as { session_token: string };
 
-    expect(code).toBe(0);
-    expect(stdout).toContain('Pulled 0 submission(s)');
-    expect(stdout).toContain('0 pending in triage');
+    const submitRes = await hostedApp.request(`/api/v1/share/${created.token}/submissions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({ title: 'Client bug', body: 'Broken on mobile', severity: 'high' }),
+    });
+    expect(submitRes.status).toBe(201);
+    const submitBody = (await submitRes.json()) as {
+      submission: { id: string; title: string; status: string };
+    };
+    expect(submitBody.submission.title).toBe('Client bug');
+    expect(submitBody.submission.status).toBe('pending');
+
+    const listRes = await hostedApp.request(`/api/v1/share/${created.token}/submissions`, {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    expect(listRes.status).toBe(200);
+    const mine = (await listRes.json()) as Array<{ title: string }>;
+    expect(mine.map((s) => s.title)).toEqual(['Client bug']);
+
+    const triage = await services.syncService.listTriage(project.id, 'pending');
+    expect(triage).toHaveLength(1);
+    expect(triage[0]?.title).toBe('Client bug');
+    expect(triage[0]?.participant_name).toBe('Alex');
+    expect(await listSubmissions(hostedDb, project.id, 'pending')).toHaveLength(1);
+
+    const accepted = await services.syncService.triage(submitBody.submission.id, 'accept');
+    expect(accepted.status).toBe('accepted');
+    expect(accepted.linked_task_id).toBeTruthy();
+    expect(await listSubmissions(hostedDb, project.id, 'pending')).toHaveLength(0);
   });
 
   it('push --to promotes local project into a hosted org and rewrites config', async () => {

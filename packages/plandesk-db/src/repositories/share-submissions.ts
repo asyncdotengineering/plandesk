@@ -1,4 +1,5 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+import { and, asc, count, desc, eq, gt } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
 import { shareSubmissions, syncState, type ShareSubmissionStatus } from '../schema.js';
 
@@ -17,6 +18,16 @@ export type UpsertSubmissionInput = {
   status?: ShareSubmissionStatus;
   createdAt: Date;
   pulledAt: Date;
+};
+
+export type CreateGuestSubmissionInput = {
+  projectId: string;
+  hostedShareId: string;
+  participantName: string;
+  title: string;
+  body?: string | null;
+  severity?: string | null;
+  taskRef?: string | null;
 };
 
 export async function upsertSubmission(db: DbClient, input: UpsertSubmissionInput): Promise<boolean> {
@@ -39,6 +50,73 @@ export async function upsertSubmission(db: DbClient, input: UpsertSubmissionInpu
     .run();
 
   return result.rowsAffected > 0;
+}
+
+/** Guest portal submit: insert a moderated pending row (same DB as owner triage). */
+export async function createGuestSubmission(
+  db: DbClient,
+  input: CreateGuestSubmissionInput,
+): Promise<ShareSubmission> {
+  const id = randomUUID();
+  const now = new Date();
+  const rows = await db
+    .insert(shareSubmissions)
+    .values({
+      id,
+      projectId: input.projectId,
+      hostedShareId: input.hostedShareId,
+      participantName: input.participantName,
+      title: input.title,
+      body: input.body ?? null,
+      severity: input.severity ?? null,
+      taskRef: input.taskRef ?? null,
+      status: 'pending',
+      createdAt: now,
+      pulledAt: now,
+    })
+    .returning()
+    .all();
+
+  const row = rows[0];
+  if (row === undefined) {
+    throw new Error('Failed to create guest submission');
+  }
+  return row;
+}
+
+export async function countRecentSubmissionsByParticipant(
+  db: DbClient,
+  input: { hostedShareId: string; participantName: string; since: Date },
+): Promise<number> {
+  const row = await db
+    .select({ count: count() })
+    .from(shareSubmissions)
+    .where(
+      and(
+        eq(shareSubmissions.hostedShareId, input.hostedShareId),
+        eq(shareSubmissions.participantName, input.participantName),
+        gt(shareSubmissions.createdAt, input.since),
+      ),
+    )
+    .get();
+  return row?.count ?? 0;
+}
+
+export async function listSubmissionsByShareAndParticipant(
+  db: DbClient,
+  input: { hostedShareId: string; participantName: string },
+): Promise<ShareSubmission[]> {
+  return db
+    .select()
+    .from(shareSubmissions)
+    .where(
+      and(
+        eq(shareSubmissions.hostedShareId, input.hostedShareId),
+        eq(shareSubmissions.participantName, input.participantName),
+      ),
+    )
+    .orderBy(desc(shareSubmissions.createdAt))
+    .all();
 }
 
 export async function listSubmissions(

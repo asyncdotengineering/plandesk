@@ -53,10 +53,9 @@ export function createSubmissionsRouter(
       return c.json({ error: 'not_found' }, 404);
     }
 
+    // Optional remote: single-server guest submit has no cross-server ack target.
+    // Legacy local→remote pull still stores a remote when present.
     const remote = await syncService.getRemote(submission.project_id);
-    if (remote === undefined) {
-      return c.json({ error: 'not_published' }, 400);
-    }
 
     try {
       // Triage never creates a `todo` task — the scope->todo release is the human's own

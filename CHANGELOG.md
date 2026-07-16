@@ -2,6 +2,16 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [Unreleased]
+
+### Breaking
+
+- **`@plandesk/sync-server` removed.** Guest portal join, view, and moderated submissions run on **`@plandesk/api` only** (`POST/GET /api/v1/share/:token/submissions`, guest-session gated). There is no separate portal/sync process and no `VITE_SYNC_URL` / `SYNC_BASE`. Redeploy self-hosted setups as a single Plan Desk API; drop any dual-server topology. (BA6 / RFC §13.5 — one hosted paradigm.)
+
+### Added
+
+- Guest **submit** and **list-own-submissions** on plandesk-api (same guest session as portal view). Owner triage works without a remote sync hop when submissions land on the same database.
+
 ## [0.20.0] — 2026-07-12
 
 ### Added

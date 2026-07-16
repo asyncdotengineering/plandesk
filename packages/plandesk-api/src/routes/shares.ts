@@ -124,5 +124,52 @@ export function createSharesRouter(shareService: ShareService): Hono {
     return c.json(view);
   });
 
+  // Guest moderated inbox — same guest session as view (BA6b single-server).
+  router.post('/share/:token/submissions', async (c) => {
+    const token = c.req.param('token');
+    let body: { title?: string; body?: string; severity?: string; task_ref?: string };
+    try {
+      body = await c.req.json<{
+        title?: string;
+        body?: string;
+        severity?: string;
+        task_ref?: string;
+      }>();
+    } catch {
+      return c.json({ error: 'invalid_json' }, 400);
+    }
+
+    const result = await shareService.submitIssue(token, {
+      title: body.title ?? '',
+      body: body.body,
+      severity: body.severity,
+      task_ref: body.task_ref,
+    });
+
+    if (result.status === 'unauthorized') {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+    if (result.status === 'submit_not_permitted') {
+      return c.json({ error: 'submit_not_permitted' }, 403);
+    }
+    if (result.status === 'title_required') {
+      return c.json({ error: 'title_required' }, 400);
+    }
+    if (result.status === 'rate_limited') {
+      return c.json({ error: 'rate_limited' }, 429);
+    }
+
+    return c.json({ submission: result.submission }, 201);
+  });
+
+  router.get('/share/:token/submissions', async (c) => {
+    const token = c.req.param('token');
+    const result = await shareService.listMySubmissions(token);
+    if (result.status === 'unauthorized') {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+    return c.json(result.submissions);
+  });
+
   return router;
 }

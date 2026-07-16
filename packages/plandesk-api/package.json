@@ -23,7 +23,6 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250609.0",
-    "@plandesk/sync-server": "workspace:*",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   },

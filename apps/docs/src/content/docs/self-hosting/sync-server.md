@@ -1,19 +1,28 @@
 ---
-title: Self-hosting the sync server
-description: Deploy a Plan Desk hosted control plane for project promotion and moderated sharing.
+title: Hosted collaboration (single server)
+description: Share a project with clients using the same Plan Desk API you self-host — no separate sync-server package.
 ---
 
-The sync server stores hosted projects and serves the collaboration API. A share link is a read-only view computed from the hosted project at request time; the portal polls for updates. It is not a second editable workspace.
+:::caution[Package removed]
+`@plandesk/sync-server` is **removed**. Guest portal, join, and moderated submissions run on **`@plandesk/api`** (the same process as `plandesk serve` / your self-hosted API). Deploy one server, not two.
+:::
+
+## What you deploy
+
+One Plan Desk API process with a database:
+
+- Local: `plandesk serve` (auto-migrates SQLite)
+- Self-host: Docker / your host with `PLANDESK_DB_URL` — see [Docker](./docker/) and [topologies](./topologies/)
+
+The portal SPA is the same web app in guest mode at `/p/:shareToken`. It talks only to this API (`/api/v1/share/...`). There is no `VITE_SYNC_URL` and no second portal backend.
 
 ## Configure authentication
 
-Self-hosting does not require a GitHub app. Without GitHub configuration, `/api/v1/auth/methods` reports token entry and device endpoints return 404. Owners can create a Plan Desk token and use it with the CLI.
+Self-hosting does not require a GitHub app. Without GitHub configuration, `/api/v1/auth/methods` reports token entry. Owners create a Plan Desk token and use it with the CLI.
 
-If GitHub is configured for the hosted instance, `plandesk login --server <url>` starts the server-side GitHub device flow. The CLI never contacts GitHub and never receives the GitHub access token.
+If GitHub is configured, `plandesk login --server <url>` starts the server-side GitHub device flow.
 
 ## Promote and share
-
-After deploying and migrating the database, configure the CLI's server URL and token, then promote to an organization:
 
 ```bash
 plandesk login --server https://your-host.example
@@ -21,10 +30,11 @@ plandesk push --to <org-id>
 plandesk share create --audience "Acme" --public --allow-submit
 ```
 
-Participants submit through the portal. Pull their submissions to local storage and triage them before they become tasks:
+Participants open the share link, join with a name, and submit issues through the portal. Those submissions appear in the owner's triage inbox on the **same** server (list + accept/reject). No separate pull hop is required when owner and portal share the API database.
 
-```bash
-plandesk pull
-```
+Keep tokens and database credentials in the runtime environment or git-ignored local files. Do not commit them.
 
-Keep the Plan Desk token and any database credentials in the runtime environment or ignored local files. Do not commit them.
+## See also
+
+- [Collaboration architecture](/reference/collaboration/)
+- [Troubleshooting](/reference/troubleshooting/)

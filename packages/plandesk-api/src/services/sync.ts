@@ -132,6 +132,18 @@ async function ackSubmission(
   }
 }
 
+/** Optional remote: single-server guest submit has no cross-server ack. */
+async function maybeAck(
+  remote: SyncRemote | undefined,
+  submissionId: string,
+  status: string,
+): Promise<void> {
+  if (remote === undefined) {
+    return;
+  }
+  await ackSubmission(remote, submissionId, status);
+}
+
 export function createSyncService(deps: SyncServiceDeps) {
   const { db, taskService } = deps;
 
@@ -236,7 +248,7 @@ export function createSyncService(deps: SyncServiceDeps) {
     async triage(
       submissionId: string,
       action: 'accept' | 'reject',
-      remote: SyncRemote,
+      remote?: SyncRemote,
       asTask?: { label?: string; description?: string },
       linkTaskId?: string,
     ): Promise<SerializedSubmission> {
@@ -252,14 +264,15 @@ export function createSyncService(deps: SyncServiceDeps) {
 
       if (submission.status !== 'pending') {
         // Idempotent retry recovery: a prior triage may have committed the terminal
-        // status locally but failed to ack the remote (sync server briefly down),
+        // status locally but failed to ack the remote (legacy remote briefly down),
         // leaving local/remote divergence with no recovery path. Re-ack when the
         // retry's action matches the recorded outcome; ack is idempotent remotely.
+        // Single-server (no remote): local status is the only status — no re-ack.
         if (
           (action === 'accept' && submission.status === 'accepted') ||
           (action === 'reject' && submission.status === 'rejected')
         ) {
-          await ackSubmission(remote, submissionId, submission.status);
+          await maybeAck(remote, submissionId, submission.status);
         }
         return serializeSubmission(submission);
       }
@@ -282,7 +295,7 @@ export function createSyncService(deps: SyncServiceDeps) {
           throw new InvalidTriageError();
         }
 
-        await ackSubmission(remote, submissionId, 'accepted');
+        await maybeAck(remote, submissionId, 'accepted');
         return serializeSubmission(updated);
       }
 
@@ -312,7 +325,7 @@ export function createSyncService(deps: SyncServiceDeps) {
           throw new InvalidTriageError();
         }
 
-        await ackSubmission(remote, submissionId, 'accepted');
+        await maybeAck(remote, submissionId, 'accepted');
         return serializeSubmission(updated);
       }
 
@@ -321,7 +334,7 @@ export function createSyncService(deps: SyncServiceDeps) {
         throw new InvalidTriageError();
       }
 
-      await ackSubmission(remote, submissionId, 'rejected');
+      await maybeAck(remote, submissionId, 'rejected');
       return serializeSubmission(updated);
     },
   };

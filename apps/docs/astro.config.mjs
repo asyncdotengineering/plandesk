@@ -28,7 +28,7 @@ export default defineConfig({
           description:
             'Plan Desk is a local-first, self-hostable planning workspace: a flow canvas of task nodes with labeled dependency edges, specs attached to nodes, a board, and an MCP server (46 tools) that coding agents use to scaffold plans, pick the next task, and update status live.',
           details:
-            'Set up for an agent in one prompt: "Read https://plandesk.asyncdot.com/start.md then set up Plan Desk for this project." Published on npm as @plandesk/cli (0.8.x). The collaboration tier lets you share a project with a client or team over a read-only live portal, take their issues into a moderated inbox, and triage them into real tasks — deploy a sync server with "plandesk deploy cloudflare | claude".',
+            'Set up for an agent in one prompt: "Read https://plandesk.asyncdot.com/start.md then set up Plan Desk for this project." Published on npm as @plandesk/cli. Collaboration (portal + moderated inbox) runs on the same Plan Desk API — one server, not a separate sync package.',
         }),
       ],
       social: [
@@ -67,7 +67,7 @@ export default defineConfig({
             { slug: 'self-hosting/topologies' },
             { slug: 'self-hosting/server-config' },
             { slug: 'self-hosting/docker' },
-            { slug: 'self-hosting/sync-server' },
+            { slug: 'self-hosting/sync-server' }, // single-server collab page (legacy slug)
           ],
         },
         {

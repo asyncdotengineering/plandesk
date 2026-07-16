@@ -209,9 +209,6 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4.20250609.0
         version: 4.20260609.1
-      '@plandesk/sync-server':
-        specifier: workspace:*
-        version: link:../plandesk-sync-server
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -252,9 +249,6 @@ importers:
         specifier: ^4.3.1
         version: 4.3.1
     devDependencies:
-      '@plandesk/sync-server':
-        specifier: workspace:*
-        version: link:../plandesk-sync-server
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -305,9 +299,6 @@ importers:
       '@hono/node-server':
         specifier: ^2.0.4
         version: 2.0.4(hono@4.12.23)
-      '@plandesk/sync-server':
-        specifier: workspace:*
-        version: link:../plandesk-sync-server
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -333,31 +324,6 @@ importers:
       '@plandesk/mcp':
         specifier: workspace:*
         version: link:../plandesk-mcp
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/debug@4.1.13)(@types/node@25.9.2)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(lightningcss@1.32.0)(tsx@4.22.4)
-
-  packages/plandesk-sync-server:
-    dependencies:
-      '@hono/node-server':
-        specifier: ^2.0.4
-        version: 2.0.4(hono@4.12.23)
-      '@libsql/client':
-        specifier: ^0.15.9
-        version: 0.15.15
-      drizzle-orm:
-        specifier: ^0.45.2
-        version: 0.45.2(@cloudflare/workers-types@4.20260609.1)(@libsql/client@0.15.15)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.10.0)(kysely@0.29.3)
-      hono:
-        specifier: ^4.12.23
-        version: 4.12.23
-    devDependencies:
-      '@cloudflare/workers-types':
-        specifier: ^4.20250609.0
-        version: 4.20260609.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
