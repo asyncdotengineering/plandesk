@@ -91,12 +91,14 @@ PLANDESK_BASE_URL = "https://plandesk-api.your-subdomain.workers.dev"
 Wrangler serves the SPA from `packages/plandesk-api/web` (`[assets]` in `wrangler.toml`). Build the web app and copy it there (the package `prepack` script does this when publishing; for a local deploy):
 
 ```bash
-pnpm --filter @plandesk/web build
-# copy apps/plandesk-web/dist → packages/plandesk-api/web
-# (or run the api package prepack step after a web build)
+# 1. Build the SPA (outputs to apps/plandesk-web/dist)
+pnpm --filter plandesk-web build
+
+# 2. Copy it into the API package's web/ (wrangler [assets] serves it)
+pnpm --filter @plandesk/api run prepack
 ```
 
-Confirm `packages/plandesk-api/web/index.html` exists before deploying.
+The `prepack` step copies `apps/plandesk-web/dist` → `packages/plandesk-api/web`. Confirm `packages/plandesk-api/web/index.html` exists before deploying.
 
 ## 5. Deploy
 
