@@ -4,6 +4,12 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [1.0.0-beta.2] — 2026-07-18
+
+### Fixed
+
+- **Cloudflare Workers deploy.** Fixed three module-load failures found deploying the beta to Workers: lazy `fileURLToPath(import.meta.url)` (version()/migrations folder) so the Worker bundle no longer throws at load; storage is optional on the Worker entry (no crash when S3/R2 creds are absent); strip the SPA `_redirects` that conflicts with wrangler `not_found_handling`.
+
 ## [1.0.0-beta.1] — 2026-07-18
 
 First beta of the better-auth-native rewrite — hosted control plane, two-actor auth, and the legacy-board migration path. Published under the `beta` npm tag; `npm i -g @plandesk/cli@beta`.
