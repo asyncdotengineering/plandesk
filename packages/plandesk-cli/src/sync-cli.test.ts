@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -12,9 +13,8 @@ import {
   type BetterAuthInstance,
 } from '@plandesk/api';
 import {
-  createOrg,
+  DEFAULT_ORG_ID,
   createProjectInDefaultOrg as createProject,
-  ensureDefaultOrg,
   exportProject,
   getSyncRemote,
   listSubmissions,
@@ -311,7 +311,7 @@ describe('CLI push/pull', () => {
     // BA6b: guest submit writes share_submissions on plandesk-api; owner lists locally.
     const hostedDb = await createDb(':memory:');
     await migrate(hostedDb);
-    const org = await ensureDefaultOrg(hostedDb);
+    const org = { id: DEFAULT_ORG_ID, name: 'Personal' };
     const project = await createProject(hostedDb, { name: 'Hosted collab' });
     const services = createServices({ db: hostedDb, orgId: org.id });
     const hostedApp = createApp({ db: hostedDb, services, bindHost: '127.0.0.1' });
@@ -376,7 +376,7 @@ describe('CLI push/pull', () => {
     // Hosted API workspace (org authority target).
     const hostedDb = await createDb(':memory:');
     await migrate(hostedDb);
-    const org = await ensureDefaultOrg(hostedDb);
+    const org = { id: DEFAULT_ORG_ID, name: 'Personal' };
     const auth = createBetterAuth({
       client: hostedDb.$client,
       secret: SYNC_SECRET,
@@ -470,8 +470,8 @@ describe('CLI push/pull', () => {
   it('push --to with wrong-org token is rejected', async () => {
     const hostedDb = await createDb(':memory:');
     await migrate(hostedDb);
-    const orgA = await ensureDefaultOrg(hostedDb);
-    const orgB = await createOrg(hostedDb, { name: 'Other' });
+    const orgA = { id: DEFAULT_ORG_ID, name: 'Personal' };
+    const orgB = { id: randomUUID(), name: 'Other' };
     const auth = createBetterAuth({
       client: hostedDb.$client,
       secret: SYNC_SECRET,

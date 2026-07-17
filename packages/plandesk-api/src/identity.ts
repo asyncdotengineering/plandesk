@@ -1,12 +1,7 @@
-import {
-  addOrgMember,
-  createOrg,
-  ensureDefaultOrg,
-  type Db,
-  type Org,
-} from '@plandesk/db';
+import { DEFAULT_ORG_ID, type Db } from '@plandesk/db';
 import type { BetterAuthInstance } from './better-auth.js';
 import type { GithubIdentity } from './github.js';
+import { getOrganizationById, type OrganizationSummary } from './organizations.js';
 
 const GITHUB_PROVIDER_ID = 'github';
 const GITHUB_USER_REF_PREFIX = 'github:';
@@ -94,30 +89,38 @@ export async function resolveOrganizationsForGithubIdentity(
   );
 }
 
+/**
+ * Ensure the well-known local better-auth organization exists (user-less).
+ * Idempotent. Used at serve boot for loopback owner-by-bind.
+ */
 export async function ensureLocalBetterAuthOrganization(
-  db: Db,
+  _db: Db,
   auth: BetterAuthInstance,
-): Promise<Org> {
-  const org = await ensureDefaultOrg(db);
-  const adapter = (await auth.$context).adapter;
-  const existing = await adapter.findOne<OrganizationRow>({
-    model: 'organization',
-    where: [{ field: 'id', value: org.id }],
-  });
-  if (existing !== null) return org;
+): Promise<OrganizationSummary> {
+  const existing = await getOrganizationById(auth, DEFAULT_ORG_ID);
+  if (existing !== undefined) {
+    return existing;
+  }
 
+  const now = new Date();
+  const adapter = (await auth.$context).adapter;
   const data = {
-    id: org.id,
-    name: org.name,
+    id: DEFAULT_ORG_ID,
+    name: 'Personal',
     slug: 'local',
-    createdAt: org.createdAt,
+    createdAt: now,
   };
-  await adapter.create<OrganizationRow>({
+  const created = await adapter.create<OrganizationRow>({
     model: 'organization',
     data,
     forceAllowId: true,
   });
-  return org;
+  return {
+    id: created.id,
+    name: created.name,
+    slug: created.slug,
+    createdAt: created.createdAt,
+  };
 }
 
 export type ProvisionPersonalOrgResult =
@@ -126,12 +129,11 @@ export type ProvisionPersonalOrgResult =
 
 /**
  * BA4c: first better-auth GitHub session with zero memberships gets a personal
- * org + owner member (BA4c provisioning). Invited
- * users who already hold a member row are left alone (no second org).
+ * org + owner member. Invited users who already hold a member row are left alone.
  */
 export async function provisionPersonalOrgIfNeeded(
   auth: BetterAuthInstance,
-  db: Db,
+  _db: Db,
   userId: string,
 ): Promise<ProvisionPersonalOrgResult> {
   const adapter = (await auth.$context).adapter;
@@ -164,37 +166,24 @@ export async function provisionPersonalOrgIfNeeded(
   }
 
   const orgName = user.name.trim().length > 0 ? user.name.trim() : 'Personal';
-  const org = await createOrg(db, { name: orgName });
   const now = new Date();
-  const orgData = {
-    id: org.id,
-    name: org.name,
-    slug: `u-${userId}`,
-    createdAt: now,
-  };
-  await adapter.create<OrganizationRow>({
+  const organization = await adapter.create<OrganizationRow>({
     model: 'organization',
-    data: orgData,
-    forceAllowId: true,
+    data: {
+      name: orgName,
+      slug: `u-${userId}`,
+      createdAt: now,
+    },
   });
   await adapter.create<MemberRow>({
     model: 'member',
     data: {
-      organizationId: org.id,
+      organizationId: organization.id,
       userId,
       role: 'owner',
       createdAt: now,
     },
   });
 
-  // Dual-path parity with legacy org_members identity provisioning.
-  try {
-    const userRef = userRefFromGithubAccountId(account.accountId);
-    await addOrgMember(db, { orgId: org.id, userRef, role: 'owner' });
-  } catch {
-    // Non-numeric github account ids cannot form a legacy user_ref; better-auth
-    // membership is still enough for session AuthContext.
-  }
-
-  return { created: true, orgId: org.id, role: 'owner' };
+  return { created: true, orgId: organization.id, role: 'owner' };
 }

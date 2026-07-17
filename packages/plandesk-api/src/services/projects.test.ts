@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  DEFAULT_ORG_ID,
   createAgentRun,
   createAgentRunEvent,
   createDb,
@@ -7,7 +8,6 @@ import {
   createComment,
   createEdge,
   createProjectInDefaultOrg as createProject,
-  ensureDefaultOrg,
   getDocument,
   getComment,
   getProject,
@@ -30,7 +30,7 @@ describe('projectService', () => {
   beforeEach(async () => {
     db = await createDb(':memory:');
     await migrate(db);
-    orgId = (await ensureDefaultOrg(db)).id;
+    orgId = DEFAULT_ORG_ID;
     await db.$client.execute('DELETE FROM comments');
     await db.$client.execute('DELETE FROM agent_run_events');
     await db.$client.execute('DELETE FROM agent_runs');

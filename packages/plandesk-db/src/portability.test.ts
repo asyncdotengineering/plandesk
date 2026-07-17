@@ -18,7 +18,6 @@ import { createArtifact, getArtifact } from './repositories/artifacts.js';
 import { createFile, getFile } from './repositories/files.js';
 import { createFolder } from './repositories/folders.js';
 import { createNote } from './repositories/notes.js';
-import { createOrg } from './repositories/orgs.js';
 import { getProject, updateProject } from './repositories/projects.js';
 import { createProjectInDefaultOrg as createProject } from './testing.js';
 import { createTag, setTaskTags } from './repositories/tags.js';
@@ -518,8 +517,8 @@ describe('export/import portability', () => {
   it('importing the same file bytes into two different orgs does not collide', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    const orgA = await createOrg(db, { name: 'Org A' });
-    const orgB = await createOrg(db, { name: 'Org B' });
+    const orgA = { id: 'org-a-id' };
+    const orgB = { id: 'org-b-id' };
 
     const bytes = Buffer.from('shared-content-hash-payload', 'utf8');
     const id = createHash('sha256').update(bytes).digest('hex');

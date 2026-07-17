@@ -1,1 +1,0 @@
-ALTER TABLE `goals` ADD `last_verification` text;

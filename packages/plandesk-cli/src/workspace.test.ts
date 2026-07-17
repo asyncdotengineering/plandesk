@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createDb, ensureDefaultOrg, migrate } from '@plandesk/db';
+import { DEFAULT_ORG_ID, createDb, migrate } from '@plandesk/db';
 import { openWorkspace, WorkspaceNotFoundError } from './workspace.js';
 
 const tempDirs: string[] = [];
@@ -53,8 +53,7 @@ describe('openWorkspace migrations', () => {
     const dbPath = join(dataDir, 'workspace.db');
     const legacyDb = await createDb(dbPath);
     await migrate(legacyDb);
-    await ensureDefaultOrg(legacyDb);
-    legacyDb.$client.close();
+        legacyDb.$client.close();
 
     const { db } = await openWorkspace(dataDir);
     const tables = await db.$client.execute(

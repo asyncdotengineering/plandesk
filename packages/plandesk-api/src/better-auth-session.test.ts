@@ -1,10 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
 import {
+  DEFAULT_ORG_ID,
   createDb,
-  createOrg,
   createProject,
-  ensureDefaultOrg,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -153,7 +153,6 @@ async function hostedBetterAuthApp(): Promise<{
 }> {
   const db = await createDb(':memory:');
   await migrate(db);
-  await ensureDefaultOrg(db);
   const auth = createBetterAuth({
     client: db.$client,
     secret: TEST_SECRET,
@@ -180,8 +179,8 @@ async function hostedBetterAuthApp(): Promise<{
 describe('better-auth session recognition (BA4a)', () => {
   it('a better-auth session sees only its own org projects (cross-org denied)', async () => {
     const { app, db, auth } = await hostedBetterAuthApp();
-    const mine = await createOrg(db, { name: 'Mine' });
-    const other = await createOrg(db, { name: 'Other' });
+    const mine = { id: randomUUID(), name: 'Mine' };
+    const other = { id: randomUUID(), name: 'Other' };
     const otherProject = await createProject(db, { name: 'Not Yours', orgId: other.id });
 
     const { cookie } = await seedBetterAuthUser(auth, {
@@ -220,7 +219,7 @@ describe('better-auth session recognition (BA4a)', () => {
 
   it('revoking better-auth membership stops the session (401)', async () => {
     const { app, db, auth } = await hostedBetterAuthApp();
-    const org = await createOrg(db, { name: 'Team' });
+    const org = { id: randomUUID(), name: 'Team' };
     const { cookie, userId } = await seedBetterAuthUser(auth, {
       email: 'revoked@example.com',
       name: 'Revoked',
@@ -252,7 +251,7 @@ describe('better-auth session recognition (BA4a)', () => {
 
   it('better-auth role gates writes: member denied project:create, owner allowed', async () => {
     const { app, db, auth } = await hostedBetterAuthApp();
-    const org = await createOrg(db, { name: 'Roles' });
+    const org = { id: randomUUID(), name: 'Roles' };
 
     const member = await seedBetterAuthUser(auth, {
       email: 'member@example.com',
@@ -331,7 +330,7 @@ describe('better-auth session recognition (BA4a)', () => {
   it('local loopback is unchanged with better-auth configured (REQ-21)', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    const org = await ensureDefaultOrg(db);
+    const org = { id: DEFAULT_ORG_ID, name: 'Personal' };
     const auth = createBetterAuth({
       client: db.$client,
       secret: TEST_SECRET,
@@ -359,7 +358,7 @@ describe('better-auth session recognition (BA4a)', () => {
 
   it('numeric GitHub id is the identity — rename keeps the same org membership', async () => {
     const { app, db, auth } = await hostedBetterAuthApp();
-    const org = await createOrg(db, { name: 'Stable' });
+    const org = { id: randomUUID(), name: 'Stable' };
     const { cookie } = await seedBetterAuthUser(auth, {
       email: 'stable@example.com',
       name: 'Stable',
@@ -399,8 +398,8 @@ describe('better-auth session recognition (BA4a)', () => {
 
   it('active org is the earliest membership by createdAt', async () => {
     const { app, db, auth } = await hostedBetterAuthApp();
-    const first = await createOrg(db, { name: 'First' });
-    const second = await createOrg(db, { name: 'Second' });
+    const first = { id: randomUUID(), name: 'First' };
+    const second = { id: randomUUID(), name: 'Second' };
 
     const adapter = (await auth.$context).adapter;
     const now = new Date();

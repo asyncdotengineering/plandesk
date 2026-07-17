@@ -1,10 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
 import {
+  DEFAULT_ORG_ID,
   createAgentRun,
   createDb,
-  createOrg,
-  ensureDefaultOrg,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -161,7 +161,6 @@ async function hostedBetterAuthApp(): Promise<{
 }> {
   const db = await createDb(':memory:');
   await migrate(db);
-  await ensureDefaultOrg(db);
   const auth = createBetterAuth({
     client: db.$client,
     secret: TEST_SECRET,
@@ -197,7 +196,7 @@ async function expectForbidden(res: Response): Promise<void> {
 /** Seed member/admin/owner in one org + a board with task, document, agent run. */
 async function seedMatrix() {
   const { app, db, auth } = await hostedBetterAuthApp();
-  const org = await createOrg(db, { name: 'Role Matrix' });
+  const org = { id: randomUUID(), name: 'Role Matrix' };
   const orgRef = { id: org.id, name: org.name, slug: 'role-matrix' };
 
   const member = await seedBetterAuthUser(auth, {

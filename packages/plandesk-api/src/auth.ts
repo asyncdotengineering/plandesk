@@ -1,9 +1,8 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { MiddlewareHandler } from 'hono';
 import {
-  getDefaultOrg,
+  DEFAULT_ORG_ID,
   hashShareToken,
-  isSingleOrg,
   verifyGuestSession,
   type Db,
   type OrgRole,
@@ -16,6 +15,7 @@ import {
 import { runWithAuthContext, tryGetAuthContext, type AuthContext } from './auth-context.js';
 import type { BetterAuthInstance } from './better-auth.js';
 import { userRefFromGithubAccountId } from './identity.js';
+import { resolveDefaultOrganization } from './organizations.js';
 import {
   hasAnyWritePermission,
   orgRoleToPermissionSet,
@@ -412,21 +412,31 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
       }
     }
 
-    if (isLoopbackBind(bindHost) && (await isSingleOrg(db))) {
-      const org = await getDefaultOrg(db);
-      if (org !== undefined) {
-        // REQ-21: local loopback single-org is always owner — no login, no role prompt.
-        const ctx: AuthContext = {
-          kind: 'loopback',
-          orgId: org.id,
-          role: 'owner',
-          permission: orgRoleToPermissionSet('owner'),
-        };
-        await runWithAuthContext(ctx, async () => {
-          await next();
-        });
-        return;
+    if (isLoopbackBind(bindHost)) {
+      // REQ-21: local loopback is always owner — no login, no member row required.
+      // Prefer the ensured better-auth default org when present; else DEFAULT_ORG_ID.
+      // Soft-fail if BA tables are not migrated yet (createApp boots before migrator).
+      let orgId = DEFAULT_ORG_ID;
+      if (betterAuth !== undefined) {
+        try {
+          const org = await resolveDefaultOrganization(betterAuth);
+          if (org !== undefined) {
+            orgId = org.id;
+          }
+        } catch {
+          // organization table missing / adapter error — keep DEFAULT_ORG_ID
+        }
       }
+      const ctx: AuthContext = {
+        kind: 'loopback',
+        orgId,
+        role: 'owner',
+        permission: orgRoleToPermissionSet('owner'),
+      };
+      await runWithAuthContext(ctx, async () => {
+        await next();
+      });
+      return;
     }
 
     return c.json({ error: 'unauthorized' }, 401);

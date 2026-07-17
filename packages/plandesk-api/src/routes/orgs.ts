@@ -1,6 +1,5 @@
 import { Hono } from 'hono';
 import {
-  getOrg,
   getProjectInOrg,
   importProject,
   InvalidExportVersionError,
@@ -17,6 +16,7 @@ import {
   isAuthApiError,
   isInvitationRole,
 } from '../invitations.js';
+import { getOrganizationById } from '../organizations.js';
 import { requirePermission, type PermissionSet } from '../permissions.js';
 
 function isPermissionSet(value: unknown): value is PermissionSet {
@@ -66,13 +66,23 @@ export type OrgsRouterOptions = {
  * There is deliberately no `POST /orgs`.
  *
  * An org is only ever created by better-auth identity provisioning (BA4c) or by
- * `ensureDefaultOrg` at `serve` boot for the local/self-host single-org case.
+ * `ensureLocalBetterAuthOrganization` at `serve` boot for the local single-org case.
  * Both bound creation by construction, which is why no quota is needed to bound it.
  */
 export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono {
   const router = new Hono();
   const betterAuth = options.betterAuth;
   const baseURL = options.baseURL ?? 'http://127.0.0.1';
+
+  async function requireKnownOrg(orgId: string): Promise<boolean> {
+    if (getOrgAuthContext().orgId !== orgId) {
+      return false;
+    }
+    if (betterAuth === undefined) {
+      return true;
+    }
+    return (await getOrganizationById(betterAuth, orgId)) !== undefined;
+  }
 
   /**
    * BA4b-3: mint a project-scoped agent key for `plandesk connect --to`.
@@ -85,11 +95,7 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     }
 
     const orgId = c.req.param('orgId');
-    const org = await getOrg(db, orgId);
-    if (!org) {
-      return c.json({ error: 'not_found' }, 404);
-    }
-    if (getOrgAuthContext().orgId !== orgId) {
+    if (!(await requireKnownOrg(orgId))) {
       return c.json({ error: 'not_found' }, 404);
     }
     requirePermission(getOrgAuthContext(), 'apiKey', 'create');
@@ -148,14 +154,10 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
    */
   router.post('/orgs/:id/invitations', async (c) => {
     const orgId = c.req.param('id');
-    const org = await getOrg(db, orgId);
-    if (!org) {
+    if (!(await requireKnownOrg(orgId))) {
       return c.json({ error: 'not_found' }, 404);
     }
     const authCtx = getOrgAuthContext();
-    if (authCtx.orgId !== orgId) {
-      return c.json({ error: 'not_found' }, 404);
-    }
     // Session owner only — token/loopback cannot drive better-auth createInvitation.
     if (authCtx.kind !== 'session') {
       return c.json({ error: 'forbidden' }, 403);
@@ -254,12 +256,8 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
   // Promote a portable export into this org (one-way authority handoff).
   router.post('/orgs/:id/import', async (c) => {
     const orgId = c.req.param('id');
-    const org = await getOrg(db, orgId);
-    if (!org) {
-      return c.json({ error: 'not_found' }, 404);
-    }
     // Org-scoped: token for org-B cannot import into org-A.
-    if (getOrgAuthContext().orgId !== orgId) {
+    if (!(await requireKnownOrg(orgId))) {
       return c.json({ error: 'not_found' }, 404);
     }
     requirePermission(getOrgAuthContext(), 'organization', 'update');

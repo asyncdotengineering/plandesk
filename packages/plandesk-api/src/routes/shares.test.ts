@@ -1,11 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_ORG_ID,
   createDb,
   createDocument,
-  createOrg,
   createProject as createProjectInOrg,
   createProjectInDefaultOrg as createProject,
-  ensureDefaultOrg,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -16,7 +16,7 @@ import { createApp } from '../server.js';
 async function createTestAppWithServices() {
   const db = await createDb(':memory:');
   await migrate(db);
-  const org = await ensureDefaultOrg(db);
+  const org = { id: DEFAULT_ORG_ID, name: 'Personal' };
   const services = createServices({ db, orgId: org.id });
   return { app: createApp({ db, services }), db, services, orgId: org.id };
 }
@@ -198,7 +198,7 @@ describe('portal view (guest-session gated)', () => {
 
   it('a share token reads only its own project, never another org/project', async () => {
     const { app, db, services } = await createTestAppWithServices();
-    const orgB = await createOrg(db, { name: 'Other Org' });
+    const orgB = { id: randomUUID(), name: 'Other Org' };
     const projectA = await createProject(db, { name: 'Project A' });
     const projectB = await createProjectInOrg(db, { name: 'Project B', orgId: orgB.id });
     await createTask(db, { projectId: projectA.id, label: 'A task', status: 'todo' });

@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 
 export { createDb, withTransaction, type Client, type Db, type DbClient, type DbTx } from './client.js';
 export { migrate } from './migrate.js';
-export * from './repositories/orgs.js';
 export * from './repositories/projects.js';
 export * from './repositories/goals.js';
 export * from './repositories/tasks.js';
@@ -16,9 +15,6 @@ export * from './repositories/notes.js';
 export * from './repositories/files.js';
 export * from './repositories/artifacts.js';
 export * from './repositories/comments.js';
-export * from './repositories/tokens.js';
-export * from './repositories/sessions.js';
-export * from './repositories/pending-auth.js';
 export * from './repositories/shares.js';
 export * from './repositories/guest-sessions.js';
 export * from './repositories/share-submissions.js';
@@ -29,7 +25,6 @@ export * from './portability.js';
 export { seed, FIXTURE_PROJECT_ID } from './seed.js';
 export {
   createProjectInDefaultOrg,
-  createTokenInDefaultOrg,
   listProjectsInDefaultOrg,
   createTaskWithDefaultGoal,
 } from './testing.js';

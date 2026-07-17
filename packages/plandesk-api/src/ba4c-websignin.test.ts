@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { createBaOrg, getBaOrg, listBaOrgs } from './test-ba-org.js';
 /**
  * BA4c — better-auth web GitHub sign-in + personal org provision.
  *
@@ -9,11 +11,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
 import {
+  DEFAULT_ORG_ID,
   createDb,
-  createOrg,
-  ensureDefaultOrg,
-  getOrg,
-  listOrgs,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -78,7 +77,6 @@ async function hostedApp(): Promise<{
 }> {
   const db = await createDb(':memory:');
   await migrate(db);
-  await ensureDefaultOrg(db);
   const auth = createBetterAuth({
     client: db.$client,
     db,
@@ -180,10 +178,10 @@ describe('BA4c personal org provision on better-auth GitHub sign-in', () => {
     const orgId = membersAfterFirst[0]?.organizationId;
     expect(orgId).toBeDefined();
     if (orgId === undefined) throw new Error('expected orgId');
-    const plandeskOrg = await getOrg(db, orgId);
+    const plandeskOrg = await getBaOrg(auth, orgId);
     expect(plandeskOrg).toMatchObject({ id: orgId, name: 'Fresh User' });
 
-    const orgsAfterFirst = await listOrgs(db);
+    const orgsAfterFirst = await listBaOrgs(auth);
     const nonDefault = orgsAfterFirst.filter((o) => o.id === orgId);
     expect(nonDefault).toHaveLength(1);
 
@@ -204,7 +202,7 @@ describe('BA4c personal org provision on better-auth GitHub sign-in', () => {
 
   it('gate 2: invited user (member row exists) → no personal org on sign-in', async () => {
     const { db, auth } = await hostedApp();
-    const inviting = await createOrg(db, { name: 'Acme Inviting' });
+    const inviting = { id: randomUUID(), name: 'Acme Inviting' };
     const adapter = (await auth.$context).adapter;
     const now = new Date();
     const orgData = {
@@ -234,7 +232,7 @@ describe('BA4c personal org provision on better-auth GitHub sign-in', () => {
       },
     });
 
-    const orgsBefore = (await listOrgs(db)).map((o) => o.id).sort();
+    const orgsBefore = (await listBaOrgs(auth)).map((o) => o.id).sort();
 
     const session = await (await auth.$context).internalAdapter.createSession(userId);
     expect(session).not.toBeNull();
@@ -242,7 +240,7 @@ describe('BA4c personal org provision on better-auth GitHub sign-in', () => {
     expect(await listMemberOrgs(auth, userId)).toEqual([
       { organizationId: inviting.id, role: 'member' },
     ]);
-    expect((await listOrgs(db)).map((o) => o.id).sort()).toEqual(orgsBefore);
+    expect((await listBaOrgs(auth)).map((o) => o.id).sort()).toEqual(orgsBefore);
 
     await expect(provisionPersonalOrgIfNeeded(auth, db, userId)).resolves.toEqual({
       created: false,
@@ -269,7 +267,7 @@ describe('BA4c personal org provision on better-auth GitHub sign-in', () => {
     const orgId = memberships[0]?.organizationId;
     expect(orgId).toBeDefined();
     if (orgId === undefined) throw new Error('expected orgId');
-    expect(await getOrg(db, orgId)).toMatchObject({ id: orgId, name: 'CLI Web User' });
+    expect(await getBaOrg(auth, orgId)).toMatchObject({ id: orgId, name: 'CLI Web User' });
 
     // Cookie for the provisioned session (token already stored by internalAdapter).
     const ctx = await auth.$context;
@@ -384,7 +382,7 @@ describe('BA4c personal org provision on better-auth GitHub sign-in', () => {
     const orgId = memberships[0]?.organizationId;
     expect(orgId).toBeDefined();
     if (orgId === undefined) throw new Error('expected orgId');
-    expect(await getOrg(db, orgId)).toMatchObject({ id: orgId, name: 'OAuth Fresh' });
+    expect(await getBaOrg(auth, orgId)).toMatchObject({ id: orgId, name: 'OAuth Fresh' });
   });
 });
 

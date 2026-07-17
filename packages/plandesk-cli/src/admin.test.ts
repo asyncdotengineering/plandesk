@@ -7,7 +7,7 @@ import {
   mintSessionCookieHeader,
   runBetterAuthMigrations,
 } from '@plandesk/api';
-import { createDb, ensureDefaultOrg, migrate } from '@plandesk/db';
+import { DEFAULT_ORG_ID, createDb, migrate } from '@plandesk/db';
 import { describe, expect, it, vi } from 'vitest';
 import { parseArgs } from './args.js';
 import { main } from './cli.js';
@@ -119,8 +119,7 @@ describe('plandesk admin invite-owner (BA3c REQ-3)', () => {
       expect(accepted.member.role).toBe('owner');
       expect(accepted.member.userId).toBe(founder.id);
 
-      const org = await ensureDefaultOrg(db);
-      expect(accepted.member.organizationId).toBe(org.id);
+      expect(accepted.member.organizationId).toBe(DEFAULT_ORG_ID);
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }

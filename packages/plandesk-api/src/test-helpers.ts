@@ -1,4 +1,4 @@
-import { createDb, ensureDefaultOrg, migrate, type Db } from '@plandesk/db';
+import { createDb, DEFAULT_ORG_ID, migrate, type Db } from '@plandesk/db';
 import type { Hono } from 'hono';
 import { createApp } from './server.js';
 import type { GithubConfig } from './github.js';
@@ -14,8 +14,6 @@ export async function createTestApp(opts?: {
 }> {
   const db = await createDb(':memory:');
   await migrate(db);
-  // Migration seeds the default org; ensureDefaultOrg is idempotent.
-  const org = await ensureDefaultOrg(db);
   return {
     app: createApp({
       db,
@@ -24,7 +22,7 @@ export async function createTestApp(opts?: {
       github: opts?.github,
     }),
     db,
-    orgId: org.id,
+    orgId: DEFAULT_ORG_ID,
   };
 }
 

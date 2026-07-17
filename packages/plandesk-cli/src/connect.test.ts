@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -13,14 +14,12 @@ import {
   type BetterAuthInstance,
 } from '@plandesk/api';
 import {
+  DEFAULT_ORG_ID,
   createDb,
-  createOrg,
   createProject as createProjectInOrg,
   createProjectInDefaultOrg as createProject,
   createTaskWithDefaultGoal as createTask,
-  ensureDefaultOrg,
   migrate,
-  verifyToken,
   type Db,
 } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
@@ -123,13 +122,11 @@ async function seedOwnerUser(
   return user.id;
 }
 
-function createTestTokenStore(db: Db) {
-  return {
-    async verify(raw: string) {
-      return verifyToken(db, raw);
-    },
-  };
-}
+const noopTokenStore = {
+  async verify() {
+    return undefined;
+  },
+};
 
 async function withTestServer(
   run: (ctx: { baseUrl: string; db: Db; projectId: string; projectName: string }) => Promise<void>,
@@ -137,8 +134,8 @@ async function withTestServer(
   const db = await createDb(':memory:');
   await migrate(db);
   const project = await createProject(db, { name: 'connect-repo' });
-    const services = createServices({ db, orgId: project.orgId });
-  const mcpApp = createMcpApp({ services, tokenStore: createTestTokenStore(db) });
+  const services = createServices({ db, orgId: project.orgId });
+  const mcpApp = createMcpApp({ services, tokenStore: noopTokenStore });
   const app = createApp({ db, services, mcp: mcpApp });
 
   const server = createServer((req, res) => {
@@ -430,8 +427,7 @@ describe('runConnect --to hosted (BA4b-3)', () => {
   it('gate 4: connect --to writes scoped agent key; authorizes project p, 404s other project', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    await ensureDefaultOrg(db);
-    const org = await createOrg(db, { name: 'Hosted Connect Org' });
+    const org = { id: randomUUID(), name: 'Hosted Connect Org' };
     const projectA = await createProjectInOrg(db, { name: 'hosted-board', orgId: org.id });
     const projectB = await createProjectInOrg(db, { name: 'other-board', orgId: org.id });
     await createTask(db, { projectId: projectA.id, label: 'A task', status: 'todo' });
@@ -592,7 +588,7 @@ describe('CLI connect/disconnect', () => {
     await migrate(db);
     const project = await createProject(db, { name: 'cli-connect' });
         const services = createServices({ db, orgId: project.orgId });
-    const mcpApp = createMcpApp({ services, tokenStore: createTestTokenStore(db) });
+    const mcpApp = createMcpApp({ services, tokenStore: noopTokenStore });
     const app = createApp({ db, services, mcp: mcpApp });
     const server = createServer((req, res) => {
       void getRequestListener(app.fetch)(req, res);

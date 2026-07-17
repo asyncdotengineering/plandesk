@@ -28,67 +28,13 @@ export type OrgRole = (typeof orgRoles)[number];
 export const tokenScopes = ['read-only', 'full'] as const;
 export type TokenScope = (typeof tokenScopes)[number];
 
-/** Stable id for the single local org; migration backfill uses the same value. */
+/** Stable id for the single local better-auth organization (loopback owner). */
 export const DEFAULT_ORG_ID = '00000000-0000-4000-8000-0000000000a1';
-
-export const orgs = sqliteTable('orgs', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' })
-    .notNull()
-    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-    .notNull()
-    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
-});
-
-export const orgMembers = sqliteTable(
-  'org_members',
-  {
-    orgId: text('org_id')
-      .notNull()
-      .references(() => orgs.id),
-    userRef: text('user_ref').notNull(),
-    role: text('role', { enum: orgRoles }).notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
-      .notNull()
-      .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
-  },
-  (table) => [primaryKey({ columns: [table.orgId, table.userRef] })],
-);
-
-/**
- * Browser sessions minted by the web OAuth redirect flow.
- * Only the hash of the cookie value is stored, so a database dump yields no
- * usable cookie. Rows are deleted on logout — revocation is server-side.
- */
-export const sessions = sqliteTable('sessions', {
-  id: text('id').primaryKey(),
-  orgId: text('org_id')
-    .notNull()
-    .references(() => orgs.id),
-  userRef: text('user_ref').notNull(),
-  tokenHash: text('token_hash').notNull().unique(),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' })
-    .notNull()
-    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
-  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-});
-
-export const pendingAuth = sqliteTable('pending_auth', {
-  authId: text('auth_id').primaryKey(),
-  deviceCode: text('device_code').notNull(),
-  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' })
-    .notNull()
-    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
-});
 
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
-  orgId: text('org_id')
-    .notNull()
-    .references(() => orgs.id),
+  // Plain scoping column — org identity lives in better-auth organization table.
+  orgId: text('org_id').notNull(),
   name: text('name').notNull(),
   description: text('description'),
   canvasLayout: text('canvas_layout'),
@@ -282,20 +228,6 @@ export const agentRunEvents = sqliteTable('agent_run_events', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
-});
-
-export const mcpTokens = sqliteTable('mcp_tokens', {
-  id: text('id').primaryKey(),
-  orgId: text('org_id')
-    .notNull()
-    .references(() => orgs.id),
-  name: text('name').notNull(),
-  tokenHash: text('token_hash').notNull(),
-  scope: text('scope', { enum: tokenScopes }).notNull().default('full'),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' })
-    .notNull()
-    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
-  revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
 });
 
 export const shareModes = ['invite', 'public'] as const;

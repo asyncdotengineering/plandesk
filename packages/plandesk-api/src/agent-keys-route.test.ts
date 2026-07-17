@@ -1,11 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
 import {
+  DEFAULT_ORG_ID,
   createDb,
-  createOrg,
   createProject,
   createTaskWithDefaultGoal as createTask,
-  ensureDefaultOrg,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -157,7 +157,6 @@ async function hostedApp(): Promise<{
 }> {
   const db = await createDb(':memory:');
   await migrate(db);
-  await ensureDefaultOrg(db);
   const auth = createBetterAuth({
     client: db.$client,
     secret: TEST_SECRET,
@@ -188,7 +187,7 @@ function bearer(key: string): { Authorization: string } {
 describe('POST /api/v1/orgs/:orgId/agent-keys (BA4b-3)', () => {
   it('gate 1: owner key mints scoped agent key → 200 { token, project_id }; agent profile cannot mint tokens', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'Mint Org' });
+    const org = { id: randomUUID(), name: 'Mint Org' };
     const project = await createProject(db, { name: 'Board', orgId: org.id });
     const { userId } = await seedBetterAuthUser(auth, {
       email: 'owner@example.com',
@@ -231,8 +230,8 @@ describe('POST /api/v1/orgs/:orgId/agent-keys (BA4b-3)', () => {
 
   it('gate 2 / test:cross_org_denied — project_id in another org → 404', async () => {
     const { app, db, auth } = await hostedApp();
-    const orgA = await createOrg(db, { name: 'Org A' });
-    const orgB = await createOrg(db, { name: 'Org B' });
+    const orgA = { id: randomUUID(), name: 'Org A' };
+    const orgB = { id: randomUUID(), name: 'Org B' };
     const projectB = await createProject(db, { name: 'Other Board', orgId: orgB.id });
     const { userId } = await seedBetterAuthUser(auth, {
       email: 'a@example.com',
@@ -259,7 +258,7 @@ describe('POST /api/v1/orgs/:orgId/agent-keys (BA4b-3)', () => {
 
   it('gate 3: scoped agent key cannot provision agent keys → 403', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'No Esc' });
+    const org = { id: randomUUID(), name: 'No Esc' };
     const project = await createProject(db, { name: 'Board', orgId: org.id });
     const { userId } = await seedBetterAuthUser(auth, {
       email: 'agent@example.com',
@@ -287,7 +286,7 @@ describe('POST /api/v1/orgs/:orgId/agent-keys (BA4b-3)', () => {
 
   it('gate 3b: session member cannot mint agent keys → 403', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'Member Org' });
+    const org = { id: randomUUID(), name: 'Member Org' };
     const project = await createProject(db, { name: 'Board', orgId: org.id });
     const { cookie } = await seedBetterAuthUser(auth, {
       email: 'member@example.com',
@@ -308,7 +307,7 @@ describe('POST /api/v1/orgs/:orgId/agent-keys (BA4b-3)', () => {
 
   it('minted agent key authorizes project work and 404s on another project', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'Scope Org' });
+    const org = { id: randomUUID(), name: 'Scope Org' };
     const projectA = await createProject(db, { name: 'A', orgId: org.id });
     const projectB = await createProject(db, { name: 'B', orgId: org.id });
     await createTask(db, { projectId: projectA.id, label: 'T', status: 'todo' });

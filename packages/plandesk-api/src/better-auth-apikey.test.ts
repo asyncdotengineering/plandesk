@@ -1,10 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_ORG_ID,
   createDb,
-  createOrg,
   createProject,
   createTaskWithDefaultGoal as createTask,
-  ensureDefaultOrg,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -132,7 +132,6 @@ async function hostedApp(): Promise<{
 }> {
   const db = await createDb(':memory:');
   await migrate(db);
-  await ensureDefaultOrg(db);
   const auth = createBetterAuth({
     client: db.$client,
     secret: TEST_SECRET,
@@ -163,7 +162,7 @@ function bearer(key: string): { Authorization: string } {
 describe('better-auth API keys with live-role ceiling (BA5)', () => {
   it('property 1: task:read key → 200 on task read, 403 on task update', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'P1 Org' });
+    const org = { id: randomUUID(), name: 'P1 Org' };
     const project = await createProject(db, { name: 'P1 Board', orgId: org.id });
     const task = await createTask(db, {
       projectId: project.id,
@@ -204,7 +203,7 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
 
   it('property 2: agent key → 403 on member:add and 403 on apiKey/token mint (AGENT_FORBIDDEN)', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'P2 Org' });
+    const org = { id: randomUUID(), name: 'P2 Org' };
     const project = await createProject(db, { name: 'P2 Board', orgId: org.id });
     const { userId } = await seedBetterAuthUser(auth, {
       email: 'p2@example.com',
@@ -243,7 +242,7 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
 
   it('property 2b: AGENT_FORBIDDEN strips apiKey even when key was minted with apiKey:create', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'P2b Org' });
+    const org = { id: randomUUID(), name: 'P2b Org' };
     const project = await createProject(db, { name: 'P2b Board', orgId: org.id });
     const { userId } = await seedBetterAuthUser(auth, {
       email: 'p2b@example.com',
@@ -276,7 +275,7 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
 
   it('property 3: key minted as owner is capped at member after demotion (live ∩)', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'P3 Org' });
+    const org = { id: randomUUID(), name: 'P3 Org' };
     const project = await createProject(db, { name: 'P3 Board', orgId: org.id });
     const { userId } = await seedBetterAuthUser(auth, {
       email: 'p3@example.com',
@@ -344,7 +343,7 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
 
   it('property 4: removed member → empty permissions → 403 on privileged ops', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'P4 Org' });
+    const org = { id: randomUUID(), name: 'P4 Org' };
     const project = await createProject(db, { name: 'P4 Board', orgId: org.id });
     const task = await createTask(db, {
       projectId: project.id,
@@ -411,8 +410,8 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
 
   it('property 5: org-B key on org-A project → 404; mcp cross_org_denied still holds', async () => {
     const { app, db, auth } = await hostedApp();
-    const orgA = await createOrg(db, { name: 'Org A' });
-    const orgB = await createOrg(db, { name: 'Org B' });
+    const orgA = { id: randomUUID(), name: 'Org A' };
+    const orgB = { id: randomUUID(), name: 'Org B' };
     const projectA = await createProject(db, { name: 'A Board', orgId: orgA.id });
     const projectB = await createProject(db, { name: 'B Board', orgId: orgB.id });
 
@@ -447,7 +446,7 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
 
   it('property 6: key scoped to project A → 404 on project B', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'P6 Org' });
+    const org = { id: randomUUID(), name: 'P6 Org' };
     const projectA = await createProject(db, { name: 'Project A', orgId: org.id });
     const projectB = await createProject(db, { name: 'Project B', orgId: org.id });
     const { userId } = await seedBetterAuthUser(auth, {
@@ -493,7 +492,6 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
   it('property 7: local loopback unchanged with better-auth configured (REQ-21)', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    await ensureDefaultOrg(db);
     const auth = createBetterAuth({
       client: db.$client,
       secret: TEST_SECRET,
@@ -533,7 +531,7 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
 describe('org-wide owner keys + profile-aware ceiling (BA4b-1 / REQ-4)', () => {
   it('REQ-4.1: agent key with apiKey:create still 403 on token mint (escalation closed)', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'Esc Org' });
+    const org = { id: randomUUID(), name: 'Esc Org' };
     const project = await createProject(db, { name: 'Esc Board', orgId: org.id });
     const { userId } = await seedBetterAuthUser(auth, {
       email: 'esc@example.com',
@@ -565,7 +563,7 @@ describe('org-wide owner keys + profile-aware ceiling (BA4b-1 / REQ-4)', () => {
 
   it('REQ-4.2: owner key (org-wide, kind owner) with live owner can mint tokens (201)', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'Owner Mint Org' });
+    const org = { id: randomUUID(), name: 'Owner Mint Org' };
     const { userId } = await seedBetterAuthUser(auth, {
       email: 'ownermint@example.com',
       name: 'OwnerMint',
@@ -597,7 +595,7 @@ describe('org-wide owner keys + profile-aware ceiling (BA4b-1 / REQ-4)', () => {
 
   it('REQ-4.3: owner key demoted to member → apiKey absent → 403 on mint', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'Demote Org' });
+    const org = { id: randomUUID(), name: 'Demote Org' };
     const { userId } = await seedBetterAuthUser(auth, {
       email: 'demote@example.com',
       name: 'Demote',
@@ -648,7 +646,7 @@ describe('org-wide owner keys + profile-aware ceiling (BA4b-1 / REQ-4)', () => {
 
   it('REQ-4.4: owner key with deleted member row → ceiling empty → 403 on everything', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'Revoke Org' });
+    const org = { id: randomUUID(), name: 'Revoke Org' };
     const project = await createProject(db, { name: 'Revoke Board', orgId: org.id });
     const task = await createTask(db, {
       projectId: project.id,
@@ -720,8 +718,8 @@ describe('org-wide owner keys + profile-aware ceiling (BA4b-1 / REQ-4)', () => {
 
   it('REQ-4.5: owner key (no projectId) reaches two projects in org; cross-org 404s', async () => {
     const { app, db, auth } = await hostedApp();
-    const orgA = await createOrg(db, { name: 'Reach Org A' });
-    const orgB = await createOrg(db, { name: 'Reach Org B' });
+    const orgA = { id: randomUUID(), name: 'Reach Org A' };
+    const orgB = { id: randomUUID(), name: 'Reach Org B' };
     const projectA1 = await createProject(db, { name: 'A1', orgId: orgA.id });
     const projectA2 = await createProject(db, { name: 'A2', orgId: orgA.id });
     const projectB = await createProject(db, { name: 'B1', orgId: orgB.id });

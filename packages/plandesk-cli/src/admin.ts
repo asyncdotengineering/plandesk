@@ -4,7 +4,7 @@ import {
   mintOwnerInvitation,
   runBetterAuthMigrations,
 } from '@plandesk/api';
-import { ensureDefaultOrg, type Db } from '@plandesk/db';
+import type { Db } from '@plandesk/db';
 import { ensureLocalBetterAuthSecret } from './init.js';
 
 export type AdminInviteOwnerOptions = {
@@ -51,8 +51,7 @@ export async function runAdminInviteOwner(
     throw new AdminInviteOwnerError('better-auth is not configured (missing session secret)');
   }
   await runBetterAuthMigrations(auth);
-  await ensureLocalBetterAuthOrganization(db, auth);
-  const org = await ensureDefaultOrg(db);
+  const org = await ensureLocalBetterAuthOrganization(db, auth);
 
   const minted = await mintOwnerInvitation(auth, {
     email,

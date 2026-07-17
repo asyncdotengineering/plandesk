@@ -26,7 +26,7 @@ import {
   validateServeBind,
 } from './serve.js';
 import { resolveServerConfig, SERVER_CONFIG_FILENAME } from './config.js';
-import { createDb, ensureDefaultOrg, migrate } from '@plandesk/db';
+import { DEFAULT_ORG_ID, createDb, migrate } from '@plandesk/db';
 
 describe('parseArgs', () => {
   it('parses init with data-dir override', async () => {
@@ -505,8 +505,7 @@ describe('startServer', () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-auth-'));
     const db = await createDb(workspaceDbPath(dataDir));
     await migrate(db);
-    await ensureDefaultOrg(db);
-    const before = await db.$client.execute(
+        const before = await db.$client.execute(
       "SELECT name FROM sqlite_master WHERE type='table' AND name='organization'",
     );
     expect(before.rows).toHaveLength(0);

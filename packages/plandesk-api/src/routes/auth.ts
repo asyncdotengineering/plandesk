@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
-import { getOrg, type Db } from '@plandesk/db';
+import type { Db } from '@plandesk/db';
 import { createOrgOwnerKey } from '../agent-keys.js';
 import { getAuthContext } from '../auth-context.js';
 import type { BetterAuthInstance } from '../better-auth.js';
 import type { GithubConfig } from '../github.js';
+import { resolveOrganizationName } from '../organizations.js';
 import { requirePermission } from '../permissions.js';
 
 export type AuthRouterDeps = {
@@ -16,7 +17,7 @@ export type AuthRouterDeps = {
 
 export function createAuthRouter(deps: AuthRouterDeps): Hono {
   const router = new Hono();
-  const { db, github, betterAuth } = deps;
+  const { github, betterAuth } = deps;
 
   // What sign-in this instance offers.
   //
@@ -38,12 +39,12 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
     if (ctx.kind === 'guest') {
       return c.json({ error: 'unauthorized' }, 401);
     }
-    const org = await getOrg(db, ctx.orgId);
+    const org = await resolveOrganizationName(betterAuth, ctx.orgId);
     return c.json({
       kind: ctx.kind,
       user_ref: ctx.kind === 'session' ? ctx.userRef : null,
       role: ctx.role,
-      org: org === undefined ? null : { id: org.id, name: org.name },
+      org,
     });
   });
 
@@ -81,11 +82,11 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
       name,
     });
 
-    const org = await getOrg(db, ctx.orgId);
+    const org = await resolveOrganizationName(betterAuth, ctx.orgId);
     return c.json({
       token: minted.key,
       org_id: ctx.orgId,
-      org_name: org === undefined ? '' : org.name,
+      org_name: org.name,
     });
   });
 

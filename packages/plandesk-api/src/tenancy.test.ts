@@ -1,9 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
-  createOrg,
+  DEFAULT_ORG_ID,
   createProject,
   createTaskWithDefaultGoal as createTask,
-  ensureDefaultOrg,
   migrate,
   createDb,
 } from '@plandesk/db';
@@ -115,9 +115,8 @@ describe('org tenancy', () => {
   it('test:cross_org_denied — org-B key requesting org-A project returns 404 on REST', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    await ensureDefaultOrg(db);
-    const orgA = await createOrg(db, { name: 'Org A' });
-    const orgB = await createOrg(db, { name: 'Org B' });
+    const orgA = { id: randomUUID(), name: 'Org A' };
+    const orgB = { id: randomUUID(), name: 'Org B' };
     const projectA = await createProject(db, { name: 'A Project', orgId: orgA.id });
 
     const auth = createBetterAuth({
@@ -163,7 +162,6 @@ describe('org tenancy', () => {
   it('test:local_mode_unchanged — loopback single-org works without a token', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    await ensureDefaultOrg(db);
     const app = createApp({
       db,
       bindHost: '127.0.0.1',
@@ -191,7 +189,6 @@ describe('org tenancy', () => {
   it('requires a credential when bound to non-loopback even with a single org', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    await ensureDefaultOrg(db);
     const app = createApp({
       db,
       bindHost: '0.0.0.0',
@@ -205,9 +202,8 @@ describe('org tenancy', () => {
   it('claim with org-B key on org-A task returns not-claimed (tenancy)', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    await ensureDefaultOrg(db);
-    const orgA = await createOrg(db, { name: 'Org A' });
-    const orgB = await createOrg(db, { name: 'Org B' });
+    const orgA = { id: randomUUID(), name: 'Org A' };
+    const orgB = { id: randomUUID(), name: 'Org B' };
     const projectA = await createProject(db, { name: 'A Project', orgId: orgA.id });
     const task = await createTask(db, {
       projectId: projectA.id,

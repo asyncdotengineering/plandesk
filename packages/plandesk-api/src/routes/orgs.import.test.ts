@@ -1,14 +1,13 @@
-import { createHash } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
-  createOrg,
+  DEFAULT_ORG_ID,
   createProject,
   createTaskWithDefaultGoal as createTask,
   createEdge,
   createDocument,
   createGoal,
   createFile,
-  ensureDefaultOrg,
   exportProject,
   getFile,
   getProject,
@@ -125,7 +124,7 @@ describe('POST /api/v1/orgs/:id/import', () => {
   it('test:push_export_roundtrip — local export → hosted import → re-export deep-equal graph', async () => {
     // Single-org loopback owner (no mcp_token).
     const { app, db } = await createTestApp({ bindHost: '127.0.0.1' });
-    const org = await ensureDefaultOrg(db);
+    const org = { id: DEFAULT_ORG_ID, name: 'Personal' };
 
     const local = await createProject(db, {
       name: 'Promote Me',
@@ -234,9 +233,8 @@ describe('POST /api/v1/orgs/:id/import', () => {
   it('rejects import into org-B with an org-A key', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    await ensureDefaultOrg(db);
-    const orgA = await createOrg(db, { name: 'Org A' });
-    const orgB = await createOrg(db, { name: 'Org B' });
+    const orgA = { id: randomUUID(), name: 'Org A' };
+    const orgB = { id: randomUUID(), name: 'Org B' };
 
     const auth = createBetterAuth({
       client: db.$client,
@@ -293,9 +291,8 @@ describe('POST /api/v1/orgs/:id/import', () => {
   it('importing the same file bytes into two different orgs does not collide', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    await ensureDefaultOrg(db);
-    const orgA = await createOrg(db, { name: 'Org A' });
-    const orgB = await createOrg(db, { name: 'Org B' });
+    const orgA = { id: randomUUID(), name: 'Org A' };
+    const orgB = { id: randomUUID(), name: 'Org B' };
 
     const auth = createBetterAuth({
       client: db.$client,
@@ -412,7 +409,7 @@ describe('POST /api/v1/orgs/:id/import', () => {
 describe('importProject orgId option', () => {
   it('places the project in the given org', async () => {
     const { db } = await createTestApp();
-    const orgB = await createOrg(db, { name: 'Target' });
+    const orgB = { id: randomUUID(), name: 'Target' };
     const blob = {
       version: PLANDESK_EXPORT_VERSION,
       project: { name: 'Direct', description: null, canvas_layout: null },

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type Db } from '../client.js';
 import { migrate } from '../migrate.js';
-import { createOrg } from './orgs.js';
+
 import { createProjectInDefaultOrg as createProject } from '../testing.js';
 import { createTaskWithDefaultGoal as createTask } from '../testing.js';
 import {
@@ -154,14 +154,14 @@ describe('tasks repository', () => {
 
   it('claimTask with the wrong org returns undefined (tenancy)', async () => {
     const projectA = await createProject(db, { name: 'Org A project' });
-    const orgB = await createOrg(db, { name: 'Org B' });
+    const orgBId = 'org-b-id';
     const task = await createTask(db, {
       projectId: projectA.id,
       label: 'A-only',
       status: 'todo',
     });
 
-    const claimed = await claimTask(db, task.id, orgB.id, 'agent-b');
+    const claimed = await claimTask(db, task.id, orgBId, 'agent-b');
     expect(claimed).toBeUndefined();
 
     const stored = await getTask(db, task.id);

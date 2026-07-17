@@ -1,9 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
 import {
+  DEFAULT_ORG_ID,
   createDb,
-  createOrg,
-  ensureDefaultOrg,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -173,7 +173,7 @@ async function hostedInviteApp(opts?: { github?: boolean }): Promise<{
 }> {
   const db = await createDb(':memory:');
   await migrate(db);
-  const defaultOrg = await ensureDefaultOrg(db);
+  const defaultOrg = { id: DEFAULT_ORG_ID, name: 'Personal' };
   const auth = createBetterAuth({
     client: db.$client,
     secret: TEST_SECRET,
@@ -444,8 +444,8 @@ describe('organization invitations (BA3c)', () => {
   it('owner of org-A cannot create invitations on org-B (404)', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    const orgA = await ensureDefaultOrg(db);
-    const orgB = await createOrg(db, { name: 'Other' });
+    const orgA = { id: DEFAULT_ORG_ID, name: 'Personal' };
+    const orgB = { id: randomUUID(), name: 'Other' };
     const auth = createBetterAuth({
       client: db.$client,
       secret: TEST_SECRET,

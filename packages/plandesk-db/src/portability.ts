@@ -5,7 +5,6 @@ import { listArtifactsByProject } from './repositories/artifacts.js';
 import { listFilesByProject } from './repositories/files.js';
 import { listFolders } from './repositories/folders.js';
 import { listGoals } from './repositories/goals.js';
-import { ensureDefaultOrg } from './repositories/orgs.js';
 import { getProject } from './repositories/projects.js';
 import { listTags, listTagsByTaskForProject } from './repositories/tags.js';
 import { listCommentsByProject } from './repositories/comments.js';
@@ -20,6 +19,7 @@ import {
   agentRuns,
   artifacts,
   comments,
+  DEFAULT_ORG_ID,
   documents,
   edges,
   files,
@@ -487,7 +487,7 @@ export async function importProject(
     agentRunIdMap.set(run.id, randomUUID());
   }
 
-  const orgId = options?.orgId ?? (await ensureDefaultOrg(root)).id;
+  const orgId = options?.orgId ?? DEFAULT_ORG_ID;
   const projectId = randomUUID();
   const now = new Date();
 

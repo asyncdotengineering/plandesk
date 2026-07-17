@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  DEFAULT_ORG_ID,
   createDb,
   createProjectInDefaultOrg as createProject,
-  ensureDefaultOrg,
   getPullCursor,
   getSubmission,
   listSubmissions,
@@ -39,7 +39,7 @@ describe('syncService', () => {
   beforeEach(async () => {
     db = await createDb(':memory:');
     await migrate(db);
-    orgId = (await ensureDefaultOrg(db)).id;
+    orgId = DEFAULT_ORG_ID;
     await db.$client.execute('DELETE FROM share_submissions');
     await db.$client.execute('DELETE FROM sync_state');
     await db.$client.execute('DELETE FROM tasks');

@@ -1,11 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
 import {
+  DEFAULT_ORG_ID,
   createDb,
-  createOrg,
   createProject,
   createTaskWithDefaultGoal as createTask,
-  ensureDefaultOrg,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -156,7 +156,6 @@ async function hostedApp(): Promise<{
 }> {
   const db = await createDb(':memory:');
   await migrate(db);
-  await ensureDefaultOrg(db);
   const auth = createBetterAuth({
     client: db.$client,
     secret: TEST_SECRET,
@@ -187,7 +186,7 @@ function bearer(key: string): { Authorization: string } {
 describe('POST /api/v1/auth/cli-token (BA4b-2)', () => {
   it('gate 1: session owner mints owner key → 200 { token, org_id, org_name }; metadata kind owner, no projectId', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'CLI Org' });
+    const org = { id: randomUUID(), name: 'CLI Org' };
     const { cookie } = await seedBetterAuthUser(auth, {
       email: 'owner@example.com',
       name: 'Owner',
@@ -221,7 +220,7 @@ describe('POST /api/v1/auth/cli-token (BA4b-2)', () => {
 
   it('gate 2: session member (non-owner) → 403 apiKey:create denied', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'Member Org' });
+    const org = { id: randomUUID(), name: 'Member Org' };
     const { cookie } = await seedBetterAuthUser(auth, {
       email: 'member@example.com',
       name: 'Member',
@@ -241,7 +240,7 @@ describe('POST /api/v1/auth/cli-token (BA4b-2)', () => {
 
   it('gate 3a: apikey owner Bearer cannot mint via this endpoint → 401', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'Key Org' });
+    const org = { id: randomUUID(), name: 'Key Org' };
     const { userId } = await seedBetterAuthUser(auth, {
       email: 'keyowner@example.com',
       name: 'KeyOwner',
@@ -280,7 +279,6 @@ describe('POST /api/v1/auth/cli-token (BA4b-2)', () => {
   it('gate 3c: loopback (no session) cannot mint → 401', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    await ensureDefaultOrg(db);
     const auth = createBetterAuth({
       client: db.$client,
       secret: TEST_SECRET,
@@ -307,7 +305,7 @@ describe('POST /api/v1/auth/cli-token (BA4b-2)', () => {
 
   it('gate 4: minted owner token authorizes org write and reaches second project', async () => {
     const { app, db, auth } = await hostedApp();
-    const org = await createOrg(db, { name: 'Write Org' });
+    const org = { id: randomUUID(), name: 'Write Org' };
     const projectA = await createProject(db, { name: 'Board A', orgId: org.id });
     const projectB = await createProject(db, { name: 'Board B', orgId: org.id });
     await createTask(db, {
