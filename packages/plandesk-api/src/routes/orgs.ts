@@ -4,6 +4,7 @@ import {
   createToken,
   getOrg,
   getOrgMember,
+  getProjectInOrg,
   importProject,
   InvalidExportVersionError,
   listOrgMembers,
@@ -15,7 +16,8 @@ import {
   type PlandeskExportInput,
   type TokenScope,
 } from '@plandesk/db';
-import { getOrgAuthContext } from '../auth-context.js';
+import { createScopedAgentKey, type CreateScopedAgentKeyInput } from '../agent-keys.js';
+import { getAuthContext, getOrgAuthContext } from '../auth-context.js';
 import type { BetterAuthInstance } from '../better-auth.js';
 import {
   acceptOrganizationInvitation,
@@ -23,7 +25,7 @@ import {
   isAuthApiError,
   isInvitationRole,
 } from '../invitations.js';
-import { requirePermission } from '../permissions.js';
+import { requirePermission, type PermissionSet } from '../permissions.js';
 
 function isOrgRole(value: string): value is OrgRole {
   return (orgRoles as readonly string[]).includes(value);
@@ -31,6 +33,43 @@ function isOrgRole(value: string): value is OrgRole {
 
 function isTokenScope(value: string): value is TokenScope {
   return (tokenScopes as readonly string[]).includes(value);
+}
+
+function isPermissionSet(value: unknown): value is PermissionSet {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  for (const actions of Object.values(value as Record<string, unknown>)) {
+    if (
+      !Array.isArray(actions) ||
+      !actions.every((action): action is string => typeof action === 'string')
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Resolve the better-auth user id that will own the minted agent key.
+ * Apikey (owner key) carries userId; session needs a better-auth session cookie.
+ */
+async function resolveMintUserId(
+  betterAuth: BetterAuthInstance,
+  headers: Headers,
+): Promise<string | undefined> {
+  const ctx = getAuthContext();
+  if (ctx.kind === 'apikey') {
+    return ctx.userId;
+  }
+  if (ctx.kind === 'session') {
+    const baSession = await betterAuth.api.getSession({ headers });
+    if (baSession === null) {
+      return undefined;
+    }
+    return baSession.user.id;
+  }
+  return undefined;
 }
 
 export type OrgsRouterOptions = {
@@ -101,6 +140,74 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
       },
       201,
     );
+  });
+
+  /**
+   * BA4b-3: mint a project-scoped agent key for `plandesk connect --to`.
+   * Caller must hold apiKey:create (owner key or session owner) — agent keys cannot.
+   * Raw key returned once; metadata is { projectId, orgId } (agent profile).
+   */
+  router.post('/orgs/:orgId/agent-keys', async (c) => {
+    if (betterAuth === undefined) {
+      return c.json({ error: 'unavailable' }, 503);
+    }
+
+    const orgId = c.req.param('orgId');
+    const org = await getOrg(db, orgId);
+    if (!org) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    if (getOrgAuthContext().orgId !== orgId) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    requirePermission(getOrgAuthContext(), 'apiKey', 'create');
+
+    const body = await c.req.json<{
+      project_id?: string;
+      permissions?: unknown;
+      name?: unknown;
+    }>();
+    if (typeof body.project_id !== 'string' || body.project_id.trim() === '') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    const projectId = body.project_id.trim();
+    const project = await getProjectInOrg(db, projectId, orgId);
+    if (project === undefined) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+
+    let permissions: PermissionSet | undefined;
+    if (body.permissions !== undefined) {
+      if (!isPermissionSet(body.permissions)) {
+        return c.json({ error: 'invalid_argument' }, 400);
+      }
+      permissions = body.permissions;
+    }
+
+    let name: string | undefined;
+    if (body.name !== undefined) {
+      if (typeof body.name !== 'string' || body.name.trim() === '') {
+        return c.json({ error: 'invalid_argument' }, 400);
+      }
+      name = body.name.trim();
+    }
+
+    const userId = await resolveMintUserId(betterAuth, c.req.raw.headers);
+    if (userId === undefined) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+
+    const mintInput: CreateScopedAgentKeyInput = {
+      auth: betterAuth,
+      userId,
+      orgId,
+      projectId,
+      ...(permissions !== undefined ? { permissions } : {}),
+      ...(name !== undefined ? { name } : {}),
+    };
+    const minted = await createScopedAgentKey(mintInput);
+
+    return c.json({ token: minted.key, project_id: projectId }, 200);
   });
 
   router.post('/orgs/:id/members', async (c) => {

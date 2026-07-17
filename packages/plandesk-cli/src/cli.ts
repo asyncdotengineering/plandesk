@@ -248,6 +248,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
           token: parsed.token,
           agent: parsed.agent,
           print: parsed.print,
+          to: parsed.to,
         });
         process.stdout.write(
           parsed.print ? formatConnectPrint(result) : formatConnectSummary(result),

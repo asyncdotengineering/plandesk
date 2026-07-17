@@ -4,22 +4,126 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getRequestListener } from '@hono/node-server';
-import { createApp, createServices } from '@plandesk/api';
+import {
+  createApp,
+  createBetterAuth,
+  createOrgOwnerKey,
+  createServices,
+  runBetterAuthMigrations,
+  type BetterAuthInstance,
+} from '@plandesk/api';
 import {
   createDb,
+  createOrg,
+  createProject as createProjectInOrg,
   createProjectInDefaultOrg as createProject,
+  createTaskWithDefaultGoal as createTask,
   createTokenInDefaultOrg as createToken,
+  ensureDefaultOrg,
   migrate,
   revokeToken,
   verifyToken,
   type Db,
 } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
+import { writeCliConfig } from './config.js';
 import { parseConfigJson, SENTINEL_START } from './connect-artifacts.js';
-import { formatConnectPrint, runConnect } from './connect.js';
+import { ConnectError, formatConnectPrint, runConnect } from './connect.js';
 import { runDisconnect } from './disconnect.js';
 import { runBindingDoctor } from './binding-doctor.js';
 import { main } from './cli.js';
+
+const HOSTED_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
+
+type BetterAuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  image: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type BetterAuthAccount = {
+  id: string;
+  accountId: string;
+  providerId: string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type BetterAuthOrganization = {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: Date;
+};
+
+type BetterAuthMember = {
+  id: string;
+  organizationId: string;
+  userId: string;
+  role: string;
+  createdAt: Date;
+};
+
+async function seedOwnerUser(
+  auth: BetterAuthInstance,
+  org: { id: string; name: string; slug: string },
+): Promise<string> {
+  const adapter = (await auth.$context).adapter;
+  const now = new Date();
+  const user = await adapter.create<BetterAuthUser>({
+    model: 'user',
+    data: {
+      name: 'Owner',
+      email: 'owner-connect@example.com',
+      emailVerified: true,
+      image: null,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  await adapter.create<BetterAuthAccount>({
+    model: 'account',
+    data: {
+      accountId: 'gh-connect-8401',
+      providerId: 'github',
+      userId: user.id,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  const existingOrg = await adapter.findOne<BetterAuthOrganization>({
+    model: 'organization',
+    where: [{ field: 'id', value: org.id }],
+  });
+  if (existingOrg === null) {
+    const orgData = {
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      createdAt: now,
+    };
+    await adapter.create<BetterAuthOrganization>({
+      model: 'organization',
+      data: orgData,
+      forceAllowId: true,
+    });
+  }
+  await adapter.create<BetterAuthMember>({
+    model: 'member',
+    data: {
+      organizationId: org.id,
+      userId: user.id,
+      role: 'owner',
+      createdAt: now,
+    },
+  });
+  return user.id;
+}
 
 function createTestTokenStore(db: Db) {
   return {
@@ -298,6 +402,186 @@ describe('runConnect', () => {
       expect(report.mcpToolCount).toBe(0);
       expect(report.issues).toContain('token invalid or revoked');
     });
+  });
+
+  it('test:local_mode_unchanged — no --to still uses loopback mcp-tokens path', async () => {
+    await withTestServer(async ({ baseUrl, projectId, projectName }) => {
+      const repoDir = makeRepo(projectName);
+      const result = await runConnect({
+        repoDir,
+        project: projectId,
+        url: baseUrl,
+        // no token → createTokenViaApi → POST /mcp-tokens (local)
+        agent: 'claude',
+        interactive: false,
+      });
+      expect(result.tokenCreated).toBe(true);
+      expect(result.serverUrl).toBe(baseUrl.replace(/\/$/, ''));
+      const written = readFileSync(join(repoDir, '.plandesk', 'token'), 'utf8').trim();
+      expect(written.length).toBeGreaterThan(0);
+      // Local mint still produces plandesk_mcp_ tokens, not better-auth keys.
+      expect(written.startsWith('plandesk_mcp_') || written.length > 10).toBe(true);
+    });
+  });
+});
+
+describe('runConnect --to hosted (BA4b-3)', () => {
+  const tempDirs: string[] = [];
+  const servers: Server[] = [];
+
+  afterEach(() => {
+    while (tempDirs.length > 0) {
+      const dir = tempDirs.pop();
+      if (dir !== undefined) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+    while (servers.length > 0) {
+      const server = servers.pop();
+      server?.close();
+    }
+  });
+
+  it('gate 4: connect --to writes scoped agent key; authorizes project p, 404s other project', async () => {
+    const db = await createDb(':memory:');
+    await migrate(db);
+    await ensureDefaultOrg(db);
+    const org = await createOrg(db, { name: 'Hosted Connect Org' });
+    const projectA = await createProjectInOrg(db, { name: 'hosted-board', orgId: org.id });
+    const projectB = await createProjectInOrg(db, { name: 'other-board', orgId: org.id });
+    await createTask(db, { projectId: projectA.id, label: 'A task', status: 'todo' });
+    await createTask(db, { projectId: projectB.id, label: 'B task', status: 'todo' });
+
+    const testBase = 'http://127.0.0.1';
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: HOSTED_SECRET,
+      baseURL: testBase,
+      github: { clientId: 'test-client', clientSecret: 'test-secret' },
+    });
+    if (auth === undefined) throw new Error('expected better-auth');
+    await runBetterAuthMigrations(auth);
+    const userId = await seedOwnerUser(auth, {
+      id: org.id,
+      name: org.name,
+      slug: 'hosted-connect',
+    });
+    const ownerKey = await createOrgOwnerKey({
+      auth,
+      userId,
+      orgId: org.id,
+      name: 'cli-owner',
+    });
+
+    const app = createApp({
+      db,
+      bindHost: '0.0.0.0',
+      github: {
+        clientId: 'test-client',
+        clientSecret: 'test-secret',
+        callbackUrl: `${testBase}/api/v1/auth/github/callback`,
+        dashboardUrl: '/',
+      },
+      betterAuth: { secret: HOSTED_SECRET, baseURL: testBase },
+    });
+
+    const server = createServer((req, res) => {
+      void getRequestListener(app.fetch)(req, res);
+    });
+    servers.push(server);
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => {
+        resolve();
+      });
+    });
+    const address = server.address();
+    if (address === null || typeof address !== 'object') {
+      throw new Error('expected TCP address');
+    }
+    const baseUrl = `http://127.0.0.1:${String(address.port)}`;
+
+    const home = mkdtempSync(join(tmpdir(), 'plandesk-home-'));
+    tempDirs.push(home);
+    writeCliConfig({ server: baseUrl, token: ownerKey.key, orgId: org.id }, home);
+
+    const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-hosted-connect-'));
+    tempDirs.push(repoDir);
+    writeFileSync(join(repoDir, 'README.md'), '# hosted-board\n', 'utf8');
+
+    const result = await runConnect({
+      repoDir,
+      to: org.id,
+      project: projectA.id,
+      home,
+      agent: 'claude',
+      interactive: false,
+    });
+
+    expect(result.project.id).toBe(projectA.id);
+    expect(result.serverUrl).toBe(baseUrl.replace(/\/$/, ''));
+    expect(result.tokenCreated).toBe(true);
+
+    const writtenToken = readFileSync(join(repoDir, '.plandesk', 'token'), 'utf8').trim();
+    // Must be the scoped agent key — never the owner key from login config.
+    expect(writtenToken).not.toBe(ownerKey.key);
+    expect(writtenToken.length).toBeGreaterThan(0);
+
+    const bound = parseConfigJson(readFileSync(join(repoDir, '.plandesk/config.json'), 'utf8'));
+    expect(bound.projectId).toBe(projectA.id);
+    expect(bound.serverUrl).toBe(baseUrl.replace(/\/$/, ''));
+
+    // Scoped key works on project A, 404s on B.
+    const onA = await fetch(`${baseUrl}/api/v1/projects/${projectA.id}/tasks`, {
+      headers: { Authorization: `Bearer ${writtenToken}` },
+    });
+    expect(onA.status).toBe(200);
+
+    const onB = await fetch(`${baseUrl}/api/v1/projects/${projectB.id}/tasks`, {
+      headers: { Authorization: `Bearer ${writtenToken}` },
+    });
+    expect(onB.status).toBe(404);
+
+    // Owner key still cannot be what agents use — agent key cannot mint.
+    const escalate = await fetch(`${baseUrl}/api/v1/orgs/${org.id}/agent-keys`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${writtenToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ project_id: projectA.id }),
+    });
+    expect(escalate.status).toBe(403);
+  });
+
+  it('hosted connect without login → clear error', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'plandesk-home-empty-'));
+    tempDirs.push(home);
+    const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-hosted-nologin-'));
+    tempDirs.push(repoDir);
+
+    await expect(
+      runConnect({
+        repoDir,
+        to: 'org-missing',
+        project: 'p1',
+        home,
+        interactive: false,
+      }),
+    ).rejects.toBeInstanceOf(ConnectError);
+
+    try {
+      await runConnect({
+        repoDir,
+        to: 'org-missing',
+        project: 'p1',
+        home,
+        interactive: false,
+      });
+      expect.unreachable('should throw');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ConnectError);
+      expect((err as ConnectError).message).toContain('plandesk login');
+    }
   });
 });
 

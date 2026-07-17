@@ -10,6 +10,7 @@ import {
 import { basename, dirname, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
+import { homedir } from 'node:os';
 import {
   appendGitignoreLine,
   buildCommandMarkdown,
@@ -29,6 +30,7 @@ import {
   type PlanDeskConfig,
 } from './connect-artifacts.js';
 import { DEFAULT_PORT } from './args.js';
+import { readCliConfig } from './config.js';
 
 export type ProjectSummary = {
   id: string;
@@ -45,6 +47,13 @@ export type ConnectOptions = {
   agent?: ConnectAgent;
   print?: boolean;
   interactive?: boolean;
+  /**
+   * Hosted org id (`plandesk connect --to <org>`). When set, mint a
+   * project-scoped agent key via the login owner key — never write the owner key.
+   */
+  to?: string;
+  /** Injectable home for ~/.plandesk/config.json (tests). */
+  home?: string;
 };
 
 export type ConnectArtifact = {
@@ -84,8 +93,17 @@ function readOptionalFile(path: string): string | undefined {
   return readFileSync(path, 'utf8');
 }
 
-async function fetchProjects(serverUrl: string): Promise<ProjectSummary[]> {
-  const response = await fetch(`${normalizeServerUrl(serverUrl)}/api/v1/projects`);
+async function fetchProjects(
+  serverUrl: string,
+  bearerToken?: string,
+): Promise<ProjectSummary[]> {
+  const headers: Record<string, string> = {};
+  if (bearerToken !== undefined && bearerToken !== '') {
+    headers.Authorization = `Bearer ${bearerToken}`;
+  }
+  const response = await fetch(`${normalizeServerUrl(serverUrl)}/api/v1/projects`, {
+    headers,
+  });
   if (!response.ok) {
     throw new ConnectError(
       `Plan Desk server unreachable at ${serverUrl}. Start it with \`plandesk serve\`.`,
@@ -109,6 +127,40 @@ async function createTokenViaApi(serverUrl: string): Promise<string> {
   const body = (await response.json()) as { token?: string };
   if (typeof body.token !== 'string' || body.token.trim() === '') {
     throw new ConnectError('Token API returned an invalid response.');
+  }
+  return body.token;
+}
+
+/** Hosted: mint a project-scoped agent key with the login owner key (BA4b-3). */
+async function createAgentKeyViaApi(
+  serverUrl: string,
+  orgId: string,
+  projectId: string,
+  ownerToken: string,
+): Promise<string> {
+  const response = await fetch(
+    `${normalizeServerUrl(serverUrl)}/api/v1/orgs/${encodeURIComponent(orgId)}/agent-keys`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ownerToken}`,
+      },
+      body: JSON.stringify({ project_id: projectId, name: 'plandesk connect' }),
+    },
+  );
+  if (!response.ok) {
+    const detail =
+      response.status === 401 || response.status === 403
+        ? ' Login again with `plandesk login` if your owner key expired or lost access.'
+        : '';
+    throw new ConnectError(
+      `Failed to mint a scoped agent key for project ${projectId} on ${serverUrl} (${String(response.status)}).${detail}`,
+    );
+  }
+  const body = (await response.json()) as { token?: string };
+  if (typeof body.token !== 'string' || body.token.trim() === '') {
+    throw new ConnectError('Agent-key API returned an invalid response.');
   }
   return body.token;
 }
@@ -148,10 +200,11 @@ async function pickProjectInteractively(candidates: ProjectSummary[]): Promise<P
 async function resolveProject(
   options: ConnectOptions,
   serverUrl: string,
+  bearerToken?: string,
 ): Promise<{ project: ProjectSummary; explicitProject: boolean }> {
   const configPath = join(options.repoDir, '.plandesk', 'config.json');
   const existingConfig = readOptionalFile(configPath);
-  const projects = await fetchProjects(serverUrl);
+  const projects = await fetchProjects(serverUrl, bearerToken);
 
   if (options.project !== undefined) {
     const matches = matchProjects(projects, options.project);
@@ -450,6 +503,12 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
     );
   }
 
+  // Hosted path (--to): owner key from login mints a scoped agent key.
+  // Local path (no --to): unchanged loopback mcp-tokens mint.
+  if (options.to !== undefined && options.to.trim() !== '') {
+    return runHostedConnect(options, options.to.trim());
+  }
+
   const serverUrl = normalizeServerUrl(options.url ?? resolveDefaultServerUrl(options.repoDir));
   const configPath = join(options.repoDir, '.plandesk', 'config.json');
   const existingConfigContent = readOptionalFile(configPath);
@@ -469,6 +528,76 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
     artifacts,
     tokenCreated: created,
     tokenLine: `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`,
+  };
+
+  if (options.print === true) {
+    return result;
+  }
+
+  writeArtifacts(artifacts);
+  return result;
+}
+
+/**
+ * Hosted connect: human's owner key (login) → mint project-scoped agent key →
+ * write that key (never the owner key) into .plandesk/token.
+ * REQ-4: no Local|hosted where-prompt — --to is explicit hosted; omit = local.
+ */
+async function runHostedConnect(
+  options: ConnectOptions,
+  orgId: string,
+): Promise<ConnectResult> {
+  const home = options.home ?? homedir();
+  const cliConfig = readCliConfig(home);
+  if (cliConfig === undefined) {
+    throw new ConnectError(
+      'Not logged in. Run `plandesk login` first, then `plandesk connect --to <org> --project <name>`.',
+    );
+  }
+  if (cliConfig.orgId !== orgId) {
+    throw new ConnectError(
+      `Logged in to org ${cliConfig.orgId}, but --to is ${orgId}. Run \`plandesk login\` for that org, or pass the matching --to.`,
+    );
+  }
+  if (cliConfig.token.trim() === '') {
+    throw new ConnectError(
+      'Login config has no owner token. Run `plandesk login` first.',
+    );
+  }
+
+  const serverUrl = normalizeServerUrl(options.url ?? cliConfig.server);
+  // Always list/mint with the login owner key — never confuse it with --token
+  // (which, when set, is an already-provisioned agent key to write as-is).
+  const ownerToken = cliConfig.token;
+  const configPath = join(options.repoDir, '.plandesk', 'config.json');
+  const existingConfigContent = readOptionalFile(configPath);
+  const existingConfig =
+    existingConfigContent !== undefined ? parseConfigJson(existingConfigContent) : undefined;
+
+  const { project, explicitProject } = await resolveProject(options, serverUrl, ownerToken);
+  assertRebindAllowed(existingConfig, project, explicitProject);
+
+  let token: string;
+  let created: boolean;
+  if (options.token !== undefined) {
+    token = options.token;
+    created = false;
+  } else {
+    token = await createAgentKeyViaApi(serverUrl, orgId, project.id, ownerToken);
+    created = true;
+  }
+
+  const agents = resolveAgents(options.repoDir, options.agent ?? 'detect');
+  const artifacts = buildArtifacts(options, serverUrl, project, token, agents);
+
+  const result: ConnectResult = {
+    project,
+    serverUrl,
+    artifacts,
+    tokenCreated: created,
+    tokenLine: created
+      ? `Scoped agent key saved to .plandesk/token (gitignored) — not your owner key. set ${TOKEN_ENV_VAR} to override.`
+      : `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`,
   };
 
   if (options.print === true) {

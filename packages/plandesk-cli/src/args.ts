@@ -192,6 +192,8 @@ export type ParsedArgs =
       token?: string;
       agent: ConnectAgent;
       print: boolean;
+      /** Hosted org id — mint a scoped agent key (BA4b-3). */
+      to?: string;
     }
   | { command: 'disconnect'; repoDir?: string }
   | { command: 'doctor'; dataDir?: string; repoDir?: string; configPath?: string }
@@ -416,6 +418,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       token: flagString(flags, 'token'),
       agent,
       print: flags['print'] === true,
+      to: flagString(flags, 'to'),
     };
   }
 
@@ -544,6 +547,7 @@ Usage:
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]
   plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
+  plandesk connect --to <orgId> [--project <id|name>] [--repo <dir>] [--print]   # hosted: mint scoped agent key (requires plandesk login)
   plandesk disconnect [--repo <dir>]
   plandesk doctor [--data-dir <dir>] [--repo <dir>] [--config <file>]
   plandesk migrate --db <url> [--db-token <token>] [--config <file>] [--data-dir <dir>]   # apply schema migrations to a remote (self-host) database
@@ -576,7 +580,7 @@ Options:
   --force     (factory init) scaffold even in a global config dir; (factory sync) also overwrite customized files
   --out       Output file for export
   --in        Input file for import
-  --to        Hosted org id for push promote (one-way: export → import into org)
+  --to        Hosted org id: connect mints a scoped agent key; push promotes into this org
   --message   (progress-checkpoint) checkpoint text (default: "checkpoint (hook)")
 `;
 }
