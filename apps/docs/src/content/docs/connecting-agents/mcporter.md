@@ -15,11 +15,10 @@ Plan Desk exposes Streamable HTTP MCP at `http://127.0.0.1:3847/mcp/` with `Auth
    plandesk serve            # http://127.0.0.1:3847
    ```
 
-2. An MCP token. Reuse the one `plandesk connect` wrote, or make a dedicated one:
+2. A token — **hosted orgs only**. Local loopback is zero-auth, so skip this and omit the `Authorization` header below entirely. For a hosted org, reuse the scoped agent key `plandesk connect --to <org>` wrote to `.plandesk/token`:
 
    ```bash
-   plandesk token create --name "mcporter"     # prints plandesk_mcp_…
-   export PLANDESK_MCP_TOKEN="plandesk_mcp_…"   # or: export PLANDESK_MCP_TOKEN="$(cat .plandesk/token)"
+   export PLANDESK_MCP_TOKEN="$(cat .plandesk/token)"
    ```
 
 mcporter is run with `npx mcporter …` (no install needed), or install it via npm/Homebrew.

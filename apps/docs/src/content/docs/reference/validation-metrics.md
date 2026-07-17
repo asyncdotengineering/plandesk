@@ -30,7 +30,7 @@ pnpm test 2>&1 | rg 'test:(canvas_roundtrip|doc_link|sse_task_update|mcp_update_
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | Drizzle migration up/down on empty DB          | `packages/plandesk-db/src/migrate.test.ts`                                                    |
 | Drizzle migration up/down on seeded DB         | `packages/plandesk-db/src/migrate.test.ts`                                                    |
-| MCP token revoke → subsequent call returns 401 | `packages/plandesk-api/src/routes/tokens.test.ts`, `packages/plandesk-mcp/src/server.test.ts` |
+| API key revoke → subsequent call returns 401  | `packages/plandesk-api/src/better-auth-apikey.test.ts`, `packages/plandesk-mcp/src/server.test.ts` |
 
 ### Live validation commands (`pnpm validate`)
 

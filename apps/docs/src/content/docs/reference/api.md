@@ -88,7 +88,7 @@ An **artifact** is a stored agent deliverable — a Markdown report, an RFC, an 
 
 **Endpoint:** `http://127.0.0.1:3847/mcp/` (Streamable HTTP transport)
 
-**Auth header:** `Authorization: Bearer plandesk_mcp_...`
+**Auth:** same as the REST API above — local loopback needs no header at all; hosted needs `Authorization: Bearer <better-auth API key>` (the CLI owner key from `plandesk login`, or the project-scoped agent key `plandesk connect --to` writes to `.plandesk/token`).
 
 ### Tools (v1)
 

@@ -21,14 +21,13 @@ Leave it running. The UI is at [http://127.0.0.1:3847](http://127.0.0.1:3847); t
 
 ## 1. Register Plan Desk in Claude Code
 
-Create a token and add the MCP server so Claude Code can reach Plan Desk:
+Add the MCP server so Claude Code can reach Plan Desk. Local loopback is zero-auth — no token to create:
 
 ```bash
-plandesk token create --name "Claude Code"        # prints plandesk_mcp_…
-
-claude mcp add --transport http plandesk http://127.0.0.1:3847/mcp/ \
-  --header "Authorization: Bearer plandesk_mcp_…"
+claude mcp add --transport http plandesk http://127.0.0.1:3847/mcp/
 ```
+
+(Connecting to a hosted org instead of local? See [MCP Setup](/connecting-agents/mcp-setup/#step-1--auth-none-locally-a-cli-token-for-hosted) for the two-actor `login` + `connect --to` flow.)
 
 Start a **new** Claude Code session so the tools load. You should see Plan Desk's 46 MCP tools (see [REST + MCP API](/reference/api/)). The two that drive this workflow are `scaffold_project_from_plan` (plan once) and `get_next_task` (the build loop).
 

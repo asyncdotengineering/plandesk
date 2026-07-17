@@ -19,7 +19,7 @@ plandesk connect --project "Checkout Revamp"
 | ---------------------------------------------------------------- | ------------------- | ---------------------------------------------------------- |
 | `.plandesk/config.json`                                          | yes                 | Pins repo → project (`projectId`, server URL)              |
 | `.plandesk/skill.md`                                             | yes                 | Agent conventions ([The Skill](/connecting-agents/skill/)) |
-| `.plandesk/token`                                                | **no** (gitignored) | Raw MCP bearer token                                       |
+| `.plandesk/token`                                                | **no** (gitignored) | Project-scoped agent key — written only for a hosted `connect --to`; local loopback needs none |
 | `.claude/skills/plandesk/SKILL.md` / `.agents/skills/plandesk/SKILL.md` | yes          | Symlinks → `.plandesk/skill.md` (skill discovery)          |
 | `.mcp.json`                                                      | yes                 | MCP server entry with a `headersHelper` that reads the token |
 | `CLAUDE.md` / `AGENTS.md`                                        | yes                 | Sentinel block `@.plandesk/skill.md`                       |
@@ -28,7 +28,7 @@ plandesk connect --project "Checkout Revamp"
 ## Workflow
 
 1. Resolves the project (by id or name).
-2. Creates or reuses an MCP token in `.plandesk/token` (gitignored).
+2. **Local (default):** no token — loopback is zero-auth, so `.plandesk/token` is not written unless you pass `--token` explicitly. **Hosted (`--to <org>`):** mints a project-scoped agent key into `.plandesk/token` (gitignored), using the owner key `plandesk login` stored.
 3. Writes `.plandesk/config.json` (committed project binding).
 4. Merges the `plandesk` entry into `.mcp.json`. The entry uses a
    `headersHelper` that reads `.plandesk/token` at connection time, so the

@@ -19,26 +19,17 @@ Connect Claude Code or Codex to a running Plan Desk server so agents can read pr
 
 2. At least one project exists (create in the UI or `plandesk import --in examples/checkout-revamp.json`).
 
-## Step 1 — Create an MCP token
+## Step 1 — Auth: none locally, a CLI token for hosted
 
-Tokens are user-scoped, revocable, and shown **once** at creation.
+**Local (the default, no account).** On loopback (`127.0.0.1`), the server treats the caller as the workspace owner — no token, no login, nothing to create. Skip straight to [Step 2](#step-2--register-the-mcp-server) and register the server with no `Authorization` header at all.
 
-### Via the UI
+**Hosted (connecting to an organization).** Auth is better-auth and two-actor — a human provisions access, an agent never logs in:
 
-1. Open [http://127.0.0.1:3847/settings/mcp](http://127.0.0.1:3847/settings/mcp).
-2. Enter a name (e.g. `Claude Code`) and click **Create**.
-3. Copy the raw token immediately — it cannot be retrieved later.
-4. The page shows ready-to-run `claude mcp add` and `codex mcp add` commands with your token filled in.
+1. **Human** opens the dashboard (signed in via GitHub) and goes to **Settings → MCP** → **Generate CLI token**. This mints an **org-wide owner key**, shown once — copy it immediately.
+2. **Human** runs `plandesk login` (or `plandesk login --server <url>`) and pastes that key. It's stored in `~/.plandesk/config.json`.
+3. **Agent (or human)** runs `plandesk connect --to <org> [--project <id|name>]` from the repo. This mints a **project-scoped agent key** into the repo's gitignored `.plandesk/token` — the file the MCP registration below reads. The owner key never leaves the human's machine.
 
-### Via the CLI
-
-```bash
-plandesk token create --name "Claude Code"
-```
-
-The token is printed to stdout (prefix `plandesk_mcp_…`).
-
-Revoke tokens from **Settings → MCP** in the UI. Revoked tokens return HTTP 401 on MCP calls.
+There is no standalone "create an MCP token" UI or CLI command anymore — a token only exists as the byproduct of `login` (owner key) or `connect --to` (scoped agent key). Full grammar: [CLI Reference — hosted login and connect](/reference/cli/#hosted-login-and-connect-two-actor).
 
 ## Step 2 — Register the MCP server
 
@@ -48,27 +39,31 @@ Plan Desk exposes Streamable HTTP MCP at:
 http://127.0.0.1:3847/mcp/
 ```
 
-Auth header: `Authorization: Bearer <token>`.
+### Claude Code — local (no token needed)
 
-### Claude Code
+```bash
+claude mcp add --transport http plandesk http://127.0.0.1:3847/mcp/
+```
+
+### Claude Code — hosted (with a scoped agent key from Step 1)
 
 ```bash
 claude mcp add --transport http plandesk http://127.0.0.1:3847/mcp/ \
-  --header "Authorization: Bearer plandesk_mcp_…"
+  --header "Authorization: Bearer $(cat .plandesk/token)"
 ```
 
-Replace `plandesk_mcp_…` with your token. For Docker or remote hosts, use the reachable origin (e.g. `http://your-host:3847/mcp/`).
+For Docker or remote hosts, use the reachable origin (e.g. `http://your-host:3847/mcp/`).
 
 ### Codex
 
 ```bash
 codex mcp add --transport http plandesk http://127.0.0.1:3847/mcp/ \
-  --header "Authorization: Bearer plandesk_mcp_…"
+  --header "Authorization: Bearer $(cat .plandesk/token)"   # omit --header entirely for local
 ```
 
 ### Token-file helper (commit-safe, zero setup)
 
-For teams sharing repo config without committing secrets, use [`plandesk connect`](/connecting-agents/connect/) — it writes `.mcp.json` with a `headersHelper` that reads the gitignored `.plandesk/token` at connection time:
+For teams sharing repo config without committing secrets, use [`plandesk connect`](/connecting-agents/connect/) — it writes `.mcp.json` with a `headersHelper` that reads the gitignored `.plandesk/token` at connection time (empty/absent on local loopback, which needs none):
 
 ```json
 {
@@ -108,7 +103,7 @@ plandesk doctor --repo .           # + binding, token, MCP tool list
 
 | Symptom            | Check                                                           |
 | ------------------ | --------------------------------------------------------------- |
-| MCP 401            | Token revoked or wrong value; create a new token                |
+| MCP 401            | Hosted only — scoped agent key wrong/revoked; re-run `plandesk connect --to <org>` for a fresh one (local loopback doesn't 401) |
 | Server unreachable | `plandesk serve` running; `--url` matches                       |
 | Tools missing      | New agent session after `mcp add`                               |
 | Wrong project      | `.plandesk/config.json` `projectId`; re-run `connect --project` |

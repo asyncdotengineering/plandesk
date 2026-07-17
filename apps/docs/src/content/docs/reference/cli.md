@@ -21,6 +21,7 @@ plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>]
 plandesk url [--repo <dir>] [--lan]
 plandesk export --project <id> --out <file.json> [--data-dir <dir>]
 plandesk import --in <file.json> [--data-dir <dir>]
+plandesk legacy-upgrade [--from <old-workspace.db>] [--data-dir <dir>]
 plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
 plandesk connect --to <org> [--project <id|name>] [--repo <dir>] [--print]
 plandesk disconnect [--repo <dir>]
@@ -47,6 +48,7 @@ plandesk deploy [target]
 | `serve`                  | Start REST + SSE + MCP + web UI; reads the port from `workspace.json` if no `--port` flag is given                      |
 | `url`                    | Print the server URL for this project (`$(plandesk url)` in scripts); `--lan` returns the LAN IP instead of loopback    |
 | `export` / `import`      | Lossless `plandesk-export-v1` JSON round-trip                                                                            |
+| `legacy-upgrade`         | One-time: lift a pre–better-auth (0.20.x-era) `workspace.db` into the current global board — imports projects/tasks/documents/edges/notes/comments/agent runs, backs up the source file, safe to re-run; see [Upgrading](/reference/upgrading/#the-020x--better-auth-upgrade-breaking) |
 | `connect` / `disconnect` | Bind / unbind a repo to a project + agent configs; re-run `connect` after upgrading to regenerate artifacts. Hosted: `connect --to <org>` mints a scoped agent key (requires prior `login`) |
 | `doctor`                 | Check DB health; with `--repo`, validate binding + MCP reachability                                                      |
 | `factory init`           | Scaffold the project-local `.agents/` factory workspace (policy files + command adapters); see [Factory workspace](/reference/factory/) |
@@ -112,6 +114,7 @@ Share a planned project with a client or another team over a read-only live port
 | `--force`       | —                       | `factory init` only: scaffold even in a global config directory            |
 | `--out`         | —                       | Output file for export                                                     |
 | `--in`          | —                       | Input file for import                                                      |
+| `--from`        | `~/.plandesk/workspace.db`, else `./.plandesk/workspace.db` | (`legacy-upgrade`) path to the old workspace.db to import |
 
 ## Environment variables
 

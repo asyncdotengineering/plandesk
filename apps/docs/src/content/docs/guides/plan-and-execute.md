@@ -40,21 +40,26 @@ plandesk connect --project "Checkout Revamp"
 | ------------------------- | ---------- | -------------------------------------------------- |
 | `.plandesk/config.json`   | yes        | Pins repo → project (`projectId`, server URL)      |
 | `.plandesk/skill.md`      | yes        | Agent conventions                                  |
-| `.plandesk/token`         | no         | Raw MCP bearer token (gitignored)                  |
+| `.plandesk/token`         | no         | Project-scoped agent key (gitignored) — written only for a hosted `connect --to`; local loopback needs none |
 | `.claude/skills/plandesk/` / `.agents/skills/plandesk/` | yes | Skill symlinks → `.plandesk/skill.md` |
 | `.mcp.json`               | yes        | MCP entry; `headersHelper` reads `.plandesk/token` |
 | `CLAUDE.md` / `AGENTS.md` | yes        | Idempotent include of `@.plandesk/skill.md`        |
 
-The token is generated for you and read from `.plandesk/token` automatically —
-no export needed (set `PLANDESK_MCP_TOKEN` only to override).
+Local loopback is zero-auth — no token is generated or needed. Connecting to a hosted org (`connect --to <org>`) mints a scoped agent key and reads it from `.plandesk/token` automatically — no export needed (set `PLANDESK_MCP_TOKEN` only to override).
 
 Start a **new** Claude Code or Codex session so MCP tools reload.
 
-**Manual alternative:** create a token in **Settings → MCP**, then register the server:
+**Manual alternative:** register the server directly — no token for local:
+
+```bash
+claude mcp add --transport http plandesk http://127.0.0.1:3847/mcp/
+```
+
+For a hosted org, generate a CLI token from the dashboard (**Settings → MCP** → **Generate CLI token**), `plandesk login`, `plandesk connect --to <org>`, then register with the scoped key it writes to `.plandesk/token`:
 
 ```bash
 claude mcp add --transport http plandesk http://127.0.0.1:3847/mcp/ \
-  --header "Authorization: Bearer plandesk_mcp_…"
+  --header "Authorization: Bearer $(cat .plandesk/token)"
 ```
 
 For Codex with an env-var token:
@@ -116,7 +121,7 @@ plandesk doctor --repo .           # + binding, token, MCP tool list
 
 | Symptom            | Check                                                           |
 | ------------------ | --------------------------------------------------------------- |
-| MCP 401            | Token revoked or wrong value; create a new token                |
+| MCP 401            | Hosted only — scoped agent key wrong/revoked; re-run `connect --to <org>` for a fresh one |
 | Server unreachable | `plandesk serve` running; `--url` matches                       |
 | Tools missing      | New agent session after `mcp add` or `connect`                  |
 | Wrong project      | `.plandesk/config.json` `projectId`; re-run `connect --project` |
