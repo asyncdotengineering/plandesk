@@ -499,6 +499,20 @@ export function revokeMcpToken(id: string): Promise<void> {
   return request(`/mcp-tokens/${id}`, { method: 'DELETE' });
 }
 
+/** Session-minted org-wide owner key for `plandesk login` (BA4b-2). Shown once. */
+export type CreateCliTokenResponse = {
+  token: string;
+  org_id: string;
+  org_name: string;
+};
+
+export function createCliToken(name?: string): Promise<CreateCliTokenResponse> {
+  return request('/auth/cli-token', {
+    method: 'POST',
+    body: JSON.stringify(name === undefined ? {} : { name }),
+  });
+}
+
 export type SerializedAgentRunEvent = {
   id: string;
   message: string;

@@ -1,6 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Readable } from 'node:stream';
 import { afterEach, describe, expect, it } from 'vitest';
 import { runLogin, runLogout, runWhoami } from './login.js';
 import { cliConfigPath } from './config.js';
@@ -199,6 +200,59 @@ describe('runLogin — device flow', () => {
     expect(seen.length).toBeGreaterThan(0);
     expect(seen.every((url) => url.startsWith('https://plan.asyncdot.com/'))).toBe(true);
     expect(seen.some((url) => url.includes('github.com'))).toBe(false);
+  });
+});
+
+describe('runLogin — token paste path (BA4b-2 owner key)', () => {
+  it('stores { server, token, orgId } from /auth/session after paste', async () => {
+    const home = makeHome();
+    const ownerToken = 'ba_owner_key_for_cli_paste';
+    const orgId = 'org-owner-wide';
+    const sessionAuths: string[] = [];
+
+    const fetch = ((url: string | URL | Request, init?: RequestInit) => {
+      const href = String(url);
+      if (href.endsWith('/auth/methods')) {
+        return Promise.resolve(json({ method: 'token' }));
+      }
+      if (href.endsWith('/auth/session')) {
+        const headers = init?.headers;
+        let auth = '';
+        if (headers instanceof Headers) {
+          auth = headers.get('Authorization') ?? '';
+        } else if (
+          headers !== undefined &&
+          typeof headers === 'object' &&
+          'Authorization' in headers
+        ) {
+          auth = String((headers as Record<string, string>).Authorization);
+        }
+        sessionAuths.push(auth);
+        return Promise.resolve(
+          json({
+            kind: 'apikey',
+            role: 'owner',
+            org: { id: orgId, name: 'Owner Org' },
+          }),
+        );
+      }
+      throw new Error(`unexpected fetch: ${href}`);
+    }) as unknown as typeof globalThis.fetch;
+
+    const config = await runLogin('https://plan.asyncdot.com', {
+      fetch,
+      home,
+      input: Readable.from([`${ownerToken}\n`]),
+      out: { write: () => true } as unknown as NodeJS.WritableStream,
+    });
+
+    expect(config).toEqual({
+      server: 'https://plan.asyncdot.com',
+      token: ownerToken,
+      orgId,
+    });
+    expect(JSON.parse(readFileSync(cliConfigPath(home), 'utf8'))).toEqual(config);
+    expect(sessionAuths).toEqual([`Bearer ${ownerToken}`]);
   });
 });
 

@@ -305,6 +305,23 @@ describe('api client', () => {
     expect(result.token).toBe('plandesk_mcp_secret');
   });
 
+  it('createCliToken posts to /auth/cli-token and returns raw once', async () => {
+    const created = {
+      token: 'plandesk_owner_cli_secret',
+      org_id: 'org-1',
+      org_name: 'Acme',
+    };
+    mockFetch(created);
+    const { createCliToken } = await import('./api.js');
+    const result = await createCliToken('My CLI');
+    expectFetchCall('/api/v1/auth/cli-token', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'My CLI' }),
+    });
+    expect(result.token).toBe('plandesk_owner_cli_secret');
+    expect(result.org_id).toBe('org-1');
+  });
+
   it('revokeMcpToken sends DELETE', async () => {
     vi.stubGlobal(
       'fetch',

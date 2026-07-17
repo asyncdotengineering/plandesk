@@ -14,7 +14,9 @@ import {
   getPendingAuth,
   type Db,
 } from '@plandesk/db';
+import { createOrgOwnerKey } from '../agent-keys.js';
 import { getAuthContext } from '../auth-context.js';
+import type { BetterAuthInstance } from '../better-auth.js';
 import {
   authorizeUrl,
   GithubOAuthError,
@@ -25,6 +27,7 @@ import {
   type GithubConfig,
   type GithubIdentity,
 } from '../github.js';
+import { requirePermission } from '../permissions.js';
 import {
   clearOAuthStateCookie,
   clearSessionCookie,
@@ -38,6 +41,8 @@ export type AuthRouterDeps = {
   db: Db;
   /** Absent on a self-hosted instance with no GitHub app registered (REQ-20). */
   github?: GithubConfig;
+  /** better-auth instance for session-gated CLI owner-key mint (BA4b-2). */
+  betterAuth?: BetterAuthInstance;
 };
 
 /** Constant-time compare so state checking cannot be probed byte by byte. */
@@ -77,7 +82,7 @@ async function findOrCreateOrgForIdentity(
 
 export function createAuthRouter(deps: AuthRouterDeps): Hono {
   const router = new Hono();
-  const { db, github } = deps;
+  const { db, github, betterAuth } = deps;
 
   // What sign-in this instance offers.
   //
@@ -216,6 +221,49 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
       user_ref: ctx.kind === 'session' ? ctx.userRef : null,
       role: ctx.role,
       org: org === undefined ? null : { id: org.id, name: org.name },
+    });
+  });
+
+  /**
+   * BA4b-2: mint an org-wide owner API key for CLI paste (`plandesk login`).
+   * Session-only — apikey/token/loopback must not mint owner keys here.
+   * Raw key returned once; never stored retrievable.
+   */
+  router.post('/auth/cli-token', async (c) => {
+    if (betterAuth === undefined) {
+      return c.json({ error: 'unavailable' }, 503);
+    }
+
+    const ctx = getAuthContext();
+    if (ctx.kind !== 'session') {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+    requirePermission(ctx, 'apiKey', 'create');
+
+    const baSession = await betterAuth.api.getSession({ headers: c.req.raw.headers });
+    if (baSession === null) {
+      // Hand-rolled cookie session only — owner mint needs better-auth userId.
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+
+    let name = 'CLI token';
+    const body = (await c.req.json().catch(() => ({}))) as { name?: unknown };
+    if (typeof body.name === 'string' && body.name.trim() !== '') {
+      name = body.name.trim();
+    }
+
+    const minted = await createOrgOwnerKey({
+      auth: betterAuth,
+      userId: baSession.user.id,
+      orgId: ctx.orgId,
+      name,
+    });
+
+    const org = await getOrg(db, ctx.orgId);
+    return c.json({
+      token: minted.key,
+      org_id: ctx.orgId,
+      org_name: org === undefined ? '' : org.name,
     });
   });
 

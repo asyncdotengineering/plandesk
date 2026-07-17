@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { CliToken } from '../components/settings/CliToken.js';
 import { McpTokens } from '../components/settings/McpTokens.js';
 
 function McpSettingsPage() {
@@ -10,6 +11,9 @@ function McpSettingsPage() {
           <span className="text-xs text-muted-foreground">
             Create and manage MCP access tokens for external agents (Claude, Codex, etc.).
           </span>
+        </div>
+        <div className="mb-10">
+          <CliToken />
         </div>
         <McpTokens />
       </div>

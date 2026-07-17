@@ -116,7 +116,14 @@ export function createApp(deps: AppDeps): Hono {
   });
 
   app.route('/api/v1', healthRouter);
-  app.route('/api/v1', createAuthRouter({ db: deps.db, github: deps.github }));
+  app.route(
+    '/api/v1',
+    createAuthRouter({
+      db: deps.db,
+      github: deps.github,
+      betterAuth: betterAuthInstance,
+    }),
+  );
   app.route(
     '/api/v1',
     createOrgsRouter(deps.db, {

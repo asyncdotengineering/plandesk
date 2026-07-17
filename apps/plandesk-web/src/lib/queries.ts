@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { liveQueryOptions } from './events.js';
 import {
   completeGoal,
+  createCliToken,
   createComment,
   createDocument,
   createFolder,
@@ -479,6 +480,12 @@ export function useRevokeMcpToken() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.mcpTokens });
     },
+  });
+}
+
+export function useCreateCliToken() {
+  return useMutation({
+    mutationFn: (name?: string) => createCliToken(name),
   });
 }
 
