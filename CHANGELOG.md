@@ -4,6 +4,10 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [1.0.0-beta.1] — 2026-07-18
+
+First beta of the better-auth-native rewrite — hosted control plane, two-actor auth, and the legacy-board migration path. Published under the `beta` npm tag; `npm i -g @plandesk/cli@beta`.
+
 ### Breaking
 
 - **Auth is entirely better-auth (native rewrite).** Web: GitHub social sign-in → better-auth session. CLI: human pastes a dashboard-minted org-wide owner API key via `plandesk login`; `plandesk connect --to <org>` mints a project-scoped agent key into `.plandesk/token`. Agents never log in. Local loopback remains zero-auth owner. **Removed:** `mcp_tokens` and `/api/v1/mcp-tokens`, GitHub device-flow CLI login (`/auth/device/*`, github.com/login/device), hand-rolled session cookies / OAuth, and `X-Plandesk-User-Ref`. **Orgs:** legacy `orgs` / `org_members` are gone — better-auth `organization` / `member` (roles as permission sets: owner / admin / member) are the single org source of truth. **Schema reset:** the Drizzle migration baseline was replaced; **existing databases must be re-initialized** (no in-place migration). Operators: drop/recreate the DB (or provision a fresh one), run migrations / `plandesk init` as appropriate for your topology, sign in on the dashboard, regenerate any CLI owner keys, re-run `plandesk login` and `plandesk connect --to <org>` for each bound repo. (BA7 / better-auth-native.)
