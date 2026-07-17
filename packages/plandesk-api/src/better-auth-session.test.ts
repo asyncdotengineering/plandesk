@@ -4,7 +4,6 @@ import {
   createDb,
   createOrg,
   createProject,
-  createToken,
   ensureDefaultOrg,
   migrate,
   type Db,
@@ -303,27 +302,30 @@ describe('better-auth session recognition (BA4a)', () => {
     expect(session.status).not.toBe(401);
   });
 
-  it('self-host without GitHub app: token and loopback still work (REQ-20)', async () => {
+  it('self-host without GitHub app: loopback still works; stranger bearer 401 (REQ-20)', async () => {
     // No betterAuth, no github — mirrors a plain self-host install.
-    const { app, db, orgId } = await createTestApp({ bindHost: '0.0.0.0' });
-    const token = await createToken(db, { name: 'self-host', orgId, scope: 'full' });
-
-    const withToken = await app.request('/api/v1/projects', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token.token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ name: 'Self-hosted board' }),
-    });
-    expect(withToken.status).toBe(201);
-
-    const stranger = await app.request('/api/v1/projects');
+    const { app: hosted } = await createTestApp({ bindHost: '0.0.0.0' });
+    const stranger = await hosted.request('/api/v1/projects');
     expect(stranger.status).toBe(401);
+    expect(await parseJson(stranger)).toEqual({ error: 'unauthorized' });
+
+    const badBearer = await hosted.request('/api/v1/projects', {
+      headers: { Authorization: 'Bearer plandesk_mcp_not-real' },
+    });
+    expect(badBearer.status).toBe(401);
 
     // better-auth mount absent → 404, not a crash.
-    const ba = await app.request('/api/auth/session');
+    const ba = await hosted.request('/api/auth/session');
     expect(ba.status).toBe(404);
+
+    // Loopback single-org works without a credential.
+    const { app: local } = await createTestApp({ bindHost: '127.0.0.1' });
+    const withLoopback = await local.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Self-hosted board' }),
+    });
+    expect(withLoopback.status).toBe(201);
   });
 
   it('local loopback is unchanged with better-auth configured (REQ-21)', async () => {

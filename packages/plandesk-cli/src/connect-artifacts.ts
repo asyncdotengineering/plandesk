@@ -109,7 +109,8 @@ export function buildConfigJson(input: {
 
 export type PlanDeskBinding = {
   config: PlanDeskConfig;
-  token: string;
+  /** Present for hosted agent keys; absent for local loopback (owner without token). */
+  token?: string;
 };
 
 export function readPlandeskConfig(repoDir: string): PlanDeskConfig | undefined {
@@ -129,19 +130,17 @@ export function readPlandeskToken(repoDir: string): string | undefined {
   return token === '' ? undefined : token;
 }
 
-// Resolves a repo's Plan Desk binding (config + token) for commands that talk to
-// the remote server over HTTP. Returns undefined if the repo isn't connected —
-// callers treat that as an idle no-op, never an error.
+// Resolves a repo's Plan Desk binding for commands that talk to the server over
+// HTTP. Config alone is enough for local loopback (no token file). Hosted
+// connects still write a scoped agent key. Callers treat missing binding as an
+// idle no-op, never an error.
 export function resolvePlandeskBinding(repoDir: string): PlanDeskBinding | undefined {
   const config = readPlandeskConfig(repoDir);
   if (!config) {
     return undefined;
   }
   const token = readPlandeskToken(repoDir);
-  if (!token) {
-    return undefined;
-  }
-  return { config, token };
+  return token === undefined ? { config } : { config, token };
 }
 
 function parseSyncConfig(raw: unknown): PlanDeskSyncConfig | undefined {

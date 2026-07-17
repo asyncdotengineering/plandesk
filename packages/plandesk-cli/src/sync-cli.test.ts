@@ -3,11 +3,17 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { getRequestListener } from '@hono/node-server';
 import { join } from 'node:path';
-import { createApp, createServices } from '@plandesk/api';
+import {
+  createApp,
+  createBetterAuth,
+  createOrgOwnerKey,
+  createServices,
+  runBetterAuthMigrations,
+  type BetterAuthInstance,
+} from '@plandesk/api';
 import {
   createOrg,
   createProjectInDefaultOrg as createProject,
-  createToken,
   ensureDefaultOrg,
   exportProject,
   getSyncRemote,
@@ -21,6 +27,95 @@ import { buildConfigJson, parseConfigJson } from './connect-artifacts.js';
 import { main } from './cli.js';
 import { runInit } from './init.js';
 import { openWorkspace } from './workspace.js';
+
+
+const SYNC_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
+const SYNC_BASE = 'http://127.0.0.1';
+
+type BaUser = {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  image: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+type BaAccount = {
+  id: string;
+  accountId: string;
+  providerId: string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+type BaOrg = { id: string; name: string; slug: string; createdAt: Date };
+type BaMember = {
+  id: string;
+  organizationId: string;
+  userId: string;
+  role: string;
+  createdAt: Date;
+};
+
+async function seedOwnerKey(
+  auth: BetterAuthInstance,
+  org: { id: string; name: string; slug: string },
+  email: string,
+  githubAccountId: string,
+): Promise<string> {
+  const adapter = (await auth.$context).adapter;
+  const now = new Date();
+  const user = await adapter.create<BaUser>({
+    model: 'user',
+    data: {
+      name: email,
+      email,
+      emailVerified: true,
+      image: null,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  await adapter.create<BaAccount>({
+    model: 'account',
+    data: {
+      accountId: githubAccountId,
+      providerId: 'github',
+      userId: user.id,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  const existing = await adapter.findOne<BaOrg>({
+    model: 'organization',
+    where: [{ field: 'id', value: org.id }],
+  });
+  if (existing === null) {
+    const orgData = { id: org.id, name: org.name, slug: org.slug, createdAt: now };
+    await adapter.create<BaOrg>({
+      model: 'organization',
+      data: orgData,
+      forceAllowId: true,
+    });
+  }
+  await adapter.create<BaMember>({
+    model: 'member',
+    data: {
+      organizationId: org.id,
+      userId: user.id,
+      role: 'owner',
+      createdAt: now,
+    },
+  });
+  const minted = await createOrgOwnerKey({
+    auth,
+    userId: user.id,
+    orgId: org.id,
+    name: 'sync-push',
+  });
+  return minted.key;
+}
 
 async function captureIo(
   run: () => Promise<number> | number,
@@ -282,12 +377,26 @@ describe('CLI push/pull', () => {
     const hostedDb = await createDb(':memory:');
     await migrate(hostedDb);
     const org = await ensureDefaultOrg(hostedDb);
-    const token = await createToken(hostedDb, {
-      name: 'promote',
-      orgId: org.id,
-      scope: 'full',
+    const auth = createBetterAuth({
+      client: hostedDb.$client,
+      secret: SYNC_SECRET,
+      baseURL: SYNC_BASE,
+      github: { clientId: 'c', clientSecret: 's' },
     });
-    const hostedApp = createApp({ db: hostedDb, bindHost: '127.0.0.1' });
+    if (auth === undefined) throw new Error('expected better-auth');
+    await runBetterAuthMigrations(auth);
+    const token = await seedOwnerKey(
+      auth,
+      { id: org.id, name: org.name, slug: 'default' },
+      'promote@sync.test',
+      '8201',
+    );
+    const hostedApp = createApp({
+      db: hostedDb,
+      bindHost: '0.0.0.0',
+      betterAuth: { secret: SYNC_SECRET, baseURL: SYNC_BASE },
+      github: { clientId: 'c', clientSecret: 's', callbackUrl: 'https://x.test/cb' },
+    });
     const server = createServer(getRequestListener(hostedApp.fetch));
     await new Promise<void>((resolve) => {
       server.listen(0, '127.0.0.1', () => resolve());
@@ -309,7 +418,7 @@ describe('CLI push/pull', () => {
         projectName: 'Sync CLI',
       }),
     );
-    writeFileSync(join(repoDir, '.plandesk', 'token'), `${token.token}\n`, 'utf8');
+    writeFileSync(join(repoDir, '.plandesk', 'token'), `${token}\n`, 'utf8');
 
     const { code, stdout, stderr } = await captureIo(() =>
       main([
@@ -363,8 +472,26 @@ describe('CLI push/pull', () => {
     await migrate(hostedDb);
     const orgA = await ensureDefaultOrg(hostedDb);
     const orgB = await createOrg(hostedDb, { name: 'Other' });
-    const tokenA = await createToken(hostedDb, { name: 'A', orgId: orgA.id, scope: 'full' });
-    const hostedApp = createApp({ db: hostedDb, bindHost: '127.0.0.1' });
+    const auth = createBetterAuth({
+      client: hostedDb.$client,
+      secret: SYNC_SECRET,
+      baseURL: SYNC_BASE,
+      github: { clientId: 'c', clientSecret: 's' },
+    });
+    if (auth === undefined) throw new Error('expected better-auth');
+    await runBetterAuthMigrations(auth);
+    const tokenA = await seedOwnerKey(
+      auth,
+      { id: orgA.id, name: orgA.name, slug: 'org-a' },
+      'a@sync.test',
+      '8202',
+    );
+    const hostedApp = createApp({
+      db: hostedDb,
+      bindHost: '0.0.0.0',
+      betterAuth: { secret: SYNC_SECRET, baseURL: SYNC_BASE },
+      github: { clientId: 'c', clientSecret: 's', callbackUrl: 'https://x.test/cb' },
+    });
     const server = createServer(getRequestListener(hostedApp.fetch));
     await new Promise<void>((resolve) => {
       server.listen(0, '127.0.0.1', () => resolve());
@@ -385,7 +512,7 @@ describe('CLI push/pull', () => {
         projectName: 'Sync CLI',
       }),
     );
-    writeFileSync(join(repoDir, '.plandesk', 'token'), `${tokenA.token}\n`, 'utf8');
+    writeFileSync(join(repoDir, '.plandesk', 'token'), `${tokenA}\n`, 'utf8');
 
     const { code, stderr } = await captureIo(() =>
       main([

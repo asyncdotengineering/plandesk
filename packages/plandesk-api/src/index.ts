@@ -40,13 +40,7 @@ export {
   type GithubEnv,
   type GithubIdentity,
 } from './github.js';
-export {
-  SESSION_COOKIE,
-  OAUTH_STATE_COOKIE,
-  readSessionCookie,
-  setSessionCookie,
-  clearSessionCookie,
-} from './session.js';
+export { GUEST_SESSION_COOKIE, readGuestSessionCookie } from './session.js';
 export { createAuthRouter, type AuthRouterDeps } from './routes/auth.js';
 export {
   runWithAuthContext,
@@ -84,7 +78,6 @@ export {
   ROLE_RANK,
   type PermissionSet,
 } from './permissions.js';
-export { USER_REF_HEADER } from './auth.js';
 export { healthRouter } from './routes/health.js';
 export { mountStatic } from './static.js';
 export { createS3Adapter, type S3AdapterConfig } from './storage/s3.js';

@@ -476,29 +476,6 @@ export function getTaskDocument(taskId: string): Promise<SerializedDocument> {
   return request(`/tasks/${taskId}/document`);
 }
 
-export type SerializedMcpToken = {
-  id: string;
-  name: string;
-  created_at: string;
-  revoked_at: string | null;
-};
-
-export type CreateMcpTokenResponse = SerializedMcpToken & {
-  token: string;
-};
-
-export function listMcpTokens(): Promise<SerializedMcpToken[]> {
-  return request('/mcp-tokens');
-}
-
-export function createMcpToken(name: string): Promise<CreateMcpTokenResponse> {
-  return request('/mcp-tokens', { method: 'POST', body: JSON.stringify({ name }) });
-}
-
-export function revokeMcpToken(id: string): Promise<void> {
-  return request(`/mcp-tokens/${id}`, { method: 'DELETE' });
-}
-
 /** Session-minted org-wide owner key for `plandesk login` (BA4b-2). Shown once. */
 export type CreateCliTokenResponse = {
   token: string;
@@ -666,7 +643,7 @@ export function completeGoal(
   });
 }
 
-export type AuthKind = 'session' | 'token' | 'loopback';
+export type AuthKind = 'session' | 'token' | 'loopback' | 'apikey';
 
 export type SerializedAuthSession = {
   kind: AuthKind;
@@ -676,7 +653,8 @@ export type SerializedAuthSession = {
 };
 
 export type SerializedAuthMethods = {
-  method: 'device' | 'token';
+  /** Always token/paste after BA7-1a (device flow removed). */
+  method: 'token';
   githubEnabled: boolean;
 };
 
@@ -693,8 +671,18 @@ export function getAuthMethods(): Promise<SerializedAuthMethods> {
   return request('/auth/methods');
 }
 
-export function logout(): Promise<{ ok: boolean }> {
-  return request('/auth/logout', { method: 'POST' });
+/** better-auth sign-out (BA7-1a; hand-rolled /auth/logout is gone). */
+export async function logout(): Promise<{ ok: boolean }> {
+  const res = await fetch('/api/auth/sign-out', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  });
+  if (!res.ok) {
+    throw new ApiError(res.status, await res.text());
+  }
+  return { ok: true };
 }
 
 /**

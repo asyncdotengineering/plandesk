@@ -272,39 +272,6 @@ describe('api client', () => {
     expect(result.body).toBe('<p>Hello</p>');
   });
 
-  it('listMcpTokens fetches GET /api/v1/mcp-tokens', async () => {
-    const sampleMcpToken = {
-      id: 'tok-1',
-      name: 'Claude',
-      created_at: '2026-06-07T00:00:00.000Z',
-      revoked_at: null,
-    };
-    mockFetch([sampleMcpToken]);
-    const { listMcpTokens } = await import('./api.js');
-    const result = await listMcpTokens();
-    expectFetchCall('/api/v1/mcp-tokens');
-    expect(result[0]).toEqual(sampleMcpToken);
-    expect(result[0]).not.toHaveProperty('token');
-  });
-
-  it('createMcpToken posts name and returns raw once', async () => {
-    const created = {
-      id: 'tok-1',
-      name: 'Codex',
-      token: 'plandesk_mcp_secret',
-      created_at: '2026-06-07T00:00:00.000Z',
-      revoked_at: null,
-    };
-    mockFetch(created);
-    const { createMcpToken } = await import('./api.js');
-    const result = await createMcpToken('Codex');
-    expectFetchCall('/api/v1/mcp-tokens', {
-      method: 'POST',
-      body: JSON.stringify({ name: 'Codex' }),
-    });
-    expect(result.token).toBe('plandesk_mcp_secret');
-  });
-
   it('createCliToken posts to /auth/cli-token and returns raw once', async () => {
     const created = {
       token: 'plandesk_owner_cli_secret',
@@ -320,24 +287,6 @@ describe('api client', () => {
     });
     expect(result.token).toBe('plandesk_owner_cli_secret');
     expect(result.org_id).toBe('org-1');
-  });
-
-  it('revokeMcpToken sends DELETE', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 204,
-        text: () => Promise.resolve(''),
-      }),
-    );
-    const { revokeMcpToken } = await import('./api.js');
-    await revokeMcpToken('tok-1');
-    expect(fetch).toHaveBeenCalledWith('/api/v1/mcp-tokens/tok-1', {
-      method: 'DELETE',
-      headers: expect.any(Headers) as Headers,
-      credentials: 'include',
-    });
   });
 
   it('listAgentRuns fetches GET /api/v1/projects/:id/agent-runs', async () => {

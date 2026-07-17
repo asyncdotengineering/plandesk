@@ -113,24 +113,6 @@ async function fetchProjects(
   return projects;
 }
 
-async function createTokenViaApi(serverUrl: string): Promise<string> {
-  const response = await fetch(`${normalizeServerUrl(serverUrl)}/api/v1/mcp-tokens`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'plandesk connect' }),
-  });
-  if (!response.ok) {
-    throw new ConnectError(
-      `Failed to create MCP token at ${serverUrl}. Start the server with \`plandesk serve\`.`,
-    );
-  }
-  const body = (await response.json()) as { token?: string };
-  if (typeof body.token !== 'string' || body.token.trim() === '') {
-    throw new ConnectError('Token API returned an invalid response.');
-  }
-  return body.token;
-}
-
 /** Hosted: mint a project-scoped agent key with the login owner key (BA4b-3). */
 async function createAgentKeyViaApi(
   serverUrl: string,
@@ -318,10 +300,13 @@ export function resolveAgents(repoDir: string, agent: ConnectAgent): { claude: b
   return { claude: true, codex: true };
 }
 
-async function ensureToken(
+/**
+ * Local connect: loopback = owner, no token file.
+ * Explicit --token still writes a token when the caller supplies one.
+ */
+function resolveLocalToken(
   options: ConnectOptions,
-  serverUrl: string,
-): Promise<{ token: string; created: boolean }> {
+): { token: string | undefined; created: boolean } {
   if (options.token !== undefined) {
     return { token: options.token, created: false };
   }
@@ -332,15 +317,14 @@ async function ensureToken(
     return { token: existingToken, created: false };
   }
 
-  const token = await createTokenViaApi(serverUrl);
-  return { token, created: true };
+  return { token: undefined, created: false };
 }
 
 function buildArtifacts(
   options: ConnectOptions,
   serverUrl: string,
   project: ProjectSummary,
-  token: string,
+  token: string | undefined,
   agents: { claude: boolean; codex: boolean },
 ): ConnectArtifact[] {
   const artifacts: ConnectArtifact[] = [];
@@ -372,11 +356,13 @@ function buildArtifacts(
     });
   }
 
-  artifacts.push({
-    path: join(plandeskDir, 'token'),
-    content: `${token}\n`,
-    action: existsSync(join(plandeskDir, 'token')) ? 'update' : 'create',
-  });
+  if (token !== undefined && token !== '') {
+    artifacts.push({
+      path: join(plandeskDir, 'token'),
+      content: `${token}\n`,
+      action: existsSync(join(plandeskDir, 'token')) ? 'update' : 'create',
+    });
+  }
 
   const mcpPath = join(options.repoDir, '.mcp.json');
   artifacts.push({
@@ -504,7 +490,7 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
   }
 
   // Hosted path (--to): owner key from login mints a scoped agent key.
-  // Local path (no --to): unchanged loopback mcp-tokens mint.
+  // Local path (no --to): loopback = owner; no token mint or .plandesk/token write.
   if (options.to !== undefined && options.to.trim() !== '') {
     return runHostedConnect(options, options.to.trim());
   }
@@ -518,7 +504,7 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
   const { project, explicitProject } = await resolveProject(options, serverUrl);
   assertRebindAllowed(existingConfig, project, explicitProject);
 
-  const { token, created } = await ensureToken(options, serverUrl);
+  const { token, created } = resolveLocalToken(options);
   const agents = resolveAgents(options.repoDir, options.agent ?? 'detect');
   const artifacts = buildArtifacts(options, serverUrl, project, token, agents);
 
@@ -527,7 +513,10 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
     serverUrl,
     artifacts,
     tokenCreated: created,
-    tokenLine: `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`,
+    tokenLine:
+      token !== undefined && token !== ''
+        ? `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`
+        : 'Local loopback mode — no token file (server treats loopback as owner).',
   };
 
   if (options.print === true) {

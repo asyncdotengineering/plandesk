@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { CliToken } from '../components/settings/CliToken.js';
-import { McpTokens } from '../components/settings/McpTokens.js';
 
 function McpSettingsPage() {
   return (
@@ -9,13 +8,12 @@ function McpSettingsPage() {
         <div className="mb-5 flex flex-wrap items-baseline gap-2.5">
           <h2 className="text-[15px] font-semibold tracking-tight">MCP Settings</h2>
           <span className="text-xs text-muted-foreground">
-            Create and manage MCP access tokens for external agents (Claude, Codex, etc.).
+            Mint a CLI owner key for `plandesk login`, or connect agents with `plandesk connect`.
           </span>
         </div>
         <div className="mb-10">
           <CliToken />
         </div>
-        <McpTokens />
       </div>
     </div>
   );

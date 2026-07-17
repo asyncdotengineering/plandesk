@@ -1,20 +1,12 @@
 import { Hono } from 'hono';
 import {
-  addOrgMember,
-  createToken,
   getOrg,
-  getOrgMember,
   getProjectInOrg,
   importProject,
   InvalidExportVersionError,
-  listOrgMembers,
-  orgRoles,
   PLANDESK_EXPORT_VERSION,
-  tokenScopes,
   type Db,
-  type OrgRole,
   type PlandeskExportInput,
-  type TokenScope,
 } from '@plandesk/db';
 import { createScopedAgentKey, type CreateScopedAgentKeyInput } from '../agent-keys.js';
 import { getAuthContext, getOrgAuthContext } from '../auth-context.js';
@@ -26,14 +18,6 @@ import {
   isInvitationRole,
 } from '../invitations.js';
 import { requirePermission, type PermissionSet } from '../permissions.js';
-
-function isOrgRole(value: string): value is OrgRole {
-  return (orgRoles as readonly string[]).includes(value);
-}
-
-function isTokenScope(value: string): value is TokenScope {
-  return (tokenScopes as readonly string[]).includes(value);
-}
 
 function isPermissionSet(value: unknown): value is PermissionSet {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
@@ -81,66 +65,14 @@ export type OrgsRouterOptions = {
 /**
  * There is deliberately no `POST /orgs`.
  *
- * An org is only ever created by resolving an identity — `findOrCreateOrgForIdentity`
- * on GitHub sign-in (browser or device flow), which keys on `github:<numeric id>` and
- * so yields exactly one org per identity — or by `ensureDefaultOrg` at `serve` boot for
- * the local/self-host single-org case. Both bound creation by construction, which is why
- * no quota is needed to bound it.
- *
- * A general authenticated create route had no caller and could not be guarded the way
- * every route below is: with no `:id` to compare against, `getAuthContext().orgId !== orgId`
- * has nothing to check, so any valid token from any org could mint unlimited orgs, each
- * returning a fresh owner token — and it took `owner_ref` from the body, forging an
- * identity the server is supposed to resolve. Removing the route closes both; a limit
- * would only have capped how far they went.
+ * An org is only ever created by better-auth identity provisioning (BA4c) or by
+ * `ensureDefaultOrg` at `serve` boot for the local/self-host single-org case.
+ * Both bound creation by construction, which is why no quota is needed to bound it.
  */
 export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono {
   const router = new Hono();
   const betterAuth = options.betterAuth;
   const baseURL = options.baseURL ?? 'http://127.0.0.1';
-
-  router.post('/orgs/:id/tokens', async (c) => {
-    const orgId = c.req.param('id');
-    const org = await getOrg(db, orgId);
-    if (!org) {
-      return c.json({ error: 'not_found' }, 404);
-    }
-
-    // Caller must already be authenticated as this org (token or sole default).
-    if (getOrgAuthContext().orgId !== orgId) {
-      return c.json({ error: 'not_found' }, 404);
-    }
-    // Permission-set check (BA2/BA5): agent keys never hold apiKey:create.
-    requirePermission(getOrgAuthContext(), 'apiKey', 'create');
-
-    const body = await c.req.json<{ name?: string; scope?: string }>();
-    if (typeof body.name !== 'string' || body.name.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
-    }
-    let scope: TokenScope = 'full';
-    if (body.scope !== undefined) {
-      if (!isTokenScope(body.scope)) {
-        return c.json({ error: 'invalid_argument' }, 400);
-      }
-      scope = body.scope;
-    }
-
-    const created = await createToken(db, {
-      name: body.name.trim(),
-      orgId,
-      scope,
-    });
-
-    return c.json(
-      {
-        id: created.id,
-        name: created.name,
-        token: created.token,
-        scope: created.scope,
-      },
-      201,
-    );
-  });
 
   /**
    * BA4b-3: mint a project-scoped agent key for `plandesk connect --to`.
@@ -208,70 +140,6 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     const minted = await createScopedAgentKey(mintInput);
 
     return c.json({ token: minted.key, project_id: projectId }, 200);
-  });
-
-  router.post('/orgs/:id/members', async (c) => {
-    const orgId = c.req.param('id');
-    const org = await getOrg(db, orgId);
-    if (!org) {
-      return c.json({ error: 'not_found' }, 404);
-    }
-    if (getOrgAuthContext().orgId !== orgId) {
-      return c.json({ error: 'not_found' }, 404);
-    }
-    requirePermission(getOrgAuthContext(), 'member', 'create');
-
-    const body = await c.req.json<{ user_ref?: string; role?: string }>();
-    if (typeof body.user_ref !== 'string' || body.user_ref.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
-    }
-    if (typeof body.role !== 'string' || !isOrgRole(body.role)) {
-      return c.json({ error: 'invalid_argument' }, 400);
-    }
-
-    const existing = await getOrgMember(db, orgId, body.user_ref.trim());
-    if (existing) {
-      return c.json({ error: 'invalid_argument' }, 400);
-    }
-
-    const member = await addOrgMember(db, {
-      orgId,
-      userRef: body.user_ref.trim(),
-      role: body.role,
-    });
-
-    return c.json(
-      {
-        org_id: member.orgId,
-        user_ref: member.userRef,
-        role: member.role,
-        created_at: member.createdAt.toISOString(),
-      },
-      201,
-    );
-  });
-
-  router.get('/orgs/:id/members', async (c) => {
-    const orgId = c.req.param('id');
-    const org = await getOrg(db, orgId);
-    if (!org) {
-      return c.json({ error: 'not_found' }, 404);
-    }
-    if (getOrgAuthContext().orgId !== orgId) {
-      return c.json({ error: 'not_found' }, 404);
-    }
-    // Listing members is owner-only; owner alone holds member:create.
-    requirePermission(getOrgAuthContext(), 'member', 'create');
-
-    const members = await listOrgMembers(db, orgId);
-    return c.json(
-      members.map((m) => ({
-        org_id: m.orgId,
-        user_ref: m.userRef,
-        role: m.role,
-        created_at: m.createdAt.toISOString(),
-      })),
-    );
   });
 
   /**

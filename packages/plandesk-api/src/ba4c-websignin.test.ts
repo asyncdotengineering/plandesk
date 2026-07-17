@@ -388,13 +388,12 @@ describe('BA4c personal org provision on better-auth GitHub sign-in', () => {
   });
 });
 
-describe('BA4c hand-rolled path remains (REQ-4 / gate 5)', () => {
-  it('hand-rolled /auth/github is still mounted when github is configured', async () => {
+describe('BA7-1a hand-rolled GitHub OAuth is gone', () => {
+  it('hand-rolled /auth/github is not a public OAuth entry (401 or 404, never redirect)', async () => {
     const { app } = await hostedApp();
     const res = await app.request('/api/v1/auth/github', { redirect: 'manual' });
-    // Redirect to GitHub authorize, not 404.
-    expect(res.status).toBe(302);
-    const location = res.headers.get('location') ?? '';
-    expect(location).toContain('github.com');
+    // Gone: not a public path and not mounted — never 302 to GitHub.
+    expect([401, 404]).toContain(res.status);
+    expect(res.status).not.toBe(302);
   });
 });

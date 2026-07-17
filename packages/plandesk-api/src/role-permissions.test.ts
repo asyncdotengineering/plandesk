@@ -297,22 +297,22 @@ describe('role permission matrix (ba-hardening)', () => {
     await expectForbidden(res);
   });
 
-  it('member denies member:create', async () => {
+  it('member denies member:create (invitations)', async () => {
     const { app, member, org } = await seedMatrix();
-    const res = await app.request(`/api/v1/orgs/${org.id}/members`, {
+    const res = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
       method: 'POST',
       headers: jsonHeaders(member.cookie),
-      body: JSON.stringify({ user_ref: 'github:9999', role: 'editor' }),
+      body: JSON.stringify({ email: 'member-deny@example.com', role: 'member' }),
     });
     await expectForbidden(res);
   });
 
-  it('member denies apiKey:create', async () => {
-    const { app, member, org } = await seedMatrix();
-    const res = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
+  it('member denies apiKey:create (agent-keys)', async () => {
+    const { app, member, org, project } = await seedMatrix();
+    const res = await app.request(`/api/v1/orgs/${org.id}/agent-keys`, {
       method: 'POST',
       headers: jsonHeaders(member.cookie),
-      body: JSON.stringify({ name: 'should-fail' }),
+      body: JSON.stringify({ project_id: project.id, name: 'should-fail' }),
     });
     await expectForbidden(res);
   });
@@ -355,22 +355,22 @@ describe('role permission matrix (ba-hardening)', () => {
     await expectForbidden(res);
   });
 
-  it('admin denies member:create', async () => {
+  it('admin denies member:create (invitations)', async () => {
     const { app, admin, org } = await seedMatrix();
-    const res = await app.request(`/api/v1/orgs/${org.id}/members`, {
+    const res = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
       method: 'POST',
       headers: jsonHeaders(admin.cookie),
-      body: JSON.stringify({ user_ref: 'github:9998', role: 'editor' }),
+      body: JSON.stringify({ email: 'admin-deny@example.com', role: 'member' }),
     });
     await expectForbidden(res);
   });
 
-  it('admin denies apiKey:create', async () => {
-    const { app, admin, org } = await seedMatrix();
-    const res = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
+  it('admin denies apiKey:create (agent-keys)', async () => {
+    const { app, admin, org, project } = await seedMatrix();
+    const res = await app.request(`/api/v1/orgs/${org.id}/agent-keys`, {
       method: 'POST',
       headers: jsonHeaders(admin.cookie),
-      body: JSON.stringify({ name: 'should-fail' }),
+      body: JSON.stringify({ project_id: project.id, name: 'should-fail' }),
     });
     await expectForbidden(res);
   });
@@ -414,24 +414,31 @@ describe('role permission matrix (ba-hardening)', () => {
     expect(res.status).not.toBe(403);
   });
 
-  it('owner allows member:create', async () => {
+  it('owner allows member:create (invitations)', async () => {
     const { app, owner, org } = await seedMatrix();
-    const res = await app.request(`/api/v1/orgs/${org.id}/members`, {
+    const res = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
       method: 'POST',
       headers: jsonHeaders(owner.cookie),
-      body: JSON.stringify({ user_ref: 'github:7777', role: 'editor' }),
+      body: JSON.stringify({ email: 'invitee@example.com', role: 'member' }),
     });
     expect(res.status).toBe(201);
+    const body = await parseJson<{ invitationId: string; claimUrl: string }>(res);
+    expect(typeof body.invitationId).toBe('string');
+    expect(typeof body.claimUrl).toBe('string');
   });
 
-  it('owner allows apiKey:create', async () => {
-    const { app, owner, org } = await seedMatrix();
-    const res = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
+  it('owner allows apiKey:create (agent-keys)', async () => {
+    const { app, owner, org, project } = await seedMatrix();
+    const res = await app.request(`/api/v1/orgs/${org.id}/agent-keys`, {
       method: 'POST',
       headers: jsonHeaders(owner.cookie),
-      body: JSON.stringify({ name: 'owner-key' }),
+      body: JSON.stringify({ project_id: project.id, name: 'owner-key' }),
     });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
+    const body = await parseJson<{ token: string; project_id: string }>(res);
+    expect(body.project_id).toBe(project.id);
+    expect(typeof body.token).toBe('string');
+    expect(body.token.length).toBeGreaterThan(0);
   });
 
   it('owner allows task:update', async () => {

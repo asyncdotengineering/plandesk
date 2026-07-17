@@ -32,11 +32,15 @@ export async function runProgressCheckpoint(
   }
   const { config, token } = binding;
   const base = normalizeServerUrl(config.serverUrl);
+  const authHeaders: Record<string, string> = {};
+  if (token !== undefined && token !== '') {
+    authHeaders.Authorization = `Bearer ${token}`;
+  }
 
   let runs: AgentRunResponse[] | undefined;
   try {
     const res = await fetch(`${base}/api/v1/projects/${config.projectId}/agent-runs`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders,
       signal: AbortSignal.timeout(HOOK_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) {
@@ -57,7 +61,7 @@ export async function runProgressCheckpoint(
   try {
     const res = await fetch(`${base}/api/v1/agent-runs/${runningRun.id}/progress`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ message }),
       signal: AbortSignal.timeout(HOOK_FETCH_TIMEOUT_MS),
     });

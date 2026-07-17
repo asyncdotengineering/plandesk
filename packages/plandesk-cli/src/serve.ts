@@ -9,7 +9,7 @@ import {
   mountStatic,
   runBetterAuthMigrations,
 } from '@plandesk/api';
-import { createDb, migrate, verifyToken } from '@plandesk/db';
+import { createDb, migrate } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
 import { resolveServerConfig } from './config.js';
@@ -140,12 +140,16 @@ export async function startServer(
       ? createS3Adapter({ db, config: cfg.values.storage })
       : undefined;
   const services = createServices({ db, ...(storage !== undefined ? { storage } : {}) });
-  const tokenStore = {
-    async verify(raw: string) {
-      return verifyToken(db, raw);
+  // BA7-1a: parent createApp resolves better-auth apiKey / session / loopback;
+  // MCP prefers that context (legacy token store unused).
+  const mcpApp = createMcpApp({
+    services,
+    tokenStore: {
+      async verify() {
+        return undefined;
+      },
     },
-  };
-  const mcpApp = createMcpApp({ services, tokenStore });
+  });
   const app = createApp({
     db,
     services,

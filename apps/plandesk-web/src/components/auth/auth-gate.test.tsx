@@ -59,7 +59,7 @@ describe('AuthGate', () => {
         return jsonResponse({ error: 'unauthorized' }, 401);
       }
       if (url.endsWith('/auth/methods')) {
-        return jsonResponse({ method: 'device', githubEnabled: true });
+        return jsonResponse({ method: 'token', githubEnabled: true });
       }
       throw new Error(`unexpected fetch: ${url}`);
     });
@@ -87,7 +87,7 @@ describe('AuthGate', () => {
         return jsonResponse({ error: 'unauthorized' }, 401);
       }
       if (url.endsWith('/auth/methods')) {
-        return jsonResponse({ method: 'device', githubEnabled: true });
+        return jsonResponse({ method: 'token', githubEnabled: true });
       }
       if (url === '/api/auth/sign-in/social') {
         return jsonResponse({ url: 'https://github.com/login/oauth/authorize?x=1', redirect: true });
@@ -186,10 +186,10 @@ describe('AccountMenu', () => {
     expect(screen.queryByRole('button', { name: /sign out/i })).toBeNull();
   });
 
-  it('posts to logout when signing out', async () => {
+  it('posts to better-auth sign-out when signing out', async () => {
     const calls = stubFetch(({ url }) => {
-      if (url.endsWith('/auth/logout')) {
-        return jsonResponse({ ok: true });
+      if (url === '/api/auth/sign-out') {
+        return jsonResponse({ success: true });
       }
       return jsonResponse(browserSession);
     });
@@ -198,7 +198,7 @@ describe('AccountMenu', () => {
     (await screen.findByRole('button', { name: /sign out/i })).click();
 
     await waitFor(() => {
-      const logoutCall = calls.find((c) => c.url.endsWith('/auth/logout'));
+      const logoutCall = calls.find((c) => c.url === '/api/auth/sign-out');
       expect(logoutCall?.init?.method).toBe('POST');
       expect(logoutCall?.init?.credentials).toBe('include');
     });

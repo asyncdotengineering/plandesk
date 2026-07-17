@@ -180,7 +180,6 @@ export type ParsedArgs =
   | { command: 'init'; dataDir?: string; localDb: boolean }
   | { command: 'serve'; port?: number; dataDir?: string; host?: string; strictPort: boolean; configPath?: string }
   | { command: 'url'; repoDir?: string; lan: boolean }
-  | { command: 'token'; subcommand: 'create'; name: string; dataDir?: string }
   | { command: 'admin'; subcommand: 'invite-owner'; email: string; dataDir?: string }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
@@ -360,18 +359,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
     return { command: 'url', repoDir: flagString(flags, 'repo'), lan: flags['lan'] === true };
   }
 
-  if (command === 'token') {
-    const subcommand = positional[1];
-    if (subcommand === 'create') {
-      const name = flagString(flags, 'name');
-      if (name === undefined || name.trim() === '') {
-        return { command: 'unknown', name: 'token create (missing --name)' };
-      }
-      return { command: 'token', subcommand: 'create', name, dataDir };
-    }
-    return { command: 'unknown', name: command };
-  }
-
   if (command === 'admin') {
     const subcommand = positional[1];
     if (subcommand === 'invite-owner') {
@@ -542,7 +529,6 @@ Usage:
   plandesk whoami
   plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>] [--config <file>]
   plandesk url [--repo <dir>] [--lan]
-  plandesk token create --name <name> [--data-dir <dir>]
   plandesk admin invite-owner --email <email> [--data-dir <dir>]  # self-host first owner (no GitHub)
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]

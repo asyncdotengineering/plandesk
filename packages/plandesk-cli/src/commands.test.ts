@@ -391,16 +391,6 @@ describe('CLI export/import/doctor', () => {
     expect(stderr).toContain('plandesk doctor');
   });
 
-  it('token create still works', async () => {
-    const dataDir = await makeWorkspace();
-    const { code, stdout } = await captureIo(() =>
-      main(['node', 'plandesk', 'token', 'create', '--name', 'cli-test', '--data-dir', dataDir]),
-    );
-
-    expect(code).toBe(0);
-    expect(stdout.trim().length).toBeGreaterThan(10);
-  });
-
   it('doctor redacts secret config values and never prints them (REQ-4)', async () => {
     const dataDir = await makeWorkspace();
     const secretPassword = 'super-secret-password-XYZ';

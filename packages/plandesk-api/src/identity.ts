@@ -126,7 +126,7 @@ export type ProvisionPersonalOrgResult =
 
 /**
  * BA4c: first better-auth GitHub session with zero memberships gets a personal
- * org + owner member (mirrors hand-rolled findOrCreateOrgForIdentity). Invited
+ * org + owner member (BA4c provisioning). Invited
  * users who already hold a member row are left alone (no second org).
  */
 export async function provisionPersonalOrgIfNeeded(
@@ -187,7 +187,7 @@ export async function provisionPersonalOrgIfNeeded(
     },
   });
 
-  // Dual-path parity with hand-rolled findOrCreateOrgForIdentity (org_members).
+  // Dual-path parity with legacy org_members identity provisioning.
   try {
     const userRef = userRefFromGithubAccountId(account.accountId);
     await addOrgMember(db, { orgId: org.id, userRef, role: 'owner' });

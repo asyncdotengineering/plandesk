@@ -5,7 +5,6 @@ import {
   createOrg,
   createProject,
   createTaskWithDefaultGoal as createTask,
-  createToken,
   ensureDefaultOrg,
   migrate,
   type Db,
@@ -266,14 +265,12 @@ describe('POST /api/v1/auth/cli-token (BA4b-2)', () => {
     expect(await parseJson(res)).toEqual({ error: 'unauthorized' });
   });
 
-  it('gate 3b: org token Bearer cannot mint via this endpoint → 401', async () => {
-    const { app, db } = await hostedApp();
-    const org = await createOrg(db, { name: 'Tok Org' });
-    const tok = await createToken(db, { name: 'full', orgId: org.id, scope: 'full' });
+  it('gate 3b: stranger mcp_token Bearer cannot mint via this endpoint → 401', async () => {
+    const { app } = await hostedApp();
 
     const res = await app.request('/api/v1/auth/cli-token', {
       method: 'POST',
-      headers: { ...bearer(tok.token), 'Content-Type': 'application/json' },
+      headers: { ...bearer('plandesk_mcp_not-a-real-token'), 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     });
     expect(res.status).toBe(401);

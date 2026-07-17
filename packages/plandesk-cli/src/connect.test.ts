@@ -18,10 +18,8 @@ import {
   createProject as createProjectInOrg,
   createProjectInDefaultOrg as createProject,
   createTaskWithDefaultGoal as createTask,
-  createTokenInDefaultOrg as createToken,
   ensureDefaultOrg,
   migrate,
-  revokeToken,
   verifyToken,
   type Db,
 } from '@plandesk/db';
@@ -212,27 +210,23 @@ describe('runConnect', () => {
     return repoDir;
   }
 
-  it('writes connect artifacts with env-var mcp config and gitignored token', async () => {
-    await withTestServer(async ({ baseUrl, db, projectId, projectName }) => {
+  it('writes connect artifacts with env-var mcp config (local: no token file)', async () => {
+    await withTestServer(async ({ baseUrl, projectId, projectName }) => {
       const repoDir = makeRepo(projectName);
-      const { token } = await createToken(db, { name: 'connect-test' });
 
       const result = await runConnect({
         repoDir,
         project: projectId,
         url: baseUrl,
-        token,
         agent: 'both',
         interactive: false,
       });
 
       expect(result.project.id).toBe(projectId);
-      expect(existsSync(join(repoDir, '.plandesk', 'token'))).toBe(true);
-      expect(readFileSync(join(repoDir, '.plandesk', 'token'), 'utf8').trim()).toBe(token);
+      expect(existsSync(join(repoDir, '.plandesk', 'token'))).toBe(false);
       expect(committedContents(repoDir)).not.toContain('plandesk_mcp_');
       const mcpJson = readFileSync(join(repoDir, '.mcp.json'), 'utf8');
       expect(mcpJson).toContain('headersHelper');
-      expect(mcpJson).toContain('.plandesk/token');
       expect(readFileSync(join(repoDir, 'CLAUDE.md'), 'utf8')).toContain(SENTINEL_START);
       expect(readFileSync(join(repoDir, '.claude/commands/plandesk.md'), 'utf8')).toContain(
         '@.plandesk/skill.md',
@@ -359,15 +353,13 @@ describe('runConnect', () => {
     });
   });
 
-  it('validates binding via doctor', async () => {
-    await withTestServer(async ({ baseUrl, db, projectId, projectName }) => {
+  it('validates binding via doctor (local loopback, no token file)', async () => {
+    await withTestServer(async ({ baseUrl, projectId, projectName }) => {
       const repoDir = makeRepo(projectName);
-      const { token } = await createToken(db, { name: 'doctor' });
       await runConnect({
         repoDir,
         project: projectId,
         url: baseUrl,
-        token,
         interactive: false,
       });
 
@@ -376,51 +368,44 @@ describe('runConnect', () => {
       expect(report.serverReachable).toBe(true);
       expect(report.tokenValid).toBe(true);
       expect(report.projectExists).toBe(true);
-      expect(report.mcpToolCount).toBeGreaterThan(0);
       expect(report.issues).toEqual([]);
     });
   });
 
-  it('reports token invalid (not valid) when the bound token is revoked', async () => {
-    await withTestServer(async ({ baseUrl, db, projectId, projectName }) => {
+  it('reports token invalid when a bound stranger bearer is present', async () => {
+    await withTestServer(async ({ baseUrl, projectId, projectName }) => {
       const repoDir = makeRepo(projectName);
-      const row = await createToken(db, { name: 'doctor-revoked' });
       await runConnect({
         repoDir,
         project: projectId,
         url: baseUrl,
-        token: row.token,
+        token: 'plandesk_mcp_revoked_or_stranger',
         interactive: false,
       });
-      await revokeToken(db, row.id);
 
       const report = await runBindingDoctor(repoDir);
       expect(report.serverReachable).toBe(true);
-      // token-valid must reflect the real authenticated MCP path, not the open
-      // REST route — a revoked token 401s live MCP requests, so it is NOT valid.
+      // Stranger bearer is not a better-auth key → MCP 401.
       expect(report.tokenValid).toBe(false);
       expect(report.mcpToolCount).toBe(0);
       expect(report.issues).toContain('token invalid or revoked');
     });
   });
 
-  it('test:local_mode_unchanged — no --to still uses loopback mcp-tokens path', async () => {
+  it('test:local_mode_unchanged — no --to uses loopback owner, no token file', async () => {
     await withTestServer(async ({ baseUrl, projectId, projectName }) => {
       const repoDir = makeRepo(projectName);
       const result = await runConnect({
         repoDir,
         project: projectId,
         url: baseUrl,
-        // no token → createTokenViaApi → POST /mcp-tokens (local)
         agent: 'claude',
         interactive: false,
       });
-      expect(result.tokenCreated).toBe(true);
+      expect(result.tokenCreated).toBe(false);
       expect(result.serverUrl).toBe(baseUrl.replace(/\/$/, ''));
-      const written = readFileSync(join(repoDir, '.plandesk', 'token'), 'utf8').trim();
-      expect(written.length).toBeGreaterThan(0);
-      // Local mint still produces plandesk_mcp_ tokens, not better-auth keys.
-      expect(written.startsWith('plandesk_mcp_') || written.length > 10).toBe(true);
+      expect(existsSync(join(repoDir, '.plandesk', 'token'))).toBe(false);
+      expect(result.tokenLine).toMatch(/loopback/i);
     });
   });
 });

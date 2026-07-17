@@ -18,7 +18,6 @@ import { runServe, resolveServeRuntime } from './serve.js';
 import { resolveServerConfig, ConfigFileError } from './config.js';
 import { runLogin, runLogout, runWhoami } from './login.js';
 import { runPreview } from './preview.js';
-import { runTokenCreate } from './token.js';
 import {
   AdminInviteOwnerError,
   formatAdminInviteOwnerSummary,
@@ -167,19 +166,6 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
       const host = parsed.lan ? (getLanIp() ?? '127.0.0.1') : '127.0.0.1';
       process.stdout.write(`http://${host}:${String(port)}\n`);
       return 0;
-    }
-    case 'token': {
-      try {
-        const { db } = await openWorkspace(parsed.dataDir);
-        const token = await runTokenCreate(db, parsed.name);
-        process.stdout.write(`${token}\n`);
-        return 0;
-      } catch (err) {
-        if (err instanceof CorruptWorkspaceError) {
-          return reportCorruptDb();
-        }
-        throw err;
-      }
     }
     case 'admin': {
       if (parsed.subcommand === 'invite-owner') {

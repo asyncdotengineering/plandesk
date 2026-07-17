@@ -12,7 +12,6 @@ import { createAgentRunService, type AgentRunService } from './agent-runs.js';
 import { createTagService, type TagService } from './tags.js';
 import { createGoalService, type GoalService } from './goals.js';
 import { createTaskService, type TaskService } from './tasks.js';
-import { createTokenService, type TokenService } from './tokens.js';
 import { createShareService, type ShareService } from './share.js';
 import { createSyncService, type SyncService } from './sync.js';
 
@@ -34,7 +33,6 @@ export type Services = {
   noteService: NoteService;
   commentService: CommentService;
   agentRunService: AgentRunService;
-  tokenService: TokenService;
   shareService: ShareService;
   syncService: SyncService;
   fileService: FileService;
@@ -54,7 +52,6 @@ export function createServices(deps: ServicesDeps): Services {
   const noteService = createNoteService(scoped);
   const commentService = createCommentService(scoped);
   const agentRunService = createAgentRunService(scoped);
-  const tokenService = createTokenService(scoped);
   const shareService = createShareService(scoped);
   const syncService = createSyncService({ ...scoped, taskService });
   const fileService = createFileService({ ...scoped, storage });
@@ -71,7 +68,6 @@ export function createServices(deps: ServicesDeps): Services {
     noteService,
     commentService,
     agentRunService,
-    tokenService,
     shareService,
     syncService,
     fileService,

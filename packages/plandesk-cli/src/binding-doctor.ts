@@ -54,9 +54,8 @@ export async function runBindingDoctor(repoDir: string): Promise<BindingDoctorRe
   }
 
   const token = readPlandeskToken(repoDir);
-  if (token === undefined) {
-    issues.push('missing .plandesk/token');
-  }
+  // Local loopback connect writes no token; missing file is not an issue there.
+  // Hosted connect always writes a scoped agent key — then missing is an issue.
 
   let serverReachable = false;
   let tokenValid = false;
@@ -73,12 +72,14 @@ export async function runBindingDoctor(repoDir: string): Promise<BindingDoctorRe
     issues.push(`server unreachable at ${config.serverUrl}`);
   }
 
-  if (token !== undefined && serverReachable) {
-    // Project existence: the REST GET tells us whether the running server knows
-    // this project. It does NOT authenticate the MCP token, so it must never be
-    // the source of `tokenValid`.
+  if (serverReachable) {
+    // Project existence via REST (loopback or bearer).
+    const projectHeaders: Record<string, string> = {};
+    if (token !== undefined) {
+      projectHeaders.Authorization = `Bearer ${token}`;
+    }
     const projectResponse = await fetch(`${config.serverUrl}/api/v1/projects/${config.projectId}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: projectHeaders,
     });
     if (projectResponse.ok) {
       projectExists = true;
@@ -88,24 +89,26 @@ export async function runBindingDoctor(repoDir: string): Promise<BindingDoctorRe
       issues.push(`project check failed with status ${String(projectResponse.status)}`);
     }
 
-    // Token validity: exercise the REAL authenticated MCP path against the
-    // running server (verifyToken), not the open REST route. This is the only
-    // signal that cannot report "valid" while live MCP requests 401 — e.g. when
-    // the bound port is held by a different project's server.
-    try {
-      mcpToolCount = await listMcpTools(config.serverUrl, token);
-      tokenValid = true;
-      if (mcpToolCount === 0) {
-        issues.push('MCP tools list is empty');
+    if (token !== undefined) {
+      // Token validity: exercise the real authenticated MCP path.
+      try {
+        mcpToolCount = await listMcpTools(config.serverUrl, token);
+        tokenValid = true;
+        if (mcpToolCount === 0) {
+          issues.push('MCP tools list is empty');
+        }
+      } catch (error) {
+        tokenValid = false;
+        const message = error instanceof Error ? error.message : String(error);
+        if (/\b401\b/.test(message) || /unauthor/i.test(message)) {
+          issues.push('token invalid or revoked');
+        } else {
+          issues.push('MCP authentication failed (server may be serving a different project)');
+        }
       }
-    } catch (error) {
-      tokenValid = false;
-      const message = error instanceof Error ? error.message : String(error);
-      if (/\b401\b/.test(message) || /unauthor/i.test(message)) {
-        issues.push('token invalid or revoked');
-      } else {
-        issues.push('MCP authentication failed (server may be serving a different project)');
-      }
+    } else {
+      // No token file: local loopback mode is valid when the project is reachable.
+      tokenValid = projectExists;
     }
   }
 

@@ -20,7 +20,6 @@ import { createFilesRouter } from './routes/files.js';
 import { createFoldersRouter } from './routes/folders.js';
 import { createNotesRouter } from './routes/notes.js';
 import { createSharesRouter } from './routes/shares.js';
-import { createTokensRouter } from './routes/tokens.js';
 import { createAgentRunsRouter } from './routes/agent-runs.js';
 import { createGoalsRouter } from './routes/goals.js';
 import { createSubmissionsRouter } from './routes/submissions.js';
@@ -38,15 +37,14 @@ export type AppDeps = {
   /** Server bind host — loopback default-org only when this is loopback. Default 127.0.0.1. */
   bindHost?: string;
   /**
-   * GitHub app for browser sign-in. Omit it and the instance simply has no
-   * GitHub sign-in: /auth/github and device endpoints 404, and /auth/methods reports token entry.
+   * GitHub app for better-auth social sign-in. Omit it and the instance simply
+   * has no GitHub sign-in; /auth/methods reports githubEnabled:false.
    * Self-hosting must never require registering an app (REQ-20).
    */
   github?: GithubConfig;
   /**
-   * better-auth (GitHub sign-in + session). Omit and /api/auth/* 404s;
-   * when set, org middleware recognizes better-auth session cookies as
-   * AuthContext kind session (hand-rolled session path remains).
+   * better-auth (GitHub sign-in + session + apiKey). Omit and /api/auth/* 404s;
+   * when set, org middleware recognizes better-auth session cookies and API keys.
    */
   betterAuth?: { secret: string; baseURL: string };
 };
@@ -64,7 +62,6 @@ export function createApp(deps: AppDeps): Hono {
     noteService,
     commentService,
     agentRunService,
-    tokenService,
     syncService,
     fileService,
     artifactService,
@@ -87,7 +84,7 @@ export function createApp(deps: AppDeps): Hono {
         })
       : undefined;
 
-  // Always-on org resolution (token, better-auth session, hand-rolled session, or loopback).
+  // Always-on org resolution (better-auth apiKey/session, loopback, or guest).
   app.use(
     '*',
     createOrgAuthMiddleware({
@@ -144,7 +141,6 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createNotesRouter(noteService));
   app.route('/api/v1', createSharesRouter(shareService));
   app.route('/api/v1', createCommentsRouter(commentService));
-  app.route('/api/v1', createTokensRouter(tokenService));
   app.route('/api/v1', createAgentRunsRouter(agentRunService));
   app.route('/api/v1', createSubmissionsRouter(syncService, projectService));
 

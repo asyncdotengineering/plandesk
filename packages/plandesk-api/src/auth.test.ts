@@ -1,6 +1,5 @@
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { createToken, ensureDefaultOrg } from '@plandesk/db';
 import { createAuthMiddleware, createOrgAuthMiddleware } from './auth.js';
 import { createTestApp, parseJson } from './test-helpers.js';
 
@@ -46,16 +45,7 @@ describe('createAuthMiddleware (basic)', () => {
 });
 
 describe('createOrgAuthMiddleware', () => {
-  it('accepts a valid bearer token and scopes to its org', async () => {
-    const { app, db, orgId } = await createTestApp({ bindHost: '0.0.0.0' });
-    const token = await createToken(db, { name: 't', orgId, scope: 'full' });
-    const res = await app.request('/api/v1/health', {
-      headers: { Authorization: `Bearer ${token.token}` },
-    });
-    expect(res.status).toBe(200);
-  });
-
-  it('rejects an invalid bearer token', async () => {
+  it('rejects a stranger bearer (not a better-auth key) with 401', async () => {
     const { app } = await createTestApp({ bindHost: '0.0.0.0' });
     const res = await app.request('/api/v1/health', {
       headers: { Authorization: 'Bearer plandesk_mcp_not-real' },

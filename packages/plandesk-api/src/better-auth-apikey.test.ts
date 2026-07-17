@@ -4,7 +4,6 @@ import {
   createOrg,
   createProject,
   createTaskWithDefaultGoal as createTask,
-  createToken,
   ensureDefaultOrg,
   migrate,
   type Db,
@@ -225,29 +224,21 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
     });
 
     // Even if key tried to carry apiKey/member, ceiling strips apiKey; default has empty member.
-    const memberAdd = await app.request(`/api/v1/orgs/${org.id}/members`, {
+    const memberAdd = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
       method: 'POST',
       headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_ref: 'github:9999', role: 'editor' }),
+      body: JSON.stringify({ email: 'x@example.com', role: 'member' }),
     });
     expect(memberAdd.status).toBe(403);
     expect(await parseJson(memberAdd)).toEqual({ error: 'forbidden' });
 
-    const mintToken = await app.request('/api/v1/mcp-tokens', {
+    const mintAgent = await app.request(`/api/v1/orgs/${org.id}/agent-keys`, {
       method: 'POST',
       headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'escalation' }),
+      body: JSON.stringify({ project_id: project.id, name: 'escalation' }),
     });
-    expect(mintToken.status).toBe(403);
-    expect(await parseJson(mintToken)).toEqual({ error: 'forbidden' });
-
-    const mintOrgToken = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
-      method: 'POST',
-      headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'escalation-org' }),
-    });
-    expect(mintOrgToken.status).toBe(403);
-    expect(await parseJson(mintOrgToken)).toEqual({ error: 'forbidden' });
+    expect(mintAgent.status).toBe(403);
+    expect(await parseJson(mintAgent)).toEqual({ error: 'forbidden' });
   });
 
   it('property 2b: AGENT_FORBIDDEN strips apiKey even when key was minted with apiKey:create', async () => {
@@ -274,13 +265,13 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
       name: 'over-granted',
     });
 
-    const mintToken = await app.request('/api/v1/mcp-tokens', {
+    const mintAgent = await app.request(`/api/v1/orgs/${org.id}/agent-keys`, {
       method: 'POST',
       headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'should-fail' }),
+      body: JSON.stringify({ project_id: project.id, name: 'should-fail' }),
     });
-    expect(mintToken.status).toBe(403);
-    expect(await parseJson(mintToken)).toEqual({ error: 'forbidden' });
+    expect(mintAgent.status).toBe(403);
+    expect(await parseJson(mintAgent)).toEqual({ error: 'forbidden' });
   });
 
   it('property 3: key minted as owner is capped at member after demotion (live ∩)', async () => {
@@ -410,10 +401,10 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
     });
     expect(updateTask.status).toBe(403);
 
-    const memberAdd = await app.request(`/api/v1/orgs/${org.id}/members`, {
+    const memberAdd = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
       method: 'POST',
       headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_ref: 'github:1', role: 'editor' }),
+      body: JSON.stringify({ email: 'z@example.com', role: 'member' }),
     });
     expect(memberAdd.status).toBe(403);
   });
@@ -447,12 +438,11 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
     expect(cross.status).toBe(404);
     expect(await parseJson(cross)).toEqual({ error: 'not_found' });
 
-    // Existing mcp_token path still works (REQ-5 additive).
-    const tokenB = await createToken(db, { name: 'B mcp', orgId: orgB.id, scope: 'full' });
-    const mcpCross = await app.request(`/api/v1/projects/${projectA.id}`, {
-      headers: bearer(tokenB.token),
+    // Stranger mcp_token bearer is no longer accepted (BA7-1a).
+    const stranger = await app.request(`/api/v1/projects/${projectA.id}`, {
+      headers: bearer('plandesk_mcp_not-a-real-token'),
     });
-    expect(mcpCross.status).toBe(404);
+    expect(stranger.status).toBe(401);
   });
 
   it('property 6: key scoped to project A → 404 on project B', async () => {
@@ -530,17 +520,6 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
     void orgId;
   });
 
-  it('property 7b: mcp_token still authenticates when better-auth is mounted (REQ-5)', async () => {
-    const { app, db } = await hostedApp();
-    const org = await createOrg(db, { name: 'MCP Org' });
-    const token = await createToken(db, { name: 'mcp', orgId: org.id, scope: 'full' });
-    const project = await createProject(db, { name: 'MCP Board', orgId: org.id });
-
-    const res = await app.request(`/api/v1/projects/${project.id}`, {
-      headers: bearer(token.token),
-    });
-    expect(res.status).toBe(200);
-  });
 
   it('invalid better-auth-looking bearer still falls through / rejects cleanly', async () => {
     const { app } = await hostedApp();
@@ -575,20 +554,13 @@ describe('org-wide owner keys + profile-aware ceiling (BA4b-1 / REQ-4)', () => {
       name: 'agent-with-apikey',
     });
 
-    const mintToken = await app.request('/api/v1/mcp-tokens', {
+    const mintAgent = await app.request(`/api/v1/orgs/${org.id}/agent-keys`, {
       method: 'POST',
       headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'must-fail' }),
+      body: JSON.stringify({ project_id: project.id, name: 'must-fail' }),
     });
-    expect(mintToken.status).toBe(403);
-    expect(await parseJson(mintToken)).toEqual({ error: 'forbidden' });
-
-    const mintOrg = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
-      method: 'POST',
-      headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'must-fail-org' }),
-    });
-    expect(mintOrg.status).toBe(403);
+    expect(mintAgent.status).toBe(403);
+    expect(await parseJson(mintAgent)).toEqual({ error: 'forbidden' });
   });
 
   it('REQ-4.2: owner key (org-wide, kind owner) with live owner can mint tokens (201)', async () => {
@@ -610,23 +582,17 @@ describe('org-wide owner keys + profile-aware ceiling (BA4b-1 / REQ-4)', () => {
     expect(minted.metadata).toEqual({ orgId: org.id, kind: 'owner' });
     expect('projectId' in minted.metadata).toBe(false);
 
-    const mintOrg = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
+    const project = await createProject(db, { name: 'Owner Mint Board', orgId: org.id });
+    const mintAgent = await app.request(`/api/v1/orgs/${org.id}/agent-keys`, {
       method: 'POST',
       headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'from-owner-key' }),
+      body: JSON.stringify({ project_id: project.id, name: 'from-owner-key' }),
     });
-    expect(mintOrg.status).toBe(201);
-    const body = await parseJson<{ token: string; name: string }>(mintOrg);
-    expect(body.name).toBe('from-owner-key');
+    expect(mintAgent.status).toBe(200);
+    const body = await parseJson<{ token: string; project_id: string }>(mintAgent);
+    expect(body.project_id).toBe(project.id);
     expect(typeof body.token).toBe('string');
     expect(body.token.length).toBeGreaterThan(0);
-
-    const mintMcp = await app.request('/api/v1/mcp-tokens', {
-      method: 'POST',
-      headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'mcp-from-owner' }),
-    });
-    expect(mintMcp.status).toBe(201);
   });
 
   it('REQ-4.3: owner key demoted to member → apiKey absent → 403 on mint', async () => {
@@ -647,12 +613,13 @@ describe('org-wide owner keys + profile-aware ceiling (BA4b-1 / REQ-4)', () => {
       name: 'was-owner-key',
     });
 
-    const before = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
+    const project = await createProject(db, { name: 'Demote Board', orgId: org.id });
+    const before = await app.request(`/api/v1/orgs/${org.id}/agent-keys`, {
       method: 'POST',
       headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'while-owner' }),
+      body: JSON.stringify({ project_id: project.id, name: 'while-owner' }),
     });
-    expect(before.status).toBe(201);
+    expect(before.status).toBe(200);
 
     const adapter = (await auth.$context).adapter;
     const members = await adapter.findMany<BetterAuthMember>({
@@ -670,10 +637,10 @@ describe('org-wide owner keys + profile-aware ceiling (BA4b-1 / REQ-4)', () => {
       update: { role: 'member' },
     });
 
-    const after = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
+    const after = await app.request(`/api/v1/orgs/${org.id}/agent-keys`, {
       method: 'POST',
       headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'after-demotion' }),
+      body: JSON.stringify({ project_id: project.id, name: 'after-demotion' }),
     });
     expect(after.status).toBe(403);
     expect(await parseJson(after)).toEqual({ error: 'forbidden' });
@@ -722,12 +689,12 @@ describe('org-wide owner keys + profile-aware ceiling (BA4b-1 / REQ-4)', () => {
       });
     }
 
-    const mintToken = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
+    const mintAgent = await app.request(`/api/v1/orgs/${org.id}/agent-keys`, {
       method: 'POST',
       headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'no-member' }),
+      body: JSON.stringify({ project_id: project.id, name: 'no-member' }),
     });
-    expect(mintToken.status).toBe(403);
+    expect(mintAgent.status).toBe(403);
 
     const createProjectRes = await app.request('/api/v1/projects', {
       method: 'POST',
@@ -743,10 +710,10 @@ describe('org-wide owner keys + profile-aware ceiling (BA4b-1 / REQ-4)', () => {
     });
     expect(updateTask.status).toBe(403);
 
-    const memberAdd = await app.request(`/api/v1/orgs/${org.id}/members`, {
+    const memberAdd = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
       method: 'POST',
       headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_ref: 'github:1', role: 'editor' }),
+      body: JSON.stringify({ email: 'y@example.com', role: 'member' }),
     });
     expect(memberAdd.status).toBe(403);
   });

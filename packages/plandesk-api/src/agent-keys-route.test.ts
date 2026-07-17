@@ -219,11 +219,11 @@ describe('POST /api/v1/orgs/:orgId/agent-keys (BA4b-3)', () => {
     expect(verified).toBeDefined();
     expect(verified?.metadata).toEqual({ projectId: project.id, orgId: org.id });
 
-    // Agent profile: apiKey stripped — cannot mint further keys/tokens.
-    const escalate = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
+    // Agent profile: apiKey stripped — cannot mint further keys.
+    const escalate = await app.request(`/api/v1/orgs/${org.id}/agent-keys`, {
       method: 'POST',
       headers: { ...bearer(body.token), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'must-fail' }),
+      body: JSON.stringify({ project_id: project.id, name: 'must-fail' }),
     });
     expect(escalate.status).toBe(403);
     expect(await parseJson(escalate)).toEqual({ error: 'forbidden' });

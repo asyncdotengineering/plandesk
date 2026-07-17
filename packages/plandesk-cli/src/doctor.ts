@@ -26,7 +26,6 @@ const EXPECTED_TABLES = [
   'comments',
   'agent_runs',
   'agent_run_events',
-  'mcp_tokens',
   '__drizzle_migrations',
 ] as const;
 

@@ -7,7 +7,6 @@ import {
   createDocument,
   createFolder,
   createGoal,
-  createMcpToken,
   createNote,
   createProject,
   createTag,
@@ -31,7 +30,6 @@ import {
   listDocuments,
   listFolders,
   listGoals,
-  listMcpTokens,
   listNotes,
   listProjects,
   listSubmissions,
@@ -48,7 +46,6 @@ import {
   patchTask,
   putCanvas,
   resumeGoal,
-  revokeMcpToken,
   triageSubmission,
   type CommentTarget,
   type CommentTargetType,
@@ -91,7 +88,7 @@ export const queryKeys = {
   comments: (targetType: CommentTargetType, targetId: string) =>
     [`${targetType}s`, targetId, 'comments'] as const,
   taskDocument: (taskId: string) => ['tasks', taskId, 'document'] as const,
-  mcpTokens: ['mcp-tokens'] as const,
+
   agentRuns: (projectId: string) => ['projects', projectId, 'agent-runs'] as const,
   submissions: (projectId: string, status?: SubmissionStatus) =>
     ['projects', projectId, 'submissions', status ?? 'pending'] as const,
@@ -453,33 +450,6 @@ export function useTaskDocument(taskId: string) {
     queryKey: queryKeys.taskDocument(taskId),
     queryFn: () => getTaskDocument(taskId),
     ...liveQueryOptions,
-  });
-}
-
-export function useMcpTokens() {
-  return useQuery({
-    queryKey: queryKeys.mcpTokens,
-    queryFn: listMcpTokens,
-  });
-}
-
-export function useCreateMcpToken() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (name: string) => createMcpToken(name),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.mcpTokens });
-    },
-  });
-}
-
-export function useRevokeMcpToken() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => revokeMcpToken(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.mcpTokens });
-    },
   });
 }
 

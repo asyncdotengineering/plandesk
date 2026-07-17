@@ -41,10 +41,14 @@ type NextTaskResponse = { next_task: { id: string; label: string } | null };
 // one is set explicitly; a timeout is just another no-op path via the catch.
 const HOOK_FETCH_TIMEOUT_MS = 2000;
 
-async function fetchJson<T>(url: string, token: string): Promise<T | undefined> {
+async function fetchJson<T>(url: string, token?: string): Promise<T | undefined> {
   try {
+    const headers: Record<string, string> = {};
+    if (token !== undefined && token !== '') {
+      headers.Authorization = `Bearer ${token}`;
+    }
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers,
       signal: AbortSignal.timeout(HOOK_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) {

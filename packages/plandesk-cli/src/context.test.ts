@@ -7,7 +7,6 @@ import { createApp, createServices } from '@plandesk/api';
 import {
   createDb,
   createProjectInDefaultOrg as createProject,
-  createTokenInDefaultOrg as createToken,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -22,13 +21,11 @@ async function withTestServer(
     db: Db;
     services: ReturnType<typeof createServices>;
     projectId: string;
-    token: string;
   }) => Promise<void>,
 ): Promise<void> {
   const db = await createDb(':memory:');
   await migrate(db);
   const project = await createProject(db, { name: 'Context project' });
-  const { token } = await createToken(db, { name: 'context-test' });
   const services = createServices({ db, orgId: project.orgId });
   const app = createApp({ db, services });
 
@@ -49,7 +46,7 @@ async function withTestServer(
   const baseUrl = `http://127.0.0.1:${String(address.port)}`;
 
   try {
-    await run({ baseUrl, db, services, projectId: project.id, token });
+    await run({ baseUrl, db, services, projectId: project.id });
   } finally {
     await new Promise<void>((resolve, reject) => {
       server.close((err) => {
@@ -81,14 +78,13 @@ describe('runContext', () => {
     return repoDir;
   }
 
-  function bindRepo(repoDir: string, baseUrl: string, projectId: string, token: string): void {
+  function bindRepo(repoDir: string, baseUrl: string, projectId: string): void {
     mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
     writeFileSync(
       join(repoDir, '.plandesk', 'config.json'),
       buildConfigJson({ serverUrl: baseUrl, projectId, projectName: 'Context project' }),
       'utf8',
     );
-    writeFileSync(join(repoDir, '.plandesk', 'token'), token, 'utf8');
   }
 
   it('returns {} when the repo has no binding', async () => {
@@ -96,7 +92,7 @@ describe('runContext', () => {
     expect(await runContext(repoDir)).toEqual({});
   });
 
-  it('returns {} when config.json is present but the token file is missing', async () => {
+  it('returns all-null fields when bound but server is unreachable (config alone is enough)', async () => {
     const repoDir = makeRepo();
     mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
     writeFileSync(
@@ -104,13 +100,18 @@ describe('runContext', () => {
       buildConfigJson({ serverUrl: 'http://127.0.0.1:1', projectId: 'p1', projectName: 'P' }),
       'utf8',
     );
-    expect(await runContext(repoDir)).toEqual({});
+    expect(await runContext(repoDir)).toEqual({
+      current_task: null,
+      linked_doc: null,
+      last_progress: null,
+      next_task: null,
+    });
   });
 
   it('reports the next actionable task when idle', async () => {
-    await withTestServer(async ({ baseUrl, db, projectId, token }) => {
+    await withTestServer(async ({ baseUrl, db, projectId }) => {
       const repoDir = makeRepo();
-      bindRepo(repoDir, baseUrl, projectId, token);
+      bindRepo(repoDir, baseUrl, projectId);
       const task = await createTask(db, { projectId, label: 'Ship the thing', status: 'todo' });
 
       const context = await runContext(repoDir);
@@ -124,9 +125,9 @@ describe('runContext', () => {
   });
 
   it('reports the current task, linked doc, and last progress; skips next_task', async () => {
-    await withTestServer(async ({ baseUrl, db, services, projectId, token }) => {
+    await withTestServer(async ({ baseUrl, db, services, projectId }) => {
       const repoDir = makeRepo();
-      bindRepo(repoDir, baseUrl, projectId, token);
+      bindRepo(repoDir, baseUrl, projectId);
 
       const task = await createTask(db, {
         projectId,
@@ -158,7 +159,7 @@ describe('runContext', () => {
 
   it('returns all-null fields (not an error) when the server is unreachable', async () => {
     const repoDir = makeRepo();
-    bindRepo(repoDir, 'http://127.0.0.1:1', 'missing-project', 'test-token');
+    bindRepo(repoDir, 'http://127.0.0.1:1', 'missing-project');
     expect(await runContext(repoDir)).toEqual({
       current_task: null,
       linked_doc: null,
@@ -176,9 +177,9 @@ describe('runContext', () => {
   });
 
   it('caps a large linked-doc body so it does not re-inflate the context', async () => {
-    await withTestServer(async ({ baseUrl, db, services, projectId, token }) => {
+    await withTestServer(async ({ baseUrl, db, services, projectId }) => {
       const repoDir = makeRepo();
-      bindRepo(repoDir, baseUrl, projectId, token);
+      bindRepo(repoDir, baseUrl, projectId);
       const task = await createTask(db, { projectId, label: 'Big doc task', status: 'in_progress' });
       const bigBody = 'x'.repeat(9000);
       await services.documentService.create(projectId, {

@@ -497,19 +497,4 @@ describe('organization invitations (BA3c)', () => {
     expect(res.status).toBe(404);
   });
 
-  it('legacy POST /orgs/:id/members still works (REQ-5 additive)', async () => {
-    const { app, db, orgId } = await hostedInviteApp();
-    const { createToken } = await import('@plandesk/db');
-    const token = await createToken(db, { name: 'legacy', orgId, scope: 'full' });
-
-    const res = await app.request(`/api/v1/orgs/${orgId}/members`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token.token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ user_ref: 'github:42', role: 'editor' }),
-    });
-    expect(res.status).toBe(201);
-  });
 });
