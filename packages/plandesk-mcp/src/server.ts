@@ -622,17 +622,20 @@ export function createMcpApp(deps: McpAppDeps): Hono {
   const app = new Hono();
 
   app.use('*', async (c, next) => {
-    // Parent createApp org-auth may already have set the request auth context
-    // (loopback single-org). Prefer an explicit Bearer when present.
+    // Parent createApp org-auth already resolved better-auth apiKey/session or
+    // loopback owner. Prefer that — do not re-auth with legacy mcp_tokens.
+    if (tryGetAuthContext() !== undefined) {
+      await next();
+      return;
+    }
+
+    // Standalone MCP mount (tests): optional TokenStore bearer path.
     const raw = extractBearerToken(c.req.header('Authorization'));
     if (raw !== undefined) {
       const verified = await deps.tokenStore.verify(raw);
       if (!verified) {
         return c.json({ error: 'unauthorized' }, 401);
       }
-      // Re-enter with token org so MCP tool handlers see the correct tenant.
-      // Tokens without an explicit member actor act as owner; scope still caps
-      // (read-only → viewer). Matches REST org auth middleware default.
       await runWithAuthContext(
         {
           kind: 'token',
@@ -644,12 +647,6 @@ export function createMcpApp(deps: McpAppDeps): Hono {
           await next();
         },
       );
-      return;
-    }
-
-    // No bearer: allow if parent middleware already established auth context.
-    if (tryGetAuthContext() !== undefined) {
-      await next();
       return;
     }
 

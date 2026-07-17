@@ -19,7 +19,6 @@ plandesk logout
 plandesk whoami
 plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>]
 plandesk url [--repo <dir>] [--lan]
-plandesk token create --name <name> [--data-dir <dir>]
 plandesk export --project <id> --out <file.json> [--data-dir <dir>]
 plandesk import --in <file.json> [--data-dir <dir>]
 plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
@@ -47,7 +46,6 @@ plandesk deploy [target]
 | `whoami`                 | Print the configured hosted server and organization |
 | `serve`                  | Start REST + SSE + MCP + web UI; reads the port from `workspace.json` if no `--port` flag is given                      |
 | `url`                    | Print the server URL for this project (`$(plandesk url)` in scripts); `--lan` returns the LAN IP instead of loopback    |
-| `token create`           | Create MCP bearer token (shown once)                                                                                     |
 | `export` / `import`      | Lossless `plandesk-export-v1` JSON round-trip                                                                            |
 | `connect` / `disconnect` | Bind / unbind a repo to a project + agent configs; re-run `connect` after upgrading to regenerate artifacts. Hosted: `connect --to <org>` mints a scoped agent key (requires prior `login`) |
 | `doctor`                 | Check DB health; with `--repo`, validate binding + MCP reachability                                                      |

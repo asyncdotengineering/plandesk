@@ -39,12 +39,11 @@ function resolveBaseUrl(url?: string): string {
   return raw.replace(/\/$/, '');
 }
 
-function resolveToken(token?: string): string {
+/** Optional for local loopback (owner without token). Hosted agent keys still pass a token. */
+function resolveToken(token?: string): string | undefined {
   const raw = token ?? process.env.PLANDESK_MCP_TOKEN;
   if (raw === undefined || raw.trim() === '') {
-    throw new Error(
-      'PLANDESK_MCP_TOKEN is required (pass token option or set the environment variable)',
-    );
+    return undefined;
   }
   return raw.trim();
 }
@@ -156,13 +155,18 @@ export async function createPlandeskClient(
   const baseUrl = resolveBaseUrl(options.url);
   const token = resolveToken(options.token);
 
-  const transport = new StreamableHTTPClientTransport(mcpEndpoint(baseUrl), {
-    requestInit: {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  });
+  const transport = new StreamableHTTPClientTransport(
+    mcpEndpoint(baseUrl),
+    token === undefined
+      ? undefined
+      : {
+          requestInit: {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        },
+  );
 
   const client = new Client({ name: 'plandesk-mcp-client', version: '0.0.0' });
 

@@ -5,22 +5,17 @@ import { createApp, createServices } from '@plandesk/api';
 import {
   createDb,
   createProjectInDefaultOrg as createProject,
-  createTokenInDefaultOrg as createToken,
   migrate,
-  revokeToken,
-  verifyToken,
   type Db,
 } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { createPlandeskClient } from './client.js';
 
-function createTestTokenStore(db: Db) {
-  return {
-    async verify(raw: string) {
-      return verifyToken(db, raw);
-    },
-  };
-}
+const noopTokenStore = {
+  async verify() {
+    return undefined;
+  },
+};
 
 async function withMcpServer(
   run: (ctx: {
@@ -37,10 +32,10 @@ async function withMcpServer(
     name: 'Factory Adapter Project',
     description: 'via MCP client',
   });
-  const { token } = await createToken(db, { name: 'factory-adapter' });
+  const token = '';
 
-    const services = createServices({ db, orgId: project.orgId });
-  const mcpApp = createMcpApp({ services, tokenStore: createTestTokenStore(db) });
+  const services = createServices({ db, orgId: project.orgId });
+  const mcpApp = createMcpApp({ services, tokenStore: noopTokenStore });
   const app = createApp({ db, services, mcp: mcpApp });
 
   const server = createServer((req, res) => {
@@ -98,10 +93,10 @@ describe('createPlandeskClient', () => {
     }
   });
 
-  it('throws when PLANDESK_MCP_TOKEN is missing', async () => {
+  it('surfaces unreachable server errors without a token (loopback path)', async () => {
     delete process.env.PLANDESK_MCP_TOKEN;
-    await expect(createPlandeskClient({ url: 'http://127.0.0.1:3847' })).rejects.toThrow(
-      /PLANDESK_MCP_TOKEN is required/,
+    await expect(createPlandeskClient({ url: 'http://127.0.0.1:1' })).rejects.toThrow(
+      /unreachable/i,
     );
   });
 
@@ -145,22 +140,20 @@ describe('createPlandeskClient', () => {
     }
   });
 
-  it('surfaces 401 for revoked token', async () => {
-    await withMcpServer(async ({ baseUrl, db }) => {
-      const row = await createToken(db, { name: 'revoked' });
-      await revokeToken(db, row.id);
-
-      await expect(createPlandeskClient({ url: baseUrl, token: row.token })).rejects.toThrow(
-        /401|authentication failed/i,
-      );
+  it('surfaces 401 for unknown bearer token', async () => {
+    await withMcpServer(async ({ baseUrl }) => {
+      await expect(
+        createPlandeskClient({ url: baseUrl, token: 'plandesk_mcp_unknown' }),
+      ).rejects.toThrow(/401|authentication failed/i);
     });
   });
 });
 
 describe('test:factory_adapter_smoke', () => {
   it('lists at least one project over MCP against a real server', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, projectName }) => {
-      const client = await createPlandeskClient({ url: baseUrl, token });
+    await withMcpServer(async ({ baseUrl, projectId, projectName }) => {
+      // Local loopback: no token (BA7-1a).
+      const client = await createPlandeskClient({ url: baseUrl });
       try {
         const projects = await client.listProjects();
         expect(projects.length).toBeGreaterThanOrEqual(1);
@@ -177,10 +170,10 @@ describe('test:factory_adapter_smoke', () => {
     });
   });
 
-  it('reads PLANDESK_URL and PLANDESK_MCP_TOKEN from the environment', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId }) => {
+  it('reads PLANDESK_URL from the environment (loopback needs no token)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
       process.env.PLANDESK_URL = baseUrl;
-      process.env.PLANDESK_MCP_TOKEN = token;
+      delete process.env.PLANDESK_MCP_TOKEN;
 
       const client = await createPlandeskClient();
       try {

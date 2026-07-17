@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: Monorepo layout, service-layer SSOT, and real-time SSE.
+description: Monorepo layout, service-layer SSOT, auth (better-auth), and real-time SSE.
 ---
 
 ## Monorepo layout
@@ -35,6 +35,22 @@ Task status, canvas node positions, and document content all flow through the AP
 
 MCP writes go through the same service layer as REST and broadcast SSE events within 500 ms.
 
+## Auth and tenancy
+
+**Local is the default.** On loopback, the server treats the caller as the workspace owner: offline, zero-auth, agent-runnable without an account.
+
+**Hosted (and multi-user self-host) auth is 100% better-auth** — sessions, API keys, organization identity, membership, roles, and invitations. There is no parallel hand-rolled auth stack.
+
+| Actor | How they authenticate |
+| ----- | --------------------- |
+| **Human (web)** | GitHub social sign-in → better-auth **session** (cookie). Mounted at `/api/auth/*`. |
+| **Human (CLI)** | Dashboard **Generate CLI token** (org-wide better-auth API key) → paste via `plandesk login` into `~/.plandesk/config.json`. |
+| **Agent** | Never logs in. After a human has logged in, `plandesk connect --to <org>` mints a **project-scoped agent key** into `.plandesk/token` (gitignored). MCP reads that file (or `PLANDESK_MCP_TOKEN`). |
+
+**Organizations.** better-auth’s `organization` / `member` tables are the single source of truth for orgs and membership. Roles are **permission sets** (`owner` / `admin` / `member` via better-auth access-control), not a rank ladder. Domain rows carry an `org_id` scoping column; cross-org access returns 404.
+
+**Upgrade note.** Pre–better-auth installs used a separate token table, a GitHub device-code CLI login, hand-rolled browser sessions, and a parallel org-membership schema. Those paths are deleted — not dual-stacked. Operators upgrading must **re-initialize the database** (fresh migration baseline; no in-place migration) and regenerate CLI tokens from the dashboard. Concrete list and operator steps: [CHANGELOG Unreleased → Breaking](https://github.com/asyncdotengineering/plandesk/blob/main/CHANGELOG.md).
+
 ## Real-time updates (SSE)
 
 The UI subscribes to `GET /api/v1/events` for task, canvas, and agent-run changes. MCP tool calls that mutate state trigger the same SSE events as REST PATCH requests.
@@ -43,7 +59,7 @@ The UI subscribes to `GET /api/v1/events` for task, canvas, and agent-run change
 
 SQLite workspace at `~/.plandesk/workspace.db` by default (one global board per machine). An existing repo-local `.plandesk/workspace.db` (from `plandesk init --local-db`) is preferred when present; otherwise commands fall through to the global board:
 
-- `projects` — project metadata
+- `projects` — project metadata (`org_id` scopes hosted rows)
 - `goals` — goal-altitude nodes (`objective`, `verification_surface`, contract fields, `status`, `last_verification`)
 - `tasks` — canvas nodes + board status (`scope` | `todo` | `in_progress` | `done` | `backlog`); every task has a required `goal_id`
 - `edges` — labeled directed dependencies between tasks
@@ -54,7 +70,8 @@ SQLite workspace at `~/.plandesk/workspace.db` by default (one global board per 
 - `comments` — polymorphic comments keyed by `target_type` (`document` | `task` | `note` | `submission` | `artifact`) + `target_id`
 - `shares` — audience or single-resource share links (token hashed at rest)
 - `agent_runs` / `agent_run_events` — external agent session tracking
-- `mcp_tokens` — hashed bearer tokens (raw shown once at creation)
+
+better-auth owns its own tables (user, session, account, organization, member, invitation, apikey, …), created by its runtime migrator alongside the Drizzle domain schema — not listed as domain entities above.
 
 ## Frontend
 

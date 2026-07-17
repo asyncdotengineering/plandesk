@@ -18,14 +18,17 @@ The portal SPA is the same web app in guest mode at `/p/:shareToken`. It talks o
 
 ## Configure authentication
 
-Self-hosting does not require a GitHub app. Without GitHub configuration, `/api/v1/auth/methods` reports token entry. Owners create a Plan Desk token and use it with the CLI.
+Auth is **better-auth** (sessions + API keys + organization membership). Self-hosting does not require a GitHub app.
 
-If GitHub is configured, `plandesk login --server <url>` starts the server-side GitHub device flow.
+- **Without GitHub:** the dashboard offers token entry; operators sign in with a CLI owner key. CLI: human pastes a dashboard-minted owner key via `plandesk login --server <url>`, then `plandesk connect --to <org>` mints a project-scoped agent key.
+- **With GitHub:** web users sign in with GitHub social (better-auth session). CLI auth remains **paste-a-token only** (no browser device-code login). Generate a CLI token in the dashboard while signed in, then `plandesk login`.
+
+Local loopback remains zero-auth (owner). See [CLI Reference — Hosted login](/reference/cli/#hosted-login-and-connect-two-actor) and [Server configuration](./server-config/).
 
 ## Promote and share
 
 ```bash
-plandesk login --server https://your-host.example
+plandesk login --server https://your-host.example   # paste owner key from dashboard
 plandesk push --to <org-id>
 plandesk share create --audience "Acme" --public --allow-submit
 ```

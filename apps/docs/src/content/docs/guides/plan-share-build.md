@@ -37,4 +37,10 @@ The shared projection is an explicit allow-list of the hosted project's shared g
 
 ## Authentication and tenancy
 
-Hosted instances can support `plandesk login`, which uses the server's GitHub device flow and stores only a Plan Desk token locally. Self-hosted instances without a GitHub app continue to use pasted Plan Desk tokens. Each hosted organization is isolated; an object belonging to another organization returns 404.
+Hosted auth is **better-auth**, two-actor for the CLI:
+
+1. **Human** signs into the dashboard (GitHub social when configured) and **Generate CLI token** (org-wide owner API key).
+2. **Human** runs `plandesk login` (or `plandesk login --server <url>`) and pastes that key into `~/.plandesk/config.json`.
+3. **Agent** (or human) runs `plandesk connect --to <org>` to mint a project-scoped agent key into `.plandesk/token`.
+
+Agents never log in. Each hosted organization is isolated (`organization` / `member` in better-auth); an object belonging to another organization returns 404.

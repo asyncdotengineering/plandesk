@@ -27,12 +27,12 @@ plandesk serve --config /etc/plandesk/plandesk.server.json
   "port": 3847,
   "baseUrl": "https://plandesk.example.com",
   "authPassword": "<HTTP basic-auth password>",
-  "sessionSecret": "<reserved for signed sessions>",
+  "sessionSecret": "<better-auth secret — long random string>",
   "storage": { "kind": "local" },
   "github": {
     "clientId": "<GitHub OAuth app client id>",
     "clientSecret": "<GitHub OAuth app client secret>",
-    "callbackUrl": "https://plandesk.example.com/auth/github/callback",
+    "callbackUrl": "https://plandesk.example.com/api/auth/callback/github",
     "dashboardUrl": "/"
   }
 }
@@ -46,11 +46,11 @@ Every field is optional. The keys:
 | `dbToken` | `PLANDESK_DB_TOKEN` | Auth token for a remote libSQL DB. **Secret.** |
 | `host` | `PLANDESK_HOST` | Bind address (`127.0.0.1` loopback default; `0.0.0.0` for LAN/container). |
 | `port` | `PLANDESK_PORT` | Bind port (default `3847`). |
-| `baseUrl` | `PLANDESK_BASE_URL` | Public base URL the server is reachable at (callbacks/links). |
+| `baseUrl` | `PLANDESK_BASE_URL` | Public base URL the server is reachable at (better-auth `baseURL`, OAuth callbacks, share links). |
 | `authPassword` | `PLANDESK_AUTH_PASSWORD` | Enables HTTP basic-auth on the UI/REST API. **Secret.** Recommended for any non-loopback host. |
-| `sessionSecret` | `PLANDESK_SESSION_SECRET` | Reserved for signed browser sessions. **Secret.** |
+| `sessionSecret` | `PLANDESK_SESSION_SECRET` | **better-auth secret** (sessions + API keys). **Secret.** Local `serve` auto-generates one under the data dir if unset; set explicitly for multi-replica / durable hosted deploys so sessions and keys stay valid across restarts. |
 | `storage` | `PLANDESK_STORAGE` + `PLANDESK_S3_*` | `{ "kind": "local" }` (default, blobs in the DB) or `{ "kind": "s3", "bucket", "region", "accessKeyId", "secretAccessKey", "endpoint"? }`. The S3 `secretAccessKey` is a **secret**. |
-| `github` | `PLANDESK_GITHUB_CLIENT_ID` / `_SECRET` / `_CALLBACK_URL`, `PLANDESK_DASHBOARD_URL` | GitHub OAuth (browser sign-in). **All-or-nothing**: set all three or none. The `clientSecret` is a **secret**. Unset → no GitHub sign-in (the supported self-host path, [REQ-20](#)). |
+| `github` | `PLANDESK_GITHUB_CLIENT_ID` / `_SECRET` / `_CALLBACK_URL`, `PLANDESK_DASHBOARD_URL` | GitHub **social** sign-in for the web dashboard (better-auth). **All-or-nothing**: set all three of client id / secret / callback URL, or none. Register the OAuth app callback as `{baseUrl}/api/auth/callback/github`. The `clientSecret` is a **secret**. Unset → no GitHub sign-in; CLI still uses paste-a-token (`plandesk login`). |
 
 :::caution[This file can hold secrets — gitignore it]
 `plandesk.server.json` is in the repo's `.gitignore`. Never commit a file that contains tokens, passwords, or keys. Prefer env (`PLANDESK_*`) for secrets in containers, and keep the file for the non-secret knobs if you like.
