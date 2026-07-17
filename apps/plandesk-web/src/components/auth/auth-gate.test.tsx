@@ -75,12 +75,24 @@ describe('AuthGate', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('offers GitHub sign-in as a full-page link when githubEnabled', async () => {
-    stubFetch(({ url }) => {
+  it('starts better-auth GitHub social sign-in when githubEnabled (BA4c)', async () => {
+    const assign = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, assign },
+    });
+
+    const calls = stubFetch(({ url }) => {
       if (url.endsWith('/auth/session')) {
         return jsonResponse({ error: 'unauthorized' }, 401);
       }
-      return jsonResponse({ method: 'device', githubEnabled: true });
+      if (url.endsWith('/auth/methods')) {
+        return jsonResponse({ method: 'device', githubEnabled: true });
+      }
+      if (url === '/api/auth/sign-in/social') {
+        return jsonResponse({ url: 'https://github.com/login/oauth/authorize?x=1', redirect: true });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
     });
 
     renderWith(
@@ -89,8 +101,18 @@ describe('AuthGate', () => {
       </AuthGate>,
     );
 
-    const link = await screen.findByRole('link', { name: /continue with github/i });
-    expect(link.getAttribute('href')).toBe('/api/v1/auth/github');
+    const button = await screen.findByRole('button', { name: /continue with github/i });
+    button.click();
+
+    await waitFor(() => {
+      const social = calls.find((c) => c.url === '/api/auth/sign-in/social');
+      expect(social?.init?.method).toBe('POST');
+      expect(social?.init?.credentials).toBe('include');
+      expect(social?.init?.body).toBe(
+        JSON.stringify({ provider: 'github', callbackURL: '/' }),
+      );
+      expect(assign).toHaveBeenCalledWith('https://github.com/login/oauth/authorize?x=1');
+    });
   });
 
   it('falls back to token guidance when the instance has no GitHub app (REQ-20)', async () => {
@@ -108,6 +130,7 @@ describe('AuthGate', () => {
     );
 
     expect(await screen.findByText(/does not use GitHub sign-in/i)).toBeDefined();
+    expect(screen.queryByRole('button', { name: /continue with github/i })).toBeNull();
     expect(screen.queryByRole('link', { name: /continue with github/i })).toBeNull();
   });
 

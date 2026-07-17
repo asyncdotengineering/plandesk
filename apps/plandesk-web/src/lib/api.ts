@@ -697,5 +697,43 @@ export function logout(): Promise<{ ok: boolean }> {
   return request('/auth/logout', { method: 'POST' });
 }
 
-/** Full-page navigation: the OAuth redirect must leave the SPA. */
-export const GITHUB_SIGN_IN_PATH = `${BASE}/auth/github`;
+/**
+ * better-auth social sign-in (BA4c). POST → `{ url, redirect }` → browser leaves
+ * the SPA for GitHub. Mounted at `/api/auth/*`, not under `/api/v1`.
+ */
+export const BETTER_AUTH_GITHUB_SIGN_IN_PATH = '/api/auth/sign-in/social';
+
+export type SocialSignInResponse = {
+  url: string;
+  redirect: boolean;
+};
+
+/**
+ * Start GitHub OAuth via better-auth. Returns the authorize URL the browser
+ * must navigate to (caller assigns `window.location`).
+ */
+export async function startGithubSignIn(callbackURL = '/'): Promise<SocialSignInResponse> {
+  const response = await fetch(BETTER_AUTH_GITHUB_SIGN_IN_PATH, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ provider: 'github', callbackURL }),
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
+  const body: unknown = await response.json();
+  if (
+    typeof body !== 'object' ||
+    body === null ||
+    !('url' in body) ||
+    typeof body.url !== 'string' ||
+    body.url.length === 0
+  ) {
+    throw new Error('better-auth sign-in/social did not return a url');
+  }
+  return {
+    url: body.url,
+    redirect: 'redirect' in body && body.redirect === true,
+  };
+}

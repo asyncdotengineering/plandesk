@@ -34,12 +34,18 @@ import { betterAuth, type Auth, type BetterAuthOptions } from 'better-auth';
 import { organization, deviceAuthorization } from 'better-auth/plugins';
 import { apiKey } from '@better-auth/api-key';
 import { LibsqlDialect } from '@libsql/kysely-libsql';
-import type { Client } from '@plandesk/db';
+import type { Client, Db } from '@plandesk/db';
 import { ac, admin, member, owner } from './access-control.js';
+import { provisionPersonalOrgIfNeeded } from './identity.js';
 
 export type BetterAuthDeps = {
   /** The app's existing libSQL connection — shared, never a second one. */
   client: Client;
+  /**
+   * App Db for personal-org provisioning on first GitHub session (BA4c).
+   * When omitted, databaseHooks are not installed (foundation tests only).
+   */
+  db?: Db;
   /** Absent secret -> feature is off, still boots (mirrors `github: undefined`). */
   secret: string | undefined;
   baseURL: string;
@@ -59,6 +65,11 @@ export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | und
   if (deps.secret === undefined || deps.secret.length === 0) {
     return undefined;
   }
+
+  // Closed over after construction so session.create.after can use the instance.
+  let authInstance: BetterAuthInstance | undefined;
+  const appDb = deps.db;
+
   const options: BetterAuthOptions = {
     database: { dialect: new LibsqlDialect({ client: deps.client }), type: 'sqlite' },
     secret: deps.secret,
@@ -78,6 +89,24 @@ export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | und
             github: { clientId: deps.github.clientId, clientSecret: deps.github.clientSecret },
           },
         }),
+    // BA4c: session.create fires after OAuth has linked the github account
+    // (user+account already exist). Invited members already hold a member row
+    // so provision is a no-op. Public adapter.create (test seeds) does not fire
+    // these hooks — only internalAdapter / real OAuth paths do.
+    ...(appDb === undefined
+      ? {}
+      : {
+          databaseHooks: {
+            session: {
+              create: {
+                after: async (session) => {
+                  if (authInstance === undefined) return;
+                  await provisionPersonalOrgIfNeeded(authInstance, appDb, session.userId);
+                },
+              },
+            },
+          },
+        }),
     plugins: [
       organization({ ac, roles: { owner, admin, member } }),
       // enableMetadata: projectId + orgId on agent keys (BA5). Rate limit off —
@@ -86,7 +115,8 @@ export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | und
       deviceAuthorization(),
     ],
   };
-  return betterAuth(options);
+  authInstance = betterAuth(options);
+  return authInstance;
 }
 
 /**

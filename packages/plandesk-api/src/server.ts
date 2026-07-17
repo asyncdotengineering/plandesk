@@ -80,6 +80,7 @@ export function createApp(deps: AppDeps): Hono {
     deps.betterAuth !== undefined
       ? createBetterAuth({
           client: deps.db.$client,
+          db: deps.db,
           secret: deps.betterAuth.secret,
           baseURL: deps.betterAuth.baseURL,
           github: deps.github,
