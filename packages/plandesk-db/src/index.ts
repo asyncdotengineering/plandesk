@@ -30,9 +30,10 @@ export {
 } from './testing.js';
 export * from './schema.js';
 
-const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '../package.json');
-
 export const version = (): string => {
+  // Lazy: module-level fileURLToPath(import.meta.url) breaks the Cloudflare
+  // Workers bundle. Resolve only when version() is actually called.
+  const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '../package.json');
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version: string };
   return pkg.version;
 };

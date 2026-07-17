@@ -146,8 +146,14 @@ export default {
 
     const db = await getDb(env);
     const authInstance = await getBetterAuth(env, db, betterAuth);
-    const storage = createS3Adapter({ db, config: s3ConfigFromEnv(env) });
-    const services = createServices({ db, storage });
+    // Storage is optional: only wire S3/R2 when its credentials are present.
+    // Without them the app still runs (file uploads/artifacts are unavailable),
+    // rather than throwing on every request — mirrors `plandesk serve`.
+    const storage =
+      env.PLANDESK_S3_BUCKET !== undefined && env.PLANDESK_S3_BUCKET !== ''
+        ? createS3Adapter({ db, config: s3ConfigFromEnv(env) })
+        : undefined;
+    const services = createServices({ db, ...(storage !== undefined ? { storage } : {}) });
     const app = createApp({
       db,
       services,

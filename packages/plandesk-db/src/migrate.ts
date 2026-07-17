@@ -3,7 +3,12 @@ import { fileURLToPath } from 'node:url';
 import { migrate as drizzleMigrate } from 'drizzle-orm/libsql/migrator';
 import type { Db } from './client.js';
 
-const migrationsFolder = join(dirname(fileURLToPath(import.meta.url)), '../drizzle');
+// Lazy: `fileURLToPath(import.meta.url)` at module load breaks the Cloudflare
+// Workers bundle (import.meta.url isn't a usable path there), and the Worker
+// imports this module but never migrates. Resolve only when migrate() runs.
+function migrationsFolderPath(): string {
+  return join(dirname(fileURLToPath(import.meta.url)), '../drizzle');
+}
 
 // Drizzle wraps each migration in a transaction; SQLite cannot toggle
 // `foreign_keys` inside a transaction. Disable FK checks at the connection
@@ -28,6 +33,6 @@ async function withForeignKeysDisabled(db: Db, fn: () => void | Promise<void>): 
 
 export async function migrate(db: Db): Promise<void> {
   await withForeignKeysDisabled(db, async () => {
-    await drizzleMigrate(db, { migrationsFolder });
+    await drizzleMigrate(db, { migrationsFolder: migrationsFolderPath() });
   });
 }
