@@ -59,6 +59,8 @@ export default defineConfig({
             { slug: 'guides/plan-and-execute' },
             { slug: 'guides/drive-the-factory' },
             { slug: 'guides/plan-share-build' },
+            { slug: 'guides/going-online' },
+            { slug: 'guides/self-host-for-teams' },
           ],
         },
         {
