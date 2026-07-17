@@ -67,6 +67,7 @@ export default defineConfig({
             { slug: 'self-hosting/topologies' },
             { slug: 'self-hosting/server-config' },
             { slug: 'self-hosting/docker' },
+            { slug: 'self-hosting/cloudflare' },
             { slug: 'self-hosting/sync-server' }, // single-server collab page (legacy slug)
           ],
         },

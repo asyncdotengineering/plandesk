@@ -11,12 +11,6 @@ import {
 import { createMcpApp } from '@plandesk/mcp';
 import { createPlandeskClient } from './client.js';
 
-const noopTokenStore = {
-  async verify() {
-    return undefined;
-  },
-};
-
 async function withMcpServer(
   run: (ctx: {
     baseUrl: string;
@@ -35,7 +29,7 @@ async function withMcpServer(
   const token = '';
 
   const services = createServices({ db, orgId: project.orgId });
-  const mcpApp = createMcpApp({ services, tokenStore: noopTokenStore });
+  const mcpApp = createMcpApp({ services });
   const app = createApp({ db, services, mcp: mcpApp });
 
   const server = createServer((req, res) => {

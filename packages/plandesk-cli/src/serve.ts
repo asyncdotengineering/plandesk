@@ -140,16 +140,9 @@ export async function startServer(
       ? createS3Adapter({ db, config: cfg.values.storage })
       : undefined;
   const services = createServices({ db, ...(storage !== undefined ? { storage } : {}) });
-  // BA7-1a: parent createApp resolves better-auth apiKey / session / loopback;
-  // MCP prefers that context (legacy token store unused).
-  const mcpApp = createMcpApp({
-    services,
-    tokenStore: {
-      async verify() {
-        return undefined;
-      },
-    },
-  });
+  // Parent createApp resolves better-auth apiKey / session / loopback;
+  // MCP requires that context (no independent auth path).
+  const mcpApp = createMcpApp({ services });
   const app = createApp({
     db,
     services,

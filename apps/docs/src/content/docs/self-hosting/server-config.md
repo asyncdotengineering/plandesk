@@ -66,6 +66,8 @@ PLANDESK_DB_URL=libsql://... PLANDESK_DB_TOKEN=... PLANDESK_AUTH_PASSWORD=... pl
 
 This is exactly how the **edge paths** work. The Cloudflare Workers and Vercel entries read their secrets from the platform (`wrangler secret put …`, Vercel env) and never look for a config file — so the cloud/edge deployment needs **no file at all**. The file is developer convenience, never a dependency.
 
+Edge entries require **`PLANDESK_BETTER_AUTH_SECRET`** (Workers/Vercel env — same role as `sessionSecret` / `PLANDESK_SESSION_SECRET` for Node serve) and should set **`PLANDESK_BASE_URL`** to the public origin. Full Workers steps: [Cloudflare Workers](./cloudflare/).
+
 ## `plandesk doctor` shows where each value came from
 
 `plandesk doctor` resolves the config and prints every key's **value and its source** (`env`, `file`, or `default`), with **secret values always redacted** — they are never printed:

@@ -3,9 +3,10 @@ main = "src/worker.ts"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Turso URL + auth token and S3/R2 credentials are secrets — never commit them.
+# Turso URL + auth token, better-auth secret, and S3/R2 credentials are secrets — never commit them.
 #   wrangler secret put PLANDESK_DB_URL
 #   wrangler secret put PLANDESK_DB_TOKEN
+#   wrangler secret put PLANDESK_BETTER_AUTH_SECRET
 #   wrangler secret put PLANDESK_S3_BUCKET
 #   wrangler secret put PLANDESK_S3_REGION
 #   wrangler secret put PLANDESK_S3_ACCESS_KEY_ID
@@ -13,6 +14,16 @@ compatibility_flags = ["nodejs_compat"]
 # Optional:
 #   wrangler secret put PLANDESK_S3_ENDPOINT
 #   wrangler secret put PLANDESK_AUTH_PASSWORD
+#   wrangler secret put PLANDESK_GITHUB_CLIENT_ID
+#   wrangler secret put PLANDESK_GITHUB_CLIENT_SECRET
+#   wrangler secret put PLANDESK_GITHUB_CALLBACK_URL   # legacy gate for githubConfigFromEnv;
+#                                                     # set to {PLANDESK_BASE_URL}/api/auth/callback/github
+#                                                     # better-auth derives the real callback from baseURL
+
+# Public origin for better-auth baseURL (OAuth callbacks + cookies). Not a secret.
+# Replace the placeholder after first deploy, or before if you know the workers.dev URL.
+[vars]
+PLANDESK_BASE_URL = "https://plandesk-api.example.workers.dev"
 
 [[r2_buckets]]
 binding = "FILES"

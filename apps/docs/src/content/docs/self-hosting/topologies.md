@@ -89,4 +89,5 @@ The hosted instance is one *option* for running the same open-source server — 
 
 - [Server configuration](./server-config/) — the `plandesk.server.json` file, env overrides, and `plandesk doctor`.
 - [Docker (self-host)](./docker/) — the `Dockerfile.server` / `docker-compose.hosted.yml` quickstart.
+- [Cloudflare Workers](./cloudflare/) — edge deploy (Turso + better-auth + R2); operator runs `plandesk migrate`.
 - [Collaboration & sync](/reference/collaboration/) — the optional hosted sync tier architecture.

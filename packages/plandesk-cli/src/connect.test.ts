@@ -122,12 +122,6 @@ async function seedOwnerUser(
   return user.id;
 }
 
-const noopTokenStore = {
-  async verify() {
-    return undefined;
-  },
-};
-
 async function withTestServer(
   run: (ctx: { baseUrl: string; db: Db; projectId: string; projectName: string }) => Promise<void>,
 ): Promise<void> {
@@ -135,7 +129,7 @@ async function withTestServer(
   await migrate(db);
   const project = await createProject(db, { name: 'connect-repo' });
   const services = createServices({ db, orgId: project.orgId });
-  const mcpApp = createMcpApp({ services, tokenStore: noopTokenStore });
+  const mcpApp = createMcpApp({ services });
   const app = createApp({ db, services, mcp: mcpApp });
 
   const server = createServer((req, res) => {
@@ -588,7 +582,7 @@ describe('CLI connect/disconnect', () => {
     await migrate(db);
     const project = await createProject(db, { name: 'cli-connect' });
         const services = createServices({ db, orgId: project.orgId });
-    const mcpApp = createMcpApp({ services, tokenStore: noopTokenStore });
+    const mcpApp = createMcpApp({ services });
     const app = createApp({ db, services, mcp: mcpApp });
     const server = createServer((req, res) => {
       void getRequestListener(app.fetch)(req, res);

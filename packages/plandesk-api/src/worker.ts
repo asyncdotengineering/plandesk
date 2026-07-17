@@ -11,6 +11,7 @@ import { createApp } from './server.js';
 import { createServices } from './services/index.js';
 import { githubConfigFromEnv } from './github.js';
 import { createS3Adapter, type S3AdapterConfig } from './storage/s3.js';
+import { hostedMisconfigResponse, resolveHostedBetterAuth } from './hosted-auth.js';
 
 export interface Env {
   /** Turso/libSQL URL — set via `wrangler secret put PLANDESK_DB_URL` */
@@ -23,10 +24,27 @@ export interface Env {
   PLANDESK_S3_SECRET_ACCESS_KEY: string;
   PLANDESK_S3_ENDPOINT?: string;
   PLANDESK_AUTH_PASSWORD?: string;
+  /**
+   * better-auth secret (sessions + API keys). Required on this non-loopback entry.
+   * `wrangler secret put PLANDESK_BETTER_AUTH_SECRET`
+   */
+  PLANDESK_BETTER_AUTH_SECRET?: string;
+  /**
+   * Public deploy origin (e.g. https://plandesk-api.example.workers.dev).
+   * better-auth baseURL for OAuth callbacks + cookies. Prefer setting this;
+   * falls back to the request URL origin when unset.
+   */
+  PLANDESK_BASE_URL?: string;
   /** GitHub app for browser sign-in. Unset → no GitHub sign-in (REQ-20). */
   PLANDESK_GITHUB_CLIENT_ID?: string;
   /** `wrangler secret put PLANDESK_GITHUB_CLIENT_SECRET` — never a build-time value. */
   PLANDESK_GITHUB_CLIENT_SECRET?: string;
+  /**
+   * Legacy / githubConfigFromEnv gate: all-or-nothing with client id+secret.
+   * better-auth itself derives the OAuth callback from PLANDESK_BASE_URL
+   * (`{baseURL}/api/auth/callback/github`) and does not read this value.
+   * Set it to the same better-auth callback URL so githubEnabled is true.
+   */
   PLANDESK_GITHUB_CALLBACK_URL?: string;
   PLANDESK_DASHBOARD_URL?: string;
   /** R2 bucket for file blobs (S3-compatible credentials above target this bucket). */
@@ -78,6 +96,15 @@ export default {
       return env.ASSETS.fetch(request);
     }
 
+    let betterAuth: { secret: string; baseURL: string };
+    try {
+      betterAuth = resolveHostedBetterAuth(env, url.origin);
+    } catch (err) {
+      const misconfig = hostedMisconfigResponse(err);
+      if (misconfig !== undefined) return misconfig;
+      throw err;
+    }
+
     const db = await getDb(env);
     const storage = createS3Adapter({ db, config: s3ConfigFromEnv(env) });
     const services = createServices({ db, storage });
@@ -88,6 +115,7 @@ export default {
       // Non-loopback: hosted path requires a token or a session (no default-org trust).
       bindHost: '0.0.0.0',
       github: githubConfigFromEnv(env),
+      betterAuth,
     });
 
     return app.fetch(request, env, ctx);

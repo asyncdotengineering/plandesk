@@ -74,4 +74,5 @@ docker compose -f docker-compose.hosted.yml run --rm plandesk doctor
 
 - [Deployment topologies](./topologies/) — local vs self-host vs free-hosted, and who runs migrations.
 - [Server configuration](./server-config/) — the full `plandesk.server.json` reference.
+- [Cloudflare Workers](./cloudflare/) — edge alternative (Turso + better-auth + R2).
 - [Collaboration & sharing](/reference/collaboration/) — guest portal and moderated submissions on the **same** API (no separate sync-server).
