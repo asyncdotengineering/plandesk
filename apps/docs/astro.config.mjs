@@ -95,6 +95,10 @@ export default defineConfig({
             { slug: 'reference/validation-metrics' },
           ],
         },
+        {
+          label: 'Blog',
+          items: [{ slug: 'blog/beta-launch' }],
+        },
       ],
     }),
   ],
