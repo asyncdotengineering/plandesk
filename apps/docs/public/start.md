@@ -66,6 +66,12 @@ plandesk onboard
 # Opt into a repo-local db with: plandesk init --local-db
 plandesk init
 
+# UPGRADING an existing install (Plan Desk 0.20.x or earlier)? The schema + board
+# location changed — an old workspace.db won't load directly. Instead of `init`,
+# run `plandesk legacy-upgrade` once: it creates the new board AND imports your
+# old projects/tasks/docs (old file backed up). See docs → Upgrading. Fresh
+# install: ignore this and keep the `plandesk init` above.
+
 # Is a server already running on this project's port?
 curl -fsS "$(plandesk url)/api/v1/projects" >/dev/null 2>&1 \
   && echo "Plan Desk server is up" \
