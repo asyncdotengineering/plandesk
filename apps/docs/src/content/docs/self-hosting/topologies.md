@@ -57,6 +57,8 @@ The server does **not** auto-migrate a remote database — that's a deliberate c
 
 **How to run it.** Open the hosted app and connect your agent to the hosted MCP URL. (The hosted tier is the asyncdot-operated instance of this same open-source server.)
 
+**Connect a CLI/agent.** Hosted auth is paste-based and two-actor: a human generates a CLI token in the dashboard, runs `plandesk login` and pastes it, then `plandesk connect --to <org> [--project <id|name>]` mints a scoped agent key into `.plandesk/token`. Agents never log in. Same flow against a self-hosted API with `plandesk login --server <url>`. Full grammar: [CLI Reference](/reference/cli/#hosted-login-and-connect-two-actor).
+
 **Migrations.** **You never migrate, and you never receive a database URL.** The provider (asyncdot) runs migrations in CI against their own secret database URL. As a cloud user, your only surface is the API — you never touch the schema.
 
 ## Who runs migrations

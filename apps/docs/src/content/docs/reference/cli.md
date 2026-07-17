@@ -23,6 +23,7 @@ plandesk token create --name <name> [--data-dir <dir>]
 plandesk export --project <id> --out <file.json> [--data-dir <dir>]
 plandesk import --in <file.json> [--data-dir <dir>]
 plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
+plandesk connect --to <org> [--project <id|name>] [--repo <dir>] [--print]
 plandesk disconnect [--repo <dir>]
 plandesk doctor [--data-dir <dir>] [--repo <dir>]
 plandesk factory init [--repo <dir>] [--print] [--force]
@@ -41,14 +42,14 @@ plandesk deploy [target]
 | `<file.md\|.html>` / `open` | Preview & annotate files in the browser (see [Preview & annotate](#preview--annotate)); glob-friendly (`plandesk *.md`) |
 | `help`                   | A crash course (orientation + key commands + doc links) for humans and agents; `help --commands` prints the full grammar |
 | `init`                   | Create workspace DB, run migrations, and assign a project-local port (3400–3499) stored in `.plandesk/workspace.json`   |
-| `login`                  | Sign in to a hosted server with GitHub device flow, or paste a Plan Desk token when device flow is unavailable; saves `~/.plandesk/config.json` |
+| `login`                  | Paste a CLI token from the dashboard (owner key) into `~/.plandesk/config.json` (`{ server, token, orgId }`); optional `--server <url>` |
 | `logout`                 | Remove the global hosted-server credentials |
 | `whoami`                 | Print the configured hosted server and organization |
 | `serve`                  | Start REST + SSE + MCP + web UI; reads the port from `workspace.json` if no `--port` flag is given                      |
 | `url`                    | Print the server URL for this project (`$(plandesk url)` in scripts); `--lan` returns the LAN IP instead of loopback    |
 | `token create`           | Create MCP bearer token (shown once)                                                                                     |
 | `export` / `import`      | Lossless `plandesk-export-v1` JSON round-trip                                                                            |
-| `connect` / `disconnect` | Bind / unbind a repo to a project + agent configs; re-run `connect` after upgrading to regenerate artifacts              |
+| `connect` / `disconnect` | Bind / unbind a repo to a project + agent configs; re-run `connect` after upgrading to regenerate artifacts. Hosted: `connect --to <org>` mints a scoped agent key (requires prior `login`) |
 | `doctor`                 | Check DB health; with `--repo`, validate binding + MCP reachability                                                      |
 | `factory init`           | Scaffold the project-local `.agents/` factory workspace (policy files + command adapters); see [Factory workspace](/reference/factory/) |
 | `version`                | Print the installed CLI version (also `--version`); see [Upgrading](/reference/upgrading/)                              |
@@ -70,6 +71,16 @@ Markdown gets **syntax-highlighted code** (Shiki, light/dark), **Mermaid diagram
 **Annotate.** Select text in the preview → **Add note**. The note (with a W3C text-quote + position selector) appears in the side rail; resolve it or click it to jump to the passage. Annotations persist and re-open — keyed by the file's path, with a content hash to flag drift.
 
 **Agent loop on files.** Inside a **connected repo**, annotations route to the workspace DB via the artifact-comments API, so your coding agent reads and resolves them over MCP (`list_artifact_comments` / `add_artifact_comment` / `resolve_comment`) — the same "you mark, the agent resolves" loop, now on any file the agent wrote. Standalone (no workspace), they persist to a local sidecar under `~/.plandesk/annotations/`. The startup line states which store is in use.
+
+## Hosted login and connect (two-actor)
+
+Local setup needs no account (`init` → `serve` → `connect --project`). Hosted orgs use a **human + agent** split:
+
+1. **Human** opens the dashboard (signed in via GitHub), clicks **Generate CLI token**, copies the org-wide owner key (shown once).
+2. **Human** runs `plandesk login` (or `plandesk login --server https://your-host.example`) and pastes the token when prompted. Credentials land in `~/.plandesk/config.json` as `{ server, token, orgId }`.
+3. **Agent (or human)** runs `plandesk connect --to <org> [--project <id|name>]`. That mints a **project-scoped agent key** and writes it to `.plandesk/token` (gitignored). MCP loads it via `${PLANDESK_MCP_TOKEN:-$(cat .plandesk/token)}`.
+
+Agents never run `login`. The owner key stays on the human machine; only the scoped key is in the repo’s ignored token file. There is no `--org` flag — use `--to <org>`.
 
 ## Collaboration
 
@@ -95,6 +106,7 @@ Share a planned project with a client or another team over a read-only live port
 | `--host`        | `127.0.0.1`                        | Bind address; LAN exposure is opt-in via `--host 0.0.0.0` or `PLANDESK_HOST` |
 | `--lan`         | —                                  | `url` command returns the LAN IP instead of `127.0.0.1`                   |
 | `--project`     | —                                  | Project id or name for connect/export                                      |
+| `--to`          | —                                  | Hosted org id: `connect --to` mints a scoped agent key (requires `login`); also used by `push` |
 | `--url`         | from `server.json` → `workspace.json` → `http://127.0.0.1:3847` | Plan Desk server URL for connect  |
 | `--token`       | —                       | MCP token for connect                                                      |
 | `--agent`       | detect                  | Agent config target for connect                                            |

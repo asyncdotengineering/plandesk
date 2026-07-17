@@ -194,6 +194,41 @@ executes it. A good first prompt for the user to run there:
 
 See https://plandesk.asyncdot.com/guides/idea-to-development/ for the full loop.
 
+## Optional: connect to a hosted org
+
+**Local is the default.** Everything above is zero-auth, offline, and agent-runnable
+unattended. Hosting is opt-in — only do this when the user wants this repo bound to a
+hosted organization (asyncdot or their self-hosted instance).
+
+**Agents never log in.** Hosted auth has an irreducible human step. A fresh agent cannot
+authenticate to a hosted org from nothing. You **ask the human** to generate and paste
+the owner key; you only run `connect --to` after that.
+
+1. **Ask the human** to open the Plan Desk dashboard (signed in via GitHub), click
+   **Generate CLI token**, and copy the org-wide owner key (shown once).
+2. **Ask the human** to run (or paste into your terminal for them):
+
+```bash
+plandesk login
+# prompts: Plan Desk token:  ← human pastes the owner key
+# stores { server, token, orgId } in ~/.plandesk/config.json
+```
+
+   For a non-default server: `plandesk login --server https://your-host.example`.
+
+3. **You (the agent)** then provision a scoped agent key for this repo:
+
+```bash
+plandesk connect --to <org> --project "<PROJECT NAME>"
+```
+
+   This mints a **project-scoped agent key** and writes it to `.plandesk/token`
+   (gitignored). MCP reads it via `${PLANDESK_MCP_TOKEN:-$(cat .plandesk/token)}`.
+   The agent never sees or stores the owner key — only the scoped key.
+
+Then continue from step 5 (factory init) and step 6 (verify) as usual. Do not invent
+flags (`--org` does not exist); use exactly `login` and `connect --to`.
+
 ---
 
 **Done when:** the verify checklist in step 6 passes and you've given the user the

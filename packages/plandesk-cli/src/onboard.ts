@@ -18,7 +18,13 @@ repo). It is **not** committed to git. Travel and backup are explicit:
 \`plandesk push --to <org>\` (hosted) or \`plandesk export --project <id> --out <path>\`
 to a location you choose **outside** the repo. Opt into a repo-local db with
 \`plandesk init --local-db\` if you need the plan physically in the project tree
-(still gitignored by default):
+(still gitignored by default).
+
+**Hosted auth is two-actor.** The human provisions access; you never log in. They
+run \`plandesk login\` (paste an owner key from the dashboard into
+\`~/.plandesk/config.json\`), then \`plandesk connect --to <org> [--project <id|name>]\`
+mints a **scoped agent key** into \`.plandesk/token\`. You inherit that file (or
+\`PLANDESK_MCP_TOKEN\`) and never see the owner key.
 
 - **Goals** — durable objectives; every task belongs to one. \`get_next_task\`
   walks the active goal's frontier.
