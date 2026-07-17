@@ -9,6 +9,7 @@ import { healthRouter } from './routes/health.js';
 import { createAuthRouter } from './routes/auth.js';
 import type { GithubConfig } from './github.js';
 import { createBetterAuth } from './better-auth.js';
+import type { BetterAuthInstance } from './better-auth.js';
 import { createProjectsRouter } from './routes/projects.js';
 import { createTasksRouter } from './routes/tasks.js';
 import { createTagsRouter } from './routes/tags.js';
@@ -47,6 +48,8 @@ export type AppDeps = {
    * when set, org middleware recognizes better-auth session cookies and API keys.
    */
   betterAuth?: { secret: string; baseURL: string };
+  /** Reuse a better-auth instance owned by an edge entry across requests. */
+  betterAuthInstance?: BetterAuthInstance;
 };
 
 export function createApp(deps: AppDeps): Hono {
@@ -74,7 +77,8 @@ export function createApp(deps: AppDeps): Hono {
   // Create better-auth before org middleware so the same instance is recognized
   // by AuthContext and mounted at /api/auth/* (BA4a session recognition).
   const betterAuthInstance =
-    deps.betterAuth !== undefined
+    deps.betterAuthInstance ??
+    (deps.betterAuth !== undefined
       ? createBetterAuth({
           client: deps.db.$client,
           db: deps.db,
@@ -82,7 +86,7 @@ export function createApp(deps: AppDeps): Hono {
           baseURL: deps.betterAuth.baseURL,
           github: deps.github,
         })
-      : undefined;
+      : undefined);
 
   // Always-on org resolution (better-auth apiKey/session, loopback, or guest).
   app.use(

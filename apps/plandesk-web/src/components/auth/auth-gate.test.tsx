@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AccountMenu } from './AccountMenu.js';
 import { AuthGate } from './AuthGate.js';
@@ -20,6 +20,7 @@ const loopbackSession = {
   user_ref: null,
   role: 'owner' as const,
   org: { id: 'org-1', name: 'Personal' },
+  orgs: [{ id: 'org-1', name: 'Personal', role: 'owner' }],
 };
 
 const browserSession = {
@@ -27,6 +28,15 @@ const browserSession = {
   user_ref: 'github:1',
   role: 'editor' as const,
   org: { id: 'org-2', name: 'Acme' },
+  orgs: [{ id: 'org-2', name: 'Acme', role: 'member' }],
+};
+
+const multiOrgSession = {
+  ...browserSession,
+  orgs: [
+    { id: 'org-2', name: 'Acme', role: 'member' },
+    { id: 'org-3', name: 'Beta', role: 'member' },
+  ],
 };
 
 function stubFetch(handler: (args: FetchArgs) => unknown) {
@@ -169,6 +179,28 @@ describe('AccountMenu', () => {
 
     expect(await screen.findByText('Acme')).toBeDefined();
     expect(await screen.findByText('editor')).toBeDefined();
+  });
+
+  it('switches organizations through Better Auth and invalidates cached data', async () => {
+    const calls = stubFetch(({ url }) => {
+      if (url === '/api/auth/organization/set-active') {
+        return jsonResponse({ id: 'org-3', name: 'Beta' });
+      }
+      return jsonResponse(multiOrgSession);
+    });
+    renderWith(<AccountMenu />);
+
+    const trigger = await screen.findByRole('button', { name: /switch organization.*acme/i });
+    fireEvent.pointerDown(trigger);
+    const beta = await screen.findByRole('menuitem', { name: 'Beta' });
+    beta.click();
+
+    await waitFor(() => {
+      const switchCall = calls.find((call) => call.url === '/api/auth/organization/set-active');
+      expect(switchCall?.init?.method).toBe('POST');
+      expect(switchCall?.init?.credentials).toBe('include');
+      expect(switchCall?.init?.body).toBe(JSON.stringify({ organizationId: 'org-3' }));
+    });
   });
 
   it('offers sign-out for a browser session', async () => {

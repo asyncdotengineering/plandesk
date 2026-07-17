@@ -45,7 +45,7 @@ afterEach(() => {
 });
 
 describe('better-auth foundation (slice 1/6)', () => {
-  it('creates its 9 tables on the same libSQL db as our drizzle schema (REQ-3, REQ-4)', async () => {
+  it('creates its tables on the same libSQL db as our drizzle schema (REQ-3, REQ-4)', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
 
@@ -62,13 +62,13 @@ describe('better-auth foundation (slice 1/6)', () => {
     await runBetterAuthMigrations(auth);
 
     const result = await db.$client.execute(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('tasks', 'organization', 'user', 'session', 'account', 'verification', 'member', 'invitation', 'apikey', 'deviceCode')",
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('tasks', 'organization', 'user', 'session', 'account', 'verification', 'member', 'invitation', 'apikey')",
     );
     const names = new Set(result.rows.map((row) => stringColumn(row.name)));
 
     // Ours (drizzle, one of our 16 migrations).
     expect(names.has('tasks')).toBe(true);
-    // better-auth's own 9 tables, created by its runtime Kysely migrator — no
+    // better-auth's own tables, created by its runtime Kysely migrator — no
     // Drizzle migration file, no drizzle-kit involvement, no shared ledger.
     for (const table of [
       'user',
@@ -79,7 +79,6 @@ describe('better-auth foundation (slice 1/6)', () => {
       'member',
       'invitation',
       'apikey',
-      'deviceCode',
     ]) {
       expect(names.has(table)).toBe(true);
     }

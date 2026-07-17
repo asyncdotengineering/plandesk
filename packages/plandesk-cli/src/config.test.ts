@@ -115,6 +115,18 @@ describe('resolveServerConfig — precedence env > file > default (REQ-2)', () =
     expect(resolved.values.dbToken).toBe('tok-env');
     expect(resolved.sources.dbToken).toBe('env');
   });
+
+  it('accepts the canonical better-auth secret env name and prefers it over the legacy alias', () => {
+    const resolved = resolveServerConfig({
+      dataDir: makeDataDir(),
+      env: {
+        PLANDESK_BETTER_AUTH_SECRET: 'canonical-secret',
+        PLANDESK_SESSION_SECRET: 'legacy-secret',
+      },
+    });
+    expect(resolved.values.sessionSecret).toBe('canonical-secret');
+    expect(resolved.sources.sessionSecret).toBe('env');
+  });
 });
 
 describe('resolveServerConfig — storage', () => {

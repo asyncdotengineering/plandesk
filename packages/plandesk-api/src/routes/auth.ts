@@ -4,7 +4,7 @@ import { createOrgOwnerKey } from '../agent-keys.js';
 import { getAuthContext } from '../auth-context.js';
 import type { BetterAuthInstance } from '../better-auth.js';
 import type { GithubConfig } from '../github.js';
-import { resolveOrganizationName } from '../organizations.js';
+import { listOrganizationsForUser, resolveOrganizationName } from '../organizations.js';
 import { requirePermission } from '../permissions.js';
 
 export type AuthRouterDeps = {
@@ -40,11 +40,22 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
       return c.json({ error: 'unauthorized' }, 401);
     }
     const org = await resolveOrganizationName(betterAuth, ctx.orgId);
+    let orgs: Array<{ id: string; name: string; role: string }> = [
+      { id: org.id, name: org.name, role: ctx.role ?? 'member' },
+    ];
+    if (ctx.kind === 'session' && betterAuth !== undefined) {
+      const session = await betterAuth.api.getSession({ headers: c.req.raw.headers });
+      if (session === null) {
+        return c.json({ error: 'unauthorized' }, 401);
+      }
+      orgs = await listOrganizationsForUser(betterAuth, session.user.id);
+    }
     return c.json({
       kind: ctx.kind,
       user_ref: ctx.kind === 'session' ? ctx.userRef : null,
       role: ctx.role,
       org,
+      orgs,
     });
   });
 

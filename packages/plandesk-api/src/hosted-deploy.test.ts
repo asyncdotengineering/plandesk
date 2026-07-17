@@ -220,6 +220,7 @@ describe('hosted better-auth wiring (BA9)', () => {
       user_ref: 'github:9001',
       role: 'owner',
       org: { id: orgId, name: 'Hosted Org' },
+      orgs: [{ id: orgId, name: 'Hosted Org', role: 'owner' }],
     });
   });
 

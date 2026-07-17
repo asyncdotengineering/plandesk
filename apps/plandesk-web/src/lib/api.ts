@@ -650,6 +650,7 @@ export type SerializedAuthSession = {
   user_ref: string | null;
   role: OrgRole;
   org: { id: string; name: string } | null;
+  orgs: Array<{ id: string; name: string; role: string }>;
 };
 
 export type SerializedAuthMethods = {
@@ -664,6 +665,19 @@ export type SerializedAuthMethods = {
  */
 export function getAuthSession(): Promise<SerializedAuthSession> {
   return request('/auth/session');
+}
+
+/** Persist the browser's active organization through Better Auth. */
+export async function setActiveOrganization(organizationId: string): Promise<void> {
+  const response = await fetch('/api/auth/organization/set-active', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ organizationId }),
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
 }
 
 /** Whether this instance offers GitHub sign-in, or token entry only (REQ-20). */

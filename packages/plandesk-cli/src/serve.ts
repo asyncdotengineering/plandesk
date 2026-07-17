@@ -19,6 +19,7 @@ import {
   writeServerInfo,
 } from './connect-artifacts.js';
 import { ensureLocalBetterAuthSecret } from './init.js';
+import { listTables, missingRequiredTables } from './database-schema.js';
 
 export type ServeOptions = {
   port: number;
@@ -133,6 +134,14 @@ export async function startServer(
     if (auth === undefined) throw new Error('Local better-auth secret was not created');
     await runBetterAuthMigrations(auth);
     await ensureLocalBetterAuthOrganization(db, auth);
+  } else {
+    const missingTables = missingRequiredTables(await listTables(db));
+    if (missingTables.length > 0) {
+      throw new Error(
+        `Remote database is missing required tables: ${missingTables.join(', ')}. ` +
+          `Run \`plandesk migrate --db ${dbUrl}\` first.`,
+      );
+    }
   }
 
   const storage =

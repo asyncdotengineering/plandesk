@@ -160,6 +160,31 @@ function bearer(key: string): { Authorization: string } {
 }
 
 describe('better-auth API keys with live-role ceiling (BA5)', () => {
+  it('agent keys cannot impersonate the owner on native Better Auth endpoints', async () => {
+    const { app, db, auth } = await hostedApp();
+    const org = { id: randomUUID(), name: 'Escalation Org' };
+    const project = await createProject(db, { name: 'Escalation Board', orgId: org.id });
+    const { userId } = await seedBetterAuthUser(auth, {
+      email: 'native-endpoint@example.com',
+      name: 'Native Endpoint',
+      githubAccountId: '5005',
+      org: { id: org.id, name: org.name, slug: 'escalation' },
+      role: 'owner',
+    });
+    const agentKey = await createScopedAgentKey({
+      auth,
+      userId,
+      orgId: org.id,
+      projectId: project.id,
+      name: 'native-endpoint-agent',
+    });
+
+    const response = await app.request('/api/auth/api-key/list', {
+      headers: { 'x-api-key': agentKey.key },
+    });
+    expect(response.status).toBe(401);
+  });
+
   it('property 1: task:read key → 200 on task read, 403 on task update', async () => {
     const { app, db, auth } = await hostedApp();
     const org = { id: randomUUID(), name: 'P1 Org' };

@@ -17,17 +17,13 @@ import { CURATOR_DIR, CURATOR_TEMPLATES } from './curator-templates.js';
 import { LAST_EXPORT_FILE } from './export.js';
 import { CorruptWorkspaceError, isDbCorruptionError } from './workspace.js';
 import { ensureLocalBetterAuthSecret } from './init.js';
-
-const EXPECTED_TABLES = [
-  'projects',
-  'tasks',
-  'edges',
-  'documents',
-  'comments',
-  'agent_runs',
-  'agent_run_events',
-  '__drizzle_migrations',
-] as const;
+import {
+  countRows,
+  EXPECTED_TABLES,
+  hasMigrations,
+  listTables,
+  missingRequiredTables,
+} from './database-schema.js';
 
 export type DoctorReport = {
   healthy: boolean;
@@ -72,29 +68,6 @@ function curatorArtifactReport(repoDir: string): CuratorDoctorReport {
   };
 }
 
-async function listTables(db: Db): Promise<string[]> {
-  const result = await db.$client.execute(
-    "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
-  );
-  return result.rows.map((row) => String(row.name));
-}
-
-async function countRows(db: Db, table: (typeof EXPECTED_TABLES)[number]): Promise<number> {
-  const result = await db.$client.execute(`SELECT COUNT(*) AS count FROM ${table}`);
-  const row = result.rows[0];
-  return Number(row?.count ?? 0);
-}
-
-async function hasMigrations(db: Db): Promise<boolean> {
-  const tables = await listTables(db);
-  if (!tables.includes('__drizzle_migrations')) {
-    return false;
-  }
-  const result = await db.$client.execute('SELECT COUNT(*) AS count FROM __drizzle_migrations');
-  const row = result.rows[0];
-  return Number(row?.count ?? 0) > 0;
-}
-
 function readLastExport(dataDir: string): string | null {
   const path = join(dataDir, LAST_EXPORT_FILE);
   if (!existsSync(path)) {
@@ -122,8 +95,7 @@ export async function runDoctor(
   const config = resolveServerConfig({ configPath, dataDir });
 
   // Remote DB (self-host topology): the operator owns migrations (REQ-8), so
-  // doctor does not open or migrate it. Report the config and skip the local
-  // file inspection that only applies to the local topology.
+  // doctor only performs read-only schema inspection.
   if (config.values.dbUrl !== undefined) {
     let binding: BindingDoctorReport | undefined;
     let curator: CuratorDoctorReport | undefined;
@@ -134,22 +106,55 @@ export async function runDoctor(
       }
       curator = curatorArtifactReport(repoDir);
     }
-    return {
-      healthy: issues.length === 0,
-      dataDir,
-      dbPath: config.values.dbUrl,
-      tables: [],
-      missingTables: [],
-      migrationsApplied: true,
-      projectCount: 0,
-      taskCount: 0,
-      issues,
-      binding,
-      curator,
-      config,
-      dbRemote: config.values.dbUrl,
-      lastExport: readLastExport(dataDir),
-    };
+    try {
+      const db = await createDb(config.values.dbUrl, config.values.dbToken);
+      const tables = await listTables(db);
+      const missingTables = missingRequiredTables(tables);
+      if (missingTables.length > 0) {
+        issues.push(`missing tables: ${missingTables.join(', ')}`);
+      }
+      const migrationsApplied = await hasMigrations(db, tables);
+      if (!migrationsApplied) {
+        issues.push('no migrations applied');
+      }
+      const projectCount = tables.includes('projects') ? await countRows(db, 'projects') : 0;
+      const taskCount = tables.includes('tasks') ? await countRows(db, 'tasks') : 0;
+      return {
+        healthy: issues.length === 0,
+        dataDir,
+        dbPath: config.values.dbUrl,
+        tables,
+        missingTables,
+        migrationsApplied,
+        projectCount,
+        taskCount,
+        issues,
+        binding,
+        curator,
+        config,
+        dbRemote: config.values.dbUrl,
+        lastExport: readLastExport(dataDir),
+      };
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      issues.push(`could not inspect remote schema: ${reason}`);
+      return {
+        healthy: false,
+        dataDir,
+        dbPath: config.values.dbUrl,
+        tables: [],
+        missingTables: [...EXPECTED_TABLES],
+        migrationsApplied: false,
+        projectCount: 0,
+        taskCount: 0,
+        issues,
+        binding,
+        curator,
+        config,
+        dbRemote: config.values.dbUrl,
+        lastExport: readLastExport(dataDir),
+      };
+    }
   }
 
   let db: Db;
@@ -219,7 +224,13 @@ export function formatDoctorReport(report: DoctorReport): string {
   lines.push(`data-dir: ${report.dataDir}`);
   if (report.dbRemote !== undefined) {
     lines.push(`database: ${report.dbRemote} (remote — managed by operator)`);
-    lines.push(`schema: run 'plandesk migrate --db ${report.dbRemote}'`);
+    lines.push(`migrations: ${report.migrationsApplied ? 'applied' : 'missing'}`);
+    lines.push(`tables: ${String(report.tables.length)}`);
+    if (report.missingTables.length > 0) {
+      lines.push(`missing: ${report.missingTables.join(', ')}`);
+    }
+    lines.push(`projects: ${String(report.projectCount)}`);
+    lines.push(`tasks: ${String(report.taskCount)}`);
   } else {
     lines.push(`database: ${report.dbPath}`);
     lines.push(`migrations: ${report.migrationsApplied ? 'applied' : 'missing'}`);

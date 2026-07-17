@@ -48,7 +48,7 @@ Every field is optional. The keys:
 | `port` | `PLANDESK_PORT` | Bind port (default `3847`). |
 | `baseUrl` | `PLANDESK_BASE_URL` | Public base URL the server is reachable at (better-auth `baseURL`, OAuth callbacks, share links). |
 | `authPassword` | `PLANDESK_AUTH_PASSWORD` | Enables HTTP basic-auth on the UI/REST API. **Secret.** Recommended for any non-loopback host. |
-| `sessionSecret` | `PLANDESK_SESSION_SECRET` | **better-auth secret** (sessions + API keys). **Secret.** Local `serve` auto-generates one under the data dir if unset; set explicitly for multi-replica / durable hosted deploys so sessions and keys stay valid across restarts. |
+| `sessionSecret` | `PLANDESK_BETTER_AUTH_SECRET` (`PLANDESK_SESSION_SECRET` accepted for back-compat) | **better-auth secret** (sessions + API keys). **Secret.** Local `serve` auto-generates one under the data dir if unset; set explicitly for multi-replica / durable hosted deploys so sessions and keys stay valid across restarts. |
 | `storage` | `PLANDESK_STORAGE` + `PLANDESK_S3_*` | `{ "kind": "local" }` (default, blobs in the DB) or `{ "kind": "s3", "bucket", "region", "accessKeyId", "secretAccessKey", "endpoint"? }`. The S3 `secretAccessKey` is a **secret**. |
 | `github` | `PLANDESK_GITHUB_CLIENT_ID` / `_SECRET` / `_CALLBACK_URL`, `PLANDESK_DASHBOARD_URL` | GitHub **social** sign-in for the web dashboard (better-auth). **All-or-nothing**: set all three of client id / secret / callback URL, or none. Register the OAuth app callback as `{baseUrl}/api/auth/callback/github`. The `clientSecret` is a **secret**. Unset → no GitHub sign-in; CLI still uses paste-a-token (`plandesk login`). |
 
@@ -66,7 +66,9 @@ PLANDESK_DB_URL=libsql://... PLANDESK_DB_TOKEN=... PLANDESK_AUTH_PASSWORD=... pl
 
 This is exactly how the **edge paths** work. The Cloudflare Workers and Vercel entries read their secrets from the platform (`wrangler secret put …`, Vercel env) and never look for a config file — so the cloud/edge deployment needs **no file at all**. The file is developer convenience, never a dependency.
 
-Edge entries require **`PLANDESK_BETTER_AUTH_SECRET`** (Workers/Vercel env — same role as `sessionSecret` / `PLANDESK_SESSION_SECRET` for Node serve) and should set **`PLANDESK_BASE_URL`** to the public origin. Full Workers steps: [Cloudflare Workers](./cloudflare/).
+Edge entries require **`PLANDESK_BETTER_AUTH_SECRET`** (Workers/Vercel env — the canonical name, also accepted by Node `serve`) and should set **`PLANDESK_BASE_URL`** to the public origin. Full Workers steps: [Cloudflare Workers](./cloudflare/).
+
+When one database is served by both `plandesk serve` and a Workers/Vercel deployment, set the exact same secret value in `PLANDESK_BETTER_AUTH_SECRET` on both. Node also accepts the legacy `PLANDESK_SESSION_SECRET`, but it must contain that same value; mismatched values invalidate sessions and API keys across topologies.
 
 ## `plandesk doctor` shows where each value came from
 

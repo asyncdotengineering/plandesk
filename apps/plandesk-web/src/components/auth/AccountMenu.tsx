@@ -1,6 +1,13 @@
-import { useAuthSession, useLogout } from '../../lib/auth.js';
+import { useAuthSession, useLogout, useSetActiveOrganization } from '../../lib/auth.js';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 /**
  * Current org + role, and sign-out for a browser session.
@@ -11,15 +18,48 @@ import { Button } from '@/components/ui/button';
 export function AccountMenu() {
   const { data: session } = useAuthSession();
   const signOut = useLogout();
+  const switchOrganization = useSetActiveOrganization();
 
   if (session === null || session === undefined) {
     return null;
   }
 
+  const orgs = session.orgs ?? (session.org === null ? [] : [{ ...session.org, role: session.role }]);
+  const activeOrg = session.org;
+
   return (
     <div className="flex items-center gap-2">
-      {session.org !== null ? (
-        <span className="text-sm text-muted-foreground">{session.org.name}</span>
+      {activeOrg !== null && orgs.length > 1 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Switch organization (current: ${activeOrg.name})`}
+              disabled={switchOrganization.isPending}
+            >
+              {activeOrg.name}
+              <span aria-hidden="true">⌄</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Organizations</DropdownMenuLabel>
+            {orgs.map((org) => (
+              <DropdownMenuItem
+                key={org.id}
+                disabled={org.id === activeOrg.id || switchOrganization.isPending}
+                onSelect={() => {
+                  switchOrganization.mutate(org.id);
+                }}
+              >
+                <span>{org.name}</span>
+                {org.id === activeOrg.id ? <span aria-label="Current">✓</span> : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : activeOrg !== null ? (
+        <span className="text-sm text-muted-foreground">{activeOrg.name}</span>
       ) : null}
       <Badge variant="secondary">{session.role}</Badge>
       {session.kind === 'session' ? (

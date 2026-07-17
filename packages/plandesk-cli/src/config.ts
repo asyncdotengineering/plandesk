@@ -82,9 +82,8 @@ export type ServerConfig = {
   /** HTTP basic-auth password for the UI/REST API. */
   authPassword?: string;
   /**
-   * Session signing secret. Reserved: the current session impl is DB-backed
-   * opaque tokens, but the key is resolvable + reportable now so an operator
-   * can set it without a redeploy when signed-cookie support lands.
+   * Better Auth secret for sessions and API keys. PLANDESK_BETTER_AUTH_SECRET
+   * is the canonical env name; PLANDESK_SESSION_SECRET remains supported.
    */
   sessionSecret?: string;
 };
@@ -470,7 +469,10 @@ export function resolveServerConfig(opts: ResolveServerConfigOptions = {}): Reso
 
   // --- sessionSecret ---
   let sessionSecret: string | undefined;
-  if (present(env.PLANDESK_SESSION_SECRET)) {
+  if (present(env.PLANDESK_BETTER_AUTH_SECRET)) {
+    sessionSecret = env.PLANDESK_BETTER_AUTH_SECRET.trim();
+    sources.sessionSecret = 'env';
+  } else if (present(env.PLANDESK_SESSION_SECRET)) {
     sessionSecret = env.PLANDESK_SESSION_SECRET.trim();
     sources.sessionSecret = 'env';
   } else if (file?.sessionSecret !== undefined) {

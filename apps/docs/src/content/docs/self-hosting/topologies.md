@@ -49,6 +49,8 @@ plandesk migrate --db "libsql://your-db.example" --db-token "<token>"
 
 The server does **not** auto-migrate a remote database — that's a deliberate choice so a multi-replica deploy never races on the schema. Run it once per database, whenever you upgrade. See [the operator migration story](#who-runs-migrations) below.
 
+If the same database is also served by Workers or Vercel, use the same value for `PLANDESK_BETTER_AUTH_SECRET` in every topology (`plandesk serve` accepts `PLANDESK_SESSION_SECRET` as a legacy alias).
+
 ### 3. Free-hosted — the asyncdot instance
 
 **What it is.** asyncdot runs the server for you at `plandesk.asyncdot.com`. You sign in (GitHub) and use the hosted web app + MCP endpoint. No install, no database to manage.

@@ -22,6 +22,13 @@ type MemberRow = {
   createdAt: Date;
 };
 
+type SessionRow = {
+  token: string;
+  userId: string;
+  activeOrganizationId?: string | null;
+  updatedAt: Date;
+};
+
 type OrganizationRow = {
   id: string;
   name: string;
@@ -186,4 +193,42 @@ export async function provisionPersonalOrgIfNeeded(
   });
 
   return { created: true, orgId: organization.id, role: 'owner' };
+}
+
+/** Persist the best active organization for a newly-created session. */
+export async function setDefaultActiveOrganization(
+  auth: BetterAuthInstance,
+  userId: string,
+  sessionToken: string,
+): Promise<string | undefined> {
+  const context = await auth.$context;
+  const members = await context.adapter.findMany<MemberRow>({
+    model: 'member',
+    where: [{ field: 'userId', value: userId }],
+    sortBy: { field: 'createdAt', direction: 'asc' },
+  });
+  if (members.length === 0) {
+    return undefined;
+  }
+
+  const memberOrgIds = new Set(members.map((member) => member.organizationId));
+  const sessions = await context.adapter.findMany<SessionRow>({
+    model: 'session',
+    where: [{ field: 'userId', value: userId }],
+    sortBy: { field: 'updatedAt', direction: 'desc' },
+  });
+  const priorActiveOrganizationId = sessions.find(
+    (session) =>
+      session.token !== sessionToken &&
+      session.activeOrganizationId !== undefined &&
+      session.activeOrganizationId !== null &&
+      memberOrgIds.has(session.activeOrganizationId),
+  )?.activeOrganizationId;
+  const activeOrganizationId = priorActiveOrganizationId ?? members[0]?.organizationId;
+  if (activeOrganizationId === undefined) {
+    return undefined;
+  }
+
+  await context.internalAdapter.updateSession(sessionToken, { activeOrganizationId });
+  return activeOrganizationId;
 }

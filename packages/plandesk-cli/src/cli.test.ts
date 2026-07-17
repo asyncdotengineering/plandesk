@@ -533,6 +533,21 @@ describe('startServer', () => {
     rmSync(dataDir, { recursive: true, force: true });
   });
 
+  it('fails before listening when a remote database has not been migrated', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-remote-'));
+    const remoteDb = join(dataDir, 'remote.db');
+    writeFileSync(
+      join(dataDir, SERVER_CONFIG_FILENAME),
+      JSON.stringify({ dbUrl: remoteDb }),
+      'utf8',
+    );
+
+    await expect(startServer({ port: 0, dataDir })).rejects.toThrow(
+      `Run \`plandesk migrate --db ${remoteDb}\` first.`,
+    );
+    rmSync(dataDir, { recursive: true, force: true });
+  });
+
   async function blockedPort(): Promise<number> {
     return new Promise<number>((resolve) => {
       const blocker = createServer();

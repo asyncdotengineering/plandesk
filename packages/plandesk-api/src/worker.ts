@@ -8,6 +8,7 @@
 import { createWebDb } from '@plandesk/db/web';
 import type { Db } from '@plandesk/db';
 import { createApp } from './server.js';
+import { createBetterAuth, type BetterAuthInstance } from './better-auth.js';
 import { createServices } from './services/index.js';
 import { githubConfigFromEnv } from './github.js';
 import { createS3Adapter, type S3AdapterConfig } from './storage/s3.js';
@@ -58,7 +59,13 @@ type Cached = {
   db: Db;
 };
 
+type CachedAuth = {
+  key: string;
+  auth: BetterAuthInstance;
+};
+
 let cache: Cached | undefined;
+let authCache: CachedAuth | undefined;
 
 function s3ConfigFromEnv(env: Env): S3AdapterConfig {
   return {
@@ -78,6 +85,38 @@ async function getDb(env: Env): Promise<Db> {
   const db = await createWebDb(env.PLANDESK_DB_URL, env.PLANDESK_DB_TOKEN);
   cache = { key, db };
   return db;
+}
+
+async function getBetterAuth(
+  env: Env,
+  db: Db,
+  config: { secret: string; baseURL: string },
+): Promise<BetterAuthInstance> {
+  const key = [
+    env.PLANDESK_DB_URL,
+    env.PLANDESK_DB_TOKEN,
+    config.secret,
+    config.baseURL,
+    env.PLANDESK_GITHUB_CLIENT_ID ?? '',
+    env.PLANDESK_GITHUB_CLIENT_SECRET ?? '',
+  ].join('\0');
+  if (authCache !== undefined && authCache.key === key) {
+    return authCache.auth;
+  }
+  // The instance holds immutable plugin/configuration state; each handler call
+  // receives its own request context, so reuse cannot leak auth between requests.
+  const auth = createBetterAuth({
+    client: db.$client,
+    db,
+    secret: config.secret,
+    baseURL: config.baseURL,
+    github: githubConfigFromEnv(env),
+  });
+  if (auth === undefined) {
+    throw new Error('Hosted better-auth instance could not be created');
+  }
+  authCache = { key, auth };
+  return auth;
 }
 
 function isApiOrMcpPath(pathname: string): boolean {
@@ -106,6 +145,7 @@ export default {
     }
 
     const db = await getDb(env);
+    const authInstance = await getBetterAuth(env, db, betterAuth);
     const storage = createS3Adapter({ db, config: s3ConfigFromEnv(env) });
     const services = createServices({ db, storage });
     const app = createApp({
@@ -116,6 +156,7 @@ export default {
       bindHost: '0.0.0.0',
       github: githubConfigFromEnv(env),
       betterAuth,
+      betterAuthInstance: authInstance,
     });
 
     return app.fetch(request, env, ctx);

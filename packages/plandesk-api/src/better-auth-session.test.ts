@@ -217,6 +217,76 @@ describe('better-auth session recognition (BA4a)', () => {
     expect(session.org.id).toBe(mine.id);
   });
 
+  it('an existing user can accept an invite and switch between both organizations', async () => {
+    const { app, db, auth } = await hostedBetterAuthApp();
+    const orgA = { id: randomUUID(), name: 'Personal A', slug: 'personal-a' };
+    const orgB = { id: randomUUID(), name: 'Team B', slug: 'team-b' };
+    const teamOwner = await seedBetterAuthUser(auth, {
+      email: 'owner-b@example.com',
+      name: 'Owner B',
+      githubAccountId: '1101',
+      org: orgB,
+      role: 'owner',
+    });
+    const invitee = await seedBetterAuthUser(auth, {
+      email: 'invitee@example.com',
+      name: 'Invitee',
+      githubAccountId: '1102',
+      org: orgA,
+      role: 'owner',
+    });
+    const projectA = await createProject(db, { name: 'Personal board', orgId: orgA.id });
+    const projectB = await createProject(db, { name: 'Team board', orgId: orgB.id });
+
+    const invite = await app.request(`/api/v1/orgs/${orgB.id}/invitations`, {
+      method: 'POST',
+      headers: { Cookie: teamOwner.cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'invitee@example.com', role: 'member' }),
+    });
+    expect(invite.status).toBe(201);
+    const { invitationId } = await parseJson<{ invitationId: string }>(invite);
+
+    const beforeAccept = await app.request('/api/v1/auth/session', {
+      headers: { Cookie: invitee.cookie },
+    });
+    expect((await parseJson<{ org: { id: string } }>(beforeAccept)).org.id).toBe(orgA.id);
+    expect((await app.request(`/api/v1/projects/${projectA.id}`, { headers: { Cookie: invitee.cookie } })).status).toBe(200);
+    expect((await app.request(`/api/v1/projects/${projectB.id}`, { headers: { Cookie: invitee.cookie } })).status).toBe(404);
+
+    const accept = await app.request(`/api/v1/invitations/${invitationId}/accept`, {
+      method: 'POST',
+      headers: { Cookie: invitee.cookie },
+    });
+    expect(accept.status).toBe(200);
+
+    const selectA = await app.request('/api/auth/organization/set-active', {
+      method: 'POST',
+      headers: { Cookie: invitee.cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ organizationId: orgA.id }),
+    });
+    expect(selectA.status).toBe(200);
+    const activeA = await parseJson<{ org: { id: string }; orgs: Array<{ id: string }> }>(
+      await app.request('/api/v1/auth/session', { headers: { Cookie: invitee.cookie } }),
+    );
+    expect(activeA.org.id).toBe(orgA.id);
+    expect(activeA.orgs.map((org) => org.id)).toEqual([orgA.id, orgB.id]);
+    expect((await app.request(`/api/v1/projects/${projectA.id}`, { headers: { Cookie: invitee.cookie } })).status).toBe(200);
+    expect((await app.request(`/api/v1/projects/${projectB.id}`, { headers: { Cookie: invitee.cookie } })).status).toBe(404);
+
+    const selectB = await app.request('/api/auth/organization/set-active', {
+      method: 'POST',
+      headers: { Cookie: invitee.cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ organizationId: orgB.id }),
+    });
+    expect(selectB.status).toBe(200);
+    const activeB = await parseJson<{ org: { id: string } }>(
+      await app.request('/api/v1/auth/session', { headers: { Cookie: invitee.cookie } }),
+    );
+    expect(activeB.org.id).toBe(orgB.id);
+    expect((await app.request(`/api/v1/projects/${projectB.id}`, { headers: { Cookie: invitee.cookie } })).status).toBe(200);
+    expect((await app.request(`/api/v1/projects/${projectA.id}`, { headers: { Cookie: invitee.cookie } })).status).toBe(404);
+  });
+
   it('revoking better-auth membership stops the session (401)', async () => {
     const { app, db, auth } = await hostedBetterAuthApp();
     const org = { id: randomUUID(), name: 'Team' };
@@ -353,6 +423,7 @@ describe('better-auth session recognition (BA4a)', () => {
       user_ref: null,
       role: 'owner',
       org: { id: org.id, name: 'Personal' },
+      orgs: [{ id: org.id, name: 'Personal', role: 'owner' }],
     });
   });
 
@@ -396,7 +467,7 @@ describe('better-auth session recognition (BA4a)', () => {
     expect(after.org.id).toBe(org.id);
   });
 
-  it('active org is the earliest membership by createdAt', async () => {
+  it('an explicitly selected active org wins over membership order', async () => {
     const { app, db, auth } = await hostedBetterAuthApp();
     const first = { id: randomUUID(), name: 'First' };
     const second = { id: randomUUID(), name: 'Second' };
@@ -465,9 +536,16 @@ describe('better-auth session recognition (BA4a)', () => {
     const signed = `${token}.${await makeSignature(token, ctx.secret)}`;
     const cookie = `${ctx.authCookies.sessionToken.name}=${signed}`;
 
+    const select = await app.request('/api/auth/organization/set-active', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ organizationId: second.id }),
+    });
+    expect(select.status).toBe(200);
+
     const session = await parseJson<{ org: { id: string } }>(
       await app.request('/api/v1/auth/session', { headers: { Cookie: cookie } }),
     );
-    expect(session.org.id).toBe(first.id);
+    expect(session.org.id).toBe(second.id);
   });
 });

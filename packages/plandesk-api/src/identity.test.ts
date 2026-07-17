@@ -149,6 +149,7 @@ describe('local identity foundation', () => {
       user_ref: null,
       role: 'owner',
       org: { id: DEFAULT_ORG_ID, name: 'Personal' },
+      orgs: [{ id: DEFAULT_ORG_ID, name: 'Personal', role: 'owner' }],
     });
   });
 });

@@ -8,6 +8,19 @@ export type OrganizationSummary = {
   createdAt: Date;
 };
 
+type MemberRow = {
+  organizationId: string;
+  userId: string;
+  role: string;
+  createdAt: Date;
+};
+
+export type UserOrganizationSummary = {
+  id: string;
+  name: string;
+  role: string;
+};
+
 /**
  * Look up a better-auth organization by id (user-less / server path).
  * Prefer this over auth.api.getFullOrganization when no session headers exist.
@@ -42,6 +55,27 @@ export async function resolveDefaultOrganization(
     return all[0];
   }
   return undefined;
+}
+
+export async function listOrganizationsForUser(
+  auth: BetterAuthInstance,
+  userId: string,
+): Promise<UserOrganizationSummary[]> {
+  const adapter = (await auth.$context).adapter;
+  const members = await adapter.findMany<MemberRow>({
+    model: 'member',
+    where: [{ field: 'userId', value: userId }],
+    sortBy: { field: 'createdAt', direction: 'asc' },
+  });
+  return Promise.all(
+    members.map(async (member) => {
+      const organization = await getOrganizationById(auth, member.organizationId);
+      if (organization === undefined) {
+        throw new Error('Membership points to a missing organization');
+      }
+      return { id: organization.id, name: organization.name, role: member.role };
+    }),
+  );
 }
 
 /**

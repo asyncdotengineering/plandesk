@@ -10,7 +10,7 @@
  * `@better-auth/cli` (which would normally generate a Drizzle schema for
  * the adapter) is pinned two minors behind this `better-auth` release, so
  * its output can't be trusted to match — hand-rolling a Drizzle schema for
- * 9 tables we don't own the shape of is the same trust problem by hand.
+ * the tables we don't own the shape of is the same trust problem by hand.
  * The Kysely dialect needs no generated schema: better-auth introspects and
  * creates its own tables at runtime (see `runBetterAuthMigrations` below).
  * This is exactly what `scratchpad/ba-spike/spike.mjs` proved 9/9 on.
@@ -31,12 +31,12 @@
  * connection is required for correctness, not just efficiency.
  */
 import { betterAuth, type Auth, type BetterAuthOptions } from 'better-auth';
-import { organization, deviceAuthorization } from 'better-auth/plugins';
+import { organization } from 'better-auth/plugins';
 import { apiKey } from '@better-auth/api-key';
 import { LibsqlDialect } from '@libsql/kysely-libsql';
 import type { Client, Db } from '@plandesk/db';
 import { ac, admin, member, owner } from './access-control.js';
-import { provisionPersonalOrgIfNeeded } from './identity.js';
+import { provisionPersonalOrgIfNeeded, setDefaultActiveOrganization } from './identity.js';
 
 export type BetterAuthDeps = {
   /** The app's existing libSQL connection — shared, never a second one. */
@@ -102,6 +102,7 @@ export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | und
                 after: async (session) => {
                   if (authInstance === undefined) return;
                   await provisionPersonalOrgIfNeeded(authInstance, appDb, session.userId);
+                  await setDefaultActiveOrganization(authInstance, session.userId, session.token);
                 },
               },
             },
@@ -112,7 +113,6 @@ export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | und
       // enableMetadata: projectId + orgId on agent keys (BA5). Rate limit off —
       // agent traffic is bursty; ceilings are permission-based, not request-count.
       apiKey({ enableMetadata: true, rateLimit: { enabled: false } }),
-      deviceAuthorization(),
     ],
   };
   authInstance = betterAuth(options);
@@ -120,7 +120,7 @@ export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | und
 }
 
 /**
- * Create better-auth's 9 tables against the shared connection. Node CLI boot
+ * Create better-auth's tables against the shared connection. Node CLI boot
  * and operator migration paths call this explicitly; edge request handlers do
  * not migrate.
  */

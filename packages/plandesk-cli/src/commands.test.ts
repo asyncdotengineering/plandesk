@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs, workspaceDbPath } from './args.js';
 import { main } from './cli.js';
 import { CURATOR_TEMPLATES } from './curator-templates.js';
+import { SERVER_CONFIG_FILENAME } from './config.js';
 import { runFactoryInit } from './factory.js';
 import { runInit } from './init.js';
 import { openWorkspace } from './workspace.js';
@@ -415,6 +416,27 @@ describe('CLI export/import/doctor', () => {
       delete process.env.PLANDESK_AUTH_PASSWORD;
       delete process.env.PLANDESK_DB_TOKEN;
     }
+  });
+
+  it('doctor probes a remote schema instead of assuming migrations are applied', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-doctor-remote-'));
+    const remoteDb = join(dataDir, 'remote.db');
+    tempDirs.push(dataDir);
+    writeFileSync(
+      join(dataDir, SERVER_CONFIG_FILENAME),
+      JSON.stringify({ dbUrl: remoteDb }),
+      'utf8',
+    );
+
+    const { code, stdout } = await captureIo(() =>
+      main(['node', 'plandesk', 'doctor', '--data-dir', dataDir]),
+    );
+
+    expect(code).toBe(1);
+    expect(stdout).toContain('Plan Desk doctor — FAIL');
+    expect(stdout).toContain('migrations: missing');
+    expect(stdout).toContain('missing:');
+    expect(stdout).toContain('organization');
   });
 
   it('migrate applies schema to a database url (operator self-host path, REQ-8)', async () => {

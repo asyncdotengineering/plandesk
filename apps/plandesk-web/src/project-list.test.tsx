@@ -18,6 +18,7 @@ const localSession = {
   user_ref: null,
   role: 'owner' as const,
   org: { id: 'org-1', name: 'Personal' },
+  orgs: [{ id: 'org-1', name: 'Personal', role: 'owner' }],
 };
 
 function stubFetch(projects: unknown) {

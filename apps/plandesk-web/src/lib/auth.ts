@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError, getAuthMethods, getAuthSession, logout } from './api.js';
+import {
+  ApiError,
+  getAuthMethods,
+  getAuthSession,
+  logout,
+  setActiveOrganization,
+} from './api.js';
 
 export const authSessionKey = ['auth', 'session'] as const;
 export const authMethodsKey = ['auth', 'methods'] as const;
@@ -38,6 +44,16 @@ export function useLogout() {
     mutationFn: logout,
     onSuccess: async () => {
       // The cookie is gone; every cached org-scoped answer is now stale.
+      await queryClient.invalidateQueries();
+    },
+  });
+}
+
+export function useSetActiveOrganization() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: setActiveOrganization,
+    onSuccess: async () => {
       await queryClient.invalidateQueries();
     },
   });

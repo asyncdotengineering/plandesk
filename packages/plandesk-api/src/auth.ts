@@ -42,6 +42,11 @@ type BetterAuthAccountRow = {
   userId: string;
 };
 
+type BetterAuthSessionRow = {
+  token: string;
+  activeOrganizationId?: string | null;
+};
+
 type BetterAuthMemberRow = {
   organizationId: string;
   userId: string;
@@ -120,9 +125,22 @@ async function resolveBetterAuthSessionContext(
     return 'unauthorized';
   }
 
-  const active = members[0];
+  const sessionRow = await adapter.findOne<BetterAuthSessionRow>({
+    model: 'session',
+    where: [{ field: 'token', value: session.session.token }],
+  });
+  const activeOrganizationId = sessionRow?.activeOrganizationId;
+  const active =
+    (activeOrganizationId === undefined || activeOrganizationId === null
+      ? undefined
+      : members.find((member) => member.organizationId === activeOrganizationId)) ?? members[0];
   if (active === undefined) {
     return 'unauthorized';
+  }
+  if (active.organizationId !== activeOrganizationId) {
+    await (await auth.$context).internalAdapter.updateSession(session.session.token, {
+      activeOrganizationId: active.organizationId,
+    });
   }
   const role = parseOrgRole(active.role);
   if (role === undefined) {
