@@ -231,6 +231,26 @@ describe('CLI legacy-upgrade', () => {
     return dir;
   }
 
+  it('auto-inits the global board when it does not exist yet (single-command upgrade)', async () => {
+    const root = tempDir('plandesk-legacy-autoinit-');
+    const oldPath = join(root, 'old-workspace.db');
+    const dataDir = join(root, 'global'); // deliberately NOT init'd first
+    await createOldSchemaFixture(oldPath);
+
+    const { code, stdout, stderr } = await captureIo(() =>
+      main(['node', 'plandesk', 'legacy-upgrade', '--from', oldPath, '--data-dir', dataDir]),
+    );
+
+    // Before auto-init this errored "Run `plandesk init` first"; now it creates + imports.
+    expect(stderr).toBe('');
+    expect(code).toBe(0);
+    expect(stdout).toContain('Imported 1 projects, 1 tasks, 1 documents');
+
+    const { db } = await openWorkspace(dataDir);
+    const projects = await listProjects(db, DEFAULT_ORG_ID);
+    expect(projects).toHaveLength(1);
+  });
+
   it('imports project+tasks+document+comment into the global board under DEFAULT_ORG_ID', async () => {
     const root = tempDir('plandesk-legacy-up-');
     const oldPath = join(root, 'old-workspace.db');

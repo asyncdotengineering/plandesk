@@ -21,7 +21,8 @@ import {
   type TaskStatus,
 } from '@plandesk/db';
 import { PLANDESK_DIR, WORKSPACE_DB } from './args.js';
-import { openWorkspace } from './workspace.js';
+import { runInit } from './init.js';
+import { openWorkspace, WorkspaceNotFoundError } from './workspace.js';
 
 export class LegacyUpgradeError extends Error {
   constructor(message: string) {
@@ -464,7 +465,19 @@ export async function runLegacyUpgrade(options: {
       copyFileSync(sourcePath, backupPath);
     }
 
-    const { db } = await openWorkspace(options.dataDir);
+    // Single-command upgrade: create the global board if it does not exist yet,
+    // then import into it. `init` is otherwise a separate step the user must run.
+    let db: Db;
+    try {
+      ({ db } = await openWorkspace(options.dataDir));
+    } catch (err) {
+      if (err instanceof WorkspaceNotFoundError) {
+        await runInit(options.dataDir);
+        ({ db } = await openWorkspace(options.dataDir));
+      } else {
+        throw err;
+      }
+    }
     return await importLegacyExports(db, exports, {
       sourcePath,
       backupPath,
