@@ -5,6 +5,9 @@ import { orgRoleToPermissionSet, type PermissionSet } from './permissions.js';
 
 const workActions = ['read', 'create', 'update', 'delete'] as const;
 
+/** Key profile stored in better-auth metadata. Absent/unknown → agent (BA4b-1). */
+export type ApiKeyKind = 'agent' | 'owner';
+
 /**
  * Default agent grant: work resources full + project create.
  * member / organization / apiKey are never granted at mint (escalation closed).
@@ -22,24 +25,32 @@ export const DEFAULT_AGENT_KEY_PERMISSIONS: PermissionSet = {
   apiKey: [],
 };
 
+/** Full owner permission set — default grant for org-wide owner keys (BA4b-1). */
+export const DEFAULT_OWNER_KEY_PERMISSIONS: PermissionSet = orgRoleToPermissionSet('owner');
+
 /** Always stripped from agent-key effective perms — a key must never mint keys. */
 export const AGENT_FORBIDDEN_RESOURCES = ['apiKey'] as const;
 
 /**
- * Live-role ceiling at verify time (BA5):
- * effective = intersect(keyPermissions, liveMemberRole) minus apiKey.
+ * Live-role ceiling at verify time (BA5 + BA4b-1):
+ * effective = intersect(keyPermissions, liveMemberRole);
+ * agent profile: then strip AGENT_FORBIDDEN_RESOURCES (apiKey).
+ * owner profile: retain apiKey if both key and live role still grant it.
  * No live role (member removed) → empty set.
  */
 export function applyAgentKeyPermissionCeiling(
   keyPermissions: Record<string, readonly string[]> | null | undefined,
   liveRole: OrgRole | undefined,
+  kind: ApiKeyKind = 'agent',
 ): PermissionSet {
   const keyPerms: Record<string, readonly string[]> = keyPermissions ?? {};
   const rolePerms: Record<string, readonly string[]> =
     liveRole === undefined ? {} : orgRoleToPermissionSet(liveRole);
   const effective = intersectPermissions(keyPerms, rolePerms);
-  for (const resource of AGENT_FORBIDDEN_RESOURCES) {
-    delete effective[resource];
+  if (kind === 'agent') {
+    for (const resource of AGENT_FORBIDDEN_RESOURCES) {
+      delete effective[resource];
+    }
   }
   return effective;
 }
@@ -124,6 +135,54 @@ export async function verifyBetterAuthApiKey(
   };
 }
 
+type MintedKeyResult = {
+  id: string;
+  key: string;
+  name: string | null;
+  permissions: Record<string, string[]> | null;
+};
+
+/**
+ * Shared better-auth createApiKey call (agent + owner mint paths).
+ */
+async function mintBetterAuthApiKey(input: {
+  auth: BetterAuthInstance;
+  userId: string;
+  name: string;
+  permissions: Record<string, string[]>;
+  metadata: Record<string, string>;
+}): Promise<MintedKeyResult> {
+  const api: object = input.auth.api;
+  if (!('createApiKey' in api)) {
+    throw new Error('better-auth api-key plugin is not mounted');
+  }
+  const create = Reflect.get(api, 'createApiKey');
+  if (typeof create !== 'function') {
+    throw new Error('better-auth createApiKey is not available');
+  }
+  const raw: unknown = await create.call(api, {
+    body: {
+      userId: input.userId,
+      name: input.name,
+      permissions: input.permissions,
+      metadata: input.metadata,
+      rateLimitEnabled: false,
+    },
+  });
+  if (!isRecord(raw) || typeof raw.id !== 'string' || typeof raw.key !== 'string') {
+    throw new Error('createApiKey did not return id/key');
+  }
+  if (raw.key.length === 0) {
+    throw new Error('createApiKey did not return a key');
+  }
+  return {
+    id: raw.id,
+    key: raw.key,
+    name: typeof raw.name === 'string' ? raw.name : null,
+    permissions: parsePermissions(raw.permissions),
+  };
+}
+
 export type CreateScopedAgentKeyInput = {
   auth: BetterAuthInstance;
   userId: string;
@@ -144,6 +203,7 @@ export type CreatedScopedAgentKey = {
 /**
  * Server-side mint for a project-scoped agent key.
  * Call only after the caller is a session-authenticated owner (route enforces).
+ * Metadata has no `kind` (or may omit it) — resolver treats absent as agent.
  */
 export async function createScopedAgentKey(
   input: CreateScopedAgentKeyInput,
@@ -152,34 +212,56 @@ export async function createScopedAgentKey(
     input.permissions ?? DEFAULT_AGENT_KEY_PERMISSIONS,
   );
   const metadata = { projectId: input.projectId, orgId: input.orgId };
-  const api: object = input.auth.api;
-  if (!('createApiKey' in api)) {
-    throw new Error('better-auth api-key plugin is not mounted');
-  }
-  const create = Reflect.get(api, 'createApiKey');
-  if (typeof create !== 'function') {
-    throw new Error('better-auth createApiKey is not available');
-  }
-  const raw: unknown = await create.call(api, {
-    body: {
-      userId: input.userId,
-      name: input.name ?? 'agent',
-      permissions,
-      metadata,
-      rateLimitEnabled: false,
-    },
+  const minted = await mintBetterAuthApiKey({
+    auth: input.auth,
+    userId: input.userId,
+    name: input.name ?? 'agent',
+    permissions,
+    metadata,
   });
-  if (!isRecord(raw) || typeof raw.id !== 'string' || typeof raw.key !== 'string') {
-    throw new Error('createApiKey did not return id/key');
-  }
-  if (raw.key.length === 0) {
-    throw new Error('createApiKey did not return a key');
-  }
   return {
-    id: raw.id,
-    key: raw.key,
-    name: typeof raw.name === 'string' ? raw.name : null,
-    permissions: parsePermissions(raw.permissions),
+    ...minted,
+    metadata,
+  };
+}
+
+export type CreateOrgOwnerKeyInput = {
+  auth: BetterAuthInstance;
+  userId: string;
+  orgId: string;
+  permissions?: PermissionSet;
+  name?: string;
+};
+
+export type CreatedOrgOwnerKey = {
+  id: string;
+  key: string;
+  name: string | null;
+  permissions: Record<string, string[]> | null;
+  metadata: { orgId: string; kind: 'owner' };
+};
+
+/**
+ * Server-side mint for an org-wide owner key (BA4b-1).
+ * No projectId in metadata → org-wide reach. kind: 'owner' retains apiKey
+ * after the live-role ceiling (still intersected with live role).
+ */
+export async function createOrgOwnerKey(
+  input: CreateOrgOwnerKeyInput,
+): Promise<CreatedOrgOwnerKey> {
+  const permissions = compactPermissions(
+    input.permissions ?? DEFAULT_OWNER_KEY_PERMISSIONS,
+  );
+  const metadata = { orgId: input.orgId, kind: 'owner' as const };
+  const minted = await mintBetterAuthApiKey({
+    auth: input.auth,
+    userId: input.userId,
+    name: input.name ?? 'owner',
+    permissions,
+    metadata,
+  });
+  return {
+    ...minted,
     metadata,
   };
 }

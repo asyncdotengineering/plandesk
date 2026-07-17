@@ -11,8 +11,10 @@ import {
 } from '@plandesk/db';
 import type { Hono } from 'hono';
 import {
+  createOrgOwnerKey,
   createScopedAgentKey,
   DEFAULT_AGENT_KEY_PERMISSIONS,
+  DEFAULT_OWNER_KEY_PERMISSIONS,
 } from './agent-keys.js';
 import {
   createBetterAuth,
@@ -546,5 +548,247 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
       headers: bearer('not-a-real-key-at-all'),
     });
     expect(res.status).toBe(401);
+  });
+});
+
+describe('org-wide owner keys + profile-aware ceiling (BA4b-1 / REQ-4)', () => {
+  it('REQ-4.1: agent key with apiKey:create still 403 on token mint (escalation closed)', async () => {
+    const { app, db, auth } = await hostedApp();
+    const org = await createOrg(db, { name: 'Esc Org' });
+    const project = await createProject(db, { name: 'Esc Board', orgId: org.id });
+    const { userId } = await seedBetterAuthUser(auth, {
+      email: 'esc@example.com',
+      name: 'Esc',
+      githubAccountId: '6101',
+      org: { id: org.id, name: org.name, slug: 'esc' },
+      role: 'owner',
+    });
+    const minted = await createScopedAgentKey({
+      auth,
+      userId,
+      orgId: org.id,
+      projectId: project.id,
+      permissions: {
+        task: ['read', 'create', 'update', 'delete'],
+        apiKey: ['create', 'read', 'update', 'delete'],
+      },
+      name: 'agent-with-apikey',
+    });
+
+    const mintToken = await app.request('/api/v1/mcp-tokens', {
+      method: 'POST',
+      headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'must-fail' }),
+    });
+    expect(mintToken.status).toBe(403);
+    expect(await parseJson(mintToken)).toEqual({ error: 'forbidden' });
+
+    const mintOrg = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
+      method: 'POST',
+      headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'must-fail-org' }),
+    });
+    expect(mintOrg.status).toBe(403);
+  });
+
+  it('REQ-4.2: owner key (org-wide, kind owner) with live owner can mint tokens (201)', async () => {
+    const { app, db, auth } = await hostedApp();
+    const org = await createOrg(db, { name: 'Owner Mint Org' });
+    const { userId } = await seedBetterAuthUser(auth, {
+      email: 'ownermint@example.com',
+      name: 'OwnerMint',
+      githubAccountId: '6102',
+      org: { id: org.id, name: org.name, slug: 'owner-mint' },
+      role: 'owner',
+    });
+    const minted = await createOrgOwnerKey({
+      auth,
+      userId,
+      orgId: org.id,
+      name: 'cli-owner',
+    });
+    expect(minted.metadata).toEqual({ orgId: org.id, kind: 'owner' });
+    expect('projectId' in minted.metadata).toBe(false);
+
+    const mintOrg = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
+      method: 'POST',
+      headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'from-owner-key' }),
+    });
+    expect(mintOrg.status).toBe(201);
+    const body = await parseJson<{ token: string; name: string }>(mintOrg);
+    expect(body.name).toBe('from-owner-key');
+    expect(typeof body.token).toBe('string');
+    expect(body.token.length).toBeGreaterThan(0);
+
+    const mintMcp = await app.request('/api/v1/mcp-tokens', {
+      method: 'POST',
+      headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'mcp-from-owner' }),
+    });
+    expect(mintMcp.status).toBe(201);
+  });
+
+  it('REQ-4.3: owner key demoted to member → apiKey absent → 403 on mint', async () => {
+    const { app, db, auth } = await hostedApp();
+    const org = await createOrg(db, { name: 'Demote Org' });
+    const { userId } = await seedBetterAuthUser(auth, {
+      email: 'demote@example.com',
+      name: 'Demote',
+      githubAccountId: '6103',
+      org: { id: org.id, name: org.name, slug: 'demote' },
+      role: 'owner',
+    });
+    const minted = await createOrgOwnerKey({
+      auth,
+      userId,
+      orgId: org.id,
+      permissions: DEFAULT_OWNER_KEY_PERMISSIONS,
+      name: 'was-owner-key',
+    });
+
+    const before = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
+      method: 'POST',
+      headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'while-owner' }),
+    });
+    expect(before.status).toBe(201);
+
+    const adapter = (await auth.$context).adapter;
+    const members = await adapter.findMany<BetterAuthMember>({
+      model: 'member',
+      where: [
+        { field: 'userId', value: userId },
+        { field: 'organizationId', value: org.id },
+      ],
+    });
+    const member = members[0];
+    if (member === undefined) throw new Error('expected member');
+    await adapter.update({
+      model: 'member',
+      where: [{ field: 'id', value: member.id }],
+      update: { role: 'member' },
+    });
+
+    const after = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
+      method: 'POST',
+      headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'after-demotion' }),
+    });
+    expect(after.status).toBe(403);
+    expect(await parseJson(after)).toEqual({ error: 'forbidden' });
+  });
+
+  it('REQ-4.4: owner key with deleted member row → ceiling empty → 403 on everything', async () => {
+    const { app, db, auth } = await hostedApp();
+    const org = await createOrg(db, { name: 'Revoke Org' });
+    const project = await createProject(db, { name: 'Revoke Board', orgId: org.id });
+    const task = await createTask(db, {
+      projectId: project.id,
+      label: 'Blocked',
+      status: 'todo',
+    });
+    const { userId } = await seedBetterAuthUser(auth, {
+      email: 'revoke@example.com',
+      name: 'Revoke',
+      githubAccountId: '6104',
+      org: { id: org.id, name: org.name, slug: 'revoke' },
+      role: 'owner',
+    });
+    const minted = await createOrgOwnerKey({
+      auth,
+      userId,
+      orgId: org.id,
+      name: 'to-revoke-owner',
+    });
+
+    expect(
+      (
+        await app.request(`/api/v1/projects/${project.id}/tasks`, {
+          headers: bearer(minted.key),
+        })
+      ).status,
+    ).toBe(200);
+
+    const adapter = (await auth.$context).adapter;
+    const members = await adapter.findMany<BetterAuthMember>({
+      model: 'member',
+      where: [{ field: 'userId', value: userId }],
+    });
+    for (const m of members) {
+      await adapter.delete({
+        model: 'member',
+        where: [{ field: 'id', value: m.id }],
+      });
+    }
+
+    const mintToken = await app.request(`/api/v1/orgs/${org.id}/tokens`, {
+      method: 'POST',
+      headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'no-member' }),
+    });
+    expect(mintToken.status).toBe(403);
+
+    const createProjectRes = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'No member' }),
+    });
+    expect(createProjectRes.status).toBe(403);
+
+    const updateTask = await app.request(`/api/v1/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 'Nope' }),
+    });
+    expect(updateTask.status).toBe(403);
+
+    const memberAdd = await app.request(`/api/v1/orgs/${org.id}/members`, {
+      method: 'POST',
+      headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_ref: 'github:1', role: 'editor' }),
+    });
+    expect(memberAdd.status).toBe(403);
+  });
+
+  it('REQ-4.5: owner key (no projectId) reaches two projects in org; cross-org 404s', async () => {
+    const { app, db, auth } = await hostedApp();
+    const orgA = await createOrg(db, { name: 'Reach Org A' });
+    const orgB = await createOrg(db, { name: 'Reach Org B' });
+    const projectA1 = await createProject(db, { name: 'A1', orgId: orgA.id });
+    const projectA2 = await createProject(db, { name: 'A2', orgId: orgA.id });
+    const projectB = await createProject(db, { name: 'B1', orgId: orgB.id });
+
+    const { userId } = await seedBetterAuthUser(auth, {
+      email: 'reach@example.com',
+      name: 'Reach',
+      githubAccountId: '6105',
+      org: { id: orgA.id, name: orgA.name, slug: 'reach-a' },
+      role: 'owner',
+    });
+    const minted = await createOrgOwnerKey({
+      auth,
+      userId,
+      orgId: orgA.id,
+      name: 'org-wide',
+    });
+    expect(minted.metadata.kind).toBe('owner');
+    expect('projectId' in minted.metadata).toBe(false);
+
+    const a1 = await app.request(`/api/v1/projects/${projectA1.id}`, {
+      headers: bearer(minted.key),
+    });
+    expect(a1.status).toBe(200);
+
+    const a2 = await app.request(`/api/v1/projects/${projectA2.id}`, {
+      headers: bearer(minted.key),
+    });
+    expect(a2.status).toBe(200);
+
+    const cross = await app.request(`/api/v1/projects/${projectB.id}`, {
+      headers: bearer(minted.key),
+    });
+    expect(cross.status).toBe(404);
+    expect(await parseJson(cross)).toEqual({ error: 'not_found' });
   });
 });

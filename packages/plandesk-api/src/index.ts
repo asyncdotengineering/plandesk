@@ -58,11 +58,16 @@ export {
 export {
   applyAgentKeyPermissionCeiling,
   createScopedAgentKey,
+  createOrgOwnerKey,
   verifyBetterAuthApiKey,
   DEFAULT_AGENT_KEY_PERMISSIONS,
+  DEFAULT_OWNER_KEY_PERMISSIONS,
   AGENT_FORBIDDEN_RESOURCES,
+  type ApiKeyKind,
   type CreateScopedAgentKeyInput,
   type CreatedScopedAgentKey,
+  type CreateOrgOwnerKeyInput,
+  type CreatedOrgOwnerKey,
   type VerifiedApiKey,
 } from './agent-keys.js';
 export {

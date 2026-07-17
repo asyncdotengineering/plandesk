@@ -43,7 +43,8 @@ export type AuthContext =
       projectId?: string;
       /**
        * Live member role when present (for requireRole ladder call sites).
-       * Effective authority is always `permission` (key ∩ live role − apiKey).
+       * Effective authority is always `permission` (key ∩ live role; agent
+       * profile also strips apiKey — owner profile retains it when live role allows).
        */
       role: OrgRole;
       permission: PermissionSet;

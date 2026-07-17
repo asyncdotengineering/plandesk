@@ -207,20 +207,27 @@ async function resolveMemberRole(
 type ApiKeyMetadata = {
   projectId?: unknown;
   orgId?: unknown;
+  kind?: unknown;
 };
 
+/**
+ * Read better-auth key metadata. Absent/unknown `kind` → `'agent'` (BA4b-1
+ * back-compat: every key minted without kind keeps agent ceiling).
+ */
 function readApiKeyMetadata(metadata: unknown): {
   orgId: string | undefined;
   projectId: string | undefined;
+  kind: 'agent' | 'owner';
 } {
   if (metadata === null || metadata === undefined || typeof metadata !== 'object') {
-    return { orgId: undefined, projectId: undefined };
+    return { orgId: undefined, projectId: undefined, kind: 'agent' };
   }
   const m = metadata as ApiKeyMetadata;
   return {
     orgId: typeof m.orgId === 'string' && m.orgId.length > 0 ? m.orgId : undefined,
     projectId:
       typeof m.projectId === 'string' && m.projectId.length > 0 ? m.projectId : undefined,
+    kind: m.kind === 'owner' ? 'owner' : 'agent',
   };
 }
 
@@ -264,13 +271,17 @@ async function resolveBetterAuthApiKeyContext(
   }
 
   const userId = verified.referenceId;
-  const { orgId, projectId } = readApiKeyMetadata(verified.metadata);
+  const { orgId, projectId, kind } = readApiKeyMetadata(verified.metadata);
   if (orgId === undefined) {
     return 'unauthorized';
   }
 
   const liveRole = await resolveBetterAuthLiveRole(auth, userId, orgId);
-  const permission = applyAgentKeyPermissionCeiling(verified.permissions, liveRole);
+  const permission = applyAgentKeyPermissionCeiling(
+    verified.permissions,
+    liveRole,
+    kind,
+  );
   // role for ladder call sites: live role when present, else viewer (empty ceiling).
   const role: OrgRole = liveRole ?? 'viewer';
 
