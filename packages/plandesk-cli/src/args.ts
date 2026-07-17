@@ -144,6 +144,7 @@ const RESERVED_COMMANDS = new Set([
   'admin',
   'export',
   'import',
+  'legacy-upgrade',
   'connect',
   'disconnect',
   'doctor',
@@ -183,6 +184,7 @@ export type ParsedArgs =
   | { command: 'admin'; subcommand: 'invite-owner'; email: string; dataDir?: string }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
+  | { command: 'legacy-upgrade'; from?: string; dataDir?: string }
   | {
       command: 'connect';
       repoDir?: string;
@@ -391,6 +393,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
     return { command: 'import', inPath, dataDir };
   }
 
+  if (command === 'legacy-upgrade') {
+    return {
+      command: 'legacy-upgrade',
+      from: flagString(flags, 'from'),
+      dataDir,
+    };
+  }
+
   if (command === 'connect') {
     const agentRaw = flagString(flags, 'agent') ?? 'detect';
     const agent =
@@ -532,6 +542,7 @@ Usage:
   plandesk admin invite-owner --email <email> [--data-dir <dir>]  # self-host first owner (no GitHub)
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]
+  plandesk legacy-upgrade [--from <old-workspace.db>] [--data-dir <dir>]   # lift a 0.20.0-era board into the global board
   plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
   plandesk connect --to <orgId> [--project <id|name>] [--repo <dir>] [--print]   # hosted: mint scoped agent key (requires plandesk login)
   plandesk disconnect [--repo <dir>]
@@ -566,6 +577,7 @@ Options:
   --force     (factory init) scaffold even in a global config dir; (factory sync) also overwrite customized files
   --out       Output file for export
   --in        Input file for import
+  --from      (legacy-upgrade) path to an old workspace.db (default: ~/.plandesk/workspace.db or ./.plandesk/workspace.db)
   --to        Hosted org id: connect mints a scoped agent key; push promotes into this org
   --message   (progress-checkpoint) checkpoint text (default: "checkpoint (hook)")
 `;
