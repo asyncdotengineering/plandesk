@@ -46,7 +46,7 @@ export function resolvePermissionSet(deps: OrgScopedDeps): PermissionSet {
     return ctx.permission;
   }
   if (ctx?.kind === 'guest') {
-    return orgRoleToPermissionSet('viewer');
+    return {};
   }
   return orgRoleToPermissionSet('owner');
 }

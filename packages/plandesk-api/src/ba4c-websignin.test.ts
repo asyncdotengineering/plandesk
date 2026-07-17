@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { createBaOrg, getBaOrg, listBaOrgs } from './test-ba-org.js';
+import { createBaOrg, getBaOrg, listBaOrgs } from './test-helpers.js';
 /**
  * BA4c — better-auth web GitHub sign-in + personal org provision.
  *

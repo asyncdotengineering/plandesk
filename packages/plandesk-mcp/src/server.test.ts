@@ -19,12 +19,6 @@ import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { v1ToolNames } from './tools/registry.js';
 import { createMcpApp } from './server.js';
 
-const noopTokenStore = {
-  async verify() {
-    return undefined;
-  },
-};
-
 async function withMcpServer(
   run: (ctx: {
     baseUrl: string;
@@ -41,7 +35,8 @@ async function withMcpServer(
   const token = '';
 
   const services = createServices({ db, orgId: project.orgId });
-  const mcpApp = createMcpApp({ services, tokenStore: noopTokenStore });
+  // Auth comes from parent createApp (loopback owner on 127.0.0.1).
+  const mcpApp = createMcpApp({ services });
   // Default bindHost is loopback (local zero-token). Invalid bearer → 401.
   const app = createApp({ db, services, mcp: mcpApp, bindHost: '127.0.0.1' });
 

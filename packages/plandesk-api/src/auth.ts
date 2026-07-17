@@ -3,10 +3,10 @@ import type { MiddlewareHandler } from 'hono';
 import {
   DEFAULT_ORG_ID,
   hashShareToken,
+  orgRoles,
   verifyGuestSession,
   type Db,
   type OrgRole,
-  type TokenScope,
 } from '@plandesk/db';
 import {
   applyAgentKeyPermissionCeiling,
@@ -27,10 +27,14 @@ const BASIC_USER = 'plandesk';
 const BEARER_PREFIX = 'Bearer ';
 const GITHUB_PROVIDER_ID = 'github';
 
-export type AppVariables = {
-  orgId: string;
-  tokenScope: TokenScope;
-};
+function parseOrgRole(role: string): OrgRole | undefined {
+  for (const candidate of orgRoles) {
+    if (candidate === role) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
 
 type BetterAuthAccountRow = {
   accountId: string;
@@ -89,23 +93,6 @@ export type OrgAuthOptions = {
 };
 
 /**
- * BA2 better-auth ladder roles → plandesk OrgRole for AuthContext + permission sets.
- * member → editor, admin → manager (BA3b permission-set equivalence).
- */
-function betterAuthRoleToOrgRole(role: string): OrgRole | undefined {
-  switch (role) {
-    case 'owner':
-      return 'owner';
-    case 'admin':
-      return 'manager';
-    case 'member':
-      return 'editor';
-    default:
-      return undefined;
-  }
-}
-
-/**
  * Resolve a better-auth session into AuthContext.
  * - null session → undefined (caller falls through to loopback)
  * - session but no org membership → 'unauthorized' (authenticated-but-org-less)
@@ -137,7 +124,7 @@ async function resolveBetterAuthSessionContext(
   if (active === undefined) {
     return 'unauthorized';
   }
-  const role = betterAuthRoleToOrgRole(active.role);
+  const role = parseOrgRole(active.role);
   if (role === undefined) {
     return 'unauthorized';
   }
@@ -220,7 +207,7 @@ async function resolveBetterAuthLiveRole(
   if (active === undefined) {
     return undefined;
   }
-  return betterAuthRoleToOrgRole(active.role);
+  return parseOrgRole(active.role);
 }
 
 /**
@@ -250,15 +237,13 @@ async function resolveBetterAuthApiKeyContext(
     liveRole,
     kind,
   );
-  // role for ladder call sites: live role when present, else viewer (empty ceiling).
-  const role: OrgRole = liveRole ?? 'viewer';
 
   return {
     kind: 'apikey',
     orgId,
     userId,
     ...(projectId !== undefined ? { projectId } : {}),
-    role,
+    role: liveRole,
     permission,
   };
 }
@@ -477,8 +462,8 @@ export function createAuthMiddleware(password: string): MiddlewareHandler {
 }
 
 /**
- * Reject pure read-only callers (viewer / read-only token) on write HTTP methods.
- * Finer roles (commenter vs editor) are enforced in services via requirePermission.
+ * Reject pure read-only callers (empty permission set) on write HTTP methods.
+ * Resource:action checks are enforced in services via requirePermission.
  */
 /** Guest may POST only moderated submissions for their share (BA6b). */
 const SHARE_GUEST_SUBMIT_PATH = /^\/api\/v1\/share\/[^/]+\/submissions$/;

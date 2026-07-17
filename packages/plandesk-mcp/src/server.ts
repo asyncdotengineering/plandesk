@@ -2,9 +2,6 @@ import { Hono } from 'hono';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import {
-  effectivePermission,
-  resolveEffectivePermissionSet,
-  runWithAuthContext,
   tryGetAuthContext,
   type Services,
 } from '@plandesk/api';
@@ -102,24 +99,9 @@ import { createStartAgentRunHandler } from './tools/start-agent-run.js';
 import { createUpdateDocumentHandler } from './tools/update-document.js';
 import { createUpdateTaskHandler } from './tools/update-task.js';
 
-export type TokenStore = {
-  verify(
-    raw: string,
-  ): Promise<{ id: string; name: string; orgId: string; scope: 'read-only' | 'full' } | undefined>;
-};
-
 export type McpAppDeps = {
   services: Services;
-  tokenStore: TokenStore;
 };
-
-function extractBearerToken(header: string | undefined): string | undefined {
-  if (header === undefined) {
-    return undefined;
-  }
-  const match = /^Bearer\s+(.+)$/i.exec(header);
-  return match?.[1]?.trim();
-}
 
 function createMcpServer(services: Services, origin: string): McpServer {
   const server = new McpServer({ name: 'plandesk', version: '1.0.0' });
@@ -623,30 +605,9 @@ export function createMcpApp(deps: McpAppDeps): Hono {
 
   app.use('*', async (c, next) => {
     // Parent createApp org-auth already resolved better-auth apiKey/session or
-    // loopback owner. Prefer that — do not re-auth with legacy mcp_tokens.
+    // loopback owner. MCP never re-auths — no credential → 401.
     if (tryGetAuthContext() !== undefined) {
       await next();
-      return;
-    }
-
-    // Standalone MCP mount (tests): optional TokenStore bearer path.
-    const raw = extractBearerToken(c.req.header('Authorization'));
-    if (raw !== undefined) {
-      const verified = await deps.tokenStore.verify(raw);
-      if (!verified) {
-        return c.json({ error: 'unauthorized' }, 401);
-      }
-      await runWithAuthContext(
-        {
-          kind: 'token',
-          orgId: verified.orgId,
-          role: effectivePermission('owner', verified.scope),
-          permission: resolveEffectivePermissionSet('owner', verified.scope),
-        },
-        async () => {
-          await next();
-        },
-      );
       return;
     }
 

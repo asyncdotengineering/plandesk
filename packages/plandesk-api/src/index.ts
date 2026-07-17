@@ -65,17 +65,11 @@ export {
   type VerifiedApiKey,
 } from './agent-keys.js';
 export {
-  effectivePermission,
-  requireRole,
   requirePermission,
-  hasAtLeast,
   hasPermission,
   hasAnyWritePermission,
   orgRoleToPermissionSet,
-  resolveEffectivePermissionSet,
-  InsufficientPermissionError,
   PermissionDeniedError,
-  ROLE_RANK,
   type PermissionSet,
 } from './permissions.js';
 export { healthRouter } from './routes/health.js';

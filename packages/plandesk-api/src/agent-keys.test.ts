@@ -29,7 +29,7 @@ describe('applyAgentKeyPermissionCeiling', () => {
       member: ['create'],
       apiKey: ['create'],
     };
-    const effective = applyAgentKeyPermissionCeiling(keyPerms, 'editor');
+    const effective = applyAgentKeyPermissionCeiling(keyPerms, 'member');
     expect(hasPermission(effective, 'task', 'update')).toBe(true);
     expect(hasPermission(effective, 'project', 'create')).toBe(false);
     expect(hasPermission(effective, 'member', 'create')).toBe(false);
@@ -65,7 +65,7 @@ describe('applyAgentKeyPermissionCeiling', () => {
 
   it('owner profile still intersects live role (demoted → no apiKey)', () => {
     const keyPerms = DEFAULT_OWNER_KEY_PERMISSIONS;
-    const effective = applyAgentKeyPermissionCeiling(keyPerms, 'editor', 'owner');
+    const effective = applyAgentKeyPermissionCeiling(keyPerms, 'member', 'owner');
     expect(hasPermission(effective, 'task', 'update')).toBe(true);
     expect(hasPermission(effective, 'apiKey', 'create')).toBe(false);
     expect(hasPermission(effective, 'member', 'create')).toBe(false);

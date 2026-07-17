@@ -6,7 +6,7 @@ import { hasAnyWritePermission, type PermissionSet } from './permissions.js';
  * Request-scoped auth. Middleware resolves org + effective permission once,
  * whatever the transport; services read `orgId` and call requirePermission and
  * must never branch on `kind`. Three transports, one identity model:
- * browser session cookie, CLI/agent token, and trusted loopback.
+ * browser session cookie, CLI/agent token (better-auth apiKey), and trusted loopback.
  */
 export type AuthContext =
   | {
@@ -14,17 +14,9 @@ export type AuthContext =
       orgId: string;
       /** Stable identity, e.g. `github:<numeric id>` — never the login. */
       userRef: string;
-      /** Ladder role for display and requireRole. */
+      /** better-auth org role (owner/admin/member) for display. */
       role: OrgRole;
       /** Resolved permission set for resource:action checks. */
-      permission: PermissionSet;
-    }
-  | {
-      kind: 'token';
-      orgId: string;
-      /** Effective ladder role after token scope ceiling. */
-      role: OrgRole;
-      /** Intersected permission set for resource:action checks. */
       permission: PermissionSet;
     }
   | {
@@ -42,11 +34,11 @@ export type AuthContext =
       /** Optional project scope from key metadata; cross-project → 404. */
       projectId?: string;
       /**
-       * Live member role when present (for requireRole ladder call sites).
-       * Effective authority is always `permission` (key ∩ live role; agent
-       * profile also strips apiKey — owner profile retains it when live role allows).
+       * Live member role when present. Effective authority is always
+       * `permission` (key ∩ live role; agent profile also strips apiKey —
+       * owner profile retains it when live role allows).
        */
-      role: OrgRole;
+      role: OrgRole | undefined;
       permission: PermissionSet;
     }
   | {
@@ -98,7 +90,7 @@ export class ReadOnlyTokenError extends Error {
   }
 }
 
-/** Reject pure read-only callers (viewer / read-only token). Guests never write. */
+/** Reject pure read-only callers (empty permission set). Guests never write. */
 export function assertWriteAccess(): void {
   const ctx = getAuthContext();
   if (ctx.kind === 'guest' || !hasAnyWritePermission(ctx.permission)) {

@@ -18,14 +18,7 @@ describe('MCP org tenancy', () => {
     });
 
     const services = createServices({ db });
-    const mcpApp = createMcpApp({
-      services,
-      tokenStore: {
-        async verify() {
-          return undefined;
-        },
-      },
-    });
+    const mcpApp = createMcpApp({ services });
     // Hosted bind: no loopback, stranger bearer → 401.
     const app = createApp({ db, services, mcp: mcpApp, bindHost: '0.0.0.0' });
 

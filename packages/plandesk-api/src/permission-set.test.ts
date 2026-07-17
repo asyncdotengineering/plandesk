@@ -4,7 +4,6 @@ import {
   hasAnyWritePermission,
   hasPermission,
   orgRoleToPermissionSet,
-  resolveEffectivePermissionSet,
 } from './permissions.js';
 
 describe('permission set ladder equivalence', () => {
@@ -15,30 +14,26 @@ describe('permission set ladder equivalence', () => {
     expect(owner.authorize({ member: ['create'] }).success).toBe(true);
   });
 
-  it('maps org ladder roles to the same allow/deny outcomes', () => {
-    const editor = orgRoleToPermissionSet('editor');
-    const manager = orgRoleToPermissionSet('manager');
+  it('maps native org roles to the same allow/deny outcomes', () => {
+    const memberSet = orgRoleToPermissionSet('member');
+    const adminSet = orgRoleToPermissionSet('admin');
     const ownerSet = orgRoleToPermissionSet('owner');
 
-    expect(hasPermission(editor, 'task', 'create')).toBe(true);
-    expect(hasPermission(editor, 'project', 'create')).toBe(false);
-    expect(hasPermission(editor, 'member', 'create')).toBe(false);
+    expect(hasPermission(memberSet, 'task', 'create')).toBe(true);
+    expect(hasPermission(memberSet, 'project', 'create')).toBe(false);
+    expect(hasPermission(memberSet, 'member', 'create')).toBe(false);
 
-    expect(hasPermission(manager, 'project', 'create')).toBe(true);
-    expect(hasPermission(manager, 'member', 'create')).toBe(false);
+    expect(hasPermission(adminSet, 'project', 'create')).toBe(true);
+    expect(hasPermission(adminSet, 'member', 'create')).toBe(false);
 
     expect(hasPermission(ownerSet, 'member', 'create')).toBe(true);
     expect(hasPermission(ownerSet, 'apiKey', 'create')).toBe(true);
   });
 
-  it('viewer and read-only tokens cannot write; commenter can comment only', () => {
-    expect(hasAnyWritePermission(orgRoleToPermissionSet('viewer'))).toBe(false);
-    expect(hasAnyWritePermission(orgRoleToPermissionSet('commenter'))).toBe(true);
-    expect(hasPermission(orgRoleToPermissionSet('commenter'), 'comment', 'create')).toBe(true);
-    expect(hasPermission(orgRoleToPermissionSet('commenter'), 'task', 'update')).toBe(false);
-
-    const ownerReadOnly = resolveEffectivePermissionSet('owner', 'read-only');
-    expect(hasAnyWritePermission(ownerReadOnly)).toBe(false);
-    expect(hasPermission(ownerReadOnly, 'member', 'create')).toBe(false);
+  it('member has content write; empty set cannot write', () => {
+    expect(hasAnyWritePermission(orgRoleToPermissionSet('member'))).toBe(true);
+    expect(hasAnyWritePermission({})).toBe(false);
+    expect(hasPermission(orgRoleToPermissionSet('member'), 'task', 'update')).toBe(true);
+    expect(hasPermission(orgRoleToPermissionSet('member'), 'project', 'create')).toBe(false);
   });
 });

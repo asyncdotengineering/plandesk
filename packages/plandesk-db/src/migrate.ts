@@ -5,13 +5,11 @@ import type { Db } from './client.js';
 
 const migrationsFolder = join(dirname(fileURLToPath(import.meta.url)), '../drizzle');
 
-// Table-rebuild migrations (add a NOT NULL column to a referenced table via
-// the create-copy-drop-rename dance) must run with foreign_keys OFF: DROP TABLE
-// does an implicit row-delete that trips deferred FK counters even when the
-// final state is consistent. `foreign_keys` cannot be toggled inside a
-// transaction, and drizzle's migrator wraps each migration in one — so we must
-// disable it at the connection level around the whole migrate call, then
-// re-verify integrity with foreign_key_check.
+// Drizzle wraps each migration in a transaction; SQLite cannot toggle
+// `foreign_keys` inside a transaction. Disable FK checks at the connection
+// level around the whole migrate call, then re-verify with foreign_key_check.
+// Defensive for any future migration that rebuilds tables or rewrites rows
+// referenced by FKs.
 async function withForeignKeysDisabled(db: Db, fn: () => void | Promise<void>): Promise<void> {
   await db.$client.execute('PRAGMA foreign_keys = OFF');
   try {

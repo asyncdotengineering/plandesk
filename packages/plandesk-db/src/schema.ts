@@ -22,11 +22,8 @@ export type AgentRunStatus = (typeof agentRunStatuses)[number];
 export const commentTargetTypes = ['document', 'task', 'note', 'submission', 'artifact'] as const;
 export type CommentTargetType = (typeof commentTargetTypes)[number];
 
-export const orgRoles = ['owner', 'manager', 'editor', 'commenter', 'viewer'] as const;
+export const orgRoles = ['owner', 'admin', 'member'] as const;
 export type OrgRole = (typeof orgRoles)[number];
-
-export const tokenScopes = ['read-only', 'full'] as const;
-export type TokenScope = (typeof tokenScopes)[number];
 
 /** Stable id for the single local better-auth organization (loopback owner). */
 export const DEFAULT_ORG_ID = '00000000-0000-4000-8000-0000000000a1';
