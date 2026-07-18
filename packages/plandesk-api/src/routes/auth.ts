@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import type { Db } from '@plandesk/db';
+import { listProjects, type Db } from '@plandesk/db';
 import { createOrgOwnerKey } from '../agent-keys.js';
 import { getAuthContext } from '../auth-context.js';
 import type { BetterAuthInstance } from '../better-auth.js';
@@ -65,9 +65,15 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
         activeWorkspace =
           active ?? (workspaces[0] !== undefined ? workspaces[0] : null);
       } else {
-        // Loopback: no session row to carry an active team — default to the
-        // first workspace (the org's default team) so the switcher still renders.
-        activeWorkspace = workspaces[0] !== undefined ? workspaces[0] : null;
+        // Loopback: no session row to carry an active team. Default to the first
+        // workspace that actually HAS projects, so an imported/populated board
+        // (e.g. after legacy-upgrade --into-workspace) opens on its content
+        // instead of an empty default team; fall back to the first workspace.
+        const localProjects = await listProjects(deps.db, ctx.orgId);
+        const populated = new Set(localProjects.map((project) => project.workspaceId));
+        activeWorkspace =
+          workspaces.find((workspace) => populated.has(workspace.id)) ??
+          (workspaces[0] !== undefined ? workspaces[0] : null);
       }
     }
     return c.json({
