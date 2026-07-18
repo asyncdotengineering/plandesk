@@ -47,9 +47,9 @@ function stubFetch(opts: {
     const url = String(input);
     const method = init?.method ?? 'GET';
     if (url.endsWith('/auth/session')) return ok(session);
-    if (url.endsWith('/list-teams') && method === 'GET') return ok(workspaces);
+    if (url.endsWith('/workspaces') && method === 'GET') return ok({ workspaces });
+    if (url.endsWith('/workspaces') && method === 'POST') return ok(created);
     if (url.endsWith('/set-active-team')) return ok({});
-    if (url.endsWith('/create-team')) return ok(created);
     if (url.endsWith('/projects')) return ok([]);
     return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
   });
@@ -146,11 +146,11 @@ describe('Sidebar workspace switcher (REQ-1 / REQ-2)', () => {
     fireEvent.change(nameInput, { target: { value: 'Fresh' } });
     fireEvent.click(screen.getByRole('button', { name: /create workspace/i }));
 
-    // create-team then set-active-team (to the new workspace).
+    // POST /orgs/:id/workspaces then set-active-team (to the new workspace).
     await waitFor(() => {
       const createCall = fetchMock.mock.calls.find(
         ([url, init]) =>
-          String(url).endsWith('/create-team') && (init as RequestInit | undefined)?.method === 'POST',
+          String(url).endsWith('/workspaces') && (init as RequestInit | undefined)?.method === 'POST',
       );
       expect(createCall).toBeTruthy();
       expect(createCall?.[1]).toEqual(

@@ -814,29 +814,48 @@ async function postTeamEndpoint(path: string, body: unknown): Promise<Response> 
   return response;
 }
 
-/** Persist the browser's active workspace (better-auth team) on the session. */
+/** The active org id from the session (works for loopback + hosted). */
+async function activeOrgId(): Promise<string | undefined> {
+  const session = await request<{ org: { id: string } | null }>('/auth/session');
+  return session.org?.id ?? undefined;
+}
+
+/**
+ * Persist the browser's active workspace. better-auth's set-active-team needs a
+ * real session; a LOCAL loopback caller has none, so a 401 there is expected and
+ * harmless (loopback's active workspace is resolved server-side). Swallow it.
+ */
 export async function setActiveWorkspace(teamId: string): Promise<void> {
-  await postTeamEndpoint('set-active-team', { teamId });
-}
-
-/** List the active org's workspaces (better-auth teams). */
-export async function listWorkspaces(): Promise<Workspace[]> {
-  const response = await fetch('/api/auth/organization/list-teams', {
-    method: 'GET',
-    credentials: 'include',
-  });
-  if (!response.ok) {
-    throw new ApiError(response.status, await response.text());
+  try {
+    await postTeamEndpoint('set-active-team', { teamId });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) return;
+    throw error;
   }
-  const teams = (await response.json()) as Array<{ id: string; name: string }>;
-  return teams.map((team) => ({ id: team.id, name: team.name }));
 }
 
-/** Create a workspace (better-auth team) in the active org. */
+/**
+ * List the active org's workspaces via the plandesk REST endpoint, which handles
+ * loopback owner + session + owner keys (better-auth list-teams is session-only
+ * and 401s on a local loopback board).
+ */
+export async function listWorkspaces(): Promise<Workspace[]> {
+  const orgId = await activeOrgId();
+  if (orgId === undefined) return [];
+  const body = await request<{ workspaces: Workspace[] }>(
+    `/orgs/${encodeURIComponent(orgId)}/workspaces`,
+  );
+  return body.workspaces;
+}
+
+/** Create a workspace in the active org via the plandesk REST endpoint (loopback-ok). */
 export async function createWorkspace(name: string): Promise<Workspace> {
-  const response = await postTeamEndpoint('create-team', { name });
-  const team = (await response.json()) as { id: string; name: string };
-  return { id: team.id, name: team.name };
+  const orgId = await activeOrgId();
+  if (orgId === undefined) throw new ApiError(400, 'No active organization');
+  return request<Workspace>(`/orgs/${encodeURIComponent(orgId)}/workspaces`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
 }
 
 /** Rename a workspace (better-auth team). */

@@ -39,8 +39,8 @@ describe('Workspaces — share with client (REQ-6)', () => {
       if (url.includes('/auth/session')) {
         return { ok: true, status: 200, json: async () => ownerSession };
       }
-      if (url.includes('/api/auth/organization/list-teams')) {
-        return { ok: true, status: 200, json: async () => ownerSession.workspaces };
+      if (url.endsWith('/workspaces')) {
+        return { ok: true, status: 200, json: async () => ({ workspaces: ownerSession.workspaces }) };
       }
       if (url.includes('/api/v1/workspaces/team-1/share') && init?.method === 'POST') {
         return {

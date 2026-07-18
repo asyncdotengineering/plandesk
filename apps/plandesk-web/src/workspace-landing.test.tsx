@@ -35,9 +35,13 @@ function renderLanding(
       if (url.endsWith('/auth/session')) {
         return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(session) });
       }
-      // Workspaces (better-auth team list) vs. projects — answer each by URL.
-      if (url.endsWith('/api/auth/organization/list-teams')) {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(workspaces) });
+      // Workspaces (plandesk REST /orgs/:id/workspaces) vs. projects — answer each by URL.
+      if (url.endsWith('/workspaces')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ workspaces }),
+        });
       }
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(projects) });
     }),
