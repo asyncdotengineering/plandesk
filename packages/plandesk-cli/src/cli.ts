@@ -68,6 +68,8 @@ import {
   WorkspaceNotFoundError,
 } from './workspace.js';
 import {
+  backfillDefaultTeams,
+  backfillProjectWorkspaces,
   createBetterAuth,
   InvalidShareError,
   runBetterAuthMigrations,
@@ -373,7 +375,18 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         });
         if (auth === undefined) throw new Error('Better-auth migrator secret was not created');
         await runBetterAuthMigrations(auth);
-        process.stdout.write(`Applied migrations to ${dbUrl}\n`);
+        // Backfill the workspace tier so existing orgs/projects land in a real
+        // team (a default 'General' team per org; every project's workspace_id
+        // set to it). Idempotent — mirrors init/serve. Without this an upgraded
+        // hosted board has projects pointing at a non-existent workspace.
+        const teamsBackfill = await backfillDefaultTeams(auth);
+        const projectsBackfill = await backfillProjectWorkspaces(db, auth);
+        process.stdout.write(
+          `Applied migrations to ${dbUrl}\n` +
+            `Backfilled ${String(teamsBackfill.teamsCreated)} default team(s) across ` +
+            `${String(teamsBackfill.orgsProcessed)} org(s); set workspace_id on ` +
+            `${String(projectsBackfill.projectsUpdated)} project(s).\n`,
+        );
         return 0;
       } catch (err) {
         if (err instanceof ConfigFileError) {
