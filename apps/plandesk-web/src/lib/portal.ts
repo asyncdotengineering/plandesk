@@ -22,6 +22,19 @@ export type ClientView = {
   };
 };
 
+export type WorkspaceClientView = {
+  kind: 'workspace';
+  workspace: { id: string; name: string };
+  projects: Array<{ id: string; name: string; view: ClientView }>;
+  share: {
+    audience_name: string;
+    permissions: { read: boolean; submit: boolean };
+    expires_at: string | null;
+  };
+};
+
+export type AnyClientView = ClientView | WorkspaceClientView;
+
 export type JoinShareResult = {
   session_token: string;
   participant: { id: string; name: string };
@@ -31,7 +44,7 @@ export type JoinShareResult = {
   };
 };
 
-type PortalViewResponse = ClientView & {
+type PortalViewResponse = (ClientView | WorkspaceClientView) & {
   audience_name?: string;
   permissions?: { read: boolean; submit: boolean };
 };
@@ -130,7 +143,15 @@ export function clearPortalSession(shareToken: string): void {
   window.localStorage.removeItem(portalSessionKey(shareToken));
 }
 
-function normalizePortalResponse(raw: PortalViewResponse): ClientView {
+function normalizePortalResponse(raw: PortalViewResponse): AnyClientView {
+  if ('kind' in raw && raw.kind === 'workspace') {
+    return {
+      kind: 'workspace',
+      workspace: raw.workspace,
+      projects: raw.projects,
+      share: raw.share,
+    };
+  }
   const audienceName = raw.audience_name ?? raw.share.audience_name;
   const permissions = raw.permissions ?? raw.share.permissions;
 
@@ -207,7 +228,7 @@ export async function joinShare(
 export async function fetchClientView(
   shareToken: string,
   sessionToken: string,
-): Promise<ClientView> {
+): Promise<AnyClientView> {
   // View is guest-session-gated: join mints the token; without it the API 401s.
   const response = await fetch(
     `${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/view`,
@@ -235,7 +256,7 @@ export async function fetchClientView(
 export async function submitIssue(
   shareToken: string,
   sessionToken: string,
-  input: { title: string; body?: string; severity?: string; task_ref?: string },
+  input: { title: string; body?: string; severity?: string; task_ref?: string; project_id?: string },
 ): Promise<PortalSubmission> {
   const response = await fetch(
     `${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/submissions`,
@@ -265,6 +286,9 @@ export async function submitIssue(
     const body = (await response.json()) as { error?: string };
     if (body.error === 'title_required') {
       throw new PortalSubmitFieldError('Title is required.');
+    }
+    if (body.error === 'project_required') {
+      throw new PortalSubmitFieldError('Please choose a project for this issue.');
     }
     throw new PortalSubmitFieldError('Unable to submit. Please check your details and try again.');
   }

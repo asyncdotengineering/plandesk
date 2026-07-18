@@ -383,7 +383,8 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
       const ctx: AuthContext = {
         kind: 'guest',
         shareId: guest.shareId,
-        projectId: guest.projectId,
+        ...(guest.projectId !== null ? { projectId: guest.projectId } : {}),
+        ...(guest.workspaceId !== null ? { workspaceId: guest.workspaceId } : {}),
         guestSessionId: guest.id,
       };
       await runWithAuthContext(ctx, async () => {

@@ -83,6 +83,18 @@ export async function listProjects(
   return query.all();
 }
 
+/**
+ * List every project in a workspace. A workspace_id is a better-auth team id
+ * (globally unique), so filtering by it alone cannot cross org boundaries —
+ * the result is exactly one workspace's projects in one org.
+ */
+export async function listProjectsByWorkspace(
+  db: DbClient,
+  workspaceId: string,
+): Promise<Project[]> {
+  return db.select().from(projects).where(eq(projects.workspaceId, workspaceId)).all();
+}
+
 export async function deleteProject(db: DbClient, id: string): Promise<boolean> {
   const result = await db.delete(projects).where(eq(projects.id, id)).run();
   return result.rowsAffected > 0;

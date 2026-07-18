@@ -6,6 +6,7 @@ import {
   getDocument,
   getGuestSessionById,
   getProject,
+  getProjectInOrg,
   getShare as dbGetShare,
   getShareByTokenHashRaw,
   getTask,
@@ -22,7 +23,15 @@ import {
   type SharePermissions,
 } from '@plandesk/db';
 import { getAuthContext } from '../auth-context.js';
-import { buildClientView, type ClientView, type SharePolicy } from '../projection.js';
+import type { BetterAuthInstance } from '../better-auth.js';
+import { getTeamInOrg } from '../identity.js';
+import {
+  buildClientView,
+  buildWorkspaceClientView,
+  type ClientView,
+  type SharePolicy,
+  type WorkspaceClientView,
+} from '../projection.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
@@ -38,11 +47,14 @@ export class InvalidShareError extends Error {
 
 export type ShareServiceDeps = OrgScopedDeps & {
   db: Db;
+  /** better-auth instance for workspace (team) validation on workspace shares. */
+  auth?: BetterAuthInstance;
 };
 
 export type SerializedShare = {
   id: string;
-  project_id: string;
+  project_id: string | null;
+  workspace_id: string | null;
   audience_name: string;
   mode: ShareMode;
   permissions: SharePermissions;
@@ -59,6 +71,7 @@ export function serializeShare(share: Share): SerializedShare {
   return {
     id: share.id,
     project_id: share.projectId,
+    workspace_id: share.workspaceId,
     audience_name: share.audienceName,
     mode: share.mode,
     permissions: parseSharePermissions(share),
@@ -76,6 +89,21 @@ export type CreateShareInput = {
   policy?: SharePolicy;
   invitedEmails?: string[];
   expiresAt?: Date;
+};
+
+export type CreateWorkspaceShareInput = {
+  audienceName: string;
+  mode: ShareMode;
+  permissions?: SharePermissions;
+  policy?: SharePolicy;
+  invitedEmails?: string[];
+  expiresAt?: Date;
+};
+
+export type WorkspaceShareResult = {
+  share: SerializedShare;
+  token: string;
+  url: string;
 };
 
 const RESOURCE_SHARE_DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -135,6 +163,8 @@ export type SubmitIssueInput = {
   body?: string;
   severity?: string;
   task_ref?: string;
+  /** Target project for a workspace share (ignored for project shares). */
+  project_id?: string;
 };
 
 export type SubmitIssueResult =
@@ -142,6 +172,7 @@ export type SubmitIssueResult =
   | { status: 'unauthorized' }
   | { status: 'submit_not_permitted' }
   | { status: 'title_required' }
+  | { status: 'project_required' }
   | { status: 'rate_limited' };
 
 export type ListMySubmissionsResult =
@@ -178,6 +209,22 @@ function isShareLive(share: Share, now: Date = new Date()): boolean {
     return false;
   }
   return true;
+}
+
+// Does this share belong to this guest's scope? Share id must match, and the
+// scoping column (projectId for a project share, workspaceId for a workspace
+// share) must match the guest context. Fail-closed on any mismatch.
+function shareMatchesGuest(
+  share: Share,
+  auth: { shareId: string; projectId?: string; workspaceId?: string },
+): boolean {
+  if (share.id !== auth.shareId) {
+    return false;
+  }
+  if (share.workspaceId !== null) {
+    return auth.workspaceId === share.workspaceId;
+  }
+  return share.projectId === auth.projectId;
 }
 
 // The rich-text editor stores document/comment bodies as HTML; this is a
@@ -363,6 +410,45 @@ export function createShareService(deps: ShareServiceDeps) {
       return { share: serializeShare(share), token };
     },
 
+    // Share an entire workspace: the portal then shows every project in it.
+    // Validates the workspace (team) belongs to the caller's org via getTeamInOrg;
+    // fail-closed (undefined → 404) when the workspace is unknown or cross-org,
+    // or when better-auth is not configured (workspace shares need team lookup).
+    async createWorkspaceShare(
+      workspaceId: string,
+      input: CreateWorkspaceShareInput,
+      origin: string,
+    ): Promise<WorkspaceShareResult | undefined> {
+      assertPermission(deps, 'document', 'create');
+      if (deps.auth === undefined) {
+        return undefined;
+      }
+      const team = await getTeamInOrg(deps.auth, workspaceId, resolveOrgId(deps));
+      if (team === undefined) {
+        return undefined;
+      }
+
+      if (input.audienceName.trim() === '') {
+        throw new InvalidShareError('Share audience name must not be empty');
+      }
+
+      const { share, token } = await dbCreateShare(db, {
+        workspaceId: team.id,
+        audienceName: input.audienceName,
+        mode: input.mode,
+        permissions: input.permissions ?? DEFAULT_PERMISSIONS,
+        policy: input.policy ?? DEFAULT_POLICY,
+        invitedEmails: input.invitedEmails,
+        expiresAt: input.expiresAt,
+      });
+
+      return {
+        share: serializeShare(share),
+        token,
+        url: `${origin}/p/${token}`,
+      };
+    },
+
     async listShares(projectId: string): Promise<SerializedShare[] | undefined> {
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
@@ -381,8 +467,20 @@ export function createShareService(deps: ShareServiceDeps) {
       if (!existing) {
         return false;
       }
+      // Workspace share: validate the workspace is in the caller's org (or
+      // fail-closed when better-auth is unavailable to confirm it).
+      if (existing.workspaceId !== null) {
+        if (deps.auth === undefined) {
+          return false;
+        }
+        const team = await getTeamInOrg(deps.auth, existing.workspaceId, resolveOrgId(deps));
+        if (team === undefined) {
+          return false;
+        }
+        return (await dbRevokeShare(db, id)) !== undefined;
+      }
       try {
-        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+        await assertProjectInOrg(db, existing.projectId!, resolveOrgId(deps));
       } catch (error) {
         if (error instanceof ProjectNotInOrgError) {
           return false;
@@ -467,6 +565,11 @@ export function createShareService(deps: ShareServiceDeps) {
         return { status: 'gone' };
       }
 
+      // Workspace shares have no single-project agent markdown link.
+      if (share.projectId === null) {
+        return { status: 'not_found' };
+      }
+
       const view = await buildClientView(db, share.projectId, share);
       if (!view) {
         return { status: 'not_found' };
@@ -503,7 +606,11 @@ export function createShareService(deps: ShareServiceDeps) {
 
       const { guest, token: sessionToken } = await createGuestSession(db, {
         shareId: share.id,
-        projectId: share.projectId,
+        // Bind the guest to the share's scope: a workspace share binds by
+        // workspaceId (projectId null); a project share binds by projectId.
+        ...(share.workspaceId !== null
+          ? { workspaceId: share.workspaceId }
+          : { projectId: share.projectId! }),
         name,
         email: input.email?.trim() || undefined,
       });
@@ -522,8 +629,11 @@ export function createShareService(deps: ShareServiceDeps) {
     // Guest-gated portal view: middleware has already verified the guest session
     // matches this share token. The view is COMPUTED live (not a snapshot). Every
     // failure shape collapses to undefined → uniform 404. Guest context has no
-    // orgId; buildClientView reads only this one project.
-    async getClientView(token: string): Promise<ClientView | undefined> {
+    // orgId; the projection reads only the share's scope (one project OR one
+    // workspace's project set).
+    async getClientView(
+      token: string,
+    ): Promise<ClientView | WorkspaceClientView | undefined> {
       const auth = getAuthContext();
       if (auth.kind !== 'guest') {
         return undefined;
@@ -533,11 +643,21 @@ export function createShareService(deps: ShareServiceDeps) {
       if (!share || !isShareLive(share)) {
         return undefined;
       }
-      if (share.id !== auth.shareId || share.projectId !== auth.projectId) {
+      if (share.id !== auth.shareId) {
         return undefined;
       }
 
-      return buildClientView(db, share.projectId, share);
+      if (share.workspaceId !== null) {
+        if (auth.workspaceId !== share.workspaceId) {
+          return undefined;
+        }
+        return buildWorkspaceClientView(db, share.workspaceId, share);
+      }
+
+      if (share.projectId !== auth.projectId) {
+        return undefined;
+      }
+      return buildClientView(db, share.projectId!, share);
     },
 
     // Guest moderated inbox: write a pending share_submissions row the owner
@@ -552,8 +672,33 @@ export function createShareService(deps: ShareServiceDeps) {
       if (!share || !isShareLive(share)) {
         return { status: 'unauthorized' };
       }
-      if (share.id !== auth.shareId || share.projectId !== auth.projectId) {
+      if (share.id !== auth.shareId) {
         return { status: 'unauthorized' };
+      }
+
+      // Resolve the target project this submission lands against, and enforce
+      // the guest's scope. A project share is bound to share.projectId; a
+      // workspace share requires an explicit project_id AND that the project
+      // belongs to the shared workspace (fail-closed otherwise).
+      let targetProjectId: string;
+      if (share.workspaceId !== null) {
+        if (auth.workspaceId !== share.workspaceId) {
+          return { status: 'unauthorized' };
+        }
+        const requestedProjectId = input.project_id?.trim();
+        if (requestedProjectId === undefined || requestedProjectId === '') {
+          return { status: 'project_required' };
+        }
+        const project = await getProject(db, requestedProjectId);
+        if (project === undefined || project.workspaceId !== share.workspaceId) {
+          return { status: 'unauthorized' };
+        }
+        targetProjectId = project.id;
+      } else {
+        if (share.projectId !== auth.projectId) {
+          return { status: 'unauthorized' };
+        }
+        targetProjectId = share.projectId!;
       }
 
       const permissions = parseSharePermissions(share);
@@ -585,7 +730,7 @@ export function createShareService(deps: ShareServiceDeps) {
       const taskRef = input.task_ref?.trim() === '' ? null : (input.task_ref?.trim() ?? null);
 
       const row = await createGuestSubmission(db, {
-        projectId: share.projectId,
+        projectId: targetProjectId,
         hostedShareId: share.id,
         participantName: guest.name,
         title,
@@ -616,7 +761,7 @@ export function createShareService(deps: ShareServiceDeps) {
       if (!share || !isShareLive(share)) {
         return { status: 'unauthorized' };
       }
-      if (share.id !== auth.shareId || share.projectId !== auth.projectId) {
+      if (!shareMatchesGuest(share, auth)) {
         return { status: 'unauthorized' };
       }
 

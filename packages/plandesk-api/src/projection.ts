@@ -2,6 +2,7 @@ import {
   getProject,
   listDocuments,
   listEdges,
+  listProjectsByWorkspace,
   listTasks,
   parseSharePermissions,
   parseSharePolicy,
@@ -38,6 +39,19 @@ export type ClientView = {
     expires_at: string | null;
   };
 };
+
+export type WorkspaceClientView = {
+  kind: 'workspace';
+  workspace: { id: string; name: string };
+  projects: Array<{ id: string; name: string; view: ClientView }>;
+  share: {
+    audience_name: string;
+    permissions: { read: boolean; submit: boolean };
+    expires_at: string | null;
+  };
+};
+
+export type AnyClientView = ClientView | WorkspaceClientView;
 
 function buildProgress(tasks: ClientViewTask[]): Record<string, number> {
   const progress: Record<string, number> = {};
@@ -119,6 +133,42 @@ export async function buildClientView(
     edges: sharedEdges,
     documents: sharedDocuments,
     progress: buildProgress(sharedTasks),
+    share: {
+      audience_name: share.audienceName,
+      permissions,
+      expires_at: share.expiresAt?.toISOString() ?? null,
+    },
+  };
+}
+
+/**
+ * Workspace projection: the existing per-project ClientView for every project in
+ * the shared workspace. Reuses buildClientView per project (no reimplementation).
+ * The workspace name is unknown to the projects table — the caller may pass it;
+ * otherwise the workspace id stands in (the share was validated at creation).
+ */
+export async function buildWorkspaceClientView(
+  db: Db,
+  workspaceId: string,
+  share: Share,
+  workspaceName?: string,
+): Promise<WorkspaceClientView | undefined> {
+  const workspaceProjects = await listProjectsByWorkspace(db, workspaceId);
+  const permissions = parseSharePermissions(share);
+
+  const projects: WorkspaceClientView['projects'] = [];
+  for (const project of workspaceProjects) {
+    const view = await buildClientView(db, project.id, share);
+    if (view === undefined) {
+      continue;
+    }
+    projects.push({ id: project.id, name: project.name, view });
+  }
+
+  return {
+    kind: 'workspace',
+    workspace: { id: workspaceId, name: workspaceName ?? workspaceId },
+    projects,
     share: {
       audience_name: share.audienceName,
       permissions,

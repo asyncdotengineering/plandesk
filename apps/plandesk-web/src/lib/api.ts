@@ -316,6 +316,29 @@ export function createDocumentShare(id: string, expires: ShareTtl): Promise<Shar
   return request(`/documents/${id}/share`, { method: 'POST', body: JSON.stringify({ expires }) });
 }
 
+export type WorkspaceShareInput = {
+  audience_name: string;
+  mode?: 'invite' | 'public';
+  submit?: boolean;
+  invited_emails?: string[];
+};
+
+export type WorkspaceShareResult = {
+  url: string;
+  token: string;
+};
+
+/** Share an entire workspace (all its projects) with a client via the portal. */
+export function createWorkspaceShare(
+  workspaceId: string,
+  input: WorkspaceShareInput,
+): Promise<WorkspaceShareResult> {
+  return request(`/workspaces/${workspaceId}/share`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 export function listTags(projectId: string): Promise<SerializedTag[]> {
   return request(`/projects/${projectId}/tags`);
 }

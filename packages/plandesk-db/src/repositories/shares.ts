@@ -17,7 +17,10 @@ export type SharePolicy = {
 };
 
 export type CreateShareInput = {
-  projectId: string;
+  // Exactly one of projectId / workspaceId is set: a project share carries
+  // projectId; a workspace share carries workspaceId with projectId null.
+  projectId?: string;
+  workspaceId?: string;
   audienceName: string;
   mode?: ShareMode;
   permissions: SharePermissions;
@@ -49,7 +52,8 @@ export async function createShare(db: DbClient, input: CreateShareInput): Promis
     .insert(shares)
     .values({
       id,
-      projectId: input.projectId,
+      projectId: input.projectId ?? null,
+      workspaceId: input.workspaceId ?? null,
       audienceName: input.audienceName,
       mode: input.mode ?? 'invite',
       tokenHash,

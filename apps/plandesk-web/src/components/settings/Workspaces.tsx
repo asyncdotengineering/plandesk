@@ -11,6 +11,7 @@ import {
   useDeleteWorkspace,
   useRenameWorkspace,
 } from '../../lib/queries.js';
+import { WorkspaceShareButton } from './WorkspaceShareButton.js';
 
 type Editing = { id: string; name: string } | null;
 
@@ -152,6 +153,10 @@ export function Workspaces() {
                           </div>
                           {isOwner ? (
                             <div className="flex items-center gap-1">
+                              <WorkspaceShareButton
+                                workspaceId={workspace.id}
+                                workspaceName={workspace.name}
+                              />
                               <Button
                                 variant="ghost"
                                 size="sm"

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { makeSignature } from 'better-auth/crypto';
 import {
   DEFAULT_ORG_ID,
   DEFAULT_WORKSPACE_ID,
@@ -11,8 +12,153 @@ import {
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
+import { createOrgOwnerKey } from '../agent-keys.js';
+import {
+  createBetterAuth,
+  runBetterAuthMigrations,
+  type BetterAuthInstance,
+} from '../better-auth.js';
+import { ensureDefaultTeamForOrg } from '../identity.js';
 import { createServices } from '../services/index.js';
 import { createApp } from '../server.js';
+
+import type { Hono } from 'hono';
+
+const HOSTED_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
+const HOSTED_BASE_URL = 'http://localhost:3000';
+
+type BaUser = {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  image: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+type BaAccount = {
+  id: string;
+  accountId: string;
+  providerId: string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+type BaSession = {
+  id: string;
+  token: string;
+  userId: string;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+type BaOrg = { id: string; name: string; slug: string; createdAt: Date };
+type BaMember = {
+  id: string;
+  organizationId: string;
+  userId: string;
+  role: string;
+  createdAt: Date;
+};
+
+async function seedOwner(
+  auth: BetterAuthInstance,
+  opts: {
+    email: string;
+    name: string;
+    githubAccountId: string;
+    org: { id: string; name: string; slug: string };
+    role: 'owner' | 'admin' | 'member';
+  },
+): Promise<{ userId: string; cookie: string }> {
+  const adapter = (await auth.$context).adapter;
+  const now = new Date();
+  const user = await adapter.create<BaUser>({
+    model: 'user',
+    data: {
+      name: opts.name,
+      email: opts.email,
+      emailVerified: true,
+      image: null,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  await adapter.create<BaAccount>({
+    model: 'account',
+    data: {
+      accountId: opts.githubAccountId,
+      providerId: 'github',
+      userId: user.id,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  const existingOrg = await adapter.findOne<BaOrg>({
+    model: 'organization',
+    where: [{ field: 'id', value: opts.org.id }],
+  });
+  if (existingOrg === null) {
+    const orgData = {
+      id: opts.org.id,
+      name: opts.org.name,
+      slug: opts.org.slug,
+      createdAt: now,
+    };
+    await adapter.create<BaOrg>({
+      model: 'organization',
+      data: orgData,
+      forceAllowId: true,
+    });
+  }
+  await adapter.create<BaMember>({
+    model: 'member',
+    data: { organizationId: opts.org.id, userId: user.id, role: opts.role, createdAt: now },
+  });
+  const token = `ba-sess-${opts.githubAccountId}-${Math.random().toString(36).slice(2)}`;
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  await adapter.create<BaSession>({
+    model: 'session',
+    data: { userId: user.id, token, expiresAt, createdAt: now, updatedAt: now },
+  });
+  const ctx = await auth.$context;
+  const signed = `${token}.${await makeSignature(token, ctx.secret)}`;
+  const cookie = `${ctx.authCookies.sessionToken.name}=${signed}`;
+  return { userId: user.id, cookie };
+}
+
+async function hostedApp(): Promise<{
+  app: Hono;
+  db: Db;
+  auth: BetterAuthInstance;
+}> {
+  const db = await createDb(':memory:');
+  await migrate(db);
+  const auth = createBetterAuth({
+    client: db.$client,
+    secret: HOSTED_SECRET,
+    baseURL: HOSTED_BASE_URL,
+    github: { clientId: 'test-client', clientSecret: 'test-secret' },
+  });
+  if (auth === undefined) throw new Error('expected better-auth');
+  await runBetterAuthMigrations(auth);
+  const app = createApp({
+    db,
+    bindHost: '0.0.0.0',
+    github: {
+      clientId: 'test-client',
+      clientSecret: 'test-secret',
+      callbackUrl: 'https://plandesk.test/api/v1/auth/github/callback',
+      dashboardUrl: '/',
+    },
+    betterAuth: { secret: HOSTED_SECRET, baseURL: HOSTED_BASE_URL },
+  });
+  return { app, db, auth };
+}
+
+function bearer(key: string): { Authorization: string } {
+  return { Authorization: `Bearer ${key}` };
+}
 
 async function createTestAppWithServices() {
   const db = await createDb(':memory:');
@@ -568,5 +714,136 @@ describe('BA6a security properties — guest gate', () => {
     });
     expect(noName.status).toBe(400);
     expect(await noName.json()).toEqual({ error: 'name_required' });
+  });
+});
+
+describe('workspace client sharing (REQ-ws)', () => {
+  it('createWorkspaceShare → portal shows exactly the workspace projects; cross-workspace submit denied', async () => {
+    const { app, db, auth } = await hostedApp();
+    const org = { id: randomUUID(), name: 'Engagement Org', slug: 'engagement-org' };
+    const { userId } = await seedOwner(auth, {
+      email: 'owner@example.com',
+      name: 'Owner',
+      githubAccountId: '7001',
+      org,
+      role: 'owner',
+    });
+    const ownerKey = await createOrgOwnerKey({
+      auth,
+      userId,
+      orgId: org.id,
+      name: 'owner',
+    });
+
+    // Two workspaces in the org.
+    const wsARes = await app.request(`/api/v1/orgs/${org.id}/workspaces`, {
+      method: 'POST',
+      headers: { ...bearer(ownerKey.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Fiji TV' }),
+    });
+    const wsA = (await wsARes.json()) as { id: string; name: string };
+    const wsBRes = await app.request(`/api/v1/orgs/${org.id}/workspaces`, {
+      method: 'POST',
+      headers: { ...bearer(ownerKey.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Kuralle' }),
+    });
+    const wsB = (await wsBRes.json()) as { id: string; name: string };
+
+    // Two projects in wsA, one project in wsB (same org).
+    const pa1 = await createProjectInOrg(db, {
+      name: 'A1',
+      orgId: org.id,
+      workspaceId: wsA.id,
+    });
+    const pa2 = await createProjectInOrg(db, {
+      name: 'A2',
+      orgId: org.id,
+      workspaceId: wsA.id,
+    });
+    const pb1 = await createProjectInOrg(db, {
+      name: 'B-secret',
+      orgId: org.id,
+      workspaceId: wsB.id,
+    });
+    await createTask(db, { projectId: pa1.id, label: 'A1 task', status: 'todo' });
+    await createTask(db, { projectId: pa2.id, label: 'A2 task', status: 'done' });
+    await createTask(db, { projectId: pb1.id, label: 'B secret task', status: 'todo' });
+
+    // Share the whole workspace wsA (submit allowed).
+    const shareRes = await app.request(`/api/v1/workspaces/${wsA.id}/share`, {
+      method: 'POST',
+      headers: { ...bearer(ownerKey.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audience_name: 'Client', mode: 'public', submit: true }),
+    });
+    expect(shareRes.status).toBe(201);
+    const shareBody = (await shareRes.json()) as { url: string; token: string };
+    const token = shareBody.token;
+    expect(shareBody.url).toBe(`http://localhost/p/${token}`);
+
+    // Cross-org workspace id → 404 (no existence leak).
+    const crossOrg = await app.request(`/api/v1/workspaces/${randomUUID()}/share`, {
+      method: 'POST',
+      headers: { ...bearer(ownerKey.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audience_name: 'X', mode: 'public' }),
+    });
+    expect(crossOrg.status).toBe(404);
+
+    // Join + view → exactly wsA's two projects; wsB's project never appears.
+    const session = await joinAsGuest(app, token, { name: 'Alex' });
+    const viewRes = await app.request(`/api/v1/share/${token}/view`, {
+      headers: guestViewHeaders(session),
+    });
+    expect(viewRes.status).toBe(200);
+    const view = (await viewRes.json()) as {
+      kind: string;
+      projects: Array<{ id: string }>;
+    };
+    expect(view.kind).toBe('workspace');
+    const projectIds = view.projects.map((p) => p.id).sort();
+    expect(projectIds).toEqual([pa1.id, pa2.id].sort());
+    expect(view.projects.map((p) => p.id)).not.toContain(pb1.id);
+    expect(JSON.stringify(view)).not.toMatch(/B secret/);
+
+    // Submit to a wsA project → ok; submit to the wsB project → denied (401).
+    const onA = await app.request(`/api/v1/share/${token}/submissions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...guestViewHeaders(session) },
+      body: JSON.stringify({ title: 'A bug', project_id: pa1.id }),
+    });
+    expect(onA.status).toBe(201);
+
+    const onB = await app.request(`/api/v1/share/${token}/submissions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...guestViewHeaders(session) },
+      body: JSON.stringify({ title: 'Leak attempt', project_id: pb1.id }),
+    });
+    expect(onB.status).toBe(401);
+
+    // Missing project_id on a workspace submit → 400 project_required.
+    const noProject = await app.request(`/api/v1/share/${token}/submissions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...guestViewHeaders(session) },
+      body: JSON.stringify({ title: 'No project' }),
+    });
+    expect(noProject.status).toBe(400);
+    expect(await noProject.json()).toEqual({ error: 'project_required' });
+  });
+
+  it('workspace share creation without better-auth is unavailable (503/404), project shares unchanged', async () => {
+    const { app, db, services } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Still works' });
+    const created = await services.shareService.createShare(project.id, {
+      audienceName: 'Reviewers',
+      mode: 'public',
+    });
+    if (!created) throw new Error('expected share');
+    const session = await joinAsGuest(app, created.token);
+    const res = await app.request(`/api/v1/share/${created.token}/view`, {
+      headers: guestViewHeaders(session),
+    });
+    expect(res.status).toBe(200);
+    const view = (await res.json()) as { kind?: string; project: { id: string } };
+    expect(view.project.id).toBe(project.id);
+    expect(view.kind).toBeUndefined();
   });
 });

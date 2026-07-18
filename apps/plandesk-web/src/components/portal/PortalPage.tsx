@@ -15,6 +15,8 @@ type PortalPageProps = {
   view: ClientView;
   shareToken: string;
   sessionToken: string;
+  /** Target project id for a workspace share; omitted for a project share. */
+  projectId?: string;
   onUnauthorized: () => void;
 };
 
@@ -30,7 +32,7 @@ function progressChipStyle(status: string): { backgroundColor: string; color: st
   return { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' };
 }
 
-export function PortalPage({ view, shareToken, sessionToken, onUnauthorized }: PortalPageProps) {
+export function PortalPage({ view, shareToken, sessionToken, projectId, onUnauthorized }: PortalPageProps) {
   const queryClient = useQueryClient();
   const caps = capabilitiesFromShare(view.share.permissions);
   const canSubmit = caps.includes('submit');
@@ -144,6 +146,7 @@ export function PortalPage({ view, shareToken, sessionToken, onUnauthorized }: P
             shareToken={shareToken}
             sessionToken={sessionToken}
             tasks={view.tasks}
+            {...(projectId !== undefined ? { projectId } : {})}
             onSubmitted={handleSubmitted}
             onUnauthorized={onUnauthorized}
           />

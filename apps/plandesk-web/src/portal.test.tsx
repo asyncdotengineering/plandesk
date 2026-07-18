@@ -3,8 +3,9 @@ import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/rea
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PortalPage } from './components/portal/PortalPage.js';
+import { PortalWorkspacePage } from './components/portal/PortalWorkspacePage.js';
 import { capabilitiesFromShare } from './lib/capabilities.js';
-import type { ClientView } from './lib/portal.js';
+import type { ClientView, WorkspaceClientView } from './lib/portal.js';
 import {
   PortalNotReadyError,
   PortalRateLimitedError,
@@ -96,6 +97,44 @@ function renderPortalPage(view: ClientView, onUnauthorized = vi.fn()) {
   return render(
     <QueryClientProvider client={queryClient}>
       <PortalPage
+        view={view}
+        shareToken="test-token"
+        sessionToken="session-abc"
+        onUnauthorized={onUnauthorized}
+      />
+    </QueryClientProvider>,
+  );
+}
+
+function projectView(id: string, name: string): ClientView {
+  return {
+    ...sampleView,
+    project: { ...sampleView.project, id, name },
+    tasks: [{ ...sampleView.tasks[0]!, label: `${name} task` }],
+  };
+}
+
+const workspaceView: WorkspaceClientView = {
+  kind: 'workspace',
+  workspace: { id: 'ws-1', name: 'Engagement' },
+  projects: [
+    { id: 'proj-a', name: 'Alpha', view: projectView('proj-a', 'Alpha') },
+    { id: 'proj-b', name: 'Beta', view: projectView('proj-b', 'Beta') },
+  ],
+  share: {
+    audience_name: 'Acme Corp',
+    permissions: { read: true, submit: false },
+    expires_at: null,
+  },
+};
+
+function renderPortalWorkspacePage(view: WorkspaceClientView, onUnauthorized = vi.fn()) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <PortalWorkspacePage
         view={view}
         shareToken="test-token"
         sessionToken="session-abc"
@@ -279,6 +318,32 @@ describe('PortalPage', () => {
         screen.getByText("You don't have permission to submit to this share."),
       ).toBeTruthy();
     });
+  });
+});
+
+describe('PortalWorkspacePage', () => {
+  it('renders a project switcher and shows the selected project board', () => {
+    renderPortalWorkspacePage(workspaceView);
+
+    expect(screen.getByRole('heading', { name: 'Engagement' })).toBeTruthy();
+    expect(screen.getByText(/2 projects/)).toBeTruthy();
+    // Both projects appear as switcher tabs.
+    expect(screen.getByRole('tab', { name: 'Alpha' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Beta' })).toBeTruthy();
+    // First project selected by default — its board is the one rendered.
+    expect(screen.getByText('Alpha task')).toBeTruthy();
+    expect(document.querySelector('[data-portal-selected-project]')?.getAttribute('data-portal-selected-project')).toBe('proj-a');
+  });
+
+  it('switches the displayed project when a tab is selected', () => {
+    renderPortalWorkspacePage(workspaceView);
+
+    // Alpha is shown first.
+    expect(screen.getByText('Alpha task')).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Beta' }));
+    expect(screen.getByText('Beta task')).toBeTruthy();
+    expect(screen.queryByText('Alpha task')).toBeNull();
+    expect(document.querySelector('[data-portal-selected-project]')?.getAttribute('data-portal-selected-project')).toBe('proj-b');
   });
 });
 

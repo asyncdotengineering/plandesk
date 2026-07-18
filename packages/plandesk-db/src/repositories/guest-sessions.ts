@@ -15,7 +15,9 @@ export type CreateGuestSessionResult = {
 export type VerifiedGuestSession = {
   id: string;
   shareId: string;
-  projectId: string;
+  // Null for a workspace-scoped guest (workspaceId set instead).
+  projectId: string | null;
+  workspaceId: string | null;
   name: string;
   email: string | null;
   share: Share;
@@ -31,7 +33,13 @@ function generateGuestToken(): string {
 
 export async function createGuestSession(
   db: DbClient,
-  input: { shareId: string; projectId: string; name: string; email?: string },
+  input: {
+    shareId: string;
+    projectId?: string;
+    workspaceId?: string;
+    name: string;
+    email?: string;
+  },
 ): Promise<CreateGuestSessionResult> {
   const id = randomUUID();
   const token = generateGuestToken();
@@ -42,7 +50,8 @@ export async function createGuestSession(
     .values({
       id,
       shareId: input.shareId,
-      projectId: input.projectId,
+      projectId: input.projectId ?? null,
+      workspaceId: input.workspaceId ?? null,
       name: input.name,
       email: input.email ?? null,
       tokenHash: hashGuestToken(token),
@@ -113,6 +122,7 @@ async function attachShareIfLive(
     id: guest.id,
     shareId: guest.shareId,
     projectId: guest.projectId,
+    workspaceId: guest.workspaceId,
     name: guest.name,
     email: guest.email,
     share,

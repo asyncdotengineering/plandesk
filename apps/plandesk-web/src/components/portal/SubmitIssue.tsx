@@ -25,6 +25,8 @@ type SubmitIssueProps = {
   shareToken: string;
   sessionToken: string;
   tasks: { id: string; label: string }[];
+  /** Target project for a workspace share; omitted for a project share. */
+  projectId?: string;
   onSubmitted: (submission: PortalSubmission) => void;
   onUnauthorized: () => void;
 };
@@ -35,6 +37,7 @@ export function SubmitIssue({
   shareToken,
   sessionToken,
   tasks,
+  projectId,
   onSubmitted,
   onUnauthorized,
 }: SubmitIssueProps) {
@@ -69,6 +72,7 @@ export function SubmitIssue({
         body: body.trim() === '' ? undefined : body.trim(),
         severity: severity === '' ? undefined : severity,
         task_ref: taskRef.trim() === '' ? undefined : taskRef.trim(),
+        ...(projectId !== undefined ? { project_id: projectId } : {}),
       });
 
       setTitle('');

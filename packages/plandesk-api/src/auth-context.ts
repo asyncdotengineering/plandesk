@@ -49,7 +49,10 @@ export type AuthContext =
       /** Portal participant after join — no org membership, one share only. */
       kind: 'guest';
       shareId: string;
-      projectId: string;
+      /** Set for a project share; absent for a workspace share. */
+      projectId?: string;
+      /** Set for a workspace share; absent for a project share. */
+      workspaceId?: string;
       guestSessionId: string;
     };
 

@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { JoinGate } from '../components/portal/JoinGate.js';
 import { PortalPage } from '../components/portal/PortalPage.js';
+import { PortalWorkspacePage } from '../components/portal/PortalWorkspacePage.js';
 import {
   PortalNotReadyError,
   PortalUnauthorizedError,
@@ -72,6 +73,20 @@ function PortalRoutePage() {
 
   if (data === undefined) {
     return <p className="px-5 py-8 text-sm text-muted-foreground">Shared project not found.</p>;
+  }
+
+  if (data.kind === 'workspace') {
+    return (
+      <PortalWorkspacePage
+        view={data}
+        shareToken={shareToken}
+        sessionToken={session}
+        onUnauthorized={() => {
+          clearPortalSession(shareToken);
+          setSession(null);
+        }}
+      />
+    );
   }
 
   return (

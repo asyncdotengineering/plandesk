@@ -236,9 +236,10 @@ export type ShareMode = (typeof shareModes)[number];
 
 export const shares = sqliteTable('shares', {
   id: text('id').primaryKey(),
-  projectId: text('project_id')
-    .notNull()
-    .references(() => projects.id),
+  // A share is scoped to exactly one project OR one workspace. projectId is
+  // null for a workspace share; workspaceId is null for a project share.
+  projectId: text('project_id').references(() => projects.id),
+  workspaceId: text('workspace_id'),
   audienceName: text('audience_name').notNull(),
   mode: text('mode', { enum: shareModes }).notNull().default('invite'),
   tokenHash: text('token_hash').notNull(),
@@ -260,9 +261,9 @@ export const guestSessions = sqliteTable(
     shareId: text('share_id')
       .notNull()
       .references(() => shares.id),
-    projectId: text('project_id')
-      .notNull()
-      .references(() => projects.id),
+    // Null for a workspace-scoped guest (workspaceId set instead).
+    projectId: text('project_id').references(() => projects.id),
+    workspaceId: text('workspace_id'),
     name: text('name').notNull(),
     email: text('email'),
     tokenHash: text('token_hash').notNull(),

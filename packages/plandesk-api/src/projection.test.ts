@@ -11,7 +11,7 @@ import {
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
-import { buildClientView } from './projection.js';
+import { buildClientView, buildWorkspaceClientView } from './projection.js';
 
 describe('buildClientView', () => {
   let db: Db;
@@ -185,5 +185,52 @@ describe('buildClientView', () => {
     await db.$client.execute('DELETE FROM projects');
 
     expect(await buildClientView(db, project.id, share)).toBeUndefined();
+  });
+});
+
+describe('buildWorkspaceClientView', () => {
+  let db: Db;
+
+  beforeEach(async () => {
+    db = await createDb(':memory:');
+    await migrate(db);
+    await db.$client.execute('DELETE FROM shares');
+    await db.$client.execute('DELETE FROM edges');
+    await db.$client.execute('DELETE FROM documents');
+    await db.$client.execute('DELETE FROM tasks');
+    await db.$client.execute('DELETE FROM goals');
+    await db.$client.execute('DELETE FROM projects');
+  });
+
+  it('lists exactly the shared workspace projects; a sibling workspace is excluded', async () => {
+    const wsA = '00000000-0000-4000-8000-0000000000b1';
+    const wsB = '00000000-0000-4000-8000-0000000000b2';
+    const pa1 = await createProject(db, { name: 'A1', workspaceId: wsA });
+    const pa2 = await createProject(db, { name: 'A2', workspaceId: wsA });
+    const pb1 = await createProject(db, { name: 'B1', workspaceId: wsB });
+    await createTask(db, { projectId: pa1.id, label: 'A1 task', status: 'todo' });
+    await createTask(db, { projectId: pa2.id, label: 'A2 task', status: 'done' });
+    await createTask(db, { projectId: pb1.id, label: 'B secret', status: 'todo' });
+
+    const { share } = await createShare(db, {
+      workspaceId: wsA,
+      audienceName: 'Client',
+      permissions: { read: true, submit: false },
+      policy: { tasks: 'all', documentIds: [], fields: {} },
+    });
+
+    const view = await buildWorkspaceClientView(db, wsA, share, 'Engagement A');
+    expect(view?.kind).toBe('workspace');
+    expect(view?.workspace).toEqual({ id: wsA, name: 'Engagement A' });
+
+    const projectIds = view?.projects.map((p) => p.id).sort();
+    expect(projectIds).toEqual([pa1.id, pa2.id].sort());
+    expect(view?.projects.map((p) => p.id)).not.toContain(pb1.id);
+
+    // Each entry reuses the per-project ClientView (tasks projected, not reimplemented).
+    const a1View = view?.projects.find((p) => p.id === pa1.id)?.view;
+    expect(a1View?.tasks.map((t) => t.label)).toEqual(['A1 task']);
+    expect(a1View?.project.name).toBe('A1');
+    expect(JSON.stringify(view)).not.toMatch(/B secret/);
   });
 });

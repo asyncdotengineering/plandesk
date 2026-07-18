@@ -47,6 +47,44 @@ export function createSharesRouter(shareService: ShareService): Hono {
   router.post('/tasks/:id/share', createShareHandler('task'));
   router.post('/documents/:id/share', createShareHandler('document'));
 
+  // Share an entire workspace (all its projects) with a client. Owner-gated in
+  // the service via getTeamInOrg (workspace must be in the caller's org).
+  router.post('/workspaces/:workspaceId/share', async (c) => {
+    const workspaceId = c.req.param('workspaceId');
+    let body: {
+      audience_name?: string;
+      mode?: 'invite' | 'public';
+      submit?: boolean;
+      invited_emails?: string[];
+      expires?: unknown;
+    };
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: 'invalid_json' }, 400);
+    }
+    const audienceName = (body.audience_name ?? '').trim();
+    if (audienceName === '') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    const mode = body.mode === 'public' ? 'public' : 'invite';
+    const origin = new URL(c.req.url).origin;
+    const result = await shareService.createWorkspaceShare(
+      workspaceId,
+      {
+        audienceName,
+        mode,
+        permissions: { read: true, submit: body.submit === true },
+        ...(body.invited_emails !== undefined ? { invitedEmails: body.invited_emails } : {}),
+      },
+      origin,
+    );
+    if (result === undefined) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json({ url: result.url, token: result.token }, 201);
+  });
+
   // Hono doesn't match a literal `.md` suffix inside a param, so the route
   // takes the raw segment and the handler enforces + strips the extension.
   router.get('/share/:tokenWithExt', async (c) => {
@@ -127,13 +165,14 @@ export function createSharesRouter(shareService: ShareService): Hono {
   // Guest moderated inbox — same guest session as view (BA6b single-server).
   router.post('/share/:token/submissions', async (c) => {
     const token = c.req.param('token');
-    let body: { title?: string; body?: string; severity?: string; task_ref?: string };
+    let body: { title?: string; body?: string; severity?: string; task_ref?: string; project_id?: string };
     try {
       body = await c.req.json<{
         title?: string;
         body?: string;
         severity?: string;
         task_ref?: string;
+        project_id?: string;
       }>();
     } catch {
       return c.json({ error: 'invalid_json' }, 400);
@@ -144,6 +183,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
       body: body.body,
       severity: body.severity,
       task_ref: body.task_ref,
+      project_id: body.project_id,
     });
 
     if (result.status === 'unauthorized') {
@@ -154,6 +194,9 @@ export function createSharesRouter(shareService: ShareService): Hono {
     }
     if (result.status === 'title_required') {
       return c.json({ error: 'title_required' }, 400);
+    }
+    if (result.status === 'project_required') {
+      return c.json({ error: 'project_required' }, 400);
     }
     if (result.status === 'rate_limited') {
       return c.json({ error: 'rate_limited' }, 429);
