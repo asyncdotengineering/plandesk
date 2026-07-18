@@ -53,7 +53,24 @@ export type AppDeps = {
 };
 
 export function createApp(deps: AppDeps): Hono {
-  const services = deps.services ?? createServices({ db: deps.db });
+  const bindHost = deps.bindHost ?? '127.0.0.1';
+
+  // Create better-auth before services so workspace resolution is available
+  // to the project service (REQ-6).
+  const betterAuthInstance =
+    deps.betterAuthInstance ??
+    (deps.betterAuth !== undefined
+      ? createBetterAuth({
+          client: deps.db.$client,
+          db: deps.db,
+          secret: deps.betterAuth.secret,
+          baseURL: deps.betterAuth.baseURL,
+          github: deps.github,
+        })
+      : undefined);
+
+  const services =
+    deps.services ?? createServices({ db: deps.db, auth: betterAuthInstance });
   const {
     projectService,
     goalService,
@@ -71,22 +88,7 @@ export function createApp(deps: AppDeps): Hono {
     shareService,
   } = services;
 
-  const bindHost = deps.bindHost ?? '127.0.0.1';
   const app = new Hono();
-
-  // Create better-auth before org middleware so the same instance is recognized
-  // by AuthContext and mounted at /api/auth/* (BA4a session recognition).
-  const betterAuthInstance =
-    deps.betterAuthInstance ??
-    (deps.betterAuth !== undefined
-      ? createBetterAuth({
-          client: deps.db.$client,
-          db: deps.db,
-          secret: deps.betterAuth.secret,
-          baseURL: deps.betterAuth.baseURL,
-          github: deps.github,
-        })
-      : undefined);
 
   // Always-on org resolution (better-auth apiKey/session, loopback, or guest).
   app.use(

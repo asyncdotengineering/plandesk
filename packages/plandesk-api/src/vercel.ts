@@ -10,6 +10,7 @@ import { createApp } from './server.js';
 import { createServices } from './services/index.js';
 import { githubConfigFromEnv } from './github.js';
 import { createStorageAdapter } from './storage/index.js';
+import { createBetterAuth } from './better-auth.js';
 import { hostedMisconfigResponse, resolveHostedBetterAuth } from './hosted-auth.js';
 
 let appPromise: Promise<Hono> | undefined;
@@ -40,9 +41,16 @@ async function getApp(): Promise<Hono> {
     );
 
     const db = await createDb(url, process.env.PLANDESK_DB_TOKEN);
+    const auth = createBetterAuth({
+      client: db.$client,
+      db,
+      secret: betterAuth.secret,
+      baseURL: betterAuth.baseURL,
+      github: githubConfigFromEnv(process.env),
+    });
     // Select s3 via PLANDESK_STORAGE=s3 (+ S3_* env); local remains default when unset.
     const storage = createStorageAdapter({ db, env: process.env });
-    const services = createServices({ db, storage });
+    const services = createServices({ db, auth, storage });
     return createApp({
       db,
       services,

@@ -572,6 +572,7 @@ describe('export/import portability', () => {
       'name',
       'org_id',
       'updated_at',
+      'workspace_id',
     ]);
   });
 });

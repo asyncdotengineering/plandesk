@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import {
   createBetterAuth,
   ensureLocalBetterAuthOrganization,
+  backfillProjectWorkspaces,
   runBetterAuthMigrations,
 } from '@plandesk/api';
 import { createDb, migrate, type Db } from '@plandesk/db';
@@ -170,6 +171,7 @@ export async function runDoctor(
     if (auth === undefined) throw new Error('Local better-auth secret was not created');
     await runBetterAuthMigrations(auth);
     await ensureLocalBetterAuthOrganization(db, auth);
+    await backfillProjectWorkspaces(db, auth);
   } catch (err) {
     if (isDbCorruptionError(err)) {
       throw new CorruptWorkspaceError();

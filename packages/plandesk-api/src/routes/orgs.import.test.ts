@@ -2,7 +2,6 @@ import { randomUUID, createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ORG_ID,
-  createProject,
   createTaskWithDefaultGoal as createTask,
   createEdge,
   createDocument,
@@ -16,6 +15,7 @@ import {
   createDb,
   PLANDESK_EXPORT_VERSION,
 } from '@plandesk/db';
+import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
 import {
   createBetterAuth,
   createOrgOwnerKey,
@@ -227,6 +227,7 @@ describe('POST /api/v1/orgs/:id/import', () => {
       'name',
       'org_id',
       'updated_at',
+      'workspace_id',
     ]);
   });
 
@@ -402,6 +403,7 @@ describe('POST /api/v1/orgs/:id/import', () => {
       'name',
       'org_id',
       'updated_at',
+      'workspace_id',
     ]);
   });
 });

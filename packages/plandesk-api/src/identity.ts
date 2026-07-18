@@ -1,4 +1,4 @@
-import { DEFAULT_ORG_ID, type Db } from '@plandesk/db';
+import { DEFAULT_ORG_ID, DEFAULT_WORKSPACE_ID, updateProject, type Db } from '@plandesk/db';
 import type { BetterAuthInstance } from './better-auth.js';
 import type { GithubIdentity } from './github.js';
 import { getOrganizationById, type OrganizationSummary } from './organizations.js';
@@ -129,13 +129,16 @@ export async function ensureDefaultTeamForOrg(
     team = existingTeams[0]!;
   } else {
     const now = new Date();
+    const isLocalOrg = organizationId === DEFAULT_ORG_ID;
     team = await adapter.create<TeamRow>({
       model: 'team',
       data: {
+        ...(isLocalOrg ? { id: DEFAULT_WORKSPACE_ID } : {}),
         name: 'General',
         organizationId,
         createdAt: now,
       },
+      ...(isLocalOrg ? { forceAllowId: true } : {}),
     });
   }
 
@@ -184,6 +187,23 @@ export async function backfillDefaultTeams(
     }
   }
   return { orgsProcessed: orgs.length, teamsCreated };
+}
+
+export async function backfillProjectWorkspaces(
+  db: Db,
+  auth: BetterAuthInstance,
+): Promise<{ projectsUpdated: number }> {
+  const result = await db.$client.execute('SELECT id, org_id, workspace_id FROM projects');
+  let projectsUpdated = 0;
+  for (const row of result.rows) {
+    const project = row as unknown as { id: string; org_id: string; workspace_id: string };
+    const teamId = await ensureDefaultTeamForOrg(auth, project.org_id);
+    if (project.workspace_id !== teamId) {
+      await updateProject(db, project.id, { workspaceId: teamId });
+      projectsUpdated++;
+    }
+  }
+  return { projectsUpdated };
 }
 
 export async function ensureLocalBetterAuthOrganization(

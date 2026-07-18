@@ -8,6 +8,13 @@
       "when": 1784275221531,
       "tag": "0000_overrated_karnak",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784375156077,
+      "tag": "0001_daffy_hercules",
+      "breakpoints": true
     }
   ]
 }

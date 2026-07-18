@@ -1,6 +1,6 @@
 import type { Db } from './client.js';
 import { createProject, getProject } from './repositories/projects.js';
-import { DEFAULT_ORG_ID } from './schema.js';
+import { DEFAULT_ORG_ID, DEFAULT_WORKSPACE_ID } from './schema.js';
 
 export const FIXTURE_PROJECT_ID = '00000000-0000-4000-8000-000000000001';
 
@@ -12,6 +12,7 @@ export async function seed(db: Db): Promise<void> {
   await createProject(db, {
     id: FIXTURE_PROJECT_ID,
     orgId: DEFAULT_ORG_ID,
+    workspaceId: DEFAULT_WORKSPACE_ID,
     name: 'Fixture Project',
     description: 'Seed fixture for development and tests',
   });

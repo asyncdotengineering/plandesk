@@ -4,11 +4,11 @@ import { makeSignature } from 'better-auth/crypto';
 import {
   DEFAULT_ORG_ID,
   createDb,
-  createProject,
   createTaskWithDefaultGoal as createTask,
   migrate,
   type Db,
 } from '@plandesk/db';
+import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
 import type { Hono } from 'hono';
 import {
   createOrgOwnerKey,

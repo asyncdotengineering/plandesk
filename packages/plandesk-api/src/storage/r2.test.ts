@@ -5,6 +5,7 @@ import {
   createProject,
   createProjectInDefaultOrg,
   DEFAULT_ORG_ID,
+  DEFAULT_WORKSPACE_ID,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -133,6 +134,7 @@ describe('createR2Adapter (REQ-1)', () => {
     await createProject(db, {
       id: '00000000-0000-4000-8000-0000000000c3',
       orgId: otherOrgId,
+      workspaceId: DEFAULT_WORKSPACE_ID,
       name: 'Tenant B',
     });
 

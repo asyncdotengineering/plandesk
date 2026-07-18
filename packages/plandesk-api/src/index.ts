@@ -7,6 +7,7 @@ export {
 } from './better-auth.js';
 export {
   backfillDefaultTeams,
+  backfillProjectWorkspaces,
   ensureDefaultTeamForOrg,
   ensureLocalBetterAuthOrganization,
 } from './identity.js';

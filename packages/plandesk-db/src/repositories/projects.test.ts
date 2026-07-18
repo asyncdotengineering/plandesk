@@ -27,6 +27,15 @@ describe('projects repository', () => {
     expect(fetched?.name).toBe('Checkout Revamp');
   });
 
+  it('round-trips workspace_id', async () => {
+    const created = await createProject(db, {
+      name: 'Workspace Scoped',
+      workspaceId: 'team-123',
+    });
+    const fetched = await getProject(db, created.id);
+    expect(fetched?.workspaceId).toBe('team-123');
+  });
+
   it('returns undefined for a missing project', async () => {
     expect(await getProject(db, '00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });

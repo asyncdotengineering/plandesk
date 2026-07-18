@@ -1,4 +1,5 @@
 import type { Db } from '@plandesk/db';
+import type { BetterAuthInstance } from '../better-auth.js';
 import { createStorageAdapter, type StorageAdapter } from '../storage/index.js';
 import { createCanvasService, type CanvasService } from './canvas.js';
 import { createCommentService, type CommentService } from './comments.js';
@@ -20,6 +21,8 @@ export type ServicesDeps = {
   storage?: StorageAdapter;
   /** Fixed org scope for unit tests; production request path uses auth context. */
   orgId?: string;
+  /** better-auth instance for workspace resolution (project creation). */
+  auth?: BetterAuthInstance;
 };
 
 export type Services = {
@@ -40,7 +43,7 @@ export type Services = {
 };
 
 export function createServices(deps: ServicesDeps): Services {
-  const scoped = { db: deps.db, orgId: deps.orgId };
+  const scoped = { db: deps.db, orgId: deps.orgId, auth: deps.auth };
   const storage = deps.storage ?? createStorageAdapter({ db: deps.db });
   const projectService = createProjectService(scoped);
   const goalService = createGoalService(scoped);

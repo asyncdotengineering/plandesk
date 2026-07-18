@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDb, migrate } from '@plandesk/db';
+import { createDb, createProject, migrate, DEFAULT_WORKSPACE_ID } from '@plandesk/db';
 import {
   createBetterAuth,
   runBetterAuthMigrations,
@@ -8,6 +8,7 @@ import {
 import {
   ensureDefaultTeamForOrg,
   backfillDefaultTeams,
+  backfillProjectWorkspaces,
 } from './identity.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
@@ -305,5 +306,47 @@ describe('better-auth teams (workspace foundation)', () => {
     const second = await backfillDefaultTeams(auth);
     expect(second.orgsProcessed).toBe(2);
     expect(second.teamsCreated).toBe(0);
+  });
+
+  it('backfillProjectWorkspaces sets workspace_id to the org default team and is idempotent', async () => {
+    const db = await createDb(':memory:');
+    await migrate(db);
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: TEST_SECRET,
+      baseURL: TEST_BASE_URL,
+    });
+    if (auth === undefined) throw new Error('expected better-auth');
+    await runBetterAuthMigrations(auth);
+
+    const orgId = 'org-1';
+    await seedUserAndOrg(auth, {
+      orgId,
+      orgName: 'Test Org',
+      orgSlug: 'test-org',
+      userName: 'Alice',
+      userEmail: 'alice@example.com',
+      githubAccountId: '1001',
+      role: 'owner',
+    });
+
+    const teamId = await ensureDefaultTeamForOrg(auth, orgId);
+    const project = await createProject(db, {
+      name: 'Legacy',
+      orgId,
+      workspaceId: DEFAULT_WORKSPACE_ID,
+    });
+
+    const first = await backfillProjectWorkspaces(db, auth);
+    expect(first.projectsUpdated).toBe(1);
+
+    const updated = await db.$client.execute({
+      sql: 'SELECT workspace_id FROM projects WHERE id = ?',
+      args: [project.id],
+    });
+    expect((updated.rows[0] as unknown as { workspace_id: string }).workspace_id).toBe(teamId);
+
+    const second = await backfillProjectWorkspaces(db, auth);
+    expect(second.projectsUpdated).toBe(0);
   });
 });

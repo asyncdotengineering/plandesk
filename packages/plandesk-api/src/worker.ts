@@ -178,7 +178,7 @@ export default {
     // Storage is optional: prefer R2 binding, then S3 creds, else unavailable
     // (file uploads/artifacts off — no crash). Mirrors `plandesk serve`.
     const storage = resolveWorkerStorage(env, db);
-    const services = createServices({ db, ...(storage !== undefined ? { storage } : {}) });
+    const services = createServices({ db, auth: authInstance, ...(storage !== undefined ? { storage } : {}) });
     const app = createApp({
       db,
       services,

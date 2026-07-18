@@ -2,17 +2,18 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ORG_ID,
-  createProject,
   createTaskWithDefaultGoal as createTask,
   migrate,
   createDb,
 } from '@plandesk/db';
+import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
 import {
   createBetterAuth,
   createOrgOwnerKey,
   runBetterAuthMigrations,
   type BetterAuthInstance,
 } from './index.js';
+import { ensureLocalBetterAuthOrganization } from './identity.js';
 import { createApp } from './server.js';
 import { parseJson } from './test-helpers.js';
 
@@ -162,11 +163,19 @@ describe('org tenancy', () => {
   it('test:local_mode_unchanged — loopback single-org works without a token', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: TEST_SECRET,
+      baseURL: TEST_BASE_URL,
+    });
+    if (auth === undefined) throw new Error('expected better-auth');
+    await runBetterAuthMigrations(auth);
     const app = createApp({
       db,
       bindHost: '127.0.0.1',
       betterAuth: { secret: TEST_SECRET, baseURL: TEST_BASE_URL },
     });
+    await ensureLocalBetterAuthOrganization(db, auth);
 
     const createRes = await app.request('/api/v1/projects', {
       method: 'POST',

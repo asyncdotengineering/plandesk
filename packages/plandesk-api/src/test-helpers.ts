@@ -4,6 +4,11 @@ import type { Hono } from 'hono';
 import type { BetterAuthInstance } from './better-auth.js';
 import { createApp } from './server.js';
 import type { GithubConfig } from './github.js';
+import { createBetterAuth, runBetterAuthMigrations } from './better-auth.js';
+import { ensureLocalBetterAuthOrganization } from './identity.js';
+
+const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
+const TEST_BASE_URL = 'http://localhost:3000';
 
 export async function createTestApp(opts?: {
   authPassword?: string;
@@ -16,12 +21,22 @@ export async function createTestApp(opts?: {
 }> {
   const db = await createDb(':memory:');
   await migrate(db);
+  const auth = createBetterAuth({
+    client: db.$client,
+    secret: TEST_SECRET,
+    baseURL: TEST_BASE_URL,
+  });
+  if (auth !== undefined) {
+    await runBetterAuthMigrations(auth);
+    await ensureLocalBetterAuthOrganization(db, auth);
+  }
   return {
     app: createApp({
       db,
       authPassword: opts?.authPassword,
       bindHost: opts?.bindHost ?? '127.0.0.1',
       github: opts?.github,
+      betterAuth: { secret: TEST_SECRET, baseURL: TEST_BASE_URL },
     }),
     db,
     orgId: DEFAULT_ORG_ID,

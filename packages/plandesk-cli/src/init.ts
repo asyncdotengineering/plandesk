@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   backfillDefaultTeams,
+  backfillProjectWorkspaces,
   createBetterAuth,
   ensureLocalBetterAuthOrganization,
   runBetterAuthMigrations,
@@ -59,6 +60,7 @@ export async function runInit(
   await runBetterAuthMigrations(auth);
   await ensureLocalBetterAuthOrganization(db, auth);
   await backfillDefaultTeams(auth);
+  await backfillProjectWorkspaces(db, auth);
 
   // One global board → one fixed port. Record it so `connect` / `url` resolve
   // without a live server.json. Do not overwrite a pre-existing assignment.

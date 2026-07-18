@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ORG_ID,
+  DEFAULT_WORKSPACE_ID,
   createDb,
   createDocument,
   createProject as createProjectInOrg,
@@ -200,7 +201,7 @@ describe('portal view (guest-session gated)', () => {
     const { app, db, services } = await createTestAppWithServices();
     const orgB = { id: randomUUID(), name: 'Other Org' };
     const projectA = await createProject(db, { name: 'Project A' });
-    const projectB = await createProjectInOrg(db, { name: 'Project B', orgId: orgB.id });
+    const projectB = await createProjectInOrg(db, { name: 'Project B', orgId: orgB.id, workspaceId: DEFAULT_WORKSPACE_ID });
     await createTask(db, { projectId: projectA.id, label: 'A task', status: 'todo' });
     await createTask(db, { projectId: projectB.id, label: 'B secret task', status: 'todo' });
 

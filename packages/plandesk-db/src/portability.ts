@@ -20,6 +20,7 @@ import {
   artifacts,
   comments,
   DEFAULT_ORG_ID,
+  DEFAULT_WORKSPACE_ID,
   documents,
   edges,
   files,
@@ -416,6 +417,8 @@ export async function exportProject(
 export type ImportProjectOptions = {
   /** Hosted org to own the imported project. When omitted, uses the default org. */
   orgId?: string;
+  /** Workspace to own the imported project. When omitted, uses the default workspace. */
+  workspaceId?: string;
 };
 
 function requireRootDb(db: DbClient): Db {
@@ -488,6 +491,7 @@ export async function importProject(
   }
 
   const orgId = options?.orgId ?? DEFAULT_ORG_ID;
+  const workspaceId = options?.workspaceId ?? DEFAULT_WORKSPACE_ID;
   const projectId = randomUUID();
   const now = new Date();
 
@@ -510,6 +514,7 @@ export async function importProject(
     root.insert(projects).values({
       id: projectId,
       orgId,
+      workspaceId,
       name: data.project.name,
       description: data.project.description,
       canvasLayout: data.project.canvas_layout,

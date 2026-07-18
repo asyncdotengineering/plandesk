@@ -35,6 +35,8 @@ import {
   type Task,
   type TaskStatus,
 } from '@plandesk/db';
+import { ensureDefaultTeamForOrg } from '../identity.js';
+import type { BetterAuthInstance } from '../better-auth.js';
 import {
   emptyTaskStatusSummary,
   serializeDocument,
@@ -143,11 +145,13 @@ function validateScaffoldInput(input: ScaffoldPlanInput): void {
 
 export type ProjectServiceDeps = OrgScopedDeps & {
   db: Db;
+  auth?: BetterAuthInstance;
 };
 
 export type CreateProjectInput = {
   name: string;
   description?: string | null;
+  workspaceId?: string;
 };
 
 export type UpdateProjectInput = {
@@ -170,7 +174,13 @@ export function createProjectService(deps: ProjectServiceDeps) {
     async create(input: CreateProjectInput) {
       assertPermission(deps, 'project', 'create');
       const orgId = resolveOrgId(deps);
-      const project = await dbCreateProject(db, { ...input, orgId });
+      const workspaceId =
+        input.workspaceId ??
+        (deps.auth ? await ensureDefaultTeamForOrg(deps.auth, orgId) : undefined);
+      if (workspaceId === undefined) {
+        throw new Error('cannot resolve workspace for project');
+      }
+      const project = await dbCreateProject(db, { ...input, orgId, workspaceId });
       return serializeProject(project);
     },
 
@@ -291,10 +301,17 @@ export function createProjectService(deps: ProjectServiceDeps) {
               'name is required to create a new project (or pass projectId to add to an existing one)',
             );
           }
+          const workspaceId = deps.auth
+            ? await ensureDefaultTeamForOrg(deps.auth, orgId)
+            : undefined;
+          if (workspaceId === undefined) {
+            throw new Error('cannot resolve workspace for project');
+          }
           const project = await dbCreateProject(tx, {
             name: input.name,
             description: input.description,
             orgId,
+            workspaceId,
           });
           projectId = project.id;
         }

@@ -106,7 +106,9 @@ describe('better-auth foundation (slice 1/6)', () => {
   });
 
   it('boots with no better-auth secret configured — feature absent, no crash (REQ-5)', async () => {
-    const { app } = await createTestApp();
+    const db = await createDb(':memory:');
+    await migrate(db);
+    const app = createApp({ db, bindHost: '127.0.0.1' });
 
     // Mirrors github: undefined — the route simply doesn't exist.
     const res = await app.request('/api/auth/session');

@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ORG_ID,
   createDb,
-  createProject,
   createTaskWithDefaultGoal as createTask,
   migrate,
   type Db,
 } from '@plandesk/db';
+import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
 import type { Hono } from 'hono';
 import {
   createOrgOwnerKey,
@@ -20,6 +20,7 @@ import {
   runBetterAuthMigrations,
   type BetterAuthInstance,
 } from './better-auth.js';
+import { ensureLocalBetterAuthOrganization } from './identity.js';
 import { createApp } from './server.js';
 import { createTestApp, parseJson } from './test-helpers.js';
 
@@ -530,6 +531,7 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
       bindHost: '127.0.0.1',
       betterAuth: { secret: TEST_SECRET, baseURL: TEST_BASE_URL },
     });
+    await ensureLocalBetterAuthOrganization(db, auth);
 
     const createRes = await app.request('/api/v1/projects', {
       method: 'POST',

@@ -4,10 +4,10 @@ import { makeSignature } from 'better-auth/crypto';
 import {
   DEFAULT_ORG_ID,
   createDb,
-  createProject,
   migrate,
   type Db,
 } from '@plandesk/db';
+import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
 import type { Hono } from 'hono';
 import {
   createBetterAuth,

@@ -7,7 +7,7 @@ import {
   type Project,
 } from './repositories/projects.js';
 import { createTask, type NewTask, type Task } from './repositories/tasks.js';
-import { DEFAULT_ORG_ID } from './schema.js';
+import { DEFAULT_ORG_ID, DEFAULT_WORKSPACE_ID } from './schema.js';
 
 export async function createTaskWithDefaultGoal(
   db: DbClient,
@@ -20,10 +20,11 @@ export async function createTaskWithDefaultGoal(
 /** Creates a project under DEFAULT_ORG_ID (or an explicit orgId). For tests. */
 export async function createProjectInDefaultOrg(
   db: DbClient,
-  input: Omit<NewProject, 'orgId'> & { orgId?: string },
+  input: Omit<NewProject, 'orgId' | 'workspaceId'> & { orgId?: string; workspaceId?: string },
 ): Promise<Project> {
   const orgId = input.orgId ?? DEFAULT_ORG_ID;
-  return createProject(db, { ...input, orgId });
+  const workspaceId = input.workspaceId ?? DEFAULT_WORKSPACE_ID;
+  return createProject(db, { ...input, orgId, workspaceId });
 }
 
 /** Lists projects in the default org. For tests. */

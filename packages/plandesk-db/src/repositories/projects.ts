@@ -7,6 +7,7 @@ export type Project = typeof projects.$inferSelect;
 export type NewProject = {
   name: string;
   orgId: string;
+  workspaceId: string;
   description?: string | null;
   id?: string;
 };
@@ -15,6 +16,7 @@ export type ProjectUpdate = {
   name?: string;
   description?: string | null;
   canvasLayout?: string | null;
+  workspaceId?: string;
 };
 
 export async function createProject(db: DbClient, input: NewProject): Promise<Project> {
@@ -25,6 +27,7 @@ export async function createProject(db: DbClient, input: NewProject): Promise<Pr
     .values({
       id,
       orgId: input.orgId,
+      workspaceId: input.workspaceId,
       name: input.name,
       description: input.description ?? null,
       createdAt: now,

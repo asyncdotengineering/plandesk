@@ -464,6 +464,7 @@ describe('CLI push/pull', () => {
       'name',
       'org_id',
       'updated_at',
+      'workspace_id',
     ]);
   });
 

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { getRequestListener } from '@hono/node-server';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { createApp, createServices } from '@plandesk/api';
+import { createApp, createServices, createBetterAuth, runBetterAuthMigrations, ensureLocalBetterAuthOrganization } from '@plandesk/api';
 import {
   createDb,
   createEdge,
@@ -19,6 +19,9 @@ import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { v1ToolNames } from './tools/registry.js';
 import { createMcpApp } from './server.js';
 
+const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
+const TEST_BASE_URL = 'http://localhost:3000';
+
 async function withMcpServer(
   run: (ctx: {
     baseUrl: string;
@@ -31,14 +34,23 @@ async function withMcpServer(
 ): Promise<void> {
   const db = await createDb(':memory:');
   await migrate(db);
+  const auth = createBetterAuth({
+    client: db.$client,
+    secret: TEST_SECRET,
+    baseURL: TEST_BASE_URL,
+  });
+  if (auth !== undefined) {
+    await runBetterAuthMigrations(auth);
+    await ensureLocalBetterAuthOrganization(db, auth);
+  }
   const project = await createProject(db, { name: 'MCP Test Project', description: 'via MCP' });
   const token = '';
 
-  const services = createServices({ db, orgId: project.orgId });
+  const services = createServices({ db, orgId: project.orgId, auth });
   // Auth comes from parent createApp (loopback owner on 127.0.0.1).
   const mcpApp = createMcpApp({ services });
   // Default bindHost is loopback (local zero-token). Invalid bearer → 401.
-  const app = createApp({ db, services, mcp: mcpApp, bindHost: '127.0.0.1' });
+  const app = createApp({ db, services, mcp: mcpApp, bindHost: '127.0.0.1', betterAuth: { secret: TEST_SECRET, baseURL: TEST_BASE_URL } });
 
   const server = createServer((req, res) => {
     void getRequestListener(app.fetch)(req, res);

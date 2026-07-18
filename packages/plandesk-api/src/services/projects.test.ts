@@ -21,7 +21,12 @@ import {
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
+import { createBetterAuth, runBetterAuthMigrations } from '../better-auth.js';
+import { ensureLocalBetterAuthOrganization } from '../identity.js';
 import { createProjectService, InvalidScaffoldError } from './projects.js';
+
+const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
+const TEST_BASE_URL = 'http://localhost:3000';
 
 describe('projectService', () => {
   let db: Db;
@@ -41,12 +46,21 @@ describe('projectService', () => {
     await db.$client.execute('DELETE FROM projects');
   });
 
-  function createService() {
-    return createProjectService({ db, orgId });
+  async function createService() {
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: TEST_SECRET,
+      baseURL: TEST_BASE_URL,
+    });
+    if (auth !== undefined) {
+      await runBetterAuthMigrations(auth);
+      await ensureLocalBetterAuthOrganization(db, auth);
+    }
+    return createProjectService({ db, orgId, auth });
   }
 
   it('creates and lists projects with ISO timestamps', async () => {
-    const service = createService();
+    const service = await createService();
     const created = await service.create({ name: 'Alpha', description: 'First project' });
     expect(created.name).toBe('Alpha');
     expect(created.description).toBe('First project');
@@ -59,7 +73,7 @@ describe('projectService', () => {
   });
 
   it('returns project detail with task counts by status', async () => {
-    const service = createService();
+    const service = await createService();
     const project = await createProject(db, { name: 'Counts' });
     orgId = project.orgId;
     await createTask(db, { projectId: project.id, label: 'A', status: 'todo' });
@@ -81,26 +95,26 @@ describe('projectService', () => {
   });
 
   it('returns undefined for a missing project', async () => {
-    const service = createService();
+    const service = await createService();
     expect(await service.get('00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
   it('updates a project name and description', async () => {
-    const service = createService();
+    const service = await createService();
     const created = await service.create({ name: 'Before', description: 'Old' });
     const updated = await service.update(created.id, { name: 'After', description: 'New' });
     expect(updated).toMatchObject({ id: created.id, name: 'After', description: 'New' });
   });
 
   it('returns undefined when updating a missing project', async () => {
-    const service = createService();
+    const service = await createService();
     expect(
       await service.update('00000000-0000-4000-8000-000000009999', { name: 'Ghost' }),
     ).toBeUndefined();
   });
 
   it('paginates project list', async () => {
-    const service = createService();
+    const service = await createService();
     await service.create({ name: 'A' });
     await service.create({ name: 'B' });
     await service.create({ name: 'C' });
@@ -109,7 +123,7 @@ describe('projectService', () => {
   });
 
   it('cascade deletes project children in FK-safe order', async () => {
-    const service = createService();
+    const service = await createService();
     const project = await createProject(db, { name: 'Cascade' });
     const task = await createTask(db, { projectId: project.id, label: 'Task' });
     const edge = await createEdge(db, {
@@ -145,12 +159,12 @@ describe('projectService', () => {
   });
 
   it('returns false when deleting a missing project', async () => {
-    const service = createService();
+    const service = await createService();
     expect(await service.delete('00000000-0000-4000-8000-000000009999')).toBe(false);
   });
 
   it('scaffolds a project with tasks, edges, and documents atomically', async () => {
-    const service = createProjectService({ db, orgId });
+    const service = await createService();
 
     const result = await service.scaffoldFromPlan({
       name: 'Scaffolded',
@@ -185,7 +199,7 @@ describe('projectService', () => {
   });
 
   it('scaffolds into an existing project when project_id is given (no new project)', async () => {
-    const service = createService();
+    const service = await createService();
     const existing = await createProject(db, { name: 'Existing' });
     const result = await service.scaffoldFromPlan({
       projectId: existing.id,
@@ -205,7 +219,7 @@ describe('projectService', () => {
   });
 
   it('offsets new task rows below existing nodes in a non-empty project', async () => {
-    const service = createService();
+    const service = await createService();
     const existing = await createProject(db, { name: 'Existing' });
     await createTask(db, { projectId: existing.id, label: 'Old', x: 0, y: 320 });
     const result = await service.scaffoldFromPlan({
@@ -217,21 +231,21 @@ describe('projectService', () => {
   });
 
   it('rejects scaffolding into a missing project and persists nothing', async () => {
-    const service = createService();
+    const service = await createService();
     await expect(
       service.scaffoldFromPlan({ projectId: 'nope', tasks: [{ key: 'a', label: 'A' }] }),
     ).rejects.toThrow(InvalidScaffoldError);
   });
 
   it('rejects a new-project scaffold with no name', async () => {
-    const service = createService();
+    const service = await createService();
     await expect(service.scaffoldFromPlan({ tasks: [{ key: 'a', label: 'A' }] })).rejects.toThrow(
       InvalidScaffoldError,
     );
   });
 
   it('assigns grid positions when x and y are omitted', async () => {
-    const service = createService();
+    const service = await createService();
     const result = await service.scaffoldFromPlan({
       name: 'Grid',
       tasks: [
@@ -249,7 +263,7 @@ describe('projectService', () => {
   });
 
   it('rejects duplicate task keys and persists nothing', async () => {
-    const service = createService();
+    const service = await createService();
     await expect(service.scaffoldFromPlan({
         name: 'Dup',
         tasks: [
@@ -261,7 +275,7 @@ describe('projectService', () => {
   });
 
   it('rejects unknown edge keys and persists nothing', async () => {
-    const service = createService();
+    const service = await createService();
     await expect(service.scaffoldFromPlan({
         name: 'Bad edge',
         tasks: [{ key: 'a', label: 'A' }],
@@ -271,7 +285,7 @@ describe('projectService', () => {
   });
 
   it('rejects self-edges and persists nothing', async () => {
-    const service = createService();
+    const service = await createService();
     await expect(service.scaffoldFromPlan({
         name: 'Self',
         tasks: [{ key: 'a', label: 'A' }],

@@ -27,11 +27,15 @@ export type OrgRole = (typeof orgRoles)[number];
 
 /** Stable id for the single local better-auth organization (loopback owner). */
 export const DEFAULT_ORG_ID = '00000000-0000-4000-8000-0000000000a1';
+/** Stable id for the single local workspace (the default team of the local org). */
+export const DEFAULT_WORKSPACE_ID = '00000000-0000-4000-8000-0000000000a2';
 
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
   // Plain scoping column — org identity lives in better-auth organization table.
   orgId: text('org_id').notNull(),
+  // NOT NULL scoping column referencing a better-auth team id; default seeds the ADD COLUMN + local single-org boards; real team ids set on create/backfill.
+  workspaceId: text('workspace_id').notNull().default(DEFAULT_WORKSPACE_ID),
   name: text('name').notNull(),
   description: text('description'),
   canvasLayout: text('canvas_layout'),

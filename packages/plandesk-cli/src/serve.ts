@@ -6,6 +6,7 @@ import {
   createServices,
   createS3Adapter,
   ensureLocalBetterAuthOrganization,
+  backfillProjectWorkspaces,
   mountStatic,
   runBetterAuthMigrations,
 } from '@plandesk/api';
@@ -122,10 +123,11 @@ export async function startServer(
   const urlHost = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
   const betterAuthBaseURL = cfg.values.baseUrl ?? `http://${urlHost}:${String(options.port)}`;
   let betterAuthSecret = cfg.values.sessionSecret;
+  let auth: ReturnType<typeof createBetterAuth> | undefined;
   if (dbUrl === undefined) {
     betterAuthSecret ??= ensureLocalBetterAuthSecret(dataDir);
     await migrate(db);
-    const auth = createBetterAuth({
+    auth = createBetterAuth({
       client: db.$client,
       secret: betterAuthSecret,
       baseURL: betterAuthBaseURL,
@@ -134,6 +136,7 @@ export async function startServer(
     if (auth === undefined) throw new Error('Local better-auth secret was not created');
     await runBetterAuthMigrations(auth);
     await ensureLocalBetterAuthOrganization(db, auth);
+    await backfillProjectWorkspaces(db, auth);
   } else {
     const missingTables = missingRequiredTables(await listTables(db));
     if (missingTables.length > 0) {
@@ -148,7 +151,7 @@ export async function startServer(
     cfg.values.storage.kind === 's3'
       ? createS3Adapter({ db, config: cfg.values.storage })
       : undefined;
-  const services = createServices({ db, ...(storage !== undefined ? { storage } : {}) });
+  const services = createServices({ db, auth, ...(storage !== undefined ? { storage } : {}) });
   // Parent createApp resolves better-auth apiKey / session / loopback;
   // MCP requires that context (no independent auth path).
   const mcpApp = createMcpApp({ services });

@@ -15,6 +15,7 @@ import {
 } from '@plandesk/api';
 import {
   DEFAULT_ORG_ID,
+  DEFAULT_WORKSPACE_ID,
   createDb,
   createProject as createProjectInOrg,
   createProjectInDefaultOrg as createProject,
@@ -422,8 +423,8 @@ describe('runConnect --to hosted (BA4b-3)', () => {
     const db = await createDb(':memory:');
     await migrate(db);
     const org = { id: randomUUID(), name: 'Hosted Connect Org' };
-    const projectA = await createProjectInOrg(db, { name: 'hosted-board', orgId: org.id });
-    const projectB = await createProjectInOrg(db, { name: 'other-board', orgId: org.id });
+    const projectA = await createProjectInOrg(db, { name: 'hosted-board', orgId: org.id, workspaceId: DEFAULT_WORKSPACE_ID });
+    const projectB = await createProjectInOrg(db, { name: 'other-board', orgId: org.id, workspaceId: DEFAULT_WORKSPACE_ID });
     await createTask(db, { projectId: projectA.id, label: 'A task', status: 'todo' });
     await createTask(db, { projectId: projectB.id, label: 'B task', status: 'todo' });
 
