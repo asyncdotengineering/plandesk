@@ -526,6 +526,31 @@ export function createOrgInvitation(
   });
 }
 
+/** Invitation claim page: preview (org/role/email) + accept. */
+export type InvitationPreview = {
+  organizationId: string;
+  organizationName: string;
+  role: string;
+  email: string;
+  status: string;
+  expiresAt: string;
+};
+
+export function fetchInvitation(invitationId: string): Promise<InvitationPreview> {
+  return request(`/invitations/${invitationId}`);
+}
+
+export type AcceptInvitationResponse = {
+  invitationId: string;
+  organizationId: string;
+  role: string;
+  userId: string;
+};
+
+export function acceptInvitation(invitationId: string): Promise<AcceptInvitationResponse> {
+  return request(`/invitations/${invitationId}/accept`, { method: 'POST' });
+}
+
 export type SerializedAgentRunEvent = {
   id: string;
   message: string;

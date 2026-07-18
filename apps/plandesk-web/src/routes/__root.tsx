@@ -74,6 +74,7 @@ function Crumb() {
  * API (see lib/portal.ts). Org sign-in must never gate them.
  */
 const PORTAL_PATH_PREFIX = '/p/';
+const INVITE_PATH_PREFIX = '/invite/';
 
 function AppShell({ showAccount }: { showAccount: boolean }) {
   return (
@@ -100,10 +101,15 @@ function AppShell({ showAccount }: { showAccount: boolean }) {
 function RootLayout() {
   const location = useLocation();
   const isPortal = location.pathname.startsWith(PORTAL_PATH_PREFIX);
+  // The invite claim page renders rootless (no AppShell) and outside the
+  // AuthGate, so a signed-out invitee reaches it instead of the sign-in wall.
+  const isInvite = location.pathname.startsWith(INVITE_PATH_PREFIX);
   const shell = <AppShell showAccount={!isPortal} />;
 
   return (
-    <CommandMenuProvider>{isPortal ? shell : <AuthGate>{shell}</AuthGate>}</CommandMenuProvider>
+    <CommandMenuProvider>
+      {isInvite ? <Outlet /> : isPortal ? shell : <AuthGate>{shell}</AuthGate>}
+    </CommandMenuProvider>
   );
 }
 

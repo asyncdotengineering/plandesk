@@ -4,6 +4,20 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [1.0.0-beta.5] — 2026-07-18
+
+### Fixed
+
+- **Invite links now work end to end.** The claim link an owner/admin hands out (`/invite/:invitationId`) previously led nowhere — there was no page to render it, and the path sat inside the auth wall, so a signed-out invitee was bounced to sign-in, `accept` was never called, and the invitation stayed pending forever. There is now a real claim page: it previews *"you've been invited to join **{org}** as **{role}**"*, then walks the invitee through GitHub sign-in (returning to the invite) and accepting, landing them in the workspace. Clear states for expired/already-used links and wrong-account mismatches.
+
+### Added
+
+- **`GET /api/v1/invitations/:invitationId`** — a capability-gated preview (the unguessable id is the authorization; no session required) returning the organization name, role, invited email, and status, so the claim page can orient an invitee before they authenticate.
+
+### Changed
+
+- **Redesigned the sign-in and invite pages.** Both now share a branded, full-viewport, centered frame with the Plan Desk node-graph mark, wordmark, and a subtle canvas backdrop — matching the marketing site. Sign-in copy leads with product identity ("Welcome to Plan Desk — the shared graph for planning and building") and a GitHub button with a reassurance line ("We only read your public profile and email"), replacing the bare, off-center card and org-jargon subtext.
+
 ## [1.0.0-beta.4] — 2026-07-18
 
 ### Changed

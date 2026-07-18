@@ -127,6 +127,57 @@ export async function listOrganizationMembers(
   );
 }
 
+export type InvitationPreview = {
+  organizationId: string;
+  organizationName: string;
+  role: string;
+  email: string;
+  status: string;
+  expiresAt: string;
+};
+
+/**
+ * Preview an invitation by id (capability: holding the link is authorization).
+ * Returns the org name + role + invited email so the claim page can orient the
+ * invitee before they sign in. No session required — mirrors the link-only,
+ * deliver-by-hand model; ids are unguessable so enumeration is infeasible.
+ */
+export async function getInvitationPreview(
+  auth: BetterAuthInstance,
+  invitationId: string,
+): Promise<InvitationPreview | undefined> {
+  const adapter = (await auth.$context).adapter;
+  const invitation = await adapter.findOne<{
+    id: string;
+    email: string;
+    role: string;
+    organizationId: string;
+    status: string;
+    expiresAt: Date | string;
+  }>({
+    model: 'invitation',
+    where: [{ field: 'id', value: invitationId }],
+  });
+  if (invitation === null) {
+    return undefined;
+  }
+  const org = await adapter.findOne<OrganizationSummary>({
+    model: 'organization',
+    where: [{ field: 'id', value: invitation.organizationId }],
+  });
+  return {
+    organizationId: invitation.organizationId,
+    organizationName: org?.name ?? '',
+    role: invitation.role,
+    email: invitation.email,
+    status: invitation.status,
+    expiresAt:
+      invitation.expiresAt instanceof Date
+        ? invitation.expiresAt.toISOString()
+        : String(invitation.expiresAt),
+  };
+}
+
 /**
  * Display-friendly org for /auth/session and similar.
  * Falls back to DEFAULT_ORG_ID → "Personal" when better-auth is not configured

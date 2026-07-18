@@ -80,7 +80,7 @@ describe('AuthGate', () => {
       </AuthGate>,
     );
 
-    expect(await screen.findByText('Sign in to Plan Desk')).toBeDefined();
+    expect(await screen.findByText('Welcome to Plan Desk')).toBeDefined();
     expect(screen.queryByText('Secret board')).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
   });
@@ -154,7 +154,7 @@ describe('AuthGate', () => {
     );
 
     expect(await screen.findByText('Secret board')).toBeDefined();
-    expect(screen.queryByText('Sign in to Plan Desk')).toBeNull();
+    expect(screen.queryByText('Welcome to Plan Desk')).toBeNull();
   });
 
   it('sends credentials so the HttpOnly session cookie rides along', async () => {

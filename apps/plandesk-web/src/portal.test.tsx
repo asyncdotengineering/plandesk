@@ -308,7 +308,7 @@ describe('Portal route', () => {
       expect(screen.getByRole('heading', { name: 'Acme Corp' })).toBeTruthy();
     });
 
-    expect(screen.queryByText('Sign in to Plan Desk')).toBeNull();
+    expect(screen.queryByText('Welcome to Plan Desk')).toBeNull();
     expect(screen.queryByRole('link', { name: /continue with github/i })).toBeNull();
   });
 

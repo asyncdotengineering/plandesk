@@ -16,7 +16,11 @@ import {
   isAuthApiError,
   isInvitationRole,
 } from '../invitations.js';
-import { getOrganizationById, listOrganizationMembers } from '../organizations.js';
+import {
+  getInvitationPreview,
+  getOrganizationById,
+  listOrganizationMembers,
+} from '../organizations.js';
 import { requirePermission, type PermissionSet } from '../permissions.js';
 
 function isPermissionSet(value: unknown): value is PermissionSet {
@@ -216,6 +220,26 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
       }
       throw err;
     }
+  });
+
+  /**
+   * Preview an invitation (capability: the unguessable id is the authorization).
+   * Public so the claim page can render "you've been invited to X as Y" before
+   * the invitee signs in. Returns org name + role + invited email + status.
+   */
+  router.get('/invitations/:invitationId', async (c) => {
+    if (betterAuth === undefined) {
+      return c.json({ error: 'unavailable' }, 503);
+    }
+    const invitationId = c.req.param('invitationId');
+    if (invitationId.trim() === '') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    const preview = await getInvitationPreview(betterAuth, invitationId);
+    if (preview === undefined) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json(preview, 200);
   });
 
   /**

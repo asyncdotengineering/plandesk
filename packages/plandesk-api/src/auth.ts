@@ -280,6 +280,9 @@ const PUBLIC_AUTH_PATHS = new Set([
 /** Invitation accept: invitee may have a session but zero org memberships yet. */
 const INVITATION_ACCEPT_PATH = /^\/api\/v1\/invitations\/[^/]+\/accept$/;
 
+/** Invitation preview (GET only): the claim page renders "invited to X" pre-auth. */
+const INVITATION_PREVIEW_PATH = /^\/api\/v1\/invitations\/[^/]+$/;
+
 export function isInvitationAcceptPath(path: string): boolean {
   return INVITATION_ACCEPT_PATH.test(path);
 }
@@ -293,7 +296,8 @@ export function isPublicAuthPath(path: string): boolean {
     return true;
   }
   // BA3c: accept is session-checked in-handler, not org-gated.
-  return isInvitationAcceptPath(path);
+  // Preview (GET /invitations/:id) is capability-gated by the unguessable id.
+  return isInvitationAcceptPath(path) || INVITATION_PREVIEW_PATH.test(path);
 }
 
 /**

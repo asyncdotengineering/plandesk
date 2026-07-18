@@ -252,6 +252,43 @@ describe('organization invitations (BA3c)', () => {
     expect(invitation?.organizationId).toBe(orgId);
   });
 
+  it('preview: GET /invitations/:id returns org + role + email with no auth; unknown → 404', async () => {
+    const { app, auth, orgId } = await hostedInviteApp();
+    const owner = await seedBetterAuthUser(auth, {
+      email: 'owner@example.com',
+      name: 'Owner',
+      githubAccountId: '1001',
+      org: { id: orgId, name: 'Personal', slug: 'personal' },
+      role: 'owner',
+    });
+
+    const invite = await app.request(`/api/v1/orgs/${orgId}/invitations`, {
+      method: 'POST',
+      headers: { Cookie: owner.cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'dev@example.com', role: 'admin' }),
+    });
+    const { invitationId } = await parseJson<{ invitationId: string }>(invite);
+
+    // No credentials — the unguessable id is the authorization.
+    const preview = await app.request(`/api/v1/invitations/${invitationId}`);
+    expect(preview.status).toBe(200);
+    const body = await parseJson<{
+      organizationName: string;
+      role: string;
+      email: string;
+      status: string;
+    }>(preview);
+    expect(body.organizationName).toBe('Personal');
+    expect(body.role).toBe('admin');
+    expect(body.email).toBe('dev@example.com');
+    expect(body.status).toBe('pending');
+
+    const unknown = await app.request(
+      '/api/v1/invitations/00000000-0000-4000-8000-0000000000ff',
+    );
+    expect(unknown.status).toBe(404);
+  });
+
   it('gate2: signed-in invitee accepts → member; second accept fails (single-use)', async () => {
     const { app, auth, orgId } = await hostedInviteApp();
     const owner = await seedBetterAuthUser(auth, {
