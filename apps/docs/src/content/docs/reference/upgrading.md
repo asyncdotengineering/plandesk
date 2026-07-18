@@ -19,7 +19,7 @@ Same schema, no breaking changes — this is every upgrade except the one below.
 ### 1. Update the package
 
 ```bash
-npm i -g @plandesk/cli@latest
+npm i -g @plandesk/cli@beta
 plandesk version   # confirm (also: plandesk --version)
 ```
 
@@ -65,12 +65,12 @@ Checks the workspace DB, the binding, the token, and that the MCP server lists i
 ## The 0.20.x → better-auth upgrade (breaking)
 
 :::danger[Version boundary — read before you upgrade past 0.20.0]
-If you're running **0.20.0 or earlier**, the next upgrade is **not** routine. The database schema baseline was replaced (no in-place migration) and the workspace moved from a per-repo `.plandesk/workspace.db` default to a **machine-global board** at `~/.plandesk/workspace.db`. `npm i -g @plandesk/cli@latest` followed by `plandesk serve` will **not** carry your old data forward automatically — you must run `plandesk legacy-upgrade` to bring it into the new board. Nothing is deleted: your old `workspace.db` is backed up in place before anything is imported.
+If you're running **0.20.0 or earlier**, the next upgrade is **not** routine. The database schema baseline was replaced (no in-place migration) and the workspace moved from a per-repo `.plandesk/workspace.db` default to a **machine-global board** at `~/.plandesk/workspace.db`. `npm i -g @plandesk/cli@beta` followed by `plandesk serve` will **not** carry your old data forward automatically — you must run `plandesk legacy-upgrade` to bring it into the new board. Nothing is deleted: your old `workspace.db` is backed up in place before anything is imported.
 :::
 
 ### What changed and why
 
-Pre–better-auth installs used a hand-rolled token table (`mcp_tokens`), a GitHub device-code CLI login, hand-rolled browser sessions, and a separate `orgs`/`org_members` schema. Auth is now **100% better-auth** — sessions, API keys, organizations, membership, and roles all come from better-auth's own tables, created by its runtime migrator. Those two schemas can't coexist, so the Drizzle migration baseline was reset rather than dual-stacked: there is no migration path from an old `workspace.db` straight into `plandesk serve` on the new version. See the [CHANGELOG `Unreleased` → Breaking](https://github.com/asyncdotengineering/plandesk/blob/main/CHANGELOG.md) for the full breaking-change list.
+Pre–better-auth installs used a hand-rolled token table (`mcp_tokens`), a GitHub device-code CLI login, hand-rolled browser sessions, and a separate `orgs`/`org_members` schema. Auth is now **100% better-auth** — sessions, API keys, organizations, membership, and roles all come from better-auth's own tables, created by its runtime migrator. Those two schemas can't coexist, so the Drizzle migration baseline was reset rather than dual-stacked: there is no migration path from an old `workspace.db` straight into `plandesk serve` on the new version. See the [CHANGELOG `1.0.0-beta.1` → Breaking](https://github.com/asyncdotengineering/plandesk/blob/main/CHANGELOG.md) for the full breaking-change list.
 
 At the same time, the workspace default moved to one **global board per machine** (`~/.plandesk/workspace.db`), shared by every connected repo, rather than a `.plandesk/workspace.db` per repo (`plandesk init --local-db` opts back into a repo-local one).
 
@@ -79,7 +79,7 @@ At the same time, the workspace default moved to one **global board per machine*
 `plandesk legacy-upgrade` **creates the new global board itself** if it doesn't exist yet, then imports your old data — so the whole upgrade is a single command:
 
 ```bash
-npm i -g @plandesk/cli@latest
+npm i -g @plandesk/cli@beta
 plandesk legacy-upgrade [--from <path-to-old-workspace.db>]
 ```
 
@@ -132,9 +132,13 @@ Confirm the imported projects appear in the UI (`plandesk serve`, open the print
 
 ## Version notes
 
-### Unreleased — better-auth native rewrite
+### 1.0.0-beta — better-auth native rewrite
+
+Released as `1.0.0-beta.1`–`1.0.0-beta.7` (2026-07-18) under the `beta` npm tag; `@latest` stays on `0.20.0` until GA.
 
 **Breaking.** See [The 0.20.x → better-auth upgrade](#the-020x--better-auth-upgrade-breaking) above for the full migration path. Summary: auth is now 100% better-auth (GitHub social web sign-in, paste-a-token CLI, project-scoped agent keys); `mcp_tokens`, GitHub device-code CLI login, hand-rolled sessions, and the old `orgs`/`org_members` schema are removed; the Drizzle migration baseline was reset (no in-place migration); the workspace default moved to one global board per machine. Use `plandesk legacy-upgrade` to lift a 0.20.x-era board into the new one.
+
+Hardening across the beta line: Cloudflare Workers deploy fixes (beta.2); R2 file storage, a public `/api/v1/health`, and `plandesk admin invite-owner --db` for remote bootstrap (beta.3); dashboard member invites for owners and admins (beta.4); the working `/invite/:id` claim flow and branded auth pages (beta.5); and a full web user-flow UX audit (beta.6–beta.7).
 
 ### 0.20.0
 
@@ -142,7 +146,7 @@ Share links in the UI (task/document **Share** action, 24h/7d/never TTL); `pland
 
 ### 0.11.x
 
-Latest: `@plandesk/cli@0.11.0` (depends on `@plandesk/api@0.10.0`, `@plandesk/db@0.8.0`, `@plandesk/mcp@0.10.0`). Upgrade with `npm i -g @plandesk/cli@latest`; restart `plandesk serve` — schema migrations run automatically on load (no manual migrate step). Back up `<data-dir>/workspace.db` before upgrading if you want a rollback point.
+Historical: `@plandesk/cli@0.11.0` (depended on `@plandesk/api@0.10.0`, `@plandesk/db@0.8.0`, `@plandesk/mcp@0.10.0`). At the time you upgraded with `npm i -g @plandesk/cli@0.11.0`; restart `plandesk serve` — schema migrations run automatically on load (no manual migrate step). Back up `<data-dir>/workspace.db` before upgrading if you want a rollback point.
 
 - **Goals** — a new **Goals** tab per project holds goal-altitude nodes. Every task now belongs to a Goal (`tasks.goal_id`, NOT NULL); new projects get a default **General** goal. Agents gain `create_goal`, `get_goal`, `list_goals`, `pause_goal`, `resume_goal`, and `complete_goal`. `get_next_task` walks the active Goal's frontier (optional `goal_id`; new reasons `no_active_goal`, `multiple_active_goals`). `create_task` accepts an optional `goal_id`.
 - **Generalized comments** — comments are polymorphic (`target_type` + `target_id` on documents, tasks, notes, and submissions). `add_comment` now takes `{ target_type, target_id, body, passage? }`; `list_comments` takes `{ project_id, target_type?, target_id?, include_resolved? }`. The old document-only `document_comments` table is replaced by a single `comments` table. Migrations apply automatically on server start.
@@ -162,4 +166,4 @@ Latest: `@plandesk/cli@0.11.0` (depends on `@plandesk/api@0.10.0`, `@plandesk/db
 
 ## Pinned or npx installs
 
-If you run Plan Desk without a global install, `npx @plandesk/cli@latest …` always uses the newest version — only steps 2–4 apply.
+If you run Plan Desk without a global install, `npx @plandesk/cli@beta …` uses the current beta line — only steps 2–4 apply.

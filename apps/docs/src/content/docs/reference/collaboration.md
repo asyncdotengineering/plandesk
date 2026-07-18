@@ -23,7 +23,7 @@ Plan Desk stays local-first while letting you share a project — read-only and 
    LOCAL (optional offline workspace)              HOSTED / SELF-HOSTED (plandesk-api)
  ┌────────────────────────────────────┐  promote  ┌──────────────────────────────────────────┐
  │ plandesk serve + SQLite             │ ──────▶  │ @plandesk/api (Hono)                       │
- │  services + SSE + MCP               │          │  /api/v1/share/*   (meta, join, view,     │
+ │  services + MCP                     │          │  /api/v1/share/*   (meta, join, view,     │
  │  ShareService → ClientView          │          │                   submissions)            │
  │  triage inbox (local or same DB)    │          │  guest sessions · share_submissions       │
  └────────────────────────────────────┘          └──────────────────────────────────────────┘

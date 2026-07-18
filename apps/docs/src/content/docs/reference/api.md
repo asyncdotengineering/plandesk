@@ -56,9 +56,8 @@ description: REST endpoints and MCP tools exposed by Plan Desk v1.
 | GET    | `/artifacts/:id`              | Get artifact incl. full `content`                     |
 | PATCH  | `/artifacts/:id`               | Update `{ title?, kind?, content? }`                  |
 | GET    | `/share/:token.md`            | Agent-ready Markdown for a shared task/document (404 unknown, 410 expired/revoked) |
-| GET    | `/events`                     | SSE stream                                            |
-| POST   | `/agent-runs`                 | Start run `{ projectId, label? }`                     |
-| PATCH  | `/agent-runs/:id`             | Append progress / complete                            |
+| GET    | `/projects/:id/agent-runs`    | List agent runs (with nested progress events)         |
+| POST   | `/agent-runs/:id/progress`    | Append a progress event to a run                      |
 
 ### Goals
 
@@ -82,7 +81,7 @@ An **artifact** is a stored agent deliverable — a Markdown report, an RFC, an 
 
 ### Share links
 
-`GET /share/:token.md` returns a single task or document as agent-ready Markdown — linked documents inlined, an instruction at the top to fetch every embedded image, relative URLs absolutized. The link is minted via the MCP `create_share_link` tool (there is no REST creation route), reuses the same `shares` table and `ClientView` projection as the [client-collaboration portal](/reference/collaboration/) — scoped by policy to exactly one resource — and defaults to a 24h TTL (`never` disables expiry). Use it to give a delegated worker full context via a URL without granting it MCP access.
+`GET /share/:token.md` returns a single task or document as agent-ready Markdown — linked documents inlined, an instruction at the top to fetch every embedded image, relative URLs absolutized. The link is minted via the MCP `create_share_link` tool — or the REST routes `POST /tasks/:id/share` and `POST /documents/:id/share` — and reuses the same `shares` table and `ClientView` projection as the [client-collaboration portal](/reference/collaboration/) — scoped by policy to exactly one resource — and defaults to a 24h TTL (`never` disables expiry). Use it to give a delegated worker full context via a URL without granting it MCP access.
 
 ## MCP server
 
@@ -105,6 +104,7 @@ An **artifact** is a stored agent deliverable — a Markdown report, an RFC, an 
 | `resume_goal`                | Resume a paused goal                                                                                                       |
 | `complete_goal`              | Complete a goal with optional verification evidence                                                                        |
 | `get_next_task`              | Next actionable `todo` on the active goal frontier (optional `goal_id`; reasons `no_active_goal`, `multiple_active_goals`) |
+| `claim_task`                 | Atomically claim a task for an agent — guards against two agents taking the same one                                       |
 | `create_task`                | Add canvas node + task row (optional `goal_id`, `tags`)                                                                    |
 | `update_task`                | Status, label, description, position, `tags` (replaces set)                                                                |
 | `get_task`                   | Fetch a single task by id                                                                                                  |
@@ -139,7 +139,7 @@ An **artifact** is a stored agent deliverable — a Markdown report, an RFC, an 
 | `list_submissions`           | List pulled submissions (triage inbox)                                                                                     |
 | `triage_submission`          | Accept a submission → real task (or reject)                                                                                |
 
-46 tools in total. The last five are the [collaboration tier](/reference/collaboration/) — sharing a project with a client or team (`create_share_link` is a separate, lighter-weight primitive for handing one resource to a worker — see [Share links](#share-links) above). At session start, list tools before calling them. Resolve the project from `.plandesk/config.json` when present — do not guess IDs. To stand up a whole plan at once use `scaffold_project_from_plan`; to execute it, loop `get_next_task` → `update_task` within a Goal. There is no delete tool by design — resolve comments rather than deleting them.
+45 tools in total. The last three are the [collaboration tier](/reference/collaboration/) — sharing a project with a client or team (`create_share_link` is a separate, lighter-weight primitive for handing one resource to a worker — see [Share links](#share-links) above). At session start, list tools before calling them. Resolve the project from `.plandesk/config.json` when present — do not guess IDs. To stand up a whole plan at once use `scaffold_project_from_plan`; to execute it, loop `get_next_task` → `update_task` within a Goal. There is no delete tool by design — resolve comments rather than deleting them.
 
 ### Error cases
 

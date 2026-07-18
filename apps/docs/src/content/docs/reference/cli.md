@@ -13,11 +13,12 @@ This provides the `plandesk` binary and bundles the web UI. All commands below a
 
 ```
 plandesk help [--commands]
-plandesk init [--data-dir <dir>]
+plandesk init [--data-dir <dir>] [--local-db]
 plandesk login [--server <url>]
 plandesk logout
 plandesk whoami
-plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>]
+plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>] [--config <file>]
+plandesk migrate [--db <url>] [--db-token <token>] [--data-dir <dir>]   # run schema migrations (local or remote DB)
 plandesk url [--repo <dir>] [--lan]
 plandesk export --project <id> --out <file.json> [--data-dir <dir>]
 plandesk import --in <file.json> [--data-dir <dir>]
@@ -29,6 +30,7 @@ plandesk connect --to <org> [--project <id|name>] [--repo <dir>] [--print]
 plandesk disconnect [--repo <dir>]
 plandesk doctor [--data-dir <dir>] [--repo <dir>]
 plandesk factory init [--repo <dir>] [--print] [--force]
+plandesk factory sync [--write] [--force] [--repo <dir>]
 
 # Collaboration (share a project with a client or team)
 plandesk push --to <org-id> [--project <id>] [--repo <dir>]
@@ -43,11 +45,11 @@ plandesk deploy [target]
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | `<file.md\|.html>` / `open` | Preview & annotate files in the browser (see [Preview & annotate](#preview--annotate)); glob-friendly (`plandesk *.md`) |
 | `help`                   | A crash course (orientation + key commands + doc links) for humans and agents; `help --commands` prints the full grammar |
-| `init`                   | Create workspace DB, run migrations, and assign a project-local port (3400–3499) stored in `.plandesk/workspace.json`   |
+| `init`                   | Create workspace DB, run migrations, and record the board's fixed port (`3847`) in `.plandesk/workspace.json`           |
 | `login`                  | Paste a CLI token from the dashboard (owner key) into `~/.plandesk/config.json` (`{ server, token, orgId }`); optional `--server <url>` |
 | `logout`                 | Remove the global hosted-server credentials |
 | `whoami`                 | Print the configured hosted server and organization |
-| `serve`                  | Start REST + SSE + MCP + web UI; reads the port from `workspace.json` if no `--port` flag is given                      |
+| `serve`                  | Start REST + MCP + web UI; reads the port from `workspace.json` if no `--port` flag is given                            |
 | `url`                    | Print the server URL for this project (`$(plandesk url)` in scripts); `--lan` returns the LAN IP instead of loopback    |
 | `export` / `import`      | Lossless `plandesk-export-v1` JSON round-trip                                                                            |
 | `legacy-upgrade`         | One-time: lift a pre–better-auth (0.20.x-era) `workspace.db` into the current global board — imports projects/tasks/documents/edges/notes/comments/agent runs, backs up the source file, safe to re-run; see [Upgrading](/reference/upgrading/#the-020x--better-auth-upgrade-breaking) |
@@ -104,8 +106,8 @@ Share a planned project with a client or another team over a read-only live port
 | --------------- | ----------------------- | -------------------------------------------------------------------------- |
 | `--data-dir`    | nearest `.plandesk/` walking up from cwd, then `PLANDESK_DATA_DIR`, then `~/.plandesk` | Workspace directory |
 | `--repo`        | cwd                     | Target repository directory                                                |
-| `--port`        | from `workspace.json`, then `3847` | Preferred HTTP port for serve (auto-rotates to the next free port if busy) |
-| `--strict-port` | —                                  | Fail instead of rotating when the port is in use                           |
+| `--port`        | from `workspace.json`, then `3847` | HTTP port for serve; if it's in use, serve fails (one board per machine) — stop the other process or pass a different `--port` |
+| `--strict-port` | —                                  | Exit non-zero when the serve port is in use (already the default — one global board, one port) |
 | `--host`        | `127.0.0.1`                        | Bind address; LAN exposure is opt-in via `--host 0.0.0.0` or `PLANDESK_HOST` |
 | `--lan`         | —                                  | `url` command returns the LAN IP instead of `127.0.0.1`                   |
 | `--project`     | —                                  | Project id or name for connect/export                                      |
@@ -114,7 +116,7 @@ Share a planned project with a client or another team over a read-only live port
 | `--token`       | —                       | MCP token for connect                                                      |
 | `--agent`       | detect                  | Agent config target for connect                                            |
 | `--print`       | —                       | Dry-run connect / factory init without writing files                       |
-| `--force`       | —                       | `factory init` only: scaffold even in a global config directory            |
+| `--force`       | —                       | `factory init`: scaffold even in a global config dir · `factory sync`: also overwrite customized files |
 | `--out`         | —                       | Output file for export                                                     |
 | `--in`          | —                       | Input file for import                                                      |
 | `--from`        | `~/.plandesk/workspace.db`, else `./.plandesk/workspace.db` | (`legacy-upgrade`) path to the old workspace.db to import |
@@ -127,6 +129,10 @@ Share a planned project with a client or another team over a read-only live port
 | `PLANDESK_HOST`          | `127.0.0.1`   | Bind address (set `0.0.0.0` to expose on the LAN) |
 | `PLANDESK_AUTH_PASSWORD` | (unset)       | When set, enables HTTP basic auth on the UI and REST API |
 | `PLANDESK_MCP_TOKEN`     | (unset)       | Overrides the token read from `.plandesk/token` |
+| `PLANDESK_PORT`          | (see `--port`) | Serve port override |
+| `PLANDESK_BETTER_AUTH_SECRET` | (unset)  | better-auth signing secret; required for hosted/non-loopback auth and for remote `admin invite-owner` |
+| `PLANDESK_DB_URL` / `PLANDESK_DB_TOKEN` | (unset) | Remote libSQL/Turso URL + token for `plandesk migrate` and hosted serve |
+| `PLANDESK_SYNC_TOKEN`    | (unset)       | Legacy remote-pull credential for the sync path |
 
 ## Validation and metrics
 

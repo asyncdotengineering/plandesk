@@ -19,13 +19,15 @@ Agent config written into global directories (`~/.claude`, `~/.codex`) leaks int
 └─ factory/
    ├─ workflow.md              # the orchestrator's session program (type: workflow)
    ├─ factory.md               # the contract: how a work cycle runs (type: factory)
+   ├─ autonomous-stand.md      # execution posture: decompose, drive to zero, ship (type: autonomy)
    ├─ protocol.md              # deterministic dispatch + result contract (type: protocol)
    ├─ workers/                 # one file per worker CLI (type: worker)
    │  ├─ claude.md             #   probe + command template with {prompt_file}
    │  ├─ codex.md
    │  ├─ cursor.md
    │  ├─ grok.md
-   │  └─ opencode.md
+   │  ├─ opencode.md
+   │  └─ pi.md
    ├─ lanes.md                 # risk lanes: which changes need which human gates (type: lanes)
    ├─ verifiers/
    │  └─ tests-pass.md         # example per-change check (type: verifier)
@@ -36,7 +38,7 @@ Agent config written into global directories (`~/.claude`, `~/.codex`) leaks int
 
 Two zones with different ownership:
 
-- **Authored policy** (`index.md`, `workflow.md`, `factory.md`, `protocol.md`, `workers/*`, `lanes.md`, `verifiers/*`) — scaffolded **once**, then yours. Re-running `factory init` never overwrites them (`skip` in the summary). Edit them, commit them; they are the repository's operating policy.
+- **Authored policy** (`index.md`, `workflow.md`, `factory.md`, `autonomous-stand.md`, `protocol.md`, `workers/*`, `lanes.md`, `verifiers/*`) — scaffolded **once**, then yours. Re-running `factory init` never overwrites them (`skip` in the summary). Edit them, commit them; they are the repository's operating policy.
 - **Generated adapters** (`.claude/commands/factory.md`, `.codex/commands/factory.md`) — one-line includes, refreshed on every run.
 - **Transient state** (`factory/runs/`) — machine output such as `metrics.jsonl`; gitignored by the scaffold.
 
@@ -44,7 +46,7 @@ Two zones with different ownership:
 
 The format is small on purpose; it borrows the conformance posture of the Open Knowledge Format and the Agent Skills spec:
 
-1. **One required frontmatter field.** Every policy file declares a `type` (`factory`, `workers`, `lanes`, `verifier`). Everything else is optional.
+1. **One required frontmatter field.** Every policy file declares a `type` (`factory`, `workflow`, `protocol`, `worker`, `lanes`, `verifier`). Everything else is optional.
 2. **Identity is the path.** A file's name is its name — no `id` fields, no registry. `verifiers/tests-pass.md` *is* the verifier `tests-pass`.
 3. **Consumers are permissive.** Tools reading `.agents/` MUST tolerate unknown types, unknown frontmatter keys, and links to files that do not exist yet. Old consumers never break on new producers — this is what lets one repo serve Claude Code today and a hosted orchestrator later without changing a file.
 4. **Markdown is the interchange layer.** Guidance (contracts, rosters, policy) lives in markdown and ports across harnesses. Anything executable a specific runtime needs is compiled *from* these files, never written back into them.
@@ -148,7 +150,7 @@ Every human touchpoint is a board interaction (drag, resolve, merge), not a chat
 
 Releasing a task (`scope` → `todo`) works two ways today:
 
-- **Humans** drag the card between columns on the Board view (five columns: Scope, Todo, In progress, Done, Backlog) — the drop issues the status change, live for every connected agent within ~2s.
+- **Humans** drag the card between columns on the Board view (five columns: Scope, Todo, In progress, Done, Backlog) — the drop issues the status change; connected agents' UIs pick it up on their next poll (~2.5s).
 - **Agents** technically can call `update_task` with `status: "todo"` — the API does not restrict transitions. The enforcement in the current design is at *read* time: `get_next_task` never returns unreleased work, and the factory contract instructs the supervisor to treat release as human-owned.
 
 In other words: the release gate is mechanism-enforced for *pulling* work and convention-enforced for *promoting* it. If your policy needs hard human-only release (e.g. regulated repos), keep `update_task`-driven promotion out of your supervisor's contract — and watch the changelog: token-scoped transition rules are a candidate hardening.
@@ -181,10 +183,14 @@ Humans steer from the board: releasing `scope` tasks, resolving `approve`-lane c
 
 ```bash
 plandesk factory init [--repo <dir>] [--print] [--force]
+plandesk factory sync [--write] [--force] [--repo <dir>]
 ```
 
 | Flag      | Purpose                                                        |
 | --------- | -------------------------------------------------------------- |
 | `--repo`  | Target repository (default: cwd)                               |
-| `--print` | Dry-run: print every artifact without writing                  |
-| `--force` | Scaffold even in a global config directory (you own the blast) |
+| `--print` | `init` dry-run: print every artifact without writing           |
+| `--write` | `sync` only: apply creates + safe updates, keeping your customized files (default is a dry-run plan) |
+| `--force` | `init`: scaffold even in a global config dir · `sync`: also overwrite customized files |
+
+`factory sync` updates scaffolded policy to the latest shipped version **without clobbering your edits** — it classifies each file as up-to-date / create / safe-update / customized and, with `--write`, applies the safe ones (and refreshes generated adapters). See [Upgrading → Sync the factory policy](/reference/upgrading/#sync-the-factory-policy).

@@ -17,15 +17,15 @@ Most issues are one of a handful of things. Find your symptom; each fix is the r
 
 These fail loudly with the exact next step — here's what each means:
 
-**`Missing .plandesk/config.json. Run plandesk connect first.`** The collaboration commands operate on a connected project. Run `plandesk connect --project "<name>"` before `publish` / `push` / `pull` / `share`.
+**`Missing .plandesk/config.json. Run plandesk connect first.`** The collaboration commands operate on a connected project. Run `plandesk connect --project "<name>"` before `push` / `pull` / `share`.
 
 **`Sync server URL is required.`** / **`Remote URL is required.`** The project is not configured for a hosted API. Log in with `plandesk login --server https://<your-plandesk-api>`, then promote with `plandesk push --to <org-id>`.
 
-**`Global project id is required. Run plandesk publish …`** Same cause — `publish` first; `push`/`pull` need the global id it records.
+**`Global project id is required.`** Same cause — promote first with `plandesk push --to <org-id>`; it records the global id that `pull` needs.
 
 **`Sync token is required. Set PLANDESK_SYNC_TOKEN, write .plandesk/sync-token, or pass --sync-token.`** A legacy remote pull credential is missing. For single-server hosted work (owner and portal on the same API), triage submissions on that API directly — you do not need a separate sync-server token. Prefer `plandesk login` + org token for hosted promote.
 
-**`push` reports `pushed 0 share(s)`.** There's no share to project. Create one: `plandesk share create --audience "<name>" --public`. Then `push` again.
+**`push requires --to <org-id>`.** `push` promotes a whole project to a hosted org and needs the target org. Run `plandesk push --to <org-id>` (after `plandesk login`). Once promoted, create client-facing views with `plandesk share create --audience "<name>" --public` — a share requires the project to be promoted first.
 
 ## The portal
 
