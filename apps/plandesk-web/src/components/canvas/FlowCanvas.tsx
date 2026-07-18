@@ -26,6 +26,7 @@ import {
   useDocuments,
   usePatchTask,
 } from '../../lib/queries.js';
+import { ConfirmDialog } from '../docs/ConfirmDialog.js';
 import {
   buildTaskDocumentMap,
   canvasToFlowEdges,
@@ -112,21 +113,35 @@ function AddTaskPanel({ projectId }: { projectId: string }) {
 
 function ArrangePanel({ onArrange }: { onArrange: () => void }) {
   const { fitView } = useReactFlow();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
-    <Panel position="top-right">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => {
+    <>
+      <Panel position="top-right">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setConfirmOpen(true);
+          }}
+        >
+          <LayoutDashboard /> Auto layout
+        </Button>
+      </Panel>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Auto layout?"
+        description="Auto-layout repositions every node. Your manual arrangement will be replaced. Continue?"
+        confirmLabel="Continue"
+        onConfirm={() => {
           onArrange();
           void fitView({ padding: 0.2, duration: 300 });
+          setConfirmOpen(false);
         }}
-      >
-        <LayoutDashboard /> Auto layout
-      </Button>
-    </Panel>
+      />
+    </>
   );
 }
 

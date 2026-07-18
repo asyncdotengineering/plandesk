@@ -52,8 +52,15 @@ export function Members() {
     if (claimUrl === null) {
       return;
     }
-    await navigator.clipboard.writeText(claimUrl);
-    setCopied(true);
+    try {
+      await navigator.clipboard.writeText(claimUrl);
+      setCopied(true);
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 1500);
+    } catch {
+      toast.error("Couldn't copy — copy it manually.");
+    }
   }
 
   if (session.isLoading) {

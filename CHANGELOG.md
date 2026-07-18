@@ -4,6 +4,20 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [1.0.0-beta.6] — 2026-07-18
+
+UX hardening from a full four-phase audit of every web user flow (see `AUDIT-SUMMARY.md`). This release ships the "clear defects" batch.
+
+### Fixed
+
+- **Silent failures now surface.** A global mutation error handler shows a toast when any create / rename / delete / status-change / tag / move / org-switch / logout request fails — previously ~20 of these failed silently, leaving the UI looking like nothing happened.
+- **Loading and error states no longer masquerade as "empty."** The project overview's Goals and Recent-documents sections, and the documents panel, now show real loading/error states instead of an "empty" message when a fetch is pending or failed.
+- **Dead and misleading controls.** The sidebar workspace "switcher" (a dropdown chevron that did nothing) is now an honest link to home; the Inbox "Looks good" button on Curator proposals (a no-op that lost its state on reload) is removed and its note links to the Board; the **MCP Settings** page now actually has the "Connect an agent (MCP)" section it advertised, with copyable `plandesk login` / `plandesk connect` commands and a docs link.
+- **Destructive actions confirm.** Rejecting a client submission, running Auto-layout (which replaces your manual node arrangement), and baking a permanent blur-redaction now ask first.
+- **Clipboard.** Copy actions catch failures (and tell you to copy manually) and reset the "Copied" label; sharing a task/document now copies the human page URL instead of the raw `.md` URL.
+- **Editor discoverability.** The empty-editor placeholder now hints that `/` opens the block menu and `[[` links a document.
+- **GitHub sign-in button** uses the real GitHub Octocat mark (was an ambiguous glyph).
+
 ## [1.0.0-beta.5] — 2026-07-18
 
 ### Fixed

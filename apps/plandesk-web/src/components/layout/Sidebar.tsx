@@ -130,21 +130,10 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="ws">
+      <Link to="/" className="ws" aria-label="Plan Desk home">
         <div className="ws-badge">P</div>
         <span className="ws-name">Plan Desk</span>
-        <svg
-          className="ws-chev"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.8}
-        >
-          <path d="M8 9l4 4 4-4M8 15l4-4 4 4" />
-        </svg>
-      </div>
+      </Link>
       <div className="side-scroll">
         {id === undefined ? (
           <>

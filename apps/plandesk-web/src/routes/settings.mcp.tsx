@@ -1,5 +1,69 @@
+import { useState } from 'react';
 import { Link, createFileRoute } from '@tanstack/react-router';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CliToken } from '../components/settings/CliToken.js';
+
+function connectCommands(): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return `plandesk login --server ${origin}\nplandesk connect --to <org>`;
+}
+
+function McpConnectCard() {
+  const [copied, setCopied] = useState(false);
+  const commands = connectCommands();
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(commands);
+      setCopied(true);
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 1500);
+    } catch {
+      toast.error("Couldn't copy — copy it manually.");
+    }
+  }
+
+  return (
+    <Card className="mb-6">
+      <CardHeader className="border-b pb-4">
+        <CardTitle className="text-sm font-semibold">Connect an agent (MCP)</CardTitle>
+        <CardDescription>
+          Point the Plan Desk CLI at this server, then connect it to your organization so agents can
+          use the MCP tools.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3 pt-4">
+        <code className="block whitespace-pre-wrap break-all rounded-md border border-border bg-muted/40 px-3 py-2.5 font-mono text-xs">
+          {commands}
+        </code>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-fit"
+            onClick={() => {
+              void handleCopy();
+            }}
+          >
+            {copied ? 'Copied' : 'Copy commands'}
+          </Button>
+          <a
+            href="https://plandesk.asyncdot.com/connecting-agents/mcp-setup/"
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            MCP setup docs
+          </a>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function McpSettingsPage() {
   return (
@@ -22,6 +86,7 @@ function McpSettingsPage() {
             MCP / CLI token
           </Link>
         </nav>
+        <McpConnectCard />
         <div className="mb-10">
           <CliToken />
         </div>

@@ -70,6 +70,15 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
     if (saving) {
       return;
     }
+    const blurShapes = shapes.filter((shape) => shape.type === 'blur');
+    if (
+      blurShapes.length >= 1 &&
+      !window.confirm(
+        "Blur redaction is permanent — redacted pixels are removed and can't be recovered. Save?",
+      )
+    ) {
+      return;
+    }
     setSaving(true);
     try {
       const { w, h } = naturalSize;
@@ -78,7 +87,6 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
       // original so the un-redacted pixels are never stored. data-original ships
       // to the portal client, so keeping the raw image there would leak whatever
       // the user redacted. Arrows/boxes/text stay re-editable as overlay JSON.
-      const blurShapes = shapes.filter((shape) => shape.type === 'blur');
       const overlayShapes = shapes.filter((shape) => shape.type !== 'blur');
       const persistedOriginal =
         canFlatten && blurShapes.length > 0

@@ -5,11 +5,19 @@ import { useDocuments, useFolders, useProject, useTasks } from '../lib/queries.j
 function ProjectDocumentsPage() {
   const { id } = Route.useParams();
   const { data: project, isLoading, error } = useProject(id);
-  const { data: documents } = useDocuments(id);
-  const { data: folders } = useFolders(id);
+  const {
+    data: documents,
+    isLoading: documentsLoading,
+    isError: documentsError,
+  } = useDocuments(id);
+  const {
+    data: folders,
+    isLoading: foldersLoading,
+    isError: foldersError,
+  } = useFolders(id);
   const { data: tasks } = useTasks(id);
 
-  if (isLoading) {
+  if (isLoading || documentsLoading || foldersLoading) {
     return <p className="text-sm text-muted-foreground">Loading documents…</p>;
   }
 
@@ -17,6 +25,14 @@ function ProjectDocumentsPage() {
     return (
       <p role="alert" className="text-sm text-destructive">
         Failed to load project: {error.message}
+      </p>
+    );
+  }
+
+  if (documentsError || foldersError) {
+    return (
+      <p role="alert" className="text-sm text-destructive">
+        Couldn&apos;t load documents
       </p>
     );
   }

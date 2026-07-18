@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ShareButton } from './ShareButton';
 
+const PAGE_URL = 'http://127.0.0.1:3456/p/plandesk_share_abc';
 const MARKDOWN_URL = 'http://127.0.0.1:3456/api/v1/share/plandesk_share_abc.md';
 
 describe('ShareButton', () => {
@@ -12,7 +13,7 @@ describe('ShareButton', () => {
         ok: true,
         status: 201,
         json: async () => ({
-          url: 'http://127.0.0.1:3456/p/plandesk_share_abc',
+          url: PAGE_URL,
           markdown_url: MARKDOWN_URL,
           expires_at: '2026-07-13T00:00:00.000Z',
         }),
@@ -26,13 +27,13 @@ describe('ShareButton', () => {
     vi.unstubAllGlobals();
   });
 
-  it('mints a share link for a task and exposes it to copy', async () => {
+  it('mints a share link for a task and copies the human page URL', async () => {
     render(<ShareButton resource={{ kind: 'task', id: 'task-1' }} />);
 
     fireEvent.click(screen.getByRole('button', { name: /share task/i }));
     fireEvent.click(await screen.findByRole('button', { name: /create link/i }));
 
-    const input = (await screen.findByDisplayValue(MARKDOWN_URL)) as HTMLInputElement;
+    const input = (await screen.findByDisplayValue(PAGE_URL)) as HTMLInputElement;
     expect(input).toBeTruthy();
 
     // The POST hit the task share endpoint.
@@ -42,7 +43,7 @@ describe('ShareButton', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /copy link/i }));
     await waitFor(() => {
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(MARKDOWN_URL);
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(PAGE_URL);
     });
   });
 });

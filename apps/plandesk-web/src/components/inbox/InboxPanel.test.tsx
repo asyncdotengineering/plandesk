@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InboxPanel } from './InboxPanel.js';
@@ -57,9 +58,13 @@ function renderInboxPanel() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  const rootRoute = createRootRoute({
+    component: () => <InboxPanel projectId={projectId} />,
+  });
+  const router = createRouter({ routeTree: rootRoute });
   return render(
     <QueryClientProvider client={queryClient}>
-      <InboxPanel projectId={projectId} />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
 }
@@ -155,7 +160,7 @@ describe('InboxPanel', () => {
     });
   });
 
-  it('reject triages a submission as reject', async () => {
+  it('reject triages a submission as reject after confirm', async () => {
     const fetchMock = vi.fn(routeFetch);
     vi.stubGlobal('fetch', fetchMock);
 
@@ -166,6 +171,12 @@ describe('InboxPanel', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+    // Confirm dialog uses the same label on its destructive action.
+    await waitFor(() => {
+      expect(screen.getByText(/client isn't notified/i)).toBeTruthy();
+    });
+    const rejectButtons = screen.getAllByRole('button', { name: 'Reject' });
+    fireEvent.click(rejectButtons[rejectButtons.length - 1]!);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -296,7 +307,7 @@ describe('InboxPanel', () => {
     });
   });
 
-  it('shows Curator proposals with their provenance line and acknowledges locally without a network call', async () => {
+  it('shows Curator proposals with provenance and links to the Board for real approval', async () => {
     const fetchMock = vi.fn(routeFetch);
     vi.stubGlobal('fetch', fetchMock);
 
@@ -308,14 +319,8 @@ describe('InboxPanel', () => {
     expect(
       screen.getByText('Provenance: accept-new — matches REQ-2, no duplicate found.'),
     ).toBeTruthy();
-
-    const callsBefore = fetchMock.mock.calls.length;
-    fireEvent.click(screen.getByRole('button', { name: 'Looks good' }));
-
-    expect(await screen.findByRole('button', { name: 'Acknowledged' })).toHaveProperty(
-      'disabled',
-      true,
-    );
-    expect(fetchMock.mock.calls.length).toBe(callsBefore);
+    expect(screen.queryByRole('button', { name: 'Looks good' })).toBeNull();
+    expect(screen.getAllByRole('link', { name: /board/i }).length).toBeGreaterThan(0);
+    expect(fetchMock.mock.calls.every(([url]) => !String(url).includes('/triage'))).toBe(true);
   });
 });

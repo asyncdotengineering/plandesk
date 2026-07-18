@@ -54,14 +54,21 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
     }
   };
 
+  const shareUrl = result !== null ? (result.url || result.markdown_url) : '';
+
   const copy = async () => {
     if (result === null) return;
-    await navigator.clipboard.writeText(result.markdown_url);
-    setCopied(true);
-    toast('Link copied');
-    setTimeout(() => {
-      setCopied(false);
-    }, 1500);
+    const link = result.url || result.markdown_url;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      toast('Link copied');
+      setTimeout(() => {
+        setCopied(false);
+      }, 1500);
+    } catch {
+      toast.error("Couldn't copy — copy it manually.");
+    }
   };
 
   return (
@@ -110,7 +117,7 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
             <div className="flex items-center gap-2">
               <Input
                 readOnly
-                value={result.markdown_url}
+                value={shareUrl}
                 className="mono text-xs"
                 onFocus={(event) => {
                   event.currentTarget.select();

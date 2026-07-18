@@ -28,8 +28,16 @@ function ProjectOverviewPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const { data: project, isLoading, error } = useProject(id);
-  const { data: goals } = useGoals(id);
-  const { data: documents } = useDocuments(id);
+  const {
+    data: goals,
+    isLoading: goalsLoading,
+    isError: goalsError,
+  } = useGoals(id);
+  const {
+    data: documents,
+    isLoading: documentsLoading,
+    isError: documentsError,
+  } = useDocuments(id);
   const patchProject = usePatchProject();
   const deleteProject = useDeleteProject();
   const [name, setName] = useState('');
@@ -201,7 +209,13 @@ function ProjectOverviewPage() {
               All goals <ArrowRightIcon className="size-3.5" />
             </Link>
           </div>
-          {activeGoals.length === 0 ? (
+          {goalsLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : goalsError ? (
+            <p role="alert" className="text-sm text-destructive">
+              Couldn&apos;t load goals
+            </p>
+          ) : activeGoals.length === 0 ? (
             <p className="text-sm text-muted-foreground">No goals yet.</p>
           ) : (
             <ul className="m-0 flex flex-col gap-2 p-0">
@@ -241,7 +255,13 @@ function ProjectOverviewPage() {
             All documents <ArrowRightIcon className="size-3.5" />
           </Link>
         </div>
-        {recentDocs.length === 0 ? (
+        {documentsLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : documentsError ? (
+          <p role="alert" className="text-sm text-destructive">
+            Couldn&apos;t load documents
+          </p>
+        ) : recentDocs.length === 0 ? (
           <p className="text-sm text-muted-foreground">No documents yet.</p>
         ) : (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">

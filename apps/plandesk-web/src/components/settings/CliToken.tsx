@@ -20,8 +20,15 @@ export function CliToken() {
     if (rawToken === null) {
       return;
     }
-    await navigator.clipboard.writeText(rawToken);
-    setCopied(true);
+    try {
+      await navigator.clipboard.writeText(rawToken);
+      setCopied(true);
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 1500);
+    } catch {
+      toast.error("Couldn't copy — copy it manually.");
+    }
   }
 
   return (

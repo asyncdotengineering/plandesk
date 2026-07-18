@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import type { SerializedSubmission } from '../../lib/api.js';
 import {
@@ -14,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { CommentsPanel } from '../docs/CommentsPanel.js';
+import { ConfirmDialog } from '../docs/ConfirmDialog.js';
 
 type InboxPanelProps = {
   projectId: string;
@@ -104,6 +106,7 @@ function SubmissionRow({
   const triage = useTriageSubmission(projectId);
   const [mergeTaskId, setMergeTaskId] = useState('');
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
   const commentTarget = { type: 'submission' as const, id: submission.id };
   const { data: comments } = useComments(commentTarget);
   const openCommentCount = (comments ?? []).filter((comment) => !comment.resolved).length;
@@ -151,10 +154,7 @@ function SubmissionRow({
             variant="destructive"
             disabled={triage.isPending}
             onClick={() => {
-              triage.mutate(
-                { id: submission.id, input: { action: 'reject' } },
-                { onSuccess: () => toast.success('Submission rejected') },
-              );
+              setRejectOpen(true);
             }}
           >
             Reject
@@ -208,6 +208,25 @@ function SubmissionRow({
           {commentsOpen ? <CommentsPanel target={commentTarget} embedded /> : null}
         </div>
       </CardContent>
+      <ConfirmDialog
+        open={rejectOpen}
+        onOpenChange={setRejectOpen}
+        title="Reject submission?"
+        description="Reject this submission? The client isn't notified and this can't be undone."
+        confirmLabel="Reject"
+        busy={triage.isPending}
+        onConfirm={() => {
+          triage.mutate(
+            { id: submission.id, input: { action: 'reject' } },
+            {
+              onSuccess: () => {
+                setRejectOpen(false);
+                toast.success('Submission rejected');
+              },
+            },
+          );
+        }}
+      />
     </Card>
   );
 }
@@ -303,7 +322,6 @@ function BacklogTasks({ projectId }: { projectId: string }) {
 
 function CuratorProposals({ projectId }: { projectId: string }) {
   const { data: tasks, isLoading, error } = useTasks(projectId, { status: 'scope' });
-  const [acknowledged, setAcknowledged] = useState<Set<string>>(new Set());
 
   const proposals = (tasks ?? []).filter((task) => provenanceLine(task.description) !== null);
 
@@ -325,8 +343,15 @@ function CuratorProposals({ projectId }: { projectId: string }) {
         <>
           <p className="mb-2 text-xs text-muted-foreground">
             These are `scope` tasks the Curator proposed. Releasing a task from <code>scope</code>{' '}
-            to <code>todo</code> on the Board is the actual approval — nothing here does that for
-            you.
+            to <code>todo</code> on the{' '}
+            <Link
+              to="/projects/$id/board"
+              params={{ id: projectId }}
+              className="font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              Board
+            </Link>{' '}
+            is the actual approval — nothing here does that for you.
           </p>
           <ul className="m-0 grid list-none gap-2 p-0">
             {proposals.map((task) => (
@@ -339,18 +364,13 @@ function CuratorProposals({ projectId }: { projectId: string }) {
                         {provenanceLine(task.description)}
                       </p>
                     </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0"
-                      disabled={acknowledged.has(task.id)}
-                      onClick={() => {
-                        setAcknowledged((prev) => new Set(prev).add(task.id));
-                      }}
+                    <Link
+                      to="/projects/$id/board"
+                      params={{ id: projectId }}
+                      className="shrink-0 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                     >
-                      {acknowledged.has(task.id) ? 'Acknowledged' : 'Looks good'}
-                    </Button>
+                      Open Board
+                    </Link>
                   </CardContent>
                 </Card>
               </li>

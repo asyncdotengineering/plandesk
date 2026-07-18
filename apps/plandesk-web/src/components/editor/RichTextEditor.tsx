@@ -390,12 +390,18 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       // projectId presence is stable per mount; the doc set is read live via refs.
     }, [projectId]);
 
+    const [editorEmpty, setEditorEmpty] = useState(() => {
+      const html = renderHtml(value).trim();
+      return html === '' || html === '<p></p>';
+    });
+
     const editor = useEditor({
       extensions,
       content: renderHtml(value),
       editable: mode === 'editor',
       onUpdate: ({ editor: updated }) => {
         dirtyRef.current = true;
+        setEditorEmpty(updated.isEmpty);
         onChangeRef.current?.(updated.getHTML());
       },
       editorProps: {
@@ -444,6 +450,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       // an external change reconciles on the next blur/remount.
       if (current !== next && !editor.isFocused) {
         editor.commands.setContent(next, { emitUpdate: false });
+        setEditorEmpty(editor.isEmpty);
       }
     }, [editor, value]);
 
@@ -566,8 +573,9 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             />
           ) : (
             <div
-              style={
-                seamless
+              style={{
+                position: 'relative',
+                ...(seamless
                   ? { padding: '0.25rem 0', minHeight: 'calc(100vh - 16rem)' }
                   : bare
                     ? { padding: '0.25rem', minHeight }
@@ -576,9 +584,17 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                         borderRadius: 8,
                         padding: '0.75rem 1rem',
                         minHeight,
-                      }
-              }
+                      }),
+              }}
             >
+              {projectId !== undefined && editorEmpty ? (
+                <p
+                  className="pointer-events-none absolute left-0 top-0 m-0 text-sm text-muted-foreground"
+                  aria-hidden
+                >
+                  Write, or press / for blocks and [[ to link a doc
+                </p>
+              ) : null}
               <EditorContent editor={editor} />
             </div>
           )}
