@@ -8,6 +8,7 @@ export {
 export {
   backfillDefaultTeams,
   backfillProjectWorkspaces,
+  createTeamForOrg,
   ensureDefaultTeamForOrg,
   ensureLocalBetterAuthOrganization,
 } from './identity.js';

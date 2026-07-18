@@ -195,7 +195,7 @@ export type ParsedArgs =
     }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
-  | { command: 'legacy-upgrade'; from?: string; dataDir?: string }
+  | { command: 'legacy-upgrade'; from?: string; dataDir?: string; intoWorkspace?: string | true }
   | {
       command: 'connect';
       repoDir?: string;
@@ -415,10 +415,12 @@ export function parseArgs(argv: string[]): ParsedArgs {
   }
 
   if (command === 'legacy-upgrade') {
+    const intoWorkspaceRaw = flags['into-workspace'];
     return {
       command: 'legacy-upgrade',
       from: flagString(flags, 'from'),
       dataDir,
+      intoWorkspace: typeof intoWorkspaceRaw === 'string' ? intoWorkspaceRaw : intoWorkspaceRaw === true ? true : undefined,
     };
   }
 

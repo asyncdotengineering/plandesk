@@ -192,11 +192,42 @@ describe('parseArgs legacy-upgrade', () => {
     });
   });
 
+  it('parses legacy-upgrade with --into-workspace value', () => {
+    expect(
+      parseArgs([
+        'node',
+        'plandesk',
+        'legacy-upgrade',
+        '--from',
+        '/tmp/old.db',
+        '--into-workspace',
+        'Client X',
+      ]),
+    ).toEqual({
+      command: 'legacy-upgrade',
+      from: '/tmp/old.db',
+      dataDir: undefined,
+      intoWorkspace: 'Client X',
+    });
+  });
+
+  it('parses legacy-upgrade with bare --into-workspace flag', () => {
+    expect(
+      parseArgs(['node', 'plandesk', 'legacy-upgrade', '--from', '/tmp/old.db', '--into-workspace']),
+    ).toEqual({
+      command: 'legacy-upgrade',
+      from: '/tmp/old.db',
+      dataDir: undefined,
+      intoWorkspace: true,
+    });
+  });
+
   it('parses legacy-upgrade with no flags', () => {
     expect(parseArgs(['node', 'plandesk', 'legacy-upgrade'])).toEqual({
       command: 'legacy-upgrade',
       from: undefined,
       dataDir: undefined,
+      intoWorkspace: undefined,
     });
   });
 });
@@ -284,6 +315,7 @@ describe('CLI legacy-upgrade', () => {
     expect(projects).toHaveLength(1);
     expect(projects[0]?.orgId).toBe(DEFAULT_ORG_ID);
     expect(projects[0]?.name).toBe('Legacy Upgrade Fixture');
+    expect(projects[0]?.workspaceId).toBeDefined();
 
     const projectId = projects[0]!.id;
     const tasks = await listTasks(db, projectId);
@@ -332,6 +364,145 @@ describe('CLI legacy-upgrade', () => {
 
     const { db } = await openWorkspace(dataDir);
     expect(await listProjects(db, DEFAULT_ORG_ID)).toHaveLength(1);
+  });
+
+  it('imports into a named workspace with --into-workspace', async () => {
+    const root = tempDir('plandesk-legacy-ws-named-');
+    const oldPath = join(root, 'old-workspace.db');
+    const dataDir = join(root, 'global');
+    await createOldSchemaFixture(oldPath);
+    // Add a second project
+    const oldDb = await createDb(oldPath);
+    const now = 1_700_000_000_000;
+    await oldDb.$client.execute({
+      sql: `INSERT INTO projects (id, name, description, created_at, updated_at, canvas_layout) VALUES (?, ?, ?, ?, ?, ?)`,
+      args: ['legacy-proj-002', 'Second Project', 'second desc', now, now, null],
+    });
+    await oldDb.$client.execute({
+      sql: `INSERT INTO tasks (id, project_id, label, status, description, x, y, assignee, due_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: ['legacy-task-002', 'legacy-proj-002', 'Task Two', 'todo', null, 0, 0, null, null, now, now],
+    });
+    oldDb.$client.close();
+    await runInit(dataDir);
+
+    const { code, stdout, stderr } = await captureIo(() =>
+      main([
+        'node',
+        'plandesk',
+        'legacy-upgrade',
+        '--from',
+        oldPath,
+        '--data-dir',
+        dataDir,
+        '--into-workspace',
+        'Client X',
+      ]),
+    );
+
+    expect(stderr).toBe('');
+    expect(code).toBe(0);
+    expect(stdout).toContain('Imported 2 projects');
+    expect(stdout).toContain('workspace "Client X"');
+
+    const { db } = await openWorkspace(dataDir);
+    const allProjects = await listProjects(db, DEFAULT_ORG_ID);
+    expect(allProjects).toHaveLength(2);
+    const workspaceId = allProjects[0]!.workspaceId;
+    expect(allProjects[1]?.workspaceId).toBe(workspaceId);
+
+    // Verify the team exists
+    const teams = await db.$client.execute({
+      sql: 'SELECT id, name FROM team WHERE organizationId = ?',
+      args: [DEFAULT_ORG_ID],
+    });
+    const teamRows = teams.rows as unknown as Array<{ id: string; name: string }>;
+    const clientTeam = teamRows.find((t) => t.name === 'Client X');
+    expect(clientTeam).toBeDefined();
+    expect(workspaceId).toBe(clientTeam!.id);
+  });
+
+  it('defaults workspace name to source folder basename when --into-workspace is omitted', async () => {
+    const root = tempDir('plandesk-legacy-ws-default-');
+    const oldPath = join(root, 'old-workspace.db');
+    const dataDir = join(root, 'global');
+    await createOldSchemaFixture(oldPath);
+    await runInit(dataDir);
+
+    const folderName = root.split('/').pop()!;
+
+    const { code, stdout, stderr } = await captureIo(() =>
+      main(['node', 'plandesk', 'legacy-upgrade', '--from', oldPath, '--data-dir', dataDir]),
+    );
+
+    expect(stderr).toBe('');
+    expect(code).toBe(0);
+    expect(stdout).toContain(`workspace "${folderName}"`);
+
+    const { db } = await openWorkspace(dataDir);
+    const projects = await listProjects(db, DEFAULT_ORG_ID);
+    expect(projects).toHaveLength(1);
+
+    const teams = await db.$client.execute({
+      sql: 'SELECT id, name FROM team WHERE organizationId = ?',
+      args: [DEFAULT_ORG_ID],
+    });
+    const teamRows = teams.rows as unknown as Array<{ id: string; name: string }>;
+    const folderTeam = teamRows.find((t) => t.name === folderName);
+    expect(folderTeam).toBeDefined();
+    expect(projects[0]?.workspaceId).toBe(folderTeam!.id);
+  });
+
+  it('re-running with the same workspace name reuses the team (no duplicate)', async () => {
+    const root = tempDir('plandesk-legacy-ws-idem-');
+    const oldPath = join(root, 'old-workspace.db');
+    const dataDir = join(root, 'global');
+    await createOldSchemaFixture(oldPath);
+    await runInit(dataDir);
+
+    const first = await captureIo(() =>
+      main([
+        'node',
+        'plandesk',
+        'legacy-upgrade',
+        '--from',
+        oldPath,
+        '--data-dir',
+        dataDir,
+        '--into-workspace',
+        'Client X',
+      ]),
+    );
+    expect(first.code).toBe(0);
+    expect(first.stdout).toContain('Imported 1 projects');
+
+    const second = await captureIo(() =>
+      main([
+        'node',
+        'plandesk',
+        'legacy-upgrade',
+        '--from',
+        oldPath,
+        '--data-dir',
+        dataDir,
+        '--into-workspace',
+        'Client X',
+      ]),
+    );
+    expect(second.code).toBe(0);
+    expect(second.stdout).toContain('Imported 0 projects');
+    expect(second.stdout).toContain('Skipped: 1 already present');
+
+    const { db } = await openWorkspace(dataDir);
+    const teams = await db.$client.execute({
+      sql: 'SELECT id, name FROM team WHERE organizationId = ? AND name = ?',
+      args: [DEFAULT_ORG_ID, 'Client X'],
+    });
+    const teamRows = teams.rows as unknown as Array<{ id: string; name: string }>;
+    expect(teamRows).toHaveLength(1);
+
+    const projects = await listProjects(db, DEFAULT_ORG_ID);
+    expect(projects).toHaveLength(1);
+    expect(projects[0]?.workspaceId).toBe(teamRows[0]!.id);
   });
 
   it('already-new-schema source is a no-op exit 0', async () => {

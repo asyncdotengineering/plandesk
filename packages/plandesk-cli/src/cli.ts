@@ -260,6 +260,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         const result = await runLegacyUpgrade({
           from: parsed.from,
           dataDir: parsed.dataDir,
+          intoWorkspace: parsed.intoWorkspace,
         });
         process.stdout.write(`${formatLegacyUpgradeSummary(result)}\n`);
         return 0;

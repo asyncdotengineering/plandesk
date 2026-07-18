@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import {
   DEFAULT_ORG_ID,
   PLANDESK_EXPORT_VERSION,
@@ -20,8 +20,14 @@ import {
   type PlandeskExportV1Task,
   type TaskStatus,
 } from '@plandesk/db';
+import {
+  createBetterAuth,
+  createTeamForOrg,
+  ensureLocalBetterAuthOrganization,
+  runBetterAuthMigrations,
+} from '@plandesk/api';
 import { PLANDESK_DIR, WORKSPACE_DB } from './args.js';
-import { runInit } from './init.js';
+import { ensureLocalBetterAuthSecret, runInit } from './init.js';
 import { openWorkspace, WorkspaceNotFoundError } from './workspace.js';
 
 export class LegacyUpgradeError extends Error {
@@ -42,6 +48,8 @@ export type LegacyUpgradeResult =
       sourcePath: string;
       backupPath: string;
       orgId: string;
+      workspaceId: string;
+      workspaceName: string;
       importedProjects: number;
       importedTasks: number;
       importedDocuments: number;
@@ -431,7 +439,7 @@ export function formatLegacyUpgradeSummary(result: LegacyUpgradeResult): string 
   }
   return (
     `Imported ${String(result.importedProjects)} projects, ${String(result.importedTasks)} tasks, ` +
-    `${String(result.importedDocuments)} documents into the global board (org ${result.orgId}). ` +
+    `${String(result.importedDocuments)} documents into workspace "${result.workspaceName}" (org ${result.orgId}). ` +
     `Skipped: ${String(result.skipped)} already present. ` +
     `Old board backed up to ${result.backupPath}. ` +
     `Regenerate a CLI token via the dashboard for hosted use.`
@@ -442,6 +450,7 @@ export async function runLegacyUpgrade(options: {
   from?: string;
   dataDir?: string;
   cwd?: string;
+  intoWorkspace?: string | true;
 }): Promise<LegacyUpgradeResult> {
   const sourcePath = resolveLegacySourcePath(options.from, options.cwd ?? process.cwd());
   if (sourcePath === undefined) {
@@ -468,20 +477,46 @@ export async function runLegacyUpgrade(options: {
     // Single-command upgrade: create the global board if it does not exist yet,
     // then import into it. `init` is otherwise a separate step the user must run.
     let db: Db;
+    let dataDir: string;
     try {
-      ({ db } = await openWorkspace(options.dataDir));
+      ({ db, dataDir } = await openWorkspace(options.dataDir));
     } catch (err) {
       if (err instanceof WorkspaceNotFoundError) {
         await runInit(options.dataDir);
-        ({ db } = await openWorkspace(options.dataDir));
+        ({ db, dataDir } = await openWorkspace(options.dataDir));
       } else {
         throw err;
       }
     }
+
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: ensureLocalBetterAuthSecret(dataDir),
+      baseURL: 'http://127.0.0.1',
+    });
+    if (auth === undefined) throw new Error('Local better-auth secret was not created');
+    await runBetterAuthMigrations(auth);
+    await ensureLocalBetterAuthOrganization(db, auth);
+
+    const workspaceName =
+      typeof options.intoWorkspace === 'string' && options.intoWorkspace.trim() !== ''
+        ? options.intoWorkspace.trim()
+        : basename(dirname(sourcePath));
+
+    const adapter = (await auth.$context).adapter;
+    const existingTeams = await adapter.findMany<{ id: string; name: string; organizationId: string }>({
+      model: 'team',
+      where: [{ field: 'organizationId', value: DEFAULT_ORG_ID }],
+    });
+    const existingTeam = existingTeams.find((t) => t.name === workspaceName);
+    const team = existingTeam ?? (await createTeamForOrg(auth, DEFAULT_ORG_ID, workspaceName));
+
     return await importLegacyExports(db, exports, {
       sourcePath,
       backupPath,
       orgId: DEFAULT_ORG_ID,
+      workspaceId: team.id,
+      workspaceName,
     });
   } finally {
     sourceDb.$client.close();
@@ -491,14 +526,14 @@ export async function runLegacyUpgrade(options: {
 async function importLegacyExports(
   db: Db,
   exports: Array<{ sourceProjectId: string; export: PlandeskExportV1 }>,
-  meta: { sourcePath: string; backupPath: string; orgId: string },
+  meta: { sourcePath: string; backupPath: string; orgId: string; workspaceId: string; workspaceName: string },
 ): Promise<LegacyUpgradeResult> {
   let importedProjects = 0;
   let importedTasks = 0;
   let importedDocuments = 0;
   let skipped = 0;
 
-  let existing = await listProjects(db, meta.orgId);
+  let existing = await listProjects(db, meta.orgId, { workspaceId: meta.workspaceId });
 
   for (const item of exports) {
     if (projectAlreadyPresent(existing, item.sourceProjectId, item.export.project.name)) {
@@ -512,11 +547,11 @@ async function importLegacyExports(
       continue;
     }
 
-    await importProject(db, item.export, { orgId: meta.orgId });
+    await importProject(db, item.export, { orgId: meta.orgId, workspaceId: meta.workspaceId });
     importedProjects += 1;
     importedTasks += item.export.tasks.length;
     importedDocuments += item.export.documents.length;
-    existing = await listProjects(db, meta.orgId);
+    existing = await listProjects(db, meta.orgId, { workspaceId: meta.workspaceId });
   }
 
   return {
@@ -524,6 +559,8 @@ async function importLegacyExports(
     sourcePath: meta.sourcePath,
     backupPath: meta.backupPath,
     orgId: meta.orgId,
+    workspaceId: meta.workspaceId,
+    workspaceName: meta.workspaceName,
     importedProjects,
     importedTasks,
     importedDocuments,
