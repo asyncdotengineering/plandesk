@@ -28,6 +28,9 @@ function viewLabelFromPath(pathname: string): string | null {
   if (segments[0] === 'settings' && segments[1] === 'mcp') {
     return 'MCP Settings';
   }
+  if (segments[0] === 'settings' && segments[1] === 'members') {
+    return 'Members';
+  }
   return null;
 }
 

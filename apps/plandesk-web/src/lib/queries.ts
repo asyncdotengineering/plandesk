@@ -3,6 +3,7 @@ import { liveQueryOptions } from './events.js';
 import {
   completeGoal,
   createCliToken,
+  createOrgInvitation,
   createComment,
   createDocument,
   createFolder,
@@ -26,6 +27,7 @@ import {
   getProject,
   getTaskDocument,
   listAgentRuns,
+  listOrgMembers,
   listComments,
   listDocuments,
   listFolders,
@@ -50,6 +52,7 @@ import {
   type CommentTarget,
   type CommentTargetType,
   type CreateCommentInput,
+  type InviteRole,
   type CreateGoalInput,
   type CreateDocumentInput,
   type CreateFolderInput,
@@ -94,6 +97,7 @@ export const queryKeys = {
     ['projects', projectId, 'submissions', status ?? 'pending'] as const,
   goals: (projectId: string) => ['projects', projectId, 'goals'] as const,
   goal: (goalId: string) => ['goals', goalId] as const,
+  orgMembers: (orgId: string) => ['orgs', orgId, 'members'] as const,
 };
 
 export function useProjects() {
@@ -456,6 +460,31 @@ export function useTaskDocument(taskId: string) {
 export function useCreateCliToken() {
   return useMutation({
     mutationFn: (name?: string) => createCliToken(name),
+  });
+}
+
+export function useOrgMembers(orgId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.orgMembers(orgId ?? ''),
+    queryFn: () => listOrgMembers(orgId as string),
+    enabled: orgId !== undefined && orgId.length > 0,
+  });
+}
+
+export function useCreateOrgInvitation(orgId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { email: string; role: InviteRole }) => {
+      if (orgId === undefined || orgId.length === 0) {
+        return Promise.reject(new Error('No active organization'));
+      }
+      return createOrgInvitation(orgId, input);
+    },
+    onSuccess: () => {
+      if (orgId !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.orgMembers(orgId) });
+      }
+    },
   });
 }
 

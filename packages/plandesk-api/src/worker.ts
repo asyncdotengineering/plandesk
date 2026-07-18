@@ -11,6 +11,7 @@ import { createApp } from './server.js';
 import { createBetterAuth, type BetterAuthInstance } from './better-auth.js';
 import { createServices } from './services/index.js';
 import { githubConfigFromEnv } from './github.js';
+import { createR2Adapter } from './storage/r2.js';
 import { createS3Adapter, type S3AdapterConfig } from './storage/s3.js';
 import { hostedMisconfigResponse, resolveHostedBetterAuth } from './hosted-auth.js';
 
@@ -19,10 +20,10 @@ export interface Env {
   PLANDESK_DB_URL: string;
   /** Turso/libSQL auth token — set via `wrangler secret put PLANDESK_DB_TOKEN` */
   PLANDESK_DB_TOKEN: string;
-  PLANDESK_S3_BUCKET: string;
-  PLANDESK_S3_REGION: string;
-  PLANDESK_S3_ACCESS_KEY_ID: string;
-  PLANDESK_S3_SECRET_ACCESS_KEY: string;
+  PLANDESK_S3_BUCKET?: string;
+  PLANDESK_S3_REGION?: string;
+  PLANDESK_S3_ACCESS_KEY_ID?: string;
+  PLANDESK_S3_SECRET_ACCESS_KEY?: string;
   PLANDESK_S3_ENDPOINT?: string;
   PLANDESK_AUTH_PASSWORD?: string;
   /**
@@ -48,8 +49,8 @@ export interface Env {
    */
   PLANDESK_GITHUB_CALLBACK_URL?: string;
   PLANDESK_DASHBOARD_URL?: string;
-  /** R2 bucket for file blobs (S3-compatible credentials above target this bucket). */
-  FILES: R2Bucket;
+  /** R2 bucket for file blobs (native Workers binding — preferred over S3 creds). */
+  FILES?: R2Bucket;
   /** Built web SPA (wrangler [assets]). */
   ASSETS?: Fetcher;
 }
@@ -67,14 +68,42 @@ type CachedAuth = {
 let cache: Cached | undefined;
 let authCache: CachedAuth | undefined;
 
-function s3ConfigFromEnv(env: Env): S3AdapterConfig {
+function s3ConfigFromEnv(env: Env): S3AdapterConfig | undefined {
+  const bucket = env.PLANDESK_S3_BUCKET;
+  const region = env.PLANDESK_S3_REGION;
+  const accessKeyId = env.PLANDESK_S3_ACCESS_KEY_ID;
+  const secretAccessKey = env.PLANDESK_S3_SECRET_ACCESS_KEY;
+  if (
+    bucket === undefined ||
+    bucket === '' ||
+    region === undefined ||
+    region === '' ||
+    accessKeyId === undefined ||
+    accessKeyId === '' ||
+    secretAccessKey === undefined ||
+    secretAccessKey === ''
+  ) {
+    return undefined;
+  }
   return {
-    bucket: env.PLANDESK_S3_BUCKET,
-    region: env.PLANDESK_S3_REGION,
-    accessKeyId: env.PLANDESK_S3_ACCESS_KEY_ID,
-    secretAccessKey: env.PLANDESK_S3_SECRET_ACCESS_KEY,
+    bucket,
+    region,
+    accessKeyId,
+    secretAccessKey,
     endpoint: env.PLANDESK_S3_ENDPOINT,
   };
+}
+
+function resolveWorkerStorage(env: Env, db: Db) {
+  // Prefer the native R2 binding over S3 credentials when present.
+  if (env.FILES !== undefined) {
+    return createR2Adapter({ db, bucket: env.FILES });
+  }
+  const s3 = s3ConfigFromEnv(env);
+  if (s3 !== undefined) {
+    return createS3Adapter({ db, config: s3 });
+  }
+  return undefined;
 }
 
 async function getDb(env: Env): Promise<Db> {
@@ -146,13 +175,9 @@ export default {
 
     const db = await getDb(env);
     const authInstance = await getBetterAuth(env, db, betterAuth);
-    // Storage is optional: only wire S3/R2 when its credentials are present.
-    // Without them the app still runs (file uploads/artifacts are unavailable),
-    // rather than throwing on every request — mirrors `plandesk serve`.
-    const storage =
-      env.PLANDESK_S3_BUCKET !== undefined && env.PLANDESK_S3_BUCKET !== ''
-        ? createS3Adapter({ db, config: s3ConfigFromEnv(env) })
-        : undefined;
+    // Storage is optional: prefer R2 binding, then S3 creds, else unavailable
+    // (file uploads/artifacts off — no crash). Mirrors `plandesk serve`.
+    const storage = resolveWorkerStorage(env, db);
     const services = createServices({ db, ...(storage !== undefined ? { storage } : {}) });
     const app = createApp({
       db,

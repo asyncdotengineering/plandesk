@@ -175,6 +175,26 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     case 'admin': {
       if (parsed.subcommand === 'invite-owner') {
         try {
+          if (parsed.dbUrl !== undefined && parsed.dbUrl.trim() !== '') {
+            const secret =
+              parsed.secret?.trim() ||
+              process.env.PLANDESK_BETTER_AUTH_SECRET?.trim() ||
+              undefined;
+            if (secret === undefined || secret === '') {
+              process.stderr.write(
+                'Remote invite-owner requires --secret or PLANDESK_BETTER_AUTH_SECRET (must match the deployed Worker secret).\n',
+              );
+              return 1;
+            }
+            const db = await createDb(parsed.dbUrl, parsed.dbToken);
+            const result = await runAdminInviteOwner(db, {
+              email: parsed.email,
+              secret,
+            });
+            process.stdout.write(`${formatAdminInviteOwnerSummary(result)}\n`);
+            return 0;
+          }
+
           const { db, dataDir } = await openWorkspace(parsed.dataDir);
           const result = await runAdminInviteOwner(db, {
             email: parsed.email,

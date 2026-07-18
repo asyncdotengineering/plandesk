@@ -75,6 +75,7 @@ export {
 export { healthRouter } from './routes/health.js';
 export { mountStatic } from './static.js';
 export { createS3Adapter, type S3AdapterConfig } from './storage/s3.js';
+export { createR2Adapter, type R2BucketLike } from './storage/r2.js';
 export type { StorageAdapter } from './storage/adapter.js';
 export { createServices, type Services, type ServicesDeps } from './services/index.js';
 export { assertProjectInOrg, ProjectNotInOrgError } from './services/scope.js';

@@ -4,6 +4,20 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [1.0.0-beta.3] — 2026-07-18
+
+Production-hardening pass on the hosted control plane.
+
+### Added
+
+- **Dashboard member invites.** A new **Settings → Members** page lists an organization's members and, for owners, invites a teammate by email + role (admin / member). Invites are link-only (no mailer): the returned claim link is shown with a copy button to deliver by hand. Non-owners see the member list but not the invite form; the API rejects non-owner invites regardless (`POST /api/v1/orgs/:id/invitations`, owner-only). Backed by a new `GET /api/v1/orgs/:id/members` (caller must belong to the org).
+- **`plandesk admin invite-owner --db <url> [--db-token <t>] [--secret <s>]`.** Bootstrap the first owner of a **remote** (Turso/libSQL) hosted instance from the shell, without local workspace state. The secret must match the deployed instance's `PLANDESK_BETTER_AUTH_SECRET` (flag or env); run `plandesk migrate` against the remote DB first. The local `--data-dir` form is unchanged.
+
+### Fixed
+
+- **File storage on Cloudflare Workers (R2).** File uploads now work on the hosted Worker via the native R2 binding (`env.FILES`) instead of requiring S3 API credentials. `put` persists the file-metadata row (so uploads no longer fail with "did not persist file metadata"), and `resolve` is org-scoped through the same `getFileInOrg` path as the local/S3 adapters — the bare content hash is never a lookup key, so one tenant cannot read another's bytes by knowing the hash.
+- **`GET /api/v1/health` is public.** The health endpoint no longer requires authentication, so uptime monitors can reach it on a hosted (non-loopback) instance. Only the health path was made public; every other route still requires a session or key.
+
 ## [1.0.0-beta.2] — 2026-07-18
 
 ### Fixed

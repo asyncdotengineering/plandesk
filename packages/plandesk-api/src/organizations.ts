@@ -78,6 +78,55 @@ export async function listOrganizationsForUser(
   );
 }
 
+type MemberWithId = MemberRow & { id: string };
+
+type UserRow = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type OrganizationMemberSummary = {
+  id: string;
+  userId: string;
+  email: string;
+  name: string;
+  role: string;
+  createdAt: string;
+};
+
+/** List better-auth members of an organization (email/name joined from user). */
+export async function listOrganizationMembers(
+  auth: BetterAuthInstance,
+  organizationId: string,
+): Promise<OrganizationMemberSummary[]> {
+  const adapter = (await auth.$context).adapter;
+  const members = await adapter.findMany<MemberWithId>({
+    model: 'member',
+    where: [{ field: 'organizationId', value: organizationId }],
+    sortBy: { field: 'createdAt', direction: 'asc' },
+  });
+  return Promise.all(
+    members.map(async (member) => {
+      const user = await adapter.findOne<UserRow>({
+        model: 'user',
+        where: [{ field: 'id', value: member.userId }],
+      });
+      return {
+        id: member.id,
+        userId: member.userId,
+        email: user?.email ?? '',
+        name: user?.name ?? '',
+        role: member.role,
+        createdAt:
+          member.createdAt instanceof Date
+            ? member.createdAt.toISOString()
+            : String(member.createdAt),
+      };
+    }),
+  );
+}
+
 /**
  * Display-friendly org for /auth/session and similar.
  * Falls back to DEFAULT_ORG_ID → "Personal" when better-auth is not configured

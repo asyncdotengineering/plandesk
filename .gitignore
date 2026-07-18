@@ -5,6 +5,7 @@ dist/
 .turbo/
 coverage/
 .plandesk/token
+.plandesk/*.log
 .handoff/result-*.txt
 *.local
 
@@ -22,6 +23,12 @@ packages/plandesk-api/web/
 
 # server config file (plandesk.server.json) can hold secrets — never commit it
 plandesk.server.json
+
+# local secrets — never commit (GitHub OAuth, DB tokens, wrangler dev vars)
+.env
+.env.*
+.dev.vars
+.dev.vars.*
 
 # transient dispatch state (briefs, logs, results) — factory.md
 runs/

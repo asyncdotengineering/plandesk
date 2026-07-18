@@ -58,14 +58,17 @@ wrangler secret put PLANDESK_DB_TOKEN
 # better-auth (required on Workers — non-loopback bind has no default-org trust)
 wrangler secret put PLANDESK_BETTER_AUTH_SECRET   # long random string; keep stable across deploys
 
-# Object storage (R2 via S3-compatible API)
-wrangler secret put PLANDESK_S3_BUCKET
-wrangler secret put PLANDESK_S3_REGION
-wrangler secret put PLANDESK_S3_ACCESS_KEY_ID
-wrangler secret put PLANDESK_S3_SECRET_ACCESS_KEY
-# optional:
+# Object storage — no secrets needed: the native R2 binding (`FILES` in
+# wrangler.toml `[[r2_buckets]]`) is used automatically when present. Just
+# create the bucket and keep the binding:
+#   wrangler r2 bucket create plandesk-files
+# S3-compatible credentials are only a fallback for non-R2 object stores:
+# wrangler secret put PLANDESK_S3_BUCKET
+# wrangler secret put PLANDESK_S3_REGION
+# wrangler secret put PLANDESK_S3_ACCESS_KEY_ID
+# wrangler secret put PLANDESK_S3_SECRET_ACCESS_KEY
 # wrangler secret put PLANDESK_S3_ENDPOINT
-# wrangler secret put PLANDESK_AUTH_PASSWORD
+# wrangler secret put PLANDESK_AUTH_PASSWORD   # optional shared-secret gate
 
 # Optional GitHub social (all-or-nothing)
 wrangler secret put PLANDESK_GITHUB_CLIENT_ID

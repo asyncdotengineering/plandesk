@@ -273,6 +273,7 @@ async function resolveBetterAuthApiKeyContext(
  */
 const PUBLIC_AUTH_PATHS = new Set([
   '/api/v1/auth/methods',
+  '/api/v1/health',
   '/api/auth/*',
 ]);
 

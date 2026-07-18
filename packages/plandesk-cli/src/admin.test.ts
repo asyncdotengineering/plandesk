@@ -52,6 +52,36 @@ describe('plandesk admin invite-owner (BA3c REQ-3)', () => {
       subcommand: 'invite-owner',
       email: 'founder@x.com',
       dataDir: undefined,
+      dbUrl: undefined,
+      dbToken: undefined,
+      secret: undefined,
+    });
+  });
+
+  it('parses admin invite-owner with remote --db/--db-token/--secret', () => {
+    expect(
+      parseArgs([
+        'node',
+        'plandesk',
+        'admin',
+        'invite-owner',
+        '--email',
+        'founder@x.com',
+        '--db',
+        'libsql://example.turso.io',
+        '--db-token',
+        'tok',
+        '--secret',
+        'deployed-secret',
+      ]),
+    ).toEqual({
+      command: 'admin',
+      subcommand: 'invite-owner',
+      email: 'founder@x.com',
+      dataDir: undefined,
+      dbUrl: 'libsql://example.turso.io',
+      dbToken: 'tok',
+      secret: 'deployed-secret',
     });
   });
 
@@ -145,6 +175,44 @@ describe('plandesk admin invite-owner (BA3c REQ-3)', () => {
       expect(io.stdout).toContain('founder@x.com');
       expect(io.stdout).toContain('/invite/');
       expect(io.stdout).toContain('claim link');
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it('runAdminInviteOwner with explicit secret mints owner invitation (remote path)', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-admin-remote-'));
+    try {
+      // Local file DB stands in for remote Turso. Secret path omits dataDir so
+      // ensureLocalBetterAuthSecret cannot run (would throw without dataDir).
+      const dbPath = join(dataDir, 'remote-standin.db');
+      const db = await createDb(dbPath);
+      await migrate(db);
+      const remoteSecret = 'remote-deployed-secret-not-from-data-dir';
+
+      // Operator would run `plandesk migrate` against the remote DB first.
+      const auth = createBetterAuth({
+        client: db.$client,
+        secret: remoteSecret,
+        baseURL: 'https://plandesk.example',
+      });
+      if (auth === undefined) throw new Error('expected better-auth');
+      await runBetterAuthMigrations(auth);
+
+      const result = await runAdminInviteOwner(db, {
+        email: 'ops@example.com',
+        secret: remoteSecret,
+        baseURL: 'https://plandesk.example',
+      });
+
+      expect(result.email).toBe('ops@example.com');
+      expect(result.invitationId.length).toBeGreaterThan(0);
+      expect(result.claimUrl).toContain('https://plandesk.example/invite/');
+      expect(result.claimUrl).toContain(result.invitationId);
+
+      const summary = formatAdminInviteOwnerSummary(result);
+      expect(summary).toContain('ops@example.com');
+      expect(summary).toContain(result.claimUrl);
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }

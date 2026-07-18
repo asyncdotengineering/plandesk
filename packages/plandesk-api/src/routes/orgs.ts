@@ -16,7 +16,7 @@ import {
   isAuthApiError,
   isInvitationRole,
 } from '../invitations.js';
-import { getOrganizationById } from '../organizations.js';
+import { getOrganizationById, listOrganizationMembers } from '../organizations.js';
 import { requirePermission, type PermissionSet } from '../permissions.js';
 
 function isPermissionSet(value: unknown): value is PermissionSet {
@@ -146,6 +146,21 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     const minted = await createScopedAgentKey(mintInput);
 
     return c.json({ token: minted.key, project_id: projectId }, 200);
+  });
+
+  /**
+   * List better-auth org members (role + email). Any org member may read.
+   */
+  router.get('/orgs/:id/members', async (c) => {
+    const orgId = c.req.param('id');
+    if (!(await requireKnownOrg(orgId))) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    if (betterAuth === undefined) {
+      return c.json({ error: 'unavailable' }, 503);
+    }
+    const members = await listOrganizationMembers(betterAuth, orgId);
+    return c.json({ members }, 200);
   });
 
   /**

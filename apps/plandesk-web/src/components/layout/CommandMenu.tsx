@@ -141,6 +141,15 @@ export function CommandMenu() {
 
         <CommandGroup heading="Settings">
           <CommandItem
+            value="Members"
+            onSelect={() => {
+              go('/settings/members');
+            }}
+          >
+            <SettingsIcon />
+            Members
+          </CommandItem>
+          <CommandItem
             value="MCP Settings"
             onSelect={() => {
               go('/settings/mcp');

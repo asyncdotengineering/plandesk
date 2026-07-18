@@ -176,7 +176,7 @@ export function Sidebar() {
             <kbd>K</kbd>
           </span>
         </button>
-        <Link to="/settings/mcp" className="icon-btn" title="Settings" aria-label="Settings">
+        <Link to="/settings/members" className="icon-btn" title="Settings" aria-label="Settings">
           <SettingsIcon width={17} height={17} />
         </Link>
       </div>

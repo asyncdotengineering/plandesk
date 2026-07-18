@@ -22,6 +22,8 @@ plandesk url [--repo <dir>] [--lan]
 plandesk export --project <id> --out <file.json> [--data-dir <dir>]
 plandesk import --in <file.json> [--data-dir <dir>]
 plandesk legacy-upgrade [--from <old-workspace.db>] [--data-dir <dir>]
+plandesk admin invite-owner --email <email> [--data-dir <dir>]                       # self-host first owner (local)
+plandesk admin invite-owner --email <email> --db <url> [--db-token <t>] [--secret <s>] # remote (Turso) first owner
 plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
 plandesk connect --to <org> [--project <id|name>] [--repo <dir>] [--print]
 plandesk disconnect [--repo <dir>]
@@ -49,6 +51,7 @@ plandesk deploy [target]
 | `url`                    | Print the server URL for this project (`$(plandesk url)` in scripts); `--lan` returns the LAN IP instead of loopback    |
 | `export` / `import`      | Lossless `plandesk-export-v1` JSON round-trip                                                                            |
 | `legacy-upgrade`         | One-time: lift a pre–better-auth (0.20.x-era) `workspace.db` into the current global board — imports projects/tasks/documents/edges/notes/comments/agent runs, backs up the source file, safe to re-run; see [Upgrading](/reference/upgrading/#the-020x--better-auth-upgrade-breaking) |
+| `admin invite-owner`     | Bootstrap the first org owner of a self-hosted instance without GitHub — mints a link-only owner invitation to deliver by hand. Local uses `--data-dir`; **remote** (Turso/libSQL) uses `--db <url> [--db-token]` plus `--secret` (or `PLANDESK_BETTER_AUTH_SECRET`) matching the deployed instance — run `plandesk migrate` against the remote DB first |
 | `connect` / `disconnect` | Bind / unbind a repo to a project + agent configs; re-run `connect` after upgrading to regenerate artifacts. Hosted: `connect --to <org>` mints a scoped agent key (requires prior `login`) |
 | `doctor`                 | Check DB health; with `--repo`, validate binding + MCP reachability                                                      |
 | `factory init`           | Scaffold the project-local `.agents/` factory workspace (policy files + command adapters); see [Factory workspace](/reference/factory/) |

@@ -490,6 +490,42 @@ export function createCliToken(name?: string): Promise<CreateCliTokenResponse> {
   });
 }
 
+/** Invite roles the dashboard may mint (owner bootstrap is CLI-only). */
+export const inviteRoles = ['admin', 'member'] as const;
+export type InviteRole = (typeof inviteRoles)[number];
+
+export type SerializedOrgMember = {
+  id: string;
+  userId: string;
+  email: string;
+  name: string;
+  role: string;
+  createdAt: string;
+};
+
+export type ListOrgMembersResponse = {
+  members: SerializedOrgMember[];
+};
+
+export type CreateInvitationResponse = {
+  invitationId: string;
+  claimUrl: string;
+};
+
+export function listOrgMembers(orgId: string): Promise<ListOrgMembersResponse> {
+  return request(`/orgs/${orgId}/members`);
+}
+
+export function createOrgInvitation(
+  orgId: string,
+  input: { email: string; role: InviteRole },
+): Promise<CreateInvitationResponse> {
+  return request(`/orgs/${orgId}/invitations`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 export type SerializedAgentRunEvent = {
   id: string;
   message: string;

@@ -21,9 +21,9 @@ compatibility_flags = ["nodejs_compat"]
 #                                                     # better-auth derives the real callback from baseURL
 
 # Public origin for better-auth baseURL (OAuth callbacks + cookies). Not a secret.
-# Uncomment and replace with the deployed public origin before using a stable OAuth URL.
 [vars]
-# PLANDESK_BASE_URL = "https://your-deployed-origin.example"
+PLANDESK_BASE_URL = "https://clientdesk.asyncdot.com"
+PLANDESK_DASHBOARD_URL = "https://clientdesk.asyncdot.com"
 
 [[r2_buckets]]
 binding = "FILES"

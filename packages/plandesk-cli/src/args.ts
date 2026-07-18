@@ -181,7 +181,17 @@ export type ParsedArgs =
   | { command: 'init'; dataDir?: string; localDb: boolean }
   | { command: 'serve'; port?: number; dataDir?: string; host?: string; strictPort: boolean; configPath?: string }
   | { command: 'url'; repoDir?: string; lan: boolean }
-  | { command: 'admin'; subcommand: 'invite-owner'; email: string; dataDir?: string }
+  | {
+      command: 'admin';
+      subcommand: 'invite-owner';
+      email: string;
+      dataDir?: string;
+      /** Remote Turso/libSQL URL — when set, opens remote DB instead of local workspace. */
+      dbUrl?: string;
+      dbToken?: string;
+      /** better-auth secret for remote (or set PLANDESK_BETTER_AUTH_SECRET). */
+      secret?: string;
+    }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
   | { command: 'legacy-upgrade'; from?: string; dataDir?: string }
@@ -368,7 +378,15 @@ export function parseArgs(argv: string[]): ParsedArgs {
       if (email === undefined || email.trim() === '') {
         return { command: 'unknown', name: 'admin invite-owner (missing --email)' };
       }
-      return { command: 'admin', subcommand: 'invite-owner', email, dataDir };
+      return {
+        command: 'admin',
+        subcommand: 'invite-owner',
+        email,
+        dataDir,
+        dbUrl: flagString(flags, 'db'),
+        dbToken: flagString(flags, 'db-token'),
+        secret: flagString(flags, 'secret'),
+      };
     }
     return { command: 'unknown', name: command };
   }
@@ -540,6 +558,7 @@ Usage:
   plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>] [--config <file>]
   plandesk url [--repo <dir>] [--lan]
   plandesk admin invite-owner --email <email> [--data-dir <dir>]  # self-host first owner (no GitHub)
+  plandesk admin invite-owner --email <email> --db <url> [--db-token <t>] [--secret <s>]  # remote Turso bootstrap (secret or PLANDESK_BETTER_AUTH_SECRET)
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]
   plandesk legacy-upgrade [--from <old-workspace.db>] [--data-dir <dir>]   # lift a 0.20.0-era board into the global board
