@@ -1,8 +1,9 @@
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { SearchIcon, SettingsIcon } from 'lucide-react';
-import { useProject } from '../../lib/queries.js';
 import { useCommandMenu } from './CommandMenu.js';
+import { ProjectSwitcher } from './ProjectSwitcher.js';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';
 import './shell.css';
 
 type NavEntry = {
@@ -103,30 +104,11 @@ function NavRow({ entry, id }: { entry: NavEntry; id: string }) {
   );
 }
 
-function ProjectSection({ id }: { id: string }) {
-  const { data: project } = useProject(id);
-  return (
-    <>
-      <div className="proj">
-        <span className="proj-dot" />
-        <span className="proj-name">{project?.name ?? '…'}</span>
-      </div>
-      <div className="nav-label">Plan</div>
-      {PLAN_NAV.map((entry) => (
-        <NavRow key={entry.label} entry={entry} id={id} />
-      ))}
-      <div className="nav-label">Workspace</div>
-      {WORKSPACE_NAV.map((entry) => (
-        <NavRow key={entry.label} entry={entry} id={id} />
-      ))}
-    </>
-  );
-}
-
 export function Sidebar() {
   const params = useParams({ strict: false });
   const id = params.id;
   const { setOpen } = useCommandMenu();
+  const navigate = useNavigate();
 
   return (
     <aside className="sidebar">
@@ -135,19 +117,25 @@ export function Sidebar() {
         <span className="ws-name">Plan Desk</span>
       </Link>
       <div className="side-scroll">
-        {id === undefined ? (
+        <WorkspaceSwitcher />
+        <ProjectSwitcher
+          activeProjectId={id}
+          onNavigate={(projectId) => {
+            void navigate({ to: '/projects/$id/overview', params: { id: projectId } });
+          }}
+        />
+        {id !== undefined ? (
           <>
+            <div className="nav-label">Plan</div>
+            {PLAN_NAV.map((entry) => (
+              <NavRow key={entry.label} entry={entry} id={id} />
+            ))}
             <div className="nav-label">Workspace</div>
-            <Link to="/" className="nav-item" activeProps={{ className: 'active' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              </svg>
-              Projects
-            </Link>
+            {WORKSPACE_NAV.map((entry) => (
+              <NavRow key={entry.label} entry={entry} id={id} />
+            ))}
           </>
-        ) : (
-          <ProjectSection id={id} />
-        )}
+        ) : null}
       </div>
       <div className="side-foot">
         <button
