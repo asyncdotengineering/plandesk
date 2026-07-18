@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["src/workspace-isolation-audit3.test.ts"]
+  "exclude": ["src/workspace-isolation-audit*.test.ts"]
 }

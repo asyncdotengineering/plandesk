@@ -362,8 +362,8 @@ describe('CLI push/pull', () => {
 
     const triage = await services.syncService.listTriage(project.id, 'pending');
     expect(triage).toHaveLength(1);
-    expect(triage[0]?.title).toBe('Client bug');
-    expect(triage[0]?.participant_name).toBe('Alex');
+    expect(triage?.[0]?.title).toBe('Client bug');
+    expect(triage?.[0]?.participant_name).toBe('Alex');
     expect(await listSubmissions(hostedDb, project.id, 'pending')).toHaveLength(1);
 
     const accepted = await services.syncService.triage(submitBody.submission.id, 'accept');
