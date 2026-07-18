@@ -231,7 +231,7 @@ describe('CLI push/pull', () => {
     writeFileSync(
       join(repoDir, '.plandesk', 'config.json'),
       buildConfigJson({
-        serverUrl: 'http://127.0.0.1:3847',
+        serverUrl: 'http://127.0.0.1:7526',
         projectId: project.id,
         projectName: project.name,
       }),

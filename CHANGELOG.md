@@ -4,6 +4,26 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-07-18
+
+The workspace tier: planning now spans **Org → Workspace → Project**, implemented as a fully-native better-auth team. General availability — `@latest` moves to `1.0.0`, and the default port moves to `7526`.
+
+### Added
+
+- **Workspaces.** A **Workspace** sits between Org and Project as a native better-auth team (`team` / `teamMember`): an org has many workspaces, a workspace has many projects and members. Each org gets a default "General" workspace, and projects gain `projects.workspace_id` (one workspace each). Solves agent isolation, multi-project folders, workspace membership, and the active-workspace switcher in one concept.
+- **Workspace-scoped agent keys + `connect --workspace`.** `plandesk connect --workspace <name|slug>` binds a repo to one workspace and mints a **workspace-scoped** key — all projects in that workspace, nothing else in the org. Enforcement extends the existing project 404 guard with `assertProjectInWorkspace`: a project outside the scoped workspace returns the same 404 (no existence leak). Owner keys skip it.
+- **Workspace invitations + client sharing.** Invitations and the client portal move to the workspace level: invite a person (or client) to a **workspace** with a role, and share an entire engagement with a client — their portal shows every project in that workspace (read-only, submit-if-allowed). Reuses the guest-session + `ClientView` machinery, widened from one project to a workspace.
+- **Dashboard workspace management.** A nav switcher (Org ▸ Workspace ▸ Projects, backed by `setActiveTeam`), workspace CRUD, move-project-between-workspaces, member management (add / remove / list), invite-to-workspace, and share-workspace-with-client.
+- **`plandesk legacy-upgrade --into-workspace <name>`** imports an old board's projects into a workspace (creating it; defaulting the name to the folder name when omitted), so a multi-project folder lands together. New `plandesk workspace create|list` commands round out the surface.
+
+### Changed
+
+- **Default port is now `7526`** (was `3847`). Still one global board per machine; `serve` uses the fixed port and fails if it is busy — free the port or pass `--port`.
+
+### Security
+
+- **Comprehensive cross-org / cross-workspace tenant-isolation hardening**, verified by 4 adversarial audit rounds (41 isolation tests): a workspace-scoped key cannot read any project outside its workspace (same-404, no existence leak); members cannot reach workspaces they don't belong to; non-owner/admin invitations are blocked; and a workspace client share exposes exactly that workspace's projects and nothing else.
+
 ## [1.0.0-beta.8] — 2026-07-18
 
 Build hygiene + dead-code cleanup. No runtime behavior change.

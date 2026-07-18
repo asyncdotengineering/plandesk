@@ -23,7 +23,7 @@ function devApiTarget(): string {
   } catch {
     // no bound config — fall through to the default
   }
-  return 'http://127.0.0.1:3847';
+  return 'http://127.0.0.1:7526';
 }
 
 const apiTarget = devApiTarget();

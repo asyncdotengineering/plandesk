@@ -13,7 +13,7 @@ plandesk init
 plandesk serve
 ```
 
-Open [http://127.0.0.1:3847](http://127.0.0.1:3847). Create a project in the UI, or import the dogfood fixture below.
+Open [http://127.0.0.1:7526](http://127.0.0.1:7526). Create a project in the UI, or import the dogfood fixture below.
 
 The workspace database defaults to the machine-global board at `~/.plandesk/workspace.db` (one board per machine; not committed). `plandesk init --local-db` opts into a repo-local `.plandesk/workspace.db`. Commands that open a workspace prefer an existing repo-local db if present, otherwise the global board. Override with `--data-dir` or `PLANDESK_DATA_DIR`.
 

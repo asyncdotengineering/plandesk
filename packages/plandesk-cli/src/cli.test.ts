@@ -309,7 +309,7 @@ describe('bind host', () => {
 describe('validateServeBind', () => {
   it('allows non-loopback bind without a password (open LAN access)', async () => {
     vi.stubEnv('PLANDESK_AUTH_PASSWORD', '');
-    expect(validateServeBind({ port: 3847, host: '0.0.0.0' })).toEqual({
+    expect(validateServeBind({ port: 7526, host: '0.0.0.0' })).toEqual({
       host: '0.0.0.0',
       authPassword: undefined,
     });
@@ -318,7 +318,7 @@ describe('validateServeBind', () => {
 
   it('passes authPassword when PLANDESK_AUTH_PASSWORD is set', async () => {
     vi.stubEnv('PLANDESK_AUTH_PASSWORD', 'secret');
-    expect(validateServeBind({ port: 3847, host: '0.0.0.0' })).toEqual({
+    expect(validateServeBind({ port: 7526, host: '0.0.0.0' })).toEqual({
       host: '0.0.0.0',
       authPassword: 'secret',
     });
@@ -441,7 +441,7 @@ describe('createListenErrorHandler', () => {
       throw new Error('exit');
     }) as (code: number) => never;
 
-    const handler = createListenErrorHandler(3847, exit);
+    const handler = createListenErrorHandler(7526, exit);
     expect(() => {
       handler(Object.assign(new Error('listen EADDRINUSE'), { code: 'EADDRINUSE' }));
     }).toThrow('exit');

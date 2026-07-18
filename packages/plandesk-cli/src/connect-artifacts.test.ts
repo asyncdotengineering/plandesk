@@ -36,14 +36,14 @@ import {
 describe('connect artifacts', () => {
   it('builds commit-safe config.json without secrets', async () => {
     const json = buildConfigJson({
-      serverUrl: 'http://127.0.0.1:3847',
+      serverUrl: 'http://127.0.0.1:7526',
       projectId: 'proj-1',
       projectName: 'Checkout Revamp',
     });
     expect(json).not.toContain('plandesk_mcp_');
     expect(parseConfigJson(json)).toEqual({
       version: 'plandesk-connect-v1',
-      serverUrl: 'http://127.0.0.1:3847',
+      serverUrl: 'http://127.0.0.1:7526',
       projectId: 'proj-1',
       projectName: 'Checkout Revamp',
     });
@@ -51,7 +51,7 @@ describe('connect artifacts', () => {
 
   it('builds v2 config.json round-trip', async () => {
     const json = buildConfigJsonV2({
-      serverUrl: 'http://127.0.0.1:3847',
+      serverUrl: 'http://127.0.0.1:7526',
       orgId: 'org-1',
       workspaceId: 'ws-1',
       workspaceName: 'Engineering',
@@ -61,7 +61,7 @@ describe('connect artifacts', () => {
     const parsed = parseConfigJson(json);
     expect(parsed).toEqual({
       version: 'plandesk-connect-v2',
-      serverUrl: 'http://127.0.0.1:3847',
+      serverUrl: 'http://127.0.0.1:7526',
       orgId: 'org-1',
       workspaceId: 'ws-1',
       workspaceName: 'Engineering',
@@ -72,7 +72,7 @@ describe('connect artifacts', () => {
   it('grace-reads v1 config as v1 shape', async () => {
     const v1 = JSON.stringify({
       version: 'plandesk-connect-v1',
-      serverUrl: 'http://127.0.0.1:3847',
+      serverUrl: 'http://127.0.0.1:7526',
       projectId: 'proj-1',
       projectName: 'Legacy',
     });
@@ -83,7 +83,7 @@ describe('connect artifacts', () => {
 
   it('grace-reads v1 config without version field', async () => {
     const v1 = JSON.stringify({
-      serverUrl: 'http://127.0.0.1:3847',
+      serverUrl: 'http://127.0.0.1:7526',
       projectId: 'proj-1',
       projectName: 'Legacy',
     });
@@ -94,7 +94,7 @@ describe('connect artifacts', () => {
 
   it('preserves optional sync section without sync token', async () => {
     const json = buildConfigJson({
-      serverUrl: 'http://127.0.0.1:3847',
+      serverUrl: 'http://127.0.0.1:7526',
       projectId: 'proj-1',
       projectName: 'Checkout Revamp',
       sync: {
@@ -105,7 +105,7 @@ describe('connect artifacts', () => {
     expect(json).not.toContain('plandesk_sync_');
     expect(parseConfigJson(json)).toEqual({
       version: 'plandesk-connect-v1',
-      serverUrl: 'http://127.0.0.1:3847',
+      serverUrl: 'http://127.0.0.1:7526',
       projectId: 'proj-1',
       projectName: 'Checkout Revamp',
       sync: {
@@ -121,7 +121,7 @@ describe('connect artifacts', () => {
         other: { type: 'http', url: 'http://example.test/mcp/' },
       },
     });
-    const merged = mergeMcpJson(existing, 'http://127.0.0.1:3847');
+    const merged = mergeMcpJson(existing, 'http://127.0.0.1:7526');
     expect(merged).not.toContain('plandesk_mcp_');
     const parsed = JSON.parse(merged) as {
       mcpServers: Record<
@@ -129,9 +129,9 @@ describe('connect artifacts', () => {
         { url: string; headers?: Record<string, string>; headersHelper?: string }
       >;
     };
-    expect(parsed.mcpServers.plandesk?.url).toBe('http://127.0.0.1:3847/mcp/');
+    expect(parsed.mcpServers.plandesk?.url).toBe('http://127.0.0.1:7526/mcp/');
     expect(parsed.mcpServers.other?.url).toBe('http://example.test/mcp/');
-    const entry = buildMcpServerEntry('http://127.0.0.1:3847/');
+    const entry = buildMcpServerEntry('http://127.0.0.1:7526/');
     expect(entry.headers).toBeUndefined();
     expect(entry.headersHelper).toContain('.plandesk/token');
     expect(entry.headersHelper).toContain(`\${${TOKEN_ENV_VAR}:-`);
@@ -166,7 +166,7 @@ describe('connect artifacts', () => {
   it('removes only the plandesk mcp entry', async () => {
     const existing = JSON.stringify({
       mcpServers: {
-        plandesk: buildMcpServerEntry('http://127.0.0.1:3847'),
+        plandesk: buildMcpServerEntry('http://127.0.0.1:7526'),
         other: { type: 'http', url: 'http://example.test/mcp/' },
       },
     });

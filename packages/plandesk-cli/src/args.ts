@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-export const DEFAULT_PORT = 3847;
+export const DEFAULT_PORT = 7526;
 // Loopback by default: a single-user local tool must not expose its token-gated
 // API to the whole LAN silently. LAN use is an explicit opt-in via --host or
 // PLANDESK_HOST (issue #5).

@@ -1,7 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
-const DEFAULT_URL = 'http://127.0.0.1:3847';
+const DEFAULT_URL = 'http://127.0.0.1:7526';
 
 export type PlandeskProject = {
   id: string;

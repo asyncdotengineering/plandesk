@@ -11,7 +11,7 @@ This walkthrough assumes Plan Desk is installed and running. If not, follow the 
 plandesk serve
 ```
 
-Open [http://127.0.0.1:3847](http://127.0.0.1:3847). On the home page, click **Create a project**, enter a name (e.g. `Checkout Revamp`), and open it.
+Open [http://127.0.0.1:7526](http://127.0.0.1:7526). On the home page, click **Create a project**, enter a name (e.g. `Checkout Revamp`), and open it.
 
 ## 2. Map work on the flow canvas
 

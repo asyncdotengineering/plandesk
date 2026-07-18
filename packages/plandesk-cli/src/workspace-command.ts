@@ -52,7 +52,7 @@ function resolveServerUrl(to: string | undefined, repoDir: string): string {
   } catch {
     // fallthrough
   }
-  return 'http://127.0.0.1:3847';
+  return 'http://127.0.0.1:7526';
 }
 
 async function fetchWorkspaces(

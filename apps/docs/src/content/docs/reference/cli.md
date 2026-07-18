@@ -45,7 +45,7 @@ plandesk deploy [target]
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | `<file.md\|.html>` / `open` | Preview & annotate files in the browser (see [Preview & annotate](#preview--annotate)); glob-friendly (`plandesk *.md`) |
 | `help`                   | A crash course (orientation + key commands + doc links) for humans and agents; `help --commands` prints the full grammar |
-| `init`                   | Create workspace DB, run migrations, and record the board's fixed port (`3847`) in `.plandesk/workspace.json`           |
+| `init`                   | Create workspace DB, run migrations, and record the board's fixed port (`7526`) in `.plandesk/workspace.json`           |
 | `login`                  | Paste a CLI token from the dashboard (owner key) into `~/.plandesk/config.json` (`{ server, token, orgId }`); optional `--server <url>` |
 | `logout`                 | Remove the global hosted-server credentials |
 | `whoami`                 | Print the configured hosted server and organization |
@@ -106,13 +106,13 @@ Share a planned project with a client or another team over a read-only live port
 | --------------- | ----------------------- | -------------------------------------------------------------------------- |
 | `--data-dir`    | nearest `.plandesk/` walking up from cwd, then `PLANDESK_DATA_DIR`, then `~/.plandesk` | Workspace directory |
 | `--repo`        | cwd                     | Target repository directory                                                |
-| `--port`        | from `workspace.json`, then `3847` | HTTP port for serve; if it's in use, serve fails (one board per machine) — stop the other process or pass a different `--port` |
+| `--port`        | from `workspace.json`, then `7526` | HTTP port for serve; if it's in use, serve fails (one board per machine) — stop the other process or pass a different `--port` |
 | `--strict-port` | —                                  | Exit non-zero when the serve port is in use (already the default — one global board, one port) |
 | `--host`        | `127.0.0.1`                        | Bind address; LAN exposure is opt-in via `--host 0.0.0.0` or `PLANDESK_HOST` |
 | `--lan`         | —                                  | `url` command returns the LAN IP instead of `127.0.0.1`                   |
 | `--project`     | —                                  | Project id or name for connect/export                                      |
 | `--to`          | —                                  | Hosted org id: `connect --to` mints a scoped agent key (requires `login`); also used by `push` |
-| `--url`         | from `server.json` → `workspace.json` → `http://127.0.0.1:3847` | Plan Desk server URL for connect  |
+| `--url`         | from `server.json` → `workspace.json` → `http://127.0.0.1:7526` | Plan Desk server URL for connect  |
 | `--token`       | —                       | MCP token for connect                                                      |
 | `--agent`       | detect                  | Agent config target for connect                                            |
 | `--print`       | —                       | Dry-run connect / factory init without writing files                       |

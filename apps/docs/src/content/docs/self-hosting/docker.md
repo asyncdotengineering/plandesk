@@ -12,7 +12,7 @@ export PLANDESK_AUTH_PASSWORD='choose-a-strong-password'
 docker compose -f docker-compose.hosted.yml up --build
 ```
 
-Open [http://127.0.0.1:3847](http://127.0.0.1:3847).
+Open [http://127.0.0.1:7526](http://127.0.0.1:7526).
 
 By default this uses a local SQLite file on a Docker volume (migrated automatically at boot). For a **durable** database, point it at your own libSQL/Turso database and apply the schema once:
 
@@ -31,7 +31,7 @@ docker compose -f docker-compose.hosted.yml up --build
 
 ```bash
 docker build -f Dockerfile.server -t plandesk-server .
-docker run -p 3847:3847 \
+docker run -p 7526:7526 \
   -e PLANDESK_DB_URL='libsql://your-db.turso.io' \
   -e PLANDESK_DB_TOKEN='<token>' \
   -e PLANDESK_AUTH_PASSWORD='<password>' \
@@ -64,7 +64,7 @@ docker compose -f docker-compose.hosted.yml run --rm plandesk doctor
 | `PLANDESK_DB_URL` | (unset → local file) | libSQL/Turso URL for the server's database |
 | `PLANDESK_DB_TOKEN` | (unset) | Auth token for a remote libSQL DB (**secret**) |
 | `PLANDESK_HOST` | `0.0.0.0` | Bind address |
-| `PLANDESK_PORT` | `3847` | Bind port |
+| `PLANDESK_PORT` | `7526` | Bind port |
 | `PLANDESK_AUTH_PASSWORD` | (unset) | HTTP basic-auth password (**secret**) |
 | `PLANDESK_STORAGE` | `local` | `local` (blobs in DB) or `s3` |
 | `PLANDESK_S3_*` | (unset) | S3 credentials when `PLANDESK_STORAGE=s3` |

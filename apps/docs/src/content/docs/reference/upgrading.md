@@ -19,7 +19,7 @@ Same schema, no breaking changes — this is every upgrade except the one below.
 ### 1. Update the package
 
 ```bash
-npm i -g @plandesk/cli@beta
+npm i -g @plandesk/cli@latest
 plandesk version   # confirm (also: plandesk --version)
 ```
 
@@ -65,7 +65,7 @@ Checks the workspace DB, the binding, the token, and that the MCP server lists i
 ## The 0.20.x → better-auth upgrade (breaking)
 
 :::danger[Version boundary — read before you upgrade past 0.20.0]
-If you're running **0.20.0 or earlier**, the next upgrade is **not** routine. The database schema baseline was replaced (no in-place migration) and the workspace moved from a per-repo `.plandesk/workspace.db` default to a **machine-global board** at `~/.plandesk/workspace.db`. `npm i -g @plandesk/cli@beta` followed by `plandesk serve` will **not** carry your old data forward automatically — you must run `plandesk legacy-upgrade` to bring it into the new board. Nothing is deleted: your old `workspace.db` is backed up in place before anything is imported.
+If you're running **0.20.0 or earlier**, the next upgrade is **not** routine. The database schema baseline was replaced (no in-place migration) and the workspace moved from a per-repo `.plandesk/workspace.db` default to a **machine-global board** at `~/.plandesk/workspace.db`. `npm i -g @plandesk/cli@latest` followed by `plandesk serve` will **not** carry your old data forward automatically — you must run `plandesk legacy-upgrade` to bring it into the new board. Nothing is deleted: your old `workspace.db` is backed up in place before anything is imported.
 :::
 
 ### What changed and why
@@ -79,7 +79,7 @@ At the same time, the workspace default moved to one **global board per machine*
 `plandesk legacy-upgrade` **creates the new global board itself** if it doesn't exist yet, then imports your old data — so the whole upgrade is a single command:
 
 ```bash
-npm i -g @plandesk/cli@beta
+npm i -g @plandesk/cli@latest
 plandesk legacy-upgrade [--from <path-to-old-workspace.db>]
 ```
 
@@ -134,7 +134,7 @@ Confirm the imported projects appear in the UI (`plandesk serve`, open the print
 
 ### 1.0.0-beta — better-auth native rewrite
 
-Released as `1.0.0-beta.1`–`1.0.0-beta.7` (2026-07-18) under the `beta` npm tag; `@latest` stays on `0.20.0` until GA.
+Released as `1.0.0-beta.1`–`1.0.0-beta.8` (2026-07-18) under the `beta` npm tag; `@latest` moved to `1.0.0` at GA.
 
 **Breaking.** See [The 0.20.x → better-auth upgrade](#the-020x--better-auth-upgrade-breaking) above for the full migration path. Summary: auth is now 100% better-auth (GitHub social web sign-in, paste-a-token CLI, project-scoped agent keys); `mcp_tokens`, GitHub device-code CLI login, hand-rolled sessions, and the old `orgs`/`org_members` schema are removed; the Drizzle migration baseline was reset (no in-place migration); the workspace default moved to one global board per machine. Use `plandesk legacy-upgrade` to lift a 0.20.x-era board into the new one.
 
@@ -166,4 +166,4 @@ Historical: `@plandesk/cli@0.11.0` (depended on `@plandesk/api@0.10.0`, `@plande
 
 ## Pinned or npx installs
 
-If you run Plan Desk without a global install, `npx @plandesk/cli@beta …` uses the current beta line — only steps 2–4 apply.
+If you run Plan Desk without a global install, `npx @plandesk/cli@latest …` uses the current beta line — only steps 2–4 apply.

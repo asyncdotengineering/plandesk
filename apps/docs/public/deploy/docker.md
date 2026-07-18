@@ -29,7 +29,7 @@ export PLANDESK_AUTH_PASSWORD='choose-a-strong-password'
 docker compose -f docker-compose.hosted.yml up --build -d
 ```
 
-**API URL** is `http://<host>:3847` (or the port in the compose file). Skip to Step 4.
+**API URL** is `http://<host>:7526` (or the port in the compose file). Skip to Step 4.
 
 ## Step 2 — Or build a minimal image from the published CLI
 
@@ -37,10 +37,10 @@ docker compose -f docker-compose.hosted.yml up --build -d
 # Dockerfile.plandesk
 FROM node:22-slim
 RUN npm i -g @plandesk/cli
-ENV PLANDESK_HOST=0.0.0.0 PLANDESK_PORT=3847 PLANDESK_DATA_DIR=/data
+ENV PLANDESK_HOST=0.0.0.0 PLANDESK_PORT=7526 PLANDESK_DATA_DIR=/data
 VOLUME /data
-EXPOSE 3847
-CMD ["plandesk", "serve", "--host", "0.0.0.0", "--port", "3847", "--data-dir", "/data"]
+EXPOSE 7526
+CMD ["plandesk", "serve", "--host", "0.0.0.0", "--port", "7526", "--data-dir", "/data"]
 ```
 
 ```bash
@@ -51,14 +51,14 @@ docker build -f Dockerfile.plandesk -t plandesk-api .
 
 ```bash
 docker run -d --name plandesk-api \
-  -p 3847:3847 \
+  -p 7526:7526 \
   -v plandesk-api-data:/data \
   -e PLANDESK_AUTH_PASSWORD="<strong-password>" \
   plandesk-api
 docker logs plandesk-api | tail
 ```
 
-**API_URL** is `http://<host>:3847` (use a reachable address; put TLS in front for anything public).
+**API_URL** is `http://<host>:7526` (use a reachable address; put TLS in front for anything public).
 
 ## Step 4 — Wire your project and create a share
 

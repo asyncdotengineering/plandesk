@@ -97,7 +97,7 @@ describe('plandesk admin invite-owner (BA3c REQ-3)', () => {
       const result = await runAdminInviteOwner(db, {
         email: 'founder@x.com',
         dataDir,
-        baseURL: 'http://127.0.0.1:3847',
+        baseURL: 'http://127.0.0.1:7526',
       });
       expect(result.email).toBe('founder@x.com');
       expect(result.invitationId.length).toBeGreaterThan(0);
@@ -115,7 +115,7 @@ describe('plandesk admin invite-owner (BA3c REQ-3)', () => {
       const auth = createBetterAuth({
         client: db.$client,
         secret,
-        baseURL: 'http://127.0.0.1:3847',
+        baseURL: 'http://127.0.0.1:7526',
       });
       if (auth === undefined) throw new Error('expected better-auth');
       await runBetterAuthMigrations(auth);

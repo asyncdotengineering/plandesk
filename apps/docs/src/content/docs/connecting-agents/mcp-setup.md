@@ -36,28 +36,28 @@ There is no standalone "create an MCP token" UI or CLI command anymore — a tok
 Plan Desk exposes Streamable HTTP MCP at:
 
 ```
-http://127.0.0.1:3847/mcp/
+http://127.0.0.1:7526/mcp/
 ```
 
 ### Claude Code — local (no token needed)
 
 ```bash
-claude mcp add --transport http plandesk http://127.0.0.1:3847/mcp/
+claude mcp add --transport http plandesk http://127.0.0.1:7526/mcp/
 ```
 
 ### Claude Code — hosted (with a scoped agent key from Step 1)
 
 ```bash
-claude mcp add --transport http plandesk http://127.0.0.1:3847/mcp/ \
+claude mcp add --transport http plandesk http://127.0.0.1:7526/mcp/ \
   --header "Authorization: Bearer $(cat .plandesk/token)"
 ```
 
-For Docker or remote hosts, use the reachable origin (e.g. `http://your-host:3847/mcp/`).
+For Docker or remote hosts, use the reachable origin (e.g. `http://your-host:7526/mcp/`).
 
 ### Codex
 
 ```bash
-codex mcp add --transport http plandesk http://127.0.0.1:3847/mcp/ \
+codex mcp add --transport http plandesk http://127.0.0.1:7526/mcp/ \
   --header "Authorization: Bearer $(cat .plandesk/token)"   # omit --header entirely for local
 ```
 
@@ -70,7 +70,7 @@ For teams sharing repo config without committing secrets, use [`plandesk connect
   "mcpServers": {
     "plandesk": {
       "type": "http",
-      "url": "http://127.0.0.1:3847/mcp/",
+      "url": "http://127.0.0.1:7526/mcp/",
       "headersHelper": "… reads .plandesk/token (or $PLANDESK_MCP_TOKEN if set) …"
     }
   }

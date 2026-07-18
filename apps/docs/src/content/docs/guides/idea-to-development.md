@@ -17,14 +17,14 @@ plandesk init
 plandesk serve
 ```
 
-Leave it running. The UI is at [http://127.0.0.1:3847](http://127.0.0.1:3847); the MCP server is at `http://127.0.0.1:3847/mcp/`.
+Leave it running. The UI is at [http://127.0.0.1:7526](http://127.0.0.1:7526); the MCP server is at `http://127.0.0.1:7526/mcp/`.
 
 ## 1. Register Plan Desk in Claude Code
 
 Add the MCP server so Claude Code can reach Plan Desk. Local loopback is zero-auth — no token to create:
 
 ```bash
-claude mcp add --transport http plandesk http://127.0.0.1:3847/mcp/
+claude mcp add --transport http plandesk http://127.0.0.1:7526/mcp/
 ```
 
 (Connecting to a hosted org instead of local? See [MCP Setup](/connecting-agents/mcp-setup/#step-1--auth-none-locally-a-cli-token-for-hosted) for the two-actor `login` + `connect --to` flow.)

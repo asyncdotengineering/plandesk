@@ -21,7 +21,7 @@ No login, no `syncUrl`, no account → the tool stays **entirely on your machine
 
 ```bash
 npm i -g @plandesk/cli
-plandesk init && plandesk serve          # UI at http://127.0.0.1:3847
+plandesk init && plandesk serve          # UI at http://127.0.0.1:7526
 ```
 
 **Migrations.** The schema is migrated **automatically at `serve` boot**. You never run a migration command — `serve` checks and applies them to your local file.
@@ -39,7 +39,7 @@ export PLANDESK_AUTH_PASSWORD='choose-a-strong-password'
 docker compose -f docker-compose.hosted.yml up --build
 ```
 
-Open [http://127.0.0.1:3847](http://127.0.0.1:3847). For a durable database, point `PLANDESK_DB_URL` at your own libSQL/Turso database — see [Docker (self-host)](./docker/) and [Server configuration](./server-config/).
+Open [http://127.0.0.1:7526](http://127.0.0.1:7526). For a durable database, point `PLANDESK_DB_URL` at your own libSQL/Turso database — see [Docker (self-host)](./docker/) and [Server configuration](./server-config/).
 
 **Migrations.** *You* own the database, so *you* run migrations:
 

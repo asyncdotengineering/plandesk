@@ -9,7 +9,7 @@ When you run the Plan Desk server yourself (`plandesk serve`, or the [self-host 
 | --- | --- | --- |
 | **Environment** (`PLANDESK_*`) | ✅ always wins | Secrets, containers, CI — anything that must override the file |
 | **File** (`plandesk.server.json`) | when env is unset | Collecting every knob in one place for a self-host operator |
-| **Defaults** | last resort | Safe local defaults (loopback host, port 3847, local storage) |
+| **Defaults** | last resort | Safe local defaults (loopback host, port 7526, local storage) |
 
 ## The config file — `plandesk.server.json`
 
@@ -24,7 +24,7 @@ plandesk serve --config /etc/plandesk/plandesk.server.json
   "dbUrl": "libsql://your-db.turso.io",
   "dbToken": "<libSQL auth token>",
   "host": "0.0.0.0",
-  "port": 3847,
+  "port": 7526,
   "baseUrl": "https://plandesk.example.com",
   "authPassword": "<HTTP basic-auth password>",
   "sessionSecret": "<better-auth secret — long random string>",
@@ -45,7 +45,7 @@ Every field is optional. The keys:
 | `dbUrl` | `PLANDESK_DB_URL` | Remote libSQL/Turso URL. Unset → local file SQLite (the [local topology](./topologies/)). |
 | `dbToken` | `PLANDESK_DB_TOKEN` | Auth token for a remote libSQL DB. **Secret.** |
 | `host` | `PLANDESK_HOST` | Bind address (`127.0.0.1` loopback default; `0.0.0.0` for LAN/container). |
-| `port` | `PLANDESK_PORT` | Bind port (default `3847`). |
+| `port` | `PLANDESK_PORT` | Bind port (default `7526`). |
 | `baseUrl` | `PLANDESK_BASE_URL` | Public base URL the server is reachable at (better-auth `baseURL`, OAuth callbacks, share links). |
 | `authPassword` | `PLANDESK_AUTH_PASSWORD` | Enables HTTP basic-auth on the UI/REST API. **Secret.** Recommended for any non-loopback host. |
 | `sessionSecret` | `PLANDESK_BETTER_AUTH_SECRET` (`PLANDESK_SESSION_SECRET` accepted for back-compat) | **better-auth secret** (sessions + API keys). **Secret.** Local `serve` auto-generates one under the data dir if unset; set explicitly for multi-replica / durable hosted deploys so sessions and keys stay valid across restarts. |
@@ -77,7 +77,7 @@ When one database is served by both `plandesk serve` and a Workers/Vercel deploy
 ```
 config:
   host: 0.0.0.0 (env)
-  port: 3847 (default)
+  port: 7526 (default)
   db-url: libsql://your-db.turso.io (env)
   db-token: <redacted> (env)
   base-url: <unset>

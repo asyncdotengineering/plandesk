@@ -5,14 +5,14 @@ description: Call Plan Desk's MCP tools straight from your terminal (or a TypeSc
 
 [mcporter](https://mcporter.sh) is a CLI and TypeScript runtime for the Model Context Protocol: it lets you call any MCP server's tools like normal functions — from the shell or from code — without loading a giant tool-schema prompt into an agent. Pair it with Plan Desk when you want to **drive the plan from the terminal**: check the next task, flip a status, list projects, or script the loop — without opening an agent session.
 
-Plan Desk exposes Streamable HTTP MCP at `http://127.0.0.1:3847/mcp/` with `Authorization: Bearer <token>`, which is exactly what mcporter connects to.
+Plan Desk exposes Streamable HTTP MCP at `http://127.0.0.1:7526/mcp/` with `Authorization: Bearer <token>`, which is exactly what mcporter connects to.
 
 ## Prerequisites
 
 1. Plan Desk is serving and has a project:
 
    ```bash
-   plandesk serve            # http://127.0.0.1:3847
+   plandesk serve            # http://127.0.0.1:7526
    ```
 
 2. A token — **hosted orgs only**. Local loopback is zero-auth, so skip this and omit the `Authorization` header below entirely. For a hosted org, reuse the scoped agent key `plandesk connect --to <org>` wrote to `.plandesk/token`:
@@ -32,7 +32,7 @@ mcporter reads `~/.mcporter/mcporter.json` (global) or `config/mcporter.json` (p
   "mcpServers": {
     "plandesk": {
       "description": "Plan Desk planning MCP",
-      "baseUrl": "http://127.0.0.1:3847/mcp/",
+      "baseUrl": "http://127.0.0.1:7526/mcp/",
       "headers": {
         "Authorization": "Bearer $env:PLANDESK_MCP_TOKEN"
       }
@@ -41,7 +41,7 @@ mcporter reads `~/.mcporter/mcporter.json` (global) or `config/mcporter.json` (p
 }
 ```
 
-For a Docker or remote sync host, use the reachable origin (e.g. `http://your-host:3847/mcp/`).
+For a Docker or remote sync host, use the reachable origin (e.g. `http://your-host:7526/mcp/`).
 
 ## Step 2 — List and inspect the tools
 
@@ -84,7 +84,7 @@ npx mcporter emit-ts plandesk --mode client --out src/plandesk-client.ts
 
 ## Notes & troubleshooting
 
-- **Server must be running** — mcporter talks to your local `plandesk serve`; if it's down, calls fail. (`serve` auto-rotates the port if 3847 is busy — point `baseUrl` at the port it printed.)
+- **Server must be running** — mcporter talks to your local `plandesk serve`; if it's down, calls fail. (`serve` uses a fixed port (7526) and fails if that port is busy — free the port, or start it on a different one with `--port` and point `baseUrl` at that.)
 - **401 Unauthorized** — `PLANDESK_MCP_TOKEN` is unset, wrong, or revoked. Re-export it, or create a new token.
 - **No `plandesk` server listed** — check the config path and that the JSON is valid; mcporter also supports `${VAR}` and `${VAR:-fallback}` interpolation if you prefer.
 - **Resolve ids without guessing** — `plandesk.list_projects` for project ids; a project's tasks come from `plandesk.get_project`. There is no delete tool by design.

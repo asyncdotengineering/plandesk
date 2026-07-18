@@ -5,7 +5,7 @@ description: REST endpoints and MCP tools exposed by Plan Desk v1.
 
 ## REST API (v1)
 
-**Base:** `http://127.0.0.1:3847/api/v1`
+**Base:** `http://127.0.0.1:7526/api/v1`
 
 **Auth:** Local loopback = owner (zero-auth). Hosted: better-auth **session** cookie (web GitHub sign-in) or **Bearer** better-auth API key (CLI owner key / project-scoped agent key from `plandesk connect --to`). Optional HTTP basic via `PLANDESK_AUTH_PASSWORD`.
 
@@ -85,7 +85,7 @@ An **artifact** is a stored agent deliverable — a Markdown report, an RFC, an 
 
 ## MCP server
 
-**Endpoint:** `http://127.0.0.1:3847/mcp/` (Streamable HTTP transport)
+**Endpoint:** `http://127.0.0.1:7526/mcp/` (Streamable HTTP transport)
 
 **Auth:** same as the REST API above — local loopback needs no header at all; hosted needs `Authorization: Bearer <better-auth API key>` (the CLI owner key from `plandesk login`, or the project-scoped agent key `plandesk connect --to` writes to `.plandesk/token`).
 

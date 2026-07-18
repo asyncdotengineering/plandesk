@@ -52,20 +52,20 @@ Start a **new** Claude Code or Codex session so MCP tools reload.
 **Manual alternative:** register the server directly — no token for local:
 
 ```bash
-claude mcp add --transport http plandesk http://127.0.0.1:3847/mcp/
+claude mcp add --transport http plandesk http://127.0.0.1:7526/mcp/
 ```
 
 For a hosted org, generate a CLI token from the dashboard (**Settings → MCP** → **Generate CLI token**), `plandesk login`, `plandesk connect --to <org>`, then register with the scoped key it writes to `.plandesk/token`:
 
 ```bash
-claude mcp add --transport http plandesk http://127.0.0.1:3847/mcp/ \
+claude mcp add --transport http plandesk http://127.0.0.1:7526/mcp/ \
   --header "Authorization: Bearer $(cat .plandesk/token)"
 ```
 
 For Codex with an env-var token:
 
 ```bash
-codex mcp add plandesk --url http://127.0.0.1:3847/mcp/ \
+codex mcp add plandesk --url http://127.0.0.1:7526/mcp/ \
   --bearer-token-env-var PLANDESK_MCP_TOKEN
 ```
 
