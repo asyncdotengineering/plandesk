@@ -57,6 +57,7 @@ export {
 export {
   applyAgentKeyPermissionCeiling,
   createScopedAgentKey,
+  createWorkspaceScopedAgentKey,
   createOrgOwnerKey,
   verifyBetterAuthApiKey,
   DEFAULT_AGENT_KEY_PERMISSIONS,
@@ -65,6 +66,8 @@ export {
   type ApiKeyKind,
   type CreateScopedAgentKeyInput,
   type CreatedScopedAgentKey,
+  type CreateWorkspaceScopedAgentKeyInput,
+  type CreatedWorkspaceScopedAgentKey,
   type CreateOrgOwnerKeyInput,
   type CreatedOrgOwnerKey,
   type VerifiedApiKey,

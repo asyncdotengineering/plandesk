@@ -33,6 +33,8 @@ export type AuthContext =
       userId: string;
       /** Optional project scope from key metadata; cross-project → 404. */
       projectId?: string;
+      /** Optional workspace scope from key metadata; cross-workspace → 404. */
+      workspaceId?: string;
       /**
        * Live member role when present. Effective authority is always
        * `permission` (key ∩ live role; agent profile also strips apiKey —

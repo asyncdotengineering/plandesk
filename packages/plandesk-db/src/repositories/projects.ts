@@ -61,6 +61,7 @@ export async function getProjectInOrg(
 export type ListProjectsOptions = {
   limit?: number;
   offset?: number;
+  workspaceId?: string;
 };
 
 export async function listProjects(
@@ -68,7 +69,11 @@ export async function listProjects(
   orgId: string,
   options?: ListProjectsOptions,
 ): Promise<Project[]> {
-  let query = db.select().from(projects).where(eq(projects.orgId, orgId)).$dynamic();
+  const filter =
+    options?.workspaceId !== undefined
+      ? and(eq(projects.orgId, orgId), eq(projects.workspaceId, options.workspaceId))
+      : eq(projects.orgId, orgId);
+  let query = db.select().from(projects).where(filter).$dynamic();
   if (options?.limit !== undefined) {
     query = query.limit(options.limit);
   }

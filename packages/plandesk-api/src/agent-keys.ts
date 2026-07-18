@@ -225,6 +225,47 @@ export async function createScopedAgentKey(
   };
 }
 
+export type CreateWorkspaceScopedAgentKeyInput = {
+  auth: BetterAuthInstance;
+  userId: string;
+  orgId: string;
+  teamId: string;
+  permissions?: PermissionSet;
+  name?: string;
+};
+
+export type CreatedWorkspaceScopedAgentKey = {
+  id: string;
+  key: string;
+  name: string | null;
+  permissions: Record<string, string[]> | null;
+  metadata: { orgId: string; teamId: string };
+};
+
+/**
+ * Server-side mint for a workspace-scoped agent key.
+ * Metadata is `{ orgId, teamId }` — no `kind` so resolver treats absent as agent.
+ */
+export async function createWorkspaceScopedAgentKey(
+  input: CreateWorkspaceScopedAgentKeyInput,
+): Promise<CreatedWorkspaceScopedAgentKey> {
+  const permissions = compactPermissions(
+    input.permissions ?? DEFAULT_AGENT_KEY_PERMISSIONS,
+  );
+  const metadata = { orgId: input.orgId, teamId: input.teamId };
+  const minted = await mintBetterAuthApiKey({
+    auth: input.auth,
+    userId: input.userId,
+    name: input.name ?? 'agent',
+    permissions,
+    metadata,
+  });
+  return {
+    ...minted,
+    metadata,
+  };
+}
+
 export type CreateOrgOwnerKeyInput = {
   auth: BetterAuthInstance;
   userId: string;

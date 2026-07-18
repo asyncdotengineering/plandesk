@@ -32,5 +32,13 @@ export async function assertProjectInOrg(
   ) {
     throw new ProjectNotInOrgError(projectId);
   }
+  if (
+    ctx !== undefined &&
+    ctx.kind === 'apikey' &&
+    ctx.workspaceId !== undefined &&
+    project.workspaceId !== ctx.workspaceId
+  ) {
+    throw new ProjectNotInOrgError(projectId);
+  }
   return project;
 }

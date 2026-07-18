@@ -48,6 +48,7 @@ import {
   type SerializedDocument,
   type TaskStatusSummary,
 } from '../serialize.js';
+import { tryGetAuthContext } from '../auth-context.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
@@ -186,7 +187,12 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
     async list(pagination: PaginationParams = {}) {
       const orgId = resolveOrgId(deps);
-      return (await dbListProjects(db, orgId, pagination)).map(serializeProject);
+      const ctx = tryGetAuthContext();
+      const workspaceId =
+        ctx?.kind === 'apikey' && ctx.workspaceId !== undefined ? ctx.workspaceId : undefined;
+      return (await dbListProjects(db, orgId, { ...pagination, workspaceId })).map(
+        serializeProject,
+      );
     },
 
     async get(id: string) {

@@ -181,25 +181,28 @@ type ApiKeyMetadata = {
   projectId?: unknown;
   orgId?: unknown;
   kind?: unknown;
+  teamId?: unknown;
 };
 
 /**
  * Read better-auth key metadata. Absent/unknown `kind` → `'agent'` (BA4b-1
  * back-compat: every key minted without kind keeps agent ceiling).
  */
-function readApiKeyMetadata(metadata: unknown): {
+export function readApiKeyMetadata(metadata: unknown): {
   orgId: string | undefined;
   projectId: string | undefined;
+  workspaceId: string | undefined;
   kind: 'agent' | 'owner';
 } {
   if (metadata === null || metadata === undefined || typeof metadata !== 'object') {
-    return { orgId: undefined, projectId: undefined, kind: 'agent' };
+    return { orgId: undefined, projectId: undefined, workspaceId: undefined, kind: 'agent' };
   }
   const m = metadata as ApiKeyMetadata;
   return {
     orgId: typeof m.orgId === 'string' && m.orgId.length > 0 ? m.orgId : undefined,
     projectId:
       typeof m.projectId === 'string' && m.projectId.length > 0 ? m.projectId : undefined,
+    workspaceId: typeof m.teamId === 'string' && m.teamId.length > 0 ? m.teamId : undefined,
     kind: m.kind === 'owner' ? 'owner' : 'agent',
   };
 }
@@ -244,7 +247,7 @@ async function resolveBetterAuthApiKeyContext(
   }
 
   const userId = verified.referenceId;
-  const { orgId, projectId, kind } = readApiKeyMetadata(verified.metadata);
+  const { orgId, projectId, workspaceId, kind } = readApiKeyMetadata(verified.metadata);
   if (orgId === undefined) {
     return 'unauthorized';
   }
@@ -261,6 +264,7 @@ async function resolveBetterAuthApiKeyContext(
     orgId,
     userId,
     ...(projectId !== undefined ? { projectId } : {}),
+    ...(workspaceId !== undefined ? { workspaceId } : {}),
     role: liveRole,
     permission,
   };
