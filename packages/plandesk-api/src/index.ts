@@ -11,6 +11,7 @@ export {
   createTeamForOrg,
   ensureDefaultTeamForOrg,
   ensureLocalBetterAuthOrganization,
+  listTeamsForOrg,
 } from './identity.js';
 export {
   createAuthMiddleware,

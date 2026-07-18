@@ -145,6 +145,7 @@ const RESERVED_COMMANDS = new Set([
   'export',
   'import',
   'legacy-upgrade',
+  'go-online',
   'connect',
   'disconnect',
   'doctor',
@@ -196,6 +197,15 @@ export type ParsedArgs =
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
   | { command: 'legacy-upgrade'; from?: string; dataDir?: string; intoWorkspace?: string | true }
+  | {
+      command: 'go-online';
+      dataDir?: string;
+      to?: string;
+      server?: string;
+      token?: string;
+      all: boolean;
+      workspaces: string[];
+    }
   | {
       command: 'connect';
       repoDir?: string;
@@ -291,6 +301,28 @@ function parseFlags(args: string[]): {
 function flagString(flags: Record<string, string | boolean>, key: string): string | undefined {
   const value = flags[key];
   return typeof value === 'string' ? value : undefined;
+}
+
+/** Collect every value following a repeated `--<key>` flag (e.g. --workspace a --workspace b). */
+function collectRepeatedFlags(args: string[], key: string): string[] {
+  const flagName = `--${key}`;
+  const out: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === undefined) {
+      continue;
+    }
+    if (arg === flagName) {
+      const next = args[i + 1];
+      if (next !== undefined && !next.startsWith('-')) {
+        out.push(next);
+        i++;
+      }
+    } else if (arg.startsWith(`${flagName}=`)) {
+      out.push(arg.slice(flagName.length + 1));
+    }
+  }
+  return out;
 }
 
 function parsePort(raw: string | undefined): number | undefined {
@@ -421,6 +453,18 @@ export function parseArgs(argv: string[]): ParsedArgs {
       from: flagString(flags, 'from'),
       dataDir,
       intoWorkspace: typeof intoWorkspaceRaw === 'string' ? intoWorkspaceRaw : intoWorkspaceRaw === true ? true : undefined,
+    };
+  }
+
+  if (command === 'go-online') {
+    return {
+      command: 'go-online',
+      dataDir,
+      to: flagString(flags, 'to'),
+      server: flagString(flags, 'server'),
+      token: flagString(flags, 'token'),
+      all: flags['all'] === true,
+      workspaces: collectRepeatedFlags(argv.slice(2), 'workspace'),
     };
   }
 
@@ -590,6 +634,7 @@ Usage:
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]
   plandesk legacy-upgrade [--from <old-workspace.db>] [--data-dir <dir>]   # lift a 0.20.0-era board into the global board
+  plandesk go-online [--to <orgId>] [--server <url>] [--token <key>] [--all | --workspace <name>...]   # push local workspaces + projects up to a hosted org (requires plandesk login)
   plandesk connect [--repo <dir>] [--project <id|name>] [--workspace <name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
   plandesk connect --to <orgId> [--project <id|name>] [--workspace <name>] [--repo <dir>] [--print]   # hosted: mint scoped agent key (requires plandesk login)
   plandesk disconnect [--repo <dir>]

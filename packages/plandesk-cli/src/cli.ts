@@ -30,6 +30,7 @@ import {
   LegacyUpgradeError,
   runLegacyUpgrade,
 } from './legacy-upgrade.js';
+import { formatGoOnlineSummary, GoOnlineError, runGoOnline } from './go-online.js';
 import { formatDoctorReport, runDoctor } from './doctor.js';
 import { ConnectError, formatConnectPrint, formatConnectSummary, runConnect } from './connect.js';
 import {
@@ -273,6 +274,26 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
           return 1;
         }
         if (err instanceof WorkspaceNotFoundError) {
+          process.stderr.write(`${err.message}\n`);
+          return 1;
+        }
+        throw err;
+      }
+    }
+    case 'go-online': {
+      try {
+        const result = await runGoOnline({
+          dataDir: parsed.dataDir,
+          to: parsed.to,
+          server: parsed.server,
+          token: parsed.token,
+          all: parsed.all,
+          workspaces: parsed.workspaces,
+        });
+        process.stdout.write(formatGoOnlineSummary(result));
+        return 0;
+      } catch (err) {
+        if (err instanceof GoOnlineError) {
           process.stderr.write(`${err.message}\n`);
           return 1;
         }
