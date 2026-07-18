@@ -15,7 +15,6 @@ const MCP_SDK = join(ROOT, 'packages/plandesk-cli/node_modules/@modelcontextprot
 const TARGETS = {
   coldStartMs: 5000,
   mcpP95Ms: 2000,
-  sseP95Ms: 500,
 };
 
 let dataDir = '';
@@ -187,116 +186,6 @@ async function mcpListInspect(client, projectId) {
     throw new Error('get_project failed');
   }
   return performance.now() - start;
-}
-
-function parseSseEvents(chunk) {
-  const events = [];
-  for (const part of chunk.split('\n\n')) {
-    for (const line of part.split('\n')) {
-      if (line.startsWith('data: ')) {
-        events.push(JSON.parse(line.slice(6)));
-      }
-    }
-  }
-  return events;
-}
-
-async function openSseCollector(baseUrl) {
-  const ac = new AbortController();
-  const res = await fetch(`${baseUrl}/api/v1/events`, { signal: ac.signal });
-  if (!res.ok || res.body === null) {
-    throw new Error(`SSE connect failed (${String(res.status)})`);
-  }
-
-  const queue = [];
-  let resolveNext = null;
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  const pump = (async () => {
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
-        }
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() ?? '';
-        for (const part of parts) {
-          for (const event of parseSseEvents(part)) {
-            queue.push(event);
-            resolveNext?.();
-            resolveNext = null;
-          }
-        }
-      }
-      if (buffer.length > 0) {
-        for (const event of parseSseEvents(buffer)) {
-          queue.push(event);
-          resolveNext?.();
-          resolveNext = null;
-        }
-      }
-    } catch (err) {
-      if (!(err instanceof Error && err.name === 'AbortError')) {
-        throw err;
-      }
-    }
-  })();
-
-  return {
-    async waitForTaskUpdated(taskId, sinceMs, timeoutMs = 2000) {
-      const deadline = performance.now() + timeoutMs;
-      while (performance.now() < deadline) {
-        const idx = queue.findIndex(
-          (event) => event?.type === 'task_updated' && event.taskId === taskId,
-        );
-        if (idx !== -1) {
-          queue.splice(idx, 1);
-          return performance.now() - sinceMs;
-        }
-        await new Promise((resolve) => {
-          resolveNext = resolve;
-          setTimeout(resolve, 10);
-        });
-      }
-      throw new Error(`task_updated for ${taskId} not received within ${String(timeoutMs)} ms`);
-    },
-    async close() {
-      ac.abort();
-      await pump;
-    },
-  };
-}
-
-async function measureSseLatency(baseUrl, taskId, iterations) {
-  const collector = await openSseCollector(baseUrl);
-  const statuses = ['todo', 'in_progress', 'done', 'in_progress'];
-  const samples = [];
-
-  try {
-    await sleep(50);
-    for (let i = 0; i < iterations; i += 1) {
-      const status = statuses[i % statuses.length];
-      const patchStart = performance.now();
-      const res = await fetch(`${baseUrl}/api/v1/tasks/${taskId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-      if (!res.ok) {
-        throw new Error(`PATCH task failed (${String(res.status)})`);
-      }
-      const latency = await collector.waitForTaskUpdated(taskId, patchStart);
-      samples.push(latency);
-    }
-  } finally {
-    await collector.close();
-  }
-
-  return summarize(samples);
 }
 
 async function jsonFetch(url, init) {
@@ -512,8 +401,6 @@ function writeMetricsMd(results) {
     `| Cold start (serve spawn → first \`POST /projects\`) | < ${TARGETS.coldStartMs / 1000} s | ${formatMs(results.coldStartMs)} (${(results.coldStartMs / 1000).toFixed(2)} s) | ${passFlag(results.coldStartMs, TARGETS.coldStartMs)} |`,
     `| MCP \`list_projects\` + \`get_project\` p50 | — | ${formatMs(results.mcp.p50)} | — |`,
     `| MCP \`list_projects\` + \`get_project\` p95 | < ${TARGETS.mcpP95Ms / 1000} s | ${formatMs(results.mcp.p95)} | ${passFlag(results.mcp.p95, TARGETS.mcpP95Ms)} |`,
-    `| SSE \`task_updated\` latency p50 (PATCH → event) | — | ${formatMs(results.sse.p50)} | — |`,
-    `| SSE \`task_updated\` latency p95 | < ${TARGETS.sseP95Ms} ms | ${formatMs(results.sse.p95)} | ${passFlag(results.sse.p95, TARGETS.sseP95Ms)} |`,
     `| Export/import lossless (counts + links) | lossless | ${results.exportImport.lossless ? 'true' : 'false'} (tasks=${String(results.exportImport.counts.tasks)}, edges=${String(results.exportImport.counts.edges)}, docs=${String(results.exportImport.counts.documents)}) | ${passFlag(results.exportImport.lossless, true, false)} |`,
     '',
   ];
@@ -524,9 +411,6 @@ function writeMetricsMd(results) {
   }
   if (results.mcp.p95 > TARGETS.mcpP95Ms) {
     misses.push('MCP p95');
-  }
-  if (results.sse.p95 > TARGETS.sseP95Ms) {
-    misses.push('SSE p95');
   }
   if (!results.exportImport.lossless) {
     misses.push('export/import');
@@ -548,7 +432,6 @@ function writeMetricsMd(results) {
     '- Isolated temp data dir + ephemeral loopback port; `plandesk init` before serve.',
     '- Cold start: fresh `plandesk serve` spawn until first successful `POST /api/v1/projects`.',
     '- MCP: Bearer token; 50 sequential `list_projects` + `get_project` pairs via Streamable HTTP MCP.',
-    '- SSE: one `/api/v1/events` subscriber; 20 `PATCH /api/v1/tasks/:id` toggles; time to `task_updated`.',
     '- Export/import: REST fixture (canvas nodes/edges + linked docs) → CLI export → import → re-export; compare structure without IDs.',
     '- Server and temp dir are trapped on exit.',
     '',
@@ -599,24 +482,8 @@ async function main() {
   const fixtureProject = await jsonFetch(`${baseUrl}/api/v1/projects`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'Metrics Fixture', description: 'SSE + export/import' }),
+    body: JSON.stringify({ name: 'Metrics Fixture', description: 'export/import fixture' }),
   });
-  const canvas = await jsonFetch(`${baseUrl}/api/v1/projects/${fixtureProject.id}/canvas`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      nodes: [{ id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', label: 'SSE Task', x: 0, y: 0 }],
-      edges: [],
-    }),
-  });
-  const sseTaskId = canvas.nodes[0]?.id;
-  if (typeof sseTaskId !== 'string') {
-    throw new Error('failed to create SSE task');
-  }
-
-  const sse = await measureSseLatency(baseUrl, sseTaskId, 20);
-  log(`sse_task_updated: n=${String(sse.n)} p50=${formatMs(sse.p50)} p95=${formatMs(sse.p95)}`);
-
   await buildExportFixture(baseUrl, fixtureProject.id);
   await stopServer();
 
@@ -631,7 +498,6 @@ async function main() {
     machine: machineNote(),
     coldStartMs: cold.ms,
     mcp,
-    sse,
     exportImport,
   };
 
@@ -645,7 +511,6 @@ async function main() {
   const allPass =
     cold.ms <= TARGETS.coldStartMs &&
     mcp.p95 <= TARGETS.mcpP95Ms &&
-    sse.p95 <= TARGETS.sseP95Ms &&
     exportImport.lossless;
 
   if (!allPass) {

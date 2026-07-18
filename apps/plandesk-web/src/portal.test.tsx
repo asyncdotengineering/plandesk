@@ -105,11 +105,6 @@ function renderPortalPage(view: ClientView, onUnauthorized = vi.fn()) {
   );
 }
 
-class MockEventSource {
-  onmessage: ((event: MessageEvent) => void) | null = null;
-  close(): void {}
-}
-
 function renderPortalRoute() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -129,7 +124,6 @@ function renderPortalRoute() {
 }
 
 beforeEach(() => {
-  vi.stubGlobal('EventSource', MockEventSource);
   vi.mocked(loadPortalSession).mockReturnValue(null);
   vi.mocked(joinShare).mockReset();
   vi.mocked(fetchShareMeta).mockResolvedValue({

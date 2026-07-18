@@ -1,13 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { OpenDocLink } from './OpenDocLink.js';
-
-class MockEventSource {
-  onmessage: ((event: MessageEvent) => void) | null = null;
-  close(): void {}
-}
 
 function renderOpenDocLink(projectId: string, documentId: string) {
   const queryClient = new QueryClient({
@@ -26,14 +21,6 @@ function renderOpenDocLink(projectId: string, documentId: string) {
     </QueryClientProvider>,
   );
 }
-
-beforeEach(() => {
-  vi.stubGlobal('EventSource', MockEventSource);
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
 
 describe('OpenDocLink', () => {
   it('navigates to the linked document editor in one click', async () => {
