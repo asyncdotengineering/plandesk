@@ -1,12 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
-import {
-  DEFAULT_ORG_ID,
-  createDb,
-  migrate,
-  type Db,
-} from '@plandesk/db';
+import { DEFAULT_ORG_ID, createDb, migrate, type Db } from '@plandesk/db';
 import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
 import type { Hono } from 'hono';
 import {
@@ -14,6 +9,7 @@ import {
   runBetterAuthMigrations,
   type BetterAuthInstance,
 } from './better-auth.js';
+import { ensureDefaultTeamForOrg } from './identity.js';
 import { createApp } from './server.js';
 import { createTestApp, parseJson } from './test-helpers.js';
 
@@ -238,10 +234,13 @@ describe('better-auth session recognition (BA4a)', () => {
     const projectA = await createProject(db, { name: 'Personal board', orgId: orgA.id });
     const projectB = await createProject(db, { name: 'Team board', orgId: orgB.id });
 
+    // Invitations are workspace-scoped (RFC§5): orgB's owner invites to orgB's default team.
+    const orgBTeamId = await ensureDefaultTeamForOrg(auth, orgB.id);
+
     const invite = await app.request(`/api/v1/orgs/${orgB.id}/invitations`, {
       method: 'POST',
       headers: { Cookie: teamOwner.cookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'invitee@example.com', role: 'member' }),
+      body: JSON.stringify({ email: 'invitee@example.com', role: 'member', team_id: orgBTeamId }),
     });
     expect(invite.status).toBe(201);
     const { invitationId } = await parseJson<{ invitationId: string }>(invite);
@@ -250,8 +249,20 @@ describe('better-auth session recognition (BA4a)', () => {
       headers: { Cookie: invitee.cookie },
     });
     expect((await parseJson<{ org: { id: string } }>(beforeAccept)).org.id).toBe(orgA.id);
-    expect((await app.request(`/api/v1/projects/${projectA.id}`, { headers: { Cookie: invitee.cookie } })).status).toBe(200);
-    expect((await app.request(`/api/v1/projects/${projectB.id}`, { headers: { Cookie: invitee.cookie } })).status).toBe(404);
+    expect(
+      (
+        await app.request(`/api/v1/projects/${projectA.id}`, {
+          headers: { Cookie: invitee.cookie },
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await app.request(`/api/v1/projects/${projectB.id}`, {
+          headers: { Cookie: invitee.cookie },
+        })
+      ).status,
+    ).toBe(404);
 
     const accept = await app.request(`/api/v1/invitations/${invitationId}/accept`, {
       method: 'POST',
@@ -270,8 +281,20 @@ describe('better-auth session recognition (BA4a)', () => {
     );
     expect(activeA.org.id).toBe(orgA.id);
     expect(activeA.orgs.map((org) => org.id)).toEqual([orgA.id, orgB.id]);
-    expect((await app.request(`/api/v1/projects/${projectA.id}`, { headers: { Cookie: invitee.cookie } })).status).toBe(200);
-    expect((await app.request(`/api/v1/projects/${projectB.id}`, { headers: { Cookie: invitee.cookie } })).status).toBe(404);
+    expect(
+      (
+        await app.request(`/api/v1/projects/${projectA.id}`, {
+          headers: { Cookie: invitee.cookie },
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await app.request(`/api/v1/projects/${projectB.id}`, {
+          headers: { Cookie: invitee.cookie },
+        })
+      ).status,
+    ).toBe(404);
 
     const selectB = await app.request('/api/auth/organization/set-active', {
       method: 'POST',
@@ -283,8 +306,20 @@ describe('better-auth session recognition (BA4a)', () => {
       await app.request('/api/v1/auth/session', { headers: { Cookie: invitee.cookie } }),
     );
     expect(activeB.org.id).toBe(orgB.id);
-    expect((await app.request(`/api/v1/projects/${projectB.id}`, { headers: { Cookie: invitee.cookie } })).status).toBe(200);
-    expect((await app.request(`/api/v1/projects/${projectA.id}`, { headers: { Cookie: invitee.cookie } })).status).toBe(404);
+    expect(
+      (
+        await app.request(`/api/v1/projects/${projectB.id}`, {
+          headers: { Cookie: invitee.cookie },
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await app.request(`/api/v1/projects/${projectA.id}`, {
+          headers: { Cookie: invitee.cookie },
+        })
+      ).status,
+    ).toBe(404);
   });
 
   it('revoking better-auth membership stops the session (401)', async () => {

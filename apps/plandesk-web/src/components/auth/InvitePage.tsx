@@ -1,11 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  ApiError,
-  acceptInvitation,
-  fetchInvitation,
-  startGithubSignIn,
-} from '../../lib/api.js';
+import { ApiError, acceptInvitation, fetchInvitation, startGithubSignIn } from '../../lib/api.js';
 import { useAuthSession } from '../../lib/auth.js';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -104,13 +99,27 @@ export function InvitePage({ invitationId }: { invitationId: string }) {
     );
   } else if (preview.data !== undefined) {
     const org = preview.data.organizationName || 'a team';
+    const workspace =
+      preview.data.workspaceName !== undefined && preview.data.workspaceName.length > 0
+        ? preview.data.workspaceName
+        : null;
     content = (
       <div className="space-y-5 text-center">
         <div className="space-y-1.5">
           <h1 className="text-lg font-semibold tracking-tight">You&rsquo;re invited</h1>
           <p className="text-sm text-muted-foreground">
-            Join <span className="font-medium text-foreground">{org}</span> on Plan Desk as{' '}
-            <span className="font-medium capitalize text-foreground">{preview.data.role}</span>.
+            {workspace !== null ? (
+              <>
+                Join <span className="font-medium text-foreground">{workspace}</span> on Plan Desk
+                as{' '}
+                <span className="font-medium capitalize text-foreground">{preview.data.role}</span>.
+              </>
+            ) : (
+              <>
+                Join <span className="font-medium text-foreground">{org}</span> on Plan Desk as{' '}
+                <span className="font-medium capitalize text-foreground">{preview.data.role}</span>.
+              </>
+            )}
           </p>
         </div>
 

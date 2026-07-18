@@ -1,7 +1,9 @@
-import { type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -9,31 +11,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ApiError } from '../../lib/api.js';
+import { ApiError, type InviteRole } from '../../lib/api.js';
 import { useAuthSession } from '../../lib/auth.js';
 import {
   useAddWorkspaceMember,
+  useCreateOrgInvitation,
   useOrgMembers,
   useRemoveWorkspaceMember,
   useWorkspaceMembers,
 } from '../../lib/queries.js';
 
 /**
- * Workspace member roster + owner-gated add/remove.
+ * Workspace member roster + owner-gated add/remove + workspace-scoped invites.
  *
  * better-auth's team-member rows carry only userId; we join with the org member
- * roster for display (a workspace member is always an org member).
+ * roster for display (a workspace member is always an org member). Invites
+ * target this workspace (team_id); accepting joins the team, not just the org.
  */
 export function WorkspaceMembers() {
   const session = useAuthSession();
-  const isOwner = session.data?.role === 'owner';
+  const role = session.data?.role;
+  const isOwner = role === 'owner';
+  const canInvite = role === 'owner' || role === 'admin';
   const orgId = session.data?.org?.id;
   const activeWorkspaceId = session.data?.active_workspace?.id;
+  const activeWorkspaceName = session.data?.active_workspace?.name;
 
   const membersQuery = useWorkspaceMembers(activeWorkspaceId);
   const orgMembersQuery = useOrgMembers(orgId);
   const addMutation = useAddWorkspaceMember(activeWorkspaceId);
   const removeMutation = useRemoveWorkspaceMember(activeWorkspaceId);
+  const inviteMutation = useCreateOrgInvitation(orgId);
+
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<InviteRole>('member');
+  const [claimUrl, setClaimUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const memberUserIds = new Set(membersQuery.data?.map((member) => member.userId));
   const displayByUserId = new Map(
@@ -78,6 +91,41 @@ export function WorkspaceMembers() {
       if (err instanceof ApiError && err.status === 403) {
         toast.error("You don't have permission to manage workspace members.");
       }
+    }
+  }
+
+  async function handleInvite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canInvite || activeWorkspaceId === undefined) {
+      return;
+    }
+    try {
+      const created = await inviteMutation.mutateAsync({
+        email: inviteEmail.trim(),
+        role: inviteRole,
+        teamId: activeWorkspaceId,
+      });
+      setClaimUrl(created.claimUrl);
+      setCopied(false);
+      setInviteEmail('');
+      toast('Invitation created');
+    } catch {
+      // surfaced via inviteMutation.isError
+    }
+  }
+
+  async function handleCopy() {
+    if (claimUrl === null) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(claimUrl);
+      setCopied(true);
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 1500);
+    } catch {
+      toast.error("Couldn't copy — copy it manually.");
     }
   }
 
@@ -162,21 +210,107 @@ export function WorkspaceMembers() {
         </CardContent>
       </Card>
 
+      {canInvite ? (
+        <Card>
+          <CardHeader className="border-b pb-4">
+            <CardTitle className="text-sm font-semibold">Invite to workspace</CardTitle>
+            <CardDescription>
+              {activeWorkspaceName !== undefined && activeWorkspaceName.length > 0
+                ? `Invite a new person to ${activeWorkspaceName}. `
+                : 'Invite a new person to this workspace. '}
+              Plan Desk creates a claim link — it does not send email.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <form className="grid gap-4" onSubmit={(event) => void handleInvite(event)}>
+              <div className="grid gap-2">
+                <Label htmlFor="workspace-invite-email">Email</Label>
+                <Input
+                  id="workspace-invite-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={inviteEmail}
+                  onChange={(event) => setInviteEmail(event.target.value)}
+                  placeholder="teammate@example.com"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="workspace-invite-role">Role</Label>
+                <Select
+                  value={inviteRole}
+                  onValueChange={(value) => setInviteRole(value as InviteRole)}
+                >
+                  <SelectTrigger id="workspace-invite-role" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="submit"
+                disabled={inviteMutation.isPending || inviteEmail.trim() === ''}
+              >
+                {inviteMutation.isPending ? 'Inviting…' : 'Invite'}
+              </Button>
+              {inviteMutation.isError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {inviteMutation.error instanceof ApiError && inviteMutation.error.status === 403
+                    ? 'You do not have permission to invite members.'
+                    : 'Failed to create invitation.'}
+                </p>
+              ) : null}
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {claimUrl !== null ? (
+        <Card className="border-[var(--s-prog-dot)] bg-[var(--s-prog-bg)]">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold text-[var(--s-prog-fg)]">
+              Claim link
+            </CardTitle>
+            <CardDescription className="text-[var(--s-prog-fg)]/80">
+              Invites are link-only. Copy this URL and send it to the invitee yourself.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <code className="block break-all rounded-md border border-border bg-card px-3 py-2.5 font-mono text-xs">
+              {claimUrl}
+            </code>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() => {
+                void handleCopy();
+              }}
+            >
+              {copied ? 'Copied' : 'Copy claim link'}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {isOwner ? (
         <Card>
           <CardHeader className="border-b pb-4">
             <CardTitle className="text-sm font-semibold">Add member</CardTitle>
-            <CardDescription>
-              Add an existing org member to this workspace. Invite new people from the org Members
-              tab.
-            </CardDescription>
+            <CardDescription>Add an existing org member to this workspace.</CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
             <form className="grid gap-4" onSubmit={(event) => void handleAdd(event)}>
               <Select name="userId" disabled={addMutation.isPending || addable.length === 0}>
                 <SelectTrigger id="workspace-add-member" aria-label="Member to add">
                   <SelectValue
-                    placeholder={addable.length === 0 ? 'Everyone is already a member' : 'Select a member'}
+                    placeholder={
+                      addable.length === 0 ? 'Everyone is already a member' : 'Select a member'
+                    }
                   />
                 </SelectTrigger>
                 <SelectContent>

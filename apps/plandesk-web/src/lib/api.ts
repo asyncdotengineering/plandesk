@@ -525,18 +525,25 @@ export function listOrgMembers(orgId: string): Promise<ListOrgMembersResponse> {
 
 export function createOrgInvitation(
   orgId: string,
-  input: { email: string; role: InviteRole },
+  input: { email: string; role: InviteRole; teamId: string },
 ): Promise<CreateInvitationResponse> {
   return request(`/orgs/${orgId}/invitations`, {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      email: input.email,
+      role: input.role,
+      team_id: input.teamId,
+    }),
   });
 }
 
-/** Invitation claim page: preview (org/role/email) + accept. */
+/** Invitation claim page: preview (org/workspace/role/email) + accept. */
 export type InvitationPreview = {
   organizationId: string;
   organizationName: string;
+  /** Workspace (team) the invitee will join; null only for legacy rows. */
+  workspaceId: string | null;
+  workspaceName: string;
   role: string;
   email: string;
   status: string;
@@ -552,6 +559,8 @@ export type AcceptInvitationResponse = {
   organizationId: string;
   role: string;
   userId: string;
+  /** Workspace (team) the invitee joined; null for legacy team-less invites. */
+  teamId: string | null;
 };
 
 export function acceptInvitation(invitationId: string): Promise<AcceptInvitationResponse> {
@@ -825,10 +834,10 @@ export async function deleteWorkspace(teamId: string): Promise<void> {
 /** List the members of a workspace (better-auth team). */
 export async function listWorkspaceMembers(teamId: string): Promise<WorkspaceMember[]> {
   const params = new URLSearchParams({ teamId });
-  const response = await fetch(
-    `/api/auth/organization/list-team-members?${params.toString()}`,
-    { method: 'GET', credentials: 'include' },
-  );
+  const response = await fetch(`/api/auth/organization/list-team-members?${params.toString()}`, {
+    method: 'GET',
+    credentials: 'include',
+  });
   if (!response.ok) {
     throw new ApiError(response.status, await response.text());
   }

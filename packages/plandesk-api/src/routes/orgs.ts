@@ -25,7 +25,7 @@ import {
   getOrganizationById,
   listOrganizationMembers,
 } from '../organizations.js';
-import { createTeamForOrg } from '../identity.js';
+import { createTeamForOrg, getTeamInOrg } from '../identity.js';
 import { requirePermission, type PermissionSet } from '../permissions.js';
 
 function isPermissionSet(value: unknown): value is PermissionSet {
@@ -248,9 +248,11 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
   });
 
   /**
-   * BA3c: invite by email (link-only, no mailer). Owners and admins may invite
-   * (invitation:create); better-auth still blocks a non-owner inviting an owner.
-   * Returns claimUrl for the inviter to deliver by hand.
+   * BA3c / RFC§5: invite by email to a workspace (link-only, no mailer). The
+   * team_id is required — invites are workspace-scoped; accepting joins the
+   * team, not just the org. Owners and admins may invite (invitation:create);
+   * better-auth still blocks a non-owner inviting an owner. Returns claimUrl
+   * for the inviter to deliver by hand.
    */
   router.post('/orgs/:id/invitations', async (c) => {
     const orgId = c.req.param('id');
@@ -268,12 +270,20 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
       return c.json({ error: 'unavailable' }, 503);
     }
 
-    const body = await c.req.json<{ email?: string; role?: string }>();
+    const body = await c.req.json<{ email?: string; role?: string; team_id?: string }>();
     if (typeof body.email !== 'string' || body.email.trim() === '') {
       return c.json({ error: 'invalid_argument' }, 400);
     }
     if (typeof body.role !== 'string' || !isInvitationRole(body.role)) {
       return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (typeof body.team_id !== 'string' || body.team_id.trim() === '') {
+      return c.json({ error: 'invalid_argument', message: 'team_id is required' }, 400);
+    }
+    const teamId = body.team_id.trim();
+    const team = await getTeamInOrg(betterAuth, teamId, orgId);
+    if (team === undefined) {
+      return c.json({ error: 'not_found' }, 404);
     }
 
     try {
@@ -281,6 +291,7 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
         email: body.email,
         role: body.role,
         organizationId: orgId,
+        teamId,
         headers: c.req.raw.headers,
         baseURL,
       });
@@ -288,6 +299,7 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
         {
           invitationId: created.invitationId,
           claimUrl: created.claimUrl,
+          teamId: created.teamId,
         },
         201,
       );
@@ -351,6 +363,7 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
           organizationId: result.member.organizationId,
           role: result.member.role,
           userId: result.member.userId,
+          teamId: result.invitation.teamId,
         },
         200,
       );

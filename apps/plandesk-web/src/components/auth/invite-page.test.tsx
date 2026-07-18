@@ -6,6 +6,8 @@ import { InvitePage } from './InvitePage.js';
 const pendingPreview = {
   organizationId: 'org-1',
   organizationName: 'Acme',
+  workspaceId: 'team-1',
+  workspaceName: 'Fiji TV',
   role: 'admin',
   email: 'dev@acme.com',
   status: 'pending',
@@ -42,7 +44,12 @@ describe('InvitePage (invite claim)', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/auth/session')) {
-        return { ok: false, status: 401, json: async () => ({ error: 'unauthorized' }), text: async () => '' };
+        return {
+          ok: false,
+          status: 401,
+          json: async () => ({ error: 'unauthorized' }),
+          text: async () => '',
+        };
       }
       if (/\/invitations\/inv-1$/.test(url)) {
         return { ok: true, status: 200, json: async () => pendingPreview };
@@ -56,7 +63,7 @@ describe('InvitePage (invite claim)', () => {
     await waitFor(() => {
       expect(screen.getByText(/you.re invited/i)).toBeTruthy();
     });
-    expect(screen.getByText('Acme')).toBeTruthy();
+    expect(screen.getByText('Fiji TV')).toBeTruthy();
     expect(screen.getByText('admin')).toBeTruthy();
     expect(screen.getByRole('button', { name: /continue with github/i })).toBeTruthy();
     expect(screen.getByText(/dev@acme\.com/)).toBeTruthy();
@@ -70,14 +77,22 @@ describe('InvitePage (invite claim)', () => {
       if (url.includes('/auth/session')) {
         return { ok: true, status: 200, json: async () => ({ kind: 'session', user_ref: 'u-1' }) };
       }
-      if (/\/invitations\/inv-1$/.test(url) && (init?.method === undefined || init.method === 'GET')) {
+      if (
+        /\/invitations\/inv-1$/.test(url) &&
+        (init?.method === undefined || init.method === 'GET')
+      ) {
         return { ok: true, status: 200, json: async () => pendingPreview };
       }
       if (url.includes('/invitations/inv-1/accept') && init?.method === 'POST') {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ invitationId: 'inv-1', organizationId: 'org-1', role: 'admin', userId: 'u-1' }),
+          json: async () => ({
+            invitationId: 'inv-1',
+            organizationId: 'org-1',
+            role: 'admin',
+            userId: 'u-1',
+          }),
         };
       }
       return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
@@ -105,10 +120,19 @@ describe('InvitePage (invite claim)', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/auth/session')) {
-        return { ok: false, status: 401, json: async () => ({ error: 'unauthorized' }), text: async () => '' };
+        return {
+          ok: false,
+          status: 401,
+          json: async () => ({ error: 'unauthorized' }),
+          text: async () => '',
+        };
       }
       if (/\/invitations\/inv-1$/.test(url)) {
-        return { ok: true, status: 200, json: async () => ({ ...pendingPreview, status: 'accepted' }) };
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ...pendingPreview, status: 'accepted' }),
+        };
       }
       return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
     });

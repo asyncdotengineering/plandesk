@@ -1,12 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
-import {
-  DEFAULT_ORG_ID,
-  createDb,
-  migrate,
-  type Db,
-} from '@plandesk/db';
+import { DEFAULT_ORG_ID, createDb, migrate, type Db } from '@plandesk/db';
 import type { Hono } from 'hono';
 import {
   createBetterAuth,
@@ -19,6 +14,7 @@ import {
   removeOrganizationMember,
   updateOrganizationMemberRole,
 } from './invitations.js';
+import { ensureDefaultTeamForOrg, createTeamForOrg } from './identity.js';
 import { createApp } from './server.js';
 import { parseJson } from './test-helpers.js';
 
@@ -73,9 +69,17 @@ type BetterAuthInvitation = {
   email: string;
   role: string;
   organizationId: string;
+  teamId: string | null;
   inviterId: string;
   status: string;
   expiresAt: Date;
+  createdAt: Date;
+};
+
+type BetterAuthTeamMember = {
+  id: string;
+  teamId: string;
+  userId: string;
   createdAt: Date;
 };
 
@@ -179,9 +183,7 @@ async function hostedInviteApp(opts?: { github?: boolean }): Promise<{
     secret: TEST_SECRET,
     baseURL: TEST_BASE_URL,
     github:
-      opts?.github === false
-        ? undefined
-        : { clientId: 'test-client', clientSecret: 'test-secret' },
+      opts?.github === false ? undefined : { clientId: 'test-client', clientSecret: 'test-secret' },
   });
   if (auth === undefined) throw new Error('expected better-auth');
   await runBetterAuthMigrations(auth);
@@ -220,7 +222,7 @@ async function hostedInviteApp(opts?: { github?: boolean }): Promise<{
 }
 
 describe('organization invitations (BA3c)', () => {
-  it('gate1: owner invites by email → claim link; invitation row pending; no mailer', async () => {
+  it('gate1 / REQ-1: owner invites to a workspace (team_id) → 201 claim link; invitation row carries teamId', async () => {
     const { app, auth, orgId } = await hostedInviteApp();
     const owner = await seedBetterAuthUser(auth, {
       email: 'owner@example.com',
@@ -229,16 +231,18 @@ describe('organization invitations (BA3c)', () => {
       org: { id: orgId, name: 'Personal', slug: 'personal' },
       role: 'owner',
     });
+    const teamId = await ensureDefaultTeamForOrg(auth, orgId);
 
     const res = await app.request(`/api/v1/orgs/${orgId}/invitations`, {
       method: 'POST',
       headers: { Cookie: owner.cookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'dev@example.com', role: 'member' }),
+      body: JSON.stringify({ email: 'dev@example.com', role: 'member', team_id: teamId }),
     });
     expect(res.status).toBe(201);
-    const body = await parseJson<{ invitationId: string; claimUrl: string }>(res);
+    const body = await parseJson<{ invitationId: string; claimUrl: string; teamId: string }>(res);
     expect(body.invitationId.length).toBeGreaterThan(0);
     expect(body.claimUrl).toBe(`${TEST_BASE_URL}/invite/${body.invitationId}`);
+    expect(body.teamId).toBe(teamId);
 
     const adapter = (await auth.$context).adapter;
     const invitation = await adapter.findOne<BetterAuthInvitation>({
@@ -250,9 +254,10 @@ describe('organization invitations (BA3c)', () => {
     expect(invitation?.role).toBe('member');
     expect(invitation?.status).toBe('pending');
     expect(invitation?.organizationId).toBe(orgId);
+    expect(invitation?.teamId).toBe(teamId);
   });
 
-  it('preview: GET /invitations/:id returns org + role + email with no auth; unknown → 404', async () => {
+  it('preview / REQ-3: GET /invitations/:id returns org + workspace name + role + email; unknown → 404', async () => {
     const { app, auth, orgId } = await hostedInviteApp();
     const owner = await seedBetterAuthUser(auth, {
       email: 'owner@example.com',
@@ -261,11 +266,12 @@ describe('organization invitations (BA3c)', () => {
       org: { id: orgId, name: 'Personal', slug: 'personal' },
       role: 'owner',
     });
+    const team = await createTeamForOrg(auth, orgId, 'Fiji TV');
 
     const invite = await app.request(`/api/v1/orgs/${orgId}/invitations`, {
       method: 'POST',
       headers: { Cookie: owner.cookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'dev@example.com', role: 'admin' }),
+      body: JSON.stringify({ email: 'dev@example.com', role: 'admin', team_id: team.id }),
     });
     const { invitationId } = await parseJson<{ invitationId: string }>(invite);
 
@@ -274,22 +280,24 @@ describe('organization invitations (BA3c)', () => {
     expect(preview.status).toBe(200);
     const body = await parseJson<{
       organizationName: string;
+      workspaceId: string | null;
+      workspaceName: string;
       role: string;
       email: string;
       status: string;
     }>(preview);
     expect(body.organizationName).toBe('Personal');
+    expect(body.workspaceId).toBe(team.id);
+    expect(body.workspaceName).toBe('Fiji TV');
     expect(body.role).toBe('admin');
     expect(body.email).toBe('dev@example.com');
     expect(body.status).toBe('pending');
 
-    const unknown = await app.request(
-      '/api/v1/invitations/00000000-0000-4000-8000-0000000000ff',
-    );
+    const unknown = await app.request('/api/v1/invitations/00000000-0000-4000-8000-0000000000ff');
     expect(unknown.status).toBe(404);
   });
 
-  it('gate2: signed-in invitee accepts → member; second accept fails (single-use)', async () => {
+  it('gate2 / REQ-4: accept creates BOTH an org member AND a teamMember; single-use → 410', async () => {
     const { app, auth, orgId } = await hostedInviteApp();
     const owner = await seedBetterAuthUser(auth, {
       email: 'owner@example.com',
@@ -298,11 +306,12 @@ describe('organization invitations (BA3c)', () => {
       org: { id: orgId, name: 'Personal', slug: 'personal' },
       role: 'owner',
     });
+    const teamId = await ensureDefaultTeamForOrg(auth, orgId);
 
     const invite = await app.request(`/api/v1/orgs/${orgId}/invitations`, {
       method: 'POST',
       headers: { Cookie: owner.cookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'dev@example.com', role: 'member' }),
+      body: JSON.stringify({ email: 'dev@example.com', role: 'member', team_id: teamId }),
     });
     expect(invite.status).toBe(201);
     const { invitationId } = await parseJson<{ invitationId: string }>(invite);
@@ -318,12 +327,16 @@ describe('organization invitations (BA3c)', () => {
       headers: { Cookie: invitee.cookie },
     });
     expect(accept.status).toBe(200);
-    const accepted = await parseJson<{ role: string; organizationId: string; userId: string }>(
-      accept,
-    );
+    const accepted = await parseJson<{
+      role: string;
+      organizationId: string;
+      userId: string;
+      teamId: string | null;
+    }>(accept);
     expect(accepted.role).toBe('member');
     expect(accepted.organizationId).toBe(orgId);
     expect(accepted.userId).toBe(invitee.userId);
+    expect(accepted.teamId).toBe(teamId);
 
     const adapter = (await auth.$context).adapter;
     const members = await adapter.findMany<BetterAuthMember>({
@@ -336,6 +349,18 @@ describe('organization invitations (BA3c)', () => {
     expect(members).toHaveLength(1);
     expect(members[0]?.role).toBe('member');
 
+    // better-auth creates the teamMember row natively when the invitation carries teamId.
+    const teamMembers = await adapter.findMany<BetterAuthTeamMember>({
+      model: 'teamMember',
+      where: [
+        { field: 'teamId', value: teamId },
+        { field: 'userId', value: invitee.userId },
+      ],
+    });
+    expect(teamMembers).toHaveLength(1);
+    expect(teamMembers[0]?.teamId).toBe(teamId);
+    expect(teamMembers[0]?.userId).toBe(invitee.userId);
+
     const second = await app.request(`/api/v1/invitations/${invitationId}/accept`, {
       method: 'POST',
       headers: { Cookie: invitee.cookie },
@@ -343,7 +368,7 @@ describe('organization invitations (BA3c)', () => {
     expect(second.status).toBe(410);
   });
 
-  it('gate3: non-owner (member session) inviting → 403', async () => {
+  it('gate3 / REQ-2: non-owner (member session) inviting → 403', async () => {
     const { app, auth, orgId } = await hostedInviteApp();
     await seedBetterAuthUser(auth, {
       email: 'owner@example.com',
@@ -352,6 +377,7 @@ describe('organization invitations (BA3c)', () => {
       org: { id: orgId, name: 'Personal', slug: 'personal' },
       role: 'owner',
     });
+    const teamId = await ensureDefaultTeamForOrg(auth, orgId);
     const member = await seedBetterAuthUser(auth, {
       email: 'member@example.com',
       name: 'Member',
@@ -364,12 +390,66 @@ describe('organization invitations (BA3c)', () => {
     const res = await app.request(`/api/v1/orgs/${orgId}/invitations`, {
       method: 'POST',
       headers: { Cookie: member.cookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'dev@example.com', role: 'member' }),
+      body: JSON.stringify({ email: 'dev@example.com', role: 'member', team_id: teamId }),
     });
     expect(res.status).toBe(403);
   });
 
-  it('gate4 / REQ-3: mintOwnerInvitation + accept → owner; works with no GitHub (REQ-20)', async () => {
+  it('gate6 / REQ-2: missing team_id → 400; empty team_id → 400; team_id from another org → 404', async () => {
+    const { app, auth, orgId } = await hostedInviteApp();
+    const owner = await seedBetterAuthUser(auth, {
+      email: 'owner@example.com',
+      name: 'Owner',
+      githubAccountId: '1001',
+      org: { id: orgId, name: 'Personal', slug: 'personal' },
+      role: 'owner',
+    });
+    await ensureDefaultTeamForOrg(auth, orgId);
+
+    const missing = await app.request(`/api/v1/orgs/${orgId}/invitations`, {
+      method: 'POST',
+      headers: { Cookie: owner.cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'dev@example.com', role: 'member' }),
+    });
+    expect(missing.status).toBe(400);
+
+    const empty = await app.request(`/api/v1/orgs/${orgId}/invitations`, {
+      method: 'POST',
+      headers: { Cookie: owner.cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'dev@example.com', role: 'member', team_id: '  ' }),
+    });
+    expect(empty.status).toBe(400);
+
+    // A team that exists, but in another org, must not be a valid invite target.
+    const adapter = (await auth.$context).adapter;
+    const now = new Date();
+    const otherOrgId = randomUUID();
+    const otherOrgData = {
+      id: otherOrgId,
+      name: 'Other',
+      slug: 'other',
+      createdAt: now,
+    };
+    await adapter.create<BetterAuthOrganization>({
+      model: 'organization',
+      data: otherOrgData,
+      forceAllowId: true,
+    });
+    const foreignTeam = await createTeamForOrg(auth, otherOrgId, 'Foreign');
+
+    const foreign = await app.request(`/api/v1/orgs/${orgId}/invitations`, {
+      method: 'POST',
+      headers: { Cookie: owner.cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'dev@example.com',
+        role: 'member',
+        team_id: foreignTeam.id,
+      }),
+    });
+    expect(foreign.status).toBe(404);
+  });
+
+  it('gate4 / REQ-3: mintOwnerInvitation + accept → owner; works with no GitHub (REQ-20); invitation carries teamId', async () => {
     const { app, auth, orgId } = await hostedInviteApp({ github: false });
 
     const minted = await mintOwnerInvitation(auth, {
@@ -388,6 +468,12 @@ describe('organization invitations (BA3c)', () => {
     expect(invitation?.role).toBe('owner');
     expect(invitation?.status).toBe('pending');
     expect(invitation?.email).toBe('founder@x.com');
+    // The owner bootstrap targets the org's default workspace (REQ-1/REQ-6).
+    expect(invitation?.teamId).not.toBeNull();
+    const teamId = invitation?.teamId;
+    if (teamId === undefined || teamId === null) {
+      throw new Error('expected the bootstrapped invitation to carry a teamId');
+    }
 
     const founder = await seedBetterAuthUser(auth, {
       email: 'founder@x.com',
@@ -399,9 +485,12 @@ describe('organization invitations (BA3c)', () => {
       headers: { Cookie: founder.cookie },
     });
     expect(accept.status).toBe(200);
-    const body = await parseJson<{ role: string; organizationId: string }>(accept);
+    const body = await parseJson<{ role: string; organizationId: string; teamId: string | null }>(
+      accept,
+    );
     expect(body.role).toBe('owner');
     expect(body.organizationId).toBe(orgId);
+    expect(body.teamId).toBe(teamId);
 
     const members = await adapter.findMany<BetterAuthMember>({
       model: 'member',
@@ -412,6 +501,16 @@ describe('organization invitations (BA3c)', () => {
     });
     expect(members).toHaveLength(1);
     expect(members[0]?.role).toBe('owner');
+
+    // Owner joins the default workspace's team on accept (workspace-scoped invite).
+    const teamMembers = await adapter.findMany<BetterAuthTeamMember>({
+      model: 'teamMember',
+      where: [
+        { field: 'teamId', value: teamId },
+        { field: 'userId', value: founder.userId },
+      ],
+    });
+    expect(teamMembers).toHaveLength(1);
   });
 
   it('gate5 / REQ-4: demoting or removing the sole owner is rejected', async () => {
@@ -533,5 +632,4 @@ describe('organization invitations (BA3c)', () => {
     });
     expect(res.status).toBe(404);
   });
-
 });

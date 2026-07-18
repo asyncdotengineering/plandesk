@@ -7,6 +7,7 @@
  */
 import { makeSignature } from 'better-auth/crypto';
 import type { BetterAuthInstance } from './better-auth.js';
+import { ensureDefaultTeamForOrg } from './identity.js';
 
 export const INVITATION_ROLES = ['owner', 'admin', 'member'] as const;
 export type InvitationRole = (typeof INVITATION_ROLES)[number];
@@ -25,6 +26,8 @@ type InvitationRow = {
   email: string;
   role: string;
   organizationId: string;
+  /** better-auth stores team ids comma-joined; null when no team. */
+  teamId: string | null;
   inviterId: string;
   status: string;
   expiresAt: Date;
@@ -111,16 +114,21 @@ function parseInvitation(raw: unknown): InvitationRow {
     email: typeof raw.email === 'string' ? raw.email : '',
     role: typeof raw.role === 'string' ? raw.role : '',
     organizationId: typeof raw.organizationId === 'string' ? raw.organizationId : '',
+    teamId: typeof raw.teamId === 'string' && raw.teamId.length > 0 ? raw.teamId : null,
     inviterId: typeof raw.inviterId === 'string' ? raw.inviterId : '',
     status: typeof raw.status === 'string' ? raw.status : '',
-    expiresAt: raw.expiresAt instanceof Date ? raw.expiresAt : new Date(String(raw.expiresAt ?? '')),
-    createdAt: raw.createdAt instanceof Date ? raw.createdAt : new Date(String(raw.createdAt ?? '')),
+    expiresAt:
+      raw.expiresAt instanceof Date ? raw.expiresAt : new Date(String(raw.expiresAt ?? '')),
+    createdAt:
+      raw.createdAt instanceof Date ? raw.createdAt : new Date(String(raw.createdAt ?? '')),
   };
 }
 
 /**
- * Create an invitation using the caller's better-auth session (Cookie headers).
- * No mailer: sendInvitationEmail is unset; caller delivers claimUrl by hand.
+ * Create a workspace-scoped invitation using the caller's better-auth session
+ * (Cookie headers). The invitee joins the org AND the team on accept
+ * (better-auth does both when teamId is set). No mailer: caller delivers
+ * claimUrl by hand.
  */
 export async function createOrganizationInvitation(
   auth: BetterAuthInstance,
@@ -128,15 +136,24 @@ export async function createOrganizationInvitation(
     email: string;
     role: InvitationRole;
     organizationId: string;
+    /** Workspace (better-auth team) the invitee will join. Required. */
+    teamId: string;
     headers: Headers;
     baseURL: string;
   },
-): Promise<{ invitationId: string; claimUrl: string; invitation: InvitationRow }> {
+): Promise<{
+  invitationId: string;
+  claimUrl: string;
+  organizationId: string;
+  teamId: string;
+  invitation: InvitationRow;
+}> {
   const raw = await callPluginApi(auth, 'createInvitation', {
     body: {
       email: opts.email.trim().toLowerCase(),
       role: opts.role,
       organizationId: opts.organizationId,
+      teamId: opts.teamId,
     },
     headers: opts.headers,
   });
@@ -144,6 +161,8 @@ export async function createOrganizationInvitation(
   return {
     invitationId: invitation.id,
     claimUrl: invitationClaimUrl(opts.baseURL, invitation.id),
+    organizationId: opts.organizationId,
+    teamId: opts.teamId,
     invitation,
   };
 }
@@ -302,16 +321,21 @@ export async function ensureShellOwner(
 
 /**
  * Shell-side owner invitation for `plandesk admin invite-owner` (no GitHub, no mailer).
+ * The owner role is org-level; teamId targets the org's default workspace so
+ * the bootstrap satisfies the workspace-scoped invite contract (the owner
+ * reaches every workspace via the owner role regardless).
  */
 export async function mintOwnerInvitation(
   auth: BetterAuthInstance,
   opts: { email: string; organizationId: string; baseURL: string },
 ): Promise<{ invitationId: string; claimUrl: string }> {
   const { headers } = await ensureShellOwner(auth, opts.organizationId);
+  const teamId = await ensureDefaultTeamForOrg(auth, opts.organizationId);
   const created = await createOrganizationInvitation(auth, {
     email: opts.email,
     role: 'owner',
     organizationId: opts.organizationId,
+    teamId,
     headers,
     baseURL: opts.baseURL,
   });

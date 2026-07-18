@@ -483,7 +483,7 @@ export function useOrgMembers(orgId: string | undefined) {
 export function useCreateOrgInvitation(orgId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { email: string; role: InviteRole }) => {
+    mutationFn: (input: { email: string; role: InviteRole; teamId: string }) => {
       if (orgId === undefined || orgId.length === 0) {
         return Promise.reject(new Error('No active organization'));
       }

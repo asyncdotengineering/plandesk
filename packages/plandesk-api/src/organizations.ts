@@ -130,6 +130,9 @@ export async function listOrganizationMembers(
 export type InvitationPreview = {
   organizationId: string;
   organizationName: string;
+  /** Workspace (team) the invitee will join; null for legacy team-less rows. */
+  workspaceId: string | null;
+  workspaceName: string;
   role: string;
   email: string;
   status: string;
@@ -154,6 +157,7 @@ export async function getInvitationPreview(
     organizationId: string;
     status: string;
     expiresAt: Date | string;
+    teamId: string | null;
   }>({
     model: 'invitation',
     where: [{ field: 'id', value: invitationId }],
@@ -165,9 +169,28 @@ export async function getInvitationPreview(
     model: 'organization',
     where: [{ field: 'id', value: invitation.organizationId }],
   });
+  // better-auth stores team ids comma-joined on the invitation row; take the
+  // first. Scoped by org so a stale/foreign id cannot leak a name.
+  const workspaceId =
+    typeof invitation.teamId === 'string' && invitation.teamId.length > 0
+      ? invitation.teamId.split(',')[0]!
+      : null;
+  let workspaceName = '';
+  if (workspaceId !== null) {
+    const team = await adapter.findOne<{ id: string; name: string }>({
+      model: 'team',
+      where: [
+        { field: 'id', value: workspaceId },
+        { field: 'organizationId', value: invitation.organizationId },
+      ],
+    });
+    workspaceName = team?.name ?? '';
+  }
   return {
     organizationId: invitation.organizationId,
     organizationName: org?.name ?? '',
+    workspaceId,
+    workspaceName,
     role: invitation.role,
     email: invitation.email,
     status: invitation.status,

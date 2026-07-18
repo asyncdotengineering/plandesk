@@ -1,19 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
-import {
-  DEFAULT_ORG_ID,
-  createAgentRun,
-  createDb,
-  migrate,
-  type Db,
-} from '@plandesk/db';
+import { DEFAULT_ORG_ID, createAgentRun, createDb, migrate, type Db } from '@plandesk/db';
 import type { Hono } from 'hono';
 import {
   createBetterAuth,
   runBetterAuthMigrations,
   type BetterAuthInstance,
 } from './better-auth.js';
+import { createTeamForOrg } from './identity.js';
 import { createApp } from './server.js';
 import { parseJson } from './test-helpers.js';
 
@@ -221,6 +216,9 @@ async function seedMatrix() {
     role: 'owner',
   });
 
+  // Invitations are workspace-scoped (RFC§5); seed a team the matrix can target.
+  const team = await createTeamForOrg(auth, org.id, 'Engineering');
+
   const projectRes = await app.request('/api/v1/projects', {
     method: 'POST',
     headers: jsonHeaders(owner.cookie),
@@ -249,7 +247,7 @@ async function seedMatrix() {
   // so agent_run:update can be exercised over POST /agent-runs/:id/progress.
   const agentRun = await createAgentRun(db, { projectId: project.id, label: 'Seed run' });
 
-  return { app, db, org, member, admin, owner, project, task, document, agentRun };
+  return { app, db, org, member, admin, owner, project, task, document, agentRun, teamId: team.id };
 }
 
 describe('role permission matrix (ba-hardening)', () => {
@@ -355,11 +353,15 @@ describe('role permission matrix (ba-hardening)', () => {
   });
 
   it('admin allows invitation:create (invite member and admin)', async () => {
-    const { app, admin, org } = await seedMatrix();
+    const { app, admin, org, teamId } = await seedMatrix();
     const asMember = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
       method: 'POST',
       headers: jsonHeaders(admin.cookie),
-      body: JSON.stringify({ email: 'admin-invites-member@example.com', role: 'member' }),
+      body: JSON.stringify({
+        email: 'admin-invites-member@example.com',
+        role: 'member',
+        team_id: teamId,
+      }),
     });
     expect(asMember.status).toBe(201);
     // Admins may also invite other admins (better-auth only blocks non-owners
@@ -367,17 +369,25 @@ describe('role permission matrix (ba-hardening)', () => {
     const asAdmin = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
       method: 'POST',
       headers: jsonHeaders(admin.cookie),
-      body: JSON.stringify({ email: 'admin-invites-admin@example.com', role: 'admin' }),
+      body: JSON.stringify({
+        email: 'admin-invites-admin@example.com',
+        role: 'admin',
+        team_id: teamId,
+      }),
     });
     expect(asAdmin.status).toBe(201);
   });
 
   it('admin denies inviting an owner (better-auth creatorRole guard)', async () => {
-    const { app, admin, org } = await seedMatrix();
+    const { app, admin, org, teamId } = await seedMatrix();
     const res = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
       method: 'POST',
       headers: jsonHeaders(admin.cookie),
-      body: JSON.stringify({ email: 'admin-invites-owner@example.com', role: 'owner' }),
+      body: JSON.stringify({
+        email: 'admin-invites-owner@example.com',
+        role: 'owner',
+        team_id: teamId,
+      }),
     });
     await expectForbidden(res);
   });
@@ -432,11 +442,11 @@ describe('role permission matrix (ba-hardening)', () => {
   });
 
   it('owner allows member:create (invitations)', async () => {
-    const { app, owner, org } = await seedMatrix();
+    const { app, owner, org, teamId } = await seedMatrix();
     const res = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
       method: 'POST',
       headers: jsonHeaders(owner.cookie),
-      body: JSON.stringify({ email: 'invitee@example.com', role: 'member' }),
+      body: JSON.stringify({ email: 'invitee@example.com', role: 'member', team_id: teamId }),
     });
     expect(res.status).toBe(201);
     const body = await parseJson<{ invitationId: string; claimUrl: string }>(res);
@@ -470,33 +480,27 @@ describe('role permission matrix (ba-hardening)', () => {
 
   // ── Gate 4: content perms ALLOW for member, admin, owner ─────────────────
 
-  it.each(['member', 'admin', 'owner'] as const)(
-    '%s allows document:create',
-    async (role) => {
-      const ctx = await seedMatrix();
-      const cookie = ctx[role].cookie;
-      const res = await ctx.app.request(`/api/v1/projects/${ctx.project.id}/documents`, {
-        method: 'POST',
-        headers: jsonHeaders(cookie),
-        body: JSON.stringify({ title: `${role} doc` }),
-      });
-      expect(res.status).toBe(201);
-    },
-  );
+  it.each(['member', 'admin', 'owner'] as const)('%s allows document:create', async (role) => {
+    const ctx = await seedMatrix();
+    const cookie = ctx[role].cookie;
+    const res = await ctx.app.request(`/api/v1/projects/${ctx.project.id}/documents`, {
+      method: 'POST',
+      headers: jsonHeaders(cookie),
+      body: JSON.stringify({ title: `${role} doc` }),
+    });
+    expect(res.status).toBe(201);
+  });
 
-  it.each(['member', 'admin', 'owner'] as const)(
-    '%s allows comment:create',
-    async (role) => {
-      const ctx = await seedMatrix();
-      const cookie = ctx[role].cookie;
-      const res = await ctx.app.request(`/api/v1/tasks/${ctx.task.id}/comments`, {
-        method: 'POST',
-        headers: jsonHeaders(cookie),
-        body: JSON.stringify({ body: `${role} comment` }),
-      });
-      expect(res.status).toBe(201);
-    },
-  );
+  it.each(['member', 'admin', 'owner'] as const)('%s allows comment:create', async (role) => {
+    const ctx = await seedMatrix();
+    const cookie = ctx[role].cookie;
+    const res = await ctx.app.request(`/api/v1/tasks/${ctx.task.id}/comments`, {
+      method: 'POST',
+      headers: jsonHeaders(cookie),
+      body: JSON.stringify({ body: `${role} comment` }),
+    });
+    expect(res.status).toBe(201);
+  });
 
   // agent_run:create has no reachable HTTP route (MCP start_agent_run only).
   // Exercise agent_run:update via progress — same workActions set for all three roles.
