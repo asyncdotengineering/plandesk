@@ -38,11 +38,24 @@ Plan Desk stays local-first while letting you share a project — read-only and 
 - **Inbound (owner).** Submissions land as `pending` rows on the same server. List them (`GET /api/v1/projects/:id/submissions` or MCP `list_submissions`) and **accept** (creates a real task in `scope`) or **reject**. Guests only ever append pending submissions — never write tasks.
 - **Agent-operable.** MCP tools `list_submissions` and `triage_submission` cover the owner inbox.
 
+## Workspace-level collaboration
+
+Plan Desk's tenancy is **Org → Workspace → Project**, and the collaboration primitives are **workspace-scoped** (see [Workspaces](/reference/workspaces/)). The same guest-session + `ClientView` machinery widens from a single project to a whole workspace.
+
+**Invitations.** You invite a person (or a client) to a **workspace** with a role (`owner` / `admin` / `member`); accepting joins the *team* behind that workspace, not just the org. Invitations are link-only — there is no mailer; the inviter gets a `claimUrl` to deliver by hand — and owner/admin-gated (a non-owner/admin cannot create one; better-auth additionally blocks inviting an owner as a non-owner). Session-only: a token or loopback caller cannot drive the invite path.
+
+**Client sharing.** Share an entire workspace with a client and their portal shows **every project in that workspace** (read-only, submit-if-allowed). The same projection rules apply — internal entities are never serialized into the portal; a client only ever reads the workspace's projects and appends pending submissions.
+
+**Dashboard.** The web UI is workspace-aware: a nav **workspace switcher** (Org ▸ Workspace ▸ Projects, backed by `setActiveTeam`) filters the projects home, plus workspace CRUD, **move-project-between-workspaces**, **member management** (add / remove / list), invite-to-workspace, and share-workspace-with-client.
+
+The CLI `share create` command (below) remains **per-project**. Workspace invites and workspace shares are created from the dashboard.
+
 ## Security by construction
 
 - **Allow-list egress.** The client view is a projected allow-list. Internal entities are not serialized into the portal.
 - **Proposals, never writes.** A participant can only create a `pending` submission. Real work is created solely by owner/agent accept.
 - **Guest session gate.** Portal view and submissions require a guest session minted by join for that share token (not org auth, not loopback fallback).
+- **Tenant isolation.** A workspace-scoped agent key, member, or workspace client share reaches only its own workspace's projects; any project outside the scoped workspace returns the same `404` as a missing one (no existence leak). Cross-workspace and cross-org requests are indistinguishable from missing ones. See [Architecture → Agent key scopes](/reference/architecture/#agent-key-scopes).
 
 ## Agent share links (a lighter-weight sibling)
 

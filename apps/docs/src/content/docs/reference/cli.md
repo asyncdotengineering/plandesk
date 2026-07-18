@@ -22,11 +22,14 @@ plandesk migrate [--db <url>] [--db-token <token>] [--data-dir <dir>]   # run sc
 plandesk url [--repo <dir>] [--lan]
 plandesk export --project <id> --out <file.json> [--data-dir <dir>]
 plandesk import --in <file.json> [--data-dir <dir>]
-plandesk legacy-upgrade [--from <old-workspace.db>] [--data-dir <dir>]
+plandesk legacy-upgrade [--from <old-workspace.db>] [--data-dir <dir>] [--into-workspace <name>]
 plandesk admin invite-owner --email <email> [--data-dir <dir>]                       # self-host first owner (local)
 plandesk admin invite-owner --email <email> --db <url> [--db-token <t>] [--secret <s>] # remote (Turso) first owner
-plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
-plandesk connect --to <org> [--project <id|name>] [--repo <dir>] [--print]
+plandesk workspace create <name> [--to <org>] [--repo <dir>]
+plandesk workspace list [--to <org>] [--repo <dir>]
+plandesk connect [--repo <dir>] [--project <id|name>] [--workspace <name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
+plandesk connect --to <org> [--project <id|name>] [--workspace <name>] [--repo <dir>] [--print]
+plandesk go-online [--to <org>] [--server <url>] [--token <key>] [--all | --workspace <name>...] [--data-dir <dir>]   # push local workspaces + projects to a hosted org (requires login)
 plandesk disconnect [--repo <dir>]
 plandesk doctor [--data-dir <dir>] [--repo <dir>]
 plandesk factory init [--repo <dir>] [--print] [--force]
@@ -52,9 +55,12 @@ plandesk deploy [target]
 | `serve`                  | Start REST + MCP + web UI; reads the port from `workspace.json` if no `--port` flag is given                            |
 | `url`                    | Print the server URL for this project (`$(plandesk url)` in scripts); `--lan` returns the LAN IP instead of loopback    |
 | `export` / `import`      | Lossless `plandesk-export-v1` JSON round-trip                                                                            |
-| `legacy-upgrade`         | One-time: lift a pre–better-auth (0.20.x-era) `workspace.db` into the current global board — imports projects/tasks/documents/edges/notes/comments/agent runs, backs up the source file, safe to re-run; see [Upgrading](/reference/upgrading/#the-020x--better-auth-upgrade-breaking) |
+| `legacy-upgrade`         | One-time: lift a pre–better-auth (0.20.x-era) `workspace.db` into the current global board — imports projects/tasks/documents/edges/notes/comments/agent runs, backs up the source file, safe to re-run. `--into-workspace <name>` lands all of an old board's projects in **one workspace** (created if missing; defaults the name to the source folder). See [Upgrading](/reference/upgrading/#the-020x--better-auth-upgrade-breaking) |
 | `admin invite-owner`     | Bootstrap the first org owner of a self-hosted instance without GitHub — mints a link-only owner invitation to deliver by hand. Local uses `--data-dir`; **remote** (Turso/libSQL) uses `--db <url> [--db-token]` plus `--secret` (or `PLANDESK_BETTER_AUTH_SECRET`) matching the deployed instance — run `plandesk migrate` against the remote DB first |
-| `connect` / `disconnect` | Bind / unbind a repo to a project + agent configs; re-run `connect` after upgrading to regenerate artifacts. Hosted: `connect --to <org>` mints a scoped agent key (requires prior `login`) |
+| `connect` / `disconnect` | Bind / unbind a repo to a project **or workspace** + agent configs; re-run `connect` after upgrading to regenerate artifacts. `--project` binds one project; `--workspace <name>` binds a whole workspace (writes a `plandesk-connect-v2` config). Hosted: `connect --to <org>` mints a scoped agent key (requires prior `login`) — workspace-scoped with `--workspace`, project-scoped otherwise |
+| `workspace create <name>`| Create a workspace (better-auth team) in an org. Local by default (no login); `--to <org>` targets a hosted org (requires `login`). See [Workspaces](/reference/workspaces/) |
+| `workspace list`         | List workspaces in an org (`--to <org>` for hosted) |
+| `go-online`              | Push one or more **local** workspaces + their projects up to a hosted org (`--to <org>`), creating each hosted workspace if missing. `--all` for every local workspace, repeat `--workspace <name>` to select, or pick interactively. Idempotent: existing same-named projects are skipped. Requires `login`; see [Take a local board online](/guides/going-online/) |
 | `doctor`                 | Check DB health; with `--repo`, validate binding + MCP reachability                                                      |
 | `factory init`           | Scaffold the project-local `.agents/` factory workspace (policy files + command adapters); see [Factory workspace](/reference/factory/) |
 | `version`                | Print the installed CLI version (also `--version`); see [Upgrading](/reference/upgrading/)                              |
@@ -87,6 +93,22 @@ Local setup needs no account (`init` → `serve` → `connect --project`). Hoste
 
 Agents never run `login`. The owner key stays on the human machine; only the scoped key is in the repo’s ignored token file. There is no `--org` flag — use `--to <org>`.
 
+## Workspaces
+
+A **workspace** groups projects, members, agent keys, and client shares — see [Workspaces](/reference/workspaces/). The CLI surface:
+
+```bash
+plandesk workspace create "Fiji TV"               # local; --to <org> for hosted
+plandesk workspace list
+plandesk connect --workspace "Fiji TV"            # bind a repo to a whole workspace
+plandesk connect --to <org> --workspace "Fiji TV" # hosted: mint a workspace-scoped key
+plandesk go-online --to <org> --all               # push every local workspace up
+plandesk go-online --to <org> --workspace "Fiji TV" --workspace "Acme"
+plandesk legacy-upgrade --into-workspace "Fiji TV"  # one old board → one workspace
+```
+
+`connect --workspace` writes a `plandesk-connect-v2` config (`{ serverUrl, orgId, workspaceId, workspaceName, projectIds }`) and, on `--to`, mints a **workspace-scoped** key — all projects in that workspace, nothing else. Locally (no `--to`) the loopback owner is used and no token is written. See [plandesk connect](/connecting-agents/connect/).
+
 ## Collaboration
 
 Share a planned project with a client or another team over a read-only live portal, and take their issues back into your plan. Full walkthrough: [Plan → share → build with your team](/guides/plan-share-build/); architecture: [Collaboration & sync](/reference/collaboration/).
@@ -111,7 +133,8 @@ Share a planned project with a client or another team over a read-only live port
 | `--host`        | `127.0.0.1`                        | Bind address; LAN exposure is opt-in via `--host 0.0.0.0` or `PLANDESK_HOST` |
 | `--lan`         | —                                  | `url` command returns the LAN IP instead of `127.0.0.1`                   |
 | `--project`     | —                                  | Project id or name for connect/export                                      |
-| `--to`          | —                                  | Hosted org id: `connect --to` mints a scoped agent key (requires `login`); also used by `push` |
+| `--to`          | —                                  | Hosted org id: `connect --to` mints a scoped agent key (requires `login`); also used by `push`, `go-online`, and `workspace create/list` |
+| `--workspace`   | —                                  | (`connect`) bind the repo to a whole workspace, minting a workspace-scoped key on `--to`; (`go-online`) repeatable, select local workspaces to push |
 | `--url`         | from `server.json` → `workspace.json` → `http://127.0.0.1:7526` | Plan Desk server URL for connect  |
 | `--token`       | —                       | MCP token for connect                                                      |
 | `--agent`       | detect                  | Agent config target for connect                                            |
@@ -120,6 +143,10 @@ Share a planned project with a client or another team over a read-only live port
 | `--out`         | —                       | Output file for export                                                     |
 | `--in`          | —                       | Input file for import                                                      |
 | `--from`        | `~/.plandesk/workspace.db`, else `./.plandesk/workspace.db` | (`legacy-upgrade`) path to the old workspace.db to import |
+| `--into-workspace` | (folder name)                  | (`legacy-upgrade`) create and import into a named workspace; pass with no value to default the name to the source folder |
+| `--all`         | —                                  | (`go-online`) push every local workspace to the hosted org |
+| `--server`      | from `login`                       | (`go-online`) hosted server URL override |
+| `--token`       | —                       | (`connect`) MCP token; (`go-online`) hosted owner-key override (otherwise from `login`) |
 
 ## Environment variables
 

@@ -5,7 +5,7 @@ description: Move a project you've been planning locally into a hosted Plan Desk
 
 Plan Desk is local-first by default: `plandesk init && plandesk serve` runs entirely on your machine, no account, no network. Going online is an opt-in step you take when you want your board reachable from somewhere other than `127.0.0.1` — for a teammate, another machine, or just to stop worrying about backups.
 
-This guide takes a project you've already been planning locally and promotes it into a hosted organization.
+This guide takes work you've already been planning locally — a single project or a whole **workspace** of them — and promotes it into a hosted organization. Plan Desk's tenancy is Org → Workspace → Project; see [Workspaces](/reference/workspaces/).
 
 ## 1. Pick a hosted home
 
@@ -32,9 +32,25 @@ plandesk login --server <your-hosted-url>
 
 Omit `--server` to use the built-in default (`https://plandesk.asyncdot.com`). Paste the token when prompted. It's written to `~/.plandesk/config.json` alongside the server URL and your organization id — this is a one-time, per-machine step, not per-repo.
 
-## 4. Promote your local project
+## 4. Promote your local work
 
-From the repo where your project has been living locally:
+You have two paths. Use `go-online` when you've organized your work into **workspaces** — it carries the whole structure up. Use `push` for a single project.
+
+### Take a whole workspace online (`go-online`)
+
+`plandesk go-online` pushes one or more **local** workspaces — and every project in them — up to a hosted org, creating each hosted workspace if it doesn't exist yet. It's **idempotent**: re-running skips projects whose names already exist in the destination workspace.
+
+```bash
+plandesk go-online --to <org-id> --all                         # every local workspace
+plandesk go-online --to <org-id> --workspace "Fiji TV" --workspace "Acme"   # just these
+plandesk go-online --to <org-id>                                # pick interactively
+```
+
+On success it reports how many workspaces and projects it pushed, plus per-workspace counts. `--to <org-id>` is required; the server and owner token come from `plandesk login` (override with `--server` / `--token`). Because projects import into the org-default workspace and are then moved into their target workspace, each hosted project's `workspace_id` matches its team.
+
+### Promote a single project (`push`)
+
+For a one-off project that isn't part of a workspace, from the repo where it has been living locally:
 
 ```bash
 plandesk push --to <org-id>
@@ -53,10 +69,11 @@ The server URL it promotes to comes from `.plandesk/config.json`'s `serverUrl` i
 Your coding agent still needs a way to reach the board over MCP — and it should never hold your owner key. Mint it a scoped one:
 
 ```bash
-plandesk connect --to <org-id> [--project <id|name>]
+plandesk connect --to <org-id> --project <id|name>      # one project: project-scoped key
+plandesk connect --to <org-id> --workspace "Fiji TV"    # whole workspace: workspace-scoped key
 ```
 
-This mints a **project-scoped agent key** (not your owner key) and writes it to `.plandesk/token` (gitignored). `.mcp.json` reads it automatically. Start a new agent session afterward so MCP tools reload.
+This mints a **scoped agent key** (not your owner key) and writes it to `.plandesk/token` (gitignored) — project-scoped with `--project`, workspace-scoped with `--workspace`. `.mcp.json` reads it automatically. Start a new agent session afterward so MCP tools reload.
 
 ## You're online
 

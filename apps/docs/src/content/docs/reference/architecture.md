@@ -17,7 +17,7 @@ packages/plandesk-mcp-client/  Factory Desk / programmatic MCP consumer
 
 ## Published npm packages
 
-Core packages ship under the `@plandesk/*` scope on npm (currently `1.0.0-beta.7`, published under the `beta` npm tag):
+Core packages ship under the `@plandesk/*` scope on npm (currently `1.0.0`, published under the `latest` npm tag):
 
 | Package                | Purpose                                           |
 | ---------------------- | ------------------------------------------------- |
@@ -47,7 +47,17 @@ MCP writes go through the same service layer as REST; the web UI picks them up o
 | **Human (CLI)** | Dashboard **Generate CLI token** (org-wide better-auth API key) → paste via `plandesk login` into `~/.plandesk/config.json`. |
 | **Agent** | Never logs in. After a human has logged in, `plandesk connect --to <org>` mints a **project-scoped agent key** into `.plandesk/token` (gitignored). MCP reads that file (or `PLANDESK_MCP_TOKEN`). |
 
-**Organizations.** better-auth’s `organization` / `member` tables are the single source of truth for orgs and membership. Roles are **permission sets** (`owner` / `admin` / `member` via better-auth access-control), not a rank ladder. Domain rows carry an `org_id` scoping column; cross-org access returns 404. A user can belong to more than one organization; the dashboard's account menu has an **org switcher** backed by better-auth's active-organization, so accepting an invitation to a second org is just a switch, not a separate account.
+**Organizations and workspaces.** The tenancy model is **Org → Workspace → Project**. better-auth’s `organization` / `member` tables are the single source of truth for orgs and membership, and a **workspace** is a native better-auth **team** (`team` / `teamMember`) — there is no parallel custom table. Every project belongs to exactly one workspace (`projects.workspace_id`); each org gets a default **General** workspace so no project ever sits outside one. Roles are **permission sets** (`owner` / `admin` / `member` via better-auth access-control), not a rank ladder. Domain rows carry an `org_id` scoping column; cross-org access returns 404. A user can belong to more than one organization; the dashboard's account menu has an **org switcher** backed by better-auth's active-organization, and a **workspace switcher** (Org ▸ Workspace ▸ Projects) backed by its active team — so accepting an invitation to a second org or joining a second workspace is just a switch, not a separate account. See [Workspaces](/reference/workspaces/).
+
+**Agent key scopes.** A scoped agent key is one of three tiers:
+
+| Tier          | Reach                                                         |
+| ------------- | ------------------------------------------------------------- |
+| **Owner**     | Every workspace and project in the org                        |
+| **Workspace** | All projects in one workspace (`{ orgId, teamId }`)           |
+| **Project**   | That one project (`{ orgId, projectId }`)                     |
+
+A workspace-scoped key can read only its workspace’s projects; a project outside the scoped workspace returns the **same 404 as a missing project** (no existence leak), enforced in the service layer by `assertProjectInWorkspace`. Owner keys skip the guard. Cross-workspace and cross-org requests are indistinguishable from missing ones.
 
 **Upgrade note.** Pre–better-auth installs used a separate token table, a GitHub device-code CLI login, hand-rolled browser sessions, and a parallel org-membership schema. Those paths are deleted — not dual-stacked. Operators on 0.20.x or earlier must **re-initialize the database** (fresh migration baseline; no in-place migration) and regenerate CLI tokens from the dashboard. Full migration path — including `plandesk legacy-upgrade` to lift an old board's planning data into the new global one: [Upgrading → The 0.20.x → better-auth upgrade](/reference/upgrading/#the-020x--better-auth-upgrade-breaking). Concrete breaking-change list: [CHANGELOG 1.0.0-beta.1 → Breaking](https://github.com/asyncdotengineering/plandesk/blob/main/CHANGELOG.md).
 
@@ -59,7 +69,7 @@ The web UI stays in sync by **polling**: TanStack Query re-fetches task, canvas,
 
 SQLite workspace at `~/.plandesk/workspace.db` by default (one global board per machine). An existing repo-local `.plandesk/workspace.db` (from `plandesk init --local-db`) is preferred when present; otherwise commands fall through to the global board:
 
-- `projects` — project metadata (`org_id` scopes hosted rows)
+- `projects` — project metadata (`org_id` scopes hosted rows; `workspace_id` scopes to one workspace)
 - `goals` — goal-altitude nodes (`objective`, `verification_surface`, contract fields, `status`, `last_verification`)
 - `tasks` — canvas nodes + board status (`scope` | `todo` | `in_progress` | `done` | `backlog`); every task has a required `goal_id`
 - `edges` — labeled directed dependencies between tasks
@@ -71,7 +81,7 @@ SQLite workspace at `~/.plandesk/workspace.db` by default (one global board per 
 - `shares` — audience or single-resource share links (token hashed at rest)
 - `agent_runs` / `agent_run_events` — external agent session tracking
 
-better-auth owns its own tables (user, session, account, organization, member, invitation, apikey, …), created by its runtime migrator alongside the Drizzle domain schema — not listed as domain entities above.
+better-auth owns its own tables (user, session, account, organization, member, **team**, **teamMember**, invitation, apikey, …), created by its runtime migrator alongside the Drizzle domain schema — not listed as domain entities above. `team` / `teamMember` back workspaces.
 
 ## Frontend
 
@@ -81,7 +91,7 @@ better-auth owns its own tables (user, session, account, organization, member, i
 
 ## Repo binding
 
-`plandesk connect` writes `<repo>/.plandesk/` (config, skill, token) — a binding, not the board. The board lives on the machine-global `~/.plandesk` by default; `plandesk init --local-db` is the opt-in for a repo-local workspace. See [plandesk connect](/connecting-agents/connect/).
+`plandesk connect` writes `<repo>/.plandesk/` (config, skill, token) — a binding, not the board. The board lives on the machine-global `~/.plandesk` by default; `plandesk init --local-db` is the opt-in for a repo-local workspace. `connect --project` binds to one project; `connect --workspace` binds to a whole workspace and writes a `plandesk-connect-v2` config. See [plandesk connect](/connecting-agents/connect/).
 
 ## Product design
 

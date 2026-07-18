@@ -17,9 +17,9 @@ plandesk connect --project "Checkout Revamp"
 
 | Path                                                             | Committed?          | Purpose                                                    |
 | ---------------------------------------------------------------- | ------------------- | ---------------------------------------------------------- |
-| `.plandesk/config.json`                                          | yes                 | Pins repo → project (`projectId`, server URL)              |
+| `.plandesk/config.json`                                          | yes                 | Pins repo → project **or** workspace. `--project`: v1 (`projectId`, `projectName`, `serverUrl`). `--workspace`: `plandesk-connect-v2` (`{ serverUrl, orgId, workspaceId, workspaceName, projectIds }`) |
 | `.plandesk/skill.md`                                             | yes                 | Agent conventions ([The Skill](/connecting-agents/skill/)) |
-| `.plandesk/token`                                                | **no** (gitignored) | Project-scoped agent key — written only for a hosted `connect --to`; local loopback needs none |
+| `.plandesk/token`                                                | **no** (gitignored) | Scoped agent key — written for a hosted `connect --to` (project- or workspace-scoped); local loopback needs none |
 | `.claude/skills/plandesk/SKILL.md` / `.agents/skills/plandesk/SKILL.md` | yes          | Symlinks → `.plandesk/skill.md` (skill discovery)          |
 | `.mcp.json`                                                      | yes                 | MCP server entry with a `headersHelper` that reads the token |
 | `CLAUDE.md` / `AGENTS.md`                                        | yes                 | Sentinel block `@.plandesk/skill.md`                       |
@@ -27,8 +27,8 @@ plandesk connect --project "Checkout Revamp"
 
 ## Workflow
 
-1. Resolves the project (by id or name).
-2. **Local (default):** no token — loopback is zero-auth, so `.plandesk/token` is not written unless you pass `--token` explicitly. **Hosted (`--to <org>`):** mints a project-scoped agent key into `.plandesk/token` (gitignored), using the owner key `plandesk login` stored.
+1. Resolves the project (by id or name) **or** workspace (by name) the repo binds to. A workspace bind resolves the workspace and collects **all** of its project ids into `config.json`.
+2. **Local (default):** no token — loopback is zero-auth, so `.plandesk/token` is not written unless you pass `--token` explicitly. **Hosted (`--to <org>`):** mints a scoped agent key into `.plandesk/token` (gitignored), using the owner key `plandesk login` stored — **project-scoped** with `--project`, **workspace-scoped** with `--workspace`. A workspace-scoped key reaches every project in that workspace and nothing else in the org.
 3. Writes `.plandesk/config.json` (committed project binding).
 4. Merges the `plandesk` entry into `.mcp.json`. The entry uses a
    `headersHelper` that reads `.plandesk/token` at connection time, so the
@@ -55,11 +55,39 @@ export is required.
 ## Options
 
 ```
-plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
+plandesk connect [--repo <dir>] [--project <id|name>] [--workspace <name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
+plandesk connect --to <org> [--project <id|name>] [--workspace <name>] [--repo <dir>] [--print]   # hosted: mint a scoped key
 ```
 
-- `--print` — dry-run without writing files
-- `--agent` — target Claude, Codex, or both (default: detect)
+- `--project <id|name>` — bind the repo to a single project (writes a v1 config).
+- `--workspace <name>` — bind the repo to a whole workspace (writes a `plandesk-connect-v2` config). On `--to`, mints a **workspace-scoped** key.
+- `--to <org>` — hosted: mint a scoped agent key with the login owner key. Local is the default when `--to` is omitted.
+- `--print` — dry-run without writing files.
+- `--agent` — target Claude, Codex, or both (default: detect).
+
+A repo already bound to a workspace cannot be silently rebound to a different project/workspace — rebind with an explicit `--project` or `--workspace`.
+
+## Connect to a workspace
+
+`--workspace` is for multi-project engagements — one client or product with several projects. The agent's MCP `list_projects` then returns only that workspace's projects (token-enforced; cross-workspace project ids return 404). See [Workspaces](/reference/workspaces/).
+
+```bash
+plandesk connect --workspace "Fiji TV"            # local
+plandesk connect --to <org> --workspace "Fiji TV" # hosted: workspace-scoped key
+```
+
+The bound config:
+
+```json
+{
+  "version": "plandesk-connect-v2",
+  "serverUrl": "http://127.0.0.1:7526",
+  "orgId": "<org-id>",
+  "workspaceId": "<team-id>",
+  "workspaceName": "Fiji TV",
+  "projectIds": ["<project-id>", "<project-id>"]
+}
+```
 
 ## Disconnect
 

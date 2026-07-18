@@ -89,6 +89,7 @@ export default defineConfig({
             { slug: 'reference/factory' },
             { slug: 'reference/api' },
             { slug: 'reference/architecture' },
+            { slug: 'reference/workspaces' },
             { slug: 'reference/collaboration' },
             { slug: 'reference/upgrading' },
             { slug: 'reference/troubleshooting' },
