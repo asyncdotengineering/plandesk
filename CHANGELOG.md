@@ -4,6 +4,15 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [1.0.4] — 2026-07-19
+
+Two web fixes surfaced by live 1.0 use.
+
+### Fixed
+
+- **Flow route no longer crashes on mount.** `FlowCanvas` referenced a `useCallback` in an effect dependency array before its declaration, so opening a project's **Flow** tab threw a temporal-dead-zone error (`Cannot access … before initialization`) and rendered the router's "Something went wrong!" boundary. Present since the flow redesign — every user opening Flow was affected. Hoisted the callback above the effects that consume it.
+- **Workspace landing loads on a local board.** `listWorkspaces` / `createWorkspace` called better-auth's session-only team endpoints, which return 401 on a local loopback board (no session) — the landing showed "Failed to load workspaces". Both now route through the loopback-capable REST endpoint (`GET`/`POST /orgs/:id/workspaces`), which serves loopback, hosted session, and owner keys alike.
+
 ## [1.0.0] — 2026-07-18
 
 The workspace tier: planning now spans **Org → Workspace → Project**, implemented as a fully-native better-auth team. General availability — `@latest` moves to `1.0.0`, and the default port moves to `7526`.
