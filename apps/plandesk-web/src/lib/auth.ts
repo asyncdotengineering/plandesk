@@ -3,12 +3,15 @@ import {
   ApiError,
   getAuthMethods,
   getAuthSession,
+  listWorkspaces,
   logout,
   setActiveOrganization,
+  setActiveWorkspace,
 } from './api.js';
 
 export const authSessionKey = ['auth', 'session'] as const;
 export const authMethodsKey = ['auth', 'methods'] as const;
+export const workspacesKey = ['workspaces'] as const;
 
 /**
  * The current session, or null when there is none.
@@ -57,4 +60,22 @@ export function useSetActiveOrganization() {
       await queryClient.invalidateQueries();
     },
   });
+}
+
+/** Switch the active workspace (better-auth team); invalidates org-scoped reads. */
+export function useSetActiveWorkspace() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: setActiveWorkspace,
+    onSuccess: async () => {
+      // The active workspace drives the projects-home filter and the switcher;
+      // a full invalidate is the same posture as switching orgs.
+      await queryClient.invalidateQueries();
+    },
+  });
+}
+
+/** The active org's workspaces, straight from better-auth (fresh list for CRUD). */
+export function useWorkspaces() {
+  return useQuery({ queryKey: workspacesKey, queryFn: listWorkspaces });
 }

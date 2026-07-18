@@ -34,6 +34,16 @@ function stubFetch(projects: unknown) {
   );
 }
 
+/** Loopback session that also carries an active workspace + workspaces list. */
+const localSessionWithWorkspace = {
+  ...localSession,
+  active_workspace: { id: 'ws-1', name: 'General' },
+  workspaces: [
+    { id: 'ws-1', name: 'General' },
+    { id: 'ws-2', name: 'Fiji TV' },
+  ],
+};
+
 function renderApp() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -72,5 +82,53 @@ describe('Project list', () => {
     await waitFor(() => {
       expect(screen.getByText(/no projects yet/i)).toBeTruthy();
     });
+  });
+
+  it('shows only the active workspace\'s projects (REQ-C2)', async () => {
+    const inWorkspace = {
+      id: 'proj-ws1',
+      name: 'In Workspace',
+      description: null,
+      workspace_id: 'ws-1',
+      created_at: '2026-06-07T00:00:00.000Z',
+      updated_at: '2026-06-07T00:00:00.000Z',
+    };
+    const otherWorkspace = {
+      id: 'proj-ws2',
+      name: 'Other Workspace',
+      description: null,
+      workspace_id: 'ws-2',
+      created_at: '2026-06-07T00:00:00.000Z',
+      updated_at: '2026-06-07T00:00:00.000Z',
+    };
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: unknown) => {
+        const url = String(input);
+        if (url.endsWith('/auth/session')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(localSessionWithWorkspace),
+          });
+        }
+        // Every other GET (incl. /projects) returns both projects; the filter
+        // is client-side, so both must be present pre-filter.
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve([inWorkspace, otherWorkspace]),
+        });
+      }),
+    );
+
+    renderApp();
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /In Workspace/ })).toBeTruthy();
+    });
+    // The other workspace's project is filtered out client-side.
+    expect(screen.queryByText('Other Workspace')).toBeNull();
   });
 });

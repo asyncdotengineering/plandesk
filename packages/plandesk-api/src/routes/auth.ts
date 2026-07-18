@@ -4,6 +4,10 @@ import { createOrgOwnerKey } from '../agent-keys.js';
 import { getAuthContext } from '../auth-context.js';
 import type { BetterAuthInstance } from '../better-auth.js';
 import type { GithubConfig } from '../github.js';
+import {
+  getActiveTeamForSession,
+  listTeamsForOrg,
+} from '../identity.js';
 import { listOrganizationsForUser, resolveOrganizationName } from '../organizations.js';
 import { requirePermission } from '../permissions.js';
 
@@ -43,12 +47,28 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
     let orgs: Array<{ id: string; name: string; role: string }> = [
       { id: org.id, name: org.name, role: ctx.role ?? 'member' },
     ];
-    if (ctx.kind === 'session' && betterAuth !== undefined) {
-      const session = await betterAuth.api.getSession({ headers: c.req.raw.headers });
-      if (session === null) {
-        return c.json({ error: 'unauthorized' }, 401);
+    let activeWorkspace: { id: string; name: string } | null = null;
+    let workspaces: Array<{ id: string; name: string }> = [];
+    if (betterAuth !== undefined) {
+      workspaces = await listTeamsForOrg(betterAuth, ctx.orgId);
+      if (ctx.kind === 'session') {
+        const session = await betterAuth.api.getSession({ headers: c.req.raw.headers });
+        if (session === null) {
+          return c.json({ error: 'unauthorized' }, 401);
+        }
+        orgs = await listOrganizationsForUser(betterAuth, session.user.id);
+        const active = await getActiveTeamForSession(
+          betterAuth,
+          session.session.token,
+          ctx.orgId,
+        );
+        activeWorkspace =
+          active ?? (workspaces[0] !== undefined ? workspaces[0] : null);
+      } else {
+        // Loopback: no session row to carry an active team — default to the
+        // first workspace (the org's default team) so the switcher still renders.
+        activeWorkspace = workspaces[0] !== undefined ? workspaces[0] : null;
       }
-      orgs = await listOrganizationsForUser(betterAuth, session.user.id);
     }
     return c.json({
       kind: ctx.kind,
@@ -56,6 +76,8 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
       role: ctx.role,
       org,
       orgs,
+      active_workspace: activeWorkspace,
+      workspaces,
     });
   });
 

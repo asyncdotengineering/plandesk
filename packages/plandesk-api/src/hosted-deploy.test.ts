@@ -221,6 +221,8 @@ describe('hosted better-auth wiring (BA9)', () => {
       role: 'owner',
       org: { id: orgId, name: 'Hosted Org' },
       orgs: [{ id: orgId, name: 'Hosted Org', role: 'owner' }],
+      active_workspace: null,
+      workspaces: [],
     });
   });
 

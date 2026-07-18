@@ -35,7 +35,7 @@ import {
   type Task,
   type TaskStatus,
 } from '@plandesk/db';
-import { ensureDefaultTeamForOrg } from '../identity.js';
+import { ensureDefaultTeamForOrg, getTeamInOrg } from '../identity.js';
 import type { BetterAuthInstance } from '../better-auth.js';
 import {
   emptyTaskStatusSummary,
@@ -50,7 +50,12 @@ import {
 } from '../serialize.js';
 import { tryGetAuthContext } from '../auth-context.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
-import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
+import { PermissionDeniedError } from '../permissions.js';
+import {
+  assertProjectInOrg,
+  ProjectNotInOrgError,
+  WorkspaceNotFoundError,
+} from './scope.js';
 
 type SerializedProject = ReturnType<typeof serializeProject>;
 type SerializedTask = ReturnType<typeof serializeTask>;
@@ -175,9 +180,21 @@ export function createProjectService(deps: ProjectServiceDeps) {
     async create(input: CreateProjectInput) {
       assertPermission(deps, 'project', 'create');
       const orgId = resolveOrgId(deps);
-      const workspaceId =
-        input.workspaceId ??
-        (deps.auth ? await ensureDefaultTeamForOrg(deps.auth, orgId) : undefined);
+      let workspaceId: string | undefined;
+      if (input.workspaceId !== undefined && input.workspaceId.length > 0) {
+        if (deps.auth === undefined) {
+          throw new WorkspaceNotFoundError(input.workspaceId);
+        }
+        const team = await getTeamInOrg(deps.auth, input.workspaceId, orgId);
+        if (team === undefined) {
+          throw new WorkspaceNotFoundError(input.workspaceId);
+        }
+        workspaceId = team.id;
+      } else {
+        workspaceId = deps.auth
+          ? await ensureDefaultTeamForOrg(deps.auth, orgId)
+          : undefined;
+      }
       if (workspaceId === undefined) {
         throw new Error('cannot resolve workspace for project');
       }
@@ -223,6 +240,48 @@ export function createProjectService(deps: ProjectServiceDeps) {
         throw error;
       }
       const project = await dbUpdateProject(db, id, input);
+      if (!project) {
+        return undefined;
+      }
+      return serializeProject(project);
+    },
+
+    /**
+     * Move a project to another workspace (team) in the caller's org.
+     *
+     * Owner-gated: a workspace/project-scoped agent key must not move projects
+     * (it would drag a project out of its scope), so scoped callers are rejected
+     * before any existence check. Requires project:create authority (owner/admin).
+     * The target team must exist in the caller's org; otherwise 404.
+     */
+    async moveProjectToWorkspace(id: string, workspaceId: string) {
+      const ctx = tryGetAuthContext();
+      const scoped =
+        ctx !== undefined &&
+        ((ctx.kind === 'apikey' &&
+          (ctx.workspaceId !== undefined || ctx.projectId !== undefined)) ||
+          (ctx.kind === 'loopback' && ctx.workspaceId !== undefined));
+      if (scoped) {
+        throw new PermissionDeniedError('project', 'create');
+      }
+      assertPermission(deps, 'project', 'create');
+      const orgId = resolveOrgId(deps);
+      try {
+        await assertProjectInOrg(db, id, orgId);
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+      if (deps.auth === undefined) {
+        throw new WorkspaceNotFoundError(workspaceId);
+      }
+      const team = await getTeamInOrg(deps.auth, workspaceId, orgId);
+      if (team === undefined) {
+        throw new WorkspaceNotFoundError(workspaceId);
+      }
+      const project = await dbUpdateProject(db, id, { workspaceId: team.id });
       if (!project) {
         return undefined;
       }

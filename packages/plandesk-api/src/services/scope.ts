@@ -9,6 +9,14 @@ export class ProjectNotInOrgError extends Error {
   }
 }
 
+/** Thrown when a target workspace (team) is missing or outside the caller's org. Maps to HTTP 404. */
+export class WorkspaceNotFoundError extends Error {
+  constructor(workspaceId: string) {
+    super(`Workspace not found: ${workspaceId}`);
+    this.name = 'WorkspaceNotFoundError';
+  }
+}
+
 /**
  * Fail-closed tenant boundary: project must exist and belong to orgId.
  * Returns 404-shaped error (not 403) so existence is not leaked across orgs.

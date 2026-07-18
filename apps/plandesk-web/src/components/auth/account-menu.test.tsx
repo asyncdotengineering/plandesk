@@ -1,0 +1,96 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AccountMenu } from './AccountMenu.js';
+
+const sessionWithWorkspaces = {
+  kind: 'session' as const,
+  user_ref: 'github:9001',
+  role: 'owner' as const,
+  org: { id: 'org-1', name: 'Acme' },
+  orgs: [{ id: 'org-1', name: 'Acme', role: 'owner' }],
+  active_workspace: { id: 'ws-1', name: 'General' },
+  workspaces: [
+    { id: 'ws-1', name: 'General' },
+    { id: 'ws-2', name: 'Fiji TV' },
+  ],
+};
+
+function renderAccountMenu() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <AccountMenu />
+    </QueryClientProvider>,
+  );
+}
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+describe('Workspace switcher (REQ-C1)', () => {
+  it('renders the active workspace', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) {
+        return { ok: true, status: 200, json: async () => sessionWithWorkspaces };
+      }
+      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderAccountMenu();
+
+    await waitFor(() => {
+      expect(screen.getByText('General')).toBeTruthy();
+    });
+  });
+
+  it('switching calls setActiveWorkspace (POST set-active-team)', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) {
+        return { ok: true, status: 200, json: async () => sessionWithWorkspaces };
+      }
+      if (url.endsWith('/api/auth/organization/set-active-team')) {
+        return { ok: true, status: 200, json: async () => ({}) };
+      }
+      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderAccountMenu();
+
+    // Active workspace is visible immediately.
+    await waitFor(() => {
+      expect(screen.getByText('General')).toBeTruthy();
+    });
+
+    // Open the workspace dropdown via keyboard (robust in jsdom) and pick Fiji TV.
+    const trigger = screen.getByRole('button', { name: /switch workspace \(current: general\)/i });
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+
+    const fijiItem = await screen.findByText('Fiji TV');
+    fireEvent.click(fijiItem);
+
+    await waitFor(() => {
+      const switchCall = fetchMock.mock.calls.find(
+        ([url, init]) =>
+          String(url).endsWith('/api/auth/organization/set-active-team') &&
+          (init as RequestInit | undefined)?.method === 'POST',
+      );
+      expect(switchCall).toBeTruthy();
+      expect(switchCall?.[1]).toEqual(
+        expect.objectContaining({
+          method: 'POST',
+          credentials: 'include',
+          body: JSON.stringify({ teamId: 'ws-2' }),
+        }),
+      );
+    });
+  });
+});

@@ -424,6 +424,8 @@ describe('better-auth session recognition (BA4a)', () => {
       role: 'owner',
       org: { id: org.id, name: 'Personal' },
       orgs: [{ id: org.id, name: 'Personal', role: 'owner' }],
+      active_workspace: null,
+      workspaces: [],
     });
   });
 

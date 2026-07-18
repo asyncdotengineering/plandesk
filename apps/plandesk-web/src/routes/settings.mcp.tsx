@@ -82,6 +82,12 @@ function McpSettingsPage() {
           >
             Members
           </Link>
+          <Link
+            to="/settings/workspaces"
+            className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            Workspaces
+          </Link>
           <Link to="/settings/mcp" className="font-medium text-foreground underline-offset-4">
             MCP / CLI token
           </Link>

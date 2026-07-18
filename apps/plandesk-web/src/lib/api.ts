@@ -24,6 +24,8 @@ export type SerializedProject = {
   id: string;
   name: string;
   description: string | null;
+  /** The workspace (better-auth team) the project belongs to. */
+  workspace_id: string;
   created_at: string;
   updated_at: string;
 };
@@ -116,6 +118,8 @@ export type PutCanvasInput = {
 export type CreateProjectInput = {
   name: string;
   description?: string | null;
+  /** Workspace to create the project in; defaults to the org's default workspace. */
+  workspace_id?: string;
 };
 
 export type CreateTaskInput = {
@@ -157,6 +161,8 @@ export type PatchTagInput = {
 export type PatchProjectInput = {
   name?: string;
   description?: string | null;
+  /** Move the project to another workspace (owner-gated on the server). */
+  workspace_id?: string;
 };
 
 export type CreateDocumentInput = {
@@ -713,6 +719,10 @@ export type SerializedAuthSession = {
   role: OrgRole;
   org: { id: string; name: string } | null;
   orgs: Array<{ id: string; name: string; role: string }>;
+  /** The active workspace (better-auth team) for the nav switcher + project filter. */
+  active_workspace: { id: string; name: string } | null;
+  /** Workspaces (better-auth teams) in the active org. */
+  workspaces: Array<{ id: string; name: string }>;
 };
 
 export type SerializedAuthMethods = {
@@ -740,6 +750,118 @@ export async function setActiveOrganization(organizationId: string): Promise<voi
   if (!response.ok) {
     throw new ApiError(response.status, await response.text());
   }
+}
+
+/**
+ * A workspace is Plan Desk's name for a Better Auth team. These helpers talk to
+ * the better-auth organization/team endpoints directly (mounted at
+ * `/api/auth/organization/*`), exactly like `setActiveOrganization` above.
+ */
+export type Workspace = {
+  id: string;
+  name: string;
+};
+
+export type WorkspaceMember = {
+  id: string;
+  teamId: string;
+  userId: string;
+  createdAt: string;
+};
+
+async function postTeamEndpoint(path: string, body: unknown): Promise<Response> {
+  const response = await fetch(`/api/auth/organization/${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
+  return response;
+}
+
+/** Persist the browser's active workspace (better-auth team) on the session. */
+export async function setActiveWorkspace(teamId: string): Promise<void> {
+  await postTeamEndpoint('set-active-team', { teamId });
+}
+
+/** List the active org's workspaces (better-auth teams). */
+export async function listWorkspaces(): Promise<Workspace[]> {
+  const response = await fetch('/api/auth/organization/list-teams', {
+    method: 'GET',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
+  const teams = (await response.json()) as Array<{ id: string; name: string }>;
+  return teams.map((team) => ({ id: team.id, name: team.name }));
+}
+
+/** Create a workspace (better-auth team) in the active org. */
+export async function createWorkspace(name: string): Promise<Workspace> {
+  const response = await postTeamEndpoint('create-team', { name });
+  const team = (await response.json()) as { id: string; name: string };
+  return { id: team.id, name: team.name };
+}
+
+/** Rename a workspace (better-auth team). */
+export async function renameWorkspace(teamId: string, name: string): Promise<Workspace> {
+  const response = await postTeamEndpoint('update-team', { teamId, data: { name } });
+  const team = (await response.json()) as { id: string; name: string } | null;
+  if (team === null) {
+    throw new ApiError(404, 'workspace not found');
+  }
+  return { id: team.id, name: team.name };
+}
+
+/** Delete a workspace (better-auth team). */
+export async function deleteWorkspace(teamId: string): Promise<void> {
+  await postTeamEndpoint('remove-team', { teamId });
+}
+
+/** List the members of a workspace (better-auth team). */
+export async function listWorkspaceMembers(teamId: string): Promise<WorkspaceMember[]> {
+  const params = new URLSearchParams({ teamId });
+  const response = await fetch(
+    `/api/auth/organization/list-team-members?${params.toString()}`,
+    { method: 'GET', credentials: 'include' },
+  );
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
+  const members = (await response.json()) as Array<{
+    id: string;
+    teamId: string;
+    userId: string;
+    createdAt: string;
+  }>;
+  return members.map((member) => ({
+    id: member.id,
+    teamId: member.teamId,
+    userId: member.userId,
+    createdAt: member.createdAt,
+  }));
+}
+
+/** Add an org member to a workspace (better-auth team). */
+export async function addWorkspaceMember(teamId: string, userId: string): Promise<void> {
+  await postTeamEndpoint('add-team-member', { teamId, userId });
+}
+
+/** Remove a member from a workspace (better-auth team). */
+export async function removeWorkspaceMember(teamId: string, userId: string): Promise<void> {
+  await postTeamEndpoint('remove-team-member', { teamId, userId });
+}
+
+/** Move a project to another workspace (owner-gated on the server). */
+export function moveProject(projectId: string, workspaceId: string): Promise<SerializedProject> {
+  return request(`/projects/${projectId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ workspace_id: workspaceId }),
+  });
 }
 
 /** Whether this instance offers GitHub sign-in, or token entry only (REQ-20). */

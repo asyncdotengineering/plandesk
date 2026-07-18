@@ -5,6 +5,7 @@ import { InvalidGoalReferenceError, type TaskService } from '../services/tasks.j
 import { InvalidTagError } from '../services/tags.js';
 import { isStringArray } from './tasks.js';
 import { parsePaginationParams } from '../serialize.js';
+import { WorkspaceNotFoundError } from '../services/scope.js';
 
 export function createProjectsRouter(
   projectService: ProjectService,
@@ -21,15 +22,31 @@ export function createProjectsRouter(
   });
 
   router.post('/projects', async (c) => {
-    const body = await c.req.json<{ name?: string; description?: string | null }>();
+    const body = await c.req.json<{
+      name?: string;
+      description?: string | null;
+      workspace_id?: string;
+    }>();
     if (typeof body.name !== 'string' || body.name.trim() === '') {
       return c.json({ error: 'invalid_argument' }, 400);
     }
-    const project = await projectService.create({
-      name: body.name,
-      description: body.description,
-    });
-    return c.json(project, 201);
+    const workspaceId =
+      typeof body.workspace_id === 'string' && body.workspace_id.length > 0
+        ? body.workspace_id
+        : undefined;
+    try {
+      const project = await projectService.create({
+        name: body.name,
+        description: body.description,
+        ...(workspaceId !== undefined ? { workspaceId } : {}),
+      });
+      return c.json(project, 201);
+    } catch (error) {
+      if (error instanceof WorkspaceNotFoundError) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+      throw error;
+    }
   });
 
   router.get('/projects/:id', async (c) => {
@@ -41,10 +58,36 @@ export function createProjectsRouter(
   });
 
   router.patch('/projects/:id', async (c) => {
-    const body = await c.req.json<{ name?: string; description?: string | null }>();
+    const body = await c.req.json<{
+      name?: string;
+      description?: string | null;
+      workspace_id?: string | null;
+    }>();
     if (body.name !== undefined && (typeof body.name !== 'string' || body.name.trim() === '')) {
       return c.json({ error: 'invalid_argument' }, 400);
     }
+
+    if (body.workspace_id !== undefined && body.workspace_id !== null) {
+      if (typeof body.workspace_id !== 'string' || body.workspace_id.trim() === '') {
+        return c.json({ error: 'invalid_argument' }, 400);
+      }
+      try {
+        const moved = await projectService.moveProjectToWorkspace(
+          c.req.param('id'),
+          body.workspace_id,
+        );
+        if (!moved) {
+          return c.json({ error: 'not_found' }, 404);
+        }
+        return c.json(moved);
+      } catch (error) {
+        if (error instanceof WorkspaceNotFoundError) {
+          return c.json({ error: 'not_found' }, 404);
+        }
+        throw error;
+      }
+    }
+
     const project = await projectService.update(c.req.param('id'), {
       ...(body.name !== undefined ? { name: body.name } : {}),
       ...(body.description !== undefined ? { description: body.description } : {}),

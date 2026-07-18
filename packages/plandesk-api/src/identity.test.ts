@@ -150,6 +150,8 @@ describe('local identity foundation', () => {
       role: 'owner',
       org: { id: DEFAULT_ORG_ID, name: 'Personal' },
       orgs: [{ id: DEFAULT_ORG_ID, name: 'Personal', role: 'owner' }],
+      active_workspace: null,
+      workspaces: [],
     });
   });
 });

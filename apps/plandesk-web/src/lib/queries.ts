@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { liveQueryOptions } from './events.js';
+import { authSessionKey, workspacesKey } from './auth.js';
 import {
   completeGoal,
   createCliToken,
   createOrgInvitation,
+  createWorkspace,
   createComment,
   createDocument,
   createFolder,
@@ -12,6 +14,7 @@ import {
   createProject,
   createTag,
   createTask,
+  deleteWorkspace,
   getGoal,
   deleteComment,
   deleteDocument,
@@ -37,6 +40,10 @@ import {
   listSubmissions,
   listTags,
   listTasks,
+  listWorkspaceMembers,
+  addWorkspaceMember,
+  removeWorkspaceMember,
+  moveProject,
   pauseGoal,
   patchComment,
   patchGoal,
@@ -47,6 +54,7 @@ import {
   patchTag,
   patchTask,
   putCanvas,
+  renameWorkspace,
   resumeGoal,
   triageSubmission,
   type CommentTarget,
@@ -98,6 +106,7 @@ export const queryKeys = {
   goals: (projectId: string) => ['projects', projectId, 'goals'] as const,
   goal: (goalId: string) => ['goals', goalId] as const,
   orgMembers: (orgId: string) => ['orgs', orgId, 'members'] as const,
+  workspaceMembers: (teamId: string) => ['workspaces', teamId, 'members'] as const,
 };
 
 export function useProjects() {
@@ -593,6 +602,101 @@ export function useCompleteGoal(projectId: string) {
       completeGoal(goalId, evidence),
     onSuccess: (goal) => {
       invalidateGoalQueries(queryClient, projectId, goal.id, true);
+    },
+  });
+}
+
+// Workspace CRUD + member management + move-project. Workspace = better-auth
+// team; CRUD/membership goes through better-auth, move-project through PATCH
+// /projects/:id. All mutating hooks refresh the workspaces list AND the session
+// (the session caches workspaces + active_workspace for the nav switcher).
+
+function invalidateWorkspaceCaches(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: workspacesKey });
+  void queryClient.invalidateQueries({ queryKey: authSessionKey });
+}
+
+export function useCreateWorkspace() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => createWorkspace(name),
+    onSuccess: () => {
+      invalidateWorkspaceCaches(queryClient);
+    },
+  });
+}
+
+export function useRenameWorkspace() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, name }: { teamId: string; name: string }) =>
+      renameWorkspace(teamId, name),
+    onSuccess: () => {
+      invalidateWorkspaceCaches(queryClient);
+    },
+  });
+}
+
+export function useDeleteWorkspace() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (teamId: string) => deleteWorkspace(teamId),
+    onSuccess: () => {
+      invalidateWorkspaceCaches(queryClient);
+    },
+  });
+}
+
+export function useWorkspaceMembers(teamId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.workspaceMembers(teamId ?? ''),
+    queryFn: () => listWorkspaceMembers(teamId as string),
+    enabled: teamId !== undefined && teamId.length > 0,
+  });
+}
+
+export function useAddWorkspaceMember(teamId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => {
+      if (teamId === undefined) {
+        return Promise.reject(new Error('No active workspace'));
+      }
+      return addWorkspaceMember(teamId, userId);
+    },
+    onSuccess: () => {
+      if (teamId !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.workspaceMembers(teamId) });
+      }
+    },
+  });
+}
+
+export function useRemoveWorkspaceMember(teamId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => {
+      if (teamId === undefined) {
+        return Promise.reject(new Error('No active workspace'));
+      }
+      return removeWorkspaceMember(teamId, userId);
+    },
+    onSuccess: () => {
+      if (teamId !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.workspaceMembers(teamId) });
+      }
+    },
+  });
+}
+
+export function useMoveProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, workspaceId }: { projectId: string; workspaceId: string }) =>
+      moveProject(projectId, workspaceId),
+    onSuccess: (project) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.project(project.id) });
     },
   });
 }

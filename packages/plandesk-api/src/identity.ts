@@ -132,6 +132,60 @@ export async function createTeamForOrg(
   });
 }
 
+/** Read helpers for the dashboard's workspace surfaces (a workspace = a team). */
+export type WorkspaceSummary = { id: string; name: string };
+
+export async function listTeamsForOrg(
+  auth: BetterAuthInstance,
+  organizationId: string,
+): Promise<WorkspaceSummary[]> {
+  const adapter = (await auth.$context).adapter;
+  const teams = await adapter.findMany<TeamRow>({
+    model: 'team',
+    where: [{ field: 'organizationId', value: organizationId }],
+    sortBy: { field: 'createdAt', direction: 'asc' },
+  });
+  return teams.map((team) => ({ id: team.id, name: team.name }));
+}
+
+/** A team by id, only when it belongs to `organizationId` (no cross-org leak). */
+export async function getTeamInOrg(
+  auth: BetterAuthInstance,
+  teamId: string,
+  organizationId: string,
+): Promise<WorkspaceSummary | undefined> {
+  const adapter = (await auth.$context).adapter;
+  const team = await adapter.findOne<TeamRow>({
+    model: 'team',
+    where: [
+      { field: 'id', value: teamId },
+      { field: 'organizationId', value: organizationId },
+    ],
+  });
+  return team === null ? undefined : { id: team.id, name: team.name };
+}
+
+/** Resolve the session's active team for /auth/session, scoped to its org. */
+export async function getActiveTeamForSession(
+  auth: BetterAuthInstance,
+  sessionToken: string,
+  organizationId: string,
+): Promise<WorkspaceSummary | undefined> {
+  const context = await auth.$context;
+  const session = await context.adapter.findOne<SessionRow>({
+    model: 'session',
+    where: [{ field: 'token', value: sessionToken }],
+  });
+  const activeTeamId =
+    session?.activeTeamId === undefined || session.activeTeamId === null
+      ? undefined
+      : session.activeTeamId;
+  if (activeTeamId === undefined) {
+    return undefined;
+  }
+  return getTeamInOrg(auth, activeTeamId, organizationId);
+}
+
 export async function ensureDefaultTeamForOrg(
   auth: BetterAuthInstance,
   organizationId: string,

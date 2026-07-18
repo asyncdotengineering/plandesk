@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SettingsWorkspacesRouteImport } from './routes/settings.workspaces'
 import { Route as SettingsMembersRouteImport } from './routes/settings.members'
 import { Route as SettingsMcpRouteImport } from './routes/settings.mcp'
 import { Route as PShareTokenRouteImport } from './routes/p.$shareToken'
@@ -28,6 +29,11 @@ import { Route as ProjectsIdDocumentsDocIdRouteImport } from './routes/projects.
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsWorkspacesRoute = SettingsWorkspacesRouteImport.update({
+  id: '/settings/workspaces',
+  path: '/settings/workspaces',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsMembersRoute = SettingsMembersRouteImport.update({
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/p/$shareToken': typeof PShareTokenRoute
   '/settings/mcp': typeof SettingsMcpRoute
   '/settings/members': typeof SettingsMembersRoute
+  '/settings/workspaces': typeof SettingsWorkspacesRoute
   '/projects/$id/board': typeof ProjectsIdBoardRoute
   '/projects/$id/flow': typeof ProjectsIdFlowRoute
   '/projects/$id/goals': typeof ProjectsIdGoalsRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/p/$shareToken': typeof PShareTokenRoute
   '/settings/mcp': typeof SettingsMcpRoute
   '/settings/members': typeof SettingsMembersRoute
+  '/settings/workspaces': typeof SettingsWorkspacesRoute
   '/projects/$id/board': typeof ProjectsIdBoardRoute
   '/projects/$id/flow': typeof ProjectsIdFlowRoute
   '/projects/$id/goals': typeof ProjectsIdGoalsRoute
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/p/$shareToken': typeof PShareTokenRoute
   '/settings/mcp': typeof SettingsMcpRoute
   '/settings/members': typeof SettingsMembersRoute
+  '/settings/workspaces': typeof SettingsWorkspacesRoute
   '/projects/$id/board': typeof ProjectsIdBoardRoute
   '/projects/$id/flow': typeof ProjectsIdFlowRoute
   '/projects/$id/goals': typeof ProjectsIdGoalsRoute
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/p/$shareToken'
     | '/settings/mcp'
     | '/settings/members'
+    | '/settings/workspaces'
     | '/projects/$id/board'
     | '/projects/$id/flow'
     | '/projects/$id/goals'
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/p/$shareToken'
     | '/settings/mcp'
     | '/settings/members'
+    | '/settings/workspaces'
     | '/projects/$id/board'
     | '/projects/$id/flow'
     | '/projects/$id/goals'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/p/$shareToken'
     | '/settings/mcp'
     | '/settings/members'
+    | '/settings/workspaces'
     | '/projects/$id/board'
     | '/projects/$id/flow'
     | '/projects/$id/goals'
@@ -213,6 +225,7 @@ export interface RootRouteChildren {
   PShareTokenRoute: typeof PShareTokenRoute
   SettingsMcpRoute: typeof SettingsMcpRoute
   SettingsMembersRoute: typeof SettingsMembersRoute
+  SettingsWorkspacesRoute: typeof SettingsWorkspacesRoute
   ProjectsIdBoardRoute: typeof ProjectsIdBoardRoute
   ProjectsIdFlowRoute: typeof ProjectsIdFlowRoute
   ProjectsIdGoalsRoute: typeof ProjectsIdGoalsRoute
@@ -230,6 +243,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/workspaces': {
+      id: '/settings/workspaces'
+      path: '/settings/workspaces'
+      fullPath: '/settings/workspaces'
+      preLoaderRoute: typeof SettingsWorkspacesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/members': {
@@ -353,6 +373,7 @@ const rootRouteChildren: RootRouteChildren = {
   PShareTokenRoute: PShareTokenRoute,
   SettingsMcpRoute: SettingsMcpRoute,
   SettingsMembersRoute: SettingsMembersRoute,
+  SettingsWorkspacesRoute: SettingsWorkspacesRoute,
   ProjectsIdBoardRoute: ProjectsIdBoardRoute,
   ProjectsIdFlowRoute: ProjectsIdFlowRoute,
   ProjectsIdGoalsRoute: ProjectsIdGoalsRoute,

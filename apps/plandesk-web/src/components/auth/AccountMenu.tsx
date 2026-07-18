@@ -1,4 +1,4 @@
-import { useAuthSession, useLogout, useSetActiveOrganization } from '../../lib/auth.js';
+import { useAuthSession, useLogout, useSetActiveOrganization, useSetActiveWorkspace } from '../../lib/auth.js';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,6 +19,7 @@ export function AccountMenu() {
   const { data: session } = useAuthSession();
   const signOut = useLogout();
   const switchOrganization = useSetActiveOrganization();
+  const switchWorkspace = useSetActiveWorkspace();
 
   if (session === null || session === undefined) {
     return null;
@@ -26,6 +27,8 @@ export function AccountMenu() {
 
   const orgs = session.orgs ?? (session.org === null ? [] : [{ ...session.org, role: session.role }]);
   const activeOrg = session.org;
+  const workspaces = session.workspaces ?? [];
+  const activeWorkspace = session.active_workspace ?? null;
 
   return (
     <div className="flex items-center gap-2">
@@ -60,6 +63,44 @@ export function AccountMenu() {
         </DropdownMenu>
       ) : activeOrg !== null ? (
         <span className="text-sm text-muted-foreground">{activeOrg.name}</span>
+      ) : null}
+      {activeWorkspace !== null && workspaces.length > 1 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Switch workspace (current: ${activeWorkspace.name})`}
+              disabled={switchWorkspace.isPending}
+            >
+              <span aria-hidden="true">▣</span>
+              {activeWorkspace.name}
+              <span aria-hidden="true">⌄</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+            {workspaces.map((workspace) => (
+              <DropdownMenuItem
+                key={workspace.id}
+                disabled={
+                  activeWorkspace !== null &&
+                  (workspace.id === activeWorkspace.id || switchWorkspace.isPending)
+                }
+                onSelect={() => {
+                  switchWorkspace.mutate(workspace.id);
+                }}
+              >
+                <span>{workspace.name}</span>
+                {activeWorkspace !== null && workspace.id === activeWorkspace.id ? (
+                  <span aria-label="Current">✓</span>
+                ) : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : activeWorkspace !== null ? (
+        <span className="text-sm text-muted-foreground">{activeWorkspace.name}</span>
       ) : null}
       <Badge variant="secondary">{session.role}</Badge>
       {session.kind === 'session' ? (

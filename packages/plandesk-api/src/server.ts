@@ -26,7 +26,7 @@ import { createGoalsRouter } from './routes/goals.js';
 import { createSubmissionsRouter } from './routes/submissions.js';
 import { createOrgsRouter } from './routes/orgs.js';
 import { createServices, type Services } from './services/index.js';
-import { ProjectNotInOrgError } from './services/scope.js';
+import { ProjectNotInOrgError, WorkspaceNotFoundError } from './services/scope.js';
 import { ReadOnlyTokenError } from './auth-context.js';
 import { PermissionDeniedError } from './permissions.js';
 
@@ -107,6 +107,9 @@ export function createApp(deps: AppDeps): Hono {
 
   app.onError((err, c) => {
     if (err instanceof ProjectNotInOrgError) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    if (err instanceof WorkspaceNotFoundError) {
       return c.json({ error: 'not_found' }, 404);
     }
     if (err instanceof ReadOnlyTokenError || err instanceof PermissionDeniedError) {
