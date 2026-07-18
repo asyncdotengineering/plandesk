@@ -1,6 +1,6 @@
 {
   "name": "@plandesk/mcp",
-  "version": "1.0.0-beta.7",
+  "version": "1.0.0-beta.8",
   "type": "module",
   "exports": {
     ".": {
@@ -15,7 +15,7 @@
     "!dist/**/*.map"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.json",
     "test": "vitest run",
     "lint": "eslint src"
   },

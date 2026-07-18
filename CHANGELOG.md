@@ -4,6 +4,18 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [1.0.0-beta.8] — 2026-07-18
+
+Build hygiene + dead-code cleanup. No runtime behavior change.
+
+### Fixed
+
+- **Cleaner published packages.** Each package now wipes `dist/` before compiling (`rm -rf dist && tsc`), so orphaned build outputs never ship. Earlier beta tarballs of `@plandesk/api` carried stale compiled `events.*` files from the removed SSE stream; they're gone now.
+
+### Removed
+
+- Dead Server-Sent-Events remnants left over from the switch to polling: the SSE latency path in `scripts/metrics.mjs` (it measured the deleted `/api/v1/events` route), vestigial `EventSource` test stubs, and the stale compiled `events.*` artifacts. Reference docs were also corrected to describe polling (`~2.5s`) rather than SSE across the board.
+
 ## [1.0.0-beta.7] — 2026-07-18
 
 Second (and final) pass of the web user-flow audit — clears the 36 remaining items, so every one of the 134 audited flows now passes or is fixed (`AUDIT-SUMMARY.md`).
