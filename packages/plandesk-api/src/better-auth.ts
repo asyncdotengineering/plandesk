@@ -36,7 +36,11 @@ import { apiKey } from '@better-auth/api-key';
 import { LibsqlDialect } from '@libsql/kysely-libsql';
 import type { Client, Db } from '@plandesk/db';
 import { ac, admin, member, owner } from './access-control.js';
-import { provisionPersonalOrgIfNeeded, setDefaultActiveOrganization } from './identity.js';
+import {
+  provisionPersonalOrgIfNeeded,
+  setDefaultActiveOrganization,
+  setDefaultActiveTeam,
+} from './identity.js';
 
 export type BetterAuthDeps = {
   /** The app's existing libSQL connection — shared, never a second one. */
@@ -102,7 +106,17 @@ export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | und
                 after: async (session) => {
                   if (authInstance === undefined) return;
                   await provisionPersonalOrgIfNeeded(authInstance, appDb, session.userId);
-                  await setDefaultActiveOrganization(authInstance, session.userId, session.token);
+                  const activeOrgId = await setDefaultActiveOrganization(
+                    authInstance,
+                    session.userId,
+                    session.token,
+                  );
+                  await setDefaultActiveTeam(
+                    authInstance,
+                    session.userId,
+                    session.token,
+                    activeOrgId,
+                  );
                 },
               },
             },

@@ -26,6 +26,7 @@ type SessionRow = {
   token: string;
   userId: string;
   activeOrganizationId?: string | null;
+  activeTeamId?: string | null;
   updatedAt: Date;
 };
 
@@ -340,4 +341,57 @@ export async function setDefaultActiveOrganization(
 
   await context.internalAdapter.updateSession(sessionToken, { activeOrganizationId });
   return activeOrganizationId;
+}
+
+/** Persist the best active team for a newly-created session. */
+export async function setDefaultActiveTeam(
+  auth: BetterAuthInstance,
+  userId: string,
+  sessionToken: string,
+  activeOrganizationId: string | undefined,
+): Promise<string | undefined> {
+  if (activeOrganizationId === undefined) {
+    return undefined;
+  }
+
+  const context = await auth.$context;
+  const teamMembers = await context.adapter.findMany<TeamMemberRow>({
+    model: 'teamMember',
+    where: [{ field: 'userId', value: userId }],
+  });
+  if (teamMembers.length === 0) {
+    return undefined;
+  }
+
+  const candidateTeamIds = teamMembers.map((tm) => tm.teamId);
+  const teams = await context.adapter.findMany<TeamRow>({
+    model: 'team',
+    where: [{ field: 'id', value: candidateTeamIds, operator: 'in' }],
+  });
+  const orgTeamIds = new Set(
+    teams.filter((team) => team.organizationId === activeOrganizationId).map((team) => team.id),
+  );
+  if (orgTeamIds.size === 0) {
+    return undefined;
+  }
+
+  const sessions = await context.adapter.findMany<SessionRow>({
+    model: 'session',
+    where: [{ field: 'userId', value: userId }],
+    sortBy: { field: 'updatedAt', direction: 'desc' },
+  });
+  const priorActiveTeamId = sessions.find(
+    (session) =>
+      session.token !== sessionToken &&
+      session.activeTeamId !== undefined &&
+      session.activeTeamId !== null &&
+      orgTeamIds.has(session.activeTeamId),
+  )?.activeTeamId;
+  const activeTeamId = priorActiveTeamId ?? candidateTeamIds.find((id) => orgTeamIds.has(id));
+  if (activeTeamId === undefined) {
+    return undefined;
+  }
+
+  await context.internalAdapter.updateSession(sessionToken, { activeTeamId });
+  return activeTeamId;
 }
