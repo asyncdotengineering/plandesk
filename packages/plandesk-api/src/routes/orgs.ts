@@ -164,8 +164,9 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
   });
 
   /**
-   * BA3c: invite by email (link-only, no mailer). Session owner only
-   * (member:create). Returns claimUrl for the inviter to deliver by hand.
+   * BA3c: invite by email (link-only, no mailer). Owners and admins may invite
+   * (invitation:create); better-auth still blocks a non-owner inviting an owner.
+   * Returns claimUrl for the inviter to deliver by hand.
    */
   router.post('/orgs/:id/invitations', async (c) => {
     const orgId = c.req.param('id');
@@ -173,11 +174,11 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
       return c.json({ error: 'not_found' }, 404);
     }
     const authCtx = getOrgAuthContext();
-    // Session owner only — token/loopback cannot drive better-auth createInvitation.
+    // Session only — token/loopback cannot drive better-auth createInvitation.
     if (authCtx.kind !== 'session') {
       return c.json({ error: 'forbidden' }, 403);
     }
-    requirePermission(authCtx, 'member', 'create');
+    requirePermission(authCtx, 'invitation', 'create');
 
     if (betterAuth === undefined) {
       return c.json({ error: 'unavailable' }, 503);

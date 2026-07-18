@@ -17,6 +17,9 @@ plandesk-manager-notes.md
 *-implementation-notes.md
 *-scratchpad.md
 
+# wrangler local cache/state (Cloudflare Workers dev)
+.wrangler/
+
 # bundled SPA (build artifact, generated at pack time)
 packages/plandesk-api/web/
 .plandesk/server.json

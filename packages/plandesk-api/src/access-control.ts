@@ -40,6 +40,10 @@ export const member = ac.newRole(memberPermissions);
 export const admin = ac.newRole({
   ...memberPermissions,
   project: ['create', 'delete'],
+  // Admins can invite teammates (as member or admin) and cancel invites, but
+  // cannot manage members directly (member:update/delete) or mint owners —
+  // better-auth blocks a non-owner inviting the creatorRole. Owner-only stays owner-only.
+  invitation: ['create', 'cancel'],
 });
 export const owner = ac.newRole({
   ...memberPermissions,

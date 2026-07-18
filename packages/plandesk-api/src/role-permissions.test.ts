@@ -296,7 +296,7 @@ describe('role permission matrix (ba-hardening)', () => {
     await expectForbidden(res);
   });
 
-  it('member denies member:create (invitations)', async () => {
+  it('member denies invitation:create (invitations)', async () => {
     const { app, member, org } = await seedMatrix();
     const res = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
       method: 'POST',
@@ -354,12 +354,30 @@ describe('role permission matrix (ba-hardening)', () => {
     await expectForbidden(res);
   });
 
-  it('admin denies member:create (invitations)', async () => {
+  it('admin allows invitation:create (invite member and admin)', async () => {
+    const { app, admin, org } = await seedMatrix();
+    const asMember = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
+      method: 'POST',
+      headers: jsonHeaders(admin.cookie),
+      body: JSON.stringify({ email: 'admin-invites-member@example.com', role: 'member' }),
+    });
+    expect(asMember.status).toBe(201);
+    // Admins may also invite other admins (better-auth only blocks non-owners
+    // inviting owners).
+    const asAdmin = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
+      method: 'POST',
+      headers: jsonHeaders(admin.cookie),
+      body: JSON.stringify({ email: 'admin-invites-admin@example.com', role: 'admin' }),
+    });
+    expect(asAdmin.status).toBe(201);
+  });
+
+  it('admin denies inviting an owner (better-auth creatorRole guard)', async () => {
     const { app, admin, org } = await seedMatrix();
     const res = await app.request(`/api/v1/orgs/${org.id}/invitations`, {
       method: 'POST',
       headers: jsonHeaders(admin.cookie),
-      body: JSON.stringify({ email: 'admin-deny@example.com', role: 'member' }),
+      body: JSON.stringify({ email: 'admin-invites-owner@example.com', role: 'owner' }),
     });
     await expectForbidden(res);
   });

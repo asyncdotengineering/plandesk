@@ -19,7 +19,7 @@ export function Members() {
   const session = useAuthSession();
   const orgId = session.data?.org?.id;
   const role = session.data?.role;
-  const canInvite = role === 'owner';
+  const canInvite = role === 'owner' || role === 'admin';
 
   const membersQuery = useOrgMembers(orgId);
   const inviteMutation = useCreateOrgInvitation(orgId);
@@ -113,19 +113,15 @@ export function Members() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="border-b pb-4">
-          <CardTitle className="text-sm font-semibold">Invite teammate</CardTitle>
-          <CardDescription>
-            Create a claim link and deliver it by hand — Plan Desk does not send email.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-4">
-          {!canInvite ? (
-            <p role="status" className="text-sm text-muted-foreground">
-              Only organization owners can invite teammates.
-            </p>
-          ) : (
+      {canInvite ? (
+        <Card>
+          <CardHeader className="border-b pb-4">
+            <CardTitle className="text-sm font-semibold">Invite teammate</CardTitle>
+            <CardDescription>
+              Create a claim link and deliver it by hand — Plan Desk does not send email.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4">
             <form className="grid gap-4" onSubmit={(e) => void handleInvite(e)}>
               <div className="grid gap-2">
                 <Label htmlFor="invite-email">Email</Label>
@@ -165,9 +161,9 @@ export function Members() {
                 </p>
               ) : null}
             </form>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {claimUrl !== null ? (
         <Card className="border-[var(--s-prog-dot)] bg-[var(--s-prog-bg)]">

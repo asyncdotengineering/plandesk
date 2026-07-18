@@ -19,6 +19,14 @@ const memberSession = {
   orgs: [{ id: 'org-1', name: 'Acme', role: 'member' }],
 };
 
+const adminSession = {
+  kind: 'session' as const,
+  user_ref: 'user-3',
+  role: 'admin' as const,
+  org: { id: 'org-1', name: 'Acme' },
+  orgs: [{ id: 'org-1', name: 'Acme', role: 'admin' }],
+};
+
 const membersList = {
   members: [
     {
@@ -114,30 +122,14 @@ describe('Members invite UI (REQ-2c)', () => {
     );
   });
 
-  it('member (non-owner) cannot invite', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  it('member (non-owner) sees the roster but no invite card at all', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/auth/session')) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => memberSession,
-        };
+        return { ok: true, status: 200, json: async () => memberSession };
       }
       if (url.includes('/orgs/org-1/members')) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => membersList,
-        };
-      }
-      if (url.includes('/orgs/org-1/invitations') && init?.method === 'POST') {
-        return {
-          ok: false,
-          status: 403,
-          json: async () => ({ error: 'forbidden' }),
-          text: async () => JSON.stringify({ error: 'forbidden' }),
-        };
+        return { ok: true, status: 200, json: async () => membersList };
       }
       return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
     });
@@ -145,15 +137,51 @@ describe('Members invite UI (REQ-2c)', () => {
 
     renderMembers();
 
+    // Roster is visible to members…
     await waitFor(() => {
-      expect(screen.getByText(/only organization owners can invite/i)).toBeTruthy();
+      expect(screen.getByText('owner@acme.com')).toBeTruthy();
     });
+    // …but the invite affordance is hidden entirely, not shown-disabled.
+    expect(screen.queryByText(/invite teammate/i)).toBeNull();
     expect(screen.queryByRole('button', { name: /^invite$/i })).toBeNull();
+    expect(screen.queryByLabelText(/email/i)).toBeNull();
 
     const invitePosts = fetchMock.mock.calls.filter(
       ([url, init]) =>
         String(url).includes('/invitations') && (init as RequestInit | undefined)?.method === 'POST',
     );
     expect(invitePosts).toHaveLength(0);
+  });
+
+  it('admin can invite (form present; posts to invitations)', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/session')) {
+        return { ok: true, status: 200, json: async () => adminSession };
+      }
+      if (url.includes('/orgs/org-1/members') && (init?.method === undefined || init.method === 'GET')) {
+        return { ok: true, status: 200, json: async () => membersList };
+      }
+      if (url.includes('/orgs/org-1/invitations') && init?.method === 'POST') {
+        return { ok: true, status: 201, json: async () => createdInvite };
+      }
+      return { ok: false, status: 404, json: async () => ({ error: 'not_found' }), text: async () => '' };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderMembers();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^invite$/i })).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByLabelText(/email/i), {
+      target: { value: 'teammate@acme.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^invite$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(createdInvite.claimUrl)).toBeTruthy();
+    });
   });
 });

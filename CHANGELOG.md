@@ -4,6 +4,13 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [1.0.0-beta.4] — 2026-07-18
+
+### Changed
+
+- **Admins can invite teammates.** Invite authority now covers **owners and admins** (previously owner-only): both can invite as `member` or `admin`. Only owners can mint other owners — better-auth blocks a non-owner inviting an owner. Members still cannot invite. The invite route now checks `invitation:create` (admins gained it) instead of `member:create`; direct member management (`member:update`/`delete`) stays owner-only.
+- **Members page hides the invite card for non-inviters.** A member (who cannot invite) now sees only the roster — the invite form is hidden entirely rather than shown with a disabled "only owners can invite" note. Owners and admins see the invite form.
+
 ## [1.0.0-beta.3] — 2026-07-18
 
 Production-hardening pass on the hosted control plane.

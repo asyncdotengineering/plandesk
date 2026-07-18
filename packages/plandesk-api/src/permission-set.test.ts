@@ -24,6 +24,7 @@ describe('permission set ladder equivalence', () => {
     expect(hasPermission(memberSet, 'member', 'create')).toBe(false);
 
     expect(hasPermission(adminSet, 'project', 'create')).toBe(true);
+    expect(hasPermission(adminSet, 'invitation', 'create')).toBe(true);
     expect(hasPermission(adminSet, 'member', 'create')).toBe(false);
 
     expect(hasPermission(ownerSet, 'member', 'create')).toBe(true);

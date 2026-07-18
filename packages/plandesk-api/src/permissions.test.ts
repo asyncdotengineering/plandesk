@@ -16,6 +16,7 @@ describe('permissions model', () => {
     expect(hasPermission(memberSet, 'task', 'update')).toBe(true);
     expect(hasPermission(memberSet, 'project', 'create')).toBe(false);
     expect(hasPermission(adminSet, 'project', 'create')).toBe(true);
+    expect(hasPermission(adminSet, 'invitation', 'create')).toBe(true);
     expect(hasPermission(adminSet, 'member', 'create')).toBe(false);
     expect(hasPermission(ownerSet, 'member', 'create')).toBe(true);
     expect(hasPermission(ownerSet, 'apiKey', 'create')).toBe(true);

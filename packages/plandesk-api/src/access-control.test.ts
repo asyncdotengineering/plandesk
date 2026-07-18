@@ -9,6 +9,8 @@ describe('better-auth access-control model', () => {
     expect(member.authorize({ apiKey: ['create'] }).success).toBe(false);
 
     expect(admin.authorize({ project: ['create'] }).success).toBe(true);
+    // Admins can invite (invitation:create) but not manage members directly.
+    expect(admin.authorize({ invitation: ['create'] }).success).toBe(true);
     expect(admin.authorize({ member: ['create'] }).success).toBe(false);
 
     expect(owner.authorize({ member: ['create'] }).success).toBe(true);
