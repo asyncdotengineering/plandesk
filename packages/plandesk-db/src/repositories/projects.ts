@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
 import { projects } from '../schema.js';
 
@@ -62,6 +62,11 @@ export type ListProjectsOptions = {
   limit?: number;
   offset?: number;
   workspaceId?: string;
+  /**
+   * Restrict to projects in this set of workspaces (session members gated to
+   * their teams). Empty array → no projects (fail-closed).
+   */
+  workspaceIds?: string[];
 };
 
 export async function listProjects(
@@ -69,10 +74,17 @@ export async function listProjects(
   orgId: string,
   options?: ListProjectsOptions,
 ): Promise<Project[]> {
-  const filter =
-    options?.workspaceId !== undefined
-      ? and(eq(projects.orgId, orgId), eq(projects.workspaceId, options.workspaceId))
-      : eq(projects.orgId, orgId);
+  if (options?.workspaceIds !== undefined && options.workspaceIds.length === 0) {
+    return [];
+  }
+  const conditions = [eq(projects.orgId, orgId)];
+  if (options?.workspaceId !== undefined) {
+    conditions.push(eq(projects.workspaceId, options.workspaceId));
+  }
+  if (options?.workspaceIds !== undefined) {
+    conditions.push(inArray(projects.workspaceId, options.workspaceIds));
+  }
+  const filter = conditions.length === 1 ? conditions[0]! : and(...conditions);
   let query = db.select().from(projects).where(filter).$dynamic();
   if (options?.limit !== undefined) {
     query = query.limit(options.limit);

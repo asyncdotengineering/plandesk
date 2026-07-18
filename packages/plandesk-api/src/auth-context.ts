@@ -14,10 +14,17 @@ export type AuthContext =
       orgId: string;
       /** Stable identity, e.g. `github:<numeric id>` — never the login. */
       userRef: string;
+      /** better-auth user id owning this session. */
+      userId: string;
       /** better-auth org role (owner/admin/member) for display. */
       role: OrgRole;
       /** Resolved permission set for resource:action checks. */
       permission: PermissionSet;
+      /**
+       * Workspace (team) ids in this org the user is a `teamMember` of. Gates a
+       * member to their own workspaces; owner/admin bypass by role (see scope.ts).
+       */
+      memberWorkspaceIds: string[];
     }
   | {
       kind: 'loopback';

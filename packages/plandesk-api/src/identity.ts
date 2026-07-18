@@ -414,6 +414,36 @@ export async function setDefaultActiveOrganization(
   return activeOrganizationId;
 }
 
+/**
+ * The workspace (team) ids in `organizationId` that `userId` is a `teamMember`
+ * of, in teamMember-row order. Gates a session member to their own workspaces
+ * (owner/admin bypass by role); also backs the active-team self-heal. Empty
+ * when the user belongs to no team in the org.
+ */
+export async function listMemberWorkspaceIds(
+  auth: BetterAuthInstance,
+  userId: string,
+  organizationId: string,
+): Promise<string[]> {
+  const context = await auth.$context;
+  const teamMembers = await context.adapter.findMany<TeamMemberRow>({
+    model: 'teamMember',
+    where: [{ field: 'userId', value: userId }],
+  });
+  if (teamMembers.length === 0) {
+    return [];
+  }
+  const candidateTeamIds = teamMembers.map((tm) => tm.teamId);
+  const teams = await context.adapter.findMany<TeamRow>({
+    model: 'team',
+    where: [{ field: 'id', value: candidateTeamIds, operator: 'in' }],
+  });
+  const orgTeamIds = new Set(
+    teams.filter((team) => team.organizationId === organizationId).map((team) => team.id),
+  );
+  return candidateTeamIds.filter((id) => orgTeamIds.has(id));
+}
+
 /** Persist the best active team for a newly-created session. */
 export async function setDefaultActiveTeam(
   auth: BetterAuthInstance,
@@ -425,27 +455,13 @@ export async function setDefaultActiveTeam(
     return undefined;
   }
 
+  const orgTeamIds = await listMemberWorkspaceIds(auth, userId, activeOrganizationId);
+  if (orgTeamIds.length === 0) {
+    return undefined;
+  }
+  const orgTeamIdSet = new Set(orgTeamIds);
+
   const context = await auth.$context;
-  const teamMembers = await context.adapter.findMany<TeamMemberRow>({
-    model: 'teamMember',
-    where: [{ field: 'userId', value: userId }],
-  });
-  if (teamMembers.length === 0) {
-    return undefined;
-  }
-
-  const candidateTeamIds = teamMembers.map((tm) => tm.teamId);
-  const teams = await context.adapter.findMany<TeamRow>({
-    model: 'team',
-    where: [{ field: 'id', value: candidateTeamIds, operator: 'in' }],
-  });
-  const orgTeamIds = new Set(
-    teams.filter((team) => team.organizationId === activeOrganizationId).map((team) => team.id),
-  );
-  if (orgTeamIds.size === 0) {
-    return undefined;
-  }
-
   const sessions = await context.adapter.findMany<SessionRow>({
     model: 'session',
     where: [{ field: 'userId', value: userId }],
@@ -456,9 +472,9 @@ export async function setDefaultActiveTeam(
       session.token !== sessionToken &&
       session.activeTeamId !== undefined &&
       session.activeTeamId !== null &&
-      orgTeamIds.has(session.activeTeamId),
+      orgTeamIdSet.has(session.activeTeamId),
   )?.activeTeamId;
-  const activeTeamId = priorActiveTeamId ?? candidateTeamIds.find((id) => orgTeamIds.has(id));
+  const activeTeamId = priorActiveTeamId ?? orgTeamIds[0];
   if (activeTeamId === undefined) {
     return undefined;
   }

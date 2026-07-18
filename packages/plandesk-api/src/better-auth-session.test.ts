@@ -232,10 +232,16 @@ describe('better-auth session recognition (BA4a)', () => {
       role: 'owner',
     });
     const projectA = await createProject(db, { name: 'Personal board', orgId: orgA.id });
-    const projectB = await createProject(db, { name: 'Team board', orgId: orgB.id });
 
     // Invitations are workspace-scoped (RFC§5): orgB's owner invites to orgB's default team.
+    // projectB lives in that team so an accepted member (a teamMember of it) can reach it —
+    // RFC§12 gates session members to their own workspaces.
     const orgBTeamId = await ensureDefaultTeamForOrg(auth, orgB.id);
+    const projectB = await createProject(db, {
+      name: 'Team board',
+      orgId: orgB.id,
+      workspaceId: orgBTeamId,
+    });
 
     const invite = await app.request(`/api/v1/orgs/${orgB.id}/invitations`, {
       method: 'POST',

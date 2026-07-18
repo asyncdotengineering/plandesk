@@ -205,6 +205,13 @@ export function createProjectService(deps: ProjectServiceDeps) {
     async list(pagination: PaginationParams = {}) {
       const orgId = resolveOrgId(deps);
       const ctx = tryGetAuthContext();
+      // RFC§12: a session member sees only projects in their workspaces.
+      // Owner/admin and other contexts keep their existing scoping below.
+      if (ctx?.kind === 'session' && ctx.role === 'member') {
+        return (
+          await dbListProjects(db, orgId, { ...pagination, workspaceIds: ctx.memberWorkspaceIds })
+        ).map(serializeProject);
+      }
       const workspaceId =
         (ctx?.kind === 'apikey' || ctx?.kind === 'loopback') && ctx.workspaceId !== undefined
           ? ctx.workspaceId

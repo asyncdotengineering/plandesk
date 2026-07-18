@@ -48,5 +48,16 @@ export async function assertProjectInOrg(
   ) {
     throw new ProjectNotInOrgError(projectId);
   }
+  // RFC§12: a session member may reach only projects in workspaces they belong
+  // to (a teamMember row in the active org). Owner/admin manage the org and
+  // bypass this gate. Same 404 no-leak shape as the cross-workspace guard.
+  if (
+    ctx !== undefined &&
+    ctx.kind === 'session' &&
+    ctx.role === 'member' &&
+    !ctx.memberWorkspaceIds.includes(project.workspaceId)
+  ) {
+    throw new ProjectNotInOrgError(projectId);
+  }
   return project;
 }

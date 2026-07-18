@@ -14,7 +14,7 @@ import {
 } from './agent-keys.js';
 import { runWithAuthContext, tryGetAuthContext, type AuthContext } from './auth-context.js';
 import type { BetterAuthInstance } from './better-auth.js';
-import { userRefFromGithubAccountId } from './identity.js';
+import { userRefFromGithubAccountId, listMemberWorkspaceIds } from './identity.js';
 import { resolveDefaultOrganization } from './organizations.js';
 import {
   hasAnyWritePermission,
@@ -172,8 +172,10 @@ async function resolveBetterAuthSessionContext(
     kind: 'session',
     orgId: active.organizationId,
     userRef,
+    userId,
     role,
     permission: orgRoleToPermissionSet(role),
+    memberWorkspaceIds: await listMemberWorkspaceIds(auth, userId, active.organizationId),
   };
 }
 
