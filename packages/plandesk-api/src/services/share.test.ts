@@ -294,6 +294,7 @@ describe('shareService', () => {
     const syncService = createSyncService({
       db,
       taskService,
+      orgId,
     });
 
     vi.stubGlobal(

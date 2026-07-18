@@ -151,6 +151,17 @@ export function createSyncService(deps: SyncServiceDeps) {
   return {
     async pull(projectId: string, remote: SyncRemote): Promise<{ pulled: number }> {
       assertPermission(deps, 'task', 'update');
+      // Cross-scope chokepoint: a workspace-A key must not pull a remote into
+      // (or read state from) a project outside its scope. Same 404 no-leak
+      // shape as the rest of the service: out-of-scope → no rows pulled.
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return { pulled: 0 };
+        }
+        throw error;
+      }
       const cursor = await getPullCursor(db, projectId);
       const base = remote.serverUrl.replace(/\/$/, '');
       const url = new URL(
@@ -227,6 +238,14 @@ export function createSyncService(deps: SyncServiceDeps) {
 
     async setRemote(projectId: string, remote: SyncRemote): Promise<void> {
       assertPermission(deps, 'task', 'update');
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return;
+        }
+        throw error;
+      }
       await setSyncRemote(db, projectId, {
         serverUrl: remote.serverUrl,
         globalProjectId: remote.globalProjectId,
@@ -235,6 +254,14 @@ export function createSyncService(deps: SyncServiceDeps) {
     },
 
     async getRemote(projectId: string): Promise<SyncRemote | undefined> {
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       const row = await getSyncRemote(db, projectId);
       if (row === undefined) {
         return undefined;

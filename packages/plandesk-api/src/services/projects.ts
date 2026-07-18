@@ -31,6 +31,7 @@ import {
   listTasks,
   updateProject as dbUpdateProject,
   type Db,
+  type DbClient,
   type Document,
   type Edge,
   type Task,
@@ -98,6 +99,10 @@ export type ScaffoldPlanInput = {
   /** Name for a new project. Required when projectId is omitted; ignored when it is set. */
   name?: string;
   description?: string | null;
+  /** Target workspace (team) for a new project. A workspace/project-scoped agent
+   * key must target its own scope (or omit this to default to it); a mismatch is
+   * a 404. Ignored when projectId is set. */
+  workspaceId?: string;
   tasks: ScaffoldTaskInput[];
   edges?: ScaffoldEdgeInput[];
   documents?: ScaffoldDocumentInput[];
@@ -150,6 +155,55 @@ function validateScaffoldInput(input: ScaffoldPlanInput): void {
   }
 }
 
+/**
+ * Resolve the workspace a new project lands in. A workspace/project-scoped
+ * agent key is forced into its own workspace (no explicit target, or a target
+ * that must equal its scope); an org-wide caller may pass a workspace
+ * (validated in-org) or fall back to the org default. Shared by create() and
+ * scaffoldFromPlan() so the two new-project paths cannot drift again.
+ */
+async function resolveWorkspaceForNewProject(
+  deps: ProjectServiceDeps,
+  client: DbClient,
+  requestedWorkspaceId: string | undefined,
+): Promise<string> {
+  const orgId = resolveOrgId(deps);
+  const ctx = tryGetAuthContext();
+  let callerWorkspaceId: string | undefined;
+  if (ctx?.kind === 'apikey') {
+    if (ctx.workspaceId !== undefined) {
+      callerWorkspaceId = ctx.workspaceId;
+    } else if (ctx.projectId !== undefined) {
+      callerWorkspaceId = (await getProjectInOrg(client, ctx.projectId, orgId))?.workspaceId;
+    }
+  }
+
+  let workspaceId: string | undefined;
+  if (requestedWorkspaceId !== undefined && requestedWorkspaceId.length > 0) {
+    if (deps.auth === undefined) {
+      throw new WorkspaceNotFoundError(requestedWorkspaceId);
+    }
+    const team = await getTeamInOrg(deps.auth, requestedWorkspaceId, orgId);
+    if (team === undefined) {
+      throw new WorkspaceNotFoundError(requestedWorkspaceId);
+    }
+    workspaceId = team.id;
+  } else if (callerWorkspaceId !== undefined) {
+    // Scoped key without an explicit target: force its own workspace so it
+    // can never land a project in the org-default (or any other) workspace.
+    workspaceId = callerWorkspaceId;
+  } else {
+    workspaceId = deps.auth ? await ensureDefaultTeamForOrg(deps.auth, orgId) : undefined;
+  }
+  if (workspaceId === undefined) {
+    throw new Error('cannot resolve workspace for project');
+  }
+  if (callerWorkspaceId !== undefined && workspaceId !== callerWorkspaceId) {
+    throw new WorkspaceNotFoundError(workspaceId);
+  }
+  return workspaceId;
+}
+
 export type ProjectServiceDeps = OrgScopedDeps & {
   db: Db;
   auth?: BetterAuthInstance;
@@ -181,43 +235,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     async create(input: CreateProjectInput) {
       assertPermission(deps, 'project', 'create');
       const orgId = resolveOrgId(deps);
-      const ctx = tryGetAuthContext();
-      // A workspace/project-scoped agent key may only create projects inside
-      // its own workspace (undefined = org-wide caller: session/owner key).
-      let callerWorkspaceId: string | undefined;
-      if (ctx?.kind === 'apikey') {
-        if (ctx.workspaceId !== undefined) {
-          callerWorkspaceId = ctx.workspaceId;
-        } else if (ctx.projectId !== undefined) {
-          callerWorkspaceId = (await getProjectInOrg(db, ctx.projectId, orgId))?.workspaceId;
-        }
-      }
-
-      let workspaceId: string | undefined;
-      if (input.workspaceId !== undefined && input.workspaceId.length > 0) {
-        if (deps.auth === undefined) {
-          throw new WorkspaceNotFoundError(input.workspaceId);
-        }
-        const team = await getTeamInOrg(deps.auth, input.workspaceId, orgId);
-        if (team === undefined) {
-          throw new WorkspaceNotFoundError(input.workspaceId);
-        }
-        workspaceId = team.id;
-      } else if (callerWorkspaceId !== undefined) {
-        // Scoped key without an explicit target: force its own workspace so it
-        // can never land a project in the org-default (or any other) workspace.
-        workspaceId = callerWorkspaceId;
-      } else {
-        workspaceId = deps.auth
-          ? await ensureDefaultTeamForOrg(deps.auth, orgId)
-          : undefined;
-      }
-      if (workspaceId === undefined) {
-        throw new Error('cannot resolve workspace for project');
-      }
-      if (callerWorkspaceId !== undefined && workspaceId !== callerWorkspaceId) {
-        throw new WorkspaceNotFoundError(workspaceId);
-      }
+      const workspaceId = await resolveWorkspaceForNewProject(deps, db, input.workspaceId);
       const project = await dbCreateProject(db, { ...input, orgId, workspaceId });
       return serializeProject(project);
     },
@@ -395,12 +413,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
               'name is required to create a new project (or pass projectId to add to an existing one)',
             );
           }
-          const workspaceId = deps.auth
-            ? await ensureDefaultTeamForOrg(deps.auth, orgId)
-            : undefined;
-          if (workspaceId === undefined) {
-            throw new Error('cannot resolve workspace for project');
-          }
+          const workspaceId = await resolveWorkspaceForNewProject(deps, tx, input.workspaceId);
           const project = await dbCreateProject(tx, {
             name: input.name,
             description: input.description,

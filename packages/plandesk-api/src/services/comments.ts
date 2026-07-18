@@ -8,6 +8,7 @@ import {
   getTask,
   listCommentsByProject as dbListCommentsByProject,
   listCommentsByTarget as dbListCommentsByTarget,
+  listCommentsByTargetInProject as dbListCommentsByTargetInProject,
   updateComment as dbUpdateComment,
   type CommentTargetType,
   type Db,
@@ -153,9 +154,11 @@ export function createCommentService(deps: CommentServiceDeps) {
         }
         throw error;
       }
-      return (await dbListCommentsByTarget(db, 'artifact', artifactId, options)).map(
-        serializeComment,
-      );
+      // Artifact ids (file paths) are not globally unique — scope by projectId
+      // so project A's list never returns project B's same-path comment.
+      return (
+        await dbListCommentsByTargetInProject(db, 'artifact', artifactId, projectId, options)
+      ).map(serializeComment);
     },
 
     async listByTarget(

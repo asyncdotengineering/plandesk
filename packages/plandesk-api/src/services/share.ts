@@ -431,6 +431,16 @@ export function createShareService(deps: ShareServiceDeps) {
       if (scopedWorkspaceId !== undefined && scopedWorkspaceId !== workspaceId) {
         return undefined;
       }
+      // A session member may only publish a workspace they belong to (a
+      // teamMember row in this org); a workspace outside that set is a 404
+      // even within the same org. Owner/admin bypass by role.
+      if (
+        ctx?.kind === 'session' &&
+        ctx.role === 'member' &&
+        !ctx.memberWorkspaceIds.includes(workspaceId)
+      ) {
+        return undefined;
+      }
       const team = await getTeamInOrg(deps.auth, workspaceId, resolveOrgId(deps));
       if (team === undefined) {
         return undefined;

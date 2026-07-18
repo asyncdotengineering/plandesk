@@ -77,6 +77,32 @@ export async function listCommentsByTarget(
     .all();
 }
 
+// Artifact comments are keyed by a file identity (content-hash+path) that is
+// NOT globally unique — two projects can legitimately share the same path, so
+// listing by target alone bleeds rows across projects. Always scope by projectId.
+export async function listCommentsByTargetInProject(
+  db: DbClient,
+  targetType: CommentTargetType,
+  targetId: string,
+  projectId: string,
+  options?: ListCommentsOptions,
+): Promise<Comment[]> {
+  const conditions = [
+    eq(comments.targetType, targetType),
+    eq(comments.targetId, targetId),
+    eq(comments.projectId, projectId),
+  ];
+  if (!options?.includeResolved) {
+    conditions.push(eq(comments.resolved, false));
+  }
+  return db
+    .select()
+    .from(comments)
+    .where(and(...conditions))
+    .orderBy(asc(comments.createdAt))
+    .all();
+}
+
 export async function listCommentsByProject(
   db: DbClient,
   projectId: string,
