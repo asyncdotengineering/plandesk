@@ -5,7 +5,11 @@ export {
   type BetterAuthDeps,
   type BetterAuthInstance,
 } from './better-auth.js';
-export { ensureLocalBetterAuthOrganization } from './identity.js';
+export {
+  backfillDefaultTeams,
+  ensureDefaultTeamForOrg,
+  ensureLocalBetterAuthOrganization,
+} from './identity.js';
 export {
   createAuthMiddleware,
   createOrgAuthMiddleware,

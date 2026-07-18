@@ -36,6 +36,20 @@ type OrganizationRow = {
   createdAt: Date;
 };
 
+type TeamRow = {
+  id: string;
+  name: string;
+  organizationId: string;
+  createdAt: Date;
+};
+
+type TeamMemberRow = {
+  id: string;
+  teamId: string;
+  userId: string;
+  createdAt: Date;
+};
+
 export type IdentityOrganization = Pick<OrganizationRow, 'id' | 'name' | 'slug'> & {
   role: string;
 };
@@ -100,12 +114,85 @@ export async function resolveOrganizationsForGithubIdentity(
  * Ensure the well-known local better-auth organization exists (user-less).
  * Idempotent. Used at serve boot for loopback owner-by-bind.
  */
+export async function ensureDefaultTeamForOrg(
+  auth: BetterAuthInstance,
+  organizationId: string,
+  _orgName?: string,
+): Promise<string> {
+  const adapter = (await auth.$context).adapter;
+  const existingTeams = await adapter.findMany<TeamRow>({
+    model: 'team',
+    where: [{ field: 'organizationId', value: organizationId }],
+  });
+  let team: TeamRow;
+  if (existingTeams.length > 0) {
+    team = existingTeams[0]!;
+  } else {
+    const now = new Date();
+    team = await adapter.create<TeamRow>({
+      model: 'team',
+      data: {
+        name: 'General',
+        organizationId,
+        createdAt: now,
+      },
+    });
+  }
+
+  const members = await adapter.findMany<MemberRow>({
+    model: 'member',
+    where: [{ field: 'organizationId', value: organizationId }],
+  });
+  const existingTeamMembers = await adapter.findMany<TeamMemberRow>({
+    model: 'teamMember',
+    where: [{ field: 'teamId', value: team.id }],
+  });
+  const userIdsInTeam = new Set(existingTeamMembers.map((tm) => tm.userId));
+  const now = new Date();
+  for (const member of members) {
+    if (!userIdsInTeam.has(member.userId)) {
+      await adapter.create<TeamMemberRow>({
+        model: 'teamMember',
+        data: {
+          teamId: team.id,
+          userId: member.userId,
+          createdAt: now,
+        },
+      });
+    }
+  }
+  return team.id;
+}
+
+export async function backfillDefaultTeams(
+  auth: BetterAuthInstance,
+): Promise<{ orgsProcessed: number; teamsCreated: number }> {
+  const adapter = (await auth.$context).adapter;
+  const orgs = await adapter.findMany<OrganizationRow>({
+    model: 'organization',
+  });
+  let teamsCreated = 0;
+  for (const org of orgs) {
+    const existingTeams = await adapter.findMany<TeamRow>({
+      model: 'team',
+      where: [{ field: 'organizationId', value: org.id }],
+    });
+    const hadTeam = existingTeams.length > 0;
+    await ensureDefaultTeamForOrg(auth, org.id, org.name);
+    if (!hadTeam) {
+      teamsCreated++;
+    }
+  }
+  return { orgsProcessed: orgs.length, teamsCreated };
+}
+
 export async function ensureLocalBetterAuthOrganization(
   _db: Db,
   auth: BetterAuthInstance,
 ): Promise<OrganizationSummary> {
   const existing = await getOrganizationById(auth, DEFAULT_ORG_ID);
   if (existing !== undefined) {
+    await ensureDefaultTeamForOrg(auth, DEFAULT_ORG_ID, 'Personal');
     return existing;
   }
 
@@ -122,6 +209,7 @@ export async function ensureLocalBetterAuthOrganization(
     data,
     forceAllowId: true,
   });
+  await ensureDefaultTeamForOrg(auth, DEFAULT_ORG_ID, 'Personal');
   return {
     id: created.id,
     name: created.name,
@@ -191,6 +279,7 @@ export async function provisionPersonalOrgIfNeeded(
       createdAt: now,
     },
   });
+  await ensureDefaultTeamForOrg(auth, organization.id, organization.name);
 
   return { created: true, orgId: organization.id, role: 'owner' };
 }

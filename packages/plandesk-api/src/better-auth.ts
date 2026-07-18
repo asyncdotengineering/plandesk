@@ -109,7 +109,7 @@ export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | und
           },
         }),
     plugins: [
-      organization({ ac, roles: { owner, admin, member } }),
+      organization({ ac, roles: { owner, admin, member }, teams: { enabled: true } }),
       // enableMetadata: projectId + orgId on agent keys (BA5). Rate limit off —
       // agent traffic is bursty; ceilings are permission-based, not request-count.
       apiKey({ enableMetadata: true, rateLimit: { enabled: false } }),
