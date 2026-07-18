@@ -25,6 +25,8 @@ export type AuthContext =
       /** REQ-21: local loopback single-org is always owner — no login. */
       role: 'owner';
       permission: PermissionSet;
+      /** Optional local workspace scope from the x-plandesk-workspace-id header; not a security boundary. */
+      workspaceId?: string;
     }
   | {
       kind: 'apikey';

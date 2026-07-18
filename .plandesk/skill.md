@@ -14,8 +14,12 @@ Never guess or hardcode a Plan Desk project, task, or document ID. Resolve the
 project as below; look up tasks/documents by name and use the returned ID.
 
 ## Resolving the project
-1. Read `.plandesk/config.json`. If `projectId` is present, use it. Stop here —
-   do not ask which project.
+1. Read `.plandesk/config.json`.
+   - If `projectId` is present (v1 config), use it. Stop here — do not ask which project.
+   - If `workspaceId` is present (v2 config), the repo is **workspace-bound**.
+     `list_projects` returns only that workspace's projects. Resolve the target
+     project within the bound workspace. A project id outside the workspace is
+     not found.
 2. (Fallback, only if no config file) check conversation history for a named
    project; then the working-directory name for a close match; then an explicit
    name in the request.

@@ -490,9 +490,11 @@ function buildArtifacts(
   }
 
   const mcpPath = join(options.repoDir, '.mcp.json');
+  const workspaceIdForMcp =
+    workspace !== undefined ? workspace.id : (project?.workspace_id ?? undefined);
   artifacts.push({
     path: mcpPath,
-    content: mergeMcpJson(readOptionalFile(mcpPath), serverUrl),
+    content: mergeMcpJson(readOptionalFile(mcpPath), serverUrl, workspaceIdForMcp),
     action: existsSync(mcpPath) ? 'update' : 'create',
   });
 

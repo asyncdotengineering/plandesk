@@ -439,11 +439,15 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
           // organization table missing / adapter error — keep DEFAULT_ORG_ID
         }
       }
+      const headerWorkspaceId = c.req.header('x-plandesk-workspace-id');
       const ctx: AuthContext = {
         kind: 'loopback',
         orgId,
         role: 'owner',
         permission: orgRoleToPermissionSet('owner'),
+        ...(headerWorkspaceId !== undefined && headerWorkspaceId.trim() !== ''
+          ? { workspaceId: headerWorkspaceId.trim() }
+          : {}),
       };
       await runWithAuthContext(ctx, async () => {
         await next();

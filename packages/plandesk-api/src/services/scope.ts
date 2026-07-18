@@ -34,7 +34,7 @@ export async function assertProjectInOrg(
   }
   if (
     ctx !== undefined &&
-    ctx.kind === 'apikey' &&
+    (ctx.kind === 'apikey' || ctx.kind === 'loopback') &&
     ctx.workspaceId !== undefined &&
     project.workspaceId !== ctx.workspaceId
   ) {

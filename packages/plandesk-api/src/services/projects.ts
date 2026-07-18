@@ -189,7 +189,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
       const orgId = resolveOrgId(deps);
       const ctx = tryGetAuthContext();
       const workspaceId =
-        ctx?.kind === 'apikey' && ctx.workspaceId !== undefined ? ctx.workspaceId : undefined;
+        (ctx?.kind === 'apikey' || ctx?.kind === 'loopback') && ctx.workspaceId !== undefined
+          ? ctx.workspaceId
+          : undefined;
       return (await dbListProjects(db, orgId, { ...pagination, workspaceId })).map(
         serializeProject,
       );

@@ -285,21 +285,32 @@ export function buildHeadersHelper(): string {
   );
 }
 
-export function buildMcpServerEntry(serverUrl: string): NonNullable<McpJson['mcpServers']>[string] {
-  return {
+export function buildMcpServerEntry(
+  serverUrl: string,
+  workspaceId?: string,
+): NonNullable<McpJson['mcpServers']>[string] {
+  const entry: NonNullable<McpJson['mcpServers']>[string] = {
     type: 'http',
     url: buildMcpUrl(serverUrl),
     headersHelper: buildHeadersHelper(),
   };
+  if (workspaceId !== undefined && workspaceId.trim() !== '') {
+    entry.headers = { 'x-plandesk-workspace-id': workspaceId.trim() };
+  }
+  return entry;
 }
 
-export function mergeMcpJson(existingContent: string | undefined, serverUrl: string): string {
+export function mergeMcpJson(
+  existingContent: string | undefined,
+  serverUrl: string,
+  workspaceId?: string,
+): string {
   let doc: McpJson = {};
   if (existingContent !== undefined && existingContent.trim() !== '') {
     doc = JSON.parse(existingContent) as McpJson;
   }
   const servers = doc.mcpServers ?? {};
-  servers[MCP_SERVER_KEY] = buildMcpServerEntry(serverUrl);
+  servers[MCP_SERVER_KEY] = buildMcpServerEntry(serverUrl, workspaceId);
   doc.mcpServers = servers;
   return `${JSON.stringify(doc, null, 2)}\n`;
 }
