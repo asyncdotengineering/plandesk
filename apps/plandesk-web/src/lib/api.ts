@@ -9,6 +9,7 @@ export const edgeLabels = [
   'clarifies',
   'enables',
   'supports',
+  'relates',
 ] as const;
 export type EdgeLabel = (typeof edgeLabels)[number];
 export const DEFAULT_EDGE_LABEL: EdgeLabel = 'depends_on';

@@ -368,6 +368,30 @@ describe('Board', () => {
     });
   });
 
+  it('shows a comments rail inside the task drawer', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((path: string) => {
+        if (typeof path === 'string' && path.includes('/comments')) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([]) });
+        }
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([]) });
+      }),
+    );
+
+    renderBoard([makeTask('t1', 'Commented card', 'todo')]);
+
+    fireEvent.click(screen.getByText('Commented card'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Task details')).toBeTruthy();
+    });
+
+    // The CommentsPanel renders inside the drawer with the task target.
+    await waitFor(() => {
+      expect(screen.getByText(/no comments yet/i)).toBeTruthy();
+    });
+  });
+
   it('createTask posts with label and column status', async () => {
     vi.stubGlobal(
       'fetch',

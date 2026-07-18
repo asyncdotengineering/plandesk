@@ -93,13 +93,23 @@ export function PortalPage({ view, shareToken, sessionToken, onUnauthorized }: P
             {view.edges.map((edge) => {
               const fromLabel = taskLabelById.get(edge.from) ?? edge.from;
               const toLabel = taskLabelById.get(edge.to) ?? edge.to;
-              const labelSuffix = edge.label !== null ? ` (${edge.label})` : '';
+              let sentence: string;
+              switch (edge.label) {
+                case 'depends_on':
+                  sentence = `${toLabel} must finish before ${fromLabel}`;
+                  break;
+                case 'blocks':
+                  sentence = `${fromLabel} blocks ${toLabel}`;
+                  break;
+                case 'feeds':
+                  sentence = `${fromLabel} feeds into ${toLabel}`;
+                  break;
+                default:
+                  sentence = `${fromLabel} → ${toLabel}`;
+              }
               return (
                 <li key={edge.id}>
-                  <Card className="px-3 py-2 text-sm shadow-sm">
-                    {fromLabel} → {toLabel}
-                    {labelSuffix}
-                  </Card>
+                  <Card className="px-3 py-2 text-sm shadow-sm">{sentence}</Card>
                 </li>
               );
             })}
@@ -133,6 +143,7 @@ export function PortalPage({ view, shareToken, sessionToken, onUnauthorized }: P
           <SubmitIssue
             shareToken={shareToken}
             sessionToken={sessionToken}
+            tasks={view.tasks}
             onSubmitted={handleSubmitted}
             onUnauthorized={onUnauthorized}
           />

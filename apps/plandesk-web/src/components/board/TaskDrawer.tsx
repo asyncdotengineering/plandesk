@@ -6,6 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -15,8 +22,9 @@ import type { RichTextEditorHandle } from '../editor/RichTextEditor.js';
 import { RichTextEditor } from '../editor/RichTextEditor.js';
 import { flattenDocumentTree } from '../docs/DocumentsPanel.js';
 import { useDocuments } from '../../lib/queries.js';
+import { CommentsPanel } from '../docs/CommentsPanel.js';
 import type { PatchTaskInput, SerializedDocument, SerializedTag, SerializedTask, TaskStatus } from '../../lib/api.js';
-import { laneFromTags } from './board-utils.js';
+import { laneFromTags, LANE_TAG_PREFIX } from './board-utils.js';
 import { StatusMenu } from './StatusChip.js';
 
 type TaskDrawerProps = {
@@ -101,6 +109,7 @@ function TaskDrawerBody({
   const [newTag, setNewTag] = useState('');
   // Open in read mode; editing is an explicit choice via the Edit toggle.
   const [editing, setEditing] = useState(false);
+  const [pendingPassage, setPendingPassage] = useState<string | null>(null);
   const editorRef = useRef<RichTextEditorHandle>(null);
   const { data: allDocuments } = useDocuments(task.project_id);
   const docLinks = flattenDocumentTree(allDocuments ?? []).map((doc) => ({
@@ -141,7 +150,12 @@ function TaskDrawerBody({
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-2 border-b px-4 py-3">
         <StatusMenu status={task.status} onChange={onChangeStatus} />
-        <span className="mono text-xs text-muted-foreground">{shortId(task.id)}</span>
+        <span
+          className="mono text-xs text-muted-foreground"
+          title="Short ID — last 4 characters of this task's ID, for quick reference"
+        >
+          {shortId(task.id)}
+        </span>
         <span className="ml-auto" />
         <ShareButton resource={{ kind: 'task', id: task.id }} />
         <Button
@@ -197,12 +211,41 @@ function TaskDrawerBody({
           <dd>
             <StatusMenu status={task.status} onChange={onChangeStatus} />
           </dd>
-          {lane !== undefined ? (
-            <>
-              <dt className="text-muted-foreground">Lane</dt>
-              <dd className="text-[var(--text-2)]">{lane}</dd>
-            </>
-          ) : null}
+          <dt className="text-muted-foreground">Lane</dt>
+          <dd>
+            {editing ? (
+              <Select
+                value={lane ?? 'none'}
+                onValueChange={(value) => {
+                  const names = (task.tags ?? [])
+                    .map((t) => t.name)
+                    .filter((n) => !n.startsWith(LANE_TAG_PREFIX));
+                  if (value !== 'none') {
+                    onPatch({ tags: [...names, `${LANE_TAG_PREFIX}${value}`] });
+                  } else {
+                    onPatch({ tags: names });
+                  }
+                }}
+              >
+                <SelectTrigger className="w-40 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="auto">auto</SelectItem>
+                  <SelectItem value="approve">approve</SelectItem>
+                  <SelectItem value="full">full</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <span
+                className="text-[var(--text-2)]"
+                title="Review gate — auto: ships without review · approve: needs a human OK · full: independent review + human"
+              >
+                {lane?.toUpperCase() ?? '—'}
+              </span>
+            )}
+          </dd>
           {linkedDoc !== undefined ? (
             <>
               <dt className="text-muted-foreground">Linked doc</dt>
@@ -233,6 +276,9 @@ function TaskDrawerBody({
           projectId={task.project_id}
           seamless={false}
           docLinks={docLinks}
+          onCommentOnSelection={(passage) => {
+            setPendingPassage(passage);
+          }}
         />
 
         {editing || tags.length > 0 ? (
@@ -248,6 +294,15 @@ function TaskDrawerBody({
           onNewTagChange={setNewTag}
           onAddTag={onAddTag}
           onRemoveTag={onRemoveTag}
+        />
+
+        <CommentsPanel
+          target={{ type: 'task', id: task.id }}
+          attachPassage={pendingPassage}
+          onPassageConsumed={() => {
+            setPendingPassage(null);
+          }}
+          embedded
         />
       </div>
 

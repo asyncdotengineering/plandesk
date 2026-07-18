@@ -13,7 +13,7 @@ import { AuthShell, GithubGlyph } from './AuthShell.js';
  * social login (BA4c) so the browser ends up with a better-auth session cookie.
  */
 export function SignInPage() {
-  const { data: methods, isLoading } = useAuthMethods();
+  const { data: methods, isLoading, error: methodsError, refetch } = useAuthMethods();
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
 
@@ -43,6 +43,24 @@ export function SignInPage() {
           <p className="text-sm text-muted-foreground">Checking sign-in options…</p>
         ) : null}
 
+        {methodsError !== null ? (
+          <div className="space-y-2">
+            <p role="alert" className="text-sm text-destructive">
+              Couldn&apos;t load sign-in options.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                void refetch();
+              }}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : null}
+
         {methods?.githubEnabled === true ? (
           <div className="space-y-2">
             <Button
@@ -70,11 +88,21 @@ export function SignInPage() {
 
         {methods !== undefined && !methods.githubEnabled ? (
           <div className="space-y-2 text-left text-sm text-muted-foreground">
-            <p>This instance does not use GitHub sign-in.</p>
+            <p>This workspace doesn&apos;t use GitHub sign-in.</p>
             <p>
-              Create an API token on the server and connect with{' '}
+              To connect, create an access token from the server and run{' '}
               <code className="rounded bg-muted px-1 py-0.5 text-xs">plandesk connect</code>, or run
-              the dashboard locally where no sign-in is needed.
+              Plan Desk locally where no sign-in is needed.
+            </p>
+            <p>
+              <a
+                href="https://plandesk.asyncdot.com/self-hosting/server-config/"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                Learn how to set up server sign-in →
+              </a>
             </p>
           </div>
         ) : null}

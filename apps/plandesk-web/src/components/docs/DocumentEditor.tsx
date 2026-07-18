@@ -78,25 +78,23 @@ export function DocumentEditor({
         ) : (
           <h1 className="flex-1 text-2xl font-semibold tracking-tight">{title}</h1>
         )}
-        {mode === 'editor' ? (
-          <div className="flex shrink-0 items-center gap-3 pt-1.5">
-            <SaveStatusIndicator status={saveStatus} />
-            <ShareButton resource={{ kind: 'document', id: document.id }} />
-            {onDelete !== undefined ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="text-destructive"
-                aria-label="Delete document"
-                onClick={() => {
-                  setConfirmDeleteOpen(true);
-                }}
-              >
-                Delete
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-3 pt-1.5">
+          {mode === 'editor' ? <SaveStatusIndicator status={saveStatus} /> : null}
+          <ShareButton resource={{ kind: 'document', id: document.id }} />
+          {mode === 'editor' && onDelete !== undefined ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="text-destructive"
+              aria-label="Delete document"
+              onClick={() => {
+                setConfirmDeleteOpen(true);
+              }}
+            >
+              Delete
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {mode === 'editor' ? (

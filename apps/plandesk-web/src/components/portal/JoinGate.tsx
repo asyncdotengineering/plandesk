@@ -127,6 +127,11 @@ export function JoinGate({ shareToken, onJoined }: JoinGateProps) {
               {shareError}
             </p>
           ) : null}
+          {shareError !== null && shareError.includes('invalid, expired, or has been revoked') ? (
+            <p className="mb-4 text-sm text-muted-foreground">
+              Ask whoever shared this link to send you a new one.
+            </p>
+          ) : null}
 
           <form
             onSubmit={(event) => {

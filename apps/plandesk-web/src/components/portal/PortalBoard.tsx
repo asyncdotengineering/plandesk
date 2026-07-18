@@ -68,6 +68,14 @@ export function PortalBoard({ tasks }: PortalBoardProps) {
   const grouped = useMemo(() => groupPortalTasksByStatus(tasks), [tasks]);
   const statuses = useMemo(() => columnOrder(grouped), [grouped]);
 
+  if (tasks.length === 0) {
+    return (
+      <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+        Nothing here yet.
+      </p>
+    );
+  }
+
   return (
     <div className="flex items-start gap-3 overflow-x-auto" data-portal-board>
       {statuses.map((status) => {

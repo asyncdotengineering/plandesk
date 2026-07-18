@@ -63,7 +63,7 @@ describe('FileIssue', () => {
 
     renderFileIssue();
 
-    fireEvent.click(screen.getByRole('button', { name: 'File an issue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New issue' }));
 
     fireEvent.change(screen.getByLabelText('Title'), {
       target: { value: 'Login button is unresponsive' },
@@ -97,7 +97,7 @@ describe('FileIssue', () => {
   it('requires a title before the submit button is enabled', () => {
     renderFileIssue();
 
-    fireEvent.click(screen.getByRole('button', { name: 'File an issue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New issue' }));
 
     expect(screen.getByRole('button', { name: 'File issue' })).toHaveProperty('disabled', true);
   });

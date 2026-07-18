@@ -7,11 +7,11 @@ Full four-phase audit of every user flow in the web app (`apps/plandesk-web`). S
 | Status | Count |
 |---|---|
 | `tested` (pass, no defect) | 64 |
-| `retested-pass` (defect fixed + verified) | 34 |
-| `error` (defect documented, deferred by scope) | 36 |
+| `retested-pass` (defect fixed + verified) | 70 |
+| `error` (unresolved) | 0 |
 | **Total flows** | **134** |
 
-Verification: `pnpm build` 0, `pnpm test` 0 (web 152 tests, +3 new). No regressions.
+**All 70 defects are fixed.** The first pass shipped 34 "clear defects" (beta.6); the second pass (beta.7) cleared the remaining 36 — jargon → plain language, hidden affordances made reachable, dark-mode theming, and every missing empty/loading/error state. Verification: `pnpm build` 0, `pnpm test` 0 (web 155 tests, +6 over baseline). No regressions.
 
 ## Coverage
 
@@ -35,16 +35,12 @@ All 16 route areas and every route in `src/routes/` are represented, plus the sh
 - **Clipboard (3)** — copy actions now catch failures (toast) and reset the "Copied" label; Share copies the human page URL, not the `.md` URL.
 - **Discoverability (2)** — the editor placeholder now hints `/` for blocks and `[[` to link a doc.
 
-## Deferred (36) — documented, product-judgment items
+## Second pass (36) — now fixed (beta.7)
 
-Left as `error` rows by explicit scope decision (they need copy/product/design calls, not bug fixes):
-
-- **Agent-operator jargon leaking to users (8)** — lanes (`auto/approve/full`), `verification_surface`, "Release to scope", `depends_on`, the 4-char short id, the portal `→` dependency arrow, "Related task" raw-id field, CLI-only token copy.
-- **Hidden/hover-only affordances (11)** — board card `…` actions, rename pencils, image "Annotate", edge-label editing, canvas tags (unreachable), note delete (edit-mode only), doc Share (edit-mode only), raw-id merge input, gate/checklist goal completion.
-- **Consistency (5)** — toolbar hardcoded hex (no dark mode), duplicate "File an issue" label, task drawer has no comments rail, command-menu omits Documents, image-upload has no progress.
-- **Remaining state gaps (12)** — board loading skeleton, raw error.message on board, empty-canvas guidance, keyboard node-delete, responsive doc-row metadata, portal dead-link next step, empty portal board, portal submit-403 silent hide, comment "attach selection" no-feedback, breadcrumb placeholder, sign-in methods-fetch failure.
-
-Each carries its `error_type` (design principle) + a code-traced repro in the CSV, so they are ready to pick up as a follow-up pass.
+- **Jargon → plain language** — lane gate tooltip + in-drawer selector, short-id tooltip, an editable edge-relationship picker with friendly labels, "Send to planning", portal dependencies as plain sentences, a task-label picker for the guest "related part", friendlier no-GitHub copy, board-load Retry.
+- **Hidden affordances made reachable** — card actions / rename pencil / annotate now touch- and keyboard-reachable, Share + note-Delete exposed in Reader mode, canvas tags wired, merge uses a task picker, gate/checklist goals show a "handled by the runner" note.
+- **Consistency + theming** — toolbar switched to design tokens (dark-mode), upload indicator, de-duplicated "File an issue" label, Documents added to the command menu, **the board task drawer now has a comments rail**.
+- **State gaps** — board skeleton, empty-canvas/empty-portal hints, dead-link next step, breadcrumb placeholder, Approve loading label, sign-in methods-fetch fallback, guest submit-403 message (form stays visible), image-upload base64-fallback warning, attach-selection hint, keyboard node-delete, responsive doc-row metadata, and a persistent inline error on share-create.
 
 ## Unresolved `retested-fail`
 

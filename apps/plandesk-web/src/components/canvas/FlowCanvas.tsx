@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type KeyboardEvent, type SubmitEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type SubmitEvent } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -17,7 +17,7 @@ import '@xyflow/react/dist/style.css';
 import { LayoutDashboard, Maximize, Minus, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { DEFAULT_EDGE_LABEL } from '../../lib/api.js';
+import { DEFAULT_EDGE_LABEL, type EdgeLabel } from '../../lib/api.js';
 import {
   useCanvas,
   useCreateTask,
@@ -25,6 +25,7 @@ import {
   useDeleteTask,
   useDocuments,
   usePatchTask,
+  useTags,
 } from '../../lib/queries.js';
 import { ConfirmDialog } from '../docs/ConfirmDialog.js';
 import {
@@ -191,6 +192,7 @@ function ZoomControls() {
 export function FlowCanvas({ projectId }: FlowCanvasProps) {
   const { data: canvas, isLoading, error } = useCanvas(projectId);
   const { data: documents } = useDocuments(projectId);
+  const { data: allTags } = useTags(projectId);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<TaskNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge<LabeledEdgeData>>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -207,8 +209,13 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
     }
     const taskDocumentMap = documents !== undefined ? buildTaskDocumentMap(documents) : undefined;
     setNodes(canvasToFlowNodes(canvas.nodes, { taskDocumentMap }));
-    setEdges(canvasToFlowEdges(canvas.edges));
-  }, [canvas, documents, setNodes, setEdges]);
+    setEdges(
+      canvasToFlowEdges(canvas.edges).map((edge) => ({
+        ...edge,
+        data: { ...edge.data, onLabelChange: stableOnLabelChange },
+      })),
+    );
+  }, [canvas, documents, setNodes, setEdges, stableOnLabelChange]);
 
   useEffect(() => {
     bindFlowState(nodes, edges);
@@ -248,6 +255,26 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
     };
   }, [patchTask, deleteTask, projectId, setNodes]);
 
+  const handleEdgeLabelChange = useCallback(
+    (edgeId: string, label: EdgeLabel) => {
+      setEdges((current) => {
+        const next = current.map((edge) =>
+          edge.id === edgeId ? { ...edge, data: { ...edge.data, label } } : edge,
+        );
+        saveWithState(nodes, next);
+        return next;
+      });
+    },
+    [setEdges, nodes, saveWithState],
+  );
+
+  const handleEdgeLabelChangeRef = useRef(handleEdgeLabelChange);
+  handleEdgeLabelChangeRef.current = handleEdgeLabelChange;
+
+  const stableOnLabelChange = useCallback((edgeId: string, label: EdgeLabel) => {
+    handleEdgeLabelChangeRef.current(edgeId, label);
+  }, []);
+
   const handleConnect = useCallback(
     (connection: Connection) => {
       setEdges((current) => {
@@ -255,7 +282,7 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
           {
             ...connection,
             type: 'labeled',
-            data: { label: DEFAULT_EDGE_LABEL },
+            data: { label: DEFAULT_EDGE_LABEL, onLabelChange: stableOnLabelChange },
           },
           current,
         );
@@ -263,7 +290,7 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
         return next;
       });
     },
-    [setEdges, nodes, saveWithState],
+    [setEdges, nodes, saveWithState, stableOnLabelChange],
   );
 
   const handleNodeDragStop = useCallback(() => {
@@ -330,10 +357,24 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
         if (selectedEdgeIds.length > 0) {
           event.preventDefault();
           handleDeleteSelectedEdges();
+          return;
+        }
+        if (selectedNodeId !== null) {
+          event.preventDefault();
+          if (confirm('Delete this task? Connected edges will be removed.')) {
+            deleteTask.mutate(
+              { id: selectedNodeId, projectId },
+              {
+                onSuccess: () => {
+                  setSelectedNodeId(null);
+                },
+              },
+            );
+          }
         }
       }
     },
-    [selectedEdgeIds, handleDeleteSelectedEdges],
+    [selectedEdgeIds, handleDeleteSelectedEdges, selectedNodeId, deleteTask, projectId],
   );
 
   const selectedNode =
@@ -351,12 +392,25 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
     return <p>Canvas not found.</p>;
   }
 
+  const taskNodes = nodes.filter((n) => n.type === 'taskCard');
+  const selectedTask =
+    selectedNodeId !== null && canvas !== undefined
+      ? canvas.nodes.find((n) => n.id === selectedNodeId)
+      : undefined;
+
   return (
     <div
       className="relative h-full min-w-0 flex-1 focus:outline-none"
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
+      {taskNodes.length === 0 ? (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+          <p className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
+            No tasks yet — add one in the box above to start your plan.
+          </p>
+        </div>
+      ) : null}
       {isSaving ? (
         <span className="pointer-events-none absolute left-1/2 top-2 z-20 -translate-x-1/2 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm">
           Saving…
@@ -388,6 +442,25 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
           taskId={selectedNode.id}
           data={selectedNode.data}
           isSaving={patchTask.isPending}
+          tags={selectedTask?.tags ?? []}
+          tagSuggestions={allTags?.map((t) => t.name) ?? []}
+          onAddTag={(name) => {
+            if (selectedTask === undefined) {
+              return;
+            }
+            const names = (selectedTask.tags ?? []).map((t) => t.name);
+            if (names.includes(name)) {
+              return;
+            }
+            patchTask.mutate({ id: selectedTask.id, input: { tags: [...names, name] } });
+          }}
+          onRemoveTag={(name) => {
+            if (selectedTask === undefined) {
+              return;
+            }
+            const names = (selectedTask.tags ?? []).map((t) => t.name).filter((n) => n !== name);
+            patchTask.mutate({ id: selectedTask.id, input: { tags: names } });
+          }}
           onPatch={(input) => {
             patchTask.mutate({ id: selectedNode.id, input });
           }}

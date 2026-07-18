@@ -139,7 +139,7 @@ describe('AuthGate', () => {
       </AuthGate>,
     );
 
-    expect(await screen.findByText(/does not use GitHub sign-in/i)).toBeDefined();
+    expect(await screen.findByText(/doesn't use GitHub sign-in/i)).toBeDefined();
     expect(screen.queryByRole('button', { name: /continue with github/i })).toBeNull();
     expect(screen.queryByRole('link', { name: /continue with github/i })).toBeNull();
   });

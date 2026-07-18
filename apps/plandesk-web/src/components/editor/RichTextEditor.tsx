@@ -15,13 +15,14 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
 } from 'react';
+import { toast } from 'sonner';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 import { MessageSquarePlusIcon } from 'lucide-react';
 import { bodyToHtml } from '../../lib/markdown.js';
 import { sanitizeHtml } from '../../lib/sanitize.js';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { createDocLinkExtension, createSlashExtension } from './editor-extensions.js';
@@ -186,16 +187,39 @@ function uploadAndInsertImages(editor: Editor, files: FileList | File[] | null |
         return;
       }
       const dataUrl = reader.result;
-      const resolve = uploader != null ? uploader(dataUrl) : Promise.resolve(dataUrl);
-      void resolve.then((src) => {
+      if (uploader != null) {
+        const uploadToast = toast.loading('Uploading image…');
+        void uploader(dataUrl)
+          .then((src) => {
+            toast.dismiss(uploadToast);
+            editor
+              .chain()
+              .insertContentAt(pos ?? editor.state.selection.from, {
+                type: 'image',
+                attrs: { src, alt: file.name, originalSrc: src, annotations: '[]' },
+              })
+              .run();
+          })
+          .catch(() => {
+            toast.dismiss(uploadToast);
+            toast.error("Couldn't upload the image — embedded it inline instead.");
+            editor
+              .chain()
+              .insertContentAt(pos ?? editor.state.selection.from, {
+                type: 'image',
+                attrs: { src: dataUrl, alt: file.name, originalSrc: dataUrl, annotations: '[]' },
+              })
+              .run();
+          });
+      } else {
         editor
           .chain()
           .insertContentAt(pos ?? editor.state.selection.from, {
             type: 'image',
-            attrs: { src, alt: file.name, originalSrc: src, annotations: '[]' },
+            attrs: { src: dataUrl, alt: file.name, originalSrc: dataUrl, annotations: '[]' },
           })
           .run();
-      });
+      }
     };
     reader.readAsDataURL(file);
   }
@@ -695,26 +719,25 @@ type ToolbarEditor = NonNullable<ReturnType<typeof useEditor>>;
 function RichTextToolbar({ editor }: { editor: ToolbarEditor }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const buttonStyle = (active: boolean): CSSProperties => ({
-    padding: '0.25rem 0.5rem',
-    borderRadius: 4,
-    border: '1px solid #d1d5db',
-    background: active ? '#e5e7eb' : '#fff',
-    fontWeight: active ? 600 : 400,
-    cursor: 'pointer',
-  });
+  const buttonClass = (active: boolean) =>
+    cn(
+      'rounded border px-2 py-1 text-sm',
+      active
+        ? 'border-border bg-muted font-semibold text-foreground'
+        : 'border-border bg-background text-foreground hover:bg-muted',
+    );
 
   return (
     <div
       role="toolbar"
       aria-label="Formatting"
-      style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}
+      className="mb-2 flex flex-wrap gap-2"
     >
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleBold().run()}
         aria-pressed={editor.isActive('bold')}
-        style={buttonStyle(editor.isActive('bold'))}
+        className={buttonClass(editor.isActive('bold'))}
       >
         Bold
       </button>
@@ -722,7 +745,7 @@ function RichTextToolbar({ editor }: { editor: ToolbarEditor }) {
         type="button"
         onClick={() => editor.chain().focus().toggleItalic().run()}
         aria-pressed={editor.isActive('italic')}
-        style={buttonStyle(editor.isActive('italic'))}
+        className={buttonClass(editor.isActive('italic'))}
       >
         Italic
       </button>
@@ -730,7 +753,7 @@ function RichTextToolbar({ editor }: { editor: ToolbarEditor }) {
         type="button"
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
         aria-pressed={editor.isActive('heading', { level: 2 })}
-        style={buttonStyle(editor.isActive('heading', { level: 2 }))}
+        className={buttonClass(editor.isActive('heading', { level: 2 }))}
       >
         H2
       </button>
@@ -738,7 +761,7 @@ function RichTextToolbar({ editor }: { editor: ToolbarEditor }) {
         type="button"
         onClick={() => editor.chain().focus().toggleBulletList().run()}
         aria-pressed={editor.isActive('bulletList')}
-        style={buttonStyle(editor.isActive('bulletList'))}
+        className={buttonClass(editor.isActive('bulletList'))}
       >
         List
       </button>
@@ -747,14 +770,14 @@ function RichTextToolbar({ editor }: { editor: ToolbarEditor }) {
         onClick={() =>
           editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
         }
-        style={buttonStyle(editor.isActive('table'))}
+        className={buttonClass(editor.isActive('table'))}
       >
         Table
       </button>
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
-        style={buttonStyle(false)}
+        className={buttonClass(false)}
       >
         Image
       </button>
@@ -763,7 +786,7 @@ function RichTextToolbar({ editor }: { editor: ToolbarEditor }) {
         type="file"
         accept="image/*"
         aria-label="Insert image"
-        style={{ display: 'none' }}
+        className="hidden"
         onChange={(event) => {
           uploadAndInsertImages(editor, event.target.files);
           event.target.value = '';

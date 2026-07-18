@@ -166,7 +166,7 @@ describe('PortalPage', () => {
     expect(screen.getByLabelText('Progress').textContent).toContain('in progress');
     expect(screen.getByLabelText('Progress').textContent).toContain('todo');
     expect(screen.getByText('Shared scope details')).toBeTruthy();
-    expect(screen.getByText('Write tests → Ship portal (depends_on)')).toBeTruthy();
+    expect(screen.getByText('Ship portal must finish before Write tests')).toBeTruthy();
     expect(screen.getByText('shared, read-only')).toBeTruthy();
     expect(screen.getByText('Shared with Acme Corp')).toBeTruthy();
 
@@ -267,7 +267,7 @@ describe('PortalPage', () => {
     });
   });
 
-  it('hides the submit form on forbidden response', async () => {
+  it('shows a permission message on forbidden response', async () => {
     vi.mocked(submitIssue).mockRejectedValue(new PortalSubmitForbiddenError());
 
     renderPortalPage(submitEnabledView);
@@ -281,7 +281,9 @@ describe('PortalPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
-      expect(screen.queryByLabelText('Report an issue')).toBeNull();
+      expect(
+        screen.getByText("You don't have permission to submit to this share."),
+      ).toBeTruthy();
     });
   });
 });

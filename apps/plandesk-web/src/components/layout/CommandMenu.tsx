@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from '@tanstack/react-router';
 import {
   CircleDotIcon,
+  FileTextIcon,
   FolderKanbanIcon,
   GitBranchIcon,
   InboxIcon,
@@ -51,11 +52,12 @@ export function useCommandMenu() {
   return ctx;
 }
 
-const NAV_ITEMS = [
+export const NAV_ITEMS = [
   { label: 'Overview', to: '/projects/$id/overview' as const, icon: LayoutDashboardIcon },
   { label: 'Board', to: '/projects/$id/board' as const, icon: LayoutGridIcon },
   { label: 'Flow', to: '/projects/$id/flow' as const, icon: GitBranchIcon },
   { label: 'Goals', to: '/projects/$id/goals' as const, icon: TargetIcon },
+  { label: 'Documents', to: '/projects/$id/documents' as const, icon: FileTextIcon },
   { label: 'Notes', to: '/projects/$id/notes' as const, icon: StickyNoteIcon },
   { label: 'Inbox', to: '/projects/$id/inbox' as const, icon: InboxIcon },
 ] as const;

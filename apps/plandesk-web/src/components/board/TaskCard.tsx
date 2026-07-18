@@ -77,7 +77,7 @@ export function TaskCard({ task, hasLinkedDoc, onOpen, onChangeStatus, onRequest
         isDragging && 'opacity-40',
       )}
     >
-      <div className="absolute right-1.5 top-1.5 opacity-0 transition group-hover:opacity-100">
+      <div className="absolute right-1.5 top-1.5 opacity-100 transition">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -137,14 +137,22 @@ export function TaskCard({ task, hasLinkedDoc, onOpen, onChangeStatus, onRequest
       <div className="flex flex-wrap items-center gap-1.5">
         <StatusMenu status={task.status} onChange={onChangeStatus} />
         {lane !== undefined ? (
-          <span className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+          <span
+            className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground"
+            title="Review gate — auto: ships without review · approve: needs a human OK · full: independent review + human"
+          >
             {lane}
           </span>
         ) : null}
         {hasLinkedDoc ? (
           <FileTextIcon className="size-3.5 text-muted-foreground" aria-label="Has linked document" />
         ) : null}
-        <span className="mono ml-auto text-[10.5px] text-muted-foreground">{shortId(task.id)}</span>
+        <span
+          className="mono ml-auto text-[10.5px] text-muted-foreground"
+          title="Short ID — last 4 characters of this task's ID, for quick reference"
+        >
+          {shortId(task.id)}
+        </span>
       </div>
 
       {chips.length > 0 ? (

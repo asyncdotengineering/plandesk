@@ -673,7 +673,7 @@ export function DocumentsPanel({
                   {doc.title}
                 </Link>
                 {statusText(doc.status_line) !== null ? (
-                  <span className="hidden shrink-0 truncate text-[11.5px] text-muted-foreground sm:inline">
+                  <span className="max-w-[120px] shrink-0 truncate text-[11.5px] text-muted-foreground">
                     {statusText(doc.status_line)}
                   </span>
                 ) : null}

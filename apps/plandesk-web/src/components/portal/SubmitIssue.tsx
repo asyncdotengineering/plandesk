@@ -3,6 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import {
@@ -17,6 +24,7 @@ import {
 type SubmitIssueProps = {
   shareToken: string;
   sessionToken: string;
+  tasks: { id: string; label: string }[];
   onSubmitted: (submission: PortalSubmission) => void;
   onUnauthorized: () => void;
 };
@@ -26,6 +34,7 @@ const SEVERITY_OPTIONS = ['low', 'medium', 'high'] as const;
 export function SubmitIssue({
   shareToken,
   sessionToken,
+  tasks,
   onSubmitted,
   onUnauthorized,
 }: SubmitIssueProps) {
@@ -38,10 +47,10 @@ export function SubmitIssue({
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [formHidden, setFormHidden] = useState(false);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
 
   const trimmedTitle = title.trim();
-  const canSubmit = trimmedTitle.length > 0 && !pending && !formHidden;
+  const canSubmit = trimmedTitle.length > 0 && !pending && permissionError === null;
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,7 +84,7 @@ export function SubmitIssue({
         return;
       }
       if (error instanceof PortalSubmitForbiddenError) {
-        setFormHidden(true);
+        setPermissionError("You don't have permission to submit to this share.");
         return;
       }
       if (error instanceof PortalRateLimitedError) {
@@ -92,10 +101,6 @@ export function SubmitIssue({
     } finally {
       setPending(false);
     }
-  }
-
-  if (formHidden) {
-    return null;
   }
 
   return (
@@ -120,6 +125,14 @@ export function SubmitIssue({
           <CardContent className="pt-0">
             <p role="status" className="text-sm font-semibold text-[var(--s-done-fg)]">
               {successMessage}
+            </p>
+          </CardContent>
+        ) : null}
+
+        {permissionError !== null ? (
+          <CardContent className="pt-0">
+            <p role="alert" className="text-sm text-destructive">
+              {permissionError}
             </p>
           </CardContent>
         ) : null}
@@ -201,24 +214,33 @@ export function SubmitIssue({
                 </select>
               </div>
 
-              <div className="grid gap-1.5">
-                <Label htmlFor="issue-task-ref">
-                  Related task <span className="font-normal text-muted-foreground">(optional)</span>
-                </Label>
-                <Input
-                  id="issue-task-ref"
-                  type="text"
-                  name="task_ref"
-                  value={taskRef}
-                  onChange={(event) => {
-                    setTaskRef(event.target.value);
-                  }}
-                  disabled={pending}
-                />
-              </div>
+              {tasks.length > 0 ? (
+                <div className="grid gap-1.5">
+                  <Label htmlFor="issue-task-ref">
+                    Which part is this about?{' '}
+                    <span className="font-normal text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Select
+                    value={taskRef}
+                    onValueChange={setTaskRef}
+                    disabled={pending || permissionError !== null}
+                  >
+                    <SelectTrigger id="issue-task-ref">
+                      <SelectValue placeholder="Select a task" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tasks.map((task) => (
+                        <SelectItem key={task.id} value={task.id}>
+                          {task.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
 
               <div className="flex flex-wrap gap-2">
-                <Button type="submit" disabled={!canSubmit}>
+                <Button type="submit" disabled={!canSubmit || permissionError !== null}>
                   {pending ? 'Submitting…' : 'Submit'}
                 </Button>
                 <Button

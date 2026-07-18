@@ -81,7 +81,7 @@ export function FileIssue({ projectId }: FileIssueProps) {
               setExpanded(true);
             }}
           >
-            File an issue
+            New issue
           </Button>
         ) : null}
       </div>

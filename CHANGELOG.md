@@ -4,6 +4,20 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [1.0.0-beta.7] — 2026-07-18
+
+Second (and final) pass of the web user-flow audit — clears the 36 remaining items, so every one of the 134 audited flows now passes or is fixed (`AUDIT-SUMMARY.md`).
+
+### Changed
+
+- **Plainer language, less agent jargon.** Task lanes now have a plain-English gate tooltip and an in-drawer selector; the short task id has a tooltip; dependency edges get an editable relationship picker with friendly labels ("depends on", "feeds into", …); "Release to scope" → "Send to planning"; portal dependencies read as sentences ("Design must finish before Build"); the guest issue form picks a task by name instead of a raw id; the no-GitHub sign-in copy is friendlier.
+- **Controls you couldn't reach are now reachable.** Board card actions, the rename pencil, and image "Annotate" no longer require hover (touch- and keyboard-accessible); Share and note-Delete are available while reading, not only while editing; task tags work on the canvas; merging a submission uses a task picker.
+- **Dark mode + consistency.** The formatting toolbar follows the theme (was hardcoded light); "File an issue" no longer duplicates its label; the command palette includes Documents; and the **board task drawer now has a comments rail** (task comments were previously unreachable from the board).
+
+### Fixed
+
+- **Missing states filled in** — board loading skeleton, empty-canvas and empty-portal hints, a next step on dead share links, a breadcrumb placeholder, an "Approving…" label, a sign-in retry when options fail to load, a clear message (instead of a vanishing form) when a guest can't submit, a warning when an image can't be uploaded and is embedded inline, a hint when "attach selection" has nothing selected, keyboard delete for canvas nodes, doc-row status on small screens, and a persistent (retryable) error when a share link fails to create.
+
 ## [1.0.0-beta.6] — 2026-07-18
 
 UX hardening from a full four-phase audit of every web user flow (see `AUDIT-SUMMARY.md`). This release ships the "clear defects" batch.

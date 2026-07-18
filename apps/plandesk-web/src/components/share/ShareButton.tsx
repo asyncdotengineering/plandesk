@@ -32,15 +32,18 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
   const [ttl, setTtl] = useState<ShareTtl>('24h');
   const [result, setResult] = useState<ShareLinkResult | null>(null);
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const reset = () => {
     setResult(null);
+    setCreateError(null);
     setCopied(false);
   };
 
   const create = async () => {
     setCreating(true);
+    setCreateError(null);
     try {
       const res =
         resource.kind === 'task'
@@ -48,7 +51,7 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
           : await createDocumentShare(resource.id, ttl);
       setResult(res);
     } catch {
-      toast('Could not create share link');
+      setCreateError("Couldn't create the share link. Please try again.");
     } finally {
       setCreating(false);
     }
@@ -112,7 +115,15 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
               {creating ? 'Creating…' : 'Create link'}
             </Button>
           </div>
-        ) : (
+        ) : null}
+
+        {createError !== null ? (
+          <p role="alert" className="text-sm text-destructive">
+            {createError}
+          </p>
+        ) : null}
+
+        {result !== null ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Input
@@ -141,7 +152,7 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
               . Read-only.
             </p>
           </div>
-        )}
+        ) : null}
       </DialogContent>
     </Dialog>
   );

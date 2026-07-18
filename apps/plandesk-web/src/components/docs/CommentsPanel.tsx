@@ -151,6 +151,8 @@ export function CommentsPanel({
     const selection = readSelection();
     if (selection !== null) {
       setAttachedPassage(selection);
+    } else {
+      toast('Select some text in the document first, then attach it.');
     }
   };
 

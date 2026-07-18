@@ -348,12 +348,13 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
           }}
         />
 
-        {!annotating && hovered ? (
+        {!annotating ? (
           <div className="annotatable-image-hover">
             <Button
               type="button"
               size="sm"
               className="shadow-md"
+              aria-label="Annotate image"
               onMouseDown={(event) => {
                 event.preventDefault();
               }}

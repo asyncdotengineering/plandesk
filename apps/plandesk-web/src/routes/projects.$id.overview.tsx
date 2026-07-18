@@ -125,7 +125,7 @@ function ProjectOverviewPage() {
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Rename project"
-                className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                className="opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100"
                 onClick={() => {
                   setEditingName(true);
                 }}

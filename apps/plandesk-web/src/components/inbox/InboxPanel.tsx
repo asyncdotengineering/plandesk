@@ -13,6 +13,13 @@ import { Badge, badgeVariants } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { CommentsPanel } from '../docs/CommentsPanel.js';
 import { ConfirmDialog } from '../docs/ConfirmDialog.js';
@@ -99,9 +106,11 @@ function SectionHeader({ title, count }: { title: string; count?: number }) {
 function SubmissionRow({
   submission,
   projectId,
+  tasks,
 }: {
   submission: SerializedSubmission;
   projectId: string;
+  tasks: { id: string; label: string }[];
 }) {
   const triage = useTriageSubmission(projectId);
   const [mergeTaskId, setMergeTaskId] = useState('');
@@ -146,7 +155,7 @@ function SubmissionRow({
               );
             }}
           >
-            Approve
+            {triage.isPending ? 'Approving…' : 'Approve'}
           </Button>
           <Button
             type="button"
@@ -159,26 +168,32 @@ function SubmissionRow({
           >
             Reject
           </Button>
-          <Input
-            type="text"
+          <Select
             value={mergeTaskId}
-            onChange={(event) => {
-              setMergeTaskId(event.target.value);
-            }}
-            placeholder="Existing task id"
+            onValueChange={setMergeTaskId}
             disabled={triage.isPending}
-            className="h-8 w-44 text-xs"
-          />
+          >
+            <SelectTrigger className="h-8 w-44 text-xs">
+              <SelectValue placeholder="Select a task" />
+            </SelectTrigger>
+            <SelectContent>
+              {tasks.map((task) => (
+                <SelectItem key={task.id} value={task.id}>
+                  {task.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             type="button"
             size="sm"
             variant="outline"
-            disabled={triage.isPending || mergeTaskId.trim() === ''}
+            disabled={triage.isPending || mergeTaskId === ''}
             onClick={() => {
               triage.mutate(
                 {
                   id: submission.id,
-                  input: { action: 'accept', link_task_id: mergeTaskId.trim() },
+                  input: { action: 'accept', link_task_id: mergeTaskId },
                 },
                 { onSuccess: () => toast.success('Merged into existing task') },
               );
@@ -231,7 +246,7 @@ function SubmissionRow({
   );
 }
 
-function PendingSubmissions({ projectId }: { projectId: string }) {
+function PendingSubmissions({ projectId, tasks }: { projectId: string; tasks: { id: string; label: string }[] }) {
   const { data: submissions, isLoading, error } = useSubmissions(projectId, 'pending');
 
   return (
@@ -254,7 +269,7 @@ function PendingSubmissions({ projectId }: { projectId: string }) {
         <ul className="m-0 grid list-none gap-2 p-0">
           {submissions.map((submission) => (
             <li key={submission.id}>
-              <SubmissionRow submission={submission} projectId={projectId} />
+              <SubmissionRow submission={submission} projectId={projectId} tasks={tasks} />
             </li>
           ))}
         </ul>
@@ -301,14 +316,15 @@ function BacklogTasks({ projectId }: { projectId: string }) {
                     variant="outline"
                     className="shrink-0"
                     disabled={patchTask.isPending}
+                    title="Moves this backlog item into the Scope column for design and sizing."
                     onClick={() => {
                       patchTask.mutate(
                         { id: task.id, input: { status: 'scope' } },
-                        { onSuccess: () => toast.success('Released to scope') },
+                        { onSuccess: () => toast.success('Sent to planning') },
                       );
                     }}
                   >
-                    Release to scope
+                    Send to planning
                   </Button>
                 </CardContent>
               </Card>
@@ -383,9 +399,12 @@ function CuratorProposals({ projectId }: { projectId: string }) {
 }
 
 export function InboxPanel({ projectId }: InboxPanelProps) {
+  const { data: allTasks } = useTasks(projectId);
+  const taskOptions = (allTasks ?? []).map((t) => ({ id: t.id, label: t.label }));
+
   return (
     <div>
-      <PendingSubmissions projectId={projectId} />
+      <PendingSubmissions projectId={projectId} tasks={taskOptions} />
       <BacklogTasks projectId={projectId} />
       <CuratorProposals projectId={projectId} />
     </div>

@@ -4,6 +4,26 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InboxPanel } from './InboxPanel.js';
 
+vi.mock('@/components/ui/select', async () => {
+  const React = await import('react');
+  return {
+    Select: ({ children, value, onValueChange, disabled }: any) =>
+      React.createElement('select', {
+        value: value ?? '',
+        onChange: (e: React.ChangeEvent<HTMLSelectElement>) => onValueChange?.(e.target.value),
+        disabled,
+        'data-testid': 'merge-task-select',
+      }, children),
+    SelectContent: ({ children }: any) => React.createElement(React.Fragment, {}, children),
+    SelectItem: ({ children, value }: any) =>
+      React.createElement('option', { value }, children),
+    SelectTrigger: ({ children }: any) =>
+      React.createElement(React.Fragment, {}, children),
+    SelectValue: ({ placeholder }: any) =>
+      React.createElement('option', { value: '' }, placeholder),
+  };
+});
+
 const projectId = 'proj-1';
 
 const pendingSubmission = {
@@ -80,6 +100,9 @@ function routeFetch(url: string, init?: RequestInit) {
   }
   if (url.includes('/tasks?status=scope') && method === 'GET') {
     return jsonResponse([proposalTask]);
+  }
+  if (url.includes('/tasks') && method === 'GET' && !url.includes('?status=')) {
+    return jsonResponse([backlogTask, proposalTask]);
   }
   if (url.match(/\/submissions\/sub-1\/triage$/) && method === 'POST') {
     return jsonResponse({ ...pendingSubmission, status: 'accepted', linked_task_id: 'task-new' });
@@ -189,7 +212,7 @@ describe('InboxPanel', () => {
     });
   });
 
-  it('merge-into triages with the typed task id as link_task_id (no interim disclosure)', async () => {
+  it('merge-into triages with the selected task id as link_task_id', async () => {
     const fetchMock = vi.fn(routeFetch);
     vi.stubGlobal('fetch', fetchMock);
 
@@ -202,9 +225,15 @@ describe('InboxPanel', () => {
     // Linking is wired up now — the interim "not wired up" disclosure must be gone.
     expect(screen.queryByText(/wired up yet/)).toBeNull();
 
-    fireEvent.change(screen.getByPlaceholderText('Existing task id'), {
-      target: { value: 'task-existing-1' },
+    // Wait for the merge task select to appear (tasks query must resolve first).
+    await waitFor(() => {
+      expect(screen.getByTestId('merge-task-select')).toBeTruthy();
     });
+
+    fireEvent.change(screen.getByTestId('merge-task-select'), {
+      target: { value: 'task-backlog-1' },
+    });
+
     fireEvent.click(screen.getByRole('button', { name: 'Merge into' }));
 
     await waitFor(() => {
@@ -212,7 +241,7 @@ describe('InboxPanel', () => {
         '/api/v1/submissions/sub-1/triage',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ action: 'accept', link_task_id: 'task-existing-1' }),
+          body: JSON.stringify({ action: 'accept', link_task_id: 'task-backlog-1' }),
         }),
       );
     });
@@ -266,7 +295,7 @@ describe('InboxPanel', () => {
       expect(screen.getByText('Investigate flaky export')).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Release to scope' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send to planning' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -298,7 +327,7 @@ describe('InboxPanel', () => {
       ).length;
     const before = backlogCalls();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Release to scope' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send to planning' }));
 
     // The mutation invalidates the tasks prefix, so the status-scoped backlog list
     // refetches. With the old `…/tasks/all` leaf key it would not — the stale-inbox bug.

@@ -300,6 +300,12 @@ export function GoalDetail({ projectId, goal }: GoalDetailProps) {
             Mark complete
           </Button>
         ) : null}
+        {surfaceKind === 'gate_command' || surfaceKind === 'acceptance_checklist' ? (
+          <p className="text-sm text-muted-foreground">
+            Completion is handled automatically by the agent runner when this goal&apos;s gate passes
+            — there&apos;s nothing to click here.
+          </p>
+        ) : null}
       </div>
 
       {actionError !== null ? (

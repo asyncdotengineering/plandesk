@@ -46,7 +46,7 @@ function ProjectCrumb({ id, viewLabel }: { id: string; viewLabel: string | null 
   const { data: project } = useProject(id);
   return (
     <>
-      <span>{project?.name ?? ''}</span>
+      <span className="text-muted-foreground">{project?.name ?? '…'}</span>
       {viewLabel !== null ? (
         <>
           <ChevronRight />
