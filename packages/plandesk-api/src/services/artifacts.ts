@@ -92,6 +92,14 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
       if (!artifact) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, artifact.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       return serializeArtifact(artifact);
     },
 
@@ -100,6 +108,14 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
       const existing = await dbGetArtifact(db, id);
       if (!existing) {
         return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       if (input.title !== undefined) {

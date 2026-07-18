@@ -85,6 +85,14 @@ export function createNoteService(deps: NoteServiceDeps) {
       if (!note) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, note.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       return serializeNote(note);
     },
 
@@ -93,6 +101,14 @@ export function createNoteService(deps: NoteServiceDeps) {
       const existing = await dbGetNote(db, id);
       if (!existing) {
         return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       if (input.title !== undefined) {
@@ -112,6 +128,14 @@ export function createNoteService(deps: NoteServiceDeps) {
       const existing = await dbGetNote(db, id);
       if (!existing) {
         return false;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return false;
+        }
+        throw error;
       }
 
       const deleted = await dbDeleteNote(db, id);

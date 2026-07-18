@@ -377,6 +377,18 @@ export function createShareService(deps: ShareServiceDeps) {
 
     async revokeShare(id: string): Promise<boolean> {
       assertPermission(deps, 'document', 'delete');
+      const existing = await dbGetShare(db, id);
+      if (!existing) {
+        return false;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return false;
+        }
+        throw error;
+      }
       return (await dbRevokeShare(db, id)) !== undefined;
     },
 

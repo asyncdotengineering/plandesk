@@ -170,6 +170,14 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       if (!document) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, document.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       return serializeDocument(document);
     },
 
@@ -178,6 +186,14 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       const existing = await dbGetDocument(db, id);
       if (!existing) {
         return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       if (input.linkedTaskId !== undefined && input.linkedTaskId !== null) {
@@ -213,6 +229,14 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       if (!document) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, document.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
 
       return serializeDocument(document);
     },
@@ -222,6 +246,14 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       const existing = await dbGetDocument(db, id);
       if (!existing) {
         return false;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return false;
+        }
+        throw error;
       }
 
       await withTransaction(db, async (tx) => {

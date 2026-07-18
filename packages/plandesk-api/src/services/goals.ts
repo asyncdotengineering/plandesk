@@ -329,6 +329,14 @@ export function createGoalService(deps: GoalServiceDeps) {
       if (!goal) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, goal.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       return {
         ...serializeGoal(goal),
         cycle_tasks: await cycleTasksForGoal(db, goal.projectId, goalId),
@@ -353,13 +361,20 @@ export function createGoalService(deps: GoalServiceDeps) {
       if (!existing) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       validateVerificationSurfaceInput(input.verificationSurface);
 
       const goal = await withTransaction(db, async (tx) => updateGoal(tx, goalId, input));
       if (!goal) {
         return undefined;
       }
-
 
       return serializeGoal(goal);
     },
@@ -370,6 +385,14 @@ export function createGoalService(deps: GoalServiceDeps) {
       if (!existing) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       if (existing.status !== 'active') {
         throw new InvalidGoalTransitionError('Goal can only be paused from active status');
       }
@@ -378,7 +401,6 @@ export function createGoalService(deps: GoalServiceDeps) {
       if (!goal) {
         return undefined;
       }
-
 
       return serializeGoal(goal);
     },
@@ -389,6 +411,14 @@ export function createGoalService(deps: GoalServiceDeps) {
       if (!existing) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       if (existing.status !== 'paused') {
         throw new InvalidGoalTransitionError('Goal can only be resumed from paused status');
       }
@@ -398,7 +428,6 @@ export function createGoalService(deps: GoalServiceDeps) {
         return undefined;
       }
 
-
       return serializeGoal(goal);
     },
 
@@ -407,6 +436,14 @@ export function createGoalService(deps: GoalServiceDeps) {
       const existing = await getGoal(db, goalId);
       if (!existing) {
         return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       if (existing.status === 'complete') {
         throw new InvalidGoalTransitionError('Goal is already complete');

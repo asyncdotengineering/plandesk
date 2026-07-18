@@ -116,6 +116,14 @@ export function createFolderService(deps: FolderServiceDeps) {
       if (!folder) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, folder.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       return serializeFolder(folder);
     },
 
@@ -124,6 +132,14 @@ export function createFolderService(deps: FolderServiceDeps) {
       const existing = await dbGetFolder(db, id);
       if (!existing) {
         return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       if (input.name !== undefined) {
@@ -151,6 +167,14 @@ export function createFolderService(deps: FolderServiceDeps) {
       const existing = await dbGetFolder(db, id);
       if (!existing) {
         return false;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return false;
+        }
+        throw error;
       }
 
       // Never orphan: children folders and contained documents move to the

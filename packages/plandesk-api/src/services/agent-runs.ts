@@ -86,6 +86,14 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
       if (!run) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, run.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
 
       if (terminalStatuses.has(run.status)) {
         throw new InvalidAgentRunError('Agent run is already complete');
@@ -101,6 +109,14 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
       const run = await getAgentRun(db, runId);
       if (!run) {
         return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, run.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       if (terminalStatuses.has(run.status)) {

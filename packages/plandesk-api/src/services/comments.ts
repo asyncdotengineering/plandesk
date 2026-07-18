@@ -187,20 +187,28 @@ export function createCommentService(deps: CommentServiceDeps) {
         return undefined;
       }
 
+      const projectId = await targetProjectId(db, {
+        type: existing.targetType,
+        id: existing.targetId,
+      });
+      if (!projectId) {
+        return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+
       if (input.body !== undefined) {
         assertNonEmptyBody(input.body);
       }
 
       const comment = await dbUpdateComment(db, id, input);
       if (!comment) {
-        return undefined;
-      }
-
-      const projectId = await targetProjectId(db, {
-        type: comment.targetType,
-        id: comment.targetId,
-      });
-      if (!projectId) {
         return undefined;
       }
 
@@ -220,6 +228,14 @@ export function createCommentService(deps: CommentServiceDeps) {
       });
       if (!projectId) {
         return false;
+      }
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return false;
+        }
+        throw error;
       }
 
       const deleted = await dbDeleteComment(db, id);

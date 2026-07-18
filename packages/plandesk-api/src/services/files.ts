@@ -1,4 +1,5 @@
-import { getFile, type Db } from '@plandesk/db';
+import { getFile, getFileInOrg, type Db } from '@plandesk/db';
+import { tryGetAuthContext } from '../auth-context.js';
 import type { StorageAdapter, StorageResolveResult } from '../storage/adapter.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
@@ -57,6 +58,22 @@ export function createFileService(deps: FileServiceDeps) {
     },
 
     async get(id: string): Promise<StorageResolveResult | undefined> {
+      const auth = tryGetAuthContext();
+      if (auth === undefined || auth.kind === 'guest') {
+        return undefined;
+      }
+      const file = await getFileInOrg(db, id, auth.orgId);
+      if (!file) {
+        return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, file.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       const resolved = await storage.resolve(id);
       return resolved ?? undefined;
     },
