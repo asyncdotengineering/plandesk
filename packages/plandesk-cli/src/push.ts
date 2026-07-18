@@ -152,7 +152,10 @@ async function runPromotePush(db: Db, options: PushOptions & { toOrgId: string }
   // Sole record of hosted authority: repoint config (local rows are left alone).
   const configPath = join(options.repoDir, '.plandesk', 'config.json');
   const existing = readPlandeskConfig(options.repoDir);
-  const projectName = existing?.projectName ?? blob.project.name;
+  const projectName =
+    (existing?.version === 'plandesk-connect-v2'
+      ? existing.workspaceName
+      : existing?.projectName) ?? blob.project.name;
   writeFileSync(
     configPath,
     buildConfigJson({

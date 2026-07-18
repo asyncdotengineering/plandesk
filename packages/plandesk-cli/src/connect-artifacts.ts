@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { PLANDESK_SKILL_TEMPLATE } from './skill-template.js';
 
 export const PLANDESK_CONNECT_VERSION = 'plandesk-connect-v1';
+export const PLANDESK_CONNECT_VERSION_V2 = 'plandesk-connect-v2';
 export const SENTINEL_START = '<!-- plandesk:start -->';
 export const SENTINEL_END = '<!-- plandesk:end -->';
 export const SENTINEL_INCLUDE = '@.plandesk/skill.md';
@@ -27,6 +28,18 @@ export type PlanDeskConfig = {
   orgId?: string;
   sync?: PlanDeskSyncConfig;
 };
+
+export type PlanDeskConfigV2 = {
+  version: typeof PLANDESK_CONNECT_VERSION_V2;
+  serverUrl: string;
+  orgId: string;
+  workspaceId: string;
+  workspaceName: string;
+  projectIds: string[];
+  sync?: PlanDeskSyncConfig;
+};
+
+export type AnyPlanDeskConfig = PlanDeskConfig | PlanDeskConfigV2;
 
 export type McpJson = {
   mcpServers?: Record<
@@ -105,15 +118,40 @@ export function buildConfigJson(input: {
   return `${JSON.stringify(config, null, 2)}\n`;
 }
 
+export function buildConfigJsonV2(input: {
+  serverUrl: string;
+  orgId: string;
+  workspaceId: string;
+  workspaceName: string;
+  projectIds: string[];
+  sync?: PlanDeskSyncConfig;
+}): string {
+  const config: PlanDeskConfigV2 = {
+    version: PLANDESK_CONNECT_VERSION_V2,
+    serverUrl: normalizeServerUrl(input.serverUrl),
+    orgId: input.orgId,
+    workspaceId: input.workspaceId,
+    workspaceName: input.workspaceName,
+    projectIds: input.projectIds,
+  };
+  if (input.sync !== undefined) {
+    config.sync = {
+      serverUrl: normalizeServerUrl(input.sync.serverUrl),
+      globalProjectId: input.sync.globalProjectId,
+    };
+  }
+  return `${JSON.stringify(config, null, 2)}\n`;
+}
+
 // --- binding resolution — shared by binding-doctor, context, and progress-checkpoint ---
 
 export type PlanDeskBinding = {
-  config: PlanDeskConfig;
+  config: AnyPlanDeskConfig;
   /** Present for hosted agent keys; absent for local loopback (owner without token). */
   token?: string;
 };
 
-export function readPlandeskConfig(repoDir: string): PlanDeskConfig | undefined {
+export function readPlandeskConfig(repoDir: string): AnyPlanDeskConfig | undefined {
   const configPath = join(repoDir, '.plandesk', 'config.json');
   if (!existsSync(configPath)) {
     return undefined;
@@ -160,28 +198,77 @@ function parseSyncConfig(raw: unknown): PlanDeskSyncConfig | undefined {
   };
 }
 
-export function parseConfigJson(content: string): PlanDeskConfig {
-  const parsed = JSON.parse(content) as Partial<PlanDeskConfig>;
-  if (parsed.version !== PLANDESK_CONNECT_VERSION) {
-    throw new Error(`unsupported config version: ${String(parsed.version)}`);
+export function isPlanDeskConfigV2(config: AnyPlanDeskConfig): config is PlanDeskConfigV2 {
+  return config.version === PLANDESK_CONNECT_VERSION_V2;
+}
+
+export function getBoundProjectIds(config: AnyPlanDeskConfig): string[] {
+  if (isPlanDeskConfigV2(config)) {
+    return [...config.projectIds];
   }
+  return [config.projectId];
+}
+
+export function getBoundProjectId(config: AnyPlanDeskConfig): string | undefined {
+  if (isPlanDeskConfigV2(config)) {
+    return config.projectIds[0];
+  }
+  return config.projectId;
+}
+
+export function parseConfigJson(content: string): AnyPlanDeskConfig {
+  const parsed = JSON.parse(content) as unknown;
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('invalid config.json shape');
+  }
+  const obj = parsed as Record<string, unknown>;
+  const version = obj['version'];
+
+  if (version === PLANDESK_CONNECT_VERSION_V2) {
+    const projectIdsRaw = obj['projectIds'];
+    if (
+      typeof obj['serverUrl'] !== 'string' ||
+      typeof obj['orgId'] !== 'string' ||
+      typeof obj['workspaceId'] !== 'string' ||
+      typeof obj['workspaceName'] !== 'string' ||
+      !Array.isArray(projectIdsRaw) ||
+      !projectIdsRaw.every((id): id is string => typeof id === 'string')
+    ) {
+      throw new Error('invalid config.json v2 shape');
+    }
+    const config: PlanDeskConfigV2 = {
+      version: PLANDESK_CONNECT_VERSION_V2,
+      serverUrl: normalizeServerUrl(obj['serverUrl']),
+      orgId: obj['orgId'],
+      workspaceId: obj['workspaceId'],
+      workspaceName: obj['workspaceName'],
+      projectIds: [...projectIdsRaw],
+    };
+    const sync = parseSyncConfig(obj['sync']);
+    if (sync !== undefined) {
+      config.sync = sync;
+    }
+    return config;
+  }
+
+  // Grace-read v1 (or omitted version, treated as v1).
   if (
-    typeof parsed.serverUrl !== 'string' ||
-    typeof parsed.projectId !== 'string' ||
-    typeof parsed.projectName !== 'string'
+    typeof obj['serverUrl'] !== 'string' ||
+    typeof obj['projectId'] !== 'string' ||
+    typeof obj['projectName'] !== 'string'
   ) {
     throw new Error('invalid config.json shape');
   }
   const config: PlanDeskConfig = {
     version: PLANDESK_CONNECT_VERSION,
-    serverUrl: normalizeServerUrl(parsed.serverUrl),
-    projectId: parsed.projectId,
-    projectName: parsed.projectName,
+    serverUrl: normalizeServerUrl(obj['serverUrl']),
+    projectId: obj['projectId'],
+    projectName: obj['projectName'],
   };
-  if (typeof parsed.orgId === 'string' && parsed.orgId.trim() !== '') {
-    config.orgId = parsed.orgId.trim();
+  if (typeof obj['orgId'] === 'string' && obj['orgId'].trim() !== '') {
+    config.orgId = obj['orgId'].trim();
   }
-  const sync = parseSyncConfig(parsed.sync);
+  const sync = parseSyncConfig(obj['sync']);
   if (sync !== undefined) {
     config.sync = sync;
   }

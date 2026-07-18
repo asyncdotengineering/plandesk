@@ -1,15 +1,16 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
+  getBoundProjectId,
   normalizeServerUrl,
   readPlandeskConfig,
   readPlandeskToken,
-  type PlanDeskConfig,
+  type AnyPlanDeskConfig,
 } from './connect-artifacts.js';
 
 export type BindingDoctorReport = {
   present: boolean;
-  config?: PlanDeskConfig;
+  config?: AnyPlanDeskConfig;
   serverReachable: boolean;
   tokenValid: boolean;
   projectExists: boolean;
@@ -78,15 +79,18 @@ export async function runBindingDoctor(repoDir: string): Promise<BindingDoctorRe
     if (token !== undefined) {
       projectHeaders.Authorization = `Bearer ${token}`;
     }
-    const projectResponse = await fetch(`${config.serverUrl}/api/v1/projects/${config.projectId}`, {
-      headers: projectHeaders,
-    });
-    if (projectResponse.ok) {
-      projectExists = true;
-    } else if (projectResponse.status === 404) {
-      issues.push(`bound project not found: ${config.projectId}`);
-    } else {
-      issues.push(`project check failed with status ${String(projectResponse.status)}`);
+    const boundProjectId = getBoundProjectId(config);
+    if (boundProjectId !== undefined) {
+      const projectResponse = await fetch(`${config.serverUrl}/api/v1/projects/${boundProjectId}`, {
+        headers: projectHeaders,
+      });
+      if (projectResponse.ok) {
+        projectExists = true;
+      } else if (projectResponse.status === 404) {
+        issues.push(`bound project not found: ${boundProjectId}`);
+      } else {
+        issues.push(`project check failed with status ${String(projectResponse.status)}`);
+      }
     }
 
     if (token !== undefined) {
@@ -130,7 +134,11 @@ export function formatBindingDoctorReport(report: BindingDoctorReport): string[]
   const lines: string[] = [];
   lines.push('binding: present');
   if (report.config !== undefined) {
-    lines.push(`binding-project: ${report.config.projectName} (${report.config.projectId})`);
+    if (report.config.version === 'plandesk-connect-v2') {
+      lines.push(`binding-workspace: ${report.config.workspaceName} (${report.config.workspaceId})`);
+    } else {
+      lines.push(`binding-project: ${report.config.projectName} (${report.config.projectId})`);
+    }
     lines.push(`binding-server: ${report.config.serverUrl}`);
   }
   lines.push(`binding-server-reachable: ${report.serverReachable ? 'yes' : 'no'}`);

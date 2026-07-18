@@ -4,11 +4,12 @@ import type { SyncRemote } from '@plandesk/api';
 import {
   appendGitignoreLine,
   buildConfigJson,
+  getBoundProjectId,
   GITIGNORE_SYNC_TOKEN_LINE,
   normalizeServerUrl,
   parseConfigJson,
   SYNC_TOKEN_ENV_VAR,
-  type PlanDeskConfig,
+  type AnyPlanDeskConfig,
 } from './connect-artifacts.js';
 
 export type ResolvedSync = {
@@ -59,6 +60,22 @@ export function setConfigSync(
     throw new SyncConfigError('Missing .plandesk/config.json. Run plandesk connect first.');
   }
   const config = parseConfigJson(existing);
+  if (config.version === 'plandesk-connect-v2') {
+    writeFileSync(
+      configPath,
+      buildConfigJson({
+        serverUrl: config.serverUrl,
+        projectId: config.projectIds[0] ?? '',
+        projectName: config.workspaceName,
+        sync: {
+          serverUrl: normalizeServerUrl(sync.serverUrl),
+          globalProjectId: sync.globalProjectId,
+        },
+      }),
+      'utf8',
+    );
+    return;
+  }
   writeFileSync(
     configPath,
     buildConfigJson({
@@ -80,7 +97,7 @@ export function ensureSyncGitignore(repoDir: string): void {
   writeFileSync(gitignorePath, content, 'utf8');
 }
 
-function loadConfig(repoDir: string): PlanDeskConfig {
+function loadConfig(repoDir: string): AnyPlanDeskConfig {
   const configPath = join(repoDir, '.plandesk', 'config.json');
   const content = readOptionalFile(configPath);
   if (content === undefined) {
@@ -90,8 +107,8 @@ function loadConfig(repoDir: string): PlanDeskConfig {
 }
 
 export function resolveProjectId(options: { repoDir: string; projectId?: string }): string {
-  const projectId = options.projectId ?? loadConfig(options.repoDir).projectId;
-  if (projectId.trim() === '') {
+  const projectId = options.projectId ?? getBoundProjectId(loadConfig(options.repoDir));
+  if (projectId === undefined || projectId.trim() === '') {
     throw new SyncConfigError('Project id is required. Use --project or plandesk connect.');
   }
   return projectId;
@@ -106,8 +123,8 @@ export function resolveSyncRemote(options: {
 }): ResolvedSync {
   const config = loadConfig(options.repoDir);
 
-  const projectId = options.projectId ?? config.projectId;
-  if (projectId.trim() === '') {
+  const projectId = options.projectId ?? getBoundProjectId(config);
+  if (projectId === undefined || projectId.trim() === '') {
     throw new SyncConfigError('Project id is required. Use --project or plandesk connect.');
   }
 
@@ -150,8 +167,8 @@ export function resolvePublishInput(options: {
 }): { projectId: string; serverUrl: string; syncToken: string } {
   const config = loadConfig(options.repoDir);
 
-  const projectId = options.projectId ?? config.projectId;
-  if (projectId.trim() === '') {
+  const projectId = options.projectId ?? getBoundProjectId(config);
+  if (projectId === undefined || projectId.trim() === '') {
     throw new SyncConfigError('Project id is required. Use --project or plandesk connect.');
   }
 

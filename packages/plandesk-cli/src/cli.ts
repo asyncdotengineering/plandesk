@@ -40,6 +40,11 @@ import {
   runFactoryInit,
   runFactorySync,
 } from './factory.js';
+import {
+  runWorkspaceCreate,
+  runWorkspaceList,
+  WorkspaceCommandError,
+} from './workspace-command.js';
 import { formatDisconnectSummary, runDisconnect } from './disconnect.js';
 import { runContext } from './context.js';
 import { DEFAULT_CHECKPOINT_MESSAGE, runProgressCheckpoint } from './progress-checkpoint.js';
@@ -278,6 +283,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         const result = await runConnect({
           repoDir: resolveRepoDir(parsed.repoDir),
           project: parsed.project,
+          workspace: parsed.workspace,
           url: parsed.url,
           token: parsed.token,
           agent: parsed.agent,
@@ -481,6 +487,31 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         return 0;
       } catch (err) {
         if (err instanceof FactoryError) {
+          process.stderr.write(`${err.message}\n`);
+          return err.exitCode;
+        }
+        throw err;
+      }
+    }
+    case 'workspace': {
+      try {
+        const repoDir = resolveRepoDir(parsed.repoDir);
+        if (parsed.subcommand === 'list') {
+          await runWorkspaceList({ repoDir, to: parsed.to });
+          return 0;
+        }
+        if (parsed.subcommand === 'create') {
+          if (parsed.name === undefined || parsed.name.trim() === '') {
+            process.stderr.write('workspace create requires a name\n');
+            return 1;
+          }
+          await runWorkspaceCreate({ repoDir, name: parsed.name.trim(), to: parsed.to });
+          return 0;
+        }
+        process.stderr.write(`Unknown workspace subcommand\n`);
+        return 1;
+      } catch (err) {
+        if (err instanceof WorkspaceCommandError) {
           process.stderr.write(`${err.message}\n`);
           return err.exitCode;
         }

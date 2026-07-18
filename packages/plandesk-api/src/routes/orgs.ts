@@ -7,7 +7,11 @@ import {
   type Db,
   type PlandeskExportInput,
 } from '@plandesk/db';
-import { createScopedAgentKey, type CreateScopedAgentKeyInput } from '../agent-keys.js';
+import {
+  createScopedAgentKey,
+  createWorkspaceScopedAgentKey,
+  type CreateScopedAgentKeyInput,
+} from '../agent-keys.js';
 import { getAuthContext, getOrgAuthContext } from '../auth-context.js';
 import type { BetterAuthInstance } from '../better-auth.js';
 import {
@@ -21,6 +25,7 @@ import {
   getOrganizationById,
   listOrganizationMembers,
 } from '../organizations.js';
+import { createTeamForOrg } from '../identity.js';
 import { requirePermission, type PermissionSet } from '../permissions.js';
 
 function isPermissionSet(value: unknown): value is PermissionSet {
@@ -89,9 +94,50 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
   }
 
   /**
-   * BA4b-3: mint a project-scoped agent key for `plandesk connect --to`.
+   * REQ-A1: list teams (workspaces) in an org. Any org member may read.
+   */
+  router.get('/orgs/:orgId/workspaces', async (c) => {
+    if (betterAuth === undefined) {
+      return c.json({ error: 'unavailable' }, 503);
+    }
+    const orgId = c.req.param('orgId');
+    if (!(await requireKnownOrg(orgId))) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    const adapter = (await betterAuth.$context).adapter;
+    const teams = await adapter.findMany<{ id: string; name: string }>({
+      model: 'team',
+      where: [{ field: 'organizationId', value: orgId }],
+    });
+    return c.json({ workspaces: teams.map((t) => ({ id: t.id, name: t.name })) }, 200);
+  });
+
+  /**
+   * REQ-A2: create a team (workspace) in an org. Owner only.
+   */
+  router.post('/orgs/:orgId/workspaces', async (c) => {
+    if (betterAuth === undefined) {
+      return c.json({ error: 'unavailable' }, 503);
+    }
+    const orgId = c.req.param('orgId');
+    if (!(await requireKnownOrg(orgId))) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    requirePermission(getOrgAuthContext(), 'team', 'create');
+
+    const body = await c.req.json<{ name?: unknown }>();
+    if (typeof body.name !== 'string' || body.name.trim() === '') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    const name = body.name.trim();
+
+    const team = await createTeamForOrg(betterAuth, orgId, name);
+    return c.json({ id: team.id, name: team.name }, 201);
+  });
+
+  /**
+   * BA4b-3 + REQ-A3: mint a project-scoped or workspace-scoped agent key.
    * Caller must hold apiKey:create (owner key or session owner) — agent keys cannot.
-   * Raw key returned once; metadata is { projectId, orgId } (agent profile).
    */
   router.post('/orgs/:orgId/agent-keys', async (c) => {
     if (betterAuth === undefined) {
@@ -106,17 +152,10 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
 
     const body = await c.req.json<{
       project_id?: string;
+      team_id?: string;
       permissions?: unknown;
       name?: unknown;
     }>();
-    if (typeof body.project_id !== 'string' || body.project_id.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
-    }
-    const projectId = body.project_id.trim();
-    const project = await getProjectInOrg(db, projectId, orgId);
-    if (project === undefined) {
-      return c.json({ error: 'not_found' }, 404);
-    }
 
     let permissions: PermissionSet | undefined;
     if (body.permissions !== undefined) {
@@ -139,17 +178,58 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
       return c.json({ error: 'unauthorized' }, 401);
     }
 
-    const mintInput: CreateScopedAgentKeyInput = {
-      auth: betterAuth,
-      userId,
-      orgId,
-      projectId,
-      ...(permissions !== undefined ? { permissions } : {}),
-      ...(name !== undefined ? { name } : {}),
-    };
-    const minted = await createScopedAgentKey(mintInput);
+    const hasProjectId = typeof body.project_id === 'string' && body.project_id.trim() !== '';
+    const hasTeamId = typeof body.team_id === 'string' && body.team_id.trim() !== '';
 
-    return c.json({ token: minted.key, project_id: projectId }, 200);
+    if (hasProjectId && hasTeamId) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+
+    if (hasProjectId) {
+      const projectId = body.project_id!.trim();
+      const project = await getProjectInOrg(db, projectId, orgId);
+      if (project === undefined) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+
+      const mintInput: CreateScopedAgentKeyInput = {
+        auth: betterAuth,
+        userId,
+        orgId,
+        projectId,
+        ...(permissions !== undefined ? { permissions } : {}),
+        ...(name !== undefined ? { name } : {}),
+      };
+      const minted = await createScopedAgentKey(mintInput);
+      return c.json({ token: minted.key, project_id: projectId }, 200);
+    }
+
+    if (hasTeamId) {
+      const teamId = body.team_id!.trim();
+      const adapter = (await betterAuth.$context).adapter;
+      const team = await adapter.findOne<{ id: string; organizationId: string }>({
+        model: 'team',
+        where: [
+          { field: 'id', value: teamId },
+          { field: 'organizationId', value: orgId },
+        ],
+      });
+      if (team === null) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+
+      const minted = await createWorkspaceScopedAgentKey({
+        auth: betterAuth,
+        userId,
+        orgId,
+        teamId,
+        ...(permissions !== undefined ? { permissions } : {}),
+        ...(name !== undefined ? { name } : {}),
+      });
+      return c.json({ token: minted.key, team_id: teamId }, 200);
+    }
+
+    return c.json({ error: 'invalid_argument' }, 400);
   });
 
   /**

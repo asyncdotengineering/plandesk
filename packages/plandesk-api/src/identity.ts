@@ -115,6 +115,23 @@ export async function resolveOrganizationsForGithubIdentity(
  * Ensure the well-known local better-auth organization exists (user-less).
  * Idempotent. Used at serve boot for loopback owner-by-bind.
  */
+export async function createTeamForOrg(
+  auth: BetterAuthInstance,
+  organizationId: string,
+  name: string,
+): Promise<TeamRow> {
+  const adapter = (await auth.$context).adapter;
+  const now = new Date();
+  return adapter.create<TeamRow>({
+    model: 'team',
+    data: {
+      name,
+      organizationId,
+      createdAt: now,
+    },
+  });
+}
+
 export async function ensureDefaultTeamForOrg(
   auth: BetterAuthInstance,
   organizationId: string,

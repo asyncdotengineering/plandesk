@@ -1,4 +1,8 @@
-import { normalizeServerUrl, resolvePlandeskBinding } from './connect-artifacts.js';
+import {
+  getBoundProjectId,
+  normalizeServerUrl,
+  resolvePlandeskBinding,
+} from './connect-artifacts.js';
 
 export type CurrentTaskSummary = {
   id: string;
@@ -109,14 +113,18 @@ export async function runContext(repoDir: string): Promise<PlanDeskContext | Rec
   }
   const { config, token } = binding;
   const base = normalizeServerUrl(config.serverUrl);
+  const projectId = getBoundProjectId(config);
+  if (projectId === undefined) {
+    return {};
+  }
 
   // tasks and agent-runs are independent — fetch them together instead of serially.
   const [tasks, runs] = await Promise.all([
     fetchJson<TaskResponse[]>(
-      `${base}/api/v1/projects/${config.projectId}/tasks?status=in_progress`,
+      `${base}/api/v1/projects/${projectId}/tasks?status=in_progress`,
       token,
     ),
-    fetchJson<AgentRunResponse[]>(`${base}/api/v1/projects/${config.projectId}/agent-runs`, token),
+    fetchJson<AgentRunResponse[]>(`${base}/api/v1/projects/${projectId}/agent-runs`, token),
   ]);
 
   const currentTaskRaw = mostRecentlyUpdated(tasks ?? []);
@@ -145,7 +153,7 @@ export async function runContext(repoDir: string): Promise<PlanDeskContext | Rec
     }
   } else {
     const nextTaskResult = await fetchJson<NextTaskResponse>(
-      `${base}/api/v1/projects/${config.projectId}/next-task`,
+      `${base}/api/v1/projects/${projectId}/next-task`,
       token,
     );
     if (nextTaskResult?.next_task) {

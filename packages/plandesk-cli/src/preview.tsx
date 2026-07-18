@@ -677,7 +677,12 @@ export function resolvePreviewWorkspace(startDir: string = cwd()): PreviewWorksp
   if (!config || token === undefined) {
     return undefined;
   }
-  return { serverUrl: normalizeServerUrl(config.serverUrl), projectId: config.projectId, token };
+  const projectId =
+    config.version === 'plandesk-connect-v2' ? config.projectIds[0] : config.projectId;
+  if (projectId === undefined) {
+    return undefined;
+  }
+  return { serverUrl: normalizeServerUrl(config.serverUrl), projectId, token };
 }
 
 const sidecarBackend: AnnotationBackend = {

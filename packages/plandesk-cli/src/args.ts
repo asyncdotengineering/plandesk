@@ -153,6 +153,7 @@ const RESERVED_COMMANDS = new Set([
   'share',
   'deploy',
   'factory',
+  'workspace',
   'context',
   'progress-checkpoint',
   'migrate',
@@ -199,6 +200,7 @@ export type ParsedArgs =
       command: 'connect';
       repoDir?: string;
       project?: string;
+      workspace?: string;
       url?: string;
       token?: string;
       agent: ConnectAgent;
@@ -239,6 +241,7 @@ export type ParsedArgs =
   | { command: 'deploy'; target?: string }
   | { command: 'factory'; subcommand: 'init'; repoDir?: string; print: boolean; force: boolean }
   | { command: 'factory'; subcommand: 'sync'; repoDir?: string; write: boolean; force: boolean }
+  | { command: 'workspace'; subcommand: 'create' | 'list'; repoDir?: string; name?: string; to?: string }
   | { command: 'context'; repoDir?: string }
   | { command: 'progress-checkpoint'; message?: string; repoDir?: string }
   | { command: 'preview'; paths: string[]; port?: number; host?: string; open: boolean }
@@ -429,6 +432,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: 'connect',
       repoDir: flagString(flags, 'repo'),
       project: flagString(flags, 'project'),
+      workspace: flagString(flags, 'workspace'),
       url: flagString(flags, 'url'),
       token: flagString(flags, 'token'),
       agent,
@@ -530,6 +534,28 @@ export function parseArgs(argv: string[]): ParsedArgs {
     return { command: 'unknown', name: 'factory' };
   }
 
+  if (command === 'workspace') {
+    const subcommand = positional[1];
+    if (subcommand === 'create') {
+      return {
+        command: 'workspace',
+        subcommand: 'create',
+        repoDir: flagString(flags, 'repo'),
+        name: positional[2],
+        to: flagString(flags, 'to'),
+      };
+    }
+    if (subcommand === 'list') {
+      return {
+        command: 'workspace',
+        subcommand: 'list',
+        repoDir: flagString(flags, 'repo'),
+        to: flagString(flags, 'to'),
+      };
+    }
+    return { command: 'unknown', name: 'workspace' };
+  }
+
   if (command === 'context') {
     return { command: 'context', repoDir: flagString(flags, 'repo') };
   }
@@ -562,8 +588,8 @@ Usage:
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]
   plandesk legacy-upgrade [--from <old-workspace.db>] [--data-dir <dir>]   # lift a 0.20.0-era board into the global board
-  plandesk connect [--repo <dir>] [--project <id|name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
-  plandesk connect --to <orgId> [--project <id|name>] [--repo <dir>] [--print]   # hosted: mint scoped agent key (requires plandesk login)
+  plandesk connect [--repo <dir>] [--project <id|name>] [--workspace <name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
+  plandesk connect --to <orgId> [--project <id|name>] [--workspace <name>] [--repo <dir>] [--print]   # hosted: mint scoped agent key (requires plandesk login)
   plandesk disconnect [--repo <dir>]
   plandesk doctor [--data-dir <dir>] [--repo <dir>] [--config <file>]
   plandesk migrate --db <url> [--db-token <token>] [--config <file>] [--data-dir <dir>]   # apply schema migrations to a remote (self-host) database
@@ -573,6 +599,8 @@ Usage:
   plandesk deploy [target]   # list deploy guides, or print one for your coding agent: plandesk deploy cloudflare | claude
   plandesk factory init [--repo <dir>] [--print] [--force]
   plandesk factory sync [--write] [--force] [--repo <dir>]   # update scaffolded policy to the latest shipped version
+  plandesk workspace create <name> [--to <orgId>]
+  plandesk workspace list [--to <orgId>]
   plandesk context --json [--repo <dir>]   # bound project's current task/doc/progress, for session hooks
   plandesk progress-checkpoint [--message <text>] [--repo <dir>]   # post a checkpoint to the running agent run, for Stop/PreCompact hooks
   plandesk onboard           # teach-me guide: how to work in a Plan Desk + Factory repo

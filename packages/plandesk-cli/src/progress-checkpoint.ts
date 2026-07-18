@@ -1,4 +1,8 @@
-import { normalizeServerUrl, resolvePlandeskBinding } from './connect-artifacts.js';
+import {
+  getBoundProjectId,
+  normalizeServerUrl,
+  resolvePlandeskBinding,
+} from './connect-artifacts.js';
 
 export const DEFAULT_CHECKPOINT_MESSAGE = 'checkpoint (hook)';
 
@@ -32,6 +36,10 @@ export async function runProgressCheckpoint(
   }
   const { config, token } = binding;
   const base = normalizeServerUrl(config.serverUrl);
+  const projectId = getBoundProjectId(config);
+  if (projectId === undefined) {
+    return { posted: false };
+  }
   const authHeaders: Record<string, string> = {};
   if (token !== undefined && token !== '') {
     authHeaders.Authorization = `Bearer ${token}`;
@@ -39,7 +47,7 @@ export async function runProgressCheckpoint(
 
   let runs: AgentRunResponse[] | undefined;
   try {
-    const res = await fetch(`${base}/api/v1/projects/${config.projectId}/agent-runs`, {
+    const res = await fetch(`${base}/api/v1/projects/${projectId}/agent-runs`, {
       headers: authHeaders,
       signal: AbortSignal.timeout(HOOK_FETCH_TIMEOUT_MS),
     });

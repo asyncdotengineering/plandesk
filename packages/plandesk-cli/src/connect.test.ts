@@ -23,9 +23,14 @@ import {
   migrate,
   type Db,
 } from '@plandesk/db';
+import { ensureLocalBetterAuthOrganization } from '@plandesk/api';
 import { createMcpApp } from '@plandesk/mcp';
 import { writeCliConfig } from './config.js';
-import { parseConfigJson, SENTINEL_START } from './connect-artifacts.js';
+import {
+  parseConfigJson,
+  PLANDESK_CONNECT_VERSION_V2,
+  SENTINEL_START,
+} from './connect-artifacts.js';
 import { ConnectError, formatConnectPrint, runConnect } from './connect.js';
 import { runDisconnect } from './disconnect.js';
 import { runBindingDoctor } from './binding-doctor.js';
@@ -214,7 +219,7 @@ describe('runConnect', () => {
         interactive: false,
       });
 
-      expect(result.project.id).toBe(projectId);
+      expect(result.project!.id).toBe(projectId);
       expect(existsSync(join(repoDir, '.plandesk', 'token'))).toBe(false);
       expect(committedContents(repoDir)).not.toContain('plandesk_mcp_');
       const mcpJson = readFileSync(join(repoDir, '.mcp.json'), 'utf8');
@@ -233,9 +238,9 @@ describe('runConnect', () => {
       const gitignore = readFileSync(join(repoDir, '.gitignore'), 'utf8');
       expect(gitignore).toContain('.plandesk/token');
       expect(gitignore).toContain('.plandesk/server.json');
-      expect(
-        parseConfigJson(readFileSync(join(repoDir, '.plandesk/config.json'), 'utf8')).projectId,
-      ).toBe(projectId);
+      const parsed = parseConfigJson(readFileSync(join(repoDir, '.plandesk/config.json'), 'utf8'));
+      expect(parsed.version).toBe('plandesk-connect-v1');
+      expect((parsed as { projectId: string }).projectId).toBe(projectId);
     });
   });
 
@@ -338,10 +343,10 @@ describe('runConnect', () => {
         interactive: false,
       });
 
-      expect(rebound.project.id).toBe(other.id);
-      expect(
-        parseConfigJson(readFileSync(join(repoDir, '.plandesk/config.json'), 'utf8')).projectId,
-      ).toBe(other.id);
+      expect(rebound.project!.id).toBe(other.id);
+      const parsed2 = parseConfigJson(readFileSync(join(repoDir, '.plandesk/config.json'), 'utf8'));
+      expect(parsed2.version).toBe('plandesk-connect-v1');
+      expect((parsed2 as { projectId: string }).projectId).toBe(other.id);
     });
   });
 
@@ -493,7 +498,7 @@ describe('runConnect --to hosted (BA4b-3)', () => {
       interactive: false,
     });
 
-    expect(result.project.id).toBe(projectA.id);
+    expect(result.project!.id).toBe(projectA.id);
     expect(result.serverUrl).toBe(baseUrl.replace(/\/$/, ''));
     expect(result.tokenCreated).toBe(true);
 
@@ -503,7 +508,8 @@ describe('runConnect --to hosted (BA4b-3)', () => {
     expect(writtenToken.length).toBeGreaterThan(0);
 
     const bound = parseConfigJson(readFileSync(join(repoDir, '.plandesk/config.json'), 'utf8'));
-    expect(bound.projectId).toBe(projectA.id);
+    expect(bound.version).toBe('plandesk-connect-v1');
+    expect((bound as { projectId: string }).projectId).toBe(projectA.id);
     expect(bound.serverUrl).toBe(baseUrl.replace(/\/$/, ''));
 
     // Scoped key works on project A, 404s on B.
@@ -558,6 +564,74 @@ describe('runConnect --to hosted (BA4b-3)', () => {
       expect(err).toBeInstanceOf(ConnectError);
       expect((err as ConnectError).message).toContain('plandesk login');
     }
+  });
+
+  it('connect --workspace locally writes v2 config with workspace binding and no token', async () => {
+    const db = await createDb(':memory:');
+    await migrate(db);
+    const org = { id: DEFAULT_ORG_ID, name: 'Local Org' };
+    const project = await createProjectInOrg(db, {
+      name: 'ws-project',
+      orgId: org.id,
+      workspaceId: DEFAULT_WORKSPACE_ID,
+    });
+
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: HOSTED_SECRET,
+      baseURL: 'http://127.0.0.1',
+      github: { clientId: 'test-client', clientSecret: 'test-secret' },
+    });
+    if (auth === undefined) throw new Error('expected better-auth');
+    await runBetterAuthMigrations(auth);
+    await ensureLocalBetterAuthOrganization(db, auth);
+
+    const services = createServices({ db, orgId: project.orgId });
+    const mcpApp = createMcpApp({ services });
+    const app = createApp({
+      db,
+      services,
+      mcp: mcpApp,
+      betterAuth: { secret: HOSTED_SECRET, baseURL: 'http://127.0.0.1' },
+    });
+    const server = createServer((req, res) => {
+      void getRequestListener(app.fetch)(req, res);
+    });
+    servers.push(server);
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => {
+        resolve();
+      });
+    });
+    const address = server.address();
+    if (address === null || typeof address !== 'object') {
+      throw new Error('expected TCP address');
+    }
+    const baseUrl = `http://127.0.0.1:${String(address.port)}`;
+
+    const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-ws-connect-'));
+    tempDirs.push(repoDir);
+    writeFileSync(join(repoDir, 'README.md'), '# ws-project\n', 'utf8');
+
+    const result = await runConnect({
+      repoDir,
+      workspace: 'General',
+      url: baseUrl,
+      agent: 'claude',
+      interactive: false,
+    });
+
+    expect(result.workspace!.name).toBe('General');
+    expect(result.tokenCreated).toBe(false);
+    expect(existsSync(join(repoDir, '.plandesk', 'token'))).toBe(false);
+
+    const configRaw = readFileSync(join(repoDir, '.plandesk', 'config.json'), 'utf8');
+    const config = parseConfigJson(configRaw);
+    expect(config.version).toBe(PLANDESK_CONNECT_VERSION_V2);
+    expect((config as { workspaceId: string }).workspaceId).toBe(DEFAULT_WORKSPACE_ID);
+    expect((config as { workspaceName: string }).workspaceName).toBe('General');
+    expect((config as { orgId: string }).orgId).toBe(DEFAULT_ORG_ID);
+    expect((config as { projectIds: string[] }).projectIds).toContain(project.id);
   });
 });
 

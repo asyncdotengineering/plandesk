@@ -15,7 +15,10 @@ import {
   appendGitignoreLine,
   buildCommandMarkdown,
   buildConfigJson,
+  buildConfigJsonV2,
   buildSkillMarkdown,
+  getBoundProjectId,
+  getBoundProjectIds,
   GITIGNORE_SERVER_INFO_LINE,
   GITIGNORE_TOKEN_LINE,
   globalDirRefusalReason,
@@ -27,7 +30,7 @@ import {
   SKILL_DIRS,
   SKILL_SYMLINK_TARGET,
   TOKEN_ENV_VAR,
-  type PlanDeskConfig,
+  type AnyPlanDeskConfig,
 } from './connect-artifacts.js';
 import { DEFAULT_PORT } from './args.js';
 import { readCliConfig } from './config.js';
@@ -35,6 +38,7 @@ import { readCliConfig } from './config.js';
 export type ProjectSummary = {
   id: string;
   name: string;
+  workspace_id?: string;
 };
 
 export type ConnectAgent = 'claude' | 'codex' | 'both' | 'detect';
@@ -42,6 +46,7 @@ export type ConnectAgent = 'claude' | 'codex' | 'both' | 'detect';
 export type ConnectOptions = {
   repoDir: string;
   project?: string;
+  workspace?: string;
   url?: string;
   token?: string;
   agent?: ConnectAgent;
@@ -49,7 +54,7 @@ export type ConnectOptions = {
   interactive?: boolean;
   /**
    * Hosted org id (`plandesk connect --to <org>`). When set, mint a
-   * project-scoped agent key via the login owner key — never write the owner key.
+   * scoped agent key via the login owner key — never write the owner key.
    */
   to?: string;
   /** Injectable home for ~/.plandesk/config.json (tests). */
@@ -63,8 +68,14 @@ export type ConnectArtifact = {
   symlinkTarget?: string;
 };
 
+export type WorkspaceSummary = {
+  id: string;
+  name: string;
+};
+
 export type ConnectResult = {
-  project: ProjectSummary;
+  project?: ProjectSummary;
+  workspace?: WorkspaceSummary;
   serverUrl: string;
   artifacts: ConnectArtifact[];
   tokenCreated: boolean;
@@ -147,6 +158,93 @@ async function createAgentKeyViaApi(
   return body.token;
 }
 
+/** Hosted: mint a workspace-scoped agent key with the login owner key. */
+async function createWorkspaceAgentKeyViaApi(
+  serverUrl: string,
+  orgId: string,
+  workspaceId: string,
+  ownerToken: string,
+): Promise<string> {
+  const response = await fetch(
+    `${normalizeServerUrl(serverUrl)}/api/v1/orgs/${encodeURIComponent(orgId)}/agent-keys`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ownerToken}`,
+      },
+      body: JSON.stringify({ team_id: workspaceId, name: 'plandesk connect' }),
+    },
+  );
+  if (!response.ok) {
+    const detail =
+      response.status === 401 || response.status === 403
+        ? ' Login again with `plandesk login` if your owner key expired or lost access.'
+        : '';
+    throw new ConnectError(
+      `Failed to mint a workspace-scoped agent key for workspace ${workspaceId} on ${serverUrl} (${String(response.status)}).${detail}`,
+    );
+  }
+  const body = (await response.json()) as { token?: string };
+  if (typeof body.token !== 'string' || body.token.trim() === '') {
+    throw new ConnectError('Agent-key API returned an invalid response.');
+  }
+  return body.token;
+}
+
+export type WorkspaceApiSummary = {
+  id: string;
+  name: string;
+};
+
+async function fetchWorkspaces(
+  serverUrl: string,
+  orgId: string,
+  bearerToken?: string,
+): Promise<WorkspaceApiSummary[]> {
+  const headers: Record<string, string> = {};
+  if (bearerToken !== undefined && bearerToken !== '') {
+    headers.Authorization = `Bearer ${bearerToken}`;
+  }
+  const response = await fetch(
+    `${normalizeServerUrl(serverUrl)}/api/v1/orgs/${encodeURIComponent(orgId)}/workspaces`,
+    { headers },
+  );
+  if (!response.ok) {
+    throw new ConnectError(
+      `Plan Desk server unreachable at ${serverUrl} (${String(response.status)}).`,
+    );
+  }
+  const body = (await response.json()) as { workspaces: WorkspaceApiSummary[] };
+  return body.workspaces ?? [];
+}
+
+function matchWorkspace(
+  workspaces: WorkspaceApiSummary[],
+  query: string,
+): WorkspaceApiSummary | undefined {
+  const normalized = query.trim().toLowerCase();
+  return workspaces.find(
+    (ws) => ws.id === query || ws.name.toLowerCase() === normalized,
+  );
+}
+
+async function resolveWorkspace(
+  serverUrl: string,
+  orgId: string,
+  query: string,
+  bearerToken?: string,
+): Promise<WorkspaceSummary> {
+  const workspaces = await fetchWorkspaces(serverUrl, orgId, bearerToken);
+  const match = matchWorkspace(workspaces, query);
+  if (match === undefined) {
+    throw new ConnectError(
+      `No workspace matches "${query}". Available: ${workspaces.map((w) => w.name).join(', ') || '(none)'}`,
+    );
+  }
+  return { id: match.id, name: match.name };
+}
+
 function matchProjects(projects: ProjectSummary[], query: string): ProjectSummary[] {
   const normalized = query.trim().toLowerCase();
   const byId = projects.filter((project) => project.id === query);
@@ -207,13 +305,16 @@ async function resolveProject(
 
   if (existingConfig !== undefined) {
     const config = parseConfigJson(existingConfig);
-    const bound = projects.find((project) => project.id === config.projectId);
-    if (bound !== undefined) {
-      return { project: bound, explicitProject: false };
+    const boundProjectId = getBoundProjectId(config);
+    if (boundProjectId !== undefined) {
+      const bound = projects.find((project) => project.id === boundProjectId);
+      if (bound !== undefined) {
+        return { project: bound, explicitProject: false };
+      }
+      throw new ConnectError(
+        `Bound project ${boundProjectId} no longer exists on the server. Rebind with --project.`,
+      );
     }
-    throw new ConnectError(
-      `Bound project ${config.projectId} no longer exists on the server. Rebind with --project.`,
-    );
   }
 
   const repoMatches = matchRepoName(projects, options.repoDir);
@@ -257,17 +358,23 @@ async function resolveProject(
 }
 
 function assertRebindAllowed(
-  existingConfig: PlanDeskConfig | undefined,
+  existingConfig: AnyPlanDeskConfig | undefined,
   project: ProjectSummary,
   explicitProject: boolean,
 ): void {
   if (existingConfig === undefined) {
     return;
   }
-  if (existingConfig.projectId === project.id) {
+  const boundIds = getBoundProjectIds(existingConfig);
+  if (boundIds.includes(project.id)) {
     return;
   }
   if (!explicitProject) {
+    if (existingConfig.version === 'plandesk-connect-v2') {
+      throw new ConnectError(
+        `Repo is bound to workspace "${existingConfig.workspaceName}" (${existingConfig.workspaceId}). Rebind with --project.`,
+      );
+    }
     throw new ConnectError(
       `Repo is bound to project "${existingConfig.projectName}" (${existingConfig.projectId}). Rebind with --project.`,
     );
@@ -323,22 +430,40 @@ function resolveLocalToken(
 function buildArtifacts(
   options: ConnectOptions,
   serverUrl: string,
-  project: ProjectSummary,
+  project: ProjectSummary | undefined,
+  workspace: WorkspaceSummary | undefined,
+  orgId: string | undefined,
+  projectIds: string[],
   token: string | undefined,
   agents: { claude: boolean; codex: boolean },
 ): ConnectArtifact[] {
   const artifacts: ConnectArtifact[] = [];
   const plandeskDir = join(options.repoDir, '.plandesk');
 
-  artifacts.push({
-    path: join(plandeskDir, 'config.json'),
-    content: buildConfigJson({
-      serverUrl,
-      projectId: project.id,
-      projectName: project.name,
-    }),
-    action: existsSync(join(plandeskDir, 'config.json')) ? 'update' : 'create',
-  });
+  if (workspace !== undefined && orgId !== undefined) {
+    artifacts.push({
+      path: join(plandeskDir, 'config.json'),
+      content: buildConfigJsonV2({
+        serverUrl,
+        orgId,
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        projectIds,
+      }),
+      action: existsSync(join(plandeskDir, 'config.json')) ? 'update' : 'create',
+    });
+  } else if (project !== undefined) {
+    artifacts.push({
+      path: join(plandeskDir, 'config.json'),
+      content: buildConfigJson({
+        serverUrl,
+        projectId: project.id,
+        projectName: project.name,
+        ...(orgId !== undefined ? { orgId } : {}),
+      }),
+      action: existsSync(join(plandeskDir, 'config.json')) ? 'update' : 'create',
+    });
+  }
 
   artifacts.push({
     path: join(plandeskDir, 'skill.md'),
@@ -446,7 +571,12 @@ function redactArtifactContent(path: string, content: string): string {
 export function formatConnectPrint(result: ConnectResult): string {
   const lines: string[] = [];
   lines.push(`# plandesk connect --print`);
-  lines.push(`project: ${result.project.name} (${result.project.id})`);
+  if (result.workspace !== undefined) {
+    lines.push(`workspace: ${result.workspace.name} (${result.workspace.id})`);
+  }
+  if (result.project !== undefined) {
+    lines.push(`project: ${result.project.name} (${result.project.id})`);
+  }
   lines.push(`server: ${result.serverUrl}`);
   lines.push('');
   for (const artifact of result.artifacts) {
@@ -467,7 +597,12 @@ export function formatConnectPrint(result: ConnectResult): string {
 
 export function formatConnectSummary(result: ConnectResult): string {
   const lines: string[] = [];
-  lines.push(`Connected ${result.project.name} (${result.project.id})`);
+  if (result.workspace !== undefined) {
+    lines.push(`Connected workspace ${result.workspace.name} (${result.workspace.id})`);
+  }
+  if (result.project !== undefined) {
+    lines.push(`Connected ${result.project.name} (${result.project.id})`);
+  }
   lines.push(`server: ${result.serverUrl}`);
   for (const artifact of result.artifacts) {
     lines.push(
@@ -496,6 +631,48 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
   }
 
   const serverUrl = normalizeServerUrl(options.url ?? resolveDefaultServerUrl(options.repoDir));
+
+  // Workspace connect branch (local).
+  if (options.workspace !== undefined && options.workspace.trim() !== '') {
+    const { DEFAULT_ORG_ID } = await import('@plandesk/db');
+    const orgId = DEFAULT_ORG_ID;
+    const workspace = await resolveWorkspace(serverUrl, orgId, options.workspace.trim());
+    const projects = await fetchProjects(serverUrl);
+    const projectIds = projects
+      .filter((p) => p.workspace_id === workspace.id)
+      .map((p) => p.id);
+
+    const { token, created } = resolveLocalToken(options);
+    const agents = resolveAgents(options.repoDir, options.agent ?? 'detect');
+    const artifacts = buildArtifacts(
+      options,
+      serverUrl,
+      undefined,
+      workspace,
+      orgId,
+      projectIds,
+      token,
+      agents,
+    );
+
+    const result: ConnectResult = {
+      workspace,
+      serverUrl,
+      artifacts,
+      tokenCreated: created,
+      tokenLine:
+        token !== undefined && token !== ''
+          ? `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`
+          : 'Local loopback mode — no token file (server treats loopback as owner).',
+    };
+
+    if (options.print === true) {
+      return result;
+    }
+    writeArtifacts(artifacts);
+    return result;
+  }
+
   const configPath = join(options.repoDir, '.plandesk', 'config.json');
   const existingConfigContent = readOptionalFile(configPath);
   const existingConfig =
@@ -506,7 +683,7 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
 
   const { token, created } = resolveLocalToken(options);
   const agents = resolveAgents(options.repoDir, options.agent ?? 'detect');
-  const artifacts = buildArtifacts(options, serverUrl, project, token, agents);
+  const artifacts = buildArtifacts(options, serverUrl, project, undefined, undefined, [], token, agents);
 
   const result: ConnectResult = {
     project,
@@ -528,7 +705,7 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
 }
 
 /**
- * Hosted connect: human's owner key (login) → mint project-scoped agent key →
+ * Hosted connect: human's owner key (login) → mint scoped agent key →
  * write that key (never the owner key) into .plandesk/token.
  * REQ-4: no Local|hosted where-prompt — --to is explicit hosted; omit = local.
  */
@@ -555,9 +732,55 @@ async function runHostedConnect(
   }
 
   const serverUrl = normalizeServerUrl(options.url ?? cliConfig.server);
-  // Always list/mint with the login owner key — never confuse it with --token
-  // (which, when set, is an already-provisioned agent key to write as-is).
   const ownerToken = cliConfig.token;
+
+  // Workspace connect branch (hosted).
+  if (options.workspace !== undefined && options.workspace.trim() !== '') {
+    const workspace = await resolveWorkspace(serverUrl, orgId, options.workspace.trim(), ownerToken);
+    const projects = await fetchProjects(serverUrl, ownerToken);
+    const projectIds = projects
+      .filter((p) => p.workspace_id === workspace.id)
+      .map((p) => p.id);
+
+    let token: string;
+    let created: boolean;
+    if (options.token !== undefined) {
+      token = options.token;
+      created = false;
+    } else {
+      token = await createWorkspaceAgentKeyViaApi(serverUrl, orgId, workspace.id, ownerToken);
+      created = true;
+    }
+
+    const agents = resolveAgents(options.repoDir, options.agent ?? 'detect');
+    const artifacts = buildArtifacts(
+      options,
+      serverUrl,
+      undefined,
+      workspace,
+      orgId,
+      projectIds,
+      token,
+      agents,
+    );
+
+    const result: ConnectResult = {
+      workspace,
+      serverUrl,
+      artifacts,
+      tokenCreated: created,
+      tokenLine: created
+        ? `Scoped agent key saved to .plandesk/token (gitignored) — not your owner key. set ${TOKEN_ENV_VAR} to override.`
+        : `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`,
+    };
+
+    if (options.print === true) {
+      return result;
+    }
+    writeArtifacts(artifacts);
+    return result;
+  }
+
   const configPath = join(options.repoDir, '.plandesk', 'config.json');
   const existingConfigContent = readOptionalFile(configPath);
   const existingConfig =
@@ -577,7 +800,7 @@ async function runHostedConnect(
   }
 
   const agents = resolveAgents(options.repoDir, options.agent ?? 'detect');
-  const artifacts = buildArtifacts(options, serverUrl, project, token, agents);
+  const artifacts = buildArtifacts(options, serverUrl, project, undefined, undefined, [], token, agents);
 
   const result: ConnectResult = {
     project,

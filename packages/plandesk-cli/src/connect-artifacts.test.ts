@@ -7,10 +7,7 @@ import { PLANDESK_SKILL_TEMPLATE } from './skill-template.js';
 import {
   appendGitignoreLine,
   buildConfigJson,
-  buildHeadersHelper,
-  buildMcpServerEntry,
-  buildSentinelBlock,
-  buildSkillMarkdown,
+  buildConfigJsonV2,
   deleteServerInfo,
   GITIGNORE_SERVER_INFO_LINE,
   GITIGNORE_SYNC_TOKEN_LINE,
@@ -30,6 +27,10 @@ import {
   writeServerInfo,
   writeWorkspaceJson,
   WORKSPACE_JSON_VERSION,
+  buildHeadersHelper,
+  buildMcpServerEntry,
+  buildSentinelBlock,
+  buildSkillMarkdown,
 } from './connect-artifacts.js';
 
 describe('connect artifacts', () => {
@@ -46,6 +47,49 @@ describe('connect artifacts', () => {
       projectId: 'proj-1',
       projectName: 'Checkout Revamp',
     });
+  });
+
+  it('builds v2 config.json round-trip', async () => {
+    const json = buildConfigJsonV2({
+      serverUrl: 'http://127.0.0.1:3847',
+      orgId: 'org-1',
+      workspaceId: 'ws-1',
+      workspaceName: 'Engineering',
+      projectIds: ['proj-1', 'proj-2'],
+    });
+    expect(json).not.toContain('plandesk_mcp_');
+    const parsed = parseConfigJson(json);
+    expect(parsed).toEqual({
+      version: 'plandesk-connect-v2',
+      serverUrl: 'http://127.0.0.1:3847',
+      orgId: 'org-1',
+      workspaceId: 'ws-1',
+      workspaceName: 'Engineering',
+      projectIds: ['proj-1', 'proj-2'],
+    });
+  });
+
+  it('grace-reads v1 config as v1 shape', async () => {
+    const v1 = JSON.stringify({
+      version: 'plandesk-connect-v1',
+      serverUrl: 'http://127.0.0.1:3847',
+      projectId: 'proj-1',
+      projectName: 'Legacy',
+    });
+    const parsed = parseConfigJson(v1);
+    expect(parsed.version).toBe('plandesk-connect-v1');
+    expect((parsed as { projectId: string }).projectId).toBe('proj-1');
+  });
+
+  it('grace-reads v1 config without version field', async () => {
+    const v1 = JSON.stringify({
+      serverUrl: 'http://127.0.0.1:3847',
+      projectId: 'proj-1',
+      projectName: 'Legacy',
+    });
+    const parsed = parseConfigJson(v1);
+    expect(parsed.version).toBe('plandesk-connect-v1');
+    expect((parsed as { projectId: string }).projectId).toBe('proj-1');
   });
 
   it('preserves optional sync section without sync token', async () => {

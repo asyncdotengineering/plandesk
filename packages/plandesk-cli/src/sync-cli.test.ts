@@ -443,15 +443,17 @@ describe('CLI push/pull', () => {
 
     const config = parseConfigJson(readFileSync(join(repoDir, '.plandesk', 'config.json'), 'utf8'));
     expect(config.serverUrl).toBe(serverUrl);
-    expect(config.orgId).toBe(org.id);
-    expect(config.projectId).not.toBe(projectId);
+    expect(config.version).toBe('plandesk-connect-v1');
+    expect((config as { orgId?: string }).orgId).toBe(org.id);
+    const configProjectId = (config as { projectId: string }).projectId;
+    expect(configProjectId).not.toBe(projectId);
 
-    const hostedExport = await exportProject(hostedDb, config.projectId);
+    const hostedExport = await exportProject(hostedDb, configProjectId);
     expect(hostedExport?.project.name).toBe('Sync CLI');
 
     const { db: localDb } = await openWorkspace(dataDir);
     const remote = await getSyncRemote(localDb, projectId);
-    expect(remote?.globalProjectId).toBe(config.projectId);
+    expect(remote?.globalProjectId).toBe(configProjectId);
     expect(remote?.serverUrl).toBe(serverUrl);
 
     const columns = await localDb.$client.execute('PRAGMA table_info(projects)');
