@@ -227,7 +227,15 @@ export function createSyncService(deps: SyncServiceDeps) {
     async listTriage(
       projectId: string,
       status?: ShareSubmissionStatus,
-    ): Promise<SerializedSubmission[]> {
+    ): Promise<SerializedSubmission[] | undefined> {
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       return (await listSubmissions(db, projectId, status)).map(serializeSubmission);
     },
 

@@ -8,6 +8,7 @@ import {
   getShareByTokenHashRaw,
   hashShareToken,
   listShares,
+  listSubmissions,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -327,6 +328,6 @@ describe('shareService', () => {
     expect(await syncService.listTriage(project.id)).toHaveLength(1);
 
     expect(await projectService.delete(project.id)).toBe(true);
-    expect(await syncService.listTriage(project.id)).toHaveLength(0);
+    expect(await listSubmissions(db, project.id)).toHaveLength(0);
   });
 });

@@ -250,6 +250,13 @@ export function createProjectService(deps: ProjectServiceDeps) {
           await dbListProjects(db, orgId, { ...pagination, workspaceIds: ctx.memberWorkspaceIds })
         ).map(serializeProject);
       }
+      // A project-scoped agent key sees only its own project (a key with
+      // ctx.projectId and no workspaceId would otherwise enumerate every org
+      // project). getProjectInOrg also enforces org membership.
+      if (ctx?.kind === 'apikey' && ctx.projectId !== undefined) {
+        const project = await getProjectInOrg(db, ctx.projectId, orgId);
+        return project === undefined ? [] : [serializeProject(project)];
+      }
       const workspaceId =
         (ctx?.kind === 'apikey' || ctx?.kind === 'loopback') && ctx.workspaceId !== undefined
           ? ctx.workspaceId

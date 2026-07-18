@@ -420,6 +420,17 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
       return c.json({ error: 'not_found' }, 404);
     }
     requirePermission(getOrgAuthContext(), 'organization', 'update');
+    // Import lands the project in the org-default workspace (the portable
+    // format carries no workspace), so a workspace/project-scoped agent key
+    // would escape its scope. Reject scoped callers before reading the body.
+    const importAuthCtx = getOrgAuthContext();
+    if (
+      (importAuthCtx.kind === 'apikey' &&
+        (importAuthCtx.workspaceId !== undefined || importAuthCtx.projectId !== undefined)) ||
+      (importAuthCtx.kind === 'loopback' && importAuthCtx.workspaceId !== undefined)
+    ) {
+      return c.json({ error: 'forbidden' }, 403);
+    }
 
     let body: unknown;
     try {

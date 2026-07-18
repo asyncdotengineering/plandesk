@@ -213,7 +213,7 @@ describe('syncService', () => {
 
     const triage = await service.listTriage(project.id, 'pending');
     expect(triage).toHaveLength(1);
-    expect(triage[0]).toMatchObject({
+    expect(triage?.[0]).toMatchObject({
       id: 'sub-remote-1',
       project_id: project.id,
       participant_name: 'Alex',

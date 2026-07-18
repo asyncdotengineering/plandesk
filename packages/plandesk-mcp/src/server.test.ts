@@ -1204,7 +1204,9 @@ describe('createMcpApp', () => {
       expect(result.isError).toBe(true);
       const content = result.content as Array<{ type: string; text?: string }>;
       const text = content[0]?.type === 'text' ? (content[0].text ?? '') : '';
-      expect(text).toMatch(/invalid_argument/i);
+      // Uniform not_found for a target outside the caller's project: returning
+      // invalid_argument would leak that the target exists elsewhere.
+      expect(text).toMatch(/not_found/i);
       await client.close();
     });
   });

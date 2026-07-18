@@ -26,7 +26,7 @@ export function createListCommentsHandler(
         return toolNotFound();
       }
       if (targetProjectId !== args.project_id) {
-        return toolInvalidArgument();
+        return toolNotFound();
       }
 
       const comments = await commentService.listByTarget(

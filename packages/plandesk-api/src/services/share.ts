@@ -426,6 +426,11 @@ export function createShareService(deps: ShareServiceDeps) {
       // A workspace-scoped key may only share its own workspace; a different
       // workspace id is a 404 even when it lives in the same org.
       const ctx = tryGetAuthContext();
+      // A project-scoped key cannot publish an entire workspace — its scope is
+      // a single project, so deny before any existence check (uniform 404).
+      if (ctx?.kind === 'apikey' && ctx.projectId !== undefined) {
+        return undefined;
+      }
       const scopedWorkspaceId =
         ctx?.kind === 'apikey' || ctx?.kind === 'loopback' ? ctx.workspaceId : undefined;
       if (scopedWorkspaceId !== undefined && scopedWorkspaceId !== workspaceId) {
@@ -592,6 +597,13 @@ export function createShareService(deps: ShareServiceDeps) {
       const now = new Date();
       if (share.revokedAt !== null || (share.expiresAt !== null && share.expiresAt <= now)) {
         return { status: 'gone' };
+      }
+      // The unauthenticated markdown route is an agent-context feed: only
+      // public shares are served here. invite-only shares require a joined
+      // guest session (the /view route); serving them unauthenticated would
+      // bypass the join gate, so collapse to the same not_found shape.
+      if (share.mode !== 'public') {
+        return { status: 'not_found' };
       }
 
       // Workspace shares have no single-project agent markdown link.

@@ -485,7 +485,7 @@ describe('BA6b guest submissions (single-server)', () => {
 
     const triage = await services.syncService.listTriage(project.id, 'pending');
     expect(triage).toHaveLength(1);
-    expect(triage[0]).toMatchObject({
+    expect(triage?.[0]).toMatchObject({
       title: 'Broken button',
       participant_name: 'Alex',
       status: 'pending',

@@ -16,7 +16,7 @@
     "!dist/**/*.map"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "test": "vitest run",
     "lint": "eslint src",
     "prepack": "node -e \"const fs=require('fs');const s='../../apps/plandesk-web/dist';if(fs.existsSync(s)){fs.rmSync('web',{recursive:true,force:true});fs.cpSync(s,'web',{recursive:true});console.log('bundled web SPA')}else{console.warn('web dist missing; published serve will lack UI')}\""

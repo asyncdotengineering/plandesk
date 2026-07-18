@@ -137,6 +137,14 @@ export function createTaskService(deps: TaskServiceDeps) {
       if (!task) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, task.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       return serializeTask(task, await listTagsForTask(db, id));
     },
 

@@ -583,7 +583,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     },
     createListSubmissionsHandler(
       services.syncService,
-      (projectId) => services.projectService.get(projectId) !== undefined,
+      async (projectId) => (await services.projectService.get(projectId)) !== undefined,
     ),
   );
 
