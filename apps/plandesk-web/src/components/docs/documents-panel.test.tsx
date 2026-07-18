@@ -128,7 +128,7 @@ describe('panel helpers', () => {
 });
 
 describe('DocumentsPanel', () => {
-  it('shows root folders as cards with a document count and root documents in the list', async () => {
+  it('shows root folders as cards with a document count and lists ALL documents at the root (flat, including folder docs)', async () => {
     const folders = [makeFolder('f1', 'Specs', null), makeFolder('f2', 'Archive', 'f1')];
     const documents = [makeDocument('d1', 'Root doc', null), makeDocument('d2', 'Spec doc', 'f1')];
 
@@ -140,8 +140,22 @@ describe('DocumentsPanel', () => {
     expect(screen.queryByText('Archive')).toBeNull();
     // Specs has exactly one document directly inside it.
     expect(screen.getByText(/1 document/)).toBeTruthy();
-    // A root-level document appears in the list.
+    // The root-level document appears in the list.
     expect(screen.getAllByText('Root doc').length).toBeGreaterThan(0);
+    // "All documents" is genuinely flat: the document inside the Specs folder
+    // ALSO appears at the root alongside the loose root doc.
+    expect(screen.getAllByText('Spec doc').length).toBeGreaterThan(0);
+  });
+
+  it('shows every document at the root even when every doc lives inside a folder', async () => {
+    const folders = [makeFolder('f1', 'Specs', null)];
+    const documents = [makeDocument('d1', 'In-folder doc', 'f1')];
+
+    renderPanel(documents, folders);
+    await panelReady();
+
+    // No loose root docs — but "All documents" still surfaces the folder doc.
+    expect(screen.getAllByText('In-folder doc').length).toBeGreaterThan(0);
   });
 
   it('drills into a folder to reveal its documents', async () => {

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { SearchIcon, SettingsIcon } from 'lucide-react';
 import { useCommandMenu } from './CommandMenu.js';
 import { ProjectSwitcher } from './ProjectSwitcher.js';
+import { ThemeToggle } from './ThemeToggle.js';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';
 import './shell.css';
 
@@ -153,6 +154,7 @@ export function Sidebar() {
             <kbd>K</kbd>
           </span>
         </button>
+        <ThemeToggle className="icon-btn" />
         <Link to="/settings/members" className="icon-btn" title="Settings" aria-label="Settings">
           <SettingsIcon width={17} height={17} />
         </Link>

@@ -11,11 +11,13 @@ export function BrandMark() {
         fill="none"
         role="img"
         aria-label="Plan Desk"
+        // Reads from theme tokens so the mark inverts correctly in dark mode.
+        style={{ color: 'var(--primary)' }}
       >
-        <rect x="1.5" y="1.5" width="29" height="29" rx="7" fill="#0a0a0a" />
-        <path d="M11.5 12.5 20.5 19.5" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
-        <circle cx="11" cy="12" r="3.4" fill="#ffffff" />
-        <circle cx="21" cy="20" r="3.4" fill="#ffffff" />
+        <rect x="1.5" y="1.5" width="29" height="29" rx="7" fill="currentColor" />
+        <path d="M11.5 12.5 20.5 19.5" stroke="var(--primary-foreground)" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="11" cy="12" r="3.4" fill="var(--primary-foreground)" />
+        <circle cx="21" cy="20" r="3.4" fill="var(--primary-foreground)" />
       </svg>
       <span className="text-base font-semibold tracking-tight text-foreground">Plan Desk</span>
     </div>

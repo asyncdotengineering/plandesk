@@ -343,13 +343,13 @@ export function DocumentsPanel({
     return chain;
   }, [currentFolderId, folderById]);
 
-  const folderIds = useMemo(() => new Set(folders.map((f) => f.id)), [folders]);
   const childFolders = childFoldersOf(folders, currentFolderId);
+  // At the root, "All documents" lists every document in the project flat —
+  // including documents that live inside folders — so a folder's docs appear
+  // here AND when the folder is opened. Inside a folder, only its direct docs.
   const visibleDocuments = allDocuments
     .filter((doc) =>
-      currentFolderId === null
-        ? doc.folder_id === null || !folderIds.has(doc.folder_id)
-        : doc.folder_id === currentFolderId,
+      currentFolderId === null ? true : doc.folder_id === currentFolderId,
     )
     // Most-recently-updated first, matching the Recent strip above.
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at));

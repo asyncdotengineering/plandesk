@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createRouter, RouterProvider } from '@tanstack/react-router';
+import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from './routeTree.gen.js';
 
 const sampleProject = {
@@ -12,7 +12,7 @@ const sampleProject = {
   updated_at: '2026-06-07T00:00:00.000Z',
 };
 
-/** The board renders behind AuthGate, so every request needs an auth answer. */
+/** The projects list renders behind AuthGate, so every request needs an auth answer. */
 const localSession = {
   kind: 'loopback' as const,
   user_ref: null,
@@ -44,11 +44,18 @@ const localSessionWithWorkspace = {
   ],
 };
 
-function renderApp() {
+/**
+ * Render the router at the given path. The project list now lives at /projects
+ * (the index `/` is the chromeless workspace landing — see workspace-landing.test.tsx).
+ */
+function renderAt(path: string) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  const router = createRouter({ routeTree });
+  const router = createRouter({
+    routeTree,
+    history: createMemoryHistory({ initialEntries: [path] }),
+  });
   return render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
@@ -60,11 +67,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Project list', () => {
+describe('Project list (/projects)', () => {
   it('renders projects from GET /projects', async () => {
     stubFetch([sampleProject]);
 
-    renderApp();
+    renderAt('/projects');
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Projects' })).toBeTruthy();
@@ -77,14 +84,14 @@ describe('Project list', () => {
   it('shows empty state when no projects', async () => {
     stubFetch([]);
 
-    renderApp();
+    renderAt('/projects');
 
     await waitFor(() => {
       expect(screen.getByText(/no projects yet/i)).toBeTruthy();
     });
   });
 
-  it('shows only the active workspace\'s projects (REQ-C2)', async () => {
+  it("shows only the active workspace's projects (REQ-C2)", async () => {
     const inWorkspace = {
       id: 'proj-ws1',
       name: 'In Workspace',
@@ -123,7 +130,7 @@ describe('Project list', () => {
       }),
     );
 
-    renderApp();
+    renderAt('/projects');
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /In Workspace/ })).toBeTruthy();

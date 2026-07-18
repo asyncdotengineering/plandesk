@@ -76,6 +76,17 @@ function Crumb() {
 const PORTAL_PATH_PREFIX = '/p/';
 const INVITE_PATH_PREFIX = '/invite/';
 
+/*
+ * Routes rendered WITHOUT the AppShell (no sidebar / topbar). The workspace
+ * landing (index) is the chromeless entry — it owns its own centered layout;
+ * picking a workspace enters the sidebar'd project view.
+ */
+const ROOTLESS_PATHS = ['/'];
+
+function isRootless(pathname: string): boolean {
+  return ROOTLESS_PATHS.includes(pathname);
+}
+
 function AppShell({ showAccount }: { showAccount: boolean }) {
   return (
     <div className="app">
@@ -104,11 +115,29 @@ function RootLayout() {
   // The invite claim page renders rootless (no AppShell) and outside the
   // AuthGate, so a signed-out invitee reaches it instead of the sign-in wall.
   const isInvite = location.pathname.startsWith(INVITE_PATH_PREFIX);
+  const isLanding = isRootless(location.pathname);
   const shell = <AppShell showAccount={!isPortal} />;
 
+  if (isInvite) {
+    return <CommandMenuProvider><Outlet /></CommandMenuProvider>;
+  }
+  if (isPortal) {
+    return <CommandMenuProvider>{shell}</CommandMenuProvider>;
+  }
+  // The landing still needs the AuthGate (signed-out → SignInPage) but no AppShell.
+  if (isLanding) {
+    return (
+      <CommandMenuProvider>
+        <AuthGate>
+          <Outlet />
+        </AuthGate>
+        <Toaster />
+      </CommandMenuProvider>
+    );
+  }
   return (
     <CommandMenuProvider>
-      {isInvite ? <Outlet /> : isPortal ? shell : <AuthGate>{shell}</AuthGate>}
+      <AuthGate>{shell}</AuthGate>
     </CommandMenuProvider>
   );
 }

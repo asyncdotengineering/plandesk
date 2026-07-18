@@ -3,53 +3,54 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ElevenLabs design system mapped onto shadcn semantic tokens.
-   Light is the committed default (:root); dark applies under the .dark class.
-   Values are copied from design/elevenlabs-refactor.html. */
+/* ElevenLabs-inspired design system mapped onto shadcn semantic tokens.
+   Premium-minimal, near-monochrome grotesk. Light is the committed default
+   (:root); a TRUE dark applies under the .dark class (next-themes owns it).
+   The tokens cascade to every component — restyle here, not in components. */
 :root {
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 
-  --background: #fdfcfc;
-  --foreground: #0b0b0b;
+  --background: #ffffff;
+  --foreground: #0a0a0a;
   --card: #ffffff;
-  --card-foreground: #0b0b0b;
+  --card-foreground: #0a0a0a;
   --popover: #ffffff;
-  --popover-foreground: #0b0b0b;
-  --primary: #000000;
+  --popover-foreground: #0a0a0a;
+  --primary: #0a0a0a;
   --primary-foreground: #ffffff;
-  --secondary: #f2f1ef;
-  --secondary-foreground: #0b0b0b;
-  --muted: #f2f1ef;
-  --muted-foreground: #8d8b85;
-  --accent: #f2f1ef;
-  --accent-foreground: #0b0b0b;
-  --destructive: #c9382c;
-  --border: #e8e6e2;
-  --input: #e8e6e2;
-  --ring: #0b0b0b;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #0a0a0a;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --accent: #f5f5f5;
+  --accent-foreground: #0a0a0a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #ebebeb;
+  --input: #ebebeb;
+  --ring: #0a0a0a;
 
-  --sidebar: #f6f5f3;
-  --sidebar-foreground: #0b0b0b;
-  --sidebar-primary: #000000;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #0a0a0a;
+  --sidebar-primary: #0a0a0a;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f2f1ef;
-  --sidebar-accent-foreground: #0b0b0b;
-  --sidebar-border: #e8e6e2;
-  --sidebar-ring: #0b0b0b;
+  --sidebar-accent: #f5f5f5;
+  --sidebar-accent-foreground: #0a0a0a;
+  --sidebar-border: #ebebeb;
+  --sidebar-ring: #0a0a0a;
 
   /* extras used by shell.css + screen CSS (not part of shadcn) */
-  --border-strong: #dbd9d4;
-  --text-2: #57554f;
+  --border-strong: #d4d4d4;
+  --text-2: #525252;
   --field: #ffffff;
-  --canvas: #f5f4f2;
+  --canvas: #fafafa;
   /* passage highlight while composing an inline comment (amber, doc-tool convention) */
   --comment-highlight: rgba(245, 178, 46, 0.32);
-  --shadow: 0 0 1px rgba(0, 0, 0, 0.28), 0 1px 1px rgba(0, 0, 0, 0.04),
-    0 2px 4px rgba(0, 0, 0, 0.03);
-  --shadow-pop: 0 0 1px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.1),
-    0 2px 6px rgba(0, 0, 0, 0.05);
+  /* Soft 1px hairline shadow for cards/inputs; pop is heavier for popovers/dialogs. */
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
 
-  /* semantic status (ElevenLabs) */
+  /* semantic status (ElevenLabs) — kept from prior palette; the board columns read them. */
   --s-scope-bg: #eceae6; --s-scope-fg: #565550; --s-scope-dot: #9a978f;
   --s-todo-bg: #e9eef5;  --s-todo-fg: #33506e;  --s-todo-dot: #5a7da8;
   --s-prog-bg: #f6efdb;  --s-prog-fg: #7a5a18;  --s-prog-dot: #cc9f3c;
@@ -60,19 +61,20 @@
 .dark {
   --background: #0a0a0a;
   --foreground: #fafafa;
-  --card: #161616;
+  --card: #141414;
   --card-foreground: #fafafa;
-  --popover: #161616;
+  --popover: #141414;
   --popover-foreground: #fafafa;
   --primary: #fafafa;
   --primary-foreground: #0a0a0a;
-  --secondary: #1e1e1e;
+  --secondary: #171717;
   --secondary-foreground: #fafafa;
-  --muted: #1e1e1e;
-  --muted-foreground: #a6a6a6;
-  --accent: #1e1e1e;
+  --muted: #171717;
+  --muted-foreground: #a1a1a1;
+  --accent: #171717;
   --accent-foreground: #fafafa;
-  --destructive: #e5484d;
+  --destructive: #f87171;
+  --destructive-foreground: #0a0a0a;
   --border: #262626;
   --input: #262626;
   --ring: #fafafa;
@@ -81,15 +83,15 @@
   --sidebar-foreground: #fafafa;
   --sidebar-primary: #fafafa;
   --sidebar-primary-foreground: #0a0a0a;
-  --sidebar-accent: #1e1e1e;
+  --sidebar-accent: #171717;
   --sidebar-accent-foreground: #fafafa;
   --sidebar-border: #262626;
   --sidebar-ring: #fafafa;
 
   --border-strong: #343434;
-  --text-2: #a6a6a6;
+  --text-2: #a1a1a1;
   --field: #111111;
-  --canvas: #101010;
+  --canvas: #0a0a0a;
   --comment-highlight: rgba(245, 178, 46, 0.28);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.6);
@@ -132,6 +134,8 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  /* Geist Sans is bundled (see main.tsx) and fronts the system stack as fallback. */
+  --font-sans: 'Geist Sans', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', sans-serif;
 }
 
 @layer base {
@@ -145,19 +149,28 @@
   }
   body {
     margin: 0;
-    font-family: 'Helvetica Neue', -apple-system, BlinkMacSystemFont, system-ui,
-      'Segoe UI', sans-serif;
-    font-size: 13.5px;
-    line-height: 1.45;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.55;
     color: var(--foreground);
     background: var(--background);
     -webkit-font-smoothing: antialiased;
-    letter-spacing: -0.005em;
+    text-rendering: optimizeLegibility;
+    letter-spacing: -0.01em;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
   }
   .mono {
     font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0;
+  }
+  /* Tabular figures for any numeric column (counts, IDs, timestamps). */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
   button:not([class*='bg-']) {
     font: inherit;

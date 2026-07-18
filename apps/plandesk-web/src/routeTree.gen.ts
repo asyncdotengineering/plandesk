@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as SettingsWorkspacesRouteImport } from './routes/settings.workspaces'
 import { Route as SettingsMembersRouteImport } from './routes/settings.members'
 import { Route as SettingsMcpRouteImport } from './routes/settings.mcp'
@@ -29,6 +30,11 @@ import { Route as ProjectsIdDocumentsDocIdRouteImport } from './routes/projects.
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsWorkspacesRoute = SettingsWorkspacesRouteImport.update({
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/settings/mcp': typeof SettingsMcpRoute
   '/settings/members': typeof SettingsMembersRoute
   '/settings/workspaces': typeof SettingsWorkspacesRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/projects/$id/board': typeof ProjectsIdBoardRoute
   '/projects/$id/flow': typeof ProjectsIdFlowRoute
   '/projects/$id/goals': typeof ProjectsIdGoalsRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByTo {
   '/settings/mcp': typeof SettingsMcpRoute
   '/settings/members': typeof SettingsMembersRoute
   '/settings/workspaces': typeof SettingsWorkspacesRoute
+  '/projects': typeof ProjectsIndexRoute
   '/projects/$id/board': typeof ProjectsIdBoardRoute
   '/projects/$id/flow': typeof ProjectsIdFlowRoute
   '/projects/$id/goals': typeof ProjectsIdGoalsRoute
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/settings/mcp': typeof SettingsMcpRoute
   '/settings/members': typeof SettingsMembersRoute
   '/settings/workspaces': typeof SettingsWorkspacesRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/projects/$id/board': typeof ProjectsIdBoardRoute
   '/projects/$id/flow': typeof ProjectsIdFlowRoute
   '/projects/$id/goals': typeof ProjectsIdGoalsRoute
@@ -172,6 +181,7 @@ export interface FileRouteTypes {
     | '/settings/mcp'
     | '/settings/members'
     | '/settings/workspaces'
+    | '/projects/'
     | '/projects/$id/board'
     | '/projects/$id/flow'
     | '/projects/$id/goals'
@@ -190,6 +200,7 @@ export interface FileRouteTypes {
     | '/settings/mcp'
     | '/settings/members'
     | '/settings/workspaces'
+    | '/projects'
     | '/projects/$id/board'
     | '/projects/$id/flow'
     | '/projects/$id/goals'
@@ -207,6 +218,7 @@ export interface FileRouteTypes {
     | '/settings/mcp'
     | '/settings/members'
     | '/settings/workspaces'
+    | '/projects/'
     | '/projects/$id/board'
     | '/projects/$id/flow'
     | '/projects/$id/goals'
@@ -226,6 +238,7 @@ export interface RootRouteChildren {
   SettingsMcpRoute: typeof SettingsMcpRoute
   SettingsMembersRoute: typeof SettingsMembersRoute
   SettingsWorkspacesRoute: typeof SettingsWorkspacesRoute
+  ProjectsIndexRoute: typeof ProjectsIndexRoute
   ProjectsIdBoardRoute: typeof ProjectsIdBoardRoute
   ProjectsIdFlowRoute: typeof ProjectsIdFlowRoute
   ProjectsIdGoalsRoute: typeof ProjectsIdGoalsRoute
@@ -243,6 +256,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/': {
+      id: '/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof ProjectsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/workspaces': {
@@ -374,6 +394,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsMcpRoute: SettingsMcpRoute,
   SettingsMembersRoute: SettingsMembersRoute,
   SettingsWorkspacesRoute: SettingsWorkspacesRoute,
+  ProjectsIndexRoute: ProjectsIndexRoute,
   ProjectsIdBoardRoute: ProjectsIdBoardRoute,
   ProjectsIdFlowRoute: ProjectsIdFlowRoute,
   ProjectsIdGoalsRoute: ProjectsIdGoalsRoute,
