@@ -85,6 +85,14 @@ export function createTagService(deps: TagServiceDeps) {
       if (!existing) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
 
       let name: string | undefined;
       if (input.name !== undefined) {
@@ -112,6 +120,14 @@ export function createTagService(deps: TagServiceDeps) {
       const existing = await dbGetTag(db, id);
       if (!existing) {
         return false;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return false;
+        }
+        throw error;
       }
 
       const deleted = await dbDeleteTag(db, id);

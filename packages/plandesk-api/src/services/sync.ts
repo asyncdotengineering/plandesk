@@ -11,7 +11,8 @@ import {
   type ShareSubmission,
   type ShareSubmissionStatus,
 } from '@plandesk/db';
-import { assertPermission, type OrgScopedDeps } from './org-scope.js';
+import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 import type { TaskService } from './tasks.js';
 
 export class SyncUnavailableError extends Error {
@@ -260,6 +261,17 @@ export function createSyncService(deps: SyncServiceDeps) {
       const submission = await dbGetSubmission(db, submissionId);
       if (submission === undefined) {
         throw new InvalidTriageError();
+      }
+
+      // Workspace/org chokepoint: the submission's project must be in the
+      // caller's scope before any triage mutation (cross-workspace/org → 404).
+      try {
+        await assertProjectInOrg(db, submission.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          throw new InvalidTriageError();
+        }
+        throw error;
       }
 
       if (submission.status !== 'pending') {

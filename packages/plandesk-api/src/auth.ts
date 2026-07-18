@@ -265,6 +265,7 @@ async function resolveBetterAuthApiKeyContext(
     kind: 'apikey',
     orgId,
     userId,
+    profile: kind,
     ...(projectId !== undefined ? { projectId } : {}),
     ...(workspaceId !== undefined ? { workspaceId } : {}),
     role: liveRole,
@@ -458,7 +459,18 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
       return;
     }
 
-    return c.json({ error: 'unauthorized' }, 401);
+    // No credential resolved. API/auth/mcp namespaces require a credential →
+    // 401 challenge. Any other path is not an API route, so defer to routing
+    // (SPA handler or Hono 404): an unauthenticated probe of an unknown path
+    // gets a 404, not a 401 that implies a real route exists there.
+    if (
+      c.req.path.startsWith('/api/v1') ||
+      c.req.path.startsWith('/api/auth') ||
+      c.req.path.startsWith('/mcp')
+    ) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+    await next();
   };
 }
 

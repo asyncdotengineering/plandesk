@@ -23,6 +23,7 @@ import {
   deleteTasksByProjectId,
   getOrCreateDefaultGoal,
   getProject as dbGetProject,
+  getProjectInOrg,
   InvalidTaskStatusError,
   isTaskStatus,
   listAgentRuns,
@@ -180,6 +181,18 @@ export function createProjectService(deps: ProjectServiceDeps) {
     async create(input: CreateProjectInput) {
       assertPermission(deps, 'project', 'create');
       const orgId = resolveOrgId(deps);
+      const ctx = tryGetAuthContext();
+      // A workspace/project-scoped agent key may only create projects inside
+      // its own workspace (undefined = org-wide caller: session/owner key).
+      let callerWorkspaceId: string | undefined;
+      if (ctx?.kind === 'apikey') {
+        if (ctx.workspaceId !== undefined) {
+          callerWorkspaceId = ctx.workspaceId;
+        } else if (ctx.projectId !== undefined) {
+          callerWorkspaceId = (await getProjectInOrg(db, ctx.projectId, orgId))?.workspaceId;
+        }
+      }
+
       let workspaceId: string | undefined;
       if (input.workspaceId !== undefined && input.workspaceId.length > 0) {
         if (deps.auth === undefined) {
@@ -190,6 +203,10 @@ export function createProjectService(deps: ProjectServiceDeps) {
           throw new WorkspaceNotFoundError(input.workspaceId);
         }
         workspaceId = team.id;
+      } else if (callerWorkspaceId !== undefined) {
+        // Scoped key without an explicit target: force its own workspace so it
+        // can never land a project in the org-default (or any other) workspace.
+        workspaceId = callerWorkspaceId;
       } else {
         workspaceId = deps.auth
           ? await ensureDefaultTeamForOrg(deps.auth, orgId)
@@ -197,6 +214,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
       }
       if (workspaceId === undefined) {
         throw new Error('cannot resolve workspace for project');
+      }
+      if (callerWorkspaceId !== undefined && workspaceId !== callerWorkspaceId) {
+        throw new WorkspaceNotFoundError(workspaceId);
       }
       const project = await dbCreateProject(db, { ...input, orgId, workspaceId });
       return serializeProject(project);

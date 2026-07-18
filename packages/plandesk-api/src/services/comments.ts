@@ -4,7 +4,6 @@ import {
   getComment as dbGetComment,
   getDocument as dbGetDocument,
   getNote as dbGetNote,
-  getProject,
   getSubmission,
   getTask,
   listCommentsByProject as dbListCommentsByProject,
@@ -84,6 +83,14 @@ export function createCommentService(deps: CommentServiceDeps) {
       if (!projectId) {
         return undefined;
       }
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
 
       assertNonEmptyBody(input.body);
 
@@ -108,8 +115,13 @@ export function createCommentService(deps: CommentServiceDeps) {
       input: CreateCommentInput,
     ): Promise<SerializedComment | undefined> {
       assertPermission(deps, 'comment', 'create');
-      if (!(await getProject(db, projectId))) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       if (artifactId.trim() === '') {
         throw new InvalidCommentError('Artifact id must not be empty');
@@ -133,8 +145,13 @@ export function createCommentService(deps: CommentServiceDeps) {
       artifactId: string,
       options?: { includeResolved?: boolean },
     ): Promise<SerializedComment[] | undefined> {
-      if (!(await getProject(db, projectId))) {
-        return undefined;
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       return (await dbListCommentsByTarget(db, 'artifact', artifactId, options)).map(
         serializeComment,
@@ -148,6 +165,14 @@ export function createCommentService(deps: CommentServiceDeps) {
       const projectId = await targetProjectId(db, target);
       if (!projectId) {
         return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
       return (await dbListCommentsByTarget(db, target.type, target.id, options)).map(
         serializeComment,

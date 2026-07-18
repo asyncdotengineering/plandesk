@@ -95,6 +95,8 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
 
   /**
    * REQ-A1: list teams (workspaces) in an org. Any org member may read.
+   * A workspace/project-scoped agent key sees only its own workspace (never
+   * sibling workspaces); owner keys and sessions keep full org reach.
    */
   router.get('/orgs/:orgId/workspaces', async (c) => {
     if (betterAuth === undefined) {
@@ -105,15 +107,30 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
       return c.json({ error: 'not_found' }, 404);
     }
     const adapter = (await betterAuth.$context).adapter;
-    const teams = await adapter.findMany<{ id: string; name: string }>({
+    let teams = await adapter.findMany<{ id: string; name: string }>({
       model: 'team',
       where: [{ field: 'organizationId', value: orgId }],
     });
+    const authCtx = getOrgAuthContext();
+    if (authCtx.kind === 'apikey' && authCtx.profile === 'agent') {
+      const allowed = new Set<string>();
+      if (authCtx.workspaceId !== undefined) {
+        allowed.add(authCtx.workspaceId);
+      } else if (authCtx.projectId !== undefined) {
+        const project = await getProjectInOrg(db, authCtx.projectId, orgId);
+        if (project !== undefined) {
+          allowed.add(project.workspaceId);
+        }
+      }
+      teams = teams.filter((t) => allowed.has(t.id));
+    }
     return c.json({ workspaces: teams.map((t) => ({ id: t.id, name: t.name })) }, 200);
   });
 
   /**
-   * REQ-A2: create a team (workspace) in an org. Owner only.
+   * REQ-A2: create a team (workspace) in an org. Owner only — agent apikeys are
+   * rejected outright (403) so even a stray custom team:create permission (which
+   * AGENT_FORBIDDEN_RESOURCES strips) can never create a workspace.
    */
   router.post('/orgs/:orgId/workspaces', async (c) => {
     if (betterAuth === undefined) {
@@ -123,7 +140,11 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     if (!(await requireKnownOrg(orgId))) {
       return c.json({ error: 'not_found' }, 404);
     }
-    requirePermission(getOrgAuthContext(), 'team', 'create');
+    const authCtx = getOrgAuthContext();
+    if (authCtx.kind === 'apikey' && authCtx.profile === 'agent') {
+      return c.json({ error: 'forbidden' }, 403);
+    }
+    requirePermission(authCtx, 'team', 'create');
 
     const body = await c.req.json<{ name?: unknown }>();
     if (typeof body.name !== 'string' || body.name.trim() === '') {
@@ -233,12 +254,17 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
   });
 
   /**
-   * List better-auth org members (role + email). Any org member may read.
+   * List better-auth org members (role + email). Any org member may read; agent
+   * apikeys never receive member PII (403). Owner keys and sessions unchanged.
    */
   router.get('/orgs/:id/members', async (c) => {
     const orgId = c.req.param('id');
     if (!(await requireKnownOrg(orgId))) {
       return c.json({ error: 'not_found' }, 404);
+    }
+    const authCtx = getOrgAuthContext();
+    if (authCtx.kind === 'apikey' && authCtx.profile === 'agent') {
+      return c.json({ error: 'forbidden' }, 403);
     }
     if (betterAuth === undefined) {
       return c.json({ error: 'unavailable' }, 503);

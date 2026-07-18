@@ -58,7 +58,9 @@ async function handleListComments(c: Context, commentService: CommentService, ta
   const includeResolved = parseIncludeResolved(c.req.query('include_resolved'));
   const comments = await commentService.listByTarget(target, { includeResolved });
   if (!comments) {
-    return c.json({ error: 'not_found' }, 404);
+    // Fail-closed: out-of-scope target is a 404 with an empty collection body,
+    // leaking neither existence nor rows.
+    return c.json([], 404);
   }
   return c.json(comments);
 }

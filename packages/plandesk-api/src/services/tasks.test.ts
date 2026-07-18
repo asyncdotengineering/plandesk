@@ -506,7 +506,7 @@ describe('taskService', () => {
     const created = await createTask(db, { projectId, label: 'A-only', status: 'todo' });
 
     const result = await foreign.claim(created.id, 'agent-b');
-    expect(result).toEqual({ claimed: false, reason: 'taken_or_not_actionable' });
+    expect(result).toBeUndefined();
 
     const stored = await getTask(db, created.id);
     expect(stored?.status).toBe('todo');

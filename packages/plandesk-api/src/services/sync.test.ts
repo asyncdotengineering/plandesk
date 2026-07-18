@@ -55,7 +55,7 @@ describe('syncService', () => {
 
   function createService() {
     const taskService = createTaskService({ db, orgId });
-    return createSyncService({ db, taskService });
+    return createSyncService({ db, taskService, orgId });
   }
 
   const remote = {

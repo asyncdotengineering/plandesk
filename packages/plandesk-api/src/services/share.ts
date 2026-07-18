@@ -22,7 +22,7 @@ import {
   type ShareMode,
   type SharePermissions,
 } from '@plandesk/db';
-import { getAuthContext } from '../auth-context.js';
+import { getAuthContext, tryGetAuthContext } from '../auth-context.js';
 import type { BetterAuthInstance } from '../better-auth.js';
 import { getTeamInOrg } from '../identity.js';
 import {
@@ -423,6 +423,14 @@ export function createShareService(deps: ShareServiceDeps) {
       if (deps.auth === undefined) {
         return undefined;
       }
+      // A workspace-scoped key may only share its own workspace; a different
+      // workspace id is a 404 even when it lives in the same org.
+      const ctx = tryGetAuthContext();
+      const scopedWorkspaceId =
+        ctx?.kind === 'apikey' || ctx?.kind === 'loopback' ? ctx.workspaceId : undefined;
+      if (scopedWorkspaceId !== undefined && scopedWorkspaceId !== workspaceId) {
+        return undefined;
+      }
       const team = await getTeamInOrg(deps.auth, workspaceId, resolveOrgId(deps));
       if (team === undefined) {
         return undefined;
@@ -530,6 +538,17 @@ export function createShareService(deps: ShareServiceDeps) {
         projectId = document.projectId;
         policy = { tasks: [], documentIds: [document.id], fields: {} };
         audienceName = `Agent link: ${document.title}`;
+      }
+
+      // Cross-org chokepoint: the resolved resource's project must be in the
+      // caller's org (an org-B key sharing an org-A resource → 404, no leak).
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
       }
 
       const expiresAt =

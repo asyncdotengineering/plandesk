@@ -261,10 +261,7 @@ describe('org tenancy', () => {
       },
       body: JSON.stringify({ agent_ref: 'agent-b' }),
     });
-    expect(res.status).toBe(409);
-    expect(await parseJson(res)).toEqual({
-      claimed: false,
-      reason: 'taken_or_not_actionable',
-    });
+    expect(res.status).toBe(404);
+    expect(await parseJson(res)).toEqual({ error: 'not_found' });
   });
 });

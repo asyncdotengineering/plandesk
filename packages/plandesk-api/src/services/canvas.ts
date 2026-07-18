@@ -243,6 +243,14 @@ export function createCanvasService(deps: CanvasServiceDeps) {
 
     async deleteEdge(projectId: string, edgeId: string) {
       assertPermission(deps, 'edge', 'delete');
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return false;
+        }
+        throw error;
+      }
       const edge = await getEdgeByProjectAndId(db, projectId, edgeId);
       if (!edge) {
         return false;

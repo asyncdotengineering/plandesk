@@ -28,8 +28,9 @@ export const DEFAULT_AGENT_KEY_PERMISSIONS: PermissionSet = {
 /** Full owner permission set — default grant for org-wide owner keys (BA4b-1). */
 export const DEFAULT_OWNER_KEY_PERMISSIONS: PermissionSet = orgRoleToPermissionSet('owner');
 
-/** Always stripped from agent-key effective perms — a key must never mint keys. */
-export const AGENT_FORBIDDEN_RESOURCES = ['apiKey'] as const;
+/** Always stripped from agent-key effective perms — a key must never mint keys
+ * or create/rename workspaces (team), regardless of custom permissions. */
+export const AGENT_FORBIDDEN_RESOURCES = ['apiKey', 'team'] as const;
 
 /**
  * Live-role ceiling at verify time (BA5 + BA4b-1):

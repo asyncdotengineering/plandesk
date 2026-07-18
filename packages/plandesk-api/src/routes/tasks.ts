@@ -66,6 +66,9 @@ export function createTasksRouter(taskService: TaskService): Hono {
     }
 
     const result = await taskService.claim(c.req.param('id'), body.agent_ref);
+    if (result === undefined) {
+      return c.json({ error: 'not_found' }, 404);
+    }
     if (!result.claimed) {
       return c.json(result, 409);
     }

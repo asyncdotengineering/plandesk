@@ -40,6 +40,8 @@ export type AuthContext =
       orgId: string;
       /** better-auth user id that owns the key (referenceId). */
       userId: string;
+      /** Key profile from metadata: agent (scoped/ceilinged) vs owner (org-wide). */
+      profile: 'agent' | 'owner';
       /** Optional project scope from key metadata; cross-project → 404. */
       projectId?: string;
       /** Optional workspace scope from key metadata; cross-workspace → 404. */

@@ -277,8 +277,20 @@ export function createTaskService(deps: TaskServiceDeps) {
       return true;
     },
 
-    async claim(taskId: string, agentRef: string): Promise<ClaimTaskResult> {
+    async claim(taskId: string, agentRef: string): Promise<ClaimTaskResult | undefined> {
       assertPermission(deps, 'task', 'update');
+      const existing = await getTask(db, taskId);
+      if (!existing) {
+        return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
       const row = await claimTask(db, taskId, resolveOrgId(deps), agentRef);
       if (!row) {
         return { claimed: false, reason: 'taken_or_not_actionable' };
