@@ -269,6 +269,16 @@ export async function backfillProjectWorkspaces(
   let projectsUpdated = 0;
   for (const row of result.rows) {
     const project = row as unknown as { id: string; org_id: string; workspace_id: string };
+    // Only repair projects whose workspace_id does NOT reference a real team in
+    // their org (the placeholder column default, or a dangling id). A project
+    // already in a valid workspace — e.g. one legacy-upgrade/move/go-online
+    // placed in a non-default team — must be left alone, never reset to General.
+    if (
+      project.workspace_id.length > 0 &&
+      (await getTeamInOrg(auth, project.workspace_id, project.org_id)) !== undefined
+    ) {
+      continue;
+    }
     const teamId = await ensureDefaultTeamForOrg(auth, project.org_id);
     if (project.workspace_id !== teamId) {
       await updateProject(db, project.id, { workspaceId: teamId });

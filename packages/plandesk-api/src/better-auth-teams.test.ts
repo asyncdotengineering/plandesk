@@ -7,6 +7,7 @@ import {
 } from './better-auth.js';
 import {
   ensureDefaultTeamForOrg,
+  createTeamForOrg,
   backfillDefaultTeams,
   backfillProjectWorkspaces,
 } from './identity.js';
@@ -348,5 +349,36 @@ describe('better-auth teams (workspace foundation)', () => {
 
     const second = await backfillProjectWorkspaces(db, auth);
     expect(second.projectsUpdated).toBe(0);
+  });
+
+  it('backfillProjectWorkspaces never resets a project already in a real non-default workspace', async () => {
+    const db = await createDb(':memory:');
+    await migrate(db);
+    const auth = createBetterAuth({ client: db.$client, secret: TEST_SECRET, baseURL: TEST_BASE_URL });
+    if (auth === undefined) throw new Error('expected better-auth');
+    await runBetterAuthMigrations(auth);
+
+    const orgId = 'org-ws-keep';
+    await seedUserAndOrg(auth, {
+      orgId,
+      orgName: 'Keep Org',
+      orgSlug: 'keep-org',
+      userName: 'Bob',
+      userEmail: 'bob@example.com',
+      githubAccountId: '2002',
+      role: 'owner',
+    });
+    await ensureDefaultTeamForOrg(auth, orgId);
+    const clientTeam = await createTeamForOrg(auth, orgId, 'Client X');
+    const project = await createProject(db, { name: 'In Client X', orgId, workspaceId: clientTeam.id });
+
+    // Backfill (as runs on every serve boot) must NOT reset a valid assignment.
+    const res = await backfillProjectWorkspaces(db, auth);
+    expect(res.projectsUpdated).toBe(0);
+    const after = await db.$client.execute({
+      sql: 'SELECT workspace_id FROM projects WHERE id = ?',
+      args: [project.id],
+    });
+    expect((after.rows[0] as unknown as { workspace_id: string }).workspace_id).toBe(clientTeam.id);
   });
 });
