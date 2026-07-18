@@ -203,6 +203,16 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
   const deleteTask = useDeleteTask();
   const deleteEdge = useDeleteEdge(projectId);
 
+  // Stable edge-label handler, declared before the effects that seed edges with
+  // it. The ref is populated with the latest handler below, so this callback
+  // keeps a constant identity (edges don't churn) while calling through to the
+  // current logic. Declaring it here — ahead of the effect deps that reference
+  // it — avoids a temporal-dead-zone crash on mount.
+  const handleEdgeLabelChangeRef = useRef<(edgeId: string, label: EdgeLabel) => void>(() => {});
+  const stableOnLabelChange = useCallback((edgeId: string, label: EdgeLabel) => {
+    handleEdgeLabelChangeRef.current(edgeId, label);
+  }, []);
+
   useEffect(() => {
     if (canvas === undefined) {
       return;
@@ -268,12 +278,7 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
     [setEdges, nodes, saveWithState],
   );
 
-  const handleEdgeLabelChangeRef = useRef(handleEdgeLabelChange);
   handleEdgeLabelChangeRef.current = handleEdgeLabelChange;
-
-  const stableOnLabelChange = useCallback((edgeId: string, label: EdgeLabel) => {
-    handleEdgeLabelChangeRef.current(edgeId, label);
-  }, []);
 
   const handleConnect = useCallback(
     (connection: Connection) => {
