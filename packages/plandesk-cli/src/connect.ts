@@ -408,8 +408,10 @@ export function resolveAgents(repoDir: string, agent: ConnectAgent): { claude: b
 }
 
 /**
- * Local connect: loopback = owner, no token file.
- * Explicit --token still writes a token when the caller supplies one.
+ * Local connect: loopback = owner, no token file. Only an explicit --token
+ * writes one. A pre-existing .plandesk/token is NOT reused: on a rebind it is a
+ * stale key minted against a different server, so sending it as a Bearer yields
+ * 401. buildArtifacts removes any leftover token instead.
  */
 function resolveLocalToken(
   options: ConnectOptions,
@@ -417,13 +419,6 @@ function resolveLocalToken(
   if (options.token !== undefined) {
     return { token: options.token, created: false };
   }
-
-  const tokenPath = join(options.repoDir, '.plandesk', 'token');
-  const existingToken = readOptionalFile(tokenPath)?.trim();
-  if (existingToken !== undefined && existingToken !== '') {
-    return { token: existingToken, created: false };
-  }
-
   return { token: undefined, created: false };
 }
 
@@ -481,12 +476,17 @@ function buildArtifacts(
     });
   }
 
+  const tokenPath = join(plandeskDir, 'token');
   if (token !== undefined && token !== '') {
     artifacts.push({
-      path: join(plandeskDir, 'token'),
+      path: tokenPath,
       content: `${token}\n`,
-      action: existsSync(join(plandeskDir, 'token')) ? 'update' : 'create',
+      action: existsSync(tokenPath) ? 'update' : 'create',
     });
+  } else if (existsSync(tokenPath)) {
+    // Loopback connect writes no token; remove any stale one so the MCP does not
+    // send an invalid Bearer (a rebind's leftover key from a prior server → 401).
+    artifacts.push({ path: tokenPath, content: '', action: 'delete' });
   }
 
   const mcpPath = join(options.repoDir, '.mcp.json');
@@ -548,6 +548,10 @@ function buildArtifacts(
 
 function writeArtifacts(artifacts: ConnectArtifact[]): void {
   for (const artifact of artifacts) {
+    if (artifact.action === 'delete') {
+      rmSync(artifact.path, { force: true });
+      continue;
+    }
     mkdirSync(dirname(artifact.path), { recursive: true });
     if (artifact.symlinkTarget === undefined) {
       writeFileSync(artifact.path, artifact.content, 'utf8');

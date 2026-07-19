@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
-import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -241,6 +249,27 @@ describe('runConnect', () => {
       const parsed = parseConfigJson(readFileSync(join(repoDir, '.plandesk/config.json'), 'utf8'));
       expect(parsed.version).toBe('plandesk-connect-v1');
       expect((parsed as { projectId: string }).projectId).toBe(projectId);
+    });
+  });
+
+  it('removes a stale .plandesk/token on a local rebind (no --token)', async () => {
+    await withTestServer(async ({ baseUrl, projectId, projectName }) => {
+      const repoDir = makeRepo(projectName);
+      // Simulate a prior connection to a different server that left a token.
+      mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
+      writeFileSync(join(repoDir, '.plandesk', 'token'), 'plandesk_mcp_stale_from_old_server\n', 'utf8');
+
+      await runConnect({
+        repoDir,
+        project: projectId,
+        url: baseUrl,
+        agent: 'both',
+        interactive: false,
+      });
+
+      // Local loopback needs no token; the stale one must be gone so the MCP
+      // does not send an invalid Bearer (401).
+      expect(existsSync(join(repoDir, '.plandesk', 'token'))).toBe(false);
     });
   });
 
