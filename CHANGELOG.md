@@ -4,6 +4,15 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [1.0.7] — 2026-07-19
+
+Two agent-experience papercuts found while exercising the full MCP surface against a migrated board. `@plandesk/mcp` and `@plandesk/cli` only — the hosted Worker is unchanged.
+
+### Fixed
+
+- **`create_goal` documents its `verification_surface` shape.** The parameter only named the three kinds, so the first call failed with `verification_surface must include a kind` and an agent had to read the service source to discover the JSON. The tool schema now spells out all three surface shapes (`gate_command` / `acceptance_checklist` / `human_sign_off`) and the matching `complete_goal` evidence shapes.
+- **`connect` warns when an ancestor `.mcp.json` shadows the one it writes.** An agent session opened from a parent directory reads *that* directory's `.mcp.json`, so the config `connect` just wrote is silently ignored — observed live, where a parent `.mcp.json` still pointed at a dead port after a successful connect. `connect` now detects the shadowing file and names it, with the fix.
+
 ## [1.0.6] — 2026-07-19
 
 ### Fixed
