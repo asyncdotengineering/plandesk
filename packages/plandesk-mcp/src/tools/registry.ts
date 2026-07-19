@@ -277,7 +277,13 @@ export const createGoalInputSchema = z.object({
     .string()
     .optional()
     .describe(
-      'JSON verification surface: gate_command, acceptance_checklist, or human_sign_off. Omit for no surface.',
+      'JSON verification surface. A `kind` field is REQUIRED; use exactly one of: ' +
+        '{"kind":"gate_command","command":"pnpm test"} | ' +
+        '{"kind":"acceptance_checklist","items":[{"criterion":"..."}]} | ' +
+        '{"kind":"human_sign_off"}. ' +
+        'complete_goal later takes matching evidence: {"kind":"gate_command","exit_code":0} | ' +
+        '{"kind":"acceptance_checklist","checked":["..."]} | ' +
+        '{"kind":"human_sign_off","approved_by":"..."}. Omit for no surface.',
     ),
   constraints: z.string().optional(),
   boundaries: z.string().optional(),

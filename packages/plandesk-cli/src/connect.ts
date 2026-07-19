@@ -7,7 +7,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { homedir } from 'node:os';
@@ -61,6 +61,9 @@ export type ConnectOptions = {
   home?: string;
 };
 
+/** Agent MCP server config filename, read from the directory a session opens in. */
+const MCP_CONFIG_FILE = '.mcp.json';
+
 export type ConnectArtifact = {
   path: string;
   content: string;
@@ -80,7 +83,40 @@ export type ConnectResult = {
   artifacts: ConnectArtifact[];
   tokenCreated: boolean;
   tokenLine: string;
+  /** Non-fatal advisories (e.g. an ancestor .mcp.json shadowing this repo's). */
+  warnings: string[];
 };
+
+/**
+ * An `.mcp.json` in an ancestor directory wins when the agent session is opened
+ * there rather than in the repo — the config we just wrote is then never read.
+ * Returns that shadowing path so connect can say so instead of silently
+ * appearing to work.
+ */
+export function findShadowingMcpConfig(repoDir: string): string | undefined {
+  let dir = dirname(resolve(repoDir));
+  while (true) {
+    const candidate = join(dir, MCP_CONFIG_FILE);
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) {
+      return undefined;
+    }
+    dir = parent;
+  }
+}
+
+function shadowWarnings(repoDir: string): string[] {
+  const shadowing = findShadowingMcpConfig(repoDir);
+  if (shadowing === undefined) {
+    return [];
+  }
+  return [
+    `warning: ${shadowing} also defines MCP servers and takes precedence when an agent session is opened from that directory — this repo's ${MCP_CONFIG_FILE} would be ignored. Update or remove it, or open the session from ${repoDir}.`,
+  ];
+}
 
 export class ConnectError extends Error {
   constructor(
@@ -489,7 +525,7 @@ function buildArtifacts(
     artifacts.push({ path: tokenPath, content: '', action: 'delete' });
   }
 
-  const mcpPath = join(options.repoDir, '.mcp.json');
+  const mcpPath = join(options.repoDir, MCP_CONFIG_FILE);
   const workspaceIdForMcp =
     workspace !== undefined ? workspace.id : (project?.workspace_id ?? undefined);
   artifacts.push({
@@ -597,6 +633,9 @@ export function formatConnectPrint(result: ConnectResult): string {
     }
   }
   lines.push(`Token is read from .plandesk/token automatically (set ${TOKEN_ENV_VAR} to override).`);
+  for (const warning of result.warnings) {
+    lines.push(warning);
+  }
   lines.push('Start a new agent session to refresh MCP tools.');
   return `${lines.join('\n')}\n`;
 }
@@ -618,6 +657,9 @@ export function formatConnectSummary(result: ConnectResult): string {
     );
   }
   lines.push(result.tokenLine);
+  for (const warning of result.warnings) {
+    lines.push(warning);
+  }
   lines.push('Start a new agent session to refresh MCP tools.');
   return `${lines.join('\n')}\n`;
 }
@@ -670,7 +712,8 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
         token !== undefined && token !== ''
           ? `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`
           : 'Local loopback mode — no token file (server treats loopback as owner).',
-    };
+        warnings: shadowWarnings(options.repoDir),
+  };
 
     if (options.print === true) {
       return result;
@@ -700,6 +743,7 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
       token !== undefined && token !== ''
         ? `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`
         : 'Local loopback mode — no token file (server treats loopback as owner).',
+      warnings: shadowWarnings(options.repoDir),
   };
 
   if (options.print === true) {
@@ -778,7 +822,8 @@ async function runHostedConnect(
       tokenLine: created
         ? `Scoped agent key saved to .plandesk/token (gitignored) — not your owner key. set ${TOKEN_ENV_VAR} to override.`
         : `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`,
-    };
+        warnings: shadowWarnings(options.repoDir),
+  };
 
     if (options.print === true) {
       return result;
@@ -816,6 +861,7 @@ async function runHostedConnect(
     tokenLine: created
       ? `Scoped agent key saved to .plandesk/token (gitignored) — not your owner key. set ${TOKEN_ENV_VAR} to override.`
       : `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`,
+      warnings: shadowWarnings(options.repoDir),
   };
 
   if (options.print === true) {

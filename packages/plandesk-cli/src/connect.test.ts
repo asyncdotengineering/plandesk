@@ -39,7 +39,12 @@ import {
   PLANDESK_CONNECT_VERSION_V2,
   SENTINEL_START,
 } from './connect-artifacts.js';
-import { ConnectError, formatConnectPrint, runConnect } from './connect.js';
+import {
+  ConnectError,
+  formatConnectPrint,
+  formatConnectSummary,
+  runConnect,
+} from './connect.js';
 import { runDisconnect } from './disconnect.js';
 import { runBindingDoctor } from './binding-doctor.js';
 import { main } from './cli.js';
@@ -249,6 +254,43 @@ describe('runConnect', () => {
       const parsed = parseConfigJson(readFileSync(join(repoDir, '.plandesk/config.json'), 'utf8'));
       expect(parsed.version).toBe('plandesk-connect-v1');
       expect((parsed as { projectId: string }).projectId).toBe(projectId);
+    });
+  });
+
+  it('warns when an ancestor .mcp.json shadows the one it just wrote', async () => {
+    await withTestServer(async ({ baseUrl, projectId, projectName }) => {
+      // A parent dir with its own .mcp.json — the agent session opens there, so
+      // the repo's config is never read.
+      const parent = mkdtempSync(join(tmpdir(), 'plandesk-parent-'));
+      tempDirs.push(parent);
+      writeFileSync(join(parent, '.mcp.json'), '{"mcpServers":{}}', 'utf8');
+      const repoDir = join(parent, projectName.replace(/[^a-z0-9-]/gi, '-'));
+      mkdirSync(repoDir, { recursive: true });
+
+      const result = await runConnect({
+        repoDir,
+        project: projectId,
+        url: baseUrl,
+        agent: 'both',
+        interactive: false,
+      });
+
+      expect(result.warnings.some((w) => w.includes(join(parent, '.mcp.json')))).toBe(true);
+      expect(formatConnectSummary(result)).toContain('takes precedence');
+    });
+  });
+
+  it('emits no shadow warning when no ancestor .mcp.json exists', async () => {
+    await withTestServer(async ({ baseUrl, projectId, projectName }) => {
+      const repoDir = makeRepo(projectName);
+      const result = await runConnect({
+        repoDir,
+        project: projectId,
+        url: baseUrl,
+        agent: 'both',
+        interactive: false,
+      });
+      expect(result.warnings.filter((w) => w.includes('takes precedence'))).toEqual([]);
     });
   });
 
