@@ -183,7 +183,7 @@ async function joinAsGuest(
   return json.session_token;
 }
 
-function guestViewHeaders(sessionToken: string): HeadersInit {
+function guestViewHeaders(sessionToken: string): Record<string, string> {
   return { Authorization: `Bearer ${sessionToken}` };
 }
 

@@ -179,7 +179,7 @@ async function hostedBetterAuthApp(): Promise<{
   return { app, db, auth };
 }
 
-function jsonHeaders(cookie: string): HeadersInit {
+function jsonHeaders(cookie: string): Record<string, string> {
   return { Cookie: cookie, 'Content-Type': 'application/json' };
 }
 

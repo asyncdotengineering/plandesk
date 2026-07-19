@@ -1,0 +1,24 @@
+{
+  "name": "@plandesk/worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Workers deployment entry — composes the Plan Desk API app with the MCP app. Not published; deployed with wrangler.",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@plandesk/api": "workspace:*",
+    "@plandesk/db": "workspace:*",
+    "@plandesk/mcp": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260609.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.98.0",
+    "vitest": "^3.2.4"
+  }
+}

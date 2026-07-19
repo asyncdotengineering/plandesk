@@ -32,6 +32,6 @@ preview_bucket_name = "plandesk-files-preview"
 
 # Built SPA (published package ships web/ next to this package).
 [assets]
-directory = "web"
+directory = "../plandesk-api/web"
 binding = "ASSETS"
 not_found_handling = "single-page-application"

@@ -84,6 +84,13 @@ export {
 } from './permissions.js';
 export { healthRouter } from './routes/health.js';
 export { mountStatic } from './static.js';
+// Hosted (non-loopback) entry helpers — used by the deployment composition root
+// (@plandesk/worker), which wires this app together with the MCP app.
+export {
+  hostedMisconfigResponse,
+  resolveHostedBetterAuth,
+  type HostedAuthEnv,
+} from './hosted-auth.js';
 export { createS3Adapter, type S3AdapterConfig } from './storage/s3.js';
 export { createR2Adapter, type R2BucketLike } from './storage/r2.js';
 export type { StorageAdapter } from './storage/adapter.js';

@@ -1,19 +1,32 @@
 /// <reference types="@cloudflare/workers-types" />
 
 /**
- * Cloudflare Workers entry for the Plan Desk API.
- * Same Hono app as Node/Vercel — only wiring (db client, storage config, assets) differs.
- * Never migrates. Never imports static.ts / node:fs SPA helpers.
+ * Cloudflare Workers entry for Plan Desk — the deployment composition root.
+ *
+ * This package exists so the hosted entry can wire the API app together with
+ * the MCP app. `@plandesk/mcp` imports runtime values from `@plandesk/api`
+ * (tryGetAuthContext, the Invalid*Error classes), so `api` cannot import `mcp`
+ * back without a dependency cycle — the same reason the CLI's `serve` is the
+ * composition root on Node. Both apps are composed here instead.
+ *
+ * Same Hono app as Node/Vercel — only wiring (db client, storage, assets)
+ * differs. Never migrates. Never imports static.ts / node:fs SPA helpers.
  */
 import { createWebDb } from '@plandesk/db/web';
 import type { Db } from '@plandesk/db';
-import { createApp } from './server.js';
-import { createBetterAuth, type BetterAuthInstance } from './better-auth.js';
-import { createServices } from './services/index.js';
-import { githubConfigFromEnv } from './github.js';
-import { createR2Adapter } from './storage/r2.js';
-import { createS3Adapter, type S3AdapterConfig } from './storage/s3.js';
-import { hostedMisconfigResponse, resolveHostedBetterAuth } from './hosted-auth.js';
+import {
+  createApp,
+  createBetterAuth,
+  createR2Adapter,
+  createS3Adapter,
+  createServices,
+  githubConfigFromEnv,
+  hostedMisconfigResponse,
+  resolveHostedBetterAuth,
+  type BetterAuthInstance,
+  type S3AdapterConfig,
+} from '@plandesk/api';
+import { createMcpApp } from '@plandesk/mcp';
 
 export interface Env {
   /** Turso/libSQL URL — set via `wrangler secret put PLANDESK_DB_URL` */
@@ -155,6 +168,35 @@ function isApiOrMcpPath(pathname: string): boolean {
     pathname.startsWith('/mcp/');
 }
 
+/**
+ * The whole reason this package exists: compose the API app WITH the MCP app.
+ * Exported so a test can assert /mcp is actually mounted — the hosted entry
+ * shipped without it for the entire 1.0 line precisely because nothing checked.
+ */
+export function composeWorkerApp(deps: {
+  db: Db;
+  services: ReturnType<typeof createServices>;
+  authPassword?: string;
+  github?: ReturnType<typeof githubConfigFromEnv>;
+  betterAuth: { secret: string; baseURL: string };
+  betterAuthInstance: BetterAuthInstance;
+}) {
+  // The MCP app is stateless (WebStandardStreamableHTTPServerTransport with
+  // sessionIdGenerator: undefined), so it needs no per-request session store
+  // and runs fine on a Worker isolate.
+  return createApp({
+    db: deps.db,
+    services: deps.services,
+    mcp: createMcpApp({ services: deps.services }),
+    authPassword: deps.authPassword,
+    // Non-loopback: hosted path requires a token or a session (no default-org trust).
+    bindHost: '0.0.0.0',
+    github: deps.github,
+    betterAuth: deps.betterAuth,
+    betterAuthInstance: deps.betterAuthInstance,
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -179,12 +221,10 @@ export default {
     // (file uploads/artifacts off — no crash). Mirrors `plandesk serve`.
     const storage = resolveWorkerStorage(env, db);
     const services = createServices({ db, auth: authInstance, ...(storage !== undefined ? { storage } : {}) });
-    const app = createApp({
+    const app = composeWorkerApp({
       db,
       services,
       authPassword: env.PLANDESK_AUTH_PASSWORD,
-      // Non-loopback: hosted path requires a token or a session (no default-org trust).
-      bindHost: '0.0.0.0',
       github: githubConfigFromEnv(env),
       betterAuth,
       betterAuthInstance: authInstance,
