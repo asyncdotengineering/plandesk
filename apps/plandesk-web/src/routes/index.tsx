@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { BrandMark } from '../components/auth/AuthShell.js';
 import { ThemeToggle } from '../components/layout/ThemeToggle.js';
 import { ApiError } from '../lib/api.js';
-import { useAuthSession, useSetActiveWorkspace, useWorkspaces } from '../lib/auth.js';
+import { useActiveWorkspace, useAuthSession, useSetActiveWorkspace, useWorkspaces } from '../lib/auth.js';
 import { useCreateWorkspace, useProjects } from '../lib/queries.js';
 
 /**
@@ -41,7 +41,7 @@ function WorkspaceLanding() {
   const workspaces = workspacesQuery.data ?? session?.workspaces ?? [];
   const orgName = session?.org?.name ?? 'Your organization';
   const isOwner = session?.role === 'owner';
-  const activeWorkspaceId = session?.active_workspace?.id;
+  const activeWorkspaceId = useActiveWorkspace()?.id;
 
   const projectCountByWorkspace = new Map<string, number>();
   if (projects !== undefined) {

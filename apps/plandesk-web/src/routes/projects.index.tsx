@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { MoveProjectDialog } from '../components/projects/MoveProjectDialog.js';
-import { useAuthSession } from '../lib/auth.js';
+import { useActiveWorkspace, useAuthSession } from '../lib/auth.js';
 import { useCreateProject, useProjects } from '../lib/queries.js';
 
 /**
@@ -16,7 +16,8 @@ import { useCreateProject, useProjects } from '../lib/queries.js';
  */
 export function ProjectListPage() {
   const { data: session } = useAuthSession();
-  const activeWorkspaceId = session?.active_workspace?.id;
+  const activeWorkspace = useActiveWorkspace();
+  const activeWorkspaceId = activeWorkspace?.id;
   const workspaces = session?.workspaces ?? [];
   const { data: projects, isLoading, error } = useProjects();
   const createProject = useCreateProject();
@@ -65,7 +66,7 @@ export function ProjectListPage() {
         <div className="mb-5 flex flex-wrap items-baseline gap-2.5">
           <h2 className="text-[15px] font-semibold tracking-tight">Projects</h2>
           <span className="text-xs text-muted-foreground">
-            {session?.active_workspace?.name ?? 'Your workspaces'}
+            {activeWorkspace?.name ?? 'Your workspaces'}
           </span>
         </div>
 

@@ -4,7 +4,7 @@ import { AuthGate } from '../components/auth/AuthGate.js';
 import { CommandMenu, CommandMenuProvider } from '../components/layout/CommandMenu.js';
 import { Sidebar } from '../components/layout/Sidebar.js';
 import { Toaster } from '@/components/ui/sonner';
-import { useAuthSession } from '../lib/auth.js';
+import { useActiveWorkspace } from '../lib/auth.js';
 import { useProject } from '../lib/queries.js';
 
 const VIEW_LABELS: Record<string, string> = {
@@ -45,8 +45,8 @@ function ChevronRight() {
 
 /** Leading crumb: the active workspace, linking to the landing to switch workspace/org. */
 function WorkspaceCrumb() {
-  const { data: session } = useAuthSession();
-  const name = session?.active_workspace?.name ?? 'Workspaces';
+  const active = useActiveWorkspace();
+  const name = active?.name ?? 'Workspaces';
   return (
     <Link to="/" title="Switch workspace">
       {name}

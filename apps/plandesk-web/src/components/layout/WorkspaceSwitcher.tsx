@@ -19,7 +19,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ApiError } from '../../lib/api.js';
-import { useAuthSession, useSetActiveWorkspace, useWorkspaces } from '../../lib/auth.js';
+import {
+  useActiveWorkspace,
+  useAuthSession,
+  useSetActiveWorkspace,
+  useWorkspaces,
+} from '../../lib/auth.js';
 import { useCreateWorkspace } from '../../lib/queries.js';
 
 /**
@@ -40,7 +45,7 @@ export function WorkspaceSwitcher() {
   // The session caches workspaces + active_workspace; the workspaces query is
   // the fresh list for CRUD. Prefer the fresh list once it resolves.
   const workspaces = workspacesQuery.data ?? session?.workspaces ?? [];
-  const active = session?.active_workspace ?? null;
+  const active = useActiveWorkspace();
   const isOwner = session?.role === 'owner';
 
   const label = active?.name ?? 'Workspaces';

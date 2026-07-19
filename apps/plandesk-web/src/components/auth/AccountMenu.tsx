@@ -1,4 +1,10 @@
-import { useAuthSession, useLogout, useSetActiveOrganization, useSetActiveWorkspace } from '../../lib/auth.js';
+import {
+  useActiveWorkspace,
+  useAuthSession,
+  useLogout,
+  useSetActiveOrganization,
+  useSetActiveWorkspace,
+} from '../../lib/auth.js';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +26,7 @@ export function AccountMenu() {
   const signOut = useLogout();
   const switchOrganization = useSetActiveOrganization();
   const switchWorkspace = useSetActiveWorkspace();
+  const activeWorkspace = useActiveWorkspace();
 
   if (session === null || session === undefined) {
     return null;
@@ -28,7 +35,6 @@ export function AccountMenu() {
   const orgs = session.orgs ?? (session.org === null ? [] : [{ ...session.org, role: session.role }]);
   const activeOrg = session.org;
   const workspaces = session.workspaces ?? [];
-  const activeWorkspace = session.active_workspace ?? null;
 
   return (
     <div className="flex items-center gap-2">

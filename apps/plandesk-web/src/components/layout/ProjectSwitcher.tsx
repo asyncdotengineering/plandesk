@@ -5,7 +5,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAuthSession } from '../../lib/auth.js';
+import { useActiveWorkspace } from '../../lib/auth.js';
 import { useProjects } from '../../lib/queries.js';
 
 /**
@@ -20,9 +20,8 @@ export function ProjectSwitcher({
   activeProjectId?: string;
   onNavigate: (projectId: string) => void;
 }) {
-  const { data: session } = useAuthSession();
   const { data: projects } = useProjects();
-  const activeWorkspaceId = session?.active_workspace?.id;
+  const activeWorkspaceId = useActiveWorkspace()?.id;
 
   // Same client-side filter the projects list uses: only the active workspace.
   const visible =
