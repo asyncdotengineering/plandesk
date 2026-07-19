@@ -13,7 +13,10 @@ packages/plandesk-db/       SQLite schema + Drizzle migrations
 packages/plandesk-mcp/      MCP server (Streamable HTTP, 45 tools)
 packages/plandesk-cli/      plandesk binary (init, serve, connect, …)
 packages/plandesk-mcp-client/  Factory Desk / programmatic MCP consumer
+packages/plandesk-worker/   Cloudflare Workers deploy entry (not published)
 ```
+
+`plandesk-worker` is the hosted **composition root**: `plandesk-mcp` imports runtime values from `plandesk-api`, so `plandesk-api` cannot import the MCP server back without a dependency cycle. The Workers entry therefore lives in its own package that depends on both and wires them together — the same role `serve.ts` plays in `plandesk-cli` on Node. This is what lets a hosted board serve `/mcp` alongside the REST API.
 
 ## Published npm packages
 
