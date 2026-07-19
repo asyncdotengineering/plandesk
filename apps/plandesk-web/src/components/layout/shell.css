@@ -260,6 +260,15 @@ kbd {
   color: var(--foreground);
   font-weight: 600;
 }
+.crumb a {
+  color: var(--muted-foreground);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.crumb a:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+}
 .topbar .spacer {
   flex: 1;
 }
