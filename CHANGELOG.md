@@ -4,6 +4,21 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [1.0.6] — 2026-07-19
+
+### Fixed
+
+- **Workspace switching works on a local board.** A local (loopback) board has no session to persist the active team, so `set-active-team` returned 401 and the active workspace stayed pinned to the server-computed default — clicking any workspace always opened the same one. A client-side active-workspace override now drives the selection (persisted per browser), routed through one `useActiveWorkspace()` hook so the projects list, breadcrumb, both sidebar switchers, and the account menu all agree.
+
+## [1.0.5] — 2026-07-19
+
+More fixes from live 1.0 use — a navigable breadcrumb and a connect token bug.
+
+### Fixed
+
+- **Topbar breadcrumb is now navigable.** The breadcrumb rendered the project name as a plain span, so the top-left was a dead end. It's now a real trail: the workspace name links to the landing (to switch workspace), the project name links to its overview, and the current tab stays bold.
+- **`connect` no longer leaves a stale token on a local rebind.** A repo previously connected to a different server kept that server's key in `.plandesk/token`; a local `connect` reused it, so the MCP sent an invalid Bearer and every call returned 401. Local loopback needs no token (the server treats loopback as owner) — connect now removes any stale token instead of reusing it.
+
 ## [1.0.4] — 2026-07-19
 
 Two web fixes surfaced by live 1.0 use.
