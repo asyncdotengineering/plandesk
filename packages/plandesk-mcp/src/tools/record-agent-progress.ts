@@ -14,7 +14,7 @@ export function createRecordAgentProgressHandler(
       return toolSuccess('event', event);
     } catch (error) {
       if (error instanceof InvalidAgentRunError) {
-        return toolInvalidArgument();
+        return toolInvalidArgument(error.message);
       }
       throw error;
     }

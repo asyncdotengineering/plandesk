@@ -27,7 +27,7 @@ export function createAddCommentHandler(
       return toolSuccess('comment', comment);
     } catch (error) {
       if (error instanceof InvalidCommentError) {
-        return toolInvalidArgument();
+        return toolInvalidArgument(error.message);
       }
       throw error;
     }

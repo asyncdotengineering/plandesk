@@ -28,7 +28,7 @@ export function createUpdateDocumentHandler(
       return toolSuccess('document', document);
     } catch (error) {
       if (error instanceof InvalidDocumentError) {
-        return toolInvalidArgument();
+        return toolInvalidArgument(error.message);
       }
       throw error;
     }

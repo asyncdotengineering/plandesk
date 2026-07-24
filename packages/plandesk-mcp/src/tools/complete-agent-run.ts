@@ -14,7 +14,7 @@ export function createCompleteAgentRunHandler(
       return toolSuccess('agent_run', run);
     } catch (error) {
       if (error instanceof InvalidAgentRunError) {
-        return toolInvalidArgument();
+        return toolInvalidArgument(error.message);
       }
       throw error;
     }

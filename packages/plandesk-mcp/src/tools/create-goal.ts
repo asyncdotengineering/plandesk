@@ -1,5 +1,5 @@
 import { InvalidGoalStatusError, type GoalStatus } from '@plandesk/db';
-import { type GoalService } from '@plandesk/api';
+import { InvalidVerificationSurfaceError, type GoalService } from '@plandesk/api';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createCreateGoalHandler(
@@ -34,8 +34,8 @@ export function createCreateGoalHandler(
       }
       return toolSuccess('goal', goal);
     } catch (error) {
-      if (error instanceof InvalidGoalStatusError) {
-        return toolInvalidArgument();
+      if (error instanceof InvalidGoalStatusError || error instanceof InvalidVerificationSurfaceError) {
+        return toolInvalidArgument(error.message);
       }
       throw error;
     }

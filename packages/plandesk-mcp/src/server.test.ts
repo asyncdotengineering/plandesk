@@ -892,6 +892,73 @@ describe('createMcpApp', () => {
     });
   });
 
+  it('create_goal returns a structured invalid_argument naming the field for a bad verification_surface (#14)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const result = await client.callTool({
+          name: 'create_goal',
+          arguments: {
+            project_id: projectId,
+            objective: 'Bad surface',
+            verification_surface: '{"foo":"bar"}',
+          },
+        });
+        expect(result.isError).toBe(true);
+        const content = result.content as Array<{ type: string; text?: string }>;
+        const text = content[0]?.type === 'text' ? (content[0].text ?? '') : '';
+        const payload = JSON.parse(text) as { error: string; message?: string };
+        expect(payload.error).toBe('invalid_argument');
+        expect(payload.message).toMatch(/verification_surface must include a kind/);
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('sibling tools return invalid_argument naming the offending field/reason (#14)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const task = await createTask(db, { projectId, label: 'Edge target' });
+
+        const badEdge = await client.callTool({
+          name: 'create_edge',
+          arguments: {
+            project_id: projectId,
+            from_task_id: task.id,
+            to_task_id: '00000000-0000-4000-8000-000000009999',
+          },
+        });
+        expect(badEdge.isError).toBe(true);
+        const edgeText =
+          (badEdge.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
+        expect(JSON.parse(edgeText) as { message?: string }).toMatchObject({
+          error: 'invalid_argument',
+          message: expect.stringMatching(/to task/i),
+        });
+
+        const badParent = await client.callTool({
+          name: 'create_document',
+          arguments: {
+            project_id: projectId,
+            title: 'Orphan',
+            parent_id: '00000000-0000-4000-8000-000000009999',
+          },
+        });
+        expect(badParent.isError).toBe(true);
+        const parentText =
+          (badParent.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
+        expect(JSON.parse(parentText) as { message?: string }).toMatchObject({
+          error: 'invalid_argument',
+          message: expect.stringMatching(/parent document/i),
+        });
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
   it('goal id round-trips: create_goal -> list_goals -> create_task(goal_id) succeeds verbatim (#27)', async () => {
     await withMcpServer(async ({ baseUrl, projectId }) => {
       const client = await connectClient(baseUrl);

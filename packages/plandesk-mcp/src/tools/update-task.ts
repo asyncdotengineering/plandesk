@@ -29,7 +29,7 @@ export function createUpdateTaskHandler(
       return toolSuccess('task', task);
     } catch (error) {
       if (error instanceof InvalidTaskStatusError || error instanceof InvalidTagError) {
-        return toolInvalidArgument();
+        return toolInvalidArgument(error.message);
       }
       throw error;
     }
