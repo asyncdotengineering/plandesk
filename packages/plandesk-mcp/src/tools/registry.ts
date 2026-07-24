@@ -19,6 +19,9 @@ const TAGS_FILTER_DESCRIPTION =
 const COMPACT_DESCRIPTION =
   'When true, omits large body/description fields and returns only id + summary metadata — use this for a cheap board-reconciliation sweep. Defaults to false (full body included), for backward compatibility.';
 
+const TASK_DESCRIPTION_GUIDANCE =
+  "Non-trivial tasks need build-contract depth (see .plandesk/skill.md's Task creation conventions): Problem, Action Items, Interfaces (concrete signatures/types/API/CLI this task touches, named exactly), Pseudocode (control flow for anything non-obvious), Validation contract (the test/command/observable outcome that proves it done), and References. No internal RFC/PRD/ticket references embedded in the text — the task must be executable without re-reading a parent doc.";
+
 export const listProjectsInputSchema = z.object({});
 
 export const createProjectInputSchema = z.object({
@@ -34,7 +37,7 @@ export const createTaskInputSchema = z.object({
   project_id: z.string().uuid(),
   label: z.string().min(1),
   status: z.enum(taskStatuses).optional(),
-  description: z.string().optional(),
+  description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
   x: z.number().optional(),
   y: z.number().optional(),
   goal_id: z
@@ -51,7 +54,7 @@ export const updateTaskInputSchema = z.object({
   task_id: z.string().uuid(),
   status: z.enum(taskStatuses).optional(),
   label: z.string().optional(),
-  description: z.string().optional(),
+  description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
   x: z.number().optional(),
   y: z.number().optional(),
   goal_id: z
@@ -242,7 +245,7 @@ export const scaffoldProjectFromPlanInputSchema = z.object({
         key: z.string().min(1),
         label: z.string().min(1),
         status: z.enum(taskStatuses).optional(),
-        description: z.string().optional(),
+        description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
         x: z.number().optional(),
         y: z.number().optional(),
       }),

@@ -6,6 +6,7 @@ import {
   listCommentsInputSchema,
   listTagsInputSchema,
   listTasksInputSchema,
+  scaffoldProjectFromPlanInputSchema,
   triageSubmissionInputSchema,
   updateTaskInputSchema,
   v1ToolNames,
@@ -103,6 +104,16 @@ describe('tool registry tag schemas', () => {
     expect(updateTaskInputSchema.shape.tags.description).toMatch(/replaces the full tag set/i);
     expect(listTasksInputSchema.shape.tags.description).toMatch(/OR semantics/i);
     expect(getNextTaskInputSchema.shape.tags.description).toMatch(/OR semantics/i);
+  });
+
+  it('documents build-contract depth in the task description field guidance', async () => {
+    expect(createTaskInputSchema.shape.description.description).toMatch(/interfaces/i);
+    expect(createTaskInputSchema.shape.description.description).toMatch(/pseudocode/i);
+    expect(createTaskInputSchema.shape.description.description).toMatch(/validation contract/i);
+    expect(updateTaskInputSchema.shape.description.description).toMatch(/interfaces/i);
+    expect(scaffoldProjectFromPlanInputSchema.shape.tasks.element.shape.description.description).toMatch(
+      /interfaces/i,
+    );
   });
 
   it('add_comment requires target_type and target_id', async () => {

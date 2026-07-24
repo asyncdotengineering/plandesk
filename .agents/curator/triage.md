@@ -65,9 +65,11 @@ For every normalized item, in order:
      comment describing the fork; a human decides. Never silently drop an
      item — every item gets a decision or an explicit "needs a human" note.
 3. **Draft in house style** (for `accept-new`): imperative, outcome-focused
-   label ("Verb Noun in Location"); description with **Problem** / **Action
-   Items** / **References** sections (reference class/method names, never
-   line numbers — see `.plandesk/skill.md`); assign `tags` for area, plus a
+   label ("Verb Noun in Location"); description at build-contract depth per
+   `.plandesk/skill.md`'s Task creation conventions — **Problem** / **Action
+   Items** / **Interfaces** / **Pseudocode** (where the source item gives
+   enough to state one) / **Validation contract** / **References** (reference
+   class/method names, never line numbers); assign `tags` for area, plus a
    `lane` (`auto` / `approve` / `full`, see `.agents/factory/lanes.md`) and a
    `severity` (`low` / `medium` / `high`) chosen by blast radius, both
    recorded as tags since tasks have no dedicated severity field yet.

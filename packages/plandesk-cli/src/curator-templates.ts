@@ -72,9 +72,11 @@ For every normalized item, in order:
      comment describing the fork; a human decides. Never silently drop an
      item — every item gets a decision or an explicit "needs a human" note.
 3. **Draft in house style** (for \`accept-new\`): imperative, outcome-focused
-   label ("Verb Noun in Location"); description with **Problem** / **Action
-   Items** / **References** sections (reference class/method names, never
-   line numbers — see \`.plandesk/skill.md\`); assign \`tags\` for area, plus a
+   label ("Verb Noun in Location"); description at build-contract depth per
+   \`.plandesk/skill.md\`'s Task creation conventions — **Problem** / **Action
+   Items** / **Interfaces** / **Pseudocode** (where the source item gives
+   enough to state one) / **Validation contract** / **References** (reference
+   class/method names, never line numbers); assign \`tags\` for area, plus a
    \`lane\` (\`auto\` / \`approve\` / \`full\`, see \`.agents/factory/lanes.md\`) and a
    \`severity\` (\`low\` / \`medium\` / \`high\`) chosen by blast radius, both
    recorded as tags since tasks have no dedicated severity field yet.
@@ -354,10 +356,19 @@ verbatim). For each task, decide:
 - **Grouping** — related tasks get adjacent canvas positions (space ~200
   units apart per \`.plandesk/skill.md\`); a blocker sits above what it blocks.
 
-Each task description follows house style: **Problem** (what must change,
-by class/method name — never line numbers), **Action Items** (specific,
-independently completable), **References** (linked docs, related tasks, and —
-when scaffolding from a source spec — the section it implements).
+Each task description carries build-contract depth per \`.plandesk/skill.md\`'s
+Task creation conventions: **Problem** (what must change, by class/method
+name — never line numbers), **Action Items** (specific, independently
+completable), **Interfaces** (the concrete signatures/types/API/CLI surface
+this task touches, named exactly), **Pseudocode** (control flow for anything
+non-obvious), **Validation contract** (the test/command/observable outcome
+that proves this task done — pull it from the source RFC's own verification
+surface when one exists), **References** (linked docs, related tasks, and —
+when scaffolding from a source spec — the section it implements). Pull the
+relevant interfaces/pseudocode/validation detail OUT of the source RFC/PRD
+into each task's own description rather than pointing the worker back at
+it — descriptions stay consumer-clean, with no internal RFC/PRD/ticket
+reference embedded in the text itself.
 
 ### 3. Status at creation — scope vs todo
 
@@ -440,9 +451,13 @@ fewer large ones — the loop (\`get_next_task\` → work → prove → done) on
 unstuck when each step is genuinely one pass.
 
 Each cycle-task carries its own acceptance in its **Action Items** (what makes
-*this* task done), so the worker never has to guess. Sequence them with edges
-(a task that needs another's output \`depends_on\` it) so \`get_next_task\`
-(scoped to this Goal) walks the frontier in a runnable order.
+*this* task done), so the worker never has to guess. It also inherits the
+slice of the Goal's Interfaces/Pseudocode/Validation contract that applies to
+it — copied into its own description, not referenced — so it is executable
+without re-reading the parent RFC (build-contract depth, per
+\`.plandesk/skill.md\`). Sequence them with edges (a task that needs another's
+output \`depends_on\` it) so \`get_next_task\` (scoped to this Goal) walks the
+frontier in a runnable order.
 
 ### How to place tasks under the Goal
 

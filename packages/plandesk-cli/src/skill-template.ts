@@ -51,10 +51,23 @@ one-off single addition, not for standing up a whole plan.
   The label must make clear what "done" looks like.
 - Status at creation: \`todo\` (defined, ready) or \`scope\` (needs design/sizing).
   Never create a task as \`in_progress\`.
-- Non-trivial tasks REQUIRE a description with:
+- **Build-contract depth.** Non-trivial tasks are build contracts, not tickets —
+  a worker executes the task start-to-done without re-reading any parent RFC,
+  PRD, or ticket. The description REQUIRES:
   1. **Problem** — what must change; reference class/method names, never line numbers.
   2. **Action Items** — specific, independently completable steps.
-  3. **References** — linked documents or related tasks.
+  3. **Interfaces** — the concrete signatures/types/API/CLI surface this task
+     introduces or touches, named exactly (function signatures, endpoint
+     shapes, CLI flags, config keys).
+  4. **Pseudocode** — control flow for any behavior that isn't obvious from
+     the interfaces alone. Skip only for a small, single-obvious-path edit.
+  5. **Validation contract** — the specific test, command, or observable
+     outcome that proves this task done; align it to the parent Goal's
+     \`verification_surface\` when the task belongs to one.
+  6. **References** — linked documents or related tasks.
+- Descriptions stay consumer-clean: no internal RFC/PRD/ticket references
+  embedded in the text — link a Plan Desk document instead of citing an
+  external ticket ID inline.
 - Before creating, check for an existing task covering the same work; prefer
   updating/linking over duplicating.
 - Creating several tasks: space ~200 units apart, group related, place blockers
