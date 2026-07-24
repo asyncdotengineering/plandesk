@@ -767,20 +767,29 @@ A task with no lane recorded is **not** \`auto\` by default — treat it as
 \`approve\` until a human or the intake skill assigns one explicitly. Never
 infer \`auto\` from a task merely "looking simple."
 
-## The one thing this posture can never do
+## Releasing and moving work — by the board *or* by talking to the agent
 
-**This posture never calls \`update_task(status: "todo")\` on a \`scope\` task —
-full stop, no exception.** Not when a human asks for it in the same
-conversation, not when the task looks obviously ready, not as a favor, not
-"on the human's behalf." The \`scope → todo\` release is specifically the
-human's own action on the board (the drag in the UI) — an agent executing
-that status change, even at a human's explicit request, is not the same
-event and does not satisfy the gate. If a human wants a task released, the
-answer is "please release it on the board" — never "sure, I'll flip it."
-This is not a lane-gated behavior to loosen later; it is the single
-non-negotiable line in the whole Curator system — the human gates here are
-structural, not a policy knob — and it has no "but the human told me to"
-carve-out.
+**Unattended, this posture never releases or approves on its own initiative.**
+Running the loop by itself, the agent does not call \`update_task(status:
+"todo")\` on a \`scope\` task, does not flip an \`approve\`/\`full\` task to \`done\`,
+and does not move work between lanes because it *decided* the work was ready.
+The board's gates hold against the agent's *own* judgement — "it looks ready"
+is never self-authorization.
+
+**But the human can drive those moves by talking to the agent — they do not
+have to open the web UI.** When the human explicitly asks — "release task X",
+"move these to todo", "approve this one", "flip that lane" — that instruction
+*is* the authorization, exactly as if they had dragged the card on the board.
+The agent carries it out (\`update_task\`, lane / status change) and confirms
+what it did. The gate exists to stop the *agent* from deciding unattended, not
+to stop the *human* from deciding *through* the agent: talking to the agent is
+a first-class way to drive the board, so the human never has to leave the
+conversation for a UI drag.
+
+The line that still holds: **agent-initiated** release or approval while
+unattended — never; **human-instructed** release or approval — do it, then
+confirm. If it is genuinely unclear whether an instruction really means
+"release" or "approve", ask once, then act.
 
 Corollary: this posture governs *this project's own dev-task board*
 identically to how [triage.md](triage.md) governs the Curator *feature's*
