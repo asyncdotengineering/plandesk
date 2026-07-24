@@ -162,6 +162,8 @@ const RESERVED_COMMANDS = new Set([
   'workspace',
   'context',
   'progress-checkpoint',
+  'status',
+  'ps',
   'migrate',
   'help',
   'onboard',
@@ -265,6 +267,7 @@ export type ParsedArgs =
   | { command: 'workspace'; subcommand: 'create' | 'list'; repoDir?: string; name?: string; to?: string }
   | { command: 'context'; repoDir?: string }
   | { command: 'progress-checkpoint'; message?: string; repoDir?: string }
+  | { command: 'status' }
   | { command: 'preview'; paths: string[]; port?: number; host?: string; open: boolean }
   | { command: 'help'; full: boolean }
   | { command: 'onboard' }
@@ -626,6 +629,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
     };
   }
 
+  if (command === 'status' || command === 'ps') {
+    return { command: 'status' };
+  }
+
   return { command: 'unknown', name: command };
 }
 
@@ -662,6 +669,7 @@ Usage:
   plandesk workspace list [--to <orgId>]
   plandesk context --json [--repo <dir>]   # bound project's current task/doc/progress, for session hooks
   plandesk progress-checkpoint [--message <text>] [--repo <dir>]   # post a checkpoint to the running agent run, for Stop/PreCompact hooks
+  plandesk status (or: ps)   # list known boards (global + repo-local shadow) and whether each is being served
   plandesk onboard           # teach-me guide: how to work in a Plan Desk + Factory repo
   plandesk version           # print the installed CLI version (also: --version)
 

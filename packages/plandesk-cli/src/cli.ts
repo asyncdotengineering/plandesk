@@ -52,6 +52,7 @@ import {
 import { formatDisconnectSummary, runDisconnect } from './disconnect.js';
 import { runContext } from './context.js';
 import { DEFAULT_CHECKPOINT_MESSAGE, runProgressCheckpoint } from './progress-checkpoint.js';
+import { formatStatusReport, runStatus } from './status.js';
 import { formatPushSummary, PromotePushError, runPush } from './push.js';
 import { formatPullSummary, runPull } from './pull.js';
 import { formatShareCreateSummary, InvalidShareArgsError, runShareCreate } from './share.js';
@@ -588,6 +589,11 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     case 'progress-checkpoint': {
       const repoDir = resolveRepoDir(parsed.repoDir);
       await runProgressCheckpoint(repoDir, parsed.message ?? DEFAULT_CHECKPOINT_MESSAGE);
+      return 0;
+    }
+    case 'status': {
+      const boards = await runStatus();
+      process.stdout.write(formatStatusReport(boards));
       return 0;
     }
     case 'preview': {

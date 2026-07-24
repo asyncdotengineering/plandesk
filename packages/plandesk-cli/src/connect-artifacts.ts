@@ -588,7 +588,8 @@ export function isPidAlive(pid: number): boolean {
   }
 }
 
-export function readServerInfo(plandeskDir: string): ServerInfo | undefined {
+/** Parses server.json without judging PID liveness — `status` (REQ-A4) needs the stale case too. */
+export function readServerInfoRaw(plandeskDir: string): ServerInfo | undefined {
   const path = join(plandeskDir, 'server.json');
   if (!existsSync(path)) {
     return undefined;
@@ -603,9 +604,6 @@ export function readServerInfo(plandeskDir: string): ServerInfo | undefined {
     ) {
       return undefined;
     }
-    if (!isPidAlive(raw.pid)) {
-      return undefined;
-    }
     return {
       port: raw.port,
       pid: raw.pid,
@@ -616,6 +614,14 @@ export function readServerInfo(plandeskDir: string): ServerInfo | undefined {
   } catch {
     return undefined;
   }
+}
+
+export function readServerInfo(plandeskDir: string): ServerInfo | undefined {
+  const info = readServerInfoRaw(plandeskDir);
+  if (info === undefined || !isPidAlive(info.pid)) {
+    return undefined;
+  }
+  return info;
 }
 
 export function writeServerInfo(plandeskDir: string, info: ServerInfo): void {
