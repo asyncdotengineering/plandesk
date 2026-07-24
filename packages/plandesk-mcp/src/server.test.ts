@@ -154,7 +154,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(46);
+      expect(names).toHaveLength(48);
       await client.close();
     });
   });
@@ -1070,6 +1070,69 @@ describe('createMcpApp', () => {
           error: 'invalid_argument',
           message: expect.stringMatching(/parent document/i),
         });
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('list_edges and delete_edge close the create -> list -> delete -> list loop (#29)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const taskA = await createTask(db, { projectId, label: 'A' });
+        const taskB = await createTask(db, { projectId, label: 'B' });
+
+        const created = await client.callTool({
+          name: 'create_edge',
+          arguments: {
+            project_id: projectId,
+            from_task_id: taskA.id,
+            to_task_id: taskB.id,
+            label: 'blocks',
+          },
+        });
+        expect(created.isError).not.toBe(true);
+        const createdPayload = JSON.parse(
+          (created.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { edge: { id: string } };
+
+        const listed = await client.callTool({
+          name: 'list_edges',
+          arguments: { project_id: projectId },
+        });
+        const listedPayload = JSON.parse(
+          (listed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { edges: Array<{ id: string; from_task_id: string; to_task_id: string; label: string | null }> };
+        expect(listedPayload.edges).toEqual([
+          expect.objectContaining({
+            id: createdPayload.edge.id,
+            from_task_id: taskA.id,
+            to_task_id: taskB.id,
+            label: 'blocks',
+          }),
+        ]);
+
+        const deleted = await client.callTool({
+          name: 'delete_edge',
+          arguments: { edge_id: createdPayload.edge.id },
+        });
+        expect(deleted.isError).not.toBe(true);
+
+        const listedAfter = await client.callTool({
+          name: 'list_edges',
+          arguments: { project_id: projectId },
+        });
+        const listedAfterPayload = JSON.parse(
+          (listedAfter.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { edges: Array<{ id: string }> };
+        expect(listedAfterPayload.edges).toEqual([]);
+
+        const deletedAgain = await client.callTool({
+          name: 'delete_edge',
+          arguments: { edge_id: createdPayload.edge.id },
+        });
+        expect(deletedAgain.isError).toBe(true);
       } finally {
         await client.close();
       }

@@ -4,10 +4,11 @@ import {
   createTask,
   getOrCreateDefaultGoal,
   deleteEdge as dbDeleteEdge,
+  getEdge,
   getEdgeByProjectAndId,
   getProject,
   getTask,
-  listEdges,
+  listEdges as dbListEdges,
   listTasks,
   updateEdge,
   updateProject,
@@ -69,7 +70,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
 
   async function buildCanvas(projectId: string, project: Project) {
     const tasks = await listTasks(db, projectId);
-    const edgeRows = await listEdges(db, projectId);
+    const edgeRows = await dbListEdges(db, projectId);
 
     return {
       nodes: tasks.map((task) => serializeTask(task)),
@@ -193,7 +194,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
           }
         }
 
-        const existingEdges = await listEdges(tx, projectId);
+        const existingEdges = await dbListEdges(tx, projectId);
         const payloadEdgeIds = new Set(
           payload.edges.map((edge) => edge.id).filter((id): id is string => id !== undefined),
         );
@@ -254,6 +255,39 @@ export function createCanvasService(deps: CanvasServiceDeps) {
       const edge = await getEdgeByProjectAndId(db, projectId, edgeId);
       if (!edge) {
         return false;
+      }
+
+      await dbDeleteEdge(db, edgeId);
+      return true;
+    },
+
+    async listEdges(projectId: string) {
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+      return (await dbListEdges(db, projectId)).map(serializeEdge);
+    },
+
+    // For delete_edge(edge_id): resolves the owning project from the edge
+    // itself, so the caller doesn't have to know project_id up front.
+    async deleteEdgeById(edgeId: string): Promise<boolean> {
+      assertPermission(deps, 'edge', 'delete');
+      const edge = await getEdge(db, edgeId);
+      if (!edge) {
+        return false;
+      }
+      try {
+        await assertProjectInOrg(db, edge.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return false;
+        }
+        throw error;
       }
 
       await dbDeleteEdge(db, edgeId);

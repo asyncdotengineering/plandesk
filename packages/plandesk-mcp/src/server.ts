@@ -15,6 +15,8 @@ import { createListArtifactsHandler } from './tools/list-artifacts.js';
 import { createCompleteAgentRunHandler } from './tools/complete-agent-run.js';
 import { createCreateDocumentHandler } from './tools/create-document.js';
 import { createCreateEdgeHandler } from './tools/create-edge.js';
+import { createListEdgesHandler } from './tools/list-edges.js';
+import { createDeleteEdgeHandler } from './tools/delete-edge.js';
 import { createCreateShareLinkHandler } from './tools/create-share-link.js';
 import { createCreateFolderHandler } from './tools/create-folder.js';
 import { createUpdateFolderHandler } from './tools/update-folder.js';
@@ -59,6 +61,8 @@ import {
   completeAgentRunInputSchema,
   createDocumentInputSchema,
   createEdgeInputSchema,
+  listEdgesInputSchema,
+  deleteEdgeInputSchema,
   createFolderInputSchema,
   createShareLinkInputSchema,
   updateFolderInputSchema,
@@ -327,6 +331,29 @@ function createMcpServer(services: Services, origin: string): McpServer {
       inputSchema: createEdgeInputSchema.shape,
     },
     createCreateEdgeHandler(services.canvasService),
+  );
+
+  server.registerTool(
+    'list_edges',
+    {
+      title: 'List Edges',
+      description:
+        'List the dependency edges for a project (id, from_task_id, to_task_id, label) so an agent can inspect the dependency graph before pruning a stale edge with delete_edge.',
+      inputSchema: listEdgesInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListEdgesHandler(services.canvasService),
+  );
+
+  server.registerTool(
+    'delete_edge',
+    {
+      title: 'Delete Edge',
+      description:
+        'Remove a stale or incorrect dependency edge by id. Updates get_next_task\'s blocked/waiting_on computation immediately.',
+      inputSchema: deleteEdgeInputSchema.shape,
+    },
+    createDeleteEdgeHandler(services.canvasService),
   );
 
   server.registerTool(

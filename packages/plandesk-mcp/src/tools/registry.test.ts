@@ -19,7 +19,7 @@ describe('tool registry tag schemas', () => {
   it('registers list_tags with a schema for every v1 tool', async () => {
     expect(v1ToolNames).toContain('list_tags');
     expect(v1ToolNames).toContain('claim_task');
-    expect(v1ToolNames).toHaveLength(46);
+    expect(v1ToolNames).toHaveLength(48);
     for (const name of v1ToolNames) {
       expect(v1ToolSchemas[name]).toBeDefined();
     }

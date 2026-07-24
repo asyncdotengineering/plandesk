@@ -200,6 +200,14 @@ export const createEdgeInputSchema = z.object({
   style: z.string().optional(),
 });
 
+export const listEdgesInputSchema = z.object({
+  project_id: z.string().uuid(),
+});
+
+export const deleteEdgeInputSchema = z.object({
+  edge_id: z.string().uuid(),
+});
+
 export const startAgentRunInputSchema = z.object({
   project_id: z.string().uuid(),
   label: z.string().optional(),
@@ -451,6 +459,8 @@ export const v1ToolNames = [
   'get_note',
   'list_notes',
   'create_edge',
+  'list_edges',
+  'delete_edge',
   'attach_file',
   'create_artifact',
   'get_artifact',
@@ -502,6 +512,8 @@ export const v1ToolSchemas = {
   get_note: getNoteInputSchema,
   list_notes: listNotesInputSchema,
   create_edge: createEdgeInputSchema,
+  list_edges: listEdgesInputSchema,
+  delete_edge: deleteEdgeInputSchema,
   attach_file: attachFileInputSchema,
   create_artifact: createArtifactInputSchema,
   get_artifact: getArtifactInputSchema,
