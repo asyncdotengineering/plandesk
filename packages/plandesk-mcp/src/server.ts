@@ -15,6 +15,8 @@ import { createListArtifactsHandler } from './tools/list-artifacts.js';
 import { createCompleteAgentRunHandler } from './tools/complete-agent-run.js';
 import { createCreateDocumentHandler } from './tools/create-document.js';
 import { createCreateEdgeHandler } from './tools/create-edge.js';
+import { createListEdgesHandler } from './tools/list-edges.js';
+import { createDeleteEdgeHandler } from './tools/delete-edge.js';
 import { createCreateShareLinkHandler } from './tools/create-share-link.js';
 import { createCreateFolderHandler } from './tools/create-folder.js';
 import { createUpdateFolderHandler } from './tools/update-folder.js';
@@ -28,6 +30,7 @@ import { createGetDocumentHandler } from './tools/get-document.js';
 import { createCreateGoalHandler } from './tools/create-goal.js';
 import { createGetGoalHandler } from './tools/get-goal.js';
 import { createListGoalsHandler } from './tools/list-goals.js';
+import { createUpdateGoalHandler } from './tools/update-goal.js';
 import {
   createCompleteGoalHandler,
   createPauseGoalHandler,
@@ -58,6 +61,8 @@ import {
   completeAgentRunInputSchema,
   createDocumentInputSchema,
   createEdgeInputSchema,
+  listEdgesInputSchema,
+  deleteEdgeInputSchema,
   createFolderInputSchema,
   createShareLinkInputSchema,
   updateFolderInputSchema,
@@ -76,6 +81,7 @@ import {
   createGoalInputSchema,
   getGoalInputSchema,
   listGoalsInputSchema,
+  updateGoalInputSchema,
   claimTaskInputSchema,
   completeGoalInputSchema,
   goalLifecycleInputSchema,
@@ -154,7 +160,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Update Task',
       description:
-        'Update task status, label, description, position, or tags. `tags` REPLACES the full tag set (auto-creating tags by name that do not exist yet; [] clears all tags); omit it to leave tags unchanged.',
+        'Update task status, label, description, position, goal, or tags. `goal_id` reassigns the task to a different goal in the same project, preserving its edges, comments, and documents. `tags` REPLACES the full tag set (auto-creating tags by name that do not exist yet; [] clears all tags); omit it to leave tags unchanged.',
       inputSchema: updateTaskInputSchema.shape,
     },
     createUpdateTaskHandler(services.taskService),
@@ -198,7 +204,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'List Documents',
       description:
-        'List documents for a project as a folder tree (folders with nested documents, plus root documents). Pass folder_id to list only the documents inside one folder.',
+        'List documents for a project as a folder tree (folders with nested documents, plus root documents). Pass folder_id to list only the documents inside one folder. Pass compact: true to omit body and return only summary fields — use this to avoid overflowing token limits on large boards.',
       inputSchema: listDocumentsInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
@@ -328,6 +334,29 @@ function createMcpServer(services: Services, origin: string): McpServer {
   );
 
   server.registerTool(
+    'list_edges',
+    {
+      title: 'List Edges',
+      description:
+        'List the dependency edges for a project (id, from_task_id, to_task_id, label) so an agent can inspect the dependency graph before pruning a stale edge with delete_edge.',
+      inputSchema: listEdgesInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListEdgesHandler(services.canvasService),
+  );
+
+  server.registerTool(
+    'delete_edge',
+    {
+      title: 'Delete Edge',
+      description:
+        'Remove a stale or incorrect dependency edge by id. Updates get_next_task\'s blocked/waiting_on computation immediately.',
+      inputSchema: deleteEdgeInputSchema.shape,
+    },
+    createDeleteEdgeHandler(services.canvasService),
+  );
+
+  server.registerTool(
     'attach_file',
     {
       title: 'Attach File',
@@ -423,6 +452,17 @@ function createMcpServer(services: Services, origin: string): McpServer {
   );
 
   server.registerTool(
+    'update_goal',
+    {
+      title: 'Update Goal',
+      description:
+        'Edit an existing goal\'s objective or contract fields (verification_surface, constraints, boundaries, iteration_policy, stop_condition, budget). Does not detach the goal\'s cycle-tasks. Omit a field to leave it unchanged.',
+      inputSchema: updateGoalInputSchema.shape,
+    },
+    createUpdateGoalHandler(services.goalService),
+  );
+
+  server.registerTool(
     'pause_goal',
     {
       title: 'Pause Goal',
@@ -458,7 +498,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Get Next Task',
       description:
-        'Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id). Resolves the sole active goal when goal_id is omitted; returns no_active_goal or multiple_active_goals when ambiguous. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.',
+        'Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id). When goal_id is omitted: with one active goal, scopes to it; with multiple active goals, considers the union of every active goal\'s tasks instead of dead-ending — returns no_active_goal only when zero goals are active. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.',
       inputSchema: getNextTaskInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
@@ -492,7 +532,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'List Tasks',
       description:
-        'List all tasks for a project, optionally filtered by status and/or tags. The `tags` filter uses OR semantics: a task matches if it carries ANY of the given tag names. Use this to reconcile the board against reality.',
+        'List all tasks for a project, optionally filtered by status and/or tags. The `tags` filter uses OR semantics: a task matches if it carries ANY of the given tag names. Use this to reconcile the board against reality. Pass compact: true to omit description and return only summary fields — use this to avoid overflowing token limits on large boards.',
       inputSchema: listTasksInputSchema.shape,
       annotations: { readOnlyHint: true },
     },

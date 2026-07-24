@@ -35,7 +35,7 @@ export function createCreateTaskHandler(
         error instanceof InvalidTagError ||
         error instanceof InvalidGoalReferenceError
       ) {
-        return toolInvalidArgument();
+        return toolInvalidArgument(error.message);
       }
       throw error;
     }

@@ -65,6 +65,14 @@ export function createCanvasRouter(canvasService: CanvasService): Hono {
     }
   });
 
+  router.get('/projects/:id/edges', async (c) => {
+    const edges = await canvasService.listEdges(c.req.param('id'));
+    if (!edges) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json(edges);
+  });
+
   router.delete('/projects/:id/edges/:edgeId', async (c) => {
     const deleted = await canvasService.deleteEdge(c.req.param('id'), c.req.param('edgeId'));
     if (!deleted) {

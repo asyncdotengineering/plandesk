@@ -246,4 +246,30 @@ describe('canvas routes', () => {
     );
     expect(res.status).toBe(404);
   });
+
+  it('GET /projects/:id/edges lists edges with from/to/label (#29)', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Edge list' });
+    const taskA = await createTask(db, { projectId: project.id, label: 'A' });
+    const taskB = await createTask(db, { projectId: project.id, label: 'B' });
+    const edge = await createEdge(db, {
+      projectId: project.id,
+      fromTaskId: taskA.id,
+      toTaskId: taskB.id,
+      label: 'blocks',
+    });
+
+    const res = await app.request(`/api/v1/projects/${project.id}/edges`);
+    expect(res.status).toBe(200);
+    const edges = await parseJson<Array<{ id: string; from_task_id: string; to_task_id: string; label: string | null }>>(res);
+    expect(edges).toEqual([
+      expect.objectContaining({ id: edge.id, from_task_id: taskA.id, to_task_id: taskB.id, label: 'blocks' }),
+    ]);
+  });
+
+  it('GET /projects/:id/edges returns 404 for missing project', async () => {
+    const { app } = await createTestApp();
+    const res = await app.request(`/api/v1/projects/00000000-0000-4000-8000-000000009999/edges`);
+    expect(res.status).toBe(404);
+  });
 });

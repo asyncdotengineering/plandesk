@@ -24,7 +24,7 @@ export function createUpdateArtifactHandler(
       return toolSuccess('artifact', artifact);
     } catch (error) {
       if (error instanceof InvalidArtifactError) {
-        return toolInvalidArgument();
+        return toolInvalidArgument(error.message);
       }
       throw error;
     }

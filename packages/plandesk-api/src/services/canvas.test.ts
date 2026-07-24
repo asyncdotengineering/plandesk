@@ -179,4 +179,43 @@ describe('canvasService', () => {
         edges: [],
       }),).rejects.toThrow(InvalidCanvasError);
   });
+
+  it('listEdges returns edges with from/to/label for a project (#29)', async () => {
+    const service = createService();
+    const a = await createTask(db, { projectId, label: 'A' });
+    const b = await createTask(db, { projectId, label: 'B' });
+    const edge = await service.createEdge(projectId, {
+      fromTaskId: a.id,
+      toTaskId: b.id,
+      label: 'blocks',
+    });
+
+    const edges = await service.listEdges(projectId);
+    expect(edges).toEqual([
+      expect.objectContaining({ id: edge?.id, from_task_id: a.id, to_task_id: b.id, label: 'blocks' }),
+    ]);
+  });
+
+  it('listEdges returns undefined for a missing project', async () => {
+    const service = createService();
+    expect(await service.listEdges('00000000-0000-4000-8000-000000009999')).toBeUndefined();
+  });
+
+  it('deleteEdgeById removes an edge without requiring project_id (#29)', async () => {
+    const service = createService();
+    const a = await createTask(db, { projectId, label: 'A' });
+    const b = await createTask(db, { projectId, label: 'B' });
+    const edge = await service.createEdge(projectId, { fromTaskId: a.id, toTaskId: b.id });
+    if (!edge) {
+      throw new Error('expected edge');
+    }
+
+    expect(await service.deleteEdgeById(edge.id)).toBe(true);
+    expect(await listEdges(db, projectId)).toHaveLength(0);
+  });
+
+  it('deleteEdgeById returns false for a missing edge', async () => {
+    const service = createService();
+    expect(await service.deleteEdgeById('00000000-0000-4000-8000-000000009999')).toBe(false);
+  });
 });

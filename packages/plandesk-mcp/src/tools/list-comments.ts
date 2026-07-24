@@ -15,7 +15,7 @@ export function createListCommentsHandler(
 
     if (args.target_type !== undefined || args.target_id !== undefined) {
       if (args.target_type === undefined || args.target_id === undefined) {
-        return toolInvalidArgument();
+        return toolInvalidArgument('target_type and target_id must be given together');
       }
 
       const targetProjectId = await commentService.resolveTargetProjectId({

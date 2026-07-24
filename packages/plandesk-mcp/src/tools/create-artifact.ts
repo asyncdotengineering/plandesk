@@ -27,7 +27,7 @@ export function createCreateArtifactHandler(
       });
     } catch (error) {
       if (error instanceof InvalidArtifactError) {
-        return toolInvalidArgument();
+        return toolInvalidArgument(error.message);
       }
       throw error;
     }

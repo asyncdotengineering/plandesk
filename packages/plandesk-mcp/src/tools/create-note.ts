@@ -18,7 +18,7 @@ export function createCreateNoteHandler(
       return toolSuccess('note', note);
     } catch (error) {
       if (error instanceof InvalidNoteError) {
-        return toolInvalidArgument();
+        return toolInvalidArgument(error.message);
       }
       throw error;
     }

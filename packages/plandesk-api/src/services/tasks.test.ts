@@ -158,6 +158,35 @@ describe('taskService', () => {
     expect(updated).toMatchObject({ id: created.id, status: 'done' });
   });
 
+  it('reassigns a task to a different goal in the same project (#15)', async () => {
+    const service = createService();
+    const goalA = await createGoal(db, { projectId, objective: 'Goal A' });
+    const goalB = await createGoal(db, { projectId, objective: 'Goal B' });
+    const created = await service.create(projectId, { label: 'Movable', goalId: goalA.id });
+    if (!created) {
+      throw new Error('expected created task');
+    }
+
+    const updated = await service.update(created.id, { goalId: goalB.id });
+    expect(updated?.goal_id).toBe(goalB.id);
+    expect(await service.get(created.id)).toMatchObject({ goal_id: goalB.id });
+  });
+
+  it('rejects reassigning a task to a goal_id from a different project (#15)', async () => {
+    const service = createService();
+    const goalA = await createGoal(db, { projectId, objective: 'Goal A' });
+    const otherProject = await createProject(db, { name: 'Other' });
+    const foreignGoal = await createGoal(db, { projectId: otherProject.id, objective: 'Elsewhere' });
+    const created = await service.create(projectId, { label: 'Movable', goalId: goalA.id });
+    if (!created) {
+      throw new Error('expected created task');
+    }
+
+    await expect(
+      service.update(created.id, { goalId: foreignGoal.id }),
+    ).rejects.toThrow(InvalidGoalReferenceError);
+  });
+
   it('deletes a task, cascades edges, and nulls linked documents', async () => {
     const service = createService();
     const task = await createTask(db, { projectId, label: 'Delete me' });
@@ -392,16 +421,56 @@ describe('taskService', () => {
     });
   });
 
-  it('nextActionable returns multiple_active_goals when ambiguous', async () => {
+  it('nextActionable returns no_tasks with multiple active goals when the project has no tasks', async () => {
     const service = createService();
     await createGoal(db, { projectId, objective: 'A', status: 'active' });
     await createGoal(db, { projectId, objective: 'B', status: 'active' });
 
     expect(await service.nextActionable(projectId)).toEqual({
       next_task: null,
-      reason: 'multiple_active_goals',
+      reason: 'no_tasks',
       blocked: [],
     });
+  });
+
+  it('nextActionable considers tasks across all active goals when goal_id is omitted (#18)', async () => {
+    const service = createService();
+    await createGoal(db, { projectId, objective: 'A', status: 'active' });
+    const goalB = await createGoal(db, { projectId, objective: 'B', status: 'active' });
+    const taskB = await createTask(db, { projectId, goalId: goalB.id, label: 'B todo', status: 'todo' });
+
+    // No dead-end (#18): with >1 active goal and no goal_id, the union of
+    // active goals' tasks is considered instead of erroring.
+    const result = await service.nextActionable(projectId);
+    expect(result?.reason).toBe('ok');
+    expect(result?.next_task?.id).toBe(taskB.id);
+    expect(result?.next_task?.goal_id).toBe(goalB.id);
+  });
+
+  it('nextActionable returns no_todo_tasks (not a dead end) when multiple active goals have no ready task', async () => {
+    const service = createService();
+    const goalA = await createGoal(db, { projectId, objective: 'A', status: 'active' });
+    const goalB = await createGoal(db, { projectId, objective: 'B', status: 'active' });
+    await createTask(db, { projectId, goalId: goalA.id, label: 'A done', status: 'done' });
+    await createTask(db, { projectId, goalId: goalB.id, label: 'B in progress', status: 'in_progress' });
+
+    expect(await service.nextActionable(projectId)).toEqual({
+      next_task: null,
+      reason: 'no_todo_tasks',
+      blocked: [],
+    });
+  });
+
+  it('nextActionable still scopes to one goal via goal_id when multiple goals are active', async () => {
+    const service = createService();
+    const goalA = await createGoal(db, { projectId, objective: 'A', status: 'active' });
+    const goalB = await createGoal(db, { projectId, objective: 'B', status: 'active' });
+    const taskA = await createTask(db, { projectId, goalId: goalA.id, label: 'A todo', status: 'todo' });
+    await createTask(db, { projectId, goalId: goalB.id, label: 'B todo', status: 'todo' });
+
+    const scoped = await service.nextActionable(projectId, { goalId: goalA.id });
+    expect(scoped?.reason).toBe('ok');
+    expect(scoped?.next_task?.id).toBe(taskA.id);
   });
 
   it('nextActionable scopes candidates to a specific goal', async () => {

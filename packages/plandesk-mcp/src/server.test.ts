@@ -10,6 +10,7 @@ import {
   createProjectInDefaultOrg as createProject,
   createDocument,
   createComment,
+  listEdges,
   listTasks,
   updateComment,
   migrate,
@@ -153,7 +154,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(45);
+      expect(names).toHaveLength(48);
       await client.close();
     });
   });
@@ -476,6 +477,99 @@ describe('createMcpApp', () => {
       ).toBeNull();
 
       await client.close();
+    });
+  });
+
+  it('list_tasks(compact) omits description; full mode is unchanged (#28)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        await createTask(db, { projectId, label: 'With body', description: 'a long spec body' });
+
+        const full = await client.callTool({
+          name: 'list_tasks',
+          arguments: { project_id: projectId },
+        });
+        const fullPayload = JSON.parse(
+          (full.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { tasks: Array<{ description: string | null; label: string }> };
+        expect(fullPayload.tasks[0]?.description).toBe('a long spec body');
+
+        const compact = await client.callTool({
+          name: 'list_tasks',
+          arguments: { project_id: projectId, compact: true },
+        });
+        const compactPayload = JSON.parse(
+          (compact.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { tasks: Array<Record<string, unknown>> };
+        expect(compactPayload.tasks[0]?.label).toBe('With body');
+        expect(compactPayload.tasks[0]).not.toHaveProperty('description');
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('list_documents(compact) omits body in both flat and tree shapes; full mode is unchanged (#28)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const folderRes = await client.callTool({
+          name: 'create_folder',
+          arguments: { project_id: projectId, name: 'Specs' },
+        });
+        const folderId = (
+          JSON.parse(
+            (folderRes.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+          ) as { folder: { id: string } }
+        ).folder.id;
+        await createDocument(db, {
+          projectId,
+          title: 'In folder',
+          body: '<p>secret body</p>',
+          folderId,
+        });
+        await createDocument(db, { projectId, title: 'At root', body: '<p>root body</p>' });
+
+        const fullTree = await client.callTool({
+          name: 'list_documents',
+          arguments: { project_id: projectId },
+        });
+        const fullTreePayload = JSON.parse(
+          (fullTree.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as {
+          documents: Array<{ body: string | null }>;
+          folders: Array<{ documents: Array<{ body: string | null }> }>;
+        };
+        expect(fullTreePayload.documents[0]?.body).toBe('<p>root body</p>');
+        expect(fullTreePayload.folders[0]?.documents[0]?.body).toBe('<p>secret body</p>');
+
+        const compactTree = await client.callTool({
+          name: 'list_documents',
+          arguments: { project_id: projectId, compact: true },
+        });
+        const compactTreePayload = JSON.parse(
+          (compactTree.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as {
+          documents: Array<Record<string, unknown>>;
+          folders: Array<{ documents: Array<Record<string, unknown>> }>;
+        };
+        expect(compactTreePayload.documents[0]?.title).toBe('At root');
+        expect(compactTreePayload.documents[0]).not.toHaveProperty('body');
+        expect(compactTreePayload.folders[0]?.documents[0]).not.toHaveProperty('body');
+
+        const compactFlat = await client.callTool({
+          name: 'list_documents',
+          arguments: { project_id: projectId, folder_id: folderId, compact: true },
+        });
+        const compactFlatPayload = JSON.parse(
+          (compactFlat.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { documents: Array<Record<string, unknown>> };
+        expect(compactFlatPayload.documents[0]?.title).toBe('In folder');
+        expect(compactFlatPayload.documents[0]).not.toHaveProperty('body');
+      } finally {
+        await client.close();
+      }
     });
   });
 
@@ -866,6 +960,29 @@ describe('createMcpApp', () => {
       };
       expect(fetchedPayload.goal.cycle_tasks.map((row) => row.id)).toEqual([task.id]);
 
+      const updated = await client.callTool({
+        name: 'update_goal',
+        arguments: { goal_id: createdPayload.goal.id, objective: 'Renamed objective' },
+      });
+      expect(updated.isError).not.toBe(true);
+      const updatedText =
+        (updated.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+      expect((JSON.parse(updatedText) as { goal: { objective: string } }).goal.objective).toBe(
+        'Renamed objective',
+      );
+      const refetched = await client.callTool({
+        name: 'get_goal',
+        arguments: { goal_id: createdPayload.goal.id },
+      });
+      const refetchedText =
+        (refetched.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+      const refetchedPayload = JSON.parse(refetchedText) as {
+        goal: { objective: string; cycle_tasks: Array<{ id: string }> };
+      };
+      expect(refetchedPayload.goal.objective).toBe('Renamed objective');
+      // Editing does not detach the goal's cycle-tasks.
+      expect(refetchedPayload.goal.cycle_tasks.map((row) => row.id)).toEqual([task.id]);
+
       const blocked = await client.callTool({
         name: 'complete_goal',
         arguments: { goal_id: createdPayload.goal.id },
@@ -889,6 +1006,187 @@ describe('createMcpApp', () => {
       expect(paused.isError).toBe(true);
 
       await client.close();
+    });
+  });
+
+  it('create_goal returns a structured invalid_argument naming the field for a bad verification_surface (#14)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const result = await client.callTool({
+          name: 'create_goal',
+          arguments: {
+            project_id: projectId,
+            objective: 'Bad surface',
+            verification_surface: '{"foo":"bar"}',
+          },
+        });
+        expect(result.isError).toBe(true);
+        const content = result.content as Array<{ type: string; text?: string }>;
+        const text = content[0]?.type === 'text' ? (content[0].text ?? '') : '';
+        const payload = JSON.parse(text) as { error: string; message?: string };
+        expect(payload.error).toBe('invalid_argument');
+        expect(payload.message).toMatch(/verification_surface must include a kind/);
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('sibling tools return invalid_argument naming the offending field/reason (#14)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const task = await createTask(db, { projectId, label: 'Edge target' });
+
+        const badEdge = await client.callTool({
+          name: 'create_edge',
+          arguments: {
+            project_id: projectId,
+            from_task_id: task.id,
+            to_task_id: '00000000-0000-4000-8000-000000009999',
+          },
+        });
+        expect(badEdge.isError).toBe(true);
+        const edgeText =
+          (badEdge.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
+        expect(JSON.parse(edgeText) as { message?: string }).toMatchObject({
+          error: 'invalid_argument',
+          message: expect.stringMatching(/to task/i),
+        });
+
+        const badParent = await client.callTool({
+          name: 'create_document',
+          arguments: {
+            project_id: projectId,
+            title: 'Orphan',
+            parent_id: '00000000-0000-4000-8000-000000009999',
+          },
+        });
+        expect(badParent.isError).toBe(true);
+        const parentText =
+          (badParent.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
+        expect(JSON.parse(parentText) as { message?: string }).toMatchObject({
+          error: 'invalid_argument',
+          message: expect.stringMatching(/parent document/i),
+        });
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('list_edges and delete_edge close the create -> list -> delete -> list loop (#29)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const taskA = await createTask(db, { projectId, label: 'A' });
+        const taskB = await createTask(db, { projectId, label: 'B' });
+
+        const created = await client.callTool({
+          name: 'create_edge',
+          arguments: {
+            project_id: projectId,
+            from_task_id: taskA.id,
+            to_task_id: taskB.id,
+            label: 'blocks',
+          },
+        });
+        expect(created.isError).not.toBe(true);
+        const createdPayload = JSON.parse(
+          (created.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { edge: { id: string } };
+
+        const listed = await client.callTool({
+          name: 'list_edges',
+          arguments: { project_id: projectId },
+        });
+        const listedPayload = JSON.parse(
+          (listed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { edges: Array<{ id: string; from_task_id: string; to_task_id: string; label: string | null }> };
+        expect(listedPayload.edges).toEqual([
+          expect.objectContaining({
+            id: createdPayload.edge.id,
+            from_task_id: taskA.id,
+            to_task_id: taskB.id,
+            label: 'blocks',
+          }),
+        ]);
+
+        const deleted = await client.callTool({
+          name: 'delete_edge',
+          arguments: { edge_id: createdPayload.edge.id },
+        });
+        expect(deleted.isError).not.toBe(true);
+
+        const listedAfter = await client.callTool({
+          name: 'list_edges',
+          arguments: { project_id: projectId },
+        });
+        const listedAfterPayload = JSON.parse(
+          (listedAfter.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { edges: Array<{ id: string }> };
+        expect(listedAfterPayload.edges).toEqual([]);
+
+        const deletedAgain = await client.callTool({
+          name: 'delete_edge',
+          arguments: { edge_id: createdPayload.edge.id },
+        });
+        expect(deletedAgain.isError).toBe(true);
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('goal id round-trips: create_goal -> list_goals -> create_task(goal_id) succeeds verbatim (#27)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const created = await client.callTool({
+          name: 'create_goal',
+          arguments: { project_id: projectId, objective: 'Round trip goal' },
+        });
+        const createdGoal = (
+          JSON.parse(
+            (created.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+          ) as { goal: { id: string } }
+        ).goal;
+
+        const listed = await client.callTool({
+          name: 'list_goals',
+          arguments: { project_id: projectId },
+        });
+        const listedGoals = (
+          JSON.parse(
+            (listed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+          ) as { goals: Array<{ id: string }> }
+        ).goals;
+        const returnedId = listedGoals.find((goal) => goal.id === createdGoal.id)?.id;
+        expect(returnedId).toBe(createdGoal.id);
+
+        // The id list_goals hands back must be accepted verbatim by create_task.goal_id.
+        const task = await client.callTool({
+          name: 'create_task',
+          arguments: { project_id: projectId, label: 'Under round-trip goal', goal_id: returnedId },
+        });
+        expect(task.isError).not.toBe(true);
+        const taskPayload = JSON.parse(
+          (task.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { task: { goal_id: string } };
+        expect(taskPayload.task.goal_id).toBe(createdGoal.id);
+
+        // An invalid goal_id is rejected with an error naming the offending field.
+        const bad = await client.callTool({
+          name: 'create_task',
+          arguments: { project_id: projectId, label: 'Bad goal', goal_id: 'not-a-uuid' },
+        });
+        expect(bad.isError).toBe(true);
+        const badText = (bad.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
+        expect(badText).toMatch(/goal_id/);
+      } finally {
+        await client.close();
+      }
     });
   });
 
@@ -939,6 +1237,48 @@ describe('createMcpApp', () => {
       });
       expect(result.isError).toBe(true);
       await client.close();
+    });
+  });
+
+  it('get_next_task(goal_id) scopes to one goal; omitted with multiple active goals considers all of them (#18)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, services }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const goalA = await services.goalService.create(projectId, { objective: 'Goal A' });
+        const goalB = await services.goalService.create(projectId, { objective: 'Goal B' });
+        if (!goalA || !goalB) {
+          throw new Error('expected goals');
+        }
+        const taskA = await services.taskService.create(projectId, {
+          label: 'A todo',
+          goalId: goalA.id,
+        });
+        await services.taskService.create(projectId, { label: 'B todo', goalId: goalB.id });
+
+        const scopedToA = await client.callTool({
+          name: 'get_next_task',
+          arguments: { project_id: projectId, goal_id: goalA.id },
+        });
+        const scopedPayload = JSON.parse(
+          (scopedToA.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { next: { reason: string; next_task: { id: string } | null } };
+        expect(scopedPayload.next.reason).toBe('ok');
+        expect(scopedPayload.next.next_task?.id).toBe(taskA?.id);
+
+        // No goal_id, but two active goals: no dead-end — an actionable task
+        // from the union of active goals comes back instead of erroring.
+        const unscoped = await client.callTool({
+          name: 'get_next_task',
+          arguments: { project_id: projectId },
+        });
+        const unscopedPayload = JSON.parse(
+          (unscoped.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { next: { reason: string; next_task: { id: string } | null } };
+        expect(unscopedPayload.next.reason).toBe('ok');
+        expect(unscopedPayload.next.next_task).not.toBeNull();
+      } finally {
+        await client.close();
+      }
     });
   });
 
@@ -1075,6 +1415,75 @@ describe('createMcpApp', () => {
     });
   });
 
+  it('update_task reassigns a task to a different goal, preserving edges/comments/documents (#15)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db, services }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const goalA = await services.goalService.create(projectId, { objective: 'Goal A' });
+        const goalB = await services.goalService.create(projectId, { objective: 'Goal B' });
+        if (!goalA || !goalB) {
+          throw new Error('expected goals');
+        }
+        const task = await createTask(db, { projectId, goalId: goalA.id, label: 'Movable' });
+        const other = await createTask(db, { projectId, goalId: goalA.id, label: 'Prereq' });
+        const edge = await createEdge(db, { projectId, fromTaskId: other.id, toTaskId: task.id });
+        const comment = await createComment(db, {
+          projectId,
+          targetType: 'task',
+          targetId: task.id,
+          body: 'keep me',
+        });
+        const doc = await createDocument(db, {
+          projectId,
+          title: 'Spec',
+          linkedTaskId: task.id,
+        });
+
+        const result = await client.callTool({
+          name: 'update_task',
+          arguments: { task_id: task.id, goal_id: goalB.id },
+        });
+        expect(result.isError).not.toBe(true);
+        const payload = JSON.parse(
+          (result.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { task: { goal_id: string; status: string } };
+        expect(payload.task.goal_id).toBe(goalB.id);
+
+        const got = await client.callTool({ name: 'get_task', arguments: { task_id: task.id } });
+        const gotPayload = JSON.parse(
+          (got.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { task: { goal_id: string } };
+        expect(gotPayload.task.goal_id).toBe(goalB.id);
+
+        expect((await listEdges(db, projectId)).map((e) => e.id)).toContain(edge.id);
+        const comments = await client.callTool({
+          name: 'list_comments',
+          arguments: { project_id: projectId, target_type: 'task', target_id: task.id },
+        });
+        const commentsPayload = JSON.parse(
+          (comments.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { comments: Array<{ id: string }> };
+        expect(commentsPayload.comments.map((c) => c.id)).toContain(comment.id);
+        const gotDoc = await client.callTool({
+          name: 'get_document',
+          arguments: { document_id: doc.id },
+        });
+        expect(parseDocumentResult(gotDoc).linked_task_id).toBe(task.id);
+
+        // A foreign/nonexistent goal_id is rejected with a clear error.
+        const bad = await client.callTool({
+          name: 'update_task',
+          arguments: { task_id: task.id, goal_id: '00000000-0000-4000-8000-000000009999' },
+        });
+        expect(bad.isError).toBe(true);
+        const badText = (bad.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
+        expect(badText).toMatch(/goal/i);
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
   it('list_comments, add_comment, and resolve_comment work via MCP', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
 
@@ -1124,7 +1533,8 @@ describe('createMcpApp', () => {
       const addedPayload = JSON.parse(addedText) as {
         comment: { id: string; body: string; passage: string | null };
       };
-      expect(addedPayload.comment.body).toBe('Agent suggestion');
+      // Markdown body is converted to rich-text HTML, like documents/notes (#17).
+      expect(addedPayload.comment.body).toContain('<p>Agent suggestion</p>');
       expect(addedPayload.comment.passage).toBe('§3');
 
       const resolvedResult = await client.callTool({
@@ -1227,6 +1637,33 @@ describe('createMcpApp', () => {
     });
   });
 
+
+  it('add_comment renders a Markdown body as rich-text HTML, like create_document/create_note (#17)', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+      const doc = await createDocument(db, { projectId, title: 'Doc' });
+      const client = await connectClient(baseUrl);
+      try {
+        const result = await client.callTool({
+          name: 'add_comment',
+          arguments: {
+            target_type: 'document',
+            target_id: doc.id,
+            body: '## Heading\n\n- one\n- two\n\n```js\ncode();\n```\n\nUse `inline` code.',
+          },
+        });
+        expect(result.isError).not.toBe(true);
+        const content = result.content as Array<{ type: string; text?: string }>;
+        const text = content[0]?.type === 'text' ? (content[0].text ?? '{}') : '{}';
+        const payload = JSON.parse(text) as { comment: { body: string } };
+        expect(payload.comment.body).toContain('<h2>Heading</h2>');
+        expect(payload.comment.body).toContain('<li>one</li>');
+        expect(payload.comment.body).toContain('<pre>');
+        expect(payload.comment.body).toContain('<code>inline</code>');
+      } finally {
+        await client.close();
+      }
+    });
+  });
 
   it('resolve_comment returns not_found for missing comment', async () => {
     await withMcpServer(async ({ baseUrl, token }) => {

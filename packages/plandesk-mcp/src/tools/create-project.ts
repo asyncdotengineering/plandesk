@@ -6,7 +6,7 @@ export function createCreateProjectHandler(
 ): (args: { name: string; description?: string }) => Promise<ToolResult> {
   return async (args) => {
     if (args.name.trim() === '') {
-      return toolInvalidArgument();
+      return toolInvalidArgument('name must not be blank');
     }
     const project = await projectService.create({
       name: args.name,

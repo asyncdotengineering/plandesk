@@ -30,7 +30,7 @@ async function handleLifecycle(
       error instanceof InvalidGoalTransitionError ||
       error instanceof InvalidVerificationSurfaceError
     ) {
-      return toolInvalidArgument();
+      return toolInvalidArgument(error.message);
     }
     if (error instanceof GoalVerificationRequiredError) {
       return toolInvalidArgument('verification_required');

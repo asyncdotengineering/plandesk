@@ -7,6 +7,7 @@ import {
   createComment,
   createDb,
   createDocument,
+  createEdge,
   createFolder,
   createGoal,
   createGuestSubmission,
@@ -18,6 +19,7 @@ import {
   getArtifact,
   getComment,
   getDocument,
+  getEdge,
   getFolder,
   getGoal,
   getNote,
@@ -71,6 +73,7 @@ import { createCreateNoteHandler } from '../../plandesk-mcp/src/tools/create-not
 import { createCreateProjectHandler } from '../../plandesk-mcp/src/tools/create-project.js';
 import { createCreateShareLinkHandler } from '../../plandesk-mcp/src/tools/create-share-link.js';
 import { createCreateTaskHandler } from '../../plandesk-mcp/src/tools/create-task.js';
+import { createDeleteEdgeHandler } from '../../plandesk-mcp/src/tools/delete-edge.js';
 import { createGetArtifactHandler } from '../../plandesk-mcp/src/tools/get-artifact.js';
 import { createGetDocumentHandler } from '../../plandesk-mcp/src/tools/get-document.js';
 import { createGetGoalHandler } from '../../plandesk-mcp/src/tools/get-goal.js';
@@ -82,6 +85,7 @@ import { createListArtifactCommentsHandler } from '../../plandesk-mcp/src/tools/
 import { createListArtifactsHandler } from '../../plandesk-mcp/src/tools/list-artifacts.js';
 import { createListCommentsHandler } from '../../plandesk-mcp/src/tools/list-comments.js';
 import { createListDocumentsHandler } from '../../plandesk-mcp/src/tools/list-documents.js';
+import { createListEdgesHandler } from '../../plandesk-mcp/src/tools/list-edges.js';
 import { createListGoalsHandler } from '../../plandesk-mcp/src/tools/list-goals.js';
 import { createListNotesHandler } from '../../plandesk-mcp/src/tools/list-notes.js';
 import { createListProjectsHandler } from '../../plandesk-mcp/src/tools/list-projects.js';
@@ -102,6 +106,7 @@ import { createTriageSubmissionHandler } from '../../plandesk-mcp/src/tools/tria
 import { createUpdateArtifactHandler } from '../../plandesk-mcp/src/tools/update-artifact.js';
 import { createUpdateDocumentHandler } from '../../plandesk-mcp/src/tools/update-document.js';
 import { createUpdateFolderHandler } from '../../plandesk-mcp/src/tools/update-folder.js';
+import { createUpdateGoalHandler } from '../../plandesk-mcp/src/tools/update-goal.js';
 import { createUpdateNoteHandler } from '../../plandesk-mcp/src/tools/update-note.js';
 import { createUpdateTaskHandler } from '../../plandesk-mcp/src/tools/update-task.js';
 
@@ -129,6 +134,8 @@ const MCP_TOOLS = [
   'update_artifact',
   'list_artifacts',
   'create_edge',
+  'list_edges',
+  'delete_edge',
   'attach_file',
   'create_share_link',
   'start_agent_run',
@@ -138,6 +145,7 @@ const MCP_TOOLS = [
   'create_goal',
   'get_goal',
   'list_goals',
+  'update_goal',
   'pause_goal',
   'resume_goal',
   'complete_goal',
@@ -170,6 +178,7 @@ type ForeignResources = {
   project: Project;
   task: Awaited<ReturnType<typeof createTask>>;
   task2: Awaited<ReturnType<typeof createTask>>;
+  edge: Awaited<ReturnType<typeof createEdge>>;
   document: Awaited<ReturnType<typeof createDocument>>;
   folder: Awaited<ReturnType<typeof createFolder>>;
   note: Awaited<ReturnType<typeof createNote>>;
@@ -242,6 +251,12 @@ async function seedOwner(
 async function seedForeignResources(db: Db, project: Project, label: string): Promise<ForeignResources> {
   const task = await createTask(db, { projectId: project.id, label: `${label} task secret` });
   const task2 = await createTask(db, { projectId: project.id, label: `${label} task two secret` });
+  const edge = await createEdge(db, {
+    projectId: project.id,
+    fromTaskId: task.id,
+    toTaskId: task2.id,
+    label: `${label} edge secret`,
+  });
   const document = await createDocument(db, {
     projectId: project.id,
     title: `${label} document secret`,
@@ -299,6 +314,7 @@ async function seedForeignResources(db: Db, project: Project, label: string): Pr
     project,
     task,
     task2,
+    edge,
     document,
     folder,
     note,
@@ -458,6 +474,7 @@ async function join(app: Hono, token: string, name: string, email?: string): Pro
 async function mutationSnapshot(db: Db, target: ForeignResources) {
   return {
     task: await getTask(db, target.task.id),
+    edge: await getEdge(db, target.edge.id),
     document: await getDocument(db, target.document.id),
     folder: await getFolder(db, target.folder.id),
     note: await getNote(db, target.note.id),
@@ -623,6 +640,8 @@ async function runMcpForeignSweep(
           to_task_id: target.task2.id,
         }),
     ],
+    ['list_edges', () => createListEdgesHandler(s.canvasService)({ project_id: target.project.id })],
+    ['delete_edge', () => createDeleteEdgeHandler(s.canvasService)({ edge_id: target.edge.id })],
     [
       'attach_file',
       () =>
@@ -682,6 +701,10 @@ async function runMcpForeignSweep(
     ],
     ['get_goal', () => createGetGoalHandler(s.goalService)({ goal_id: target.activeGoal.id })],
     ['list_goals', () => createListGoalsHandler(s.goalService)({ project_id: target.project.id })],
+    [
+      'update_goal',
+      () => createUpdateGoalHandler(s.goalService)({ goal_id: target.activeGoal.id, objective: 'escaped' }),
+    ],
     ['pause_goal', () => createPauseGoalHandler(s.goalService)({ goal_id: target.activeGoal.id })],
     ['resume_goal', () => createResumeGoalHandler(s.goalService)({ goal_id: target.pausedGoal.id })],
     [

@@ -16,6 +16,9 @@ const TAGS_SET_DESCRIPTION =
 const TAGS_FILTER_DESCRIPTION =
   'Optional tag-name filter with OR semantics: a task matches if it carries ANY of the given tags.';
 
+const COMPACT_DESCRIPTION =
+  'When true, omits large body/description fields and returns only id + summary metadata — use this for a cheap board-reconciliation sweep. Defaults to false (full body included), for backward compatibility.';
+
 export const listProjectsInputSchema = z.object({});
 
 export const createProjectInputSchema = z.object({
@@ -51,6 +54,11 @@ export const updateTaskInputSchema = z.object({
   description: z.string().optional(),
   x: z.number().optional(),
   y: z.number().optional(),
+  goal_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('Reassign the task to a different goal in the same project. Omit to leave it unchanged.'),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_SET_DESCRIPTION),
 });
 
@@ -97,6 +105,7 @@ export const listDocumentsInputSchema = z.object({
     .uuid()
     .optional()
     .describe('Only list documents inside this folder. Omit for the full folder tree.'),
+  compact: z.boolean().optional().describe(COMPACT_DESCRIPTION),
 });
 
 export const createFolderInputSchema = z.object({
@@ -189,6 +198,14 @@ export const createEdgeInputSchema = z.object({
   to_task_id: z.string().uuid(),
   label: z.string().optional(),
   style: z.string().optional(),
+});
+
+export const listEdgesInputSchema = z.object({
+  project_id: z.string().uuid(),
+});
+
+export const deleteEdgeInputSchema = z.object({
+  edge_id: z.string().uuid(),
 });
 
 export const startAgentRunInputSchema = z.object({
@@ -293,6 +310,25 @@ export const createGoalInputSchema = z.object({
   status: z.enum(goalStatuses).optional(),
 });
 
+export const updateGoalInputSchema = z.object({
+  goal_id: z.string().uuid(),
+  objective: z.string().min(1).optional(),
+  verification_surface: z
+    .string()
+    .optional()
+    .describe(
+      'JSON verification surface. A `kind` field is REQUIRED; use exactly one of: ' +
+        '{"kind":"gate_command","command":"pnpm test"} | ' +
+        '{"kind":"acceptance_checklist","items":[{"criterion":"..."}]} | ' +
+        '{"kind":"human_sign_off"}. Omit to leave unchanged.',
+    ),
+  constraints: z.string().optional(),
+  boundaries: z.string().optional(),
+  iteration_policy: z.string().optional(),
+  stop_condition: z.string().optional(),
+  budget: z.string().optional(),
+});
+
 export const getGoalInputSchema = z.object({
   goal_id: z.string().uuid(),
 });
@@ -337,6 +373,7 @@ export const listTasksInputSchema = z.object({
   project_id: z.string().uuid(),
   status: z.enum(taskStatuses).optional(),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
+  compact: z.boolean().optional().describe(COMPACT_DESCRIPTION),
 });
 
 export const listTagsInputSchema = z.object({
@@ -422,6 +459,8 @@ export const v1ToolNames = [
   'get_note',
   'list_notes',
   'create_edge',
+  'list_edges',
+  'delete_edge',
   'attach_file',
   'create_artifact',
   'get_artifact',
@@ -435,6 +474,7 @@ export const v1ToolNames = [
   'create_goal',
   'get_goal',
   'list_goals',
+  'update_goal',
   'pause_goal',
   'resume_goal',
   'complete_goal',
@@ -472,6 +512,8 @@ export const v1ToolSchemas = {
   get_note: getNoteInputSchema,
   list_notes: listNotesInputSchema,
   create_edge: createEdgeInputSchema,
+  list_edges: listEdgesInputSchema,
+  delete_edge: deleteEdgeInputSchema,
   attach_file: attachFileInputSchema,
   create_artifact: createArtifactInputSchema,
   get_artifact: getArtifactInputSchema,
@@ -485,6 +527,7 @@ export const v1ToolSchemas = {
   create_goal: createGoalInputSchema,
   get_goal: getGoalInputSchema,
   list_goals: listGoalsInputSchema,
+  update_goal: updateGoalInputSchema,
   pause_goal: goalLifecycleInputSchema,
   resume_goal: goalLifecycleInputSchema,
   complete_goal: completeGoalInputSchema,

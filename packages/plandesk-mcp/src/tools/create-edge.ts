@@ -25,7 +25,7 @@ export function createCreateEdgeHandler(
       return toolSuccess('edge', edge);
     } catch (error) {
       if (error instanceof InvalidCanvasError) {
-        return toolInvalidArgument();
+        return toolInvalidArgument(error.message);
       }
       throw error;
     }
