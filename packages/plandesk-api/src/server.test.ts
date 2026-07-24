@@ -16,6 +16,13 @@ describe('createApp', () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 
+  it('includes the resolved dataDir on /api/v1/health when configured (REQ-A3a)', async () => {
+    const { app } = await createTestApp({ dataDir: '/tmp/plandesk-board' });
+    const res = await app.request('/api/v1/health');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, dataDir: '/tmp/plandesk-board' });
+  });
+
   it('returns 404 for unknown API paths', async () => {
     const { app } = await createTestApp();
     const res = await app.request('/api/v1/unknown');

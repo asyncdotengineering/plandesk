@@ -1,6 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
+  fetchServedDataDir,
   getBoundProjectId,
   normalizeServerUrl,
   readPlandeskConfig,
@@ -15,6 +16,8 @@ export type BindingDoctorReport = {
   tokenValid: boolean;
   projectExists: boolean;
   mcpToolCount: number;
+  /** Board the connected server actually serves, via /api/v1/health (REQ-A3b). */
+  servedDataDir?: string;
   issues: string[];
 };
 
@@ -39,7 +42,10 @@ async function listMcpTools(serverUrl: string, token: string): Promise<number> {
   }
 }
 
-export async function runBindingDoctor(repoDir: string): Promise<BindingDoctorReport> {
+export async function runBindingDoctor(
+  repoDir: string,
+  expectedDataDir?: string,
+): Promise<BindingDoctorReport> {
   const issues: string[] = [];
 
   const config = readPlandeskConfig(repoDir);
@@ -62,6 +68,7 @@ export async function runBindingDoctor(repoDir: string): Promise<BindingDoctorRe
   let tokenValid = false;
   let projectExists = false;
   let mcpToolCount = 0;
+  let servedDataDir: string | undefined;
 
   try {
     const health = await fetch(`${config.serverUrl}/api/v1/projects`);
@@ -74,6 +81,19 @@ export async function runBindingDoctor(repoDir: string): Promise<BindingDoctorRe
   }
 
   if (serverReachable) {
+    // Identity, not just liveness (REQ-A3b): a 200 does not mean it is the
+    // board this repo expects — two boards can share a default port/host.
+    servedDataDir = await fetchServedDataDir(config.serverUrl);
+    if (
+      expectedDataDir !== undefined &&
+      servedDataDir !== undefined &&
+      servedDataDir !== expectedDataDir
+    ) {
+      issues.push(
+        `served board (${servedDataDir}) does not match expected board (${expectedDataDir})`,
+      );
+    }
+
     // Project existence via REST (loopback or bearer).
     const projectHeaders: Record<string, string> = {};
     if (token !== undefined) {
@@ -123,6 +143,7 @@ export async function runBindingDoctor(repoDir: string): Promise<BindingDoctorRe
     tokenValid,
     projectExists,
     mcpToolCount,
+    servedDataDir,
     issues,
   };
 }
@@ -145,6 +166,9 @@ export function formatBindingDoctorReport(report: BindingDoctorReport): string[]
   lines.push(`binding-token-valid: ${report.tokenValid ? 'yes' : 'no'}`);
   lines.push(`binding-project-exists: ${report.projectExists ? 'yes' : 'no'}`);
   lines.push(`binding-mcp-tools: ${String(report.mcpToolCount)}`);
+  if (report.servedDataDir !== undefined) {
+    lines.push(`binding-served-data-dir: ${report.servedDataDir}`);
+  }
   for (const issue of report.issues) {
     lines.push(`binding-issue: ${issue}`);
   }

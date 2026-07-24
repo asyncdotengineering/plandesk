@@ -5,7 +5,7 @@ import {
   createOrgAuthMiddleware,
   createWriteGuardMiddleware,
 } from './auth.js';
-import { healthRouter } from './routes/health.js';
+import { createHealthRouter } from './routes/health.js';
 import { createAuthRouter } from './routes/auth.js';
 import type { GithubConfig } from './github.js';
 import { createBetterAuth } from './better-auth.js';
@@ -50,6 +50,8 @@ export type AppDeps = {
   betterAuth?: { secret: string; baseURL: string };
   /** Reuse a better-auth instance owned by an edge entry across requests. */
   betterAuthInstance?: BetterAuthInstance;
+  /** Node-local board path, surfaced on /api/v1/health for identity checks (REQ-A3a). */
+  dataDir?: string;
 };
 
 export function createApp(deps: AppDeps): Hono {
@@ -118,7 +120,7 @@ export function createApp(deps: AppDeps): Hono {
     throw err;
   });
 
-  app.route('/api/v1', healthRouter);
+  app.route('/api/v1', createHealthRouter(deps.dataDir));
   app.route(
     '/api/v1',
     createAuthRouter({

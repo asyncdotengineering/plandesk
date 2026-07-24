@@ -16,6 +16,7 @@ import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath }
 import { resolveServerConfig } from './config.js';
 import {
   deleteServerInfo,
+  fetchServedDataDir,
   readWorkspaceJson,
   writeServerInfo,
 } from './connect-artifacts.js';
@@ -47,14 +48,21 @@ export function validateServeBind(options: ServeOptions): {
   return { host, authPassword };
 }
 
+/**
+ * REQ-A3c: on EADDRINUSE, ask whoever already owns the port which board they
+ * serve — the collision is often a different repo's shadow board landing on
+ * the same default port, not this same board's own second instance.
+ */
 export function createListenErrorHandler(
   port: number,
   exit: ExitFn = defaultExit,
-): (err: NodeJS.ErrnoException) => void {
-  return (err) => {
+): (err: NodeJS.ErrnoException) => Promise<void> {
+  return async (err) => {
     if (err.code === 'EADDRINUSE') {
+      const ownerDataDir = await fetchServedDataDir(`http://127.0.0.1:${String(port)}`);
+      const ownerInfo = ownerDataDir !== undefined ? ` (board: ${ownerDataDir})` : '';
       process.stderr.write(
-        `Error: port ${String(port)} is already in use — the Plan Desk board is already served there (one board per machine). Stop the other process, or pass --port <n> for a different bind.\n`,
+        `Error: port ${String(port)} is already in use${ownerInfo} — the Plan Desk board is already served there (one board per machine). Stop the other process, or pass --port <n> for a different bind.\n`,
       );
       exit(1);
       return;
@@ -161,6 +169,7 @@ export async function startServer(
     mcp: mcpApp,
     authPassword,
     bindHost: host,
+    dataDir,
     // GitHub sign-in comes from the resolved config (env > file). With no
     // client id/secret configured, the server simply has no GitHub sign-in
     // (REQ-20) — the supported self-host path, not a degraded one.
@@ -184,6 +193,7 @@ export async function startServer(
       pid: process.pid,
       host,
       startedAt: new Date().toISOString(),
+      dataDir,
     });
     process.stdout.write(`Plan Desk → http://${host}:${String(boundPort)}  (db: ${dbDisplay})\n`);
   };

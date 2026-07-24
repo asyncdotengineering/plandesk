@@ -9,11 +9,13 @@ import {
   buildConfigJson,
   buildConfigJsonV2,
   deleteServerInfo,
+  fetchServedDataDir,
   GITIGNORE_SERVER_INFO_LINE,
   GITIGNORE_SYNC_TOKEN_LINE,
   GITIGNORE_TOKEN_LINE,
   insertSentinelBlock,
   isPidAlive,
+  isServingExpectedBoard,
   mergeCuratorHooksJson,
   mergeMcpJson,
   parseConfigJson,
@@ -32,6 +34,8 @@ import {
   buildSentinelBlock,
   buildSkillMarkdown,
 } from './connect-artifacts.js';
+import { runInit } from './init.js';
+import { startServer } from './serve.js';
 
 describe('connect artifacts', () => {
   it('builds commit-safe config.json without secrets', async () => {
@@ -262,6 +266,43 @@ describe('connect artifacts', () => {
       }
     });
 
+    it('round-trips the dataDir field (REQ-A3a)', async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'plandesk-srv-datadir-'));
+      try {
+        writeServerInfo(dir, {
+          port: 3401,
+          pid: process.pid,
+          host: '0.0.0.0',
+          startedAt: '2026-01-01T00:00:00.000Z',
+          dataDir: dir,
+        });
+        expect(readServerInfo(dir)?.dataDir).toBe(dir);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('readServerInfo tolerates an older server.json with no dataDir field', async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'plandesk-srv-legacy-'));
+      try {
+        writeFileSync(
+          join(dir, 'server.json'),
+          JSON.stringify({
+            port: 3401,
+            pid: process.pid,
+            host: '0.0.0.0',
+            startedAt: '2026-01-01T00:00:00.000Z',
+          }),
+          'utf8',
+        );
+        const info = readServerInfo(dir);
+        expect(info?.port).toBe(3401);
+        expect(info?.dataDir).toBeUndefined();
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
     it('readServerInfo returns undefined when PID is dead', async () => {
       const dir = mkdtempSync(join(tmpdir(), 'plandesk-srv-dead-'));
       try {
@@ -295,6 +336,50 @@ describe('connect artifacts', () => {
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
+    });
+  });
+
+  describe('served board identity (REQ-A3b)', () => {
+    const servers: Array<{ close: (cb?: (err?: Error) => void) => void }> = [];
+
+    async function closeAll(): Promise<void> {
+      await Promise.all(
+        servers.splice(0).map(
+          (server) =>
+            new Promise<void>((resolve) => {
+              server.close(() => {
+                resolve();
+              });
+            }),
+        ),
+      );
+    }
+
+    it('fetchServedDataDir reads the board a live server actually serves', async () => {
+      const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-identity-'));
+      try {
+        await runInit(dataDir);
+        const server = await startServer({ port: 0, dataDir });
+        servers.push(server);
+        if (!server.listening) {
+          await new Promise<void>((resolve) => server.once('listening', resolve));
+        }
+        const address = server.address();
+        const port = typeof address === 'object' && address !== null ? address.port : 0;
+
+        expect(await fetchServedDataDir(`http://127.0.0.1:${String(port)}`)).toBe(dataDir);
+        expect(await isServingExpectedBoard(`http://127.0.0.1:${String(port)}`, dataDir)).toBe(true);
+        expect(
+          await isServingExpectedBoard(`http://127.0.0.1:${String(port)}`, '/some/other/board'),
+        ).toBe(false);
+      } finally {
+        await closeAll();
+        rmSync(dataDir, { recursive: true, force: true });
+      }
+    });
+
+    it('fetchServedDataDir returns undefined when nothing is listening', async () => {
+      expect(await fetchServedDataDir('http://127.0.0.1:1')).toBeUndefined();
     });
   });
 

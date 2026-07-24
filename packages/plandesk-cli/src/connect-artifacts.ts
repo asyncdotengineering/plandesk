@@ -89,6 +89,42 @@ export function normalizeServerUrl(url: string): string {
   return url.replace(/\/+$/, '');
 }
 
+/**
+ * Query a running server's /api/v1/health for the board it actually serves.
+ * Returns undefined on any failure (unreachable, non-200, no dataDir in the
+ * response) — callers treat that as "identity unknown", not an error.
+ */
+export async function fetchServedDataDir(serverUrl: string): Promise<string | undefined> {
+  try {
+    // Whatever holds the port might not even be an HTTP server (a foreign
+    // process, a stalled listener) — bound the wait so identity checks (and
+    // the EADDRINUSE handler, REQ-A3c) never hang the CLI.
+    const res = await fetch(`${normalizeServerUrl(serverUrl)}/api/v1/health`, {
+      signal: AbortSignal.timeout(1500),
+    });
+    if (!res.ok) {
+      return undefined;
+    }
+    const body = (await res.json()) as { dataDir?: unknown };
+    return typeof body.dataDir === 'string' ? body.dataDir : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Verify identity, not just liveness (REQ-A3b): a 200 from a server does not
+ * mean it is serving the board a caller expects — two boards can share the
+ * same default port across different repos/machines.
+ */
+export async function isServingExpectedBoard(
+  serverUrl: string,
+  expectedDataDir: string,
+): Promise<boolean> {
+  const served = await fetchServedDataDir(serverUrl);
+  return served === expectedDataDir;
+}
+
 export function buildMcpUrl(serverUrl: string): string {
   return `${normalizeServerUrl(serverUrl)}/mcp/`;
 }
@@ -539,6 +575,8 @@ export type ServerInfo = {
   pid: number;
   host: string;
   startedAt: string;
+  /** Board this server serves. Optional so older server.json files stay readable (REQ-A3a). */
+  dataDir?: string;
 };
 
 export function isPidAlive(pid: number): boolean {
@@ -568,7 +606,13 @@ export function readServerInfo(plandeskDir: string): ServerInfo | undefined {
     if (!isPidAlive(raw.pid)) {
       return undefined;
     }
-    return { port: raw.port, pid: raw.pid, host: raw.host, startedAt: raw.startedAt };
+    return {
+      port: raw.port,
+      pid: raw.pid,
+      host: raw.host,
+      startedAt: raw.startedAt,
+      ...(typeof raw.dataDir === 'string' ? { dataDir: raw.dataDir } : {}),
+    };
   } catch {
     return undefined;
   }

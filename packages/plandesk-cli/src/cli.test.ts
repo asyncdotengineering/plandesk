@@ -499,14 +499,52 @@ describe('createListenErrorHandler', () => {
       throw new Error('exit');
     }) as (code: number) => never;
 
+    // Nothing listens on this port, so the owner-identity fetch fails fast
+    // and falls back to the generic message (REQ-A3c covered separately below).
     const handler = createListenErrorHandler(7526, exit);
-    expect(() => {
-      handler(Object.assign(new Error('listen EADDRINUSE'), { code: 'EADDRINUSE' }));
-    }).toThrow('exit');
+    await expect(
+      handler(Object.assign(new Error('listen EADDRINUSE'), { code: 'EADDRINUSE' })),
+    ).rejects.toThrow('exit');
 
     expect(exitCode).toBe(1);
     expect(stderr.mock.calls.flat().join('')).toContain('already in use');
     stderr.mockRestore();
+  });
+
+  it('names the other board that owns the port when it is reachable (REQ-A3c)', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-eaddrinuse-owner-'));
+    const servers: Array<{ close: (cb?: (err?: Error) => void) => void }> = [];
+    try {
+      await runInit(dataDir);
+      const owner = await startServer({ port: 0, dataDir });
+      servers.push(owner);
+      if (!owner.listening) {
+        await new Promise<void>((resolve) => owner.once('listening', resolve));
+      }
+      const address = owner.address();
+      const ownerPort = typeof address === 'object' && address !== null ? address.port : 0;
+
+      const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      let exitCode = 0;
+      const exit = ((code: number) => {
+        exitCode = code;
+        throw new Error('exit');
+      }) as (code: number) => never;
+
+      const handler = createListenErrorHandler(ownerPort, exit);
+      await expect(
+        handler(Object.assign(new Error('listen EADDRINUSE'), { code: 'EADDRINUSE' })),
+      ).rejects.toThrow('exit');
+
+      expect(exitCode).toBe(1);
+      expect(stderr.mock.calls.flat().join('')).toContain(`board: ${dataDir}`);
+      stderr.mockRestore();
+    } finally {
+      for (const server of servers.splice(0)) {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+      rmSync(dataDir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -542,11 +580,12 @@ describe('startServer', () => {
 
     const res = await fetch(`http://127.0.0.1:${String(port)}/api/v1/health`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toEqual({ ok: true, dataDir });
 
     const info = readServerInfo(dataDir);
     expect(info?.port).toBe(port);
     expect(info?.pid).toBe(process.pid);
+    expect(info?.dataDir).toBe(dataDir);
 
     await new Promise<void>((resolve) => {
       server.close(() => {
@@ -633,13 +672,16 @@ describe('startServer', () => {
 
     await startServer({ port, dataDir }, exit);
 
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    // The blocked port is a raw TCP listener, not an HTTP server — the
+    // owner-identity fetch (REQ-A3c) times out (bounded at 1.5s) before the
+    // handler falls back to the generic message and exits.
+    await new Promise((resolve) => setTimeout(resolve, 1800));
     expect(exitCode).toBe(1);
     expect(stderr.mock.calls.flat().join('')).toContain('already in use');
     stderr.mockRestore();
 
     rmSync(dataDir, { recursive: true, force: true });
-  });
+  }, 10000);
 });
 
 describe('resolveDataDir', () => {
