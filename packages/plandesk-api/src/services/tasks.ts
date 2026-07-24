@@ -47,8 +47,7 @@ export type NextActionableReason =
   | 'no_tasks'
   | 'no_todo_tasks'
   | 'all_blocked'
-  | 'no_active_goal'
-  | 'multiple_active_goals';
+  | 'no_active_goal';
 
 export type NextActionableResult = {
   next_task: SerializedTask | null;
@@ -325,18 +324,20 @@ export function createTaskService(deps: TaskServiceDeps) {
         throw error;
       }
 
-      let goalId = filter.goalId;
-      if (goalId === undefined) {
+      let goalIds: Set<string>;
+      if (filter.goalId === undefined) {
         const active = (await listGoals(db, projectId)).filter((goal) => goal.status === 'active');
         if (active.length === 0) {
           return { next_task: null, reason: 'no_active_goal', blocked: [] };
         }
-        if (active.length > 1) {
-          return { next_task: null, reason: 'multiple_active_goals', blocked: [] };
+        // #18: no dead-end on ambiguity — consider the union of every active
+        // goal's tasks instead of erroring when goal_id is omitted.
+        goalIds = new Set(active.map((goal) => goal.id));
+      } else {
+        if (!(await listGoals(db, projectId)).some((goal) => goal.id === filter.goalId)) {
+          return undefined;
         }
-        goalId = active[0]?.id;
-      } else if (!(await listGoals(db, projectId)).some((goal) => goal.id === goalId)) {
-        return undefined;
+        goalIds = new Set([filter.goalId]);
       }
 
       const tasks = (await listTasks(db, projectId)).sort(
@@ -371,7 +372,7 @@ export function createTaskService(deps: TaskServiceDeps) {
 
       const todoTasks = tasks.filter(
         (task) =>
-          task.goalId === goalId &&
+          goalIds.has(task.goalId) &&
           task.status === 'todo' &&
           (tagMatches === undefined || tagMatches.has(task.id)),
       );

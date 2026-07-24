@@ -993,6 +993,48 @@ describe('createMcpApp', () => {
     });
   });
 
+  it('get_next_task(goal_id) scopes to one goal; omitted with multiple active goals considers all of them (#18)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, services }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const goalA = await services.goalService.create(projectId, { objective: 'Goal A' });
+        const goalB = await services.goalService.create(projectId, { objective: 'Goal B' });
+        if (!goalA || !goalB) {
+          throw new Error('expected goals');
+        }
+        const taskA = await services.taskService.create(projectId, {
+          label: 'A todo',
+          goalId: goalA.id,
+        });
+        await services.taskService.create(projectId, { label: 'B todo', goalId: goalB.id });
+
+        const scopedToA = await client.callTool({
+          name: 'get_next_task',
+          arguments: { project_id: projectId, goal_id: goalA.id },
+        });
+        const scopedPayload = JSON.parse(
+          (scopedToA.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { next: { reason: string; next_task: { id: string } | null } };
+        expect(scopedPayload.next.reason).toBe('ok');
+        expect(scopedPayload.next.next_task?.id).toBe(taskA?.id);
+
+        // No goal_id, but two active goals: no dead-end — an actionable task
+        // from the union of active goals comes back instead of erroring.
+        const unscoped = await client.callTool({
+          name: 'get_next_task',
+          arguments: { project_id: projectId },
+        });
+        const unscopedPayload = JSON.parse(
+          (unscoped.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { next: { reason: string; next_task: { id: string } | null } };
+        expect(unscopedPayload.next.reason).toBe('ok');
+        expect(unscopedPayload.next.next_task).not.toBeNull();
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
   it('create_task sets tags (auto-created by name), update_task replaces the full set, list_tags lists them', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId }) => {
 
