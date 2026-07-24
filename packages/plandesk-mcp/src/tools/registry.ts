@@ -298,6 +298,25 @@ export const createGoalInputSchema = z.object({
   status: z.enum(goalStatuses).optional(),
 });
 
+export const updateGoalInputSchema = z.object({
+  goal_id: z.string().uuid(),
+  objective: z.string().min(1).optional(),
+  verification_surface: z
+    .string()
+    .optional()
+    .describe(
+      'JSON verification surface. A `kind` field is REQUIRED; use exactly one of: ' +
+        '{"kind":"gate_command","command":"pnpm test"} | ' +
+        '{"kind":"acceptance_checklist","items":[{"criterion":"..."}]} | ' +
+        '{"kind":"human_sign_off"}. Omit to leave unchanged.',
+    ),
+  constraints: z.string().optional(),
+  boundaries: z.string().optional(),
+  iteration_policy: z.string().optional(),
+  stop_condition: z.string().optional(),
+  budget: z.string().optional(),
+});
+
 export const getGoalInputSchema = z.object({
   goal_id: z.string().uuid(),
 });
@@ -440,6 +459,7 @@ export const v1ToolNames = [
   'create_goal',
   'get_goal',
   'list_goals',
+  'update_goal',
   'pause_goal',
   'resume_goal',
   'complete_goal',
@@ -490,6 +510,7 @@ export const v1ToolSchemas = {
   create_goal: createGoalInputSchema,
   get_goal: getGoalInputSchema,
   list_goals: listGoalsInputSchema,
+  update_goal: updateGoalInputSchema,
   pause_goal: goalLifecycleInputSchema,
   resume_goal: goalLifecycleInputSchema,
   complete_goal: completeGoalInputSchema,

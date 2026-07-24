@@ -102,6 +102,7 @@ import { createTriageSubmissionHandler } from '../../plandesk-mcp/src/tools/tria
 import { createUpdateArtifactHandler } from '../../plandesk-mcp/src/tools/update-artifact.js';
 import { createUpdateDocumentHandler } from '../../plandesk-mcp/src/tools/update-document.js';
 import { createUpdateFolderHandler } from '../../plandesk-mcp/src/tools/update-folder.js';
+import { createUpdateGoalHandler } from '../../plandesk-mcp/src/tools/update-goal.js';
 import { createUpdateNoteHandler } from '../../plandesk-mcp/src/tools/update-note.js';
 import { createUpdateTaskHandler } from '../../plandesk-mcp/src/tools/update-task.js';
 
@@ -138,6 +139,7 @@ const MCP_TOOLS = [
   'create_goal',
   'get_goal',
   'list_goals',
+  'update_goal',
   'pause_goal',
   'resume_goal',
   'complete_goal',
@@ -682,6 +684,10 @@ async function runMcpForeignSweep(
     ],
     ['get_goal', () => createGetGoalHandler(s.goalService)({ goal_id: target.activeGoal.id })],
     ['list_goals', () => createListGoalsHandler(s.goalService)({ project_id: target.project.id })],
+    [
+      'update_goal',
+      () => createUpdateGoalHandler(s.goalService)({ goal_id: target.activeGoal.id, objective: 'escaped' }),
+    ],
     ['pause_goal', () => createPauseGoalHandler(s.goalService)({ goal_id: target.activeGoal.id })],
     ['resume_goal', () => createResumeGoalHandler(s.goalService)({ goal_id: target.pausedGoal.id })],
     [

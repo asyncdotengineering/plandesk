@@ -28,6 +28,7 @@ import { createGetDocumentHandler } from './tools/get-document.js';
 import { createCreateGoalHandler } from './tools/create-goal.js';
 import { createGetGoalHandler } from './tools/get-goal.js';
 import { createListGoalsHandler } from './tools/list-goals.js';
+import { createUpdateGoalHandler } from './tools/update-goal.js';
 import {
   createCompleteGoalHandler,
   createPauseGoalHandler,
@@ -76,6 +77,7 @@ import {
   createGoalInputSchema,
   getGoalInputSchema,
   listGoalsInputSchema,
+  updateGoalInputSchema,
   claimTaskInputSchema,
   completeGoalInputSchema,
   goalLifecycleInputSchema,
@@ -420,6 +422,17 @@ function createMcpServer(services: Services, origin: string): McpServer {
       annotations: { readOnlyHint: true },
     },
     createListGoalsHandler(services.goalService),
+  );
+
+  server.registerTool(
+    'update_goal',
+    {
+      title: 'Update Goal',
+      description:
+        'Edit an existing goal\'s objective or contract fields (verification_surface, constraints, boundaries, iteration_policy, stop_condition, budget). Does not detach the goal\'s cycle-tasks. Omit a field to leave it unchanged.',
+      inputSchema: updateGoalInputSchema.shape,
+    },
+    createUpdateGoalHandler(services.goalService),
   );
 
   server.registerTool(

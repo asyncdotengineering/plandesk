@@ -154,7 +154,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(45);
+      expect(names).toHaveLength(46);
       await client.close();
     });
   });
@@ -866,6 +866,29 @@ describe('createMcpApp', () => {
         goal: { cycle_tasks: Array<{ id: string }> };
       };
       expect(fetchedPayload.goal.cycle_tasks.map((row) => row.id)).toEqual([task.id]);
+
+      const updated = await client.callTool({
+        name: 'update_goal',
+        arguments: { goal_id: createdPayload.goal.id, objective: 'Renamed objective' },
+      });
+      expect(updated.isError).not.toBe(true);
+      const updatedText =
+        (updated.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+      expect((JSON.parse(updatedText) as { goal: { objective: string } }).goal.objective).toBe(
+        'Renamed objective',
+      );
+      const refetched = await client.callTool({
+        name: 'get_goal',
+        arguments: { goal_id: createdPayload.goal.id },
+      });
+      const refetchedText =
+        (refetched.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+      const refetchedPayload = JSON.parse(refetchedText) as {
+        goal: { objective: string; cycle_tasks: Array<{ id: string }> };
+      };
+      expect(refetchedPayload.goal.objective).toBe('Renamed objective');
+      // Editing does not detach the goal's cycle-tasks.
+      expect(refetchedPayload.goal.cycle_tasks.map((row) => row.id)).toEqual([task.id]);
 
       const blocked = await client.callTool({
         name: 'complete_goal',
