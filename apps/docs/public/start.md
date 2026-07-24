@@ -7,6 +7,21 @@ edges, specs on nodes, a board, and an MCP server agents drive via `.mcp.json`.
 Data lives in a local SQLite file. Docs: https://plandesk.asyncdot.com (or
 `plandesk help` once installed).
 
+**Known snags — check these before running anything:**
+
+- **Already on Plan Desk 0.20.x or earlier?** The 1.0 schema change is
+  breaking — do not run `plandesk init`/`connect` straight against an old
+  board. Run `plandesk legacy-upgrade` first; see
+  https://plandesk.asyncdot.com/reference/upgrading.
+- **A server might already be running on the default port** — possibly
+  serving a *different* board than the one you expect. Check with
+  `curl "$(plandesk url)/api/v1/projects"` before assuming step 2's "server
+  is up" means *your* board is up; pass `--port <n>` to run a second one.
+- **An existing local `.plandesk/workspace.db` in this repo?** `plandesk
+  init`/`serve` silently prefer a repo-local board over the machine-global
+  one when they find one already there. If you didn't intend a repo-local
+  board, see step 3 below before proceeding.
+
 **Two-phase setup — read all of it before running anything.**
 
 - **Phase A (this session):** install the CLI, start the server, create/select a
@@ -19,8 +34,9 @@ Data lives in a local SQLite file. Docs: https://plandesk.asyncdot.com (or
 
 - **Stay in this folder.** Operate only within the current working directory. Do
   not touch other repositories or global state beyond installing the CLI.
-- **Never invent or hardcode tokens or secrets.** Use only the token that
-  `plandesk connect` generates. It is written to `.plandesk/token`, which is
+- **Never invent or hardcode tokens or secrets.** Local loopback `connect`
+  writes no token at all. If this repo connects to a hosted org, use only the
+  token `connect --to` generates — it is written to `.plandesk/token`, which is
   gitignored — never commit it, never paste it into a committed file, never echo it
   into the repo.
 - **Don't guess IDs.** Resolve the project from `.plandesk/config.json` once bound.
@@ -94,8 +110,19 @@ terminal is better for persistent use (it won't stop when this session exits).
 
 ## 3. Create or select the project
 
-If `.plandesk/config.json` already exists in this repo, it's already bound — skip to
-step 5 and just refresh the token export.
+**Already bound?** If `.plandesk/config.json` exists in this repo, it's already
+bound — skip to step 5. No token export needed either way: `.mcp.json`'s
+`headersHelper` reads `.plandesk/token` automatically when one exists (hosted
+only — see step 4), and local loopback needs no token at all.
+
+**`.plandesk/` exists but there's no `config.json`?** A `.plandesk/workspace.db`
+with no sibling `config.json` is a **pre-1.0 legacy per-repo board** (v1's
+binding model didn't exist yet), not a v1 binding — do not run `connect` on top
+of it, it will not pick up that data. Either move it aside first
+(`mv .plandesk/workspace.db .plandesk/workspace.db.pre-1.0`) so `init`/`connect`
+start clean, or import it into the current board with
+`plandesk legacy-upgrade --from .plandesk/workspace.db` (see
+https://plandesk.asyncdot.com/reference/upgrading), then continue below.
 
 Otherwise, ask the user: **reuse an existing Plan Desk project, or create a new one?**
 Default new-project name = this folder's name.
@@ -114,16 +141,20 @@ Or have the user create one in the UI at the address printed by `plandesk url`.
 
 ```bash
 # Writes .plandesk/config.json (binding), .plandesk/skill.md (agent conventions),
-# .plandesk/token (gitignored), .mcp.json (a headersHelper reads the token file
-# automatically — no export needed), skill symlinks in .claude/skills/plandesk/
-# and .agents/skills/plandesk/, and an idempotent @.plandesk/skill.md include
-# in CLAUDE.md / AGENTS.md.
+# .mcp.json (a headersHelper reads .plandesk/token automatically when one
+# exists — no export needed), skill symlinks in .claude/skills/plandesk/ and
+# .agents/skills/plandesk/, and an idempotent @.plandesk/skill.md include in
+# CLAUDE.md / AGENTS.md. Local loopback connect (this command, no --to) writes
+# NO .plandesk/token — the server treats a loopback connection as its owner.
 plandesk connect --project "<PROJECT NAME>"
 ```
 
-`connect` is idempotent and commit-safe: everything it writes is safe to commit
-**except** `.plandesk/token`, which it gitignores for you. Confirm `.plandesk/token`
-appears in `.gitignore`.
+`connect` is idempotent and commit-safe: everything it writes is safe to
+commit. This local/loopback path writes no token file at all, so there is
+nothing to gitignore here. Only the **hosted** path (`connect --to <org>`,
+see "Optional: connect to a hosted org" below) writes `.plandesk/token` — in
+that case `connect` gitignores it for you; confirm `.plandesk/token` appears
+in `.gitignore`.
 
 ## 5. Scaffold the factory workspace
 
@@ -173,6 +204,10 @@ Confirm all of:
 - [ ] `curl "$(plandesk url)/api/v1/projects"` returns JSON (server reachable)
 - [ ] `.plandesk/config.json` exists and has a `projectId`
 - [ ] `.mcp.json` has a `plandesk` server entry with a `headersHelper` reading `.plandesk/token`
+      (the helper works whether or not that file exists — local loopback has none)
+- [ ] Only if you connected to a **hosted** org: `.plandesk/token` exists and is
+      listed in `.gitignore`. Local loopback creates no token file, so skip this
+      check in that case.
 - [ ] `CLAUDE.md` (and `AGENTS.md` if present) contains the `@.plandesk/skill.md` include
 - [ ] the board is **not** committed: default is `~/.plandesk/workspace.db` (one board per machine). Travel/backup is hosted (`plandesk push --to <org>`) or an explicit `plandesk export --project <id> --out <path>` outside the repo. Per-machine state stays ignored: `.plandesk/token` (bearer minted per-clone by `connect`) and `.plandesk/server.json`. Everything else under `.agents/`, `.claude/`, `.mcp.json`, `.plandesk/config.json`, `.plandesk/skill.md` is committed policy.
 - [ ] `.agents/factory/factory.md` exists (factory scaffold; unless the user opted out)
@@ -183,8 +218,9 @@ Confirm all of:
 Setup is done. Tell the user, verbatim:
 
 > Plan Desk is connected to this repo. **Start a new agent session here** so the Plan
-> Desk MCP tools load (you'll see 46 tools). The token is read from
-> `.plandesk/token` automatically — no export needed. In that session, run
+> Desk MCP tools load (you'll see 46 tools). No export needed — local loopback
+> needs no token, and a hosted connection's token is read from
+> `.plandesk/token` automatically. In that session, run
 > `plandesk onboard` first to learn how to work in a Plan Desk repo, then plan.
 > Anytime, run `plandesk help` for a refresher and the docs worth reading.
 
