@@ -1,6 +1,7 @@
 import type { CommentService } from '@plandesk/api';
 import { InvalidCommentError } from '@plandesk/api';
 import type { CommentTargetType } from '@plandesk/db';
+import { ensureHtmlBody } from './markdown.js';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createAddCommentHandler(
@@ -16,7 +17,7 @@ export function createAddCommentHandler(
       const comment = await commentService.create(
         { type: args.target_type, id: args.target_id },
         {
-          body: args.body,
+          body: ensureHtmlBody(args.body),
           passage: args.passage,
         },
       );

@@ -1124,7 +1124,8 @@ describe('createMcpApp', () => {
       const addedPayload = JSON.parse(addedText) as {
         comment: { id: string; body: string; passage: string | null };
       };
-      expect(addedPayload.comment.body).toBe('Agent suggestion');
+      // Markdown body is converted to rich-text HTML, like documents/notes (#17).
+      expect(addedPayload.comment.body).toContain('<p>Agent suggestion</p>');
       expect(addedPayload.comment.passage).toBe('§3');
 
       const resolvedResult = await client.callTool({
@@ -1227,6 +1228,33 @@ describe('createMcpApp', () => {
     });
   });
 
+
+  it('add_comment renders a Markdown body as rich-text HTML, like create_document/create_note (#17)', async () => {
+    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+      const doc = await createDocument(db, { projectId, title: 'Doc' });
+      const client = await connectClient(baseUrl);
+      try {
+        const result = await client.callTool({
+          name: 'add_comment',
+          arguments: {
+            target_type: 'document',
+            target_id: doc.id,
+            body: '## Heading\n\n- one\n- two\n\n```js\ncode();\n```\n\nUse `inline` code.',
+          },
+        });
+        expect(result.isError).not.toBe(true);
+        const content = result.content as Array<{ type: string; text?: string }>;
+        const text = content[0]?.type === 'text' ? (content[0].text ?? '{}') : '{}';
+        const payload = JSON.parse(text) as { comment: { body: string } };
+        expect(payload.comment.body).toContain('<h2>Heading</h2>');
+        expect(payload.comment.body).toContain('<li>one</li>');
+        expect(payload.comment.body).toContain('<pre>');
+        expect(payload.comment.body).toContain('<code>inline</code>');
+      } finally {
+        await client.close();
+      }
+    });
+  });
 
   it('resolve_comment returns not_found for missing comment', async () => {
     await withMcpServer(async ({ baseUrl, token }) => {
