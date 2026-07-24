@@ -7,7 +7,9 @@ import { join as joinPath } from 'node:path';
 import {
   HTML_ARTIFACT_CSP,
   MARKDOWN_ARTIFACT_CSP,
+  annotationRequestHeaders,
   computeSelector,
+  previewBackendBanner,
   renderChrome,
   renderHtmlArtifact,
   renderMarkdownArtifact,
@@ -228,6 +230,7 @@ describe('preview helpers', () => {
     const dir = tmp();
     // No .plandesk yet → standalone (sidecar).
     expect(resolvePreviewWorkspace(dir)).toBeUndefined();
+    expect(previewBackendBanner(undefined)).toBe('annotations → local sidecar');
 
     mkdirSync(joinPath(dir, '.plandesk'));
     writeFile(
@@ -245,5 +248,42 @@ describe('preview helpers', () => {
       projectId: '9688c8b4-8472-4d4a-ba8b-c60de3d3a301',
       token: 'plandesk_mcp_test',
     });
+    expect(annotationRequestHeaders('plandesk_mcp_test')).toEqual({
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer plandesk_mcp_test',
+    });
+  });
+
+  it('selects the board API on loopback when config exists without a token', async () => {
+    const dir = tmp();
+    mkdirSync(joinPath(dir, '.plandesk'));
+    writeFile(
+      joinPath(dir, '.plandesk', 'config.json'),
+      JSON.stringify({
+        version: 'plandesk-connect-v1',
+        serverUrl: 'http://127.0.0.1:7526',
+        projectId: '9688c8b4-8472-4d4a-ba8b-c60de3d3a301',
+        projectName: 'x',
+      }),
+    );
+    const workspace = resolvePreviewWorkspace(dir);
+    expect(workspace).toEqual({
+      serverUrl: 'http://127.0.0.1:7526',
+      projectId: '9688c8b4-8472-4d4a-ba8b-c60de3d3a301',
+    });
+    expect(previewBackendBanner(workspace)).toBe(
+      'annotations → http://127.0.0.1:7526 (project 9688c8b4-8472-4d4a-ba8b-c60de3d3a301)',
+    );
+    expect(annotationRequestHeaders(workspace?.token)).toEqual({
+      'Content-Type': 'application/json',
+    });
+    expect(annotationRequestHeaders(workspace?.token)).not.toHaveProperty('Authorization');
+  });
+
+  it('falls back to the local sidecar only when unbound (no config)', async () => {
+    const dir = tmp();
+    mkdirSync(joinPath(dir, '.plandesk'));
+    expect(resolvePreviewWorkspace(dir)).toBeUndefined();
+    expect(previewBackendBanner(undefined)).toBe('annotations → local sidecar');
   });
 });

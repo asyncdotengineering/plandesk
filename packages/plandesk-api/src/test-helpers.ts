@@ -14,6 +14,7 @@ export async function createTestApp(opts?: {
   authPassword?: string;
   bindHost?: string;
   github?: GithubConfig;
+  dataDir?: string;
 }): Promise<{
   app: Hono;
   db: Db;
@@ -37,6 +38,7 @@ export async function createTestApp(opts?: {
       bindHost: opts?.bindHost ?? '127.0.0.1',
       github: opts?.github,
       betterAuth: { secret: TEST_SECRET, baseURL: TEST_BASE_URL },
+      dataDir: opts?.dataDir,
     }),
     db,
     orgId: DEFAULT_ORG_ID,

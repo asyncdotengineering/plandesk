@@ -16,7 +16,11 @@ import {
   type ArtifactAnnotation,
 } from './annotations-store.js';
 import { findLocalPlandeskDir, hasPreviewExtension } from './args.js';
-import { normalizeServerUrl, readPlandeskConfig, readPlandeskToken } from './connect-artifacts.js';
+import {
+  getBoundProjectId,
+  normalizeServerUrl,
+  resolvePlandeskBinding,
+} from './connect-artifacts.js';
 
 const require = createRequire(import.meta.url);
 let mermaidBundle: string | undefined;
@@ -663,26 +667,44 @@ export type AnnotationBackend = {
   resolve(target: PreviewTarget, id: string): Promise<boolean>;
 };
 
-export type PreviewWorkspace = { serverUrl: string; projectId: string; token: string };
+export type PreviewWorkspace = { serverUrl: string; projectId: string; token?: string };
 
-/** Resolve the connected-repo context (config + token) by walking up from cwd. */
+/** Resolve the connected-repo context by walking up from cwd. Token is optional (loopback). */
 export function resolvePreviewWorkspace(startDir: string = cwd()): PreviewWorkspace | undefined {
   const plandeskDir = findLocalPlandeskDir(startDir);
   if (plandeskDir === undefined) {
     return undefined;
   }
-  const repoDir = dirname(plandeskDir);
-  const config = readPlandeskConfig(repoDir);
-  const token = readPlandeskToken(repoDir);
-  if (!config || token === undefined) {
+  const binding = resolvePlandeskBinding(dirname(plandeskDir));
+  if (binding === undefined) {
     return undefined;
   }
-  const projectId =
-    config.version === 'plandesk-connect-v2' ? config.projectIds[0] : config.projectId;
+  const projectId = getBoundProjectId(binding.config);
   if (projectId === undefined) {
     return undefined;
   }
-  return { serverUrl: normalizeServerUrl(config.serverUrl), projectId, token };
+  const workspace: PreviewWorkspace = {
+    serverUrl: normalizeServerUrl(binding.config.serverUrl),
+    projectId,
+  };
+  if (binding.token !== undefined) {
+    workspace.token = binding.token;
+  }
+  return workspace;
+}
+
+export function previewBackendBanner(workspace: PreviewWorkspace | undefined): string {
+  return workspace
+    ? `annotations → ${workspace.serverUrl} (project ${workspace.projectId})`
+    : 'annotations → local sidecar';
+}
+
+export function annotationRequestHeaders(token?: string): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token !== undefined && token !== '') {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 const sidecarBackend: AnnotationBackend = {
@@ -713,7 +735,7 @@ function toClientAnnotation(c: {
 
 function apiBackend(workspace: PreviewWorkspace): AnnotationBackend {
   const base = `${workspace.serverUrl}/api/v1`;
-  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${workspace.token}` };
+  const headers = annotationRequestHeaders(workspace.token);
   const artifactId = (target: PreviewTarget): string => `file://${target.path}`;
   return {
     async list(target) {
@@ -877,12 +899,9 @@ export function runPreview(options: RunPreviewOptions): number {
   const port = options.port ?? DEFAULT_PREVIEW_PORT;
   serve({ fetch: app.fetch, port, hostname: host }, () => {
     const url = `http://${host}:${String(port)}/`;
-    const mode = workspace
-      ? `annotations → ${workspace.serverUrl} (project ${workspace.projectId})`
-      : 'annotations → local sidecar';
     process.stdout.write(
       `plandesk preview — ${String(targets.length)} file(s) at ${url}\n` +
-        `  ${mode}\n` +
+        `  ${previewBackendBanner(workspace)}\n` +
         targets.map((t) => `  ${t.name} (${t.kind})`).join('\n') +
         '\n',
     );

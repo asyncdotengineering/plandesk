@@ -59,45 +59,50 @@ export function findLocalWorkspaceDir(startDir: string): string | undefined {
   }
 }
 
+export type BoardSource = 'flag' | 'env' | 'shadow' | 'default';
+
+export type ResolvedBoard = {
+  dataDir: string;
+  source: BoardSource;
+};
+
 /**
- * Resolve the data directory for commands that read an existing workspace
- * (serve, token, export, import, etc.).
- * Priority: explicit override → PLANDESK_DATA_DIR env → nearest repo-local
- * workspace.db walking up from startDir (defaults to cwd) → ~/.plandesk.
+ * Single source of truth for which board (data-dir) a command operates on.
+ * Every board-touching command (init, serve, doctor, legacy-upgrade,
+ * export/import/push/pull) resolves through this one function so they always
+ * agree on the same board in the same repo.
+ *
+ * Precedence: explicit override (`--data-dir`) → `PLANDESK_DATA_DIR` env →
+ * `--local-db` (forces `<startDir>/.plandesk`) → nearest repo-local
+ * workspace.db walking up from startDir (defaults to cwd) → `~/.plandesk`.
  */
-export function resolveDataDir(override?: string, startDir?: string): string {
-  if (override !== undefined) {
-    return override;
+export function resolveBoard(
+  opts: { override?: string; localDb?: boolean; startDir?: string } = {},
+): ResolvedBoard {
+  if (opts.override !== undefined) {
+    return { dataDir: opts.override, source: 'flag' };
   }
   const fromEnv = process.env['PLANDESK_DATA_DIR'];
   if (fromEnv !== undefined && fromEnv.trim() !== '') {
-    return fromEnv;
+    return { dataDir: fromEnv, source: 'env' };
   }
-  const local = findLocalWorkspaceDir(startDir ?? process.cwd());
+  if (opts.localDb === true) {
+    return { dataDir: join(opts.startDir ?? process.cwd(), PLANDESK_DIR), source: 'flag' };
+  }
+  const local = findLocalWorkspaceDir(opts.startDir ?? process.cwd());
   if (local !== undefined) {
-    return local;
+    return { dataDir: local, source: 'shadow' };
   }
-  return defaultDataDir();
+  return { dataDir: defaultDataDir(), source: 'default' };
 }
 
 /**
- * Resolve the data directory for `plandesk init`.
- * Default is the machine-global board (~/.plandesk). Pass localDb=true
- * (`--local-db`) for an opt-in repo-local workspace at ./.plandesk.
- * Priority: explicit override → PLANDESK_DATA_DIR env → local or global.
+ * Resolve the data directory for commands that read an existing workspace
+ * (serve, token, export, import, etc.). Thin projection over `resolveBoard`
+ * for call sites that only need the path, not the source.
  */
-export function resolveInitDataDir(override?: string, localDb = false): string {
-  if (override !== undefined) {
-    return override;
-  }
-  const fromEnv = process.env['PLANDESK_DATA_DIR'];
-  if (fromEnv !== undefined && fromEnv.trim() !== '') {
-    return fromEnv;
-  }
-  if (localDb) {
-    return join(process.cwd(), PLANDESK_DIR);
-  }
-  return defaultDataDir();
+export function resolveDataDir(override?: string, startDir?: string): string {
+  return resolveBoard({ override, startDir }).dataDir;
 }
 
 export function isLoopbackHost(host: string): boolean {
@@ -157,6 +162,8 @@ const RESERVED_COMMANDS = new Set([
   'workspace',
   'context',
   'progress-checkpoint',
+  'status',
+  'ps',
   'migrate',
   'help',
   'onboard',
@@ -196,7 +203,13 @@ export type ParsedArgs =
     }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
-  | { command: 'legacy-upgrade'; from?: string; dataDir?: string; intoWorkspace?: string | true }
+  | {
+      command: 'legacy-upgrade';
+      from?: string;
+      dataDir?: string;
+      intoWorkspace?: string | true;
+      print: boolean;
+    }
   | {
       command: 'go-online';
       dataDir?: string;
@@ -254,8 +267,9 @@ export type ParsedArgs =
   | { command: 'workspace'; subcommand: 'create' | 'list'; repoDir?: string; name?: string; to?: string }
   | { command: 'context'; repoDir?: string }
   | { command: 'progress-checkpoint'; message?: string; repoDir?: string }
+  | { command: 'status' }
   | { command: 'preview'; paths: string[]; port?: number; host?: string; open: boolean }
-  | { command: 'help'; full: boolean }
+  | { command: 'help'; full: boolean; topic?: string }
   | { command: 'onboard' }
   | { command: 'version' }
   | { command: 'unknown'; name: string };
@@ -346,6 +360,18 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
   if (command === 'onboard') {
     return { command: 'onboard' };
+  }
+
+  // `<command> --help` routes to that command's own help (REQ-A6a) — must be
+  // checked before the generic short-circuit below, which only fires for a
+  // bare `plandesk help` / `plandesk --help` / no command at all.
+  if (
+    flags['help'] === true &&
+    command !== undefined &&
+    command !== 'help' &&
+    command !== '--help'
+  ) {
+    return { command: 'help', full: false, topic: command };
   }
 
   if (
@@ -453,6 +479,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       from: flagString(flags, 'from'),
       dataDir,
       intoWorkspace: typeof intoWorkspaceRaw === 'string' ? intoWorkspaceRaw : intoWorkspaceRaw === true ? true : undefined,
+      print: flags['print'] === true,
     };
   }
 
@@ -614,6 +641,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
     };
   }
 
+  if (command === 'status' || command === 'ps') {
+    return { command: 'status' };
+  }
+
   return { command: 'unknown', name: command };
 }
 
@@ -650,6 +681,7 @@ Usage:
   plandesk workspace list [--to <orgId>]
   plandesk context --json [--repo <dir>]   # bound project's current task/doc/progress, for session hooks
   plandesk progress-checkpoint [--message <text>] [--repo <dir>]   # post a checkpoint to the running agent run, for Stop/PreCompact hooks
+  plandesk status (or: ps)   # list known boards (global + repo-local shadow) and whether each is being served
   plandesk onboard           # teach-me guide: how to work in a Plan Desk + Factory repo
   plandesk version           # print the installed CLI version (also: --version)
 
@@ -723,4 +755,88 @@ READ THESE  (.md — fetchable by humans and agents; read before you act)
   Agents: fetch the links above to learn the conventions before changing a plan.
   Full command grammar: plandesk help --commands
 `;
+}
+
+/** Per-command help text (REQ-A6a) — `plandesk <command> --help`. Not exhaustive; unlisted commands fall back to crashCourse(). */
+const COMMAND_HELP: Record<string, string> = {
+  init: `plandesk init [--data-dir <dir>] [--local-db]
+
+Create (or migrate) a board's workspace.db and local identity tables.
+
+  --data-dir   Explicit board directory (overrides shadow/global default).
+  --local-db   Create a repo-local ./.plandesk board instead of the global one.
+
+Resolution when --data-dir is omitted: PLANDESK_DATA_DIR env → --local-db
+(./.plandesk) → nearest repo-local shadow board already in this repo →
+the global board (~/.plandesk).
+`,
+  serve: `plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>] [--config <file>]
+
+Start the Plan Desk server for a board. Prints "board: <path> (<source>)"
+before binding. One board, one fixed port by default.
+
+  --port         Bind port (default: workspace.json port, else ${String(DEFAULT_PORT)}).
+  --strict-port  Fail instead of retrying when the port is already in use.
+  --host         Bind address (default: 127.0.0.1 — loopback only).
+  --data-dir     Board directory to serve (default: resolved board).
+  --config       Server config file (default: <data-dir>/plandesk.server.json).
+`,
+  connect: `plandesk connect [--repo <dir>] [--project <id|name>] [--workspace <name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
+plandesk connect --to <orgId> [--project <id|name>] [--workspace <name>] [--repo <dir>] [--print]
+
+Bind this repo to a Plan Desk project so an agent can read/write it over
+MCP. Local (no --to): binds to a loopback board, no token file needed —
+the server authorizes loopback as owner. Hosted (--to <orgId>): mints a
+scoped agent key (requires \`plandesk login\` first).
+
+  --repo       Target repository directory (default: cwd).
+  --project    Project id or name to bind.
+  --workspace  Workspace/team name to bind (v2 configs).
+  --url        Server URL (default: http://127.0.0.1:${String(DEFAULT_PORT)}).
+  --token      MCP token to write (hosted).
+  --agent      Agent config target: claude | codex | both | detect (default: detect).
+  --to         Hosted org id — mint a scoped agent key instead of a local binding.
+  --print      Dry-run: print what would be written. Writes nothing.
+`,
+  doctor: `plandesk doctor [--data-dir <dir>] [--repo <dir>] [--config <file>]
+
+Health-check a board: schema/migrations, project/task counts, and
+resolved server config (secrets redacted). With --repo, also checks the
+repo's connect binding — including whether the bound server is reachable
+AND serving the same board doctor itself resolved (prints a
+"board-divergence" line if not).
+
+  --data-dir   Board directory to check (default: resolved board).
+  --repo       Repo whose connect binding to also check (default: cwd, if it has .plandesk/config.json).
+  --config     Server config file to resolve (default: <data-dir>/plandesk.server.json).
+
+Exit code: 0 healthy, 1 issues found, 2 corrupt database.
+`,
+  'legacy-upgrade': `plandesk legacy-upgrade [--from <old-workspace.db>] [--data-dir <dir>] [--into-workspace [<name>]] [--print]
+
+Lift a pre-1.0 (0.20.0-era) board into the current board. Reads the old
+workspace.db (--from, else ~/.plandesk/workspace.db or
+./.plandesk/workspace.db), imports its projects/tasks/documents into the
+target board (--data-dir, else the resolved board), and backs the old
+file up to <path>.pre-legacy-upgrade before writing.
+
+  --from            Path to the old workspace.db.
+  --data-dir        Target board directory (default: resolved board).
+  --into-workspace  Import into a named workspace/team (default: source folder name).
+  --print           Dry-run: print resolved source/target and would-be import/skip counts. Writes nothing.
+
+Refuses (exit 1) instead of crashing when the target already holds an
+unmigrated old-schema database at that path.
+`,
+  status: `plandesk status (alias: ps)
+
+List every board this machine/repo knows about — the global default
+board (~/.plandesk) plus any repo-local shadow board reachable from cwd
+— with port, running PID ("-" if not currently served — judged by
+process liveness, not just server.json's presence), and project count.
+`,
+};
+
+export function commandHelp(topic: string): string | undefined {
+  return COMMAND_HELP[topic];
 }

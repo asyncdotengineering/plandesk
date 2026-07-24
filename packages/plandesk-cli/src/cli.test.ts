@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  commandHelp,
   crashCourse,
   DEFAULT_BIND_HOST,
   DEFAULT_PORT,
@@ -12,11 +13,12 @@ import {
   parseArgs,
   resolveAuthPassword,
   resolveBindHost,
+  resolveBoard,
   resolveDataDir,
-  resolveInitDataDir,
   workspaceDbPath,
 } from './args.js';
 import { ONBOARD_GUIDE, printOnboard } from './onboard.js';
+import { main } from './cli.js';
 import { runInit } from './init.js';
 import { readServerInfo, readWorkspaceJson, writeWorkspaceJson } from './connect-artifacts.js';
 import {
@@ -98,6 +100,70 @@ describe('parseArgs', () => {
       host: '0.0.0.0',
       dataDir: '/tmp/ws',
       strictPort: false,
+    });
+  });
+
+  describe('per-command --help (REQ-A6a)', () => {
+    it.each(['legacy-upgrade', 'serve', 'init', 'connect', 'doctor', 'status'])(
+      '`%s --help` routes to that command\'s own help, not the generic banner',
+      (command) => {
+        expect(parseArgs(['node', 'plandesk', command, '--help'])).toEqual({
+          command: 'help',
+          full: false,
+          topic: command,
+        });
+      },
+    );
+
+    it('legacy-upgrade --help names --from, --data-dir, and --print', () => {
+      expect(parseArgs(['node', 'plandesk', 'legacy-upgrade', '--help'])).toEqual({
+        command: 'help',
+        full: false,
+        topic: 'legacy-upgrade',
+      });
+      const help = commandHelp('legacy-upgrade');
+      expect(help).toContain('--from');
+      expect(help).toContain('--data-dir');
+      expect(help).toContain('--print');
+    });
+
+    it('bare `plandesk --help` and `plandesk help` still resolve to the generic banner', () => {
+      expect(parseArgs(['node', 'plandesk', '--help'])).toEqual({ command: 'help', full: false });
+      expect(parseArgs(['node', 'plandesk', 'help'])).toEqual({ command: 'help', full: false });
+      expect(parseArgs(['node', 'plandesk', 'help', '--commands'])).toEqual({
+        command: 'help',
+        full: true,
+      });
+    });
+
+    it('an unknown command with --help falls back to the generic banner text at dispatch time', () => {
+      expect(parseArgs(['node', 'plandesk', 'not-a-real-command', '--help'])).toEqual({
+        command: 'help',
+        full: false,
+        topic: 'not-a-real-command',
+      });
+      expect(commandHelp('not-a-real-command')).toBeUndefined();
+    });
+
+    it('`plandesk legacy-upgrade --help` prints per-command help via the CLI, not the crash course', async () => {
+      const stdoutChunks: string[] = [];
+      const stdoutSpy = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation((chunk: string | Uint8Array) => {
+          stdoutChunks.push(String(chunk));
+          return true;
+        });
+      let code = 1;
+      try {
+        code = await main(['node', 'plandesk', 'legacy-upgrade', '--help']);
+      } finally {
+        stdoutSpy.mockRestore();
+      }
+      const stdout = stdoutChunks.join('');
+      expect(code).toBe(0);
+      expect(stdout).toContain('--from');
+      expect(stdout).toContain('--print');
+      expect(stdout).not.toEqual(crashCourse());
     });
   });
 
@@ -411,11 +477,13 @@ describe('runInit', () => {
       const repoCwd = process.cwd();
       delete process.env.PLANDESK_DATA_DIR;
 
-      // Global default (no override, no localDb) — not repo-local
-      expect(resolveInitDataDir(undefined, false)).not.toBe(join(repoCwd, '.plandesk'));
-      expect(resolveInitDataDir(undefined, false)).toMatch(/\.plandesk$/);
+      // Global default (no override, no localDb, no shadow yet) — not repo-local
+      expect(resolveBoard({ localDb: false }).dataDir).not.toBe(join(repoCwd, '.plandesk'));
+      expect(resolveBoard({ localDb: false }).dataDir).toMatch(/\.plandesk$/);
+      expect(resolveBoard({ localDb: false }).source).toBe('default');
       // --local-db opt-in
-      expect(resolveInitDataDir(undefined, true)).toBe(join(repoCwd, '.plandesk'));
+      expect(resolveBoard({ localDb: true }).dataDir).toBe(join(repoCwd, '.plandesk'));
+      expect(resolveBoard({ localDb: true }).source).toBe('flag');
 
       const localDbPath = await runInit(undefined, { localDb: true });
       expect(localDbPath).toBe(join(repoCwd, '.plandesk', 'workspace.db'));
@@ -430,6 +498,61 @@ describe('runInit', () => {
       rmSync(tmpRepo, { recursive: true, force: true });
     }
   });
+
+  it('init is shadow-aware: once a repo-local board exists, plain init (no flags) agrees with serve/doctor (#34)', async () => {
+    const cwd = process.cwd();
+    const tmpRepo = mkdtempSync(join(tmpdir(), 'plandesk-init-shadow-'));
+    const prevDataDir = process.env.PLANDESK_DATA_DIR;
+    try {
+      process.chdir(tmpRepo);
+      const repoCwd = process.cwd();
+      delete process.env.PLANDESK_DATA_DIR;
+
+      // Someone previously opted into a repo-local board.
+      await runInit(undefined, { localDb: true });
+
+      // Plain `init` (no --local-db, no --data-dir) must now resolve to that
+      // SAME shadow board, not silently fall back to the global one.
+      const initResolution = resolveBoard({});
+      expect(initResolution.dataDir).toBe(join(repoCwd, '.plandesk'));
+      expect(initResolution.source).toBe('shadow');
+
+      // serve/doctor already walked up for a shadow board — must resolve identically.
+      const serveResolution = resolveBoard({});
+      expect(serveResolution).toEqual(initResolution);
+    } finally {
+      process.chdir(cwd);
+      if (prevDataDir === undefined) {
+        delete process.env.PLANDESK_DATA_DIR;
+      } else {
+        process.env.PLANDESK_DATA_DIR = prevDataDir;
+      }
+      rmSync(tmpRepo, { recursive: true, force: true });
+    }
+  });
+
+  it('`plandesk init` prints the resolved board before acting (REQ-A1b)', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-init-print-'));
+    try {
+      const stdoutChunks: string[] = [];
+      const stdoutSpy = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation((chunk: string | Uint8Array) => {
+          stdoutChunks.push(String(chunk));
+          return true;
+        });
+      let code = 1;
+      try {
+        code = await main(['node', 'plandesk', 'init', '--data-dir', dataDir]);
+      } finally {
+        stdoutSpy.mockRestore();
+      }
+      expect(code).toBe(0);
+      expect(stdoutChunks.join('')).toContain(`board: ${dataDir} (flag)`);
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('createListenErrorHandler', () => {
@@ -441,14 +564,52 @@ describe('createListenErrorHandler', () => {
       throw new Error('exit');
     }) as (code: number) => never;
 
+    // Nothing listens on this port, so the owner-identity fetch fails fast
+    // and falls back to the generic message (REQ-A3c covered separately below).
     const handler = createListenErrorHandler(7526, exit);
-    expect(() => {
-      handler(Object.assign(new Error('listen EADDRINUSE'), { code: 'EADDRINUSE' }));
-    }).toThrow('exit');
+    await expect(
+      handler(Object.assign(new Error('listen EADDRINUSE'), { code: 'EADDRINUSE' })),
+    ).rejects.toThrow('exit');
 
     expect(exitCode).toBe(1);
     expect(stderr.mock.calls.flat().join('')).toContain('already in use');
     stderr.mockRestore();
+  });
+
+  it('names the other board that owns the port when it is reachable (REQ-A3c)', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-eaddrinuse-owner-'));
+    const servers: Array<{ close: (cb?: (err?: Error) => void) => void }> = [];
+    try {
+      await runInit(dataDir);
+      const owner = await startServer({ port: 0, dataDir });
+      servers.push(owner);
+      if (!owner.listening) {
+        await new Promise<void>((resolve) => owner.once('listening', resolve));
+      }
+      const address = owner.address();
+      const ownerPort = typeof address === 'object' && address !== null ? address.port : 0;
+
+      const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      let exitCode = 0;
+      const exit = ((code: number) => {
+        exitCode = code;
+        throw new Error('exit');
+      }) as (code: number) => never;
+
+      const handler = createListenErrorHandler(ownerPort, exit);
+      await expect(
+        handler(Object.assign(new Error('listen EADDRINUSE'), { code: 'EADDRINUSE' })),
+      ).rejects.toThrow('exit');
+
+      expect(exitCode).toBe(1);
+      expect(stderr.mock.calls.flat().join('')).toContain(`board: ${dataDir}`);
+      stderr.mockRestore();
+    } finally {
+      for (const server of servers.splice(0)) {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+      rmSync(dataDir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -484,11 +645,12 @@ describe('startServer', () => {
 
     const res = await fetch(`http://127.0.0.1:${String(port)}/api/v1/health`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toEqual({ ok: true, dataDir });
 
     const info = readServerInfo(dataDir);
     expect(info?.port).toBe(port);
     expect(info?.pid).toBe(process.pid);
+    expect(info?.dataDir).toBe(dataDir);
 
     await new Promise<void>((resolve) => {
       server.close(() => {
@@ -575,13 +737,16 @@ describe('startServer', () => {
 
     await startServer({ port, dataDir }, exit);
 
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    // The blocked port is a raw TCP listener, not an HTTP server — the
+    // owner-identity fetch (REQ-A3c) times out (bounded at 1.5s) before the
+    // handler falls back to the generic message and exits.
+    await new Promise((resolve) => setTimeout(resolve, 1800));
     expect(exitCode).toBe(1);
     expect(stderr.mock.calls.flat().join('')).toContain('already in use');
     stderr.mockRestore();
 
     rmSync(dataDir, { recursive: true, force: true });
-  });
+  }, 10000);
 });
 
 describe('resolveDataDir', () => {
@@ -647,24 +812,50 @@ describe('findLocalPlandeskDir', () => {
   });
 });
 
-describe('resolveInitDataDir', () => {
-  it('uses override when provided', async () => {
-    expect(resolveInitDataDir('/tmp/custom')).toBe('/tmp/custom');
+describe('resolveBoard', () => {
+  it('uses override when provided (source: flag)', async () => {
+    expect(resolveBoard({ override: '/tmp/custom' })).toEqual({
+      dataDir: '/tmp/custom',
+      source: 'flag',
+    });
   });
 
-  it('reads PLANDESK_DATA_DIR when override is absent', async () => {
+  it('reads PLANDESK_DATA_DIR when override is absent (source: env)', async () => {
     vi.stubEnv('PLANDESK_DATA_DIR', '/data');
-    expect(resolveInitDataDir()).toBe('/data');
+    expect(resolveBoard({})).toEqual({ dataDir: '/data', source: 'env' });
     vi.unstubAllEnvs();
   });
 
-  it('defaults to the global ~/.plandesk board (not repo-local)', async () => {
+  it('defaults to the global ~/.plandesk board when no shadow exists (source: default)', async () => {
+    const prev = process.env.PLANDESK_DATA_DIR;
+    delete process.env.PLANDESK_DATA_DIR;
+    // Use an isolated startDir — the dev machine's real directory tree may
+    // itself sit under a repo-local shadow board, which would otherwise leak
+    // into this "no shadow" assertion.
+    const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-resolve-default-'));
+    try {
+      const result = resolveBoard({ startDir: tmpDir });
+      expect(result.dataDir).not.toBe(join(tmpDir, '.plandesk'));
+      expect(result.dataDir.endsWith('.plandesk')).toBe(true);
+      expect(result.source).toBe('default');
+    } finally {
+      if (prev === undefined) {
+        delete process.env.PLANDESK_DATA_DIR;
+      } else {
+        process.env.PLANDESK_DATA_DIR = prev;
+      }
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('with localDb=true targets .plandesk/ in cwd (source: flag)', async () => {
     const prev = process.env.PLANDESK_DATA_DIR;
     delete process.env.PLANDESK_DATA_DIR;
     try {
-      const result = resolveInitDataDir();
-      expect(result).not.toBe(join(process.cwd(), '.plandesk'));
-      expect(result.endsWith('.plandesk')).toBe(true);
+      expect(resolveBoard({ localDb: true })).toEqual({
+        dataDir: join(process.cwd(), '.plandesk'),
+        source: 'flag',
+      });
     } finally {
       if (prev === undefined) {
         delete process.env.PLANDESK_DATA_DIR;
@@ -674,17 +865,40 @@ describe('resolveInitDataDir', () => {
     }
   });
 
-  it('with localDb=true targets .plandesk/ in cwd', async () => {
-    const prev = process.env.PLANDESK_DATA_DIR;
-    delete process.env.PLANDESK_DATA_DIR;
+  it('finds a repo-local shadow board over the global default (source: shadow)', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-resolve-board-'));
+    const plandeskDir = join(tmpDir, '.plandesk');
+    mkdirSync(plandeskDir);
     try {
-      expect(resolveInitDataDir(undefined, true)).toBe(join(process.cwd(), '.plandesk'));
+      writeFileSync(join(plandeskDir, 'workspace.db'), '');
+      expect(resolveBoard({ startDir: tmpDir })).toEqual({ dataDir: plandeskDir, source: 'shadow' });
     } finally {
-      if (prev === undefined) {
-        delete process.env.PLANDESK_DATA_DIR;
-      } else {
-        process.env.PLANDESK_DATA_DIR = prev;
-      }
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('precedence: flag > env > local-db > shadow > default', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-resolve-precedence-'));
+    const plandeskDir = join(tmpDir, '.plandesk');
+    mkdirSync(plandeskDir);
+    writeFileSync(join(plandeskDir, 'workspace.db'), '');
+    try {
+      vi.stubEnv('PLANDESK_DATA_DIR', '/env-wins-over-shadow');
+      // flag beats env even with a shadow board present.
+      expect(resolveBoard({ override: '/flag-wins', startDir: tmpDir }).dataDir).toBe('/flag-wins');
+      // env beats shadow.
+      expect(resolveBoard({ startDir: tmpDir }).dataDir).toBe('/env-wins-over-shadow');
+      vi.unstubAllEnvs();
+      // local-db beats shadow once env is out of the way.
+      expect(resolveBoard({ localDb: true, startDir: tmpDir }).dataDir).toBe(
+        join(tmpDir, '.plandesk'),
+      );
+      expect(resolveBoard({ localDb: true, startDir: tmpDir }).source).toBe('flag');
+      // shadow beats default.
+      expect(resolveBoard({ startDir: tmpDir })).toEqual({ dataDir: plandeskDir, source: 'shadow' });
+    } finally {
+      vi.unstubAllEnvs();
+      rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 });

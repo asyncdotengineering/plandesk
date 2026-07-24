@@ -6,10 +6,12 @@ import { cwd } from 'node:process';
 import { runInit } from './init.js';
 import { printOnboard } from './onboard.js';
 import {
+  commandHelp,
   crashCourse,
   DEFAULT_PORT,
   findLocalPlandeskDir,
   parseArgs,
+  resolveBoard,
   resolveDataDir,
   usage,
 } from './args.js';
@@ -26,8 +28,10 @@ import {
 import { runExport, ProjectNotFoundError } from './export.js';
 import { runImport, InvalidImportFileError } from './import.js';
 import {
+  formatLegacyUpgradePreview,
   formatLegacyUpgradeSummary,
   LegacyUpgradeError,
+  previewLegacyUpgrade,
   runLegacyUpgrade,
 } from './legacy-upgrade.js';
 import { formatGoOnlineSummary, GoOnlineError, runGoOnline } from './go-online.js';
@@ -49,6 +53,7 @@ import {
 import { formatDisconnectSummary, runDisconnect } from './disconnect.js';
 import { runContext } from './context.js';
 import { DEFAULT_CHECKPOINT_MESSAGE, runProgressCheckpoint } from './progress-checkpoint.js';
+import { formatStatusReport, runStatus } from './status.js';
 import { formatPushSummary, PromotePushError, runPush } from './push.js';
 import { formatPullSummary, runPull } from './pull.js';
 import { formatShareCreateSummary, InvalidShareArgsError, runShareCreate } from './share.js';
@@ -85,6 +90,16 @@ function reportCorruptDb(): number {
 
 function resolveRepoDir(repoDir?: string): string {
   return repoDir ?? cwd();
+}
+
+/**
+ * Surface the resolved board before a board-touching command acts (REQ-A1b).
+ * Defaults to stdout; `import` prints to stderr instead — its stdout is a
+ * single machine-readable project id line that scripts capture directly.
+ */
+function printBoard(override?: string, localDb?: boolean, stream: 'stdout' | 'stderr' = 'stdout'): void {
+  const board = resolveBoard({ override, localDb });
+  process[stream].write(`board: ${board.dataDir} (${board.source})\n`);
 }
 
 function getLanIp(): string | undefined {
@@ -135,9 +150,14 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
         return 1;
       }
-    case 'help':
+    case 'help': {
+      if (parsed.topic !== undefined) {
+        process.stdout.write(commandHelp(parsed.topic) ?? crashCourse());
+        return 0;
+      }
       process.stdout.write(parsed.full ? usage() : crashCourse());
       return 0;
+    }
     case 'onboard':
       printOnboard();
       return 0;
@@ -149,12 +169,14 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
       return 0;
     }
     case 'init': {
+      printBoard(parsed.dataDir, parsed.localDb);
       const dbPath = await runInit(parsed.dataDir, { localDb: parsed.localDb });
       process.stdout.write(`Initialized workspace at ${dbPath}\n`);
       return 0;
     }
     case 'serve': {
       try {
+        printBoard(parsed.dataDir);
         const runtime = resolveServeRuntime(parsed);
         await runServe({
           port: runtime.port,
@@ -226,6 +248,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'export': {
       try {
+        printBoard(parsed.dataDir);
         const { db, dataDir } = await openWorkspace(parsed.dataDir);
         await runExport(db, parsed.projectId, parsed.outPath, dataDir);
         process.stdout.write(`Exported project ${parsed.projectId} to ${parsed.outPath}\n`);
@@ -243,6 +266,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'import': {
       try {
+        printBoard(parsed.dataDir, undefined, 'stderr');
         const { db } = await openWorkspace(parsed.dataDir);
         const projectId = await runImport(db, parsed.inPath);
         process.stdout.write(`${projectId}\n`);
@@ -260,6 +284,12 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'legacy-upgrade': {
       try {
+        printBoard(parsed.dataDir);
+        if (parsed.print) {
+          const preview = await previewLegacyUpgrade({ from: parsed.from, dataDir: parsed.dataDir });
+          process.stdout.write(formatLegacyUpgradePreview(preview));
+          return 0;
+        }
         const result = await runLegacyUpgrade({
           from: parsed.from,
           dataDir: parsed.dataDir,
@@ -333,6 +363,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'doctor': {
       try {
+        printBoard(parsed.dataDir);
         const repoDir = resolveRepoDir(parsed.repoDir);
         const shouldCheckBinding =
           parsed.repoDir !== undefined || existsSync(join(repoDir, '.plandesk', 'config.json'));
@@ -398,6 +429,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'push': {
       try {
+        printBoard(parsed.dataDir);
         const repoDir = resolveRepoDir(parsed.repoDir);
         const { db } = await openWorkspace(parsed.dataDir);
         const result = await runPush(db, {
@@ -426,6 +458,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'pull': {
       try {
+        printBoard(parsed.dataDir);
         const repoDir = resolveRepoDir(parsed.repoDir);
         const { db } = await openWorkspace(parsed.dataDir);
         const result = await runPull(db, { repoDir, projectId: parsed.projectId });
@@ -562,6 +595,11 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     case 'progress-checkpoint': {
       const repoDir = resolveRepoDir(parsed.repoDir);
       await runProgressCheckpoint(repoDir, parsed.message ?? DEFAULT_CHECKPOINT_MESSAGE);
+      return 0;
+    }
+    case 'status': {
+      const boards = await runStatus();
+      process.stdout.write(formatStatusReport(boards));
       return 0;
     }
     case 'preview': {

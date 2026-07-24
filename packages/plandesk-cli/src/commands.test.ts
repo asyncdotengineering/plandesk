@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -12,10 +12,12 @@ import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs, workspaceDbPath } from './args.js';
 import { main } from './cli.js';
+import { buildConfigJson } from './connect-artifacts.js';
 import { CURATOR_TEMPLATES } from './curator-templates.js';
 import { SERVER_CONFIG_FILENAME } from './config.js';
 import { runFactoryInit } from './factory.js';
 import { runInit } from './init.js';
+import { startServer } from './serve.js';
 import { openWorkspace } from './workspace.js';
 
 async function captureIo(
@@ -288,6 +290,7 @@ describe('CLI export/import/doctor', () => {
     );
 
     expect(code).toBe(0);
+    expect(stdout).toContain(`board: ${dataDir} (flag)`);
     expect(stdout).toContain('Plan Desk doctor — OK');
     expect(stdout).toContain('migrations: applied');
     expect(stdout).toContain('projects: 1');
@@ -356,6 +359,85 @@ describe('CLI export/import/doctor', () => {
       `curator: ${String(CURATOR_TEMPLATES.length)}/${String(CURATOR_TEMPLATES.length)} artifacts present`,
     );
     expect(stdout).not.toContain('curator-missing:');
+  });
+
+  it('warns on board divergence when the bound server serves a different board than doctor resolved (#34, A5)', async () => {
+    const doctorsDataDir = await makeWorkspace();
+    const servedDataDir = await makeWorkspace();
+    const { db } = await openWorkspace(servedDataDir);
+    const project = await createProject(db, { name: 'Served Project' });
+
+    const server = await startServer({ port: 0, dataDir: servedDataDir });
+    try {
+      if (!server.listening) {
+        await new Promise<void>((resolve) => server.once('listening', resolve));
+      }
+      const address = server.address();
+      const port = typeof address === 'object' && address !== null ? address.port : 0;
+
+      const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-doctor-divergence-'));
+      tempDirs.push(repoDir);
+      mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
+      writeFileSync(
+        join(repoDir, '.plandesk', 'config.json'),
+        buildConfigJson({
+          serverUrl: `http://127.0.0.1:${String(port)}`,
+          projectId: project.id,
+          projectName: project.name,
+        }),
+        'utf8',
+      );
+
+      const { code, stdout } = await captureIo(() =>
+        main(['node', 'plandesk', 'doctor', '--data-dir', doctorsDataDir, '--repo', repoDir]),
+      );
+
+      // A genuine board divergence is a real problem — doctor reports it unhealthy (exit 1),
+      // same as any other binding issue.
+      expect(code).toBe(1);
+      expect(stdout).toContain('board-divergence:');
+      expect(stdout).toContain(doctorsDataDir);
+      expect(stdout).toContain(servedDataDir);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it('reports no board divergence when the bound server serves the same board doctor resolved', async () => {
+    const dataDir = await makeWorkspace();
+    const { db } = await openWorkspace(dataDir);
+    const project = await createProject(db, { name: 'Same Board Project' });
+
+    const server = await startServer({ port: 0, dataDir });
+    try {
+      if (!server.listening) {
+        await new Promise<void>((resolve) => server.once('listening', resolve));
+      }
+      const address = server.address();
+      const port = typeof address === 'object' && address !== null ? address.port : 0;
+
+      const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-doctor-nodivergence-'));
+      tempDirs.push(repoDir);
+      mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
+      writeFileSync(
+        join(repoDir, '.plandesk', 'config.json'),
+        buildConfigJson({
+          serverUrl: `http://127.0.0.1:${String(port)}`,
+          projectId: project.id,
+          projectName: project.name,
+        }),
+        'utf8',
+      );
+
+      const { code, stdout } = await captureIo(() =>
+        main(['node', 'plandesk', 'doctor', '--data-dir', dataDir, '--repo', repoDir]),
+      );
+
+      expect(code).toBe(0);
+      expect(stdout).not.toContain('board-divergence:');
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 
   it('exits 2 when database is corrupt', async () => {

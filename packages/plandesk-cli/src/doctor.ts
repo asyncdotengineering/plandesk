@@ -101,7 +101,7 @@ export async function runDoctor(
     let binding: BindingDoctorReport | undefined;
     let curator: CuratorDoctorReport | undefined;
     if (repoDir !== undefined) {
-      binding = await runBindingDoctor(repoDir);
+      binding = await runBindingDoctor(repoDir, dataDir);
       if (binding.present) {
         issues.push(...binding.issues);
       }
@@ -196,7 +196,7 @@ export async function runDoctor(
   let binding: BindingDoctorReport | undefined;
   let curator: CuratorDoctorReport | undefined;
   if (repoDir !== undefined) {
-    binding = await runBindingDoctor(repoDir);
+    binding = await runBindingDoctor(repoDir, dataDir);
     if (binding.present) {
       issues.push(...binding.issues);
     }
@@ -253,6 +253,15 @@ export function formatDoctorReport(report: DoctorReport): string {
   );
   if (report.binding !== undefined) {
     lines.push(...formatBindingDoctorReport(report.binding));
+    // Explicit, separate from the generic binding-issue list (REQ-A5a): the
+    // bound server can be reachable and still be serving a different board
+    // than the one this doctor invocation resolved.
+    const servedDataDir = report.binding.servedDataDir;
+    if (servedDataDir !== undefined && servedDataDir !== report.dataDir) {
+      lines.push(
+        `board-divergence: doctor resolved ${report.dataDir}, but the bound server serves ${servedDataDir} — you are inspecting a different board than the one your agent talks to`,
+      );
+    }
   }
   if (report.curator !== undefined) {
     lines.push(
