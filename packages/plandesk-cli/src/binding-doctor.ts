@@ -165,7 +165,15 @@ export function formatBindingDoctorReport(report: BindingDoctorReport): string[]
   lines.push(`binding-server-reachable: ${report.serverReachable ? 'yes' : 'no'}`);
   lines.push(`binding-token-valid: ${report.tokenValid ? 'yes' : 'no'}`);
   lines.push(`binding-project-exists: ${report.projectExists ? 'yes' : 'no'}`);
-  lines.push(`binding-mcp-tools: ${String(report.mcpToolCount)}`);
+  // A fresh loopback connect (no token yet) never lists MCP tools — that 0 is
+  // expected, not a failure, until an agent actually opens an MCP session
+  // (REQ-A5a). Only annotate the not-yet-flagged case; a genuine failure
+  // still surfaces via the binding-issue line below.
+  const mcpToolsAnnotation =
+    report.mcpToolCount === 0 && !report.issues.includes('MCP tools list is empty')
+      ? ' (expected until a fresh agent session connects)'
+      : '';
+  lines.push(`binding-mcp-tools: ${String(report.mcpToolCount)}${mcpToolsAnnotation}`);
   if (report.servedDataDir !== undefined) {
     lines.push(`binding-served-data-dir: ${report.servedDataDir}`);
   }

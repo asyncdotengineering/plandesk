@@ -8,7 +8,7 @@ import { createApp, createServices } from '@plandesk/api';
 import { createDb, createProjectInDefaultOrg as createProject, migrate } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { buildConfigJson } from './connect-artifacts.js';
-import { runBindingDoctor } from './binding-doctor.js';
+import { formatBindingDoctorReport, runBindingDoctor } from './binding-doctor.js';
 
 /** Boot a real loopback server (bound to `dataDir`, health-identifiable) with one project. */
 async function withBoundRepo(
@@ -89,5 +89,39 @@ describe('runBindingDoctor served-board identity (REQ-A3b)', () => {
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('formatBindingDoctorReport mcp-tools annotation (REQ-A5a)', () => {
+  it('annotates binding-mcp-tools: 0 as expected on a fresh loopback connect (no token, no issue)', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-binding-doctor-board-'));
+    try {
+      await withBoundRepo(dataDir, async ({ repoDir }) => {
+        const report = await runBindingDoctor(repoDir);
+        expect(report.mcpToolCount).toBe(0);
+        expect(report.issues).toEqual([]);
+        const lines = formatBindingDoctorReport(report);
+        expect(lines).toContain(
+          'binding-mcp-tools: 0 (expected until a fresh agent session connects)',
+        );
+      });
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not soften the annotation when zero tools IS a flagged issue', () => {
+    const lines = formatBindingDoctorReport({
+      present: true,
+      serverReachable: true,
+      tokenValid: false,
+      projectExists: true,
+      mcpToolCount: 0,
+      issues: ['MCP tools list is empty'],
+    });
+    expect(lines).toContain('binding-mcp-tools: 0');
+    expect(lines).not.toContain(
+      'binding-mcp-tools: 0 (expected until a fresh agent session connects)',
+    );
   });
 });
