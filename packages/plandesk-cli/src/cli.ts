@@ -6,6 +6,7 @@ import { cwd } from 'node:process';
 import { runInit } from './init.js';
 import { printOnboard } from './onboard.js';
 import {
+  commandHelp,
   crashCourse,
   DEFAULT_PORT,
   findLocalPlandeskDir,
@@ -149,9 +150,14 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
         return 1;
       }
-    case 'help':
+    case 'help': {
+      if (parsed.topic !== undefined) {
+        process.stdout.write(commandHelp(parsed.topic) ?? crashCourse());
+        return 0;
+      }
       process.stdout.write(parsed.full ? usage() : crashCourse());
       return 0;
+    }
     case 'onboard':
       printOnboard();
       return 0;

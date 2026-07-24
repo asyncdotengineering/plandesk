@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  commandHelp,
   crashCourse,
   DEFAULT_BIND_HOST,
   DEFAULT_PORT,
@@ -99,6 +100,70 @@ describe('parseArgs', () => {
       host: '0.0.0.0',
       dataDir: '/tmp/ws',
       strictPort: false,
+    });
+  });
+
+  describe('per-command --help (REQ-A6a)', () => {
+    it.each(['legacy-upgrade', 'serve', 'init', 'connect', 'doctor', 'status'])(
+      '`%s --help` routes to that command\'s own help, not the generic banner',
+      (command) => {
+        expect(parseArgs(['node', 'plandesk', command, '--help'])).toEqual({
+          command: 'help',
+          full: false,
+          topic: command,
+        });
+      },
+    );
+
+    it('legacy-upgrade --help names --from, --data-dir, and --print', () => {
+      expect(parseArgs(['node', 'plandesk', 'legacy-upgrade', '--help'])).toEqual({
+        command: 'help',
+        full: false,
+        topic: 'legacy-upgrade',
+      });
+      const help = commandHelp('legacy-upgrade');
+      expect(help).toContain('--from');
+      expect(help).toContain('--data-dir');
+      expect(help).toContain('--print');
+    });
+
+    it('bare `plandesk --help` and `plandesk help` still resolve to the generic banner', () => {
+      expect(parseArgs(['node', 'plandesk', '--help'])).toEqual({ command: 'help', full: false });
+      expect(parseArgs(['node', 'plandesk', 'help'])).toEqual({ command: 'help', full: false });
+      expect(parseArgs(['node', 'plandesk', 'help', '--commands'])).toEqual({
+        command: 'help',
+        full: true,
+      });
+    });
+
+    it('an unknown command with --help falls back to the generic banner text at dispatch time', () => {
+      expect(parseArgs(['node', 'plandesk', 'not-a-real-command', '--help'])).toEqual({
+        command: 'help',
+        full: false,
+        topic: 'not-a-real-command',
+      });
+      expect(commandHelp('not-a-real-command')).toBeUndefined();
+    });
+
+    it('`plandesk legacy-upgrade --help` prints per-command help via the CLI, not the crash course', async () => {
+      const stdoutChunks: string[] = [];
+      const stdoutSpy = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation((chunk: string | Uint8Array) => {
+          stdoutChunks.push(String(chunk));
+          return true;
+        });
+      let code = 1;
+      try {
+        code = await main(['node', 'plandesk', 'legacy-upgrade', '--help']);
+      } finally {
+        stdoutSpy.mockRestore();
+      }
+      const stdout = stdoutChunks.join('');
+      expect(code).toBe(0);
+      expect(stdout).toContain('--from');
+      expect(stdout).toContain('--print');
+      expect(stdout).not.toEqual(crashCourse());
     });
   });
 
