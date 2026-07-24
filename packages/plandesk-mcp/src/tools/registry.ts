@@ -16,6 +16,9 @@ const TAGS_SET_DESCRIPTION =
 const TAGS_FILTER_DESCRIPTION =
   'Optional tag-name filter with OR semantics: a task matches if it carries ANY of the given tags.';
 
+const COMPACT_DESCRIPTION =
+  'When true, omits large body/description fields and returns only id + summary metadata — use this for a cheap board-reconciliation sweep. Defaults to false (full body included), for backward compatibility.';
+
 export const listProjectsInputSchema = z.object({});
 
 export const createProjectInputSchema = z.object({
@@ -102,6 +105,7 @@ export const listDocumentsInputSchema = z.object({
     .uuid()
     .optional()
     .describe('Only list documents inside this folder. Omit for the full folder tree.'),
+  compact: z.boolean().optional().describe(COMPACT_DESCRIPTION),
 });
 
 export const createFolderInputSchema = z.object({
@@ -361,6 +365,7 @@ export const listTasksInputSchema = z.object({
   project_id: z.string().uuid(),
   status: z.enum(taskStatuses).optional(),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
+  compact: z.boolean().optional().describe(COMPACT_DESCRIPTION),
 });
 
 export const listTagsInputSchema = z.object({

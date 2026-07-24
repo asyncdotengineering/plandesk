@@ -480,6 +480,99 @@ describe('createMcpApp', () => {
     });
   });
 
+  it('list_tasks(compact) omits description; full mode is unchanged (#28)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        await createTask(db, { projectId, label: 'With body', description: 'a long spec body' });
+
+        const full = await client.callTool({
+          name: 'list_tasks',
+          arguments: { project_id: projectId },
+        });
+        const fullPayload = JSON.parse(
+          (full.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { tasks: Array<{ description: string | null; label: string }> };
+        expect(fullPayload.tasks[0]?.description).toBe('a long spec body');
+
+        const compact = await client.callTool({
+          name: 'list_tasks',
+          arguments: { project_id: projectId, compact: true },
+        });
+        const compactPayload = JSON.parse(
+          (compact.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { tasks: Array<Record<string, unknown>> };
+        expect(compactPayload.tasks[0]?.label).toBe('With body');
+        expect(compactPayload.tasks[0]).not.toHaveProperty('description');
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('list_documents(compact) omits body in both flat and tree shapes; full mode is unchanged (#28)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const folderRes = await client.callTool({
+          name: 'create_folder',
+          arguments: { project_id: projectId, name: 'Specs' },
+        });
+        const folderId = (
+          JSON.parse(
+            (folderRes.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+          ) as { folder: { id: string } }
+        ).folder.id;
+        await createDocument(db, {
+          projectId,
+          title: 'In folder',
+          body: '<p>secret body</p>',
+          folderId,
+        });
+        await createDocument(db, { projectId, title: 'At root', body: '<p>root body</p>' });
+
+        const fullTree = await client.callTool({
+          name: 'list_documents',
+          arguments: { project_id: projectId },
+        });
+        const fullTreePayload = JSON.parse(
+          (fullTree.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as {
+          documents: Array<{ body: string | null }>;
+          folders: Array<{ documents: Array<{ body: string | null }> }>;
+        };
+        expect(fullTreePayload.documents[0]?.body).toBe('<p>root body</p>');
+        expect(fullTreePayload.folders[0]?.documents[0]?.body).toBe('<p>secret body</p>');
+
+        const compactTree = await client.callTool({
+          name: 'list_documents',
+          arguments: { project_id: projectId, compact: true },
+        });
+        const compactTreePayload = JSON.parse(
+          (compactTree.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as {
+          documents: Array<Record<string, unknown>>;
+          folders: Array<{ documents: Array<Record<string, unknown>> }>;
+        };
+        expect(compactTreePayload.documents[0]?.title).toBe('At root');
+        expect(compactTreePayload.documents[0]).not.toHaveProperty('body');
+        expect(compactTreePayload.folders[0]?.documents[0]).not.toHaveProperty('body');
+
+        const compactFlat = await client.callTool({
+          name: 'list_documents',
+          arguments: { project_id: projectId, folder_id: folderId, compact: true },
+        });
+        const compactFlatPayload = JSON.parse(
+          (compactFlat.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { documents: Array<Record<string, unknown>> };
+        expect(compactFlatPayload.documents[0]?.title).toBe('In folder');
+        expect(compactFlatPayload.documents[0]).not.toHaveProperty('body');
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
   it('create_folder returns not_found for missing project and invalid_argument for blank name', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId }) => {
       const client = await connectClient(baseUrl);

@@ -200,7 +200,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'List Documents',
       description:
-        'List documents for a project as a folder tree (folders with nested documents, plus root documents). Pass folder_id to list only the documents inside one folder.',
+        'List documents for a project as a folder tree (folders with nested documents, plus root documents). Pass folder_id to list only the documents inside one folder. Pass compact: true to omit body and return only summary fields — use this to avoid overflowing token limits on large boards.',
       inputSchema: listDocumentsInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
@@ -505,7 +505,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'List Tasks',
       description:
-        'List all tasks for a project, optionally filtered by status and/or tags. The `tags` filter uses OR semantics: a task matches if it carries ANY of the given tag names. Use this to reconcile the board against reality.',
+        'List all tasks for a project, optionally filtered by status and/or tags. The `tags` filter uses OR semantics: a task matches if it carries ANY of the given tag names. Use this to reconcile the board against reality. Pass compact: true to omit description and return only summary fields — use this to avoid overflowing token limits on large boards.',
       inputSchema: listTasksInputSchema.shape,
       annotations: { readOnlyHint: true },
     },

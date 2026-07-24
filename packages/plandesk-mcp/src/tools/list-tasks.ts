@@ -4,7 +4,12 @@ import type { TaskStatus } from '@plandesk/db';
 
 export function createListTasksHandler(
   taskService: TaskService,
-): (args: { project_id: string; status?: TaskStatus; tags?: string[] }) => Promise<ToolResult> {
+): (args: {
+  project_id: string;
+  status?: TaskStatus;
+  tags?: string[];
+  compact?: boolean;
+}) => Promise<ToolResult> {
   return async (args) => {
     const tasks = await taskService.listByProject(args.project_id, {
       ...(args.status !== undefined ? { status: args.status } : {}),
@@ -13,6 +18,16 @@ export function createListTasksHandler(
     if (tasks === undefined) {
       return toolNotFound();
     }
-    return toolSuccess('tasks', tasks);
+    if (!args.compact) {
+      return toolSuccess('tasks', tasks);
+    }
+    return toolSuccess(
+      'tasks',
+      tasks.map((task) => {
+        const { description, ...rest } = task;
+        void description;
+        return rest;
+      }),
+    );
   };
 }
