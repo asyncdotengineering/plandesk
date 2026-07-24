@@ -271,6 +271,37 @@ plandesk connect --to <org> --project "<PROJECT NAME>"
 Then continue from step 5 (factory init) and step 6 (verify) as usual. Do not invent
 flags (`--org` does not exist); use exactly `login` and `connect --to`.
 
+## What to commit
+
+For a repo connected to Plan Desk, commit:
+
+- `.plandesk/config.json` — the project/workspace binding (step 4).
+- `.mcp.json` — the MCP server entry (step 4). Its `headersHelper` reads a
+  token file that may not exist — nothing secret lives in the entry itself.
+- `.claude/` — skills (`.claude/skills/plandesk/`), the `/plandesk` command
+  (`.claude/commands/plandesk.md`), and `.claude/settings.json` (the curator
+  hooks `factory init` wires up in step 5).
+- `.agents/` — the factory + curator policy (`.agents/factory/`,
+  `.agents/curator/`) written by `plandesk factory init` (step 5).
+- `.factory`, if this repo has one — treat it like the rest of the committed
+  agent policy.
+- `CLAUDE.md` / `AGENTS.md` — the sentinel block `connect` inserts (step 4).
+
+Gitignore (already handled for you where noted):
+
+- `.plandesk/token` — **hosted only**; a scoped agent key. Local loopback (the
+  default path in step 4) writes none, so there's nothing to ignore in that
+  case. `connect --to` adds this line for you.
+- `.plandesk/server.json` — per-machine server info; `plandesk init` adds this
+  line for you.
+- `.plandesk/workspace.db` (and any `.pre-*` backup copies) — only exists if
+  you opted into a repo-local board with `plandesk init --local-db`; the
+  default global board at `~/.plandesk/workspace.db` never lives in the repo
+  at all. Add it to `.gitignore` yourself if you use `--local-db` — it is
+  **not** auto-ignored.
+- `.agents/factory/runs/` — transient factory dispatch state (briefs, logs,
+  results); `plandesk factory init` writes a nested `.gitignore` there for you.
+
 ---
 
 **Done when:** the verify checklist in step 6 passes and you've given the user the
