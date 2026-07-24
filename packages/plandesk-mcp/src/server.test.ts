@@ -892,6 +892,57 @@ describe('createMcpApp', () => {
     });
   });
 
+  it('goal id round-trips: create_goal -> list_goals -> create_task(goal_id) succeeds verbatim (#27)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const created = await client.callTool({
+          name: 'create_goal',
+          arguments: { project_id: projectId, objective: 'Round trip goal' },
+        });
+        const createdGoal = (
+          JSON.parse(
+            (created.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+          ) as { goal: { id: string } }
+        ).goal;
+
+        const listed = await client.callTool({
+          name: 'list_goals',
+          arguments: { project_id: projectId },
+        });
+        const listedGoals = (
+          JSON.parse(
+            (listed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+          ) as { goals: Array<{ id: string }> }
+        ).goals;
+        const returnedId = listedGoals.find((goal) => goal.id === createdGoal.id)?.id;
+        expect(returnedId).toBe(createdGoal.id);
+
+        // The id list_goals hands back must be accepted verbatim by create_task.goal_id.
+        const task = await client.callTool({
+          name: 'create_task',
+          arguments: { project_id: projectId, label: 'Under round-trip goal', goal_id: returnedId },
+        });
+        expect(task.isError).not.toBe(true);
+        const taskPayload = JSON.parse(
+          (task.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { task: { goal_id: string } };
+        expect(taskPayload.task.goal_id).toBe(createdGoal.id);
+
+        // An invalid goal_id is rejected with an error naming the offending field.
+        const bad = await client.callTool({
+          name: 'create_task',
+          arguments: { project_id: projectId, label: 'Bad goal', goal_id: 'not-a-uuid' },
+        });
+        expect(bad.isError).toBe(true);
+        const badText = (bad.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
+        expect(badText).toMatch(/goal_id/);
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
   it('get_next_task returns actionable task and blocked context', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
       const actionable = await createTask(db, { projectId, label: 'Actionable', status: 'todo' });
