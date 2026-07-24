@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -189,6 +189,7 @@ describe('parseArgs legacy-upgrade', () => {
       command: 'legacy-upgrade',
       from: '/tmp/old.db',
       dataDir: '/tmp/ws',
+      print: false,
     });
   });
 
@@ -208,6 +209,7 @@ describe('parseArgs legacy-upgrade', () => {
       from: '/tmp/old.db',
       dataDir: undefined,
       intoWorkspace: 'Client X',
+      print: false,
     });
   });
 
@@ -219,6 +221,7 @@ describe('parseArgs legacy-upgrade', () => {
       from: '/tmp/old.db',
       dataDir: undefined,
       intoWorkspace: true,
+      print: false,
     });
   });
 
@@ -228,6 +231,19 @@ describe('parseArgs legacy-upgrade', () => {
       from: undefined,
       dataDir: undefined,
       intoWorkspace: undefined,
+      print: false,
+    });
+  });
+
+  it('parses legacy-upgrade --print (REQ-A2b)', () => {
+    expect(
+      parseArgs(['node', 'plandesk', 'legacy-upgrade', '--from', '/tmp/old.db', '--print']),
+    ).toEqual({
+      command: 'legacy-upgrade',
+      from: '/tmp/old.db',
+      dataDir: undefined,
+      intoWorkspace: undefined,
+      print: true,
     });
   });
 });
@@ -531,6 +547,71 @@ describe('CLI legacy-upgrade', () => {
 
     const { db } = await openWorkspace(targetDir);
     expect(await listProjects(db, DEFAULT_ORG_ID)).toHaveLength(0);
+  });
+
+  it('refuses with an actionable message when the target already holds an unmigrated old-schema DB (#30)', async () => {
+    const root = tempDir('plandesk-legacy-target-conflict-');
+    const oldPath = join(root, 'old-workspace.db');
+    await createOldSchemaFixture(oldPath);
+
+    // Target already has a pre-drizzle-journal DB sitting at the target path —
+    // migrate() would otherwise replay baseline CREATE TABLEs over existing
+    // tables and crash with a raw sqlite error.
+    const dataDir = join(root, 'target');
+    mkdirSync(dataDir, { recursive: true });
+    await createOldSchemaFixture(join(dataDir, 'workspace.db'));
+
+    const { code, stdout, stderr } = await captureIo(() =>
+      main(['node', 'plandesk', 'legacy-upgrade', '--from', oldPath, '--data-dir', dataDir]),
+    );
+
+    expect(code).toBe(1);
+    expect(stderr).toContain('a board already exists at');
+    expect(stderr).toContain(join(dataDir, 'workspace.db'));
+    expect(stderr).not.toContain('SqliteError');
+    expect(stderr).not.toContain('  at '); // no raw stack trace
+    expect(stdout).not.toContain('Imported');
+  });
+
+  it('--print is a dry-run: reports source+target, writes nothing (REQ-A2b)', async () => {
+    const root = tempDir('plandesk-legacy-print-');
+    const oldPath = join(root, 'old-workspace.db');
+    const dataDir = join(root, 'global');
+    await createOldSchemaFixture(oldPath);
+    await runInit(dataDir);
+
+    const { code, stdout, stderr } = await captureIo(() =>
+      main(['node', 'plandesk', 'legacy-upgrade', '--from', oldPath, '--data-dir', dataDir, '--print']),
+    );
+
+    expect(stderr).toBe('');
+    expect(code).toBe(0);
+    expect(stdout).toContain(`[dry-run] source: ${oldPath}`);
+    expect(stdout).toContain(`[dry-run] target: ${join(dataDir, 'workspace.db')}`);
+    expect(stdout).toContain('would import: 1 project(s)');
+    expect(stdout).toContain('nothing written');
+
+    // Nothing was imported — no backup, no projects in the target board.
+    expect(existsSync(legacyBackupPath(oldPath))).toBe(false);
+    const { db } = await openWorkspace(dataDir);
+    expect(await listProjects(db, DEFAULT_ORG_ID)).toHaveLength(0);
+  });
+
+  it('--print refuses cleanly (no crash) when the target already holds an unmigrated old-schema DB', async () => {
+    const root = tempDir('plandesk-legacy-print-conflict-');
+    const oldPath = join(root, 'old-workspace.db');
+    await createOldSchemaFixture(oldPath);
+    const dataDir = join(root, 'target');
+    mkdirSync(dataDir, { recursive: true });
+    await createOldSchemaFixture(join(dataDir, 'workspace.db'));
+
+    const { code, stdout } = await captureIo(() =>
+      main(['node', 'plandesk', 'legacy-upgrade', '--from', oldPath, '--data-dir', dataDir, '--print']),
+    );
+
+    expect(code).toBe(0);
+    expect(stdout).toContain('[dry-run] conflict: a board already exists at');
+    expect(stdout).toContain('nothing written');
   });
 
   it('exits 1 when --from path is missing', async () => {

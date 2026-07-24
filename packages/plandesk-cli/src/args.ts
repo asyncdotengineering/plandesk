@@ -201,7 +201,13 @@ export type ParsedArgs =
     }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
-  | { command: 'legacy-upgrade'; from?: string; dataDir?: string; intoWorkspace?: string | true }
+  | {
+      command: 'legacy-upgrade';
+      from?: string;
+      dataDir?: string;
+      intoWorkspace?: string | true;
+      print: boolean;
+    }
   | {
       command: 'go-online';
       dataDir?: string;
@@ -458,6 +464,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       from: flagString(flags, 'from'),
       dataDir,
       intoWorkspace: typeof intoWorkspaceRaw === 'string' ? intoWorkspaceRaw : intoWorkspaceRaw === true ? true : undefined,
+      print: flags['print'] === true,
     };
   }
 

@@ -27,8 +27,10 @@ import {
 import { runExport, ProjectNotFoundError } from './export.js';
 import { runImport, InvalidImportFileError } from './import.js';
 import {
+  formatLegacyUpgradePreview,
   formatLegacyUpgradeSummary,
   LegacyUpgradeError,
+  previewLegacyUpgrade,
   runLegacyUpgrade,
 } from './legacy-upgrade.js';
 import { formatGoOnlineSummary, GoOnlineError, runGoOnline } from './go-online.js';
@@ -276,6 +278,11 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     case 'legacy-upgrade': {
       try {
         printBoard(parsed.dataDir);
+        if (parsed.print) {
+          const preview = await previewLegacyUpgrade({ from: parsed.from, dataDir: parsed.dataDir });
+          process.stdout.write(formatLegacyUpgradePreview(preview));
+          return 0;
+        }
         const result = await runLegacyUpgrade({
           from: parsed.from,
           dataDir: parsed.dataDir,

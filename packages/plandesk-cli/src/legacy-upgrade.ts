@@ -26,9 +26,14 @@ import {
   ensureLocalBetterAuthOrganization,
   runBetterAuthMigrations,
 } from '@plandesk/api';
-import { PLANDESK_DIR, WORKSPACE_DB } from './args.js';
+import { PLANDESK_DIR, resolveBoard, WORKSPACE_DB, workspaceDbPath } from './args.js';
 import { ensureLocalBetterAuthSecret, runInit } from './init.js';
-import { openWorkspace, WorkspaceNotFoundError } from './workspace.js';
+import {
+  CorruptWorkspaceError,
+  isDbCorruptionError,
+  openWorkspace,
+  WorkspaceNotFoundError,
+} from './workspace.js';
 
 export class LegacyUpgradeError extends Error {
   constructor(message: string) {
@@ -421,6 +426,50 @@ export function legacyBackupPath(sourcePath: string): string {
   return `${sourcePath}.pre-legacy-upgrade`;
 }
 
+/**
+ * True when a DB file already holds app tables but was never migrated through
+ * drizzle (no `__drizzle_migrations` tracking rows). Migrating such a DB
+ * replays the baseline `CREATE TABLE` statements (no `IF NOT EXISTS`) over
+ * tables that already exist and crashes with a raw sqlite error.
+ */
+export async function isUnmigratedLegacyDb(client: Client): Promise<boolean> {
+  const tables = await tableNames(client);
+  if (tables.has('__drizzle_migrations')) {
+    return false;
+  }
+  return tables.has('projects') || tables.has('agent_run_events');
+}
+
+export function legacyUpgradeTargetConflictMessage(dbPath: string): string {
+  return `a board already exists at ${dbPath}; run \`plandesk init\` first, or pass --data-dir <empty dir>`;
+}
+
+/**
+ * Guard the target board before anything touches it: an existing, unmigrated
+ * legacy DB at the target path must never reach `migrate()` (REQ-A2a).
+ */
+async function assertTargetSafeToMigrate(targetDbPath: string): Promise<void> {
+  if (!existsSync(targetDbPath)) {
+    return;
+  }
+  const targetDb = await createDb(targetDbPath);
+  try {
+    if (await isUnmigratedLegacyDb(targetDb.$client)) {
+      throw new LegacyUpgradeError(legacyUpgradeTargetConflictMessage(targetDbPath));
+    }
+  } catch (err) {
+    if (err instanceof LegacyUpgradeError) {
+      throw err;
+    }
+    if (isDbCorruptionError(err)) {
+      throw new CorruptWorkspaceError();
+    }
+    throw err;
+  } finally {
+    targetDb.$client.close();
+  }
+}
+
 function projectAlreadyPresent(
   existing: Awaited<ReturnType<typeof listProjects>>,
   sourceProjectId: string,
@@ -446,6 +495,99 @@ export function formatLegacyUpgradeSummary(result: LegacyUpgradeResult): string 
   );
 }
 
+export type LegacyUpgradePreview = {
+  sourcePath: string;
+  targetDbPath: string;
+  alreadyNewSchema: boolean;
+  wouldImport: number;
+  wouldSkip: number;
+  /** Set when the target board is an unmigrated legacy DB that would refuse the real run. */
+  targetConflict?: string;
+};
+
+/**
+ * Dry-run: resolve source + target and report what would import/skip. Never
+ * writes anything — no backup, no target board creation, no import (REQ-A2b).
+ */
+export async function previewLegacyUpgrade(options: {
+  from?: string;
+  dataDir?: string;
+  cwd?: string;
+}): Promise<LegacyUpgradePreview> {
+  const sourcePath = resolveLegacySourcePath(options.from, options.cwd ?? process.cwd());
+  if (sourcePath === undefined) {
+    throw new LegacyUpgradeError(
+      'No legacy workspace.db found. Pass --from <path> or place the old board at ~/.plandesk/workspace.db or ./.plandesk/workspace.db.',
+    );
+  }
+  if (!existsSync(sourcePath)) {
+    throw new LegacyUpgradeError(`Legacy board not found: ${sourcePath}`);
+  }
+
+  const targetDataDir = resolveBoard({ override: options.dataDir }).dataDir;
+  const targetDbPath = workspaceDbPath(targetDataDir);
+
+  let targetConflict: string | undefined;
+  try {
+    await assertTargetSafeToMigrate(targetDbPath);
+  } catch (err) {
+    if (err instanceof LegacyUpgradeError) {
+      targetConflict = err.message;
+    } else {
+      throw err;
+    }
+  }
+
+  const sourceDb = await createDb(sourcePath);
+  try {
+    if (await isAlreadyNewSchema(sourceDb.$client)) {
+      return { sourcePath, targetDbPath, alreadyNewSchema: true, wouldImport: 0, wouldSkip: 0, targetConflict };
+    }
+
+    const exports = await readLegacyProjectExports(sourceDb.$client);
+    let wouldSkip = 0;
+    if (targetConflict === undefined && existsSync(targetDbPath)) {
+      try {
+        const { db } = await openWorkspace(targetDataDir);
+        const existing = await listProjects(db, DEFAULT_ORG_ID);
+        wouldSkip = exports.filter((item) =>
+          projectAlreadyPresent(existing, item.sourceProjectId, item.export.project.name),
+        ).length;
+      } catch {
+        // Target unreadable for preview purposes — report as if nothing is present yet.
+      }
+    }
+
+    return {
+      sourcePath,
+      targetDbPath,
+      alreadyNewSchema: false,
+      wouldImport: exports.length - wouldSkip,
+      wouldSkip,
+      targetConflict,
+    };
+  } finally {
+    sourceDb.$client.close();
+  }
+}
+
+export function formatLegacyUpgradePreview(preview: LegacyUpgradePreview): string {
+  const lines = [
+    `[dry-run] source: ${preview.sourcePath}`,
+    `[dry-run] target: ${preview.targetDbPath}`,
+  ];
+  if (preview.targetConflict !== undefined) {
+    lines.push(`[dry-run] conflict: ${preview.targetConflict}`);
+  } else if (preview.alreadyNewSchema) {
+    lines.push('[dry-run] source is already upgraded / new schema — nothing to import');
+  } else {
+    lines.push(`[dry-run] would import: ${String(preview.wouldImport)} project(s)`);
+    lines.push(`[dry-run] would skip (already present): ${String(preview.wouldSkip)} project(s)`);
+  }
+  lines.push('[dry-run] nothing written');
+  return `${lines.join('\n')}\n`;
+}
+
 export async function runLegacyUpgrade(options: {
   from?: string;
   dataDir?: string;
@@ -461,6 +603,9 @@ export async function runLegacyUpgrade(options: {
   if (!existsSync(sourcePath)) {
     throw new LegacyUpgradeError(`Legacy board not found: ${sourcePath}`);
   }
+
+  const targetDataDir = resolveBoard({ override: options.dataDir }).dataDir;
+  await assertTargetSafeToMigrate(workspaceDbPath(targetDataDir));
 
   const sourceDb = await createDb(sourcePath);
   try {
