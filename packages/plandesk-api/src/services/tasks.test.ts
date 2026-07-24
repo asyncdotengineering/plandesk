@@ -158,6 +158,35 @@ describe('taskService', () => {
     expect(updated).toMatchObject({ id: created.id, status: 'done' });
   });
 
+  it('reassigns a task to a different goal in the same project (#15)', async () => {
+    const service = createService();
+    const goalA = await createGoal(db, { projectId, objective: 'Goal A' });
+    const goalB = await createGoal(db, { projectId, objective: 'Goal B' });
+    const created = await service.create(projectId, { label: 'Movable', goalId: goalA.id });
+    if (!created) {
+      throw new Error('expected created task');
+    }
+
+    const updated = await service.update(created.id, { goalId: goalB.id });
+    expect(updated?.goal_id).toBe(goalB.id);
+    expect(await service.get(created.id)).toMatchObject({ goal_id: goalB.id });
+  });
+
+  it('rejects reassigning a task to a goal_id from a different project (#15)', async () => {
+    const service = createService();
+    const goalA = await createGoal(db, { projectId, objective: 'Goal A' });
+    const otherProject = await createProject(db, { name: 'Other' });
+    const foreignGoal = await createGoal(db, { projectId: otherProject.id, objective: 'Elsewhere' });
+    const created = await service.create(projectId, { label: 'Movable', goalId: goalA.id });
+    if (!created) {
+      throw new Error('expected created task');
+    }
+
+    await expect(
+      service.update(created.id, { goalId: foreignGoal.id }),
+    ).rejects.toThrow(InvalidGoalReferenceError);
+  });
+
   it('deletes a task, cascades edges, and nulls linked documents', async () => {
     const service = createService();
     const task = await createTask(db, { projectId, label: 'Delete me' });

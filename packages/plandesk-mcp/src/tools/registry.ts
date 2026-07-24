@@ -51,6 +51,11 @@ export const updateTaskInputSchema = z.object({
   description: z.string().optional(),
   x: z.number().optional(),
   y: z.number().optional(),
+  goal_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('Reassign the task to a different goal in the same project. Omit to leave it unchanged.'),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_SET_DESCRIPTION),
 });
 

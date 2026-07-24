@@ -154,7 +154,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Update Task',
       description:
-        'Update task status, label, description, position, or tags. `tags` REPLACES the full tag set (auto-creating tags by name that do not exist yet; [] clears all tags); omit it to leave tags unchanged.',
+        'Update task status, label, description, position, goal, or tags. `goal_id` reassigns the task to a different goal in the same project, preserving its edges, comments, and documents. `tags` REPLACES the full tag set (auto-creating tags by name that do not exist yet; [] clears all tags); omit it to leave tags unchanged.',
       inputSchema: updateTaskInputSchema.shape,
     },
     createUpdateTaskHandler(services.taskService),

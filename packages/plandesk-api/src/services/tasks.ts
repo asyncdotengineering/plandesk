@@ -95,6 +95,7 @@ export type UpdateTaskInput = {
   description?: string | null;
   x?: number;
   y?: number;
+  goalId?: string;
   // Replaces the task's FULL tag set by name; names without an existing tag are
   // auto-created. Pass [] to clear all tags. Omit to leave tags unchanged.
   tags?: string[];
@@ -236,6 +237,13 @@ export function createTaskService(deps: TaskServiceDeps) {
           return undefined;
         }
         throw error;
+      }
+
+      if (
+        input.goalId !== undefined &&
+        !(await listGoals(db, existing.projectId)).some((g) => g.id === input.goalId)
+      ) {
+        throw new InvalidGoalReferenceError(input.goalId);
       }
 
       const { tags: tagNames, ...columns } = input;

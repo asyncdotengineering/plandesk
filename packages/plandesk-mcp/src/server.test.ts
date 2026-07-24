@@ -10,6 +10,7 @@ import {
   createProjectInDefaultOrg as createProject,
   createDocument,
   createComment,
+  listEdges,
   listTasks,
   updateComment,
   migrate,
@@ -1232,6 +1233,75 @@ describe('createMcpApp', () => {
       expect(badUpdate.isError).toBe(true);
 
       await client.close();
+    });
+  });
+
+  it('update_task reassigns a task to a different goal, preserving edges/comments/documents (#15)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db, services }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const goalA = await services.goalService.create(projectId, { objective: 'Goal A' });
+        const goalB = await services.goalService.create(projectId, { objective: 'Goal B' });
+        if (!goalA || !goalB) {
+          throw new Error('expected goals');
+        }
+        const task = await createTask(db, { projectId, goalId: goalA.id, label: 'Movable' });
+        const other = await createTask(db, { projectId, goalId: goalA.id, label: 'Prereq' });
+        const edge = await createEdge(db, { projectId, fromTaskId: other.id, toTaskId: task.id });
+        const comment = await createComment(db, {
+          projectId,
+          targetType: 'task',
+          targetId: task.id,
+          body: 'keep me',
+        });
+        const doc = await createDocument(db, {
+          projectId,
+          title: 'Spec',
+          linkedTaskId: task.id,
+        });
+
+        const result = await client.callTool({
+          name: 'update_task',
+          arguments: { task_id: task.id, goal_id: goalB.id },
+        });
+        expect(result.isError).not.toBe(true);
+        const payload = JSON.parse(
+          (result.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { task: { goal_id: string; status: string } };
+        expect(payload.task.goal_id).toBe(goalB.id);
+
+        const got = await client.callTool({ name: 'get_task', arguments: { task_id: task.id } });
+        const gotPayload = JSON.parse(
+          (got.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { task: { goal_id: string } };
+        expect(gotPayload.task.goal_id).toBe(goalB.id);
+
+        expect((await listEdges(db, projectId)).map((e) => e.id)).toContain(edge.id);
+        const comments = await client.callTool({
+          name: 'list_comments',
+          arguments: { project_id: projectId, target_type: 'task', target_id: task.id },
+        });
+        const commentsPayload = JSON.parse(
+          (comments.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { comments: Array<{ id: string }> };
+        expect(commentsPayload.comments.map((c) => c.id)).toContain(comment.id);
+        const gotDoc = await client.callTool({
+          name: 'get_document',
+          arguments: { document_id: doc.id },
+        });
+        expect(parseDocumentResult(gotDoc).linked_task_id).toBe(task.id);
+
+        // A foreign/nonexistent goal_id is rejected with a clear error.
+        const bad = await client.callTool({
+          name: 'update_task',
+          arguments: { task_id: task.id, goal_id: '00000000-0000-4000-8000-000000009999' },
+        });
+        expect(bad.isError).toBe(true);
+        const badText = (bad.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
+        expect(badText).toMatch(/goal/i);
+      } finally {
+        await client.close();
+      }
     });
   });
 
