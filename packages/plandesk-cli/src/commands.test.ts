@@ -288,6 +288,7 @@ describe('CLI export/import/doctor', () => {
     );
 
     expect(code).toBe(0);
+    expect(stdout).toContain(`board: ${dataDir} (flag)`);
     expect(stdout).toContain('Plan Desk doctor — OK');
     expect(stdout).toContain('migrations: applied');
     expect(stdout).toContain('projects: 1');

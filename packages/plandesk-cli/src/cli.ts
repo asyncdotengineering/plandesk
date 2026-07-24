@@ -10,6 +10,7 @@ import {
   DEFAULT_PORT,
   findLocalPlandeskDir,
   parseArgs,
+  resolveBoard,
   resolveDataDir,
   usage,
 } from './args.js';
@@ -87,6 +88,16 @@ function resolveRepoDir(repoDir?: string): string {
   return repoDir ?? cwd();
 }
 
+/**
+ * Surface the resolved board before a board-touching command acts (REQ-A1b).
+ * Defaults to stdout; `import` prints to stderr instead — its stdout is a
+ * single machine-readable project id line that scripts capture directly.
+ */
+function printBoard(override?: string, localDb?: boolean, stream: 'stdout' | 'stderr' = 'stdout'): void {
+  const board = resolveBoard({ override, localDb });
+  process[stream].write(`board: ${board.dataDir} (${board.source})\n`);
+}
+
 function getLanIp(): string | undefined {
   const nets = networkInterfaces();
   for (const list of Object.values(nets)) {
@@ -149,12 +160,14 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
       return 0;
     }
     case 'init': {
+      printBoard(parsed.dataDir, parsed.localDb);
       const dbPath = await runInit(parsed.dataDir, { localDb: parsed.localDb });
       process.stdout.write(`Initialized workspace at ${dbPath}\n`);
       return 0;
     }
     case 'serve': {
       try {
+        printBoard(parsed.dataDir);
         const runtime = resolveServeRuntime(parsed);
         await runServe({
           port: runtime.port,
@@ -226,6 +239,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'export': {
       try {
+        printBoard(parsed.dataDir);
         const { db, dataDir } = await openWorkspace(parsed.dataDir);
         await runExport(db, parsed.projectId, parsed.outPath, dataDir);
         process.stdout.write(`Exported project ${parsed.projectId} to ${parsed.outPath}\n`);
@@ -243,6 +257,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'import': {
       try {
+        printBoard(parsed.dataDir, undefined, 'stderr');
         const { db } = await openWorkspace(parsed.dataDir);
         const projectId = await runImport(db, parsed.inPath);
         process.stdout.write(`${projectId}\n`);
@@ -260,6 +275,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'legacy-upgrade': {
       try {
+        printBoard(parsed.dataDir);
         const result = await runLegacyUpgrade({
           from: parsed.from,
           dataDir: parsed.dataDir,
@@ -333,6 +349,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'doctor': {
       try {
+        printBoard(parsed.dataDir);
         const repoDir = resolveRepoDir(parsed.repoDir);
         const shouldCheckBinding =
           parsed.repoDir !== undefined || existsSync(join(repoDir, '.plandesk', 'config.json'));
@@ -398,6 +415,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'push': {
       try {
+        printBoard(parsed.dataDir);
         const repoDir = resolveRepoDir(parsed.repoDir);
         const { db } = await openWorkspace(parsed.dataDir);
         const result = await runPush(db, {
@@ -426,6 +444,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'pull': {
       try {
+        printBoard(parsed.dataDir);
         const repoDir = resolveRepoDir(parsed.repoDir);
         const { db } = await openWorkspace(parsed.dataDir);
         const result = await runPull(db, { repoDir, projectId: parsed.projectId });

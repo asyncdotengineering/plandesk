@@ -9,7 +9,7 @@ import {
   runBetterAuthMigrations,
 } from '@plandesk/api';
 import { createDb, migrate } from '@plandesk/db';
-import { DEFAULT_PORT, resolveInitDataDir, workspaceDbPath } from './args.js';
+import { DEFAULT_PORT, resolveBoard, workspaceDbPath } from './args.js';
 import { appendGitignoreLine, readWorkspaceJson, writeWorkspaceJson } from './connect-artifacts.js';
 
 export const BETTER_AUTH_SECRET_FILE = 'better-auth-secret';
@@ -45,7 +45,7 @@ export async function runInit(
   dataDirOverride?: string,
   options: RunInitOptions = {},
 ): Promise<string> {
-  const dataDir = resolveInitDataDir(dataDirOverride, options.localDb === true);
+  const { dataDir } = resolveBoard({ override: dataDirOverride, localDb: options.localDb === true });
   mkdirSync(dataDir, { recursive: true });
   const betterAuthSecret = ensureLocalBetterAuthSecret(dataDir);
   const dbPath = workspaceDbPath(dataDir);

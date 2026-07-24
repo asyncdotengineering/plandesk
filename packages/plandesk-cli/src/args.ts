@@ -59,45 +59,50 @@ export function findLocalWorkspaceDir(startDir: string): string | undefined {
   }
 }
 
+export type BoardSource = 'flag' | 'env' | 'shadow' | 'default';
+
+export type ResolvedBoard = {
+  dataDir: string;
+  source: BoardSource;
+};
+
 /**
- * Resolve the data directory for commands that read an existing workspace
- * (serve, token, export, import, etc.).
- * Priority: explicit override → PLANDESK_DATA_DIR env → nearest repo-local
- * workspace.db walking up from startDir (defaults to cwd) → ~/.plandesk.
+ * Single source of truth for which board (data-dir) a command operates on.
+ * Every board-touching command (init, serve, doctor, legacy-upgrade,
+ * export/import/push/pull) resolves through this one function so they always
+ * agree on the same board in the same repo.
+ *
+ * Precedence: explicit override (`--data-dir`) → `PLANDESK_DATA_DIR` env →
+ * `--local-db` (forces `<startDir>/.plandesk`) → nearest repo-local
+ * workspace.db walking up from startDir (defaults to cwd) → `~/.plandesk`.
  */
-export function resolveDataDir(override?: string, startDir?: string): string {
-  if (override !== undefined) {
-    return override;
+export function resolveBoard(
+  opts: { override?: string; localDb?: boolean; startDir?: string } = {},
+): ResolvedBoard {
+  if (opts.override !== undefined) {
+    return { dataDir: opts.override, source: 'flag' };
   }
   const fromEnv = process.env['PLANDESK_DATA_DIR'];
   if (fromEnv !== undefined && fromEnv.trim() !== '') {
-    return fromEnv;
+    return { dataDir: fromEnv, source: 'env' };
   }
-  const local = findLocalWorkspaceDir(startDir ?? process.cwd());
+  if (opts.localDb === true) {
+    return { dataDir: join(opts.startDir ?? process.cwd(), PLANDESK_DIR), source: 'flag' };
+  }
+  const local = findLocalWorkspaceDir(opts.startDir ?? process.cwd());
   if (local !== undefined) {
-    return local;
+    return { dataDir: local, source: 'shadow' };
   }
-  return defaultDataDir();
+  return { dataDir: defaultDataDir(), source: 'default' };
 }
 
 /**
- * Resolve the data directory for `plandesk init`.
- * Default is the machine-global board (~/.plandesk). Pass localDb=true
- * (`--local-db`) for an opt-in repo-local workspace at ./.plandesk.
- * Priority: explicit override → PLANDESK_DATA_DIR env → local or global.
+ * Resolve the data directory for commands that read an existing workspace
+ * (serve, token, export, import, etc.). Thin projection over `resolveBoard`
+ * for call sites that only need the path, not the source.
  */
-export function resolveInitDataDir(override?: string, localDb = false): string {
-  if (override !== undefined) {
-    return override;
-  }
-  const fromEnv = process.env['PLANDESK_DATA_DIR'];
-  if (fromEnv !== undefined && fromEnv.trim() !== '') {
-    return fromEnv;
-  }
-  if (localDb) {
-    return join(process.cwd(), PLANDESK_DIR);
-  }
-  return defaultDataDir();
+export function resolveDataDir(override?: string, startDir?: string): string {
+  return resolveBoard({ override, startDir }).dataDir;
 }
 
 export function isLoopbackHost(host: string): boolean {
