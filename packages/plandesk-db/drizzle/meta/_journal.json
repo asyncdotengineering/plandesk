@@ -22,6 +22,13 @@
       "when": 1784386851159,
       "tag": "0002_ws_share",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784400000000,
+      "tag": "0003_poly_edges",
+      "breakpoints": true
     }
   ]
 }

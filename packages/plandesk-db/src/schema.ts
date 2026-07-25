@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   blob,
+  index,
   integer,
   primaryKey,
   real,
@@ -21,6 +22,32 @@ export type AgentRunStatus = (typeof agentRunStatuses)[number];
 
 export const commentTargetTypes = ['document', 'task', 'note', 'submission', 'artifact'] as const;
 export type CommentTargetType = (typeof commentTargetTypes)[number];
+
+/** Polymorphic edge endpoint kinds. Note/artifact are reachable later; no caller yet. */
+export const linkEntityTypes = ['task', 'document'] as const;
+export type LinkEntityType = (typeof linkEntityTypes)[number];
+
+/**
+ * Edge relationship labels (vocabulary only — column stays free text).
+ * Task→task: blocks, depends_on, unblocks, feeds, clarifies, enables, supports, relates
+ * Document→task: documents
+ * Document→document: references, supersedes, extends
+ */
+export const edgeLabels = [
+  'blocks',
+  'depends_on',
+  'unblocks',
+  'feeds',
+  'clarifies',
+  'enables',
+  'supports',
+  'relates',
+  'documents',
+  'references',
+  'supersedes',
+  'extends',
+] as const;
+export type EdgeLabel = (typeof edgeLabels)[number];
 
 export const orgRoles = ['owner', 'admin', 'member'] as const;
 export type OrgRole = (typeof orgRoles)[number];
@@ -92,24 +119,37 @@ export const tasks = sqliteTable('tasks', {
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
 });
 
-export const edges = sqliteTable('edges', {
-  id: text('id').primaryKey(),
-  projectId: text('project_id')
-    .notNull()
-    .references(() => projects.id),
-  fromTaskId: text('from_task_id')
-    .notNull()
-    .references(() => tasks.id),
-  toTaskId: text('to_task_id')
-    .notNull()
-    .references(() => tasks.id),
-  label: text('label'),
-  arrowDirection: text('arrow_direction'),
-  style: text('style'),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' })
-    .notNull()
-    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
-});
+export const edges = sqliteTable(
+  'edges',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    // Task-only pair kept for expand; contract step drops them once readers move.
+    fromTaskId: text('from_task_id')
+      .notNull()
+      .references(() => tasks.id),
+    toTaskId: text('to_task_id')
+      .notNull()
+      .references(() => tasks.id),
+    // Polymorphic pair (nullable until contract backfill + writers land).
+    fromType: text('from_type', { enum: linkEntityTypes }),
+    fromId: text('from_id'),
+    toType: text('to_type', { enum: linkEntityTypes }),
+    toId: text('to_id'),
+    label: text('label'),
+    arrowDirection: text('arrow_direction'),
+    style: text('style'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  },
+  (table) => [
+    index('edges_project_from_idx').on(table.projectId, table.fromType, table.fromId),
+    index('edges_project_to_idx').on(table.projectId, table.toType, table.toId),
+  ],
+);
 
 export const folders = sqliteTable('folders', {
   id: text('id').primaryKey(),
