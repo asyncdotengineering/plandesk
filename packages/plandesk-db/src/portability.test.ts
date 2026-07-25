@@ -121,18 +121,18 @@ function toComparable(exported: PlandeskExportV1): ComparableExport {
       .map((tag) => ({ name: tag.name, color: tag.color })),
     edges: [...exported.edges]
       .sort((a, b) => {
-        const fromA = taskLabelById.get(a.from_task_id) ?? '';
-        const fromB = taskLabelById.get(b.from_task_id) ?? '';
+        const fromA = taskLabelById.get(a.from_task_id ?? '') ?? '';
+        const fromB = taskLabelById.get(b.from_task_id ?? '') ?? '';
         if (fromA !== fromB) {
           return fromA.localeCompare(fromB);
         }
-        const toA = taskLabelById.get(a.to_task_id) ?? '';
-        const toB = taskLabelById.get(b.to_task_id) ?? '';
+        const toA = taskLabelById.get(a.to_task_id ?? '') ?? '';
+        const toB = taskLabelById.get(b.to_task_id ?? '') ?? '';
         return toA.localeCompare(toB);
       })
       .map((edge) => ({
-        from_label: taskLabelById.get(edge.from_task_id) ?? edge.from_task_id,
-        to_label: taskLabelById.get(edge.to_task_id) ?? edge.to_task_id,
+        from_label: taskLabelById.get(edge.from_task_id ?? '') ?? '',
+        to_label: taskLabelById.get(edge.to_task_id ?? '') ?? '',
         label: edge.label,
         arrow_direction: edge.arrow_direction,
         style: edge.style,

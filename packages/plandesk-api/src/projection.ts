@@ -113,11 +113,15 @@ export async function buildClientView(
       }
       const fromId = edge.fromId ?? edge.fromTaskId;
       const toId = edge.toId ?? edge.toTaskId;
+      if (fromId === null || toId === null) {
+        return false;
+      }
       return sharedTaskIds.has(fromId) && sharedTaskIds.has(toId);
     })
     .map((edge) => {
-      const fromId = edge.fromId ?? edge.fromTaskId;
-      const toId = edge.toId ?? edge.toTaskId;
+      // Non-null by the filter above: a task→task edge in sharedTaskIds.
+      const fromId = edge.fromId ?? edge.fromTaskId ?? '';
+      const toId = edge.toId ?? edge.toTaskId ?? '';
       return {
         id: edge.id,
         from: fromId,

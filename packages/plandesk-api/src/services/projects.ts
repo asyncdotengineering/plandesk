@@ -508,7 +508,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
           )
           .map((edge) => {
             const toType = edge.toType ?? 'task';
-            const toId = edge.toId ?? edge.toTaskId;
+            const toId = edge.toId ?? edge.toTaskId ?? '';
             const title =
               toType === 'task'
                 ? (taskRows.find((t) => t.id === toId)?.label ?? toId)
@@ -527,7 +527,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
           )
           .map((edge) => {
             const fromType = edge.fromType ?? 'task';
-            const fromId = edge.fromId ?? edge.fromTaskId;
+            const fromId = edge.fromId ?? edge.fromTaskId ?? '';
             const title =
               fromType === 'task'
                 ? (taskRows.find((t) => t.id === fromId)?.label ?? fromId)

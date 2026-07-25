@@ -119,12 +119,23 @@ function edgeToType(edge: Edge): LinkEntityType {
   return edge.toType ?? 'task';
 }
 
+// Every edge has both endpoints: fromId/toId are backfilled for pre-existing
+// rows and written for new ones, with the legacy task pair as the fallback for
+// task→task. A row with neither is corrupt, not merely unmigrated.
 function edgeFromId(edge: Edge): string {
-  return edge.fromId ?? edge.fromTaskId;
+  const id = edge.fromId ?? edge.fromTaskId;
+  if (id === null) {
+    throw new Error(`Edge ${edge.id} has no from endpoint`);
+  }
+  return id;
 }
 
 function edgeToId(edge: Edge): string {
-  return edge.toId ?? edge.toTaskId;
+  const id = edge.toId ?? edge.toTaskId;
+  if (id === null) {
+    throw new Error(`Edge ${edge.id} has no to endpoint`);
+  }
+  return id;
 }
 
 /**

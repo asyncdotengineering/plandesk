@@ -49,8 +49,8 @@ describe('checkout-revamp dogfood fixture', () => {
 
     const taskLabelById = new Map(tasks.map((task) => [task.id, task.label]));
     const edgeSignatures = edges.map((edge) => ({
-      from: taskLabelById.get(edge.fromTaskId),
-      to: taskLabelById.get(edge.toTaskId),
+      from: taskLabelById.get(edge.fromTaskId ?? ''),
+      to: taskLabelById.get(edge.toTaskId ?? ''),
       label: edge.label,
     }));
 

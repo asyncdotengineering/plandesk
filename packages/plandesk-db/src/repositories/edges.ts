@@ -53,8 +53,8 @@ function resolveEdgeColumns(input: NewEdge): {
   fromId: string;
   toType: LinkEntityType;
   toId: string;
-  fromTaskId: string;
-  toTaskId: string;
+  fromTaskId: string | null;
+  toTaskId: string | null;
 } {
   const fromType: LinkEntityType | undefined =
     input.fromType ?? (input.fromTaskId !== undefined ? 'task' : undefined);
@@ -83,45 +83,17 @@ function resolveEdgeColumns(input: NewEdge): {
     };
   }
 
-  // Transitional FK scaffold — never put a document id into the task pair.
-  if (fromType === 'task') {
-    return {
-      fromType,
-      fromId,
-      toType,
-      toId,
-      fromTaskId: fromId,
-      toTaskId: fromId,
-    };
-  }
-  if (toType === 'task') {
-    return {
-      fromType,
-      fromId,
-      toType,
-      toId,
-      fromTaskId: toId,
-      toTaskId: toId,
-    };
-  }
-
-  // document→document: both legacy columns need a real task FK target. Reuse
-  // the expand self-edge shape is impossible without a task id. Callers must
-  // supply a scaffold via fromTaskId/toTaskId, or wait for the contract drop.
-  if (input.fromTaskId !== undefined && input.toTaskId !== undefined) {
-    return {
-      fromType,
-      fromId,
-      toType,
-      toId,
-      fromTaskId: input.fromTaskId,
-      toTaskId: input.toTaskId,
-    };
-  }
-
-  throw new Error(
-    'document→document edges require transitional fromTaskId/toTaskId scaffold until legacy columns are dropped',
-  );
+  // Any document endpoint: the legacy pair names no task, so it stays null.
+  // Inventing a task id here would write a meaningless value that old readers
+  // render as a self-edge on an unrelated task.
+  return {
+    fromType,
+    fromId,
+    toType,
+    toId,
+    fromTaskId: null,
+    toTaskId: null,
+  };
 }
 
 export async function createEdge(db: DbClient, input: NewEdge): Promise<Edge> {

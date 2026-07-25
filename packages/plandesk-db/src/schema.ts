@@ -127,12 +127,10 @@ export const edges = sqliteTable(
       .notNull()
       .references(() => projects.id),
     // Task-only pair kept for expand; contract step drops them once readers move.
-    fromTaskId: text('from_task_id')
-      .notNull()
-      .references(() => tasks.id),
-    toTaskId: text('to_task_id')
-      .notNull()
-      .references(() => tasks.id),
+    // Nullable: a document→document edge has no task to name, and inventing one
+    // would write a meaningless id that old readers render as a task self-edge.
+    fromTaskId: text('from_task_id').references(() => tasks.id),
+    toTaskId: text('to_task_id').references(() => tasks.id),
     // Polymorphic pair (nullable until contract backfill + writers land).
     fromType: text('from_type', { enum: linkEntityTypes }),
     fromId: text('from_id'),

@@ -98,7 +98,7 @@ describe('typed edge service', () => {
     });
   });
 
-  it('creates a task→document edge writing typed columns without dual-writing the document into legacy', async () => {
+  it('creates a task→document edge with typed columns and a null legacy task pair', async () => {
     const task = await createTask(db, { projectId: projectAId, label: 'Task' });
     const doc = await createDocument(db, { projectId: projectAId, title: 'Doc' });
 
@@ -121,12 +121,12 @@ describe('typed edge service', () => {
       toType: 'document',
       toId: doc.id,
     });
-    // Legacy pair is the transitional self-edge scaffold on the task endpoint —
-    // never the document id.
-    expect(row?.fromTaskId).toBe(task.id);
-    expect(row?.toTaskId).toBe(task.id);
-    expect(row?.fromTaskId).not.toBe(doc.id);
-    expect(row?.toTaskId).not.toBe(doc.id);
+    // An edge with a document endpoint names no task pair, so both legacy
+    // columns are null. Writing the task id into to_task_id would assert a
+    // task→task relationship that does not exist, and any consumer joining on
+    // those columns would see a phantom edge. Never the document id either.
+    expect(row?.fromTaskId).toBeNull();
+    expect(row?.toTaskId).toBeNull();
   });
 
   it('refuses create when to is a document in another project (workspace B stand-in)', async () => {

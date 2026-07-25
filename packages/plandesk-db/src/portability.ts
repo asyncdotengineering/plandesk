@@ -35,6 +35,7 @@ import {
   type ArtifactKind,
   type CommentTargetType,
   type GoalStatus,
+  type LinkEntityType,
   type TaskStatus,
 } from './schema.js';
 
@@ -86,8 +87,17 @@ export type PlandeskExportV1Tag = {
 
 export type PlandeskExportV1Edge = {
   id: string;
-  from_task_id: string;
-  to_task_id: string;
+  /** Null for a document→document edge, which names no task. */
+  from_task_id: string | null;
+  to_task_id: string | null;
+  /**
+   * Polymorphic endpoints. Absent in exports written before links spanned
+   * documents; the importer falls back to the task pair for those.
+   */
+  from_type?: string | null;
+  from_id?: string | null;
+  to_type?: string | null;
+  to_id?: string | null;
   label: string | null;
   arrow_direction: string | null;
   style: string | null;
@@ -283,6 +293,31 @@ function remapId(idMap: Map<string, string>, oldId: string | null): string | nul
   return mapped;
 }
 
+/**
+ * Remap a polymorphic edge endpoint through the id map for its own type.
+ * Returns undefined when the export predates polymorphic links, so the caller
+ * can fall back to the task pair.
+ */
+/** Narrow an exported endpoint type to the column's enum, rejecting anything else. */
+function toLinkEntityType(value: string | null | undefined): LinkEntityType | null {
+  return value === 'task' || value === 'document' ? value : null;
+}
+
+function remapEndpointId(
+  type: string | null | undefined,
+  id: string | null | undefined,
+  taskIdMap: Map<string, string>,
+  documentIdMap: Map<string, string>,
+): string | null | undefined {
+  if (type === undefined || type === null || id === undefined || id === null) {
+    return undefined;
+  }
+  if (type === 'document') {
+    return remapId(documentIdMap, id);
+  }
+  return remapId(taskIdMap, id);
+}
+
 export async function exportProject(
   db: DbClient,
   projectId: string,
@@ -349,6 +384,10 @@ export async function exportProject(
       id: edge.id,
       from_task_id: edge.fromTaskId,
       to_task_id: edge.toTaskId,
+      from_type: edge.fromType,
+      from_id: edge.fromId,
+      to_type: edge.toType,
+      to_id: edge.toId,
       label: edge.label,
       arrow_direction: edge.arrowDirection,
       style: edge.style,
@@ -616,8 +655,18 @@ export async function importProject(
       root.insert(edges).values({
         id: remapId(edgeIdMap, edge.id) ?? edge.id,
         projectId,
-        fromTaskId: remapId(taskIdMap, edge.from_task_id) ?? edge.from_task_id,
-        toTaskId: remapId(taskIdMap, edge.to_task_id) ?? edge.to_task_id,
+        fromTaskId:
+          edge.from_task_id === null
+            ? null
+            : (remapId(taskIdMap, edge.from_task_id) ?? edge.from_task_id),
+        toTaskId:
+          edge.to_task_id === null ? null : (remapId(taskIdMap, edge.to_task_id) ?? edge.to_task_id),
+        // Remap by endpoint type. An export predating polymorphic links carries
+        // neither field; fall back to the task pair so those imports still land.
+        fromType: toLinkEntityType(edge.from_type ?? (edge.from_task_id === null ? null : 'task')),
+        fromId: remapEndpointId(edge.from_type, edge.from_id, taskIdMap, documentIdMap) ?? remapId(taskIdMap, edge.from_task_id),
+        toType: toLinkEntityType(edge.to_type ?? (edge.to_task_id === null ? null : 'task')),
+        toId: remapEndpointId(edge.to_type, edge.to_id, taskIdMap, documentIdMap) ?? remapId(taskIdMap, edge.to_task_id),
         label: edge.label,
         arrowDirection: edge.arrow_direction,
         style: edge.style,

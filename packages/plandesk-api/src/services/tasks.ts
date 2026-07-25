@@ -71,7 +71,8 @@ function prerequisiteAndDependent(
   }
   const fromId = edge.fromId ?? edge.fromTaskId;
   const toId = edge.toId ?? edge.toTaskId;
-  if (fromId === toId) {
+  // A self-edge sequences nothing; nor does an edge missing an endpoint.
+  if (fromId === null || toId === null || fromId === toId) {
     return undefined;
   }
   if (edge.label === 'depends_on') {
