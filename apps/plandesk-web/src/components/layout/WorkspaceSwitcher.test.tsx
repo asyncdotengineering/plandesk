@@ -36,7 +36,7 @@ function ok(body: unknown) {
 }
 
 function stubFetch(opts: {
-  session?: typeof sessionOwner;
+  session?: typeof sessionOwner | typeof sessionMember;
   workspaces?: typeof workspacesDefault;
   created?: { id: string; name: string };
 } = {}) {

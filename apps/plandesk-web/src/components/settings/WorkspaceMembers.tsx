@@ -32,7 +32,8 @@ export function WorkspaceMembers() {
   const session = useAuthSession();
   const role = session.data?.role;
   const isOwner = role === 'owner';
-  const canInvite = role === 'owner' || role === 'admin';
+  // Org roles are the ladder in api.orgRoles; owners and managers may invite.
+  const canInvite = role === 'owner' || role === 'manager';
   const orgId = session.data?.org?.id;
   const activeWorkspaceId = session.data?.active_workspace?.id;
   const activeWorkspaceName = session.data?.active_workspace?.name;

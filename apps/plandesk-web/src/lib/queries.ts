@@ -17,6 +17,7 @@ import {
   deleteWorkspace,
   getGoal,
   deleteComment,
+  createEdge,
   deleteDocument,
   deleteEdge,
   deleteFolder,
@@ -39,6 +40,7 @@ import {
   listProjects,
   listSubmissions,
   listTags,
+  listTaskBacklinks,
   listTasks,
   listWorkspaceMembers,
   addWorkspaceMember,
@@ -60,6 +62,7 @@ import {
   type CommentTarget,
   type CommentTargetType,
   type CreateCommentInput,
+  type CreateEdgeInput,
   type InviteRole,
   type CreateGoalInput,
   type CreateDocumentInput,
@@ -99,6 +102,7 @@ export const queryKeys = {
   comments: (targetType: CommentTargetType, targetId: string) =>
     [`${targetType}s`, targetId, 'comments'] as const,
   taskDocument: (taskId: string) => ['tasks', taskId, 'document'] as const,
+  taskBacklinks: (taskId: string) => ['tasks', taskId, 'backlinks'] as const,
 
   agentRuns: (projectId: string) => ['projects', projectId, 'agent-runs'] as const,
   submissions: (projectId: string, status?: SubmissionStatus) =>
@@ -448,12 +452,34 @@ export function useDeleteComment(target: CommentTarget) {
   });
 }
 
+function invalidateEdgeQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  projectId: string,
+) {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(projectId) });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.documents(projectId) });
+  // Document detail payloads carry derived links/backlinks; any edge change
+  // can rewrite those arrays, so invalidate the whole documents namespace.
+  void queryClient.invalidateQueries({ queryKey: ['documents'] });
+  void queryClient.invalidateQueries({ queryKey: ['tasks'] });
+}
+
+export function useCreateEdge(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateEdgeInput) => createEdge(projectId, input),
+    onSuccess: () => {
+      invalidateEdgeQueries(queryClient, projectId);
+    },
+  });
+}
+
 export function useDeleteEdge(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (edgeId: string) => deleteEdge(projectId, edgeId),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(projectId) });
+      invalidateEdgeQueries(queryClient, projectId);
     },
   });
 }
@@ -462,6 +488,15 @@ export function useTaskDocument(taskId: string) {
   return useQuery({
     queryKey: queryKeys.taskDocument(taskId),
     queryFn: () => getTaskDocument(taskId),
+    ...liveQueryOptions,
+  });
+}
+
+export function useTaskBacklinks(taskId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.taskBacklinks(taskId ?? ''),
+    queryFn: () => listTaskBacklinks(taskId as string),
+    enabled: taskId !== undefined && taskId.length > 0,
     ...liveQueryOptions,
   });
 }

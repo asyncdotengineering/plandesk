@@ -14,6 +14,19 @@ export const edgeLabels = [
 export type EdgeLabel = (typeof edgeLabels)[number];
 export const DEFAULT_EDGE_LABEL: EdgeLabel = 'depends_on';
 
+/** Labels preferred when the edge source is a document. */
+export const documentEdgeLabels = [
+  'documents',
+  'references',
+  'supersedes',
+  'extends',
+] as const;
+export type DocumentEdgeLabel = (typeof documentEdgeLabels)[number];
+export const DEFAULT_DOCUMENT_EDGE_LABEL: DocumentEdgeLabel = 'documents';
+
+export const linkEntityTypes = ['task', 'document'] as const;
+export type LinkEntityType = (typeof linkEntityTypes)[number];
+
 export type TaskStatusSummary = Record<TaskStatus, number>;
 
 /** Mirrors the org role ladder the API enforces (low → high). */
@@ -62,12 +75,26 @@ export type SerializedTask = {
 export type SerializedEdge = {
   id: string;
   project_id: string;
-  from_task_id: string;
-  to_task_id: string;
+  from_type: LinkEntityType;
+  from_id: string;
+  to_type: LinkEntityType;
+  to_id: string;
+  /** Nullable when either endpoint is a document. */
+  from_task_id: string | null;
+  to_task_id: string | null;
   label: string | null;
   arrow_direction: string | null;
   style: string | null;
   created_at: string;
+};
+
+/** One graph neighbour of a document (or a task, via the backlinks read path). */
+export type SerializedEntityLink = {
+  type: LinkEntityType;
+  id: string;
+  title: string;
+  label: string | null;
+  edge_id: string;
 };
 
 export type SerializedDocument = {
@@ -78,7 +105,10 @@ export type SerializedDocument = {
   status_line: string | null;
   parent_id: string | null;
   folder_id: string | null;
-  linked_task_id: string | null;
+  /** Outgoing edges from this document. */
+  links: SerializedEntityLink[];
+  /** Incoming edges to this document. */
+  backlinks: SerializedEntityLink[];
   created_at: string;
   updated_at: string;
 };
@@ -171,7 +201,6 @@ export type CreateDocumentInput = {
   status_line?: string | null;
   parent_id?: string | null;
   folder_id?: string | null;
-  linked_task_id?: string | null;
 };
 
 export type PatchDocumentInput = {
@@ -180,7 +209,16 @@ export type PatchDocumentInput = {
   status_line?: string | null;
   parent_id?: string | null;
   folder_id?: string | null;
-  linked_task_id?: string | null;
+};
+
+export type CreateEdgeInput = {
+  from_type: LinkEntityType;
+  from_id: string;
+  to_type: LinkEntityType;
+  to_id: string;
+  label?: string | null;
+  style?: string | null;
+  arrow_direction?: string | null;
 };
 
 export type CreateFolderInput = {
@@ -498,8 +536,19 @@ export function deleteComment(id: string): Promise<void> {
   return request(`/comments/${id}`, { method: 'DELETE' });
 }
 
+export function createEdge(projectId: string, input: CreateEdgeInput): Promise<SerializedEdge> {
+  return request(`/projects/${projectId}/edges`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
 export function deleteEdge(projectId: string, edgeId: string): Promise<void> {
   return request(`/projects/${projectId}/edges/${edgeId}`, { method: 'DELETE' });
+}
+
+export function listTaskBacklinks(taskId: string): Promise<SerializedEntityLink[]> {
+  return request(`/tasks/${taskId}/backlinks`);
 }
 
 export function getTaskDocument(taskId: string): Promise<SerializedDocument> {
@@ -623,7 +672,6 @@ export type SerializedSubmission = {
   severity: string | null;
   task_ref: string | null;
   status: SubmissionStatus;
-  linked_task_id: string | null;
   created_at: string;
   pulled_at: string;
 };

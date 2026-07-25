@@ -23,13 +23,19 @@ import { RichTextEditor } from '../editor/RichTextEditor.js';
 import { flattenDocumentTree } from '../docs/DocumentsPanel.js';
 import { useDocuments } from '../../lib/queries.js';
 import { CommentsPanel } from '../docs/CommentsPanel.js';
-import type { PatchTaskInput, SerializedDocument, SerializedTag, SerializedTask, TaskStatus } from '../../lib/api.js';
+import type { PatchTaskInput, SerializedTag, SerializedTask, TaskStatus } from '../../lib/api.js';
 import { laneFromTags, LANE_TAG_PREFIX } from './board-utils.js';
 import { StatusMenu } from './StatusChip.js';
 
+type LinkedDocRef = {
+  id: string;
+  title: string;
+  project_id: string;
+};
+
 type TaskDrawerProps = {
   task: SerializedTask | null;
-  linkedDoc?: SerializedDocument;
+  linkedDocs?: LinkedDocRef[];
   tagSuggestions: string[];
   open: boolean;
   isSaving?: boolean;
@@ -42,7 +48,7 @@ type TaskDrawerProps = {
 
 export function TaskDrawer({
   task,
-  linkedDoc,
+  linkedDocs = [],
   tagSuggestions,
   open,
   isSaving = false,
@@ -65,7 +71,7 @@ export function TaskDrawer({
         {task !== null ? (
           <TaskDrawerBody
             task={task}
-            linkedDoc={linkedDoc}
+            linkedDocs={linkedDocs}
             tagSuggestions={tagSuggestions}
             isSaving={isSaving}
             onPatch={onPatch}
@@ -84,7 +90,7 @@ export function TaskDrawer({
 
 type TaskDrawerBodyProps = {
   task: SerializedTask;
-  linkedDoc?: SerializedDocument;
+  linkedDocs: LinkedDocRef[];
   tagSuggestions: string[];
   isSaving: boolean;
   onPatch: (input: PatchTaskInput) => void;
@@ -96,7 +102,7 @@ type TaskDrawerBodyProps = {
 
 function TaskDrawerBody({
   task,
-  linkedDoc,
+  linkedDocs,
   tagSuggestions,
   isSaving,
   onPatch,
@@ -246,19 +252,24 @@ function TaskDrawerBody({
               </span>
             )}
           </dd>
-          {linkedDoc !== undefined ? (
+          {linkedDocs.length > 0 ? (
             <>
-              <dt className="text-muted-foreground">Linked doc</dt>
-              <dd>
-                <Link
-                  to="/projects/$id/documents/$docId"
-                  params={{ id: linkedDoc.project_id, docId: linkedDoc.id }}
-                  onClick={onClose}
-                  className="inline-flex items-center gap-1.5 font-medium text-foreground hover:underline"
-                >
-                  <FileTextIcon className="size-3.5 text-muted-foreground" />
-                  {linkedDoc.title}
-                </Link>
+              <dt className="text-muted-foreground">
+                {linkedDocs.length === 1 ? 'Linked doc' : 'Linked docs'}
+              </dt>
+              <dd className="flex flex-col gap-1">
+                {linkedDocs.map((doc) => (
+                  <Link
+                    key={doc.id}
+                    to="/projects/$id/documents/$docId"
+                    params={{ id: doc.project_id, docId: doc.id }}
+                    onClick={onClose}
+                    className="inline-flex items-center gap-1.5 font-medium text-foreground hover:underline"
+                  >
+                    <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{doc.title}</span>
+                  </Link>
+                ))}
               </dd>
             </>
           ) : null}

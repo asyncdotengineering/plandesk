@@ -11,7 +11,16 @@ const sampleDocument: SerializedDocument = {
   status_line: 'Status: draft',
   parent_id: null,
   folder_id: null,
-  linked_task_id: 'task-1',
+  links: [
+    {
+      type: 'task',
+      id: 'task-1',
+      title: 'Implement',
+      label: 'documents',
+      edge_id: 'edge-1',
+    },
+  ],
+  backlinks: [],
   created_at: '2026-06-07T00:00:00.000Z',
   updated_at: '2026-06-07T00:00:00.000Z',
 };

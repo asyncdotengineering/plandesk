@@ -36,7 +36,6 @@ const pendingSubmission = {
   severity: 'high',
   task_ref: null,
   status: 'pending',
-  linked_task_id: null,
   created_at: '2026-07-04T12:00:00.000Z',
   pulled_at: '2026-07-04T12:01:00.000Z',
 };
@@ -105,7 +104,7 @@ function routeFetch(url: string, init?: RequestInit) {
     return jsonResponse([backlogTask, proposalTask]);
   }
   if (url.match(/\/submissions\/sub-1\/triage$/) && method === 'POST') {
-    return jsonResponse({ ...pendingSubmission, status: 'accepted', linked_task_id: 'task-new' });
+    return jsonResponse({ ...pendingSubmission, status: 'accepted' });
   }
   if (url.match(/\/submissions\/sub-1\/comments$/) && method === 'GET') {
     return jsonResponse([]);
