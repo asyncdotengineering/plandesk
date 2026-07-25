@@ -374,9 +374,19 @@ export function buildFolderTree(
 }
 
 export function serializeEdge(edge: Edge) {
+  // Prefer typed columns; fall back to the task pair for pre-dual-write rows.
+  const fromType = edge.fromType ?? 'task';
+  const fromId = edge.fromId ?? edge.fromTaskId;
+  const toType = edge.toType ?? 'task';
+  const toId = edge.toId ?? edge.toTaskId;
   return {
     id: edge.id,
     project_id: edge.projectId,
+    from_type: fromType,
+    from_id: fromId,
+    to_type: toType,
+    to_id: toId,
+    // Legacy fields kept for MCP/web callers that still read task-shaped edges.
     from_task_id: edge.fromTaskId,
     to_task_id: edge.toTaskId,
     label: edge.label,

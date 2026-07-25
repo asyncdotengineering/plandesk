@@ -59,56 +59,56 @@ import { createTeamForOrg } from './identity.js';
 import { createApp } from './server.js';
 import { createServices, type Services } from './services/index.js';
 import { parseJson } from './test-helpers.js';
-import { createAddArtifactCommentHandler } from '../../plandesk-mcp/src/tools/add-artifact-comment.js';
-import { createAddCommentHandler } from '../../plandesk-mcp/src/tools/add-comment.js';
-import { createAttachFileHandler } from '../../plandesk-mcp/src/tools/attach-file.js';
-import { createClaimTaskHandler } from '../../plandesk-mcp/src/tools/claim-task.js';
-import { createCompleteAgentRunHandler } from '../../plandesk-mcp/src/tools/complete-agent-run.js';
-import { createCreateArtifactHandler } from '../../plandesk-mcp/src/tools/create-artifact.js';
-import { createCreateDocumentHandler } from '../../plandesk-mcp/src/tools/create-document.js';
-import { createCreateEdgeHandler } from '../../plandesk-mcp/src/tools/create-edge.js';
-import { createCreateFolderHandler } from '../../plandesk-mcp/src/tools/create-folder.js';
-import { createCreateGoalHandler } from '../../plandesk-mcp/src/tools/create-goal.js';
-import { createCreateNoteHandler } from '../../plandesk-mcp/src/tools/create-note.js';
-import { createCreateProjectHandler } from '../../plandesk-mcp/src/tools/create-project.js';
-import { createCreateShareLinkHandler } from '../../plandesk-mcp/src/tools/create-share-link.js';
-import { createCreateTaskHandler } from '../../plandesk-mcp/src/tools/create-task.js';
-import { createDeleteEdgeHandler } from '../../plandesk-mcp/src/tools/delete-edge.js';
-import { createGetArtifactHandler } from '../../plandesk-mcp/src/tools/get-artifact.js';
-import { createGetDocumentHandler } from '../../plandesk-mcp/src/tools/get-document.js';
-import { createGetGoalHandler } from '../../plandesk-mcp/src/tools/get-goal.js';
-import { createGetNextTaskHandler } from '../../plandesk-mcp/src/tools/get-next-task.js';
-import { createGetNoteHandler } from '../../plandesk-mcp/src/tools/get-note.js';
-import { createGetProjectHandler } from '../../plandesk-mcp/src/tools/get-project.js';
-import { createGetTaskHandler } from '../../plandesk-mcp/src/tools/get-task.js';
-import { createListArtifactCommentsHandler } from '../../plandesk-mcp/src/tools/list-artifact-comments.js';
-import { createListArtifactsHandler } from '../../plandesk-mcp/src/tools/list-artifacts.js';
-import { createListCommentsHandler } from '../../plandesk-mcp/src/tools/list-comments.js';
-import { createListDocumentsHandler } from '../../plandesk-mcp/src/tools/list-documents.js';
-import { createListEdgesHandler } from '../../plandesk-mcp/src/tools/list-edges.js';
-import { createListGoalsHandler } from '../../plandesk-mcp/src/tools/list-goals.js';
-import { createListNotesHandler } from '../../plandesk-mcp/src/tools/list-notes.js';
-import { createListProjectsHandler } from '../../plandesk-mcp/src/tools/list-projects.js';
-import { createListSubmissionsHandler } from '../../plandesk-mcp/src/tools/list-submissions.js';
-import { createListTagsHandler } from '../../plandesk-mcp/src/tools/list-tags.js';
-import { createListTasksHandler } from '../../plandesk-mcp/src/tools/list-tasks.js';
 import {
+  createAddArtifactCommentHandler,
+  createAddCommentHandler,
+  createAttachFileHandler,
+  createClaimTaskHandler,
+  createCompleteAgentRunHandler,
   createCompleteGoalHandler,
+  createCreateArtifactHandler,
+  createCreateDocumentHandler,
+  createCreateEdgeHandler,
+  createCreateFolderHandler,
+  createCreateGoalHandler,
+  createCreateNoteHandler,
+  createCreateProjectHandler,
+  createCreateShareLinkHandler,
+  createCreateTaskHandler,
+  createDeleteEdgeHandler,
+  createGetArtifactHandler,
+  createGetDocumentHandler,
+  createGetGoalHandler,
+  createGetNextTaskHandler,
+  createGetNoteHandler,
+  createGetProjectHandler,
+  createGetTaskHandler,
+  createListArtifactCommentsHandler,
+  createListArtifactsHandler,
+  createListCommentsHandler,
+  createListDocumentsHandler,
+  createListEdgesHandler,
+  createListGoalsHandler,
+  createListNotesHandler,
+  createListProjectsHandler,
+  createListSubmissionsHandler,
+  createListTagsHandler,
+  createListTasksHandler,
   createPauseGoalHandler,
+  createRecordAgentProgressHandler,
+  createResolveCommentHandler,
   createResumeGoalHandler,
-} from '../../plandesk-mcp/src/tools/goal-lifecycle.js';
-import { createRecordAgentProgressHandler } from '../../plandesk-mcp/src/tools/record-agent-progress.js';
-import { createResolveCommentHandler } from '../../plandesk-mcp/src/tools/resolve-comment.js';
-import { createScaffoldProjectFromPlanHandler } from '../../plandesk-mcp/src/tools/scaffold-project-from-plan.js';
-import { createStartAgentRunHandler } from '../../plandesk-mcp/src/tools/start-agent-run.js';
-import { createSyncPullHandler } from '../../plandesk-mcp/src/tools/sync-pull.js';
-import { createTriageSubmissionHandler } from '../../plandesk-mcp/src/tools/triage-submission.js';
-import { createUpdateArtifactHandler } from '../../plandesk-mcp/src/tools/update-artifact.js';
-import { createUpdateDocumentHandler } from '../../plandesk-mcp/src/tools/update-document.js';
-import { createUpdateFolderHandler } from '../../plandesk-mcp/src/tools/update-folder.js';
-import { createUpdateGoalHandler } from '../../plandesk-mcp/src/tools/update-goal.js';
-import { createUpdateNoteHandler } from '../../plandesk-mcp/src/tools/update-note.js';
-import { createUpdateTaskHandler } from '../../plandesk-mcp/src/tools/update-task.js';
+  createScaffoldProjectFromPlanHandler,
+  createStartAgentRunHandler,
+  createSyncPullHandler,
+  createTriageSubmissionHandler,
+  createUpdateArtifactHandler,
+  createUpdateDocumentHandler,
+  createUpdateFolderHandler,
+  createUpdateGoalHandler,
+  createUpdateNoteHandler,
+  createUpdateTaskHandler,
+} from './test-support/mcp-tool-handlers.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
 const TEST_BASE_URL = 'http://localhost:3000';
@@ -457,7 +457,10 @@ function jsonHeaders(key: string): Record<string, string> {
   return { ...bearer(key), 'Content-Type': 'application/json' };
 }
 
-function toolPayload(result: McpResult): unknown {
+function toolPayload(result: {
+  content: ReadonlyArray<{ type: string; text: string }>;
+  isError?: boolean;
+}): unknown {
   return JSON.parse(result.content[0]?.text ?? '{}') as unknown;
 }
 
@@ -766,7 +769,7 @@ async function runMcpForeignSweep(
       () =>
         createListSubmissionsHandler(
           s.syncService,
-          async (projectId) => (await s.projectService.get(projectId)) !== undefined,
+          async (projectId: string) => (await s.projectService.get(projectId)) !== undefined,
         )({ project_id: target.project.id }),
     ],
     [

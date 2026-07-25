@@ -29,9 +29,11 @@ import { createTeamForOrg } from './identity.js';
 import { createApp } from './server.js';
 import { createServices, type Services } from './services/index.js';
 import { parseJson } from './test-helpers.js';
-import { createGetTaskHandler } from '../../plandesk-mcp/src/tools/get-task.js';
-import { createListCommentsHandler } from '../../plandesk-mcp/src/tools/list-comments.js';
-import { createListSubmissionsHandler } from '../../plandesk-mcp/src/tools/list-submissions.js';
+import {
+  createGetTaskHandler,
+  createListCommentsHandler,
+  createListSubmissionsHandler,
+} from './test-support/mcp-tool-handlers.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
 const TEST_BASE_URL = 'http://localhost:3000';
@@ -531,7 +533,7 @@ describe('workspace-tier adversarial audit round 3', () => {
     // makes every Promise compare unequal to undefined.
     const handler = createListSubmissionsHandler(
       f.services.syncService,
-      (projectId) => f.services.projectService.get(projectId) !== undefined,
+      (projectId: string) => f.services.projectService.get(projectId) !== undefined,
     );
 
     const [workspaceResult, crossOrgResult] = await runWithAuthContext(

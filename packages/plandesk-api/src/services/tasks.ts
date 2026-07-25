@@ -60,16 +60,24 @@ export type ClaimTaskResult =
   | { claimed: false; reason: 'taken_or_not_actionable' };
 
 // depends_on: prerequisite = to, dependent = from. All other labels: prerequisite = from, dependent = to.
+// Only task→task edges participate in sequencing. Polymorphic / scaffold rows are ignored.
 function prerequisiteAndDependent(
   edge: Edge,
 ): { prerequisite: string; dependent: string } | undefined {
-  if (edge.fromTaskId === edge.toTaskId) {
+  const fromType = edge.fromType ?? 'task';
+  const toType = edge.toType ?? 'task';
+  if (fromType !== 'task' || toType !== 'task') {
+    return undefined;
+  }
+  const fromId = edge.fromId ?? edge.fromTaskId;
+  const toId = edge.toId ?? edge.toTaskId;
+  if (fromId === toId) {
     return undefined;
   }
   if (edge.label === 'depends_on') {
-    return { prerequisite: edge.toTaskId, dependent: edge.fromTaskId };
+    return { prerequisite: toId, dependent: fromId };
   }
-  return { prerequisite: edge.fromTaskId, dependent: edge.toTaskId };
+  return { prerequisite: fromId, dependent: toId };
 }
 
 export type TaskServiceDeps = OrgScopedDeps & {
