@@ -4,6 +4,10 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **`factory init` reclaims Plan Desk hook entries in `.claude/settings.json`.** Each shipped hook entry now carries a `_plandesk` ownership marker. `mergeCuratorHooksJson` drops every marked entry and re-inserts the current snippet set, so a path or matcher change no longer leaves a stale entry firing forever. Untagged (user) hooks are never touched. **One-time legacy sweep:** untagged entries whose `command` still contains `.agents/curator/hooks/` are also dropped so pre-marker installs converge on first run — remove that path match after one release cycle once consumers have upgraded.
+
 ### Fixed — hosted
 
 - **A hosted board now serves MCP.** The Workers entry never passed an MCP app into `createApp`, so `/mcp` was unmounted on the hosted deployment: `plandesk connect --to <org>` minted a workspace-scoped agent key and wrote an `.mcp.json` pointing at a URL that could not serve a single tool. Local `plandesk serve` was never affected (the CLI already composes both). Not an oversight — `@plandesk/mcp` imports runtime values from `@plandesk/api`, so `api` could not import `mcp` back without a dependency cycle. The Workers entry now lives in a new deploy-only package, **`@plandesk/worker`**, which depends on both and composes them, mirroring `serve.ts` on Node. Self-hosters deploying to Cloudflare now run `wrangler deploy` from `packages/plandesk-worker` (see the updated Cloudflare runbook); the worker name, bindings and asset path are unchanged. No published package changed behavior.

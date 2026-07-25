@@ -400,6 +400,45 @@ describe('connect artifacts', () => {
       },
     });
 
+    const taggedSnippet = JSON.stringify({
+      hooks: {
+        SessionStart: [
+          {
+            _plandesk: true,
+            matcher: 'startup|resume|compact',
+            hooks: [
+              {
+                type: 'command',
+                command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/session-start.sh',
+              },
+            ],
+          },
+        ],
+        Stop: [
+          {
+            _plandesk: true,
+            hooks: [
+              {
+                type: 'command',
+                command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/checkpoint.sh',
+              },
+            ],
+          },
+        ],
+        PreCompact: [
+          {
+            _plandesk: true,
+            hooks: [
+              {
+                type: 'command',
+                command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/checkpoint.sh',
+              },
+            ],
+          },
+        ],
+      },
+    });
+
     it('creates the hooks block when settings.json is absent', async () => {
       const merged = mergeCuratorHooksJson(undefined, snippet);
       const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
@@ -438,6 +477,160 @@ describe('connect artifacts', () => {
       expect(parsed.hooks.SessionStart).toHaveLength(2);
       expect(JSON.stringify(parsed.hooks.SessionStart)).toContain('echo mine');
       expect(JSON.stringify(parsed.hooks.SessionStart)).toContain('session-start.sh');
+    });
+
+    it('two consecutive merges leave exactly one Plan Desk entry per event', async () => {
+      // Same marker, different path/matcher — the case append-if-absent cannot reclaim.
+      const priorSnippet = JSON.stringify({
+        hooks: {
+          SessionStart: [
+            {
+              _plandesk: true,
+              matcher: 'startup',
+              hooks: [
+                {
+                  type: 'command',
+                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/old-session-start.sh',
+                },
+              ],
+            },
+          ],
+          Stop: [
+            {
+              _plandesk: true,
+              hooks: [
+                {
+                  type: 'command',
+                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/old-checkpoint.sh',
+                },
+              ],
+            },
+          ],
+          PreCompact: [
+            {
+              _plandesk: true,
+              hooks: [
+                {
+                  type: 'command',
+                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/old-checkpoint.sh',
+                },
+              ],
+            },
+          ],
+        },
+      });
+      const once = mergeCuratorHooksJson(undefined, priorSnippet);
+      const twice = mergeCuratorHooksJson(once, taggedSnippet);
+      const thrice = mergeCuratorHooksJson(twice, taggedSnippet);
+      expect(thrice).toBe(twice);
+      const parsed = JSON.parse(thrice) as { hooks: Record<string, unknown[]> };
+      for (const event of ['SessionStart', 'Stop', 'PreCompact'] as const) {
+        expect(parsed.hooks[event]).toHaveLength(1);
+        expect(parsed.hooks[event]![0]).toMatchObject({ _plandesk: true });
+      }
+      expect(JSON.stringify(parsed.hooks)).toContain('session-start.sh');
+      expect(JSON.stringify(parsed.hooks)).toContain('checkpoint.sh');
+      expect(JSON.stringify(parsed.hooks)).not.toContain('old-session-start.sh');
+      expect(JSON.stringify(parsed.hooks)).not.toContain('old-checkpoint.sh');
+    });
+
+    it('converges legacy untagged curator entries to the tagged shape without orphans', async () => {
+      const legacy = JSON.stringify({
+        hooks: {
+          SessionStart: [
+            {
+              matcher: 'startup|resume|compact',
+              hooks: [
+                {
+                  type: 'command',
+                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/session-start.sh',
+                },
+              ],
+            },
+          ],
+          Stop: [
+            {
+              hooks: [
+                {
+                  type: 'command',
+                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/checkpoint.sh',
+                },
+              ],
+            },
+          ],
+          PreCompact: [
+            {
+              hooks: [
+                {
+                  type: 'command',
+                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/checkpoint.sh',
+                },
+              ],
+            },
+          ],
+        },
+      });
+      const merged = mergeCuratorHooksJson(legacy, taggedSnippet);
+      const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
+      for (const event of ['SessionStart', 'Stop', 'PreCompact'] as const) {
+        expect(parsed.hooks[event]).toHaveLength(1);
+        const entry = parsed.hooks[event]![0] as { _plandesk?: boolean };
+        expect(entry._plandesk).toBe(true);
+      }
+      // No untagged orphan left: every remaining entry on these events is tagged.
+      const serialized = JSON.stringify(parsed.hooks);
+      expect((serialized.match(/session-start\.sh/g) ?? []).length).toBe(1);
+      expect((serialized.match(/checkpoint\.sh/g) ?? []).length).toBe(2);
+    });
+
+    it("preserves a user's own hook inside the same SessionStart array on replace", async () => {
+      const existing = JSON.stringify({
+        hooks: {
+          SessionStart: [
+            { hooks: [{ type: 'command', command: 'echo mine' }] },
+            {
+              _plandesk: true,
+              matcher: 'startup',
+              hooks: [
+                {
+                  type: 'command',
+                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/old-session-start.sh',
+                },
+              ],
+            },
+          ],
+        },
+      });
+      const merged = mergeCuratorHooksJson(existing, taggedSnippet);
+      const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
+      expect(parsed.hooks.SessionStart).toHaveLength(2);
+      expect(JSON.stringify(parsed.hooks.SessionStart)).toContain('echo mine');
+      expect(JSON.stringify(parsed.hooks.SessionStart)).toContain('session-start.sh');
+      expect(JSON.stringify(parsed.hooks.SessionStart)).not.toContain('old-session-start.sh');
+      const plandeskEntries = (parsed.hooks.SessionStart ?? []).filter(
+        (e) =>
+          e !== null &&
+          typeof e === 'object' &&
+          Object.prototype.hasOwnProperty.call(e, '_plandesk'),
+      );
+      expect(plandeskEntries).toHaveLength(1);
+    });
+
+    it("leaves a user's hooks on events Plan Desk does not use untouched", async () => {
+      const userOnly = [{ hooks: [{ type: 'command', command: 'echo post-tool' }] }];
+      const existing = JSON.stringify({
+        hooks: {
+          PostToolUse: userOnly,
+          Notification: [{ hooks: [{ type: 'command', command: 'echo notify' }] }],
+        },
+      });
+      const merged = mergeCuratorHooksJson(existing, taggedSnippet);
+      const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
+      expect(parsed.hooks.PostToolUse).toEqual(userOnly);
+      expect(parsed.hooks.Notification).toEqual([
+        { hooks: [{ type: 'command', command: 'echo notify' }] },
+      ]);
+      expect(parsed.hooks.SessionStart).toHaveLength(1);
     });
   });
 });

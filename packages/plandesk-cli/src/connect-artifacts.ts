@@ -351,28 +351,51 @@ export function mergeMcpJson(
   return `${JSON.stringify(doc, null, 2)}\n`;
 }
 
-// Curator hooks (F1): a `.claude/settings.json` `hooks` block, additively
-// merged from the project-local snippet. Never clobbers a user's existing
-// hooks for OTHER events, and never duplicates the curator entries on rerun —
-// each event's array keeps at most one copy of each snippet entry.
+// Curator hooks (F1): a `.claude/settings.json` `hooks` block merged from the
+// project-local snippet. Plan Desk owns entries marked `_plandesk` — on each
+// merge those are dropped and the current snippet set is re-inserted, so path
+// or matcher changes reclaim cleanly. Untagged entries are never touched,
+// except a one-time legacy sweep for pre-marker curator hook paths (see below).
 export type SettingsJson = {
   hooks?: Record<string, unknown[]>;
 };
 
-// Key order must not affect equality here — a linter, formatter, or hand
-// edit reordering an entry's keys is still the same entry, and must still be
-// recognized as a duplicate on rerun.
-function canonicalJson(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map(canonicalJson).join(',')}]`;
+// Ownership marker written on every Plan Desk hook entry in the snippet.
+// Present → drop-and-replace on merge. Absent → leave alone (user-owned).
+function isPlandeskOwnedEntry(entry: unknown): boolean {
+  return (
+    entry !== null &&
+    typeof entry === 'object' &&
+    !Array.isArray(entry) &&
+    Object.prototype.hasOwnProperty.call(entry, '_plandesk')
+  );
+}
+
+// Pre-marker path used by every shipped curator hook before ownership tags.
+// One-time migration: drop untagged entries whose command still points here so
+// a first post-upgrade `factory init` converges without leaving orphans.
+// Removable after one release cycle (see CHANGELOG).
+const LEGACY_CURATOR_HOOKS_PATH = '.agents/curator/hooks/';
+
+function entryCommandContains(entry: unknown, needle: string): boolean {
+  if (entry === null || typeof entry !== 'object') {
+    return false;
   }
-  if (value !== null && typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
-      a.localeCompare(b),
-    );
-    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`;
+  if (Array.isArray(entry)) {
+    return entry.some((item) => entryCommandContains(item, needle));
   }
-  return JSON.stringify(value);
+  const obj = entry as Record<string, unknown>;
+  if (typeof obj['command'] === 'string' && obj['command'].includes(needle)) {
+    return true;
+  }
+  return Object.values(obj).some((value) => entryCommandContains(value, needle));
+}
+
+function isLegacyUntaggedCuratorEntry(entry: unknown): boolean {
+  if (isPlandeskOwnedEntry(entry)) {
+    return false;
+  }
+  return entryCommandContains(entry, LEGACY_CURATOR_HOOKS_PATH);
 }
 
 export function mergeCuratorHooksJson(
@@ -387,14 +410,11 @@ export function mergeCuratorHooksJson(
   const hooks = doc.hooks ?? {};
   for (const [event, snippetEntries] of Object.entries(snippet.hooks ?? {})) {
     const existingEntries = hooks[event] ?? [];
-    const merged = [...existingEntries];
-    for (const entry of snippetEntries) {
-      const entryCanonical = canonicalJson(entry);
-      if (!merged.some((candidate) => canonicalJson(candidate) === entryCanonical)) {
-        merged.push(entry);
-      }
-    }
-    hooks[event] = merged;
+    // Drop Plan Desk–owned and legacy untagged curator entries, keep user hooks.
+    const kept = existingEntries.filter(
+      (entry) => !isPlandeskOwnedEntry(entry) && !isLegacyUntaggedCuratorEntry(entry),
+    );
+    hooks[event] = [...kept, ...snippetEntries];
   }
   doc.hooks = hooks;
   return `${JSON.stringify(doc, null, 2)}\n`;

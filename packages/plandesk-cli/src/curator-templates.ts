@@ -929,6 +929,7 @@ export const CURATOR_HOOKS_SETTINGS_SNIPPET_JSON = `{
   "hooks": {
     "SessionStart": [
       {
+        "_plandesk": true,
         "matcher": "startup|resume|compact",
         "hooks": [
           {
@@ -940,6 +941,7 @@ export const CURATOR_HOOKS_SETTINGS_SNIPPET_JSON = `{
     ],
     "Stop": [
       {
+        "_plandesk": true,
         "hooks": [
           {
             "type": "command",
@@ -950,6 +952,7 @@ export const CURATOR_HOOKS_SETTINGS_SNIPPET_JSON = `{
     ],
     "PreCompact": [
       {
+        "_plandesk": true,
         "hooks": [
           {
             "type": "command",
