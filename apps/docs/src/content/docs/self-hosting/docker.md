@@ -48,6 +48,32 @@ docker compose -f docker-compose.hosted.yml run --rm plandesk doctor
 
 ## Securing the server
 
+### The bind address is the trust boundary
+
+Plan Desk treats a **loopback bind** — `127.0.0.1`, `::1` or `localhost` — as proof that only this
+machine can reach it. On a loopback bind every request is the org owner, with no login at all. That
+is what makes a local board zero-setup: you run `plandesk serve`, open the browser, and it works.
+
+On any other bind address that trust is gone and better-auth does the authenticating.
+
+**So do not bind loopback and put a reverse proxy in front of it.** That shape is normally good
+practice — keep the app port off the network, terminate TLS at nginx or Caddy — but here it defeats
+the model: the server still believes only this machine can reach it, while the proxy hands the
+internet an owner session. There is no error and nothing in the UI looks wrong; the board simply has
+no access control.
+
+Two safe shapes:
+
+| | Bind | Who can reach it | Authentication |
+| --- | --- | --- | --- |
+| **Local board** | `127.0.0.1` | this machine only, no proxy | none needed — loopback is the boundary |
+| **Served board** | `0.0.0.0` | proxy or network | better-auth, and `PLANDESK_AUTH_PASSWORD` |
+
+The compose file already does the right thing: `PLANDESK_HOST` defaults to `0.0.0.0`, and the
+container's network isolation — not a loopback bind — is what keeps the port private.
+
+### Other controls
+
 - **`PLANDESK_AUTH_PASSWORD`** enables HTTP basic-auth on the UI and REST API. Set it for any host reachable beyond your own machine. Without it the server is open — fine on a trusted LAN, not for a public host.
 - **TLS** — front the container with nginx/Caddy for HTTPS. The server binds `0.0.0.0` inside the container; do the TLS termination at your reverse proxy.
 - **GitHub sign-in is optional** — omit the GitHub env/keys and the server runs with token auth only ([REQ-20](#)).
