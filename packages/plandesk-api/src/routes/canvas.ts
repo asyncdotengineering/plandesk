@@ -73,6 +73,45 @@ export function createCanvasRouter(canvasService: CanvasService): Hono {
     return c.json(edges);
   });
 
+  router.post('/projects/:id/edges', async (c) => {
+    const body = await c.req.json<{
+      from_type?: string;
+      from_id?: string;
+      to_type?: string;
+      to_id?: string;
+      from_task_id?: string;
+      to_task_id?: string;
+      label?: string | null;
+      style?: string | null;
+      arrow_direction?: string | null;
+    }>();
+
+    try {
+      const edge = await canvasService.createEdge(c.req.param('id'), {
+        ...(body.from_type !== undefined ? { fromType: body.from_type as 'task' | 'document' } : {}),
+        ...(body.from_id !== undefined ? { fromId: body.from_id } : {}),
+        ...(body.to_type !== undefined ? { toType: body.to_type as 'task' | 'document' } : {}),
+        ...(body.to_id !== undefined ? { toId: body.to_id } : {}),
+        ...(body.from_task_id !== undefined ? { fromTaskId: body.from_task_id } : {}),
+        ...(body.to_task_id !== undefined ? { toTaskId: body.to_task_id } : {}),
+        ...(body.label !== undefined ? { label: body.label } : {}),
+        ...(body.style !== undefined ? { style: body.style } : {}),
+        ...(body.arrow_direction !== undefined ? { arrowDirection: body.arrow_direction } : {}),
+      });
+
+      if (!edge) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+
+      return c.json(edge, 201);
+    } catch (error) {
+      if (error instanceof InvalidCanvasError) {
+        return c.json({ error: 'invalid_argument' }, 400);
+      }
+      throw error;
+    }
+  });
+
   router.delete('/projects/:id/edges/:edgeId', async (c) => {
     const deleted = await canvasService.deleteEdge(c.req.param('id'), c.req.param('edgeId'));
     if (!deleted) {

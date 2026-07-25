@@ -8,6 +8,7 @@ type EntityLink = {
   id: string;
   title: string;
   label: string | null;
+  edge_id: string;
 };
 
 type DocumentResponse = {
@@ -54,9 +55,16 @@ describe('documents routes', () => {
     expect(created.linked_task_id).toBe(task.id);
     expect(created.status_line).toBe('Status: draft');
     expect(created.links).toEqual([
-      { type: 'task', id: task.id, title: 'Implement', label: 'documents' },
+      {
+        type: 'task',
+        id: task.id,
+        title: 'Implement',
+        label: 'documents',
+        edge_id: expect.any(String),
+      },
     ]);
     expect(created.backlinks).toEqual([]);
+    const linkEdgeId = created.links[0]!.edge_id;
 
     const byTaskRes = await app.request(`/api/v1/tasks/${task.id}/document`);
     expect(byTaskRes.status).toBe(200);
@@ -68,7 +76,13 @@ describe('documents routes', () => {
     expect(backlinksRes.status).toBe(200);
     const backlinks = await parseJson<EntityLink[]>(backlinksRes);
     expect(backlinks).toEqual([
-      { type: 'document', id: created.id, title: 'Implementation notes', label: 'documents' },
+      {
+        type: 'document',
+        id: created.id,
+        title: 'Implementation notes',
+        label: 'documents',
+        edge_id: linkEdgeId,
+      },
     ]);
   });
 
@@ -340,35 +354,53 @@ describe('documents routes', () => {
     expect(getA.links.map((l) => l.id).sort()).toEqual(
       [t1.id, t2.id, t3.id, docB.id].sort(),
     );
-    expect(getA.links).toContainEqual({
-      type: 'document',
-      id: docB.id,
-      title: 'Doc B',
-      label: 'references',
-    });
+    expect(getA.links).toContainEqual(
+      expect.objectContaining({
+        type: 'document',
+        id: docB.id,
+        title: 'Doc B',
+        label: 'references',
+        edge_id: expect.any(String),
+      }),
+    );
 
     const getB = await parseJson<DocumentResponse>(
       await app.request(`/api/v1/documents/${docB.id}`),
     );
     expect(getB.backlinks).toEqual([
-      { type: 'document', id: docA.id, title: 'Doc A', label: 'references' },
+      expect.objectContaining({
+        type: 'document',
+        id: docA.id,
+        title: 'Doc A',
+        label: 'references',
+        edge_id: expect.any(String),
+      }),
     ]);
 
     const docBacklinks = await parseJson<EntityLink[]>(
       await app.request(`/api/v1/documents/${docB.id}/backlinks`),
     );
     expect(docBacklinks).toEqual([
-      { type: 'document', id: docA.id, title: 'Doc A', label: 'references' },
+      expect.objectContaining({
+        type: 'document',
+        id: docA.id,
+        title: 'Doc A',
+        label: 'references',
+        edge_id: expect.any(String),
+      }),
     ]);
 
     const taskBacklinks = await parseJson<EntityLink[]>(
       await app.request(`/api/v1/tasks/${t1.id}/backlinks`),
     );
-    expect(taskBacklinks).toContainEqual({
-      type: 'document',
-      id: docA.id,
-      title: 'Doc A',
-      label: 'documents',
-    });
+    expect(taskBacklinks).toContainEqual(
+      expect.objectContaining({
+        type: 'document',
+        id: docA.id,
+        title: 'Doc A',
+        label: 'documents',
+        edge_id: expect.any(String),
+      }),
+    );
   });
 });

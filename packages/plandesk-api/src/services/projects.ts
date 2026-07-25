@@ -518,6 +518,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
               id: toId,
               title,
               label: edge.label,
+              edge_id: edge.id,
             };
           });
         const backlinks = allEdges
@@ -537,6 +538,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
               id: fromId,
               title,
               label: edge.label,
+              edge_id: edge.id,
             };
           });
         return serializeDocument(document, { links, backlinks });

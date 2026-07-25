@@ -272,4 +272,238 @@ describe('canvas routes', () => {
     const res = await app.request(`/api/v1/projects/00000000-0000-4000-8000-000000009999/edges`);
     expect(res.status).toBe(404);
   });
+
+  it('POST /projects/:id/edges creates a task→document edge and document reports the link', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Edge create' });
+    const task = await createTask(db, { projectId: project.id, label: 'Task' });
+    const docRes = await app.request(`/api/v1/projects/${project.id}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Spec' }),
+    });
+    const doc = await parseJson<{ id: string }>(docRes);
+
+    const res = await app.request(`/api/v1/projects/${project.id}/edges`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from_type: 'task',
+        from_id: task.id,
+        to_type: 'document',
+        to_id: doc.id,
+        label: 'documents',
+      }),
+    });
+    expect(res.status).toBe(201);
+    const edge = await parseJson<{
+      id: string;
+      from_type: string;
+      from_id: string;
+      to_type: string;
+      to_id: string;
+      label: string | null;
+    }>(res);
+    expect(edge).toMatchObject({
+      id: expect.any(String),
+      from_type: 'task',
+      from_id: task.id,
+      to_type: 'document',
+      to_id: doc.id,
+      label: 'documents',
+    });
+
+    const docGet = await parseJson<{
+      links: Array<{ type: string; id: string; title: string; label: string | null; edge_id: string }>;
+      backlinks: Array<{ type: string; id: string; title: string; label: string | null; edge_id: string }>;
+    }>(await app.request(`/api/v1/documents/${doc.id}`));
+    expect(docGet.backlinks).toEqual([
+      {
+        type: 'task',
+        id: task.id,
+        title: 'Task',
+        label: 'documents',
+        edge_id: edge.id,
+      },
+    ]);
+  });
+
+  it('POST /projects/:id/edges accepts task-shaped body', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Task-shaped' });
+    const a = await createTask(db, { projectId: project.id, label: 'A' });
+    const b = await createTask(db, { projectId: project.id, label: 'B' });
+
+    const res = await app.request(`/api/v1/projects/${project.id}/edges`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from_task_id: a.id,
+        to_task_id: b.id,
+        label: 'blocks',
+      }),
+    });
+    expect(res.status).toBe(201);
+    const edge = await parseJson<{
+      from_type: string;
+      from_id: string;
+      to_type: string;
+      to_id: string;
+      from_task_id: string;
+      to_task_id: string;
+    }>(res);
+    expect(edge).toMatchObject({
+      from_type: 'task',
+      from_id: a.id,
+      to_type: 'task',
+      to_id: b.id,
+      from_task_id: a.id,
+      to_task_id: b.id,
+    });
+  });
+
+  it('POST refuses a document endpoint in another project', async () => {
+    const { app, db } = await createTestApp();
+    const projectA = await createProject(db, { name: 'Project A' });
+    const projectB = await createProject(db, { name: 'Project B' });
+    const taskA = await createTask(db, { projectId: projectA.id, label: 'A task' });
+    const docBRes = await app.request(`/api/v1/projects/${projectB.id}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'B doc' }),
+    });
+    const docB = await parseJson<{ id: string }>(docBRes);
+
+    const res = await app.request(`/api/v1/projects/${projectA.id}/edges`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from_type: 'task',
+        from_id: taskA.id,
+        to_type: 'document',
+        to_id: docB.id,
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+  });
+
+  it('POST refuses a task endpoint in another project', async () => {
+    const { app, db } = await createTestApp();
+    const projectA = await createProject(db, { name: 'Project A' });
+    const projectB = await createProject(db, { name: 'Project B' });
+    const taskA = await createTask(db, { projectId: projectA.id, label: 'A task' });
+    const taskB = await createTask(db, { projectId: projectB.id, label: 'B task' });
+
+    const res = await app.request(`/api/v1/projects/${projectA.id}/edges`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from_type: 'task',
+        from_id: taskA.id,
+        to_type: 'task',
+        to_id: taskB.id,
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+  });
+
+  it('POST refuses an id whose real type differs from the claimed type', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Type mismatch' });
+    const task = await createTask(db, { projectId: project.id, label: 'Real task' });
+    const docRes = await app.request(`/api/v1/projects/${project.id}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Real doc' }),
+    });
+    const doc = await parseJson<{ id: string }>(docRes);
+
+    // Task id claimed as document.
+    const asDoc = await app.request(`/api/v1/projects/${project.id}/edges`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from_type: 'task',
+        from_id: task.id,
+        to_type: 'document',
+        to_id: task.id,
+      }),
+    });
+    expect(asDoc.status).toBe(400);
+    expect(await parseJson(asDoc)).toEqual({ error: 'invalid_argument' });
+
+    // Document id claimed as task.
+    const asTask = await app.request(`/api/v1/projects/${project.id}/edges`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from_type: 'document',
+        from_id: doc.id,
+        to_type: 'task',
+        to_id: doc.id,
+      }),
+    });
+    expect(asTask.status).toBe(400);
+    expect(await parseJson(asTask)).toEqual({ error: 'invalid_argument' });
+  });
+
+  it('links carry edge_id; DELETE by that id removes only that edge', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Sibling edges' });
+    const task = await createTask(db, { projectId: project.id, label: 'Shared' });
+    const docRes = await app.request(`/api/v1/projects/${project.id}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Hub' }),
+    });
+    const doc = await parseJson<{ id: string }>(docRes);
+
+    const first = await parseJson<{ id: string }>(
+      await app.request(`/api/v1/projects/${project.id}/edges`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from_type: 'document',
+          from_id: doc.id,
+          to_type: 'task',
+          to_id: task.id,
+          label: 'documents',
+        }),
+      }),
+    );
+    const second = await parseJson<{ id: string }>(
+      await app.request(`/api/v1/projects/${project.id}/edges`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from_type: 'document',
+          from_id: doc.id,
+          to_type: 'task',
+          to_id: task.id,
+          label: 'references',
+        }),
+      }),
+    );
+    expect(first.id).not.toBe(second.id);
+
+    const before = await parseJson<{
+      links: Array<{ edge_id: string; label: string | null }>;
+    }>(await app.request(`/api/v1/documents/${doc.id}`));
+    expect(before.links).toHaveLength(2);
+    expect(before.links.map((l) => l.edge_id).sort()).toEqual([first.id, second.id].sort());
+
+    const del = await app.request(`/api/v1/projects/${project.id}/edges/${first.id}`, {
+      method: 'DELETE',
+    });
+    expect(del.status).toBe(204);
+
+    const after = await parseJson<{
+      links: Array<{ edge_id: string; label: string | null }>;
+    }>(await app.request(`/api/v1/documents/${doc.id}`));
+    expect(after.links).toEqual([
+      expect.objectContaining({ edge_id: second.id, label: 'references' }),
+    ]);
+  });
 });

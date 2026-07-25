@@ -58,7 +58,15 @@ describe('documentService', () => {
       status_line: 'Status: draft',
       linked_task_id: task.id,
       project_id: projectId,
-      links: [{ type: 'task', id: task.id, title: 'Task', label: 'documents' }],
+      links: [
+        {
+          type: 'task',
+          id: task.id,
+          title: 'Task',
+          label: 'documents',
+          edge_id: expect.any(String),
+        },
+      ],
       backlinks: [],
     });
     expect(document?.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
@@ -127,10 +135,22 @@ describe('documentService', () => {
     const a = await service.get(docA.id);
     const b = await service.get(docB.id);
     expect(a?.links).toEqual([
-      { type: 'document', id: docB.id, title: 'Doc B', label: 'references' },
+      {
+        type: 'document',
+        id: docB.id,
+        title: 'Doc B',
+        label: 'references',
+        edge_id: expect.any(String),
+      },
     ]);
     expect(b?.backlinks).toEqual([
-      { type: 'document', id: docA.id, title: 'Doc A', label: 'references' },
+      {
+        type: 'document',
+        id: docA.id,
+        title: 'Doc A',
+        label: 'references',
+        edge_id: a!.links[0]!.edge_id,
+      },
     ]);
   });
 

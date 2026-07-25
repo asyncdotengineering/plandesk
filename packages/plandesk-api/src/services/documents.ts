@@ -160,7 +160,7 @@ async function linksForDocument(
     if (fromType === 'document' && fromId === documentId) {
       const title = await resolveEndpointTitle(db, projectId, toType, toId);
       if (title !== undefined) {
-        links.push({ type: toType, id: toId, title, label: edge.label });
+        links.push({ type: toType, id: toId, title, label: edge.label, edge_id: edge.id });
       }
       continue;
     }
@@ -168,7 +168,7 @@ async function linksForDocument(
     if (toType === 'document' && toId === documentId) {
       const title = await resolveEndpointTitle(db, projectId, fromType, fromId);
       if (title !== undefined) {
-        backlinks.push({ type: fromType, id: fromId, title, label: edge.label });
+        backlinks.push({ type: fromType, id: fromId, title, label: edge.label, edge_id: edge.id });
       }
     }
   }
@@ -252,7 +252,7 @@ async function collectIncomingLinks(
     if (title === undefined) {
       continue;
     }
-    backlinks.push({ type: fromType, id: fromId, title, label: edge.label });
+    backlinks.push({ type: fromType, id: fromId, title, label: edge.label, edge_id: edge.id });
   }
 
   return backlinks;

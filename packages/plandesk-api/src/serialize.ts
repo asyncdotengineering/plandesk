@@ -156,6 +156,8 @@ export type SerializedEntityLink = {
   title: string;
   /** Edge label (`documents`, `references`, `blocks`, …). */
   label: string | null;
+  /** Owning edge id — use with DELETE /projects/:id/edges/:edgeId. */
+  edge_id: string;
 };
 
 export type SerializedDocument = {
