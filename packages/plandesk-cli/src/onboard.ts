@@ -41,20 +41,24 @@ mints a **scoped agent key** into \`.plandesk/token\`. You inherit that file (or
 
 This repo runs the Factory workflow (\`.agents/factory/\`). Your default posture:
 
-1. **Orient.** Read \`.agents/factory/workflow.md\` + \`factory.md\`. Reconcile the
-   board against reality (recent commits, working tree) before starting.
+1. **Orient.** Read \`.agents/factory/factory.md\`. Reconcile the board against
+   reality (recent commits, working tree) before starting. Call
+   \`start_agent_run\` at session start.
 2. **Pull one work item.** \`get_next_task\` — never guess what's next. Read its
    linked document before touching anything.
 3. **Red gate.** Run the task's verifier/gate first. Green-at-start proves
    nothing — get a discriminating failing check, or send the task back to
    \`scope\` with a comment.
-4. **Act.** Do the work, then verify: re-run the claimed checks (exit codes are
-   authoritative), read the actual diff — not a summary.
-5. **Report.** Flip the task to \`done\` atomically with the verification, commit
-   that item as one atomic commit whose subject names the task.
+4. **Delegate / act.** Dispatch per \`protocol.md\` when a worker is available;
+   otherwise do the work yourself. Then prove: re-run the claimed checks (exit
+   codes are authoritative), read the actual diff — not a summary.
+5. **Ship.** Flip the task to \`done\` atomically with the verification, commit
+   that item as one atomic commit whose subject names the task, and
+   \`record_agent_progress\`.
 
 Then pull the next item. Drive the frontier to zero; don't pause for permission
-between items (autonomous-stand mode).
+between items. When the frontier empties, run the goal's \`verification_surface\`,
+\`complete_goal\`, and \`complete_agent_run\`.
 
 ## 3. Delegation — when a worker exists, and when it doesn't
 
@@ -99,8 +103,9 @@ trivial edits, integration, and review fixes under ~5 lines.
 ## 6. Read more
 
 - \`.plandesk/skill.md\` — the exact conventions (also included in CLAUDE.md).
-- \`.agents/factory/factory.md\` + \`workflow.md\` — the per-item contract + session
-  program. \`protocol.md\` + \`workers/\` — how dispatch actually works here.
+- \`.agents/factory/factory.md\` — the per-item contract (and agent-run lifecycle).
+  \`execution.md\` — IC spine when you type the work. \`protocol.md\` + \`workers/\` —
+  how dispatch actually works here.
 - https://plandesk.asyncdot.com — full docs and guides.
 `;
 

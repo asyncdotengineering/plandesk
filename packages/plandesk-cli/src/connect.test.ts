@@ -476,6 +476,25 @@ describe('runConnect', () => {
       expect(result.tokenLine).toMatch(/loopback/i);
     });
   });
+
+  it('connect --project does NOT write x-plandesk-workspace-id header', async () => {
+    await withTestServer(async ({ baseUrl, projectId, projectName }) => {
+      const repoDir = makeRepo(projectName);
+      await runConnect({
+        repoDir,
+        project: projectId,
+        url: baseUrl,
+        agent: 'claude',
+        interactive: false,
+      });
+
+      const mcpRaw = readFileSync(join(repoDir, '.mcp.json'), 'utf8');
+      const mcpDoc = JSON.parse(mcpRaw) as {
+        mcpServers?: Record<string, { headers?: Record<string, string> }>;
+      };
+      expect(mcpDoc.mcpServers?.plandesk?.headers).toBeUndefined();
+    });
+  });
 });
 
 describe('runConnect --to hosted (BA4b-3)', () => {
@@ -703,6 +722,15 @@ describe('runConnect --to hosted (BA4b-3)', () => {
     expect((config as { workspaceName: string }).workspaceName).toBe('General');
     expect((config as { orgId: string }).orgId).toBe(DEFAULT_ORG_ID);
     expect((config as { projectIds: string[] }).projectIds).toContain(project.id);
+
+    // MCP config carries the workspace header for local loopback scoping
+    const mcpRaw = readFileSync(join(repoDir, '.mcp.json'), 'utf8');
+    const mcpDoc = JSON.parse(mcpRaw) as {
+      mcpServers?: Record<string, { headers?: Record<string, string> }>;
+    };
+    expect(mcpDoc.mcpServers?.plandesk?.headers?.['x-plandesk-workspace-id']).toBe(
+      DEFAULT_WORKSPACE_ID,
+    );
   });
 });
 

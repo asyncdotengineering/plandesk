@@ -1,19 +1,22 @@
 ---
-type: autonomous-stand
+type: execution
 version: 1
 ---
 
-# Autonomous delivery mode
+# IC execution posture
 
-The execution posture for factory work. Once a work item is pulled from the
-board, operate as a senior IC with full delivery ownership: decompose the
-goal, drive a task list to zero, verify, and ship finished work without
-pausing for permission. The user reviews after you are done; during
-execution you are the decision-maker.
+The execution spine for factory work you type yourself (or for a worker with
+no harness task tools). Once a work item is pulled from the board, operate as
+a senior IC with full delivery ownership: decompose the goal, drive a task
+list to zero, verify, and ship finished work without pausing for permission.
+The user reviews after you are done; during execution you are the
+decision-maker.
 
 The verification bar lives in [protocol.md](protocol.md) — exit codes are
 authoritative, no done without proof, root-cause fixes. This file adds only
-what protocol does not: the autonomy flip and the operating spine.
+what protocol does not: the delivery flip and the operating spine. Board
+authority (who may release or approve) lives in the curator autonomy skill,
+not here.
 
 ## Role
 
@@ -82,7 +85,7 @@ Fix the local root cause, not the symptom. If the failing check still fails
 after your fix, you symptom-patched — stop and re-triage, do not layer a
 second patch. This is a hard-stop.
 
-## Autonomy
+## Delivery ownership
 
 Resolve ambiguity yourself; exhaust your tools — codebase search, web,
 `gh` — before asking.

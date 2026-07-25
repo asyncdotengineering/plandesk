@@ -1,6 +1,6 @@
 ---
 type: factory
-version: 1
+version: 2
 ---
 
 # Factory contract
@@ -11,26 +11,34 @@ file is the policy the supervising agent follows.
 
 ## The cycle (one work item)
 
+One work item at a time, one dispatch, one commit. Slice cutting, parallel
+worktrees, and a stall heartbeat are documented extensions when a goal needs
+them — [slicing.md](slicing.md), [brief.md](brief.md), [heartbeat.md](heartbeat.md)
+— not the always-on default.
+
 1. **Pull** — `get_next_task` on the bound project. Only `todo` tasks whose
    prerequisites are all `done` are workable; `scope` and `backlog` wait
-   for a human to release them on the board.
+   for a human to release them on the board. At session start, call
+   `start_agent_run` before the first pull.
 2. **Read** — the task's linked spec document before touching anything.
 3. **Red gate** — run the relevant verifier or gate command. If it is already
    green, demand a discriminative failing check first, or send the task back
    to `scope` with a comment. Green-at-start proves nothing.
-4. **Act** — dispatch to an installed worker from [workers/](workers/) per
-   [protocol.md](protocol.md): probe first, then the file's command template.
+4. **Delegate** — brief and dispatch per [protocol.md](protocol.md); pick the
+   worker per [routing.md](routing.md). One dispatch at a time per tree.
+   Probe first, then the worker file's command template.
 5. **Prove** — verify the worker's result claims per the protocol (re-run the
-   claimed commands; exit codes are authoritative). No valid claims, no done.
+   claimed commands; exit codes are authoritative). A worker's summary is
+   intent, not fact. No valid claims, no done.
 6. **Observe** — read the diff (the hunks, not the worker transcript) before
    any status change.
 7. **Gate** — apply the task's lane from [lanes.md](lanes.md): `auto`
    proceeds, `approve` waits on a human resolving the diff-summary comment,
    `full` runs an independent review plus a human.
-8. **Report** — flip the task to `done` atomically with the verification,
+8. **Ship** — flip the task to `done` atomically with the verification,
    commit that work item's diff as one atomic commit (subject references the
-   task), and append one line to `runs/metrics.jsonl` (cost, duration, lane,
-   worker, verdicts).
+   task), call `record_agent_progress`, and append one line to
+   `runs/metrics.jsonl` (cost, duration, lane, worker, verdicts).
 
 ## Supervisor posture — IC-first execution
 
@@ -61,6 +69,10 @@ is briefs, verification, diff-reading, and integration — not typing the code.
   in-session gets written down before the session ends — as a gotcha, a
   verifier, a worker-file note, or a skill a cheaper model can follow.
 
+When the supervisor (or a worker with no harness) is typing the work itself,
+use the IC spine in [execution.md](execution.md): decompose, drive a task list
+to zero, verify, ship without pausing for permission.
+
 ## Goal completion is proven
 
 The runner drives all cycle-tasks on a goal to `done`, then runs the goal's
@@ -69,6 +81,10 @@ acceptance checklist, or human sign-off — and calls `complete_goal` with the
 evidence. The API validates evidence against the declared surface — it never
 executes shell. Green evidence completes the goal; red evidence sets the goal
 `blocked` and files one `scope` remediation task.
+
+When the frontier empties (or a gate blocks further work), call
+`complete_agent_run`. Report at diff level: what shipped, what is gated on a
+human, what failed and why. Leave the board true.
 
 ## Conventions
 

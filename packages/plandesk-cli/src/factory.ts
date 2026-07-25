@@ -105,8 +105,20 @@ export function buildFactoryMarkdown(): string {
   return readTemplate('factory/factory.md');
 }
 
-export function buildAutonomousStandMarkdown(): string {
-  return readTemplate('factory/autonomous-stand.md');
+export function buildExecutionMarkdown(): string {
+  return readTemplate('factory/execution.md');
+}
+
+export function buildSlicingMarkdown(): string {
+  return readTemplate('factory/slicing.md');
+}
+
+export function buildBriefMarkdown(): string {
+  return readTemplate('factory/brief.md');
+}
+
+export function buildHeartbeatMarkdown(): string {
+  return readTemplate('factory/heartbeat.md');
 }
 
 export const WORKER_NAMES = ['claude', 'codex', 'cursor', 'grok', 'opencode', 'pi'] as const;
@@ -135,18 +147,12 @@ export function buildRunsGitignore(): string {
   return readTemplate('factory/runs/.gitignore');
 }
 
-export function buildWorkflowMarkdown(): string {
-  return readTemplate('factory/workflow.md');
-}
-
 export function buildFactoryCommandMarkdown(): string {
   return `# Factory
 
-@.agents/factory/workflow.md
-
 @.agents/factory/factory.md
 
-@.agents/factory/autonomous-stand.md
+@.agents/factory/execution.md
 `;
 }
 
@@ -181,9 +187,9 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
     action: existsSync(indexPath) ? 'update' : 'create',
   });
 
-  // Always-on policy include: workflow.md + factory.md are POLICY — they must
-  // ride in default context to gate behavior (a pointer the agent may not
-  // follow is not a gate). Managed sentinel block, regenerated idempotently.
+  // Always-on policy include: factory.md is POLICY — it must ride in default
+  // context to gate behavior (a pointer the agent may not follow is not a
+  // gate). Managed sentinel block, regenerated idempotently.
   const claudeMdPath = join(repoDir, 'CLAUDE.md');
   const existingClaudeMd = existsSync(claudeMdPath) ? readFileSync(claudeMdPath, 'utf8') : '';
   artifacts.push({
@@ -305,9 +311,11 @@ type SyncableFile = { path: string; content: string; executable?: boolean };
 export function authoredFactoryFiles(repoDir: string): SyncableFile[] {
   const factoryDir = join(repoDir, FACTORY_DIR);
   return [
-    { path: join(factoryDir, 'workflow.md'), content: buildWorkflowMarkdown() },
     { path: join(factoryDir, 'factory.md'), content: buildFactoryMarkdown() },
-    { path: join(factoryDir, 'autonomous-stand.md'), content: buildAutonomousStandMarkdown() },
+    { path: join(factoryDir, 'execution.md'), content: buildExecutionMarkdown() },
+    { path: join(factoryDir, 'slicing.md'), content: buildSlicingMarkdown() },
+    { path: join(factoryDir, 'brief.md'), content: buildBriefMarkdown() },
+    { path: join(factoryDir, 'heartbeat.md'), content: buildHeartbeatMarkdown() },
     { path: join(factoryDir, 'protocol.md'), content: buildProtocolMarkdown() },
     { path: join(factoryDir, 'routing.md'), content: buildRoutingMarkdown() },
     { path: join(factoryDir, 'lanes.md'), content: buildLanesMarkdown() },

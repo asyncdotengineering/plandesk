@@ -15,12 +15,15 @@ Agent config written into global directories (`~/.claude`, `~/.codex`) leaks int
 
 ```
 .agents/
-├─ index.md                    # progressive disclosure: what lives here
+├─ index.md                    # progressive disclosure: what lives here (sentinel block)
 └─ factory/
-   ├─ workflow.md              # the orchestrator's session program (type: workflow)
    ├─ factory.md               # the contract: how a work cycle runs (type: factory)
-   ├─ autonomous-stand.md      # execution posture: decompose, drive to zero, ship (type: autonomy)
+   ├─ execution.md             # IC spine: decompose, drive to zero, ship (type: execution)
+   ├─ slicing.md               # optional: cut a wide frontier into tracer-bullet slices
+   ├─ brief.md                 # optional: multi-slice dispatch + worktree notes
+   ├─ heartbeat.md             # optional: stall fallback for long multi-slice runs
    ├─ protocol.md              # deterministic dispatch + result contract (type: protocol)
+   ├─ routing.md               # which worker for which task shape
    ├─ workers/                 # one file per worker CLI (type: worker)
    │  ├─ claude.md             #   probe + command template with {prompt_file}
    │  ├─ codex.md
@@ -38,7 +41,7 @@ Agent config written into global directories (`~/.claude`, `~/.codex`) leaks int
 
 Two zones with different ownership:
 
-- **Authored policy** (`index.md`, `workflow.md`, `factory.md`, `autonomous-stand.md`, `protocol.md`, `workers/*`, `lanes.md`, `verifiers/*`) — scaffolded **once**, then yours. Re-running `factory init` never overwrites them (`skip` in the summary). Edit them, commit them; they are the repository's operating policy.
+- **Authored policy** (`factory.md`, `execution.md`, companions, `protocol.md`, `routing.md`, `workers/*`, `lanes.md`, `verifiers/*`) — scaffolded **once**, then yours. Re-running `factory init` never overwrites them (`skip` in the summary). Edit them, commit them; they are the repository's operating policy. `index.md` is a shared-file sentinel block, not a whole-file artifact.
 - **Generated adapters** (`.claude/commands/factory.md`, `.codex/commands/factory.md`) — one-line includes, refreshed on every run.
 - **Transient state** (`factory/runs/`) — machine output such as `metrics.jsonl`; gitignored by the scaffold.
 
@@ -46,7 +49,7 @@ Two zones with different ownership:
 
 The format is small on purpose; it borrows the conformance posture of the Open Knowledge Format and the Agent Skills spec:
 
-1. **One required frontmatter field.** Every policy file declares a `type` (`factory`, `workflow`, `protocol`, `worker`, `lanes`, `verifier`). Everything else is optional.
+1. **One required frontmatter field.** Every policy file declares a `type` (`factory`, `execution`, `protocol`, `worker`, `lanes`, `verifier`). Everything else is optional.
 2. **Identity is the path.** A file's name is its name — no `id` fields, no registry. `verifiers/tests-pass.md` *is* the verifier `tests-pass`.
 3. **Consumers are permissive.** Tools reading `.agents/` MUST tolerate unknown types, unknown frontmatter keys, and links to files that do not exist yet. Old consumers never break on new producers — this is what lets one repo serve Claude Code today and a hosted orchestrator later without changing a file.
 4. **Markdown is the interchange layer.** Guidance (contracts, rosters, policy) lives in markdown and ports across harnesses. Anything executable a specific runtime needs is compiled *from* these files, never written back into them.
@@ -155,27 +158,25 @@ Releasing a task (`scope` → `todo`) works two ways today:
 
 In other words: the release gate is mechanism-enforced for *pulling* work and convention-enforced for *promoting* it. If your policy needs hard human-only release (e.g. regulated repos), keep `update_task`-driven promotion out of your supervisor's contract — and watch the changelog: token-scoped transition rules are a candidate hardening.
 
-## The workflow vs. the contract
+## One contract, optional extensions
 
-Two layers, deliberately separate:
+- **`factory.md` — the operating mode.** The proven serial loop (one work item at a time): pull → read → red gate → delegate → prove → observe → gate → ship, plus the agent-run lifecycle (`start_agent_run` / `record_agent_progress` / `complete_agent_run`) and goal completion via `verification_surface`. This is the always-on contract.
+- **`execution.md` — the IC spine.** How to decompose and drive to zero when you (or a worker) are typing the work yourself. Referenced from the always-on preamble; not inlined every session.
+- **`slicing.md` / `brief.md` / `heartbeat.md` — companions.** Real, documented extensions for multi-slice work (tracer bullets, worktrees, stall heartbeat). Linked from `factory.md` in one line; not the default.
 
-- **`workflow.md` — the session program.** What an orchestrating agent does from "work on this repo" to the final report: orient (reconcile the board, read comments), intake (scaffold a plan, assign lanes, stop at the release gate), execute (loop the cycle), finish (report, leave the board true). This is a **shipped default that you are expected to rewrite** — different repos work differently, and this file is where that difference lives.
-- **`factory.md` — the per-item contract.** What one work cycle must do and what counts as done. Stable across most repos.
-
-`workflow.md` is yours after the scaffold — `factory init` never overwrites it. Common edits: a different intake ritual, extra finishing passes (lint or review commands), a repo-specific definition of done, cadence notes for scheduled runs.
-
-**Policy is always-on; data is on-demand.** `factory init` manages its own include block in the repo's `CLAUDE.md` (and `AGENTS.md` when present) loading `workflow.md` + `factory.md` — policy must ride in default context to gate behavior; a pointer an agent may not follow is not a gate. Dispatch data (`protocol.md`, `workers/`, `lanes.md`, `verifiers/`) stays on-demand, read at dispatch and gate time. The `/factory` command re-loads the policy explicitly, and the agent conventions keep a fallback pointer.
+**Policy is always-on; data is on-demand.** `factory init` manages its own include block in the repo's `CLAUDE.md` (and `AGENTS.md` when present) loading only `factory.md` — policy must ride in default context to gate behavior; a pointer an agent may not follow is not a gate. Dispatch data (`protocol.md`, `workers/`, `lanes.md`, `verifiers/`) stays on-demand, read at dispatch and gate time. The `/factory` command re-loads `factory.md` + `execution.md` explicitly.
 
 ## The cycle
 
 `factory.md` documents the full loop; in short, a supervising agent session works the bound Plan Desk project:
 
-1. `get_next_task` — only released (`todo`) tasks whose prerequisites are `done` are workable.
+1. `start_agent_run` at session start; then `get_next_task` — only released (`todo`) tasks whose prerequisites are `done` are workable.
 2. Read the task's linked spec document.
 3. Confirm the gate is **red** before work starts (green-at-start proves nothing).
-4. Dispatch to a worker from `workers.md`; require proof.
+4. Dispatch to a worker from `workers/` per `routing.md`; require proof.
 5. Read the diff; apply the task's lane from `lanes.md` (`auto` / `approve` / `full`).
-6. Flip the task `done` atomically and append a line to `runs/metrics.jsonl`.
+6. Flip the task `done` atomically, `record_agent_progress`, and append a line to `runs/metrics.jsonl`.
+7. When the frontier empties: run the goal's `verification_surface`, `complete_goal`, `complete_agent_run`.
 
 Humans steer from the board: releasing `scope` tasks, resolving `approve`-lane comments, and owning every merge.
 

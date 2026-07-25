@@ -439,10 +439,10 @@ export function removeMcpServerEntry(existingContent: string): string | undefine
 // agent cannot guess — everything else lives on disk, path-referenced, pulled on
 // demand. So the sentinel rides the crisp PREAMBLE (the gate) plus exactly one
 // @-include: factory.md, the per-work-item contract whose absence would actually
-// change behavior. The session program (workflow.md) and the execution posture
-// (autonomous-stand.md) are named by path in the preamble and read when needed —
-// inlining ~230 more lines every session is noise a capable agent skims past.
-// Dispatch DATA (protocol, workers, lanes, verifiers) stays on-demand too.
+// change behavior. The IC execution spine (execution.md) is named by path in the
+// preamble and read when needed — inlining it every session is noise a capable
+// agent skims past. Dispatch DATA (protocol, workers, lanes, verifiers) stays
+// on-demand too.
 export const FACTORY_SENTINEL_START = '<!-- plandesk-factory:start -->';
 export const FACTORY_SENTINEL_END = '<!-- plandesk-factory:end -->';
 export const FACTORY_SENTINEL_INCLUDES = ['@.agents/factory/factory.md'];
@@ -453,9 +453,9 @@ export const FACTORY_SENTINEL_INCLUDES = ['@.agents/factory/factory.md'];
 export const FACTORY_SENTINEL_PREAMBLE = `## Plan Desk Factory — default operating mode
 
 This repository runs on the Factory workflow. On any work request:
-1. **Follow the factory cycle** — the always-on [factory.md](.agents/factory/factory.md) contract governs each work item: pull → read → red gate → act → prove → observe → gate → report. For the session program (orient → intake → execute → finish), read [workflow.md](.agents/factory/workflow.md).
+1. **Follow the factory cycle** — the always-on [factory.md](.agents/factory/factory.md) contract governs each work item: pull → read → red gate → delegate → prove → observe → gate → ship. Bracket the session with \`start_agent_run\` / \`complete_agent_run\`; call \`record_agent_progress\` every cycle.
 2. **Delegate implementation by default — when a worker is available.** The supervisor orchestrates; IC workers execute. Probe the dispatchers in [.agents/factory/workers/](.agents/factory/workers/) per [protocol.md](.agents/factory/protocol.md) and hand each work item to a probed worker. **If no worker is installed on this machine, do the work yourself under the same contract** — never skip the cycle just because you are the one typing, and never assume a delegation skill or worker CLI exists that this repo did not ship. Write inline without dispatch only for trivial edits, integration/conflict resolution, and review fixes under ~5 lines.
-3. **Operate in autonomous-stand mode** — decompose the goal into verifiable moves on a harness task list (\`TaskCreate\` / \`TaskList\` / \`TaskUpdate\`), drive them to zero, and ship without pausing for permission. The full posture is [autonomous-stand.md](.agents/factory/autonomous-stand.md).
+3. **Execute without pausing** — decompose the goal into verifiable moves on a harness task list (\`TaskCreate\` / \`TaskList\` / \`TaskUpdate\`), drive them to zero, and ship finished work without pausing for permission. The IC spine is [execution.md](.agents/factory/execution.md).
 4. **Prove before done** — re-run the claimed checks per [protocol.md](.agents/factory/protocol.md); exit codes are authoritative.
 
 New to this repo? Run \`plandesk onboard\` for the full Plan Desk + Factory model and the operating loop.`;

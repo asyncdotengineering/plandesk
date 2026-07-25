@@ -98,4 +98,4 @@ better-auth owns its own tables (user, session, account, organization, member, *
 
 ## Product design
 
-Full requirements and interface specs live in the Plan Desk RFC (`plandesk-rfc/`).
+Full requirements and interface specs live in the Plan Desk RFC and ADR documents on the board (project workspaces), organized per initiative.

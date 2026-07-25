@@ -6,6 +6,7 @@ All notable changes to Plan Desk are documented here.
 
 ### Changed
 
+- **Breaking: one factory operating contract.** `workflow.md` and the untracked workhorse rewrite are gone; `factory.md` is the single always-on mode — the proven serial loop (pull → read → red gate → delegate → prove → observe → gate → ship) plus the agent-run lifecycle (`start_agent_run` / `record_agent_progress` / `complete_agent_run`) that used to live only in `workflow.md`. `autonomous-stand.md` is renamed to `execution.md` so "autonomy" means board authority only. Multi-slice companions ship as `slicing.md` / `brief.md` / `heartbeat.md` (linked extensions, not the default). The always-on sentinel, `/factory` command, skill template, onboarding, and docs follow the new tree. Existing repos: `plandesk factory sync --write` creates the new files; drop or rename retired ones yourself (sync does not delete user-edited paths without `--prune`).
 - **`factory init` reclaims Plan Desk hook entries in `.claude/settings.json`.** Each shipped hook entry now carries a `_plandesk` ownership marker. `mergeCuratorHooksJson` drops every marked entry and re-inserts the current snippet set, so a path or matcher change no longer leaves a stale entry firing forever. Untagged (user) hooks are never touched. **One-time legacy sweep:** untagged entries whose `command` still contains `.agents/curator/hooks/` are also dropped so pre-marker installs converge on first run — remove that path match after one release cycle once consumers have upgraded.
 
 ### Fixed — hosted

@@ -15,3 +15,9 @@ evidence when you loosen one.
 | full    | schema, infra, auth, public contracts           | independent review + human approval                   |
 
 The human who releases or merges a change owns the outcome.
+
+## At intake
+
+Assign each task a lane from this file at creation. Then stop — humans release
+`scope` → `todo` on the board. Intake scaffolds; it does not execute the plan
+unless the human explicitly asked for that in the same request.

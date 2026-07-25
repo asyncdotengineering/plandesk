@@ -109,10 +109,9 @@ memory rather than a deliverable spec.
 
 ## Executing the plan
 
-If \`.agents/factory/workflow.md\` exists in this repo, it is the orchestrator's
-session program — read and follow it when executing the plan (it defers to
-\`.agents/factory/factory.md\` for the per-task contract). The loop below is the
-tool-level default it builds on.
+Follow \`.agents/factory/factory.md\` for the per-item contract (pull → red gate →
+delegate → prove → gate → ship, with the agent-run lifecycle). The loop below is
+the tool-level default it builds on.
 
 To work a plan, do not guess what is next — call \`get_next_task\`. It returns the
 next actionable \`todo\` task (one whose prerequisite tasks are all \`done\`), plus

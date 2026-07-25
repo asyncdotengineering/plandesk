@@ -192,15 +192,15 @@ remediation task rather than faking done.
 
 ## After scaffolding
 
-Stop. Per `.agents/factory/workflow.md` §2 (Intake): "assign each task a lane
-at creation... then stop — humans release `scope → todo` on the board." Do
-not immediately start executing the plan you just scaffolded unless the
-human explicitly asked for that in the same request.
+Stop. Per `.agents/factory/lanes.md` (At intake): assign each task a lane at
+creation, then stop — humans release `scope → todo` on the board. Do not
+immediately start executing the plan you just scaffolded unless the human
+explicitly asked for that in the same request.
 
 ## References
 
 `.plandesk/skill.md` (task/document/edge conventions, inherited verbatim);
-`.agents/factory/lanes.md` (lane vocabulary); `.agents/factory/workflow.md` §2
-(the stop-after-intake rule); [plan-writer.md](plan-writer.md) (the upstream skill
-that authors the RFC this one consumes); [triage.md](triage.md) and
-[autonomy.md](autonomy.md) (the sibling Curator roles).
+`.agents/factory/lanes.md` (lane vocabulary and the stop-after-intake rule);
+[plan-writer.md](plan-writer.md) (the upstream skill that authors the RFC this
+one consumes); [triage.md](triage.md) and [autonomy.md](autonomy.md) (the
+sibling Curator roles).

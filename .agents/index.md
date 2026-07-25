@@ -5,6 +5,7 @@ Consumers must tolerate unknown types, unknown frontmatter keys, and links to
 not-yet-written files.
 
 - [factory/factory.md](factory/factory.md) - the factory contract: how delegated agent work cycles run here
+- [factory/execution.md](factory/execution.md) - IC spine when typing the work: decompose, drive to zero, ship
 - [factory/protocol.md](factory/protocol.md) - the deterministic dispatch + result contract for worker CLIs
 - [factory/workers/](factory/workers/) - one file per worker: probe (is it installed?) + command template
 - [factory/routing.md](factory/routing.md) - which worker for which task shape, and the cross-family review rule

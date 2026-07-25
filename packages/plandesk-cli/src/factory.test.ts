@@ -88,9 +88,11 @@ describe('runFactoryInit', () => {
 
     const expected = [
       '.agents/index.md',
-      '.agents/factory/workflow.md',
       '.agents/factory/factory.md',
-      '.agents/factory/autonomous-stand.md',
+      '.agents/factory/execution.md',
+      '.agents/factory/slicing.md',
+      '.agents/factory/brief.md',
+      '.agents/factory/heartbeat.md',
       '.agents/factory/protocol.md',
       '.agents/factory/lanes.md',
       '.agents/factory/verifiers/tests-pass.md',
@@ -110,17 +112,24 @@ describe('runFactoryInit', () => {
     }
     expect(result.artifacts.every((a) => a.action === 'create')).toBe(true);
 
-    const workflowDoc = readFileSync(join(repo, '.agents/factory/workflow.md'), 'utf8');
-    expect(workflowDoc.startsWith('---\ntype: workflow\n')).toBe(true);
-    expect(workflowDoc).toContain('Orchestrator workflow');
+    const executionDoc = readFileSync(join(repo, '.agents/factory/execution.md'), 'utf8');
+    expect(executionDoc.startsWith('---\ntype: execution\n')).toBe(true);
+    expect(executionDoc).toContain('IC execution posture');
 
     const factoryDoc = readFileSync(join(repo, '.agents/factory/factory.md'), 'utf8');
     expect(factoryDoc.startsWith('---\ntype: factory\n')).toBe(true);
     expect(factoryDoc).toContain('get_next_task');
+    expect(factoryDoc).toContain('start_agent_run');
 
     const command = readFileSync(join(repo, '.claude/commands/factory.md'), 'utf8');
     expect(command).toContain('@.agents/factory/factory.md');
-    expect(command).toContain('@.agents/factory/autonomous-stand.md');
+    expect(command).toContain('@.agents/factory/execution.md');
+    expect(command).toBe(`# Factory
+
+@.agents/factory/factory.md
+
+@.agents/factory/execution.md
+`);
 
     const runsIgnore = readFileSync(join(repo, '.agents/factory/runs/.gitignore'), 'utf8');
     expect(runsIgnore).toContain('*');
@@ -211,17 +220,15 @@ describe('always-on policy include', () => {
     expect(first).toContain('<!-- plandesk-factory:start -->');
     // Less-is-more: the always-on block carries the crisp preamble gate plus
     // exactly ONE @-include — factory.md, the per-item contract whose absence
-    // would change behavior. workflow.md and autonomous-stand.md are referenced
-    // by path in the preamble, not inlined into every session's context.
+    // would change behavior. execution.md is referenced by path in the
+    // preamble, not inlined into every session's context.
     expect(first).toContain('@.agents/factory/factory.md');
-    expect(first).not.toContain('@.agents/factory/workflow.md');
-    expect(first).not.toContain('@.agents/factory/autonomous-stand.md');
-    expect(first).toContain('[workflow.md](.agents/factory/workflow.md)');
-    expect(first).toContain('[autonomous-stand.md](.agents/factory/autonomous-stand.md)');
-    // Always-on directive preamble: use the factory as default workflow,
-    // operate in autonomous-stand mode, drive via harness tasks.
+    expect(first).not.toContain('@.agents/factory/execution.md');
+    expect(first).toContain('[execution.md](.agents/factory/execution.md)');
+    // Always-on directive preamble: use the factory cycle, drive via harness
+    // tasks, prove before done.
     expect(first).toContain('Plan Desk Factory — default operating mode');
-    expect(first).toContain('autonomous-stand mode');
+    expect(first).toContain('start_agent_run');
     expect(first).toContain('TaskCreate');
 
     runFactoryInit({ repoDir: repo });
