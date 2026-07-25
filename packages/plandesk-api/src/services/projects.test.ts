@@ -134,7 +134,6 @@ describe('projectService', () => {
     const doc = await createDocument(db, {
       projectId: project.id,
       title: 'Doc',
-      linkedTaskId: task.id,
     });
     const comment = await createComment(db, {
       projectId: project.id,
@@ -185,13 +184,14 @@ describe('projectService', () => {
     expect(result.tasks).toHaveLength(3);
     expect(result.tasks[1]).toMatchObject({ label: 'Task B', x: 240, y: 0 });
     expect(result.edges[0]).toMatchObject({
-      from_task_id: result.key_to_id.a,
-      to_task_id: result.key_to_id.b,
+      from_type: 'task',
+      from_id: result.key_to_id.a,
+      to_type: 'task',
+      to_id: result.key_to_id.b,
       label: 'blocks',
     });
     expect(result.documents[0]).toMatchObject({
       title: 'Spec',
-      linked_task_id: result.key_to_id.b,
       links: [
         {
           type: 'task',

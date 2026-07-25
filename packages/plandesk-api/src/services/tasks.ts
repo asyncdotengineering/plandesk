@@ -18,7 +18,6 @@ import {
   listTagsByTaskForProject,
   listTagsForTask,
   listTasks,
-  nullDocumentsLinkedTask,
   setTaskTags,
   taskIdsWithAnyTagName,
   updateTask,
@@ -64,21 +63,17 @@ export type ClaimTaskResult =
 function prerequisiteAndDependent(
   edge: Edge,
 ): { prerequisite: string; dependent: string } | undefined {
-  const fromType = edge.fromType ?? 'task';
-  const toType = edge.toType ?? 'task';
-  if (fromType !== 'task' || toType !== 'task') {
+  if (edge.fromType !== 'task' || edge.toType !== 'task') {
     return undefined;
   }
-  const fromId = edge.fromId ?? edge.fromTaskId;
-  const toId = edge.toId ?? edge.toTaskId;
-  // A self-edge sequences nothing; nor does an edge missing an endpoint.
-  if (fromId === null || toId === null || fromId === toId) {
+  // A self-edge sequences nothing.
+  if (edge.fromId === edge.toId) {
     return undefined;
   }
   if (edge.label === 'depends_on') {
-    return { prerequisite: toId, dependent: fromId };
+    return { prerequisite: edge.toId, dependent: edge.fromId };
   }
-  return { prerequisite: fromId, dependent: toId };
+  return { prerequisite: edge.fromId, dependent: edge.toId };
 }
 
 export type TaskServiceDeps = OrgScopedDeps & {
@@ -293,7 +288,6 @@ export function createTaskService(deps: TaskServiceDeps) {
       await withTransaction(db, async (tx) => {
         await deleteCommentsByTarget(tx, 'task', id);
         await deleteEdgesByTaskId(tx, id);
-        await nullDocumentsLinkedTask(tx, id);
         await deleteTaskTagsByTaskId(tx, id);
         await dbDeleteTask(tx, id);
       });

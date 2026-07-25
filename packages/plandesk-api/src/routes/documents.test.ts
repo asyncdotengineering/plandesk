@@ -18,7 +18,6 @@ type DocumentResponse = {
   body: string | null;
   status_line: string | null;
   parent_id: string | null;
-  linked_task_id: string | null;
   links: EntityLink[];
   backlinks: EntityLink[];
   created_at: string;
@@ -47,14 +46,22 @@ describe('documents routes', () => {
         title: 'Implementation notes',
         body: '# Notes',
         status_line: 'Status: draft',
-        linked_task_id: task.id,
       }),
     });
     expect(createRes.status).toBe(201);
     const created = await parseJson<DocumentResponse>(createRes);
-    expect(created.linked_task_id).toBe(task.id);
     expect(created.status_line).toBe('Status: draft');
-    expect(created.links).toEqual([
+    await createEdge(db, {
+      projectId: project.id,
+      fromType: 'document',
+      fromId: created.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
+    });
+    const linkedGet = await app.request(`/api/v1/documents/${created.id}`);
+    const linkedDoc = await parseJson<DocumentResponse>(linkedGet);
+    expect(linkedDoc.links).toEqual([
       {
         type: 'task',
         id: task.id,
@@ -63,8 +70,8 @@ describe('documents routes', () => {
         edge_id: expect.any(String),
       },
     ]);
-    expect(created.backlinks).toEqual([]);
-    const linkEdgeId = created.links[0]!.edge_id;
+    expect(linkedDoc.backlinks).toEqual([]);
+    const linkEdgeId = linkedDoc.links[0]!.edge_id;
 
     const byTaskRes = await app.request(`/api/v1/tasks/${task.id}/document`);
     expect(byTaskRes.status).toBe(200);
@@ -84,29 +91,6 @@ describe('documents routes', () => {
         edge_id: linkEdgeId,
       },
     ]);
-  });
-
-  it('accepts linkedTaskId alias on create', async () => {
-    const { app, db } = await createTestApp();
-    const projectRes = await app.request('/api/v1/projects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Alias' }),
-    });
-    const project = await parseJson<{ id: string }>(projectRes);
-    const task = await createTask(db, { projectId: project.id, label: 'Task' });
-
-    const createRes = await app.request(`/api/v1/projects/${project.id}/documents`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: 'Alias doc',
-        linkedTaskId: task.id,
-      }),
-    });
-    expect(createRes.status).toBe(201);
-    const created = await parseJson<DocumentResponse>(createRes);
-    expect(created.linked_task_id).toBe(task.id);
   });
 
   it('GET /projects/:id/documents returns nested tree', async () => {
@@ -198,29 +182,6 @@ describe('documents routes', () => {
     );
   });
 
-  it('rejects cross-project task link with 400', async () => {
-    const { app, db } = await createTestApp();
-    const projectRes = await app.request('/api/v1/projects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Main' }),
-    });
-    const project = await parseJson<{ id: string }>(projectRes);
-    const otherProject = await createProject(db, { name: 'Other' });
-    const foreignTask = await createTask(db, { projectId: otherProject.id, label: 'Foreign' });
-
-    const createRes = await app.request(`/api/v1/projects/${project.id}/documents`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: 'Bad link',
-        linked_task_id: foreignTask.id,
-      }),
-    });
-    expect(createRes.status).toBe(400);
-    expect(await parseJson(createRes)).toEqual({ error: 'invalid_argument' });
-  });
-
   it('returns 404 for missing project, document, and task document', async () => {
     const { app } = await createTestApp();
 
@@ -310,7 +271,7 @@ describe('documents routes', () => {
     const createA = await app.request(`/api/v1/projects/${project.id}/documents`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Doc A', linked_task_id: t1.id }),
+      body: JSON.stringify({ title: 'Doc A' }),
     });
     const docA = await parseJson<DocumentResponse>(createA);
     const createB = await app.request(`/api/v1/projects/${project.id}/documents`, {
@@ -320,30 +281,22 @@ describe('documents routes', () => {
     });
     const docB = await parseJson<DocumentResponse>(createB);
 
-    await createEdge(db, {
-      projectId: project.id,
-      fromType: 'document',
-      fromId: docA.id,
-      toType: 'task',
-      toId: t2.id,
-      label: 'documents',
-    });
-    await createEdge(db, {
-      projectId: project.id,
-      fromType: 'document',
-      fromId: docA.id,
-      toType: 'task',
-      toId: t3.id,
-      label: 'documents',
-    });
+    for (const task of [t1, t2, t3]) {
+      await createEdge(db, {
+        projectId: project.id,
+        fromType: 'document',
+        fromId: docA.id,
+        toType: 'task',
+        toId: task.id,
+        label: 'documents',
+      });
+    }
     await createEdge(db, {
       projectId: project.id,
       fromType: 'document',
       fromId: docA.id,
       toType: 'document',
       toId: docB.id,
-      fromTaskId: t1.id,
-      toTaskId: t1.id,
       label: 'references',
     });
 

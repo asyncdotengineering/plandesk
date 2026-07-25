@@ -8,8 +8,7 @@ export type CreateDocumentArgs = {
   project_id: string;
   title: string;
   body?: string;
-  linked_task_id?: string;
-  /** Task or document id(s) to link. Single string or list; BC with a single id. */
+  /** Task or document id(s) to link. Single string or list. */
   link_to?: string | string[];
   parent_id?: string;
   folder_id?: string;
@@ -49,14 +48,9 @@ export function createCreateDocumentHandler(
         resolved.push({ id, type });
       }
 
-      const firstTaskId =
-        args.linked_task_id ??
-        resolved.find((target) => target.type === 'task')?.id;
-
       const document = await documentService.create(args.project_id, {
         title: args.title,
         ...(args.body !== undefined ? { body: ensureHtmlBody(args.body) } : {}),
-        ...(firstTaskId !== undefined ? { linkedTaskId: firstTaskId } : {}),
         ...(args.parent_id !== undefined ? { parentId: args.parent_id } : {}),
         ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
       });
@@ -64,11 +58,7 @@ export function createCreateDocumentHandler(
         return toolNotFound();
       }
 
-      // linked_task_id path already dual-writes the primary task edge; create the rest.
       for (const target of resolved) {
-        if (target.type === 'task' && target.id === firstTaskId) {
-          continue;
-        }
         await canvasService.createEdge(args.project_id, {
           fromType: 'document',
           fromId: document.id,
@@ -78,7 +68,7 @@ export function createCreateDocumentHandler(
         });
       }
 
-      if (resolved.length === 0 || (resolved.length === 1 && firstTaskId !== undefined)) {
+      if (resolved.length === 0) {
         return toolSuccess('document', document);
       }
 

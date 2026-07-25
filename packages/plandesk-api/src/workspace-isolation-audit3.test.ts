@@ -360,10 +360,16 @@ describe('workspace-tier adversarial audit round 3', () => {
     });
     const folderB = await createFolder(f.db, { projectId: f.projectB.id, name: 'B folder' });
 
-    const linkedTask = await f.app.request(`/api/v1/documents/${documentA.id}`, {
-      method: 'PATCH',
+    const foreignDocEdge = await f.app.request(`/api/v1/projects/${f.projectA.id}/edges`, {
+      method: 'POST',
       headers: jsonHeaders(f.workspaceAKey),
-      body: JSON.stringify({ linked_task_id: taskB.id }),
+      body: JSON.stringify({
+        from_type: 'document',
+        from_id: documentA.id,
+        to_type: 'task',
+        to_id: taskB.id,
+        label: 'documents',
+      }),
     });
     const parent = await f.app.request(`/api/v1/documents/${documentA.id}`, {
       method: 'PATCH',
@@ -384,7 +390,9 @@ describe('workspace-tier adversarial audit round 3', () => {
       }),
     });
 
-    expect([linkedTask.status, parent.status, folder.status, edge.status]).toEqual([400, 400, 400, 400]);
+    expect([foreignDocEdge.status, parent.status, folder.status, edge.status]).toEqual([
+      400, 400, 400, 400,
+    ]);
   });
 
   it('CONFIRMED REPRO — custom organization:update on an agent key must not import outside its workspace', async () => {

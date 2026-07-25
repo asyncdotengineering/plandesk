@@ -536,8 +536,8 @@ export function createShareService(deps: ShareServiceDeps) {
           return undefined;
         }
         projectId = task.projectId;
-        // Union legacy linked_task_id with document→task edges; list is
-        // project-scoped so the share audience cannot widen past this project.
+        // Document→task edges, project-scoped so the share audience cannot
+        // widen past this project.
         const linkedDocumentIds = (
           await listDocumentsLinkedToTask(db, projectId, task.id)
         ).map((doc) => doc.id);

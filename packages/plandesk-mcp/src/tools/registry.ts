@@ -7,11 +7,8 @@ const DOCUMENT_BODY_DESCRIPTION =
 const NOTE_BODY_DESCRIPTION =
   'Note body in Markdown (rendered as rich text). Notes are free-form working notes scoped to the project — use them for findings, context, or anything worth referring back to. HTML is also accepted.';
 
-const LINKED_TASK_DESCRIPTION =
-  'ID (uuid) of the task this document is the spec for. Links the document to its primary task. Prefer `link_to` when linking to multiple tasks or documents.';
-
 const LINK_TO_DESCRIPTION =
-  'Task or document id(s) to link this document to. Accepts a single uuid or a list. Task ids dual-write `linked_task_id` for the first task when that field is omitted.';
+  'Task or document id(s) to link this document to. Accepts a single uuid or a list. Creates document→target edges (label documents/references).';
 
 const LINK_ENTITY_TYPE = z.enum(['task', 'document']);
 
@@ -74,7 +71,6 @@ export const createDocumentInputSchema = z.object({
   project_id: z.string().uuid(),
   title: z.string().min(1),
   body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
-  linked_task_id: z.string().uuid().optional().describe(LINKED_TASK_DESCRIPTION),
   link_to: z
     .union([z.string().uuid(), z.array(z.string().uuid())])
     .optional()
@@ -92,12 +88,6 @@ export const updateDocumentInputSchema = z.object({
   title: z.string().optional(),
   body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
   status_line: z.string().optional(),
-  linked_task_id: z
-    .string()
-    .uuid()
-    .nullable()
-    .optional()
-    .describe(`${LINKED_TASK_DESCRIPTION} Pass null to unlink the document from its task.`),
   link_to: z
     .union([z.string().uuid(), z.array(z.string().uuid())])
     .optional()

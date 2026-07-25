@@ -24,19 +24,16 @@ describe('documents repository', () => {
   });
 
   it('creates and retrieves a document', async () => {
-    const task = await createTask(db, { projectId, label: 'Linked' });
     const created = await createDocument(db, {
       projectId,
       title: 'Spec',
       body: '# Overview',
       statusLine: 'Status: draft',
-      linkedTaskId: task.id,
     });
     const fetched = await getDocument(db, created.id);
     expect(fetched).toEqual(created);
     expect(fetched?.body).toBe('# Overview');
     expect(fetched?.statusLine).toBe('Status: draft');
-    expect(fetched?.linkedTaskId).toBe(task.id);
   });
 
   it('returns undefined for a missing document', async () => {
@@ -49,12 +46,19 @@ describe('documents repository', () => {
     expect(await listDocuments(db, projectId)).toHaveLength(2);
   });
 
-  it('gets document by linked task', async () => {
+  it('gets document by linked task via edge', async () => {
     const task = await createTask(db, { projectId, label: 'Task' });
     const doc = await createDocument(db, {
       projectId,
       title: 'Linked doc',
-      linkedTaskId: task.id,
+    });
+    await createEdge(db, {
+      projectId,
+      fromType: 'document',
+      fromId: doc.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
     });
     expect((await getDocumentByTask(db, projectId, task.id))?.id).toBe(doc.id);
     expect(
@@ -62,33 +66,36 @@ describe('documents repository', () => {
     ).toBeUndefined();
   });
 
-  it('lists and resolves documents linked by edge as well as linked_task_id', async () => {
+  it('lists documents linked by document→task edge', async () => {
     const task = await createTask(db, { projectId, label: 'Task' });
-    const legacy = await createDocument(db, {
-      projectId,
-      title: 'Legacy doc',
-      linkedTaskId: task.id,
-    });
-    const edgeOnly = await createDocument(db, { projectId, title: 'Edge-only doc' });
+    const a = await createDocument(db, { projectId, title: 'Doc A' });
+    const b = await createDocument(db, { projectId, title: 'Doc B' });
     await createEdge(db, {
       projectId,
       fromType: 'document',
-      fromId: edgeOnly.id,
+      fromId: a.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
+    });
+    await createEdge(db, {
+      projectId,
+      fromType: 'document',
+      fromId: b.id,
       toType: 'task',
       toId: task.id,
       label: 'documents',
     });
 
     const linked = await listDocumentsLinkedToTask(db, projectId, task.id);
-    expect(linked.map((d) => d.id).sort()).toEqual([legacy.id, edgeOnly.id].sort());
-
-    // Singular lookup prefers the legacy primary over an edge-only peer.
-    expect((await getDocumentByTask(db, projectId, task.id))?.id).toBe(legacy.id);
+    expect(linked.map((d) => d.id).sort()).toEqual([a.id, b.id].sort());
   });
 
-  it('getDocumentByTask returns the oldest edge-linked doc when no legacy primary', async () => {
+  it('getDocumentByTask returns the oldest edge-linked doc', async () => {
     const task = await createTask(db, { projectId, label: 'Task' });
     const first = await createDocument(db, { projectId, title: 'First edge' });
+    // Ensure a measurable createdAt gap (SQLite ms timestamps can collide otherwise).
+    await new Promise((r) => setTimeout(r, 5));
     const second = await createDocument(db, { projectId, title: 'Second edge' });
     await createEdge(db, {
       projectId,

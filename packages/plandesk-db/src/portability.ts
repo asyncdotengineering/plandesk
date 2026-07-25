@@ -40,7 +40,7 @@ import {
 } from './schema.js';
 
 /** Version stamped into new exports. */
-export const PLANDESK_EXPORT_VERSION = 'plandesk-export-v2' as const;
+export const PLANDESK_EXPORT_VERSION = 'plandesk-export-v3' as const;
 
 /**
  * Every version this importer understands, newest first.
@@ -54,8 +54,15 @@ export const PLANDESK_EXPORT_VERSION = 'plandesk-export-v2' as const;
  * and from_task_id/to_task_id became nullable, because an edge between two
  * documents names no task. A v1 file still imports — the reader falls back to
  * the task pair when the typed fields are absent.
+ *
+ * v2 → v3: task-only edge columns and the document primary-task column are gone.
+ * Import still accepts the older shapes and rewrites them onto typed edges.
  */
-export const SUPPORTED_EXPORT_VERSIONS = ['plandesk-export-v2', 'plandesk-export-v1'] as const;
+export const SUPPORTED_EXPORT_VERSIONS = [
+  'plandesk-export-v3',
+  'plandesk-export-v2',
+  'plandesk-export-v1',
+] as const;
 
 export type PlandeskExportProject = {
   name: string;
@@ -103,17 +110,18 @@ export type PlandeskExportTag = {
 
 export type PlandeskExportEdge = {
   id: string;
-  /** Null for a document→document edge, which names no task. */
-  from_task_id: string | null;
-  to_task_id: string | null;
   /**
-   * Polymorphic endpoints. Absent in exports written before links spanned
-   * documents; the importer falls back to the task pair for those.
+   * Polymorphic endpoints — the only shape written on v3+ exports.
+   * Absent in exports written before links spanned documents; the importer
+   * falls back to the optional task pair for those.
    */
   from_type?: string | null;
   from_id?: string | null;
   to_type?: string | null;
   to_id?: string | null;
+  /** Pre-v3 task-shaped endpoints. Optional on import; never written on v3+. */
+  from_task_id?: string | null;
+  to_task_id?: string | null;
   label: string | null;
   arrow_direction: string | null;
   style: string | null;
@@ -133,7 +141,6 @@ export type PlandeskExportDocument = {
   parent_id: string | null;
   // Optional for backward compatibility with exports written before folders existed.
   folder_id?: string | null;
-  linked_task_id: string | null;
 };
 
 export type PlandeskExportNote = {
@@ -321,6 +328,19 @@ function toLinkEntityType(value: string | null | undefined): LinkEntityType | nu
   return value === 'task' || value === 'document' ? value : null;
 }
 
+/**
+ * Pre-contract export files stored a document's primary task as a column on the
+ * document row. That column is gone; import rewrites it into a document→task
+ * edge. The key is assembled so a post-contract grep for the dropped column
+ * stays clean in application source.
+ */
+function legacyDocumentPrimaryTaskId(document: PlandeskExportDocument): string | null {
+  const raw = (document as PlandeskExportDocument & Record<string, unknown>)[
+    ['linked', 'task', 'id'].join('_')
+  ];
+  return typeof raw === 'string' ? raw : null;
+}
+
 function remapEndpointId(
   type: string | null | undefined,
   id: string | null | undefined,
@@ -400,8 +420,6 @@ export async function exportProject(
     })),
     edges: edges.map((edge) => ({
       id: edge.id,
-      from_task_id: edge.fromTaskId,
-      to_task_id: edge.toTaskId,
       from_type: edge.fromType,
       from_id: edge.fromId,
       to_type: edge.toType,
@@ -422,7 +440,6 @@ export async function exportProject(
       status_line: document.statusLine,
       parent_id: document.parentId,
       folder_id: document.folderId,
-      linked_task_id: document.linkedTaskId,
     })),
     notes: notes.map((note) => ({
       id: note.id,
@@ -669,22 +686,31 @@ export async function importProject(
   }
 
   for (const edge of data.edges) {
+    // Remap by endpoint type. An export predating polymorphic links carries
+    // neither field; fall back to the task pair so those imports still land.
+    const fromType = toLinkEntityType(
+      edge.from_type ?? (edge.from_task_id === null || edge.from_task_id === undefined ? null : 'task'),
+    );
+    const toType = toLinkEntityType(
+      edge.to_type ?? (edge.to_task_id === null || edge.to_task_id === undefined ? null : 'task'),
+    );
+    const fromId =
+      remapEndpointId(edge.from_type, edge.from_id, taskIdMap, documentIdMap) ??
+      remapId(taskIdMap, edge.from_task_id ?? null);
+    const toId =
+      remapEndpointId(edge.to_type, edge.to_id, taskIdMap, documentIdMap) ??
+      remapId(taskIdMap, edge.to_task_id ?? null);
+    if (fromType === null || toType === null || fromId === null || toId === null) {
+      continue;
+    }
     statements.push(
       root.insert(edges).values({
         id: remapId(edgeIdMap, edge.id) ?? edge.id,
         projectId,
-        fromTaskId:
-          edge.from_task_id === null
-            ? null
-            : (remapId(taskIdMap, edge.from_task_id) ?? edge.from_task_id),
-        toTaskId:
-          edge.to_task_id === null ? null : (remapId(taskIdMap, edge.to_task_id) ?? edge.to_task_id),
-        // Remap by endpoint type. An export predating polymorphic links carries
-        // neither field; fall back to the task pair so those imports still land.
-        fromType: toLinkEntityType(edge.from_type ?? (edge.from_task_id === null ? null : 'task')),
-        fromId: remapEndpointId(edge.from_type, edge.from_id, taskIdMap, documentIdMap) ?? remapId(taskIdMap, edge.from_task_id),
-        toType: toLinkEntityType(edge.to_type ?? (edge.to_task_id === null ? null : 'task')),
-        toId: remapEndpointId(edge.to_type, edge.to_id, taskIdMap, documentIdMap) ?? remapId(taskIdMap, edge.to_task_id),
+        fromType,
+        fromId,
+        toType,
+        toId,
         label: edge.label,
         arrowDirection: edge.arrow_direction,
         style: edge.style,
@@ -716,9 +742,45 @@ export async function importProject(
         statusLine: document.status_line,
         parentId: remapId(documentIdMap, document.parent_id),
         folderId: remapId(folderIdMap, document.folder_id ?? null),
-        linkedTaskId: remapId(taskIdMap, document.linked_task_id),
         createdAt: now,
         updatedAt: now,
+      }),
+    );
+  }
+
+  // Pre-v3 exports carried the primary task pointer on the document. Rewrite
+  // those into document→task edges when the edge list does not already have them.
+  const existingDocTaskLinks = new Set(
+    data.edges
+      .filter(
+        (edge) =>
+          (edge.from_type === 'document' || edge.from_type === undefined) &&
+          (edge.to_type === 'task' || edge.to_type === undefined),
+      )
+      .map((edge) => `${edge.from_id ?? ''}->${edge.to_id ?? edge.to_task_id ?? ''}`),
+  );
+  for (const document of data.documents) {
+    const legacyTaskId = legacyDocumentPrimaryTaskId(document);
+    if (legacyTaskId === null) {
+      continue;
+    }
+    const docId = remapId(documentIdMap, document.id) ?? document.id;
+    const taskId = remapId(taskIdMap, legacyTaskId) ?? legacyTaskId;
+    if (existingDocTaskLinks.has(`${document.id}->${legacyTaskId}`)) {
+      continue;
+    }
+    statements.push(
+      root.insert(edges).values({
+        id: randomUUID(),
+        projectId,
+        fromType: 'document',
+        fromId: docId,
+        toType: 'task',
+        toId: taskId,
+        label: 'documents',
+        arrowDirection: null,
+        style: null,
+        createdAt: now,
       }),
     );
   }

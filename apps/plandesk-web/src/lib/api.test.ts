@@ -232,8 +232,6 @@ describe('api client', () => {
       from_id: 'doc-1',
       to_type: 'task' as const,
       to_id: 'task-1',
-      from_task_id: null,
-      to_task_id: 'task-1',
       label: 'documents',
       arrow_direction: null,
       style: null,

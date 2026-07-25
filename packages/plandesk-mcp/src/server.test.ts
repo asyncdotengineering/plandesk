@@ -104,7 +104,6 @@ async function connectClient(baseUrl: string, token?: string): Promise<Client> {
 function parseDocumentResult(result: unknown): {
   id: string;
   title: string;
-  linked_task_id: string | null;
   links?: Array<{ type: string; id: string; title: string; label: string | null }>;
   backlinks?: Array<{ type: string; id: string; title: string; label: string | null }>;
 } {
@@ -118,7 +117,6 @@ function parseDocumentResult(result: unknown): {
       document: {
         id: string;
         title: string;
-        linked_task_id: string | null;
         links?: Array<{ type: string; id: string; title: string; label: string | null }>;
         backlinks?: Array<{ type: string; id: string; title: string; label: string | null }>;
       };
@@ -300,7 +298,6 @@ describe('createMcpApp', () => {
           title: string;
           body: string | null;
           status_line: string | null;
-          linked_task_id: string | null;
           parent_id: string | null;
         };
       };
@@ -327,43 +324,28 @@ describe('createMcpApp', () => {
     });
   });
 
-  it('create_document and update_document persist linked_task_id (round-trip)', async () => {
+  it('create_document and update_document persist links via link_to (round-trip)', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
       const client = await connectClient(baseUrl);
       const task = await createTask(db, { projectId, label: 'Link target' });
       const other = await createTask(db, { projectId, label: 'Other target' });
 
-      // create with a link (this path already worked; guard it against regression)
       const created = await client.callTool({
         name: 'create_document',
-        arguments: { project_id: projectId, title: 'Spec', linked_task_id: task.id },
+        arguments: { project_id: projectId, title: 'Spec', link_to: task.id },
       });
       expect(created.isError).not.toBe(true);
       const createdDoc = parseDocumentResult(created);
-      expect(createdDoc.linked_task_id).toBe(task.id);
+      expect(createdDoc.links?.map((l) => l.id)).toEqual([task.id]);
 
-      // re-link via update (this path silently dropped the link before the fix)
       const updated = await client.callTool({
         name: 'update_document',
-        arguments: { document_id: createdDoc.id, linked_task_id: other.id },
+        arguments: { document_id: createdDoc.id, link_to: other.id },
       });
       expect(updated.isError).not.toBe(true);
-      expect(parseDocumentResult(updated).linked_task_id).toBe(other.id);
-
-      // get_document reflects the link
-      const got = await client.callTool({
-        name: 'get_document',
-        arguments: { document_id: createdDoc.id },
-      });
-      expect(parseDocumentResult(got).linked_task_id).toBe(other.id);
-
-      // null unlinks
-      const unlinked = await client.callTool({
-        name: 'update_document',
-        arguments: { document_id: createdDoc.id, linked_task_id: null },
-      });
-      expect(unlinked.isError).not.toBe(true);
-      expect(parseDocumentResult(unlinked).linked_task_id).toBeNull();
+      const updatedDoc = parseDocumentResult(updated);
+      // link_to is additive for new targets
+      expect(updatedDoc.links?.map((l) => l.id).sort()).toEqual([task.id, other.id].sort());
 
       await client.close();
     });
@@ -817,7 +799,15 @@ describe('createMcpApp', () => {
   it('create_share_link mints a resource-scoped link with a working markdown_url', async () => {
     await withMcpServer(async ({ baseUrl, token, projectId, db, app }) => {
       const task = await createTask(db, { projectId, label: 'Shareable task', status: 'todo' });
-      await createDocument(db, { projectId, title: 'Spec', body: '# Spec body', linkedTaskId: task.id });
+      const spec = await createDocument(db, { projectId, title: 'Spec', body: '# Spec body' });
+      await createEdge(db, {
+        projectId,
+        fromType: 'document',
+        fromId: spec.id,
+        toType: 'task',
+        toId: task.id,
+        label: 'documents',
+      });
 
       const client = await connectClient(baseUrl);
       const result = await client.callTool({
@@ -1118,8 +1108,6 @@ describe('createMcpApp', () => {
             from_id: string;
             to_type: string;
             to_id: string;
-            from_task_id: string;
-            to_task_id: string;
             label: string | null;
           }>;
         };
@@ -1130,8 +1118,6 @@ describe('createMcpApp', () => {
             from_id: taskA.id,
             to_type: 'task',
             to_id: taskB.id,
-            from_task_id: taskA.id,
-            to_task_id: taskB.id,
             label: 'blocks',
           }),
         ]);
@@ -1300,7 +1286,6 @@ describe('createMcpApp', () => {
             documents: Array<{
               id: string;
               title: string;
-              linked_task_id: string | null;
               links: Array<{ type: string; id: string; title: string; label: string | null }>;
               backlinks: Array<{ type: string; id: string; title: string; label: string | null }>;
             }>;
@@ -1318,7 +1303,6 @@ describe('createMcpApp', () => {
         const overview = payload.scaffold.documents.find((d) => d.title === 'Overview');
         expect(design).toBeDefined();
         expect(overview).toBeDefined();
-        expect(design!.linked_task_id).toBe(keys.t1);
         expect(design!.links.map((l) => l.id).sort()).toEqual(
           [keys.t1, keys.t2, keys.t3, keys.overview].sort(),
         );
@@ -1367,7 +1351,6 @@ describe('createMcpApp', () => {
         });
         expect(created.isError).not.toBe(true);
         const doc = parseDocumentResult(created);
-        expect(doc.linked_task_id).toBe(t1.id);
         expect(doc.links?.map((l) => l.id).sort()).toEqual([t1.id, t2.id, otherDoc.id].sort());
 
         const scaffold = await client.callTool({
@@ -1387,12 +1370,9 @@ describe('createMcpApp', () => {
         ) as {
           scaffold: {
             key_to_id: Record<string, string>;
-            documents: Array<{ linked_task_id: string | null; links: Array<{ id: string }> }>;
+            documents: Array<{ links: Array<{ id: string }> }>;
           };
         };
-        expect(scaffoldPayload.scaffold.documents[0]?.linked_task_id).toBe(
-          scaffoldPayload.scaffold.key_to_id.b,
-        );
         expect(scaffoldPayload.scaffold.documents[0]?.links.map((l) => l.id)).toEqual([
           scaffoldPayload.scaffold.key_to_id.b,
         ]);
@@ -1699,7 +1679,14 @@ describe('createMcpApp', () => {
         const doc = await createDocument(db, {
           projectId,
           title: 'Spec',
-          linkedTaskId: task.id,
+        });
+        await createEdge(db, {
+          projectId,
+          fromType: 'document',
+          fromId: doc.id,
+          toType: 'task',
+          toId: task.id,
+          label: 'documents',
         });
 
         const result = await client.callTool({
@@ -1731,7 +1718,7 @@ describe('createMcpApp', () => {
           name: 'get_document',
           arguments: { document_id: doc.id },
         });
-        expect(parseDocumentResult(gotDoc).linked_task_id).toBe(task.id);
+        expect(parseDocumentResult(gotDoc).links?.map((l) => l.id)).toEqual([task.id]);
 
         // A foreign/nonexistent goal_id is rejected with a clear error.
         const bad = await client.callTool({

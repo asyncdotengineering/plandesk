@@ -171,7 +171,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Create Document',
       description:
-        'Create a document with optional links. Pass link_to as a single id or a list of task/document ids to wire multiple targets; linked_task_id still sets the primary task. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
+        'Create a document with optional links. Pass link_to as a single id or a list of task/document ids to wire document→target edges. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
       inputSchema: createDocumentInputSchema.shape,
     },
     createCreateDocumentHandler(
@@ -186,7 +186,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Update Document',
       description:
-        'Update document title, body, status line, or links. Pass link_to as a single id or list of task/document ids to add outgoing links; linked_task_id still manages the primary task. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
+        'Update document title, body, status line, or links. Pass link_to as a single id or list of task/document ids to add outgoing document→target edges. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
       inputSchema: updateDocumentInputSchema.shape,
     },
     createUpdateDocumentHandler(
@@ -348,7 +348,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'List Edges',
       description:
-        'List edges for a project with typed endpoints (id, from_type, from_id, to_type, to_id, label, plus legacy from_task_id/to_task_id). Use this to inspect the graph before pruning a stale edge with delete_edge.',
+        'List edges for a project with typed endpoints (id, from_type, from_id, to_type, to_id, label). Use this to inspect the graph before pruning a stale edge with delete_edge.',
       inputSchema: listEdgesInputSchema.shape,
       annotations: { readOnlyHint: true },
     },

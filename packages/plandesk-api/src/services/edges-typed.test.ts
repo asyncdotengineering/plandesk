@@ -36,7 +36,7 @@ describe('typed edge service', () => {
     return createCanvasService({ db, orgId });
   }
 
-  it('task→task edge dual-writes legacy from_task_id/to_task_id alongside typed columns', async () => {
+  it('task→task edge writes typed columns only', async () => {
     const a = await createTask(db, { projectId: projectAId, label: 'A' });
     const b = await createTask(db, { projectId: projectAId, label: 'B' });
 
@@ -58,9 +58,6 @@ describe('typed edge service', () => {
       fromId: a.id,
       toType: 'task',
       toId: b.id,
-      // Contract-step precondition: legacy pair still populated for task→task.
-      fromTaskId: a.id,
-      toTaskId: b.id,
       label: 'blocks',
     });
     expect(created).toMatchObject({
@@ -68,12 +65,10 @@ describe('typed edge service', () => {
       from_id: a.id,
       to_type: 'task',
       to_id: b.id,
-      from_task_id: a.id,
-      to_task_id: b.id,
     });
   });
 
-  it('task-shaped createEdge still works and dual-writes typed columns', async () => {
+  it('task-shaped createEdge still maps to typed columns', async () => {
     const a = await createTask(db, { projectId: projectAId, label: 'A' });
     const b = await createTask(db, { projectId: projectAId, label: 'B' });
 
@@ -93,12 +88,10 @@ describe('typed edge service', () => {
       fromId: a.id,
       toType: 'task',
       toId: b.id,
-      fromTaskId: a.id,
-      toTaskId: b.id,
     });
   });
 
-  it('creates a task→document edge with typed columns and a null legacy task pair', async () => {
+  it('creates a task→document edge with typed columns', async () => {
     const task = await createTask(db, { projectId: projectAId, label: 'Task' });
     const doc = await createDocument(db, { projectId: projectAId, title: 'Doc' });
 
@@ -121,12 +114,6 @@ describe('typed edge service', () => {
       toType: 'document',
       toId: doc.id,
     });
-    // An edge with a document endpoint names no task pair, so both legacy
-    // columns are null. Writing the task id into to_task_id would assert a
-    // task→task relationship that does not exist, and any consumer joining on
-    // those columns would see a phantom edge. Never the document id either.
-    expect(row?.fromTaskId).toBeNull();
-    expect(row?.toTaskId).toBeNull();
   });
 
   it('refuses create when to is a document in another project (workspace B stand-in)', async () => {

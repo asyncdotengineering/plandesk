@@ -79,9 +79,6 @@ export type SerializedEdge = {
   from_id: string;
   to_type: LinkEntityType;
   to_id: string;
-  /** Nullable when either endpoint is a document. */
-  from_task_id: string | null;
-  to_task_id: string | null;
   label: string | null;
   arrow_direction: string | null;
   style: string | null;

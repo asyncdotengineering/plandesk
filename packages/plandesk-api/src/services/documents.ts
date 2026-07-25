@@ -1,14 +1,11 @@
 import {
   withTransaction,
   createDocument as dbCreateDocument,
-  createEdge,
   deleteCommentsByTarget,
   deleteDocument as dbDeleteDocument,
-  deleteEdgeByEndpoints,
   detachDocumentChildren,
   getDocument as dbGetDocument,
   getDocumentByTask as dbGetDocumentByTask,
-  getEdgeByEndpoints,
   getFolderByProjectAndId,
   getTask,
   listDocuments as dbListDocuments,
@@ -44,7 +41,6 @@ export type CreateDocumentInput = {
   statusLine?: string | null;
   parentId?: string | null;
   folderId?: string | null;
-  linkedTaskId?: string | null;
 };
 
 export type UpdateDocumentInput = {
@@ -53,20 +49,12 @@ export type UpdateDocumentInput = {
   statusLine?: string | null;
   parentId?: string | null;
   folderId?: string | null;
-  linkedTaskId?: string | null;
 };
 
 export class InvalidDocumentError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidDocumentError';
-  }
-}
-
-async function assertTaskInProject(db: Db, projectId: string, taskId: string): Promise<void> {
-  const task = await getTask(db, taskId);
-  if (!task || task.projectId !== projectId) {
-    throw new InvalidDocumentError('Task does not belong to project');
   }
 }
 
@@ -112,30 +100,19 @@ async function resolveEndpointTitle(
 }
 
 function edgeFromType(edge: Edge): LinkEntityType {
-  return edge.fromType ?? 'task';
+  return edge.fromType;
 }
 
 function edgeToType(edge: Edge): LinkEntityType {
-  return edge.toType ?? 'task';
+  return edge.toType;
 }
 
-// Every edge has both endpoints: fromId/toId are backfilled for pre-existing
-// rows and written for new ones, with the legacy task pair as the fallback for
-// task→task. A row with neither is corrupt, not merely unmigrated.
 function edgeFromId(edge: Edge): string {
-  const id = edge.fromId ?? edge.fromTaskId;
-  if (id === null) {
-    throw new Error(`Edge ${edge.id} has no from endpoint`);
-  }
-  return id;
+  return edge.fromId;
 }
 
 function edgeToId(edge: Edge): string {
-  const id = edge.toId ?? edge.toTaskId;
-  if (id === null) {
-    throw new Error(`Edge ${edge.id} has no to endpoint`);
-  }
-  return id;
+  return edge.toId;
 }
 
 /**
@@ -183,47 +160,6 @@ async function serializeDocumentWithLinks(
   const edges = await listEdgesByEndpoint(db, document.projectId, 'document', document.id);
   const { links, backlinks } = await linksForDocument(db, document.projectId, document.id, edges);
   return serializeDocument(document, { links, backlinks });
-}
-
-/**
- * Dual-write the migrate-era document→task edge for a linked_task_id write.
- * The column stays until the contract step; the edge is what `links` reads.
- */
-async function ensureDocumentTaskEdge(
-  db: DbClient,
-  projectId: string,
-  documentId: string,
-  taskId: string,
-): Promise<void> {
-  const endpoints = {
-    fromType: 'document' as const,
-    fromId: documentId,
-    toType: 'task' as const,
-    toId: taskId,
-  };
-  const existing = await getEdgeByEndpoints(db, projectId, endpoints);
-  if (existing) {
-    return;
-  }
-  await createEdge(db, {
-    projectId,
-    ...endpoints,
-    label: 'documents',
-  });
-}
-
-async function removeDocumentTaskEdge(
-  db: DbClient,
-  projectId: string,
-  documentId: string,
-  taskId: string,
-): Promise<void> {
-  await deleteEdgeByEndpoints(db, projectId, {
-    fromType: 'document',
-    fromId: documentId,
-    toType: 'task',
-    toId: taskId,
-  });
 }
 
 /**
@@ -414,10 +350,6 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         throw error;
       }
 
-      if (input.linkedTaskId !== undefined && input.linkedTaskId !== null) {
-        await assertTaskInProject(db, projectId, input.linkedTaskId);
-      }
-
       if (input.parentId !== undefined && input.parentId !== null) {
         await assertParentInProject(db, projectId, input.parentId);
       }
@@ -433,12 +365,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         statusLine: input.statusLine,
         parentId: input.parentId,
         folderId: input.folderId,
-        linkedTaskId: input.linkedTaskId,
       });
-
-      if (input.linkedTaskId !== undefined && input.linkedTaskId !== null) {
-        await ensureDocumentTaskEdge(db, projectId, document.id, input.linkedTaskId);
-      }
 
       return serializeDocumentWithLinks(db, document);
     },
@@ -474,10 +401,6 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         throw error;
       }
 
-      if (input.linkedTaskId !== undefined && input.linkedTaskId !== null) {
-        await assertTaskInProject(db, existing.projectId, input.linkedTaskId);
-      }
-
       if (input.parentId !== undefined && input.parentId !== null) {
         if (input.parentId === id) {
           throw new InvalidDocumentError('Document cannot be its own parent');
@@ -492,17 +415,6 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       const document = await dbUpdateDocument(db, id, input);
       if (!document) {
         return undefined;
-      }
-
-      if (input.linkedTaskId !== undefined) {
-        if (existing.linkedTaskId && existing.linkedTaskId !== input.linkedTaskId) {
-          await removeDocumentTaskEdge(db, existing.projectId, id, existing.linkedTaskId);
-        }
-        if (input.linkedTaskId !== null) {
-          await ensureDocumentTaskEdge(db, existing.projectId, id, input.linkedTaskId);
-        } else if (existing.linkedTaskId) {
-          await removeDocumentTaskEdge(db, existing.projectId, id, existing.linkedTaskId);
-        }
       }
 
       return serializeDocumentWithLinks(db, document);

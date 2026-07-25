@@ -95,13 +95,10 @@ function serializeLayout(projectLayout: string | null): unknown {
 }
 
 function isTaskGraphEdge(edge: {
-  fromType: LinkEntityType | null;
-  toType: LinkEntityType | null;
+  fromType: LinkEntityType;
+  toType: LinkEntityType;
 }): boolean {
-  return (
-    (edge.fromType === null || edge.fromType === 'task') &&
-    (edge.toType === null || edge.toType === 'task')
-  );
+  return edge.fromType === 'task' && edge.toType === 'task';
 }
 
 function assertLinkEntityType(value: string, side: 'from' | 'to'): asserts value is LinkEntityType {

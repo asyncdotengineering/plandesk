@@ -9,7 +9,6 @@ export type UpdateDocumentArgs = {
   title?: string;
   body?: string;
   status_line?: string;
-  linked_task_id?: string | null;
   /** Task or document id(s) to ensure as outgoing links. Single string or list. */
   link_to?: string | string[];
   folder_id?: string | null;
@@ -48,7 +47,6 @@ export function createUpdateDocumentHandler(
         ...(args.title !== undefined ? { title: args.title } : {}),
         ...(args.body !== undefined ? { body: ensureHtmlBody(args.body) } : {}),
         ...(args.status_line !== undefined ? { statusLine: args.status_line } : {}),
-        ...(args.linked_task_id !== undefined ? { linkedTaskId: args.linked_task_id } : {}),
         ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
       });
       if (!document) {
@@ -60,13 +58,7 @@ export function createUpdateDocumentHandler(
         return toolSuccess('document', document);
       }
 
-      const existingLinkIds = new Set(
-        (document.links ?? []).map((link: { id: string }) => link.id),
-      );
-      // After linked_task_id update the primary may already be present.
-      if (document.linked_task_id) {
-        existingLinkIds.add(document.linked_task_id);
-      }
+      const existingLinkIds = new Set((document.links ?? []).map((link: { id: string }) => link.id));
 
       for (const id of linkTargets) {
         if (existingLinkIds.has(id)) {

@@ -36,6 +36,13 @@
       "when": 1784988578999,
       "tag": "0004_legacy_edge_cols_nullable",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1785000000000,
+      "tag": "0005_contract_drop_legacy_link_cols",
+      "breakpoints": true
     }
   ]
 }

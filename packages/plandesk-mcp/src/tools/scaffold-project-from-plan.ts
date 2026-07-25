@@ -67,7 +67,7 @@ export function createScaffoldProjectFromPlanHandler(
         }
       }
 
-      // API still accepts a single task-shaped linkTo (dual-writes linked_task_id).
+      // API accepts a single task-shaped linkTo and creates a document→task edge.
       // Multi-target and document→document links are applied after via typed edges.
       const result = await projectService.scaffoldFromPlan({
         ...(args.project_id !== undefined ? { projectId: args.project_id } : {}),
@@ -128,7 +128,7 @@ export function createScaffoldProjectFromPlanHandler(
         const firstTaskKey = links.find((key) => taskKeys.has(key));
         for (const key of links) {
           if (key === firstTaskKey) {
-            // Already dual-written by scaffoldFromPlan as linked_task_id + edge.
+            // Already written by scaffoldFromPlan as a document→task edge.
             continue;
           }
           const targetId = keyToId[key];

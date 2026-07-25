@@ -106,29 +106,17 @@ export async function buildClientView(
   const sharedEdges = (await listEdges(db, projectId))
     .filter((edge) => {
       // Share projection is task-graph only; skip polymorphic document edges.
-      const fromType = edge.fromType ?? 'task';
-      const toType = edge.toType ?? 'task';
-      if (fromType !== 'task' || toType !== 'task') {
+      if (edge.fromType !== 'task' || edge.toType !== 'task') {
         return false;
       }
-      const fromId = edge.fromId ?? edge.fromTaskId;
-      const toId = edge.toId ?? edge.toTaskId;
-      if (fromId === null || toId === null) {
-        return false;
-      }
-      return sharedTaskIds.has(fromId) && sharedTaskIds.has(toId);
+      return sharedTaskIds.has(edge.fromId) && sharedTaskIds.has(edge.toId);
     })
-    .map((edge) => {
-      // Non-null by the filter above: a task→task edge in sharedTaskIds.
-      const fromId = edge.fromId ?? edge.fromTaskId ?? '';
-      const toId = edge.toId ?? edge.toTaskId ?? '';
-      return {
-        id: edge.id,
-        from: fromId,
-        to: toId,
-        label: edge.label,
-      };
-    });
+    .map((edge) => ({
+      id: edge.id,
+      from: edge.fromId,
+      to: edge.toId,
+      label: edge.label,
+    }));
 
   const documentIdSet = new Set(policy.documentIds);
   const sharedDocuments = (await listDocuments(db, projectId))

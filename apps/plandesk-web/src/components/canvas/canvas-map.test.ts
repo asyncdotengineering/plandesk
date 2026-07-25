@@ -32,8 +32,6 @@ const sampleEdge: SerializedEdge = {
   from_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   to_type: 'task',
   to_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-  from_task_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-  to_task_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
   label: 'blocks',
   arrow_direction: null,
   style: null,
@@ -66,8 +64,8 @@ describe('canvas-map', () => {
       {
         id: sampleEdge.id,
         type: 'labeled',
-        source: sampleEdge.from_task_id,
-        target: sampleEdge.to_task_id,
+        source: sampleEdge.from_id,
+        target: sampleEdge.to_id,
         data: { label: 'blocks' },
       },
     ]);

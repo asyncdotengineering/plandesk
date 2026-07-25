@@ -892,11 +892,6 @@ describe('workspace-tier adversarial audit round 4', () => {
         }),
         createCreateDocumentHandler(f.services.documentService)({
           project_id: f.projectA.id,
-          title: 'foreign task ref',
-          linked_task_id: f.foreignB.task.id,
-        }),
-        createCreateDocumentHandler(f.services.documentService)({
-          project_id: f.projectA.id,
           title: 'foreign document parent ref',
           parent_id: f.foreignB.document.id,
         }),
@@ -907,11 +902,15 @@ describe('workspace-tier adversarial audit round 4', () => {
         }),
         createUpdateDocumentHandler(f.services.documentService)({
           document_id: documentA.id,
-          linked_task_id: f.foreignB.task.id,
-        }),
-        createUpdateDocumentHandler(f.services.documentService)({
-          document_id: documentA.id,
           folder_id: f.foreignB.folder.id,
+        }),
+        createCreateEdgeHandler(f.services.canvasService)({
+          project_id: f.projectA.id,
+          from_type: 'document',
+          from_id: documentA.id,
+          to_type: 'task',
+          to_id: f.foreignB.task.id,
+          label: 'documents',
         }),
         createCreateFolderHandler(f.services.folderService)({
           project_id: f.projectA.id,

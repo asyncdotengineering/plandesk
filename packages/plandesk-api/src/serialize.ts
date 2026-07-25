@@ -168,11 +168,6 @@ export type SerializedDocument = {
   status_line: string | null;
   parent_id: string | null;
   folder_id: string | null;
-  /**
-   * Legacy single-task pointer. Kept on the payload so MCP/CLI/web keep working
-   * until the contract step drops it. Prefer `links` for multi-target graphs.
-   */
-  linked_task_id: string | null;
   /** Outgoing edges from this document (what it points at). */
   links: SerializedEntityLink[];
   /** Incoming edges to this document (what points at it). */
@@ -200,7 +195,6 @@ export function serializeDocument(
     status_line: document.statusLine,
     parent_id: document.parentId,
     folder_id: document.folderId,
-    linked_task_id: document.linkedTaskId,
     links: options?.links ?? [],
     backlinks: options?.backlinks ?? [],
     created_at: document.createdAt.toISOString(),
@@ -402,21 +396,13 @@ export function buildFolderTree(
 }
 
 export function serializeEdge(edge: Edge) {
-  // Prefer typed columns; fall back to the task pair for pre-dual-write rows.
-  const fromType = edge.fromType ?? 'task';
-  const fromId = edge.fromId ?? edge.fromTaskId;
-  const toType = edge.toType ?? 'task';
-  const toId = edge.toId ?? edge.toTaskId;
   return {
     id: edge.id,
     project_id: edge.projectId,
-    from_type: fromType,
-    from_id: fromId,
-    to_type: toType,
-    to_id: toId,
-    // Legacy fields kept for MCP/web callers that still read task-shaped edges.
-    from_task_id: edge.fromTaskId,
-    to_task_id: edge.toTaskId,
+    from_type: edge.fromType,
+    from_id: edge.fromId,
+    to_type: edge.toType,
+    to_id: edge.toId,
     label: edge.label,
     arrow_direction: edge.arrowDirection,
     style: edge.style,

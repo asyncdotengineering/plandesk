@@ -156,11 +156,18 @@ describe('shareService', () => {
       label: 'Ship the thing',
       description: 'See ![before](/api/v1/files/abc123) for context.',
     });
-    await createDocument(db, {
+    const spec = await createDocument(db, {
       projectId: project.id,
       title: 'Spec',
       body: '<p>Do the work.</p><img src="/api/v1/files/def456" alt="diagram">',
-      linkedTaskId: task.id,
+    });
+    await createEdge(db, {
+      projectId: project.id,
+      fromType: 'document',
+      fromId: spec.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
     });
 
     const created = await service.createResourceShare(
@@ -212,28 +219,29 @@ describe('shareService', () => {
     expect(markdown.markdown).toContain('## Design');
   });
 
-  it('task share includes edge-linked documents alongside linked_task_id', async () => {
+  it('task share includes edge-linked documents', async () => {
     const service = createService();
     const project = await createProject(db, { name: 'Edge-linked share' });
     const task = await createTask(db, { projectId: project.id, label: 'T1' });
-    const legacyDoc = await createDocument(db, {
+    const primaryDoc = await createDocument(db, {
       projectId: project.id,
-      title: 'Legacy doc',
-      linkedTaskId: task.id,
+      title: 'Primary doc',
     });
     const newDoc = await createDocument(db, {
       projectId: project.id,
       title: 'New-way doc',
       body: '<p>Edge only</p>',
     });
-    await createEdge(db, {
-      projectId: project.id,
-      fromType: 'document',
-      fromId: newDoc.id,
-      toType: 'task',
-      toId: task.id,
-      label: 'documents',
-    });
+    for (const doc of [primaryDoc, newDoc]) {
+      await createEdge(db, {
+        projectId: project.id,
+        fromType: 'document',
+        fromId: doc.id,
+        toType: 'task',
+        toId: task.id,
+        label: 'documents',
+      });
+    }
 
     const created = await service.createResourceShare(
       { resource: { kind: 'task', id: task.id } },
@@ -249,13 +257,13 @@ describe('shareService', () => {
       return;
     }
     const policy = parseSharePolicy(share);
-    expect(policy.documentIds.sort()).toEqual([legacyDoc.id, newDoc.id].sort());
+    expect(policy.documentIds.sort()).toEqual([primaryDoc.id, newDoc.id].sort());
 
     const markdown = await service.getResourceMarkdown(created.token, 'https://plandesk.example');
     if (markdown.status !== 'ok') {
       throw new Error('expected markdown');
     }
-    expect(markdown.markdown).toContain('## Linked document: Legacy doc');
+    expect(markdown.markdown).toContain('## Linked document: Primary doc');
     expect(markdown.markdown).toContain('## Linked document: New-way doc');
   });
 

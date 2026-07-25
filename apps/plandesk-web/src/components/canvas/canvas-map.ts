@@ -68,14 +68,14 @@ export function canvasToFlowNodes(
 }
 
 export function canvasToFlowEdges(edges: SerializedEdge[]): Edge<LabeledEdgeData>[] {
-  // Canvas payload is task-graph only; skip any edge missing task endpoints.
+  // Canvas payload is task-graph only; skip document endpoints.
   return edges
-    .filter((edge) => edge.from_task_id !== null && edge.to_task_id !== null)
+    .filter((edge) => edge.from_type === 'task' && edge.to_type === 'task')
     .map((edge) => ({
       id: edge.id,
       type: 'labeled',
-      source: edge.from_task_id as string,
-      target: edge.to_task_id as string,
+      source: edge.from_id,
+      target: edge.to_id,
       data: { label: edge.label ?? 'depends_on' },
     }));
 }

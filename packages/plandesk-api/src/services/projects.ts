@@ -465,26 +465,24 @@ export function createProjectService(deps: ProjectServiceDeps) {
         }
 
         for (const docInput of input.documents ?? []) {
-          const linkedTaskId =
+          const linkTaskId =
             docInput.linkTo !== undefined ? keyToId.get(docInput.linkTo) : undefined;
           const document = await createDocument(tx, {
             projectId,
             title: docInput.title,
             body: docInput.body,
             statusLine: docInput.statusLine,
-            linkedTaskId: linkedTaskId ?? null,
           });
-          // Dual-write the document→task edge so the payload's `links` sees it.
-          // Column stays until the contract step; edges are the graph source of truth.
-          // Not pushed onto edgeRows — scaffold `edges`/`counts.edges` stay the plan's
-          // task-graph edges; the document link is reflected on the document payload.
-          if (linkedTaskId !== undefined) {
+          // Document→task edge is the sole link. Not pushed onto edgeRows —
+          // scaffold `edges`/`counts.edges` stay the plan's task-graph edges;
+          // the document link is reflected on the document payload.
+          if (linkTaskId !== undefined) {
             await createEdge(tx, {
               projectId,
               fromType: 'document',
               fromId: document.id,
               toType: 'task',
-              toId: linkedTaskId,
+              toId: linkTaskId,
               label: 'documents',
             });
           }
@@ -501,41 +499,30 @@ export function createProjectService(deps: ProjectServiceDeps) {
       const allEdges = await listEdges(db, projectId);
       const documents = documentRows.map((document) => {
         const links = allEdges
-          .filter(
-            (edge) =>
-              (edge.fromType ?? 'task') === 'document' &&
-              (edge.fromId ?? edge.fromTaskId) === document.id,
-          )
+          .filter((edge) => edge.fromType === 'document' && edge.fromId === document.id)
           .map((edge) => {
-            const toType = edge.toType ?? 'task';
-            const toId = edge.toId ?? edge.toTaskId ?? '';
             const title =
-              toType === 'task'
-                ? (taskRows.find((t) => t.id === toId)?.label ?? toId)
-                : (documentRows.find((d) => d.id === toId)?.title ?? toId);
+              edge.toType === 'task'
+                ? (taskRows.find((t) => t.id === edge.toId)?.label ?? edge.toId)
+                : (documentRows.find((d) => d.id === edge.toId)?.title ?? edge.toId);
             return {
-              type: toType as 'task' | 'document',
-              id: toId,
+              type: edge.toType as 'task' | 'document',
+              id: edge.toId,
               title,
               label: edge.label,
               edge_id: edge.id,
             };
           });
         const backlinks = allEdges
-          .filter(
-            (edge) =>
-              (edge.toType ?? 'task') === 'document' && (edge.toId ?? edge.toTaskId) === document.id,
-          )
+          .filter((edge) => edge.toType === 'document' && edge.toId === document.id)
           .map((edge) => {
-            const fromType = edge.fromType ?? 'task';
-            const fromId = edge.fromId ?? edge.fromTaskId ?? '';
             const title =
-              fromType === 'task'
-                ? (taskRows.find((t) => t.id === fromId)?.label ?? fromId)
-                : (documentRows.find((d) => d.id === fromId)?.title ?? fromId);
+              edge.fromType === 'task'
+                ? (taskRows.find((t) => t.id === edge.fromId)?.label ?? edge.fromId)
+                : (documentRows.find((d) => d.id === edge.fromId)?.title ?? edge.fromId);
             return {
-              type: fromType as 'task' | 'document',
-              id: fromId,
+              type: edge.fromType as 'task' | 'document',
+              id: edge.fromId,
               title,
               label: edge.label,
               edge_id: edge.id,

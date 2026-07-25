@@ -88,9 +88,15 @@ describe('migrate', () => {
     expect(await hasColumn(db, 'edges', 'from_id')).toBe(true);
     expect(await hasColumn(db, 'edges', 'to_type')).toBe(true);
     expect(await hasColumn(db, 'edges', 'to_id')).toBe(true);
-    expect(await hasColumn(db, 'edges', 'from_task_id')).toBe(true);
-    expect(await hasColumn(db, 'edges', 'to_task_id')).toBe(true);
-    expect(await hasColumn(db, 'documents', 'linked_task_id')).toBe(true);
+    expect(await hasColumn(db, 'edges', 'from_task_id')).toBe(false);
+    expect(await hasColumn(db, 'edges', 'to_task_id')).toBe(false);
+    expect(await hasColumn(db, 'documents', 'linked_task_id')).toBe(false);
+    // Typed edge endpoints are NOT NULL on a fresh database.
+    const edgeInfo = await db.$client.execute('PRAGMA table_info(edges)');
+    for (const col of ['from_type', 'from_id', 'to_type', 'to_id'] as const) {
+      const row = edgeInfo.rows.find((r) => r.name === col);
+      expect(row?.notnull).toBe(1);
+    }
   });
 
   it('is idempotent when run twice', async () => {
@@ -247,7 +253,7 @@ describe('migrate', () => {
       },
     ]);
 
-    // linked_task_id and task FK columns still present (contract drops them later)
+    // Expand leaves the legacy column; contract (0005) drops it later.
     expect(await hasColumn(db, 'documents', 'linked_task_id')).toBe(true);
     expect(await hasColumn(db, 'edges', 'from_task_id')).toBe(true);
     const linkedStill = await db.$client.execute(
@@ -287,5 +293,115 @@ describe('migrate', () => {
     expect(Number(after.rows[0]?.n)).toBe(0);
     expect(await hasColumn(db, 'edges', 'from_type')).toBe(true);
     expect(await hasColumn(db, 'edges', 'to_id')).toBe(true);
+  });
+
+  // Contract: an already-migrated (expand-era) database and a fresh database
+  // converge to the same final shape — no legacy link columns, typed endpoints NOT NULL.
+  it('0005 contracts a populated expand-era database and converges with a fresh migrate', async () => {
+    const files = readdirSync(drizzleDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    const idx = files.indexOf('0005_contract_drop_legacy_link_cols.sql');
+    expect(idx).toBeGreaterThan(0);
+    const preamble = files.slice(0, idx);
+    const target = files[idx]!;
+
+    const db = await createDb(':memory:');
+    await db.$client.execute('PRAGMA foreign_keys = OFF');
+    for (const f of preamble) {
+      await applyMigrationSqlRaw(db, f);
+    }
+
+    await db.$client.execute(
+      "INSERT INTO projects (id, org_id, workspace_id, name) VALUES ('p1','o1','w1','P')",
+    );
+    await db.$client.execute(
+      "INSERT INTO goals (id, project_id, objective) VALUES ('g1','p1','Ship')",
+    );
+    await db.$client.execute(
+      "INSERT INTO tasks (id, project_id, goal_id, label) VALUES ('t1','p1','g1','From')",
+    );
+    await db.$client.execute(
+      "INSERT INTO tasks (id, project_id, goal_id, label) VALUES ('t2','p1','g1','To')",
+    );
+    // Expand-era task→task edge (typed filled, legacy still present).
+    await db.$client.execute(
+      "INSERT INTO edges (id, project_id, from_task_id, to_task_id, from_type, from_id, to_type, to_id, label) VALUES ('e1','p1','t1','t2','task','t1','task','t2','blocks')",
+    );
+    // Document with legacy primary and its dual-written edge.
+    await db.$client.execute(
+      "INSERT INTO documents (id, project_id, title, linked_task_id) VALUES ('d1','p1','Spec','t1')",
+    );
+    await db.$client.execute(
+      "INSERT INTO edges (id, project_id, from_task_id, to_task_id, from_type, from_id, to_type, to_id, label) VALUES ('e2','p1',NULL,NULL,'document','d1','task','t1','documents')",
+    );
+    // Document whose dual-write edge is missing — contract must re-materialise it.
+    await db.$client.execute(
+      "INSERT INTO documents (id, project_id, title, linked_task_id) VALUES ('d2','p1','Orphan link','t2')",
+    );
+
+    await applyMigrationSqlRaw(db, target);
+    await db.$client.execute('PRAGMA foreign_keys = ON');
+
+    const fkCheck = await db.$client.execute('PRAGMA foreign_key_check');
+    expect(fkCheck.rows).toHaveLength(0);
+
+    expect(await hasColumn(db, 'edges', 'from_task_id')).toBe(false);
+    expect(await hasColumn(db, 'edges', 'to_task_id')).toBe(false);
+    expect(await hasColumn(db, 'documents', 'linked_task_id')).toBe(false);
+
+    const edgeInfo = await db.$client.execute('PRAGMA table_info(edges)');
+    for (const col of ['from_type', 'from_id', 'to_type', 'to_id'] as const) {
+      const row = edgeInfo.rows.find((r) => r.name === col);
+      expect(row?.notnull).toBe(1);
+    }
+
+    const edges = await db.$client.execute(
+      'SELECT id, from_type, from_id, to_type, to_id, label FROM edges ORDER BY from_type, from_id, to_id',
+    );
+    expect(edges.rows).toEqual(
+      expect.arrayContaining([
+        {
+          id: 'e1',
+          from_type: 'task',
+          from_id: 't1',
+          to_type: 'task',
+          to_id: 't2',
+          label: 'blocks',
+        },
+        {
+          id: 'e2',
+          from_type: 'document',
+          from_id: 'd1',
+          to_type: 'task',
+          to_id: 't1',
+          label: 'documents',
+        },
+        expect.objectContaining({
+          from_type: 'document',
+          from_id: 'd2',
+          to_type: 'task',
+          to_id: 't2',
+          label: 'documents',
+        }),
+      ]),
+    );
+    expect(edges.rows).toHaveLength(3);
+
+    // Fresh migrate() must arrive at the identical domain schema shape for edges/documents.
+    // (Raw SQL path does not create __drizzle_migrations; compare domain tables only.)
+    const fresh = await createDb(':memory:');
+    await migrate(fresh);
+    const shape = async (client: Awaited<ReturnType<typeof createDb>>) => {
+      const tables = (await listTables(client)).filter((t) => t !== '__drizzle_migrations').sort();
+      const edgeCols = (await client.$client.execute('PRAGMA table_info(edges)')).rows
+        .map((r) => `${String(r.name)}:${String(r.notnull)}`)
+        .sort();
+      const docCols = (await client.$client.execute('PRAGMA table_info(documents)')).rows
+        .map((r) => `${String(r.name)}:${String(r.notnull)}`)
+        .sort();
+      return { tables, edgeCols, docCols };
+    };
+    expect(await shape(db)).toEqual(await shape(fresh));
   });
 });

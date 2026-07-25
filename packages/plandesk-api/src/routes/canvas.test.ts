@@ -8,8 +8,10 @@ type CanvasResponse = {
   edges: Array<{
     id: string;
     project_id: string;
-    from_task_id: string;
-    to_task_id: string;
+    from_type: string;
+    from_id: string;
+    to_type: string;
+    to_id: string;
     label: string | null;
     arrow_direction: string | null;
     style: string | null;
@@ -79,19 +81,23 @@ describe('canvas routes', () => {
       });
     }
 
-    const labeledEdge = canvas.edges.find((edge) => edge.from_task_id === nodeA);
+    const labeledEdge = canvas.edges.find((edge) => edge.from_id === nodeA);
     expect(labeledEdge).toMatchObject({
       id: edgeOne,
-      from_task_id: nodeA,
-      to_task_id: nodeB,
+      from_type: 'task',
+      from_id: nodeA,
+      to_type: 'task',
+      to_id: nodeB,
       label: 'blocks',
       arrow_direction: 'forward',
     });
 
-    const secondEdge = canvas.edges.find((edge) => edge.from_task_id === nodeB);
+    const secondEdge = canvas.edges.find((edge) => edge.from_id === nodeB);
     expect(secondEdge).toMatchObject({
-      from_task_id: nodeB,
-      to_task_id: nodeC,
+      from_type: 'task',
+      from_id: nodeB,
+      to_type: 'task',
+      to_id: nodeC,
       label: 'depends_on',
     });
   });
@@ -261,9 +267,9 @@ describe('canvas routes', () => {
 
     const res = await app.request(`/api/v1/projects/${project.id}/edges`);
     expect(res.status).toBe(200);
-    const edges = await parseJson<Array<{ id: string; from_task_id: string; to_task_id: string; label: string | null }>>(res);
+    const edges = await parseJson<Array<{ id: string; from_type: string; from_id: string; to_type: string; to_id: string; label: string | null }>>(res);
     expect(edges).toEqual([
-      expect.objectContaining({ id: edge.id, from_task_id: taskA.id, to_task_id: taskB.id, label: 'blocks' }),
+      expect.objectContaining({ id: edge.id, from_type: 'task', from_id: taskA.id, to_type: 'task', to_id: taskB.id, label: 'blocks' }),
     ]);
   });
 
@@ -349,16 +355,12 @@ describe('canvas routes', () => {
       from_id: string;
       to_type: string;
       to_id: string;
-      from_task_id: string;
-      to_task_id: string;
     }>(res);
     expect(edge).toMatchObject({
       from_type: 'task',
       from_id: a.id,
       to_type: 'task',
       to_id: b.id,
-      from_task_id: a.id,
-      to_task_id: b.id,
     });
   });
 

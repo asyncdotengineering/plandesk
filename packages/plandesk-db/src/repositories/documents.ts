@@ -13,7 +13,6 @@ export type NewDocument = {
   statusLine?: string | null;
   parentId?: string | null;
   folderId?: string | null;
-  linkedTaskId?: string | null;
   id?: string;
 };
 
@@ -23,7 +22,6 @@ export type DocumentUpdate = {
   statusLine?: string | null;
   parentId?: string | null;
   folderId?: string | null;
-  linkedTaskId?: string | null;
 };
 
 export async function createDocument(db: DbClient, input: NewDocument): Promise<Document> {
@@ -39,7 +37,6 @@ export async function createDocument(db: DbClient, input: NewDocument): Promise<
       statusLine: input.statusLine ?? null,
       parentId: input.parentId ?? null,
       folderId: input.folderId ?? null,
-      linkedTaskId: input.linkedTaskId ?? null,
       createdAt: now,
       updatedAt: now,
     })
@@ -82,8 +79,10 @@ export async function listDocuments(
 }
 
 /**
- * Every document in `projectId` linked to `taskId`, via the legacy
- * `linked_task_id` column and/or a `document → task` edge. Project-scoped only.
+ * Every document in `projectId` linked to `taskId` via a `document → task` edge.
+ * Project-scoped twice by design: edge query is project-bound, and the final
+ * re-fetch filters candidates by projectId again so a stray edge id cannot leak
+ * a foreign document.
  */
 export async function listDocumentsLinkedToTask(
   db: DbClient,
@@ -92,20 +91,10 @@ export async function listDocumentsLinkedToTask(
 ): Promise<Document[]> {
   const linkedIds = new Set<string>();
 
-  const legacy = await db
-    .select()
-    .from(documents)
-    .where(and(eq(documents.projectId, projectId), eq(documents.linkedTaskId, taskId)))
-    .all();
-  for (const doc of legacy) {
-    linkedIds.add(doc.id);
-  }
-
-  const edges = await listEdgesByEndpoint(db, projectId, 'task', taskId);
-  for (const edge of edges) {
+  const edgeRows = await listEdgesByEndpoint(db, projectId, 'task', taskId);
+  for (const edge of edgeRows) {
     if (
       edge.fromType === 'document' &&
-      edge.fromId !== null &&
       edge.toType === 'task' &&
       edge.toId === taskId
     ) {
@@ -117,7 +106,6 @@ export async function listDocumentsLinkedToTask(
     return [];
   }
 
-  // Re-fetch by id so edge-only docs are included, still scoped to the project.
   return db
     .select()
     .from(documents)
@@ -127,8 +115,8 @@ export async function listDocumentsLinkedToTask(
 
 /**
  * Singular primary document for a task (legacy API shape).
- * Prefers the document whose `linked_task_id` is this task; otherwise the
- * oldest edge-linked document in the project (createdAt, then id).
+ * With no column preference, singular means the oldest edge-linked document
+ * in the project (createdAt ascending, then id).
  */
 export async function getDocumentByTask(
   db: DbClient,
@@ -138,10 +126,6 @@ export async function getDocumentByTask(
   const linked = await listDocumentsLinkedToTask(db, projectId, taskId);
   if (linked.length === 0) {
     return undefined;
-  }
-  const legacy = linked.find((doc) => doc.linkedTaskId === taskId);
-  if (legacy) {
-    return legacy;
   }
   return [...linked].sort((a, b) => {
     const byTime = a.createdAt.getTime() - b.createdAt.getTime();
@@ -189,15 +173,6 @@ export async function detachDocumentChildren(db: DbClient, parentId: string): Pr
     .update(documents)
     .set({ parentId: null })
     .where(eq(documents.parentId, parentId))
-    .run();
-  return result.rowsAffected;
-}
-
-export async function nullDocumentsLinkedTask(db: DbClient, taskId: string): Promise<number> {
-  const result = await db
-    .update(documents)
-    .set({ linkedTaskId: null })
-    .where(eq(documents.linkedTaskId, taskId))
     .run();
   return result.rowsAffected;
 }
