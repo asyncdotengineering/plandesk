@@ -1,0 +1,1 @@
+../../../.agents/skills/curator-automation/SKILL.md

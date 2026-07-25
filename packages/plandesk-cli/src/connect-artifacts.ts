@@ -480,6 +480,29 @@ export function insertBlock(content: string, block: string, start: string, end: 
   return `${base}\n\n${block}\n`;
 }
 
+// Shared-file ownership for `.agents/index.md`: Plan Desk contributes a sentinel
+// block only. Never whole-file write, never skip — regenerated every init/sync so
+// the map cannot go stale when another tool owns the rest of the file.
+export const AGENTS_INDEX_SENTINEL_START = '<!-- plandesk-agents-index:start -->';
+export const AGENTS_INDEX_SENTINEL_END = '<!-- plandesk-agents-index:end -->';
+
+export function buildAgentsIndexSentinelBlock(body: string): string {
+  const trimmed = body.replace(/\n+$/, '');
+  return `${AGENTS_INDEX_SENTINEL_START}\n${trimmed}\n${AGENTS_INDEX_SENTINEL_END}`;
+}
+
+export function insertAgentsIndexBlock(content: string, body: string): string {
+  const block = buildAgentsIndexSentinelBlock(body);
+  // Upgrade path: prior whole-file index (byte-identical to the block body) is
+  // replaced by the sentinel form so re-init does not leave a duplicate map.
+  const normalizedExisting = content.replace(/\n+$/, '');
+  const normalizedBody = body.replace(/\n+$/, '');
+  if (normalizedExisting === normalizedBody) {
+    return insertBlock('', block, AGENTS_INDEX_SENTINEL_START, AGENTS_INDEX_SENTINEL_END);
+  }
+  return insertBlock(content, block, AGENTS_INDEX_SENTINEL_START, AGENTS_INDEX_SENTINEL_END);
+}
+
 export function insertFactorySentinelBlock(content: string): string {
   return insertBlock(
     content,

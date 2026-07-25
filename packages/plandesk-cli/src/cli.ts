@@ -540,6 +540,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
             repoDir: resolveRepoDir(parsed.repoDir),
             write: parsed.write,
             force: parsed.force,
+            prune: parsed.prune,
           });
           process.stdout.write(formatFactorySyncSummary(result));
           return 0;

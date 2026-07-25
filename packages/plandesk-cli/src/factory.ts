@@ -12,6 +12,7 @@ import {
 import { dirname, join, relative, resolve } from 'node:path';
 import {
   globalDirRefusalReason,
+  insertAgentsIndexBlock,
   insertFactorySentinelBlock,
   mergeCuratorHooksJson,
 } from './connect-artifacts.js';
@@ -62,7 +63,40 @@ export type FactoryInitResult = {
 };
 
 export const FACTORY_DIR = '.agents/factory';
+export const AGENTS_INDEX_REL = join('.agents', 'index.md');
+export const SYNC_MANIFEST_REL = join('.agents', '.plandesk-sync.json');
 
+/**
+ * Ownership tier for a path under `.agents/`. Plan Desk is a tenant of the
+ * shared `.agents/` convention — every write and every prune decision routes
+ * through this classifier.
+ *
+ * - `owned` — Plan Desk may create-once and is the only tier prune may touch
+ * - `shared_namespace` — append namespaced children only; never prune siblings
+ * - `shared_file` — sentinel-block insert only; never whole-file write
+ * - `foreign` — not ours; never write, never delete
+ */
+export type AgentsPathTier = 'owned' | 'shared_namespace' | 'shared_file' | 'foreign';
+
+/** Classify a repo-relative path into an `.agents/` ownership tier. */
+export function classifyAgentsPath(relPath: string): AgentsPathTier {
+  const p = relPath.replace(/\\/g, '/').replace(/^\.\//, '');
+  if (p === AGENTS_INDEX_REL || p === '.agents/index.md') {
+    return 'shared_file';
+  }
+  if (p === SYNC_MANIFEST_REL || p === '.agents/.plandesk-sync.json') {
+    return 'owned';
+  }
+  if (p === FACTORY_DIR || p === '.agents/factory' || p.startsWith(`${FACTORY_DIR}/`) || p.startsWith('.agents/factory/')) {
+    return 'owned';
+  }
+  if (p.startsWith('.agents/skills/')) {
+    return 'shared_namespace';
+  }
+  return 'foreign';
+}
+
+/** Template body for the Plan Desk block inside `.agents/index.md` (not the whole file). */
 export function buildAgentsIndexMarkdown(): string {
   return readTemplate('index.md');
 }
@@ -120,9 +154,10 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
   const artifacts: FactoryArtifact[] = [];
   const factoryDir = join(repoDir, FACTORY_DIR);
 
-  // Authored policy files: created once, then owned and edited by the user.
-  // `authoredFactoryFiles` is the shipped-content source of truth shared with
-  // `factory sync`; runs/.gitignore is static wiring, not synced policy.
+  // Authored policy files under the owned subtree: created once, then owned and
+  // edited by the user. `authoredFactoryFiles` is the shipped-content source of
+  // truth shared with `factory sync`; runs/.gitignore is static wiring, not
+  // synced policy. Shared-file index.md is handled separately (sentinel block).
   const authored: Array<{ path: string; content: string }> = [
     ...authoredFactoryFiles(repoDir),
     { path: join(factoryDir, 'runs', '.gitignore'), content: buildRunsGitignore() },
@@ -134,6 +169,17 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
       action: existsSync(file.path) ? 'skip' : 'create',
     });
   }
+
+  // Shared file: `.agents/index.md` — sentinel-block insert only. Regenerated
+  // every run (never skip) so Plan Desk's map cannot go stale when another tool
+  // owns the rest of the file.
+  const indexPath = join(repoDir, AGENTS_INDEX_REL);
+  const existingIndex = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : '';
+  artifacts.push({
+    path: indexPath,
+    content: insertAgentsIndexBlock(existingIndex, buildAgentsIndexMarkdown()),
+    action: existsSync(indexPath) ? 'update' : 'create',
+  });
 
   // Always-on policy include: workflow.md + factory.md are POLICY — they must
   // ride in default context to gate behavior (a pointer the agent may not
@@ -249,15 +295,16 @@ function writeFactoryArtifacts(artifacts: FactoryArtifact[]): void {
 
 type SyncableFile = { path: string; content: string; executable?: boolean };
 
-// The create-once authored files `factory sync` tracks: the factory policy docs
-// plus the curator sources. Generated files (the CLAUDE.md sentinel block, the
-// command/skill adapters, settings.json) already refresh on every `factory init`,
-// so sync refreshes those too but they never "conflict". This is the shipped
-// source of truth — `buildFactoryArtifacts` scaffolds from the same list.
+// The create-once authored files `factory sync` tracks: owned factory policy
+// docs plus shared-namespace curator skill/hook sources. Generated files (the
+// index.md / CLAUDE.md sentinel blocks, command/skill adapters, settings.json)
+// already refresh on every `factory init`, so sync refreshes those too but they
+// never "conflict". This is the shipped source of truth — `buildFactoryArtifacts`
+// scaffolds from the same list. index.md is deliberately absent: it is a
+// shared-file sentinel block, not a whole-file artifact.
 export function authoredFactoryFiles(repoDir: string): SyncableFile[] {
   const factoryDir = join(repoDir, FACTORY_DIR);
   return [
-    { path: join(repoDir, '.agents', 'index.md'), content: buildAgentsIndexMarkdown() },
     { path: join(factoryDir, 'workflow.md'), content: buildWorkflowMarkdown() },
     { path: join(factoryDir, 'factory.md'), content: buildFactoryMarkdown() },
     { path: join(factoryDir, 'autonomous-stand.md'), content: buildAutonomousStandMarkdown() },
@@ -286,7 +333,8 @@ function syncableAuthoredFiles(repoDir: string): SyncableFile[] {
 // Sync manifest: relative-path → sha256 of the shipped content the CLI last wrote.
 // It lets sync tell "you edited this" (on-disk hash ≠ manifest) from "just stale"
 // (on-disk hash == manifest, shipped changed) so a safe update never clobbers edits.
-const SYNC_MANIFEST_REL = join('.agents', '.plandesk-sync.json');
+// Derived state only — keys naming files the CLI no longer ships are dropped on
+// every rewrite (no rename-migration table).
 
 function sha256(content: string): string {
   return createHash('sha256').update(content, 'utf8').digest('hex');
@@ -307,9 +355,10 @@ export function readSyncManifest(repoDir: string): Record<string, string> {
       typeof parsed === 'object' &&
       parsed !== null &&
       'files' in parsed &&
-      typeof (parsed as { files: unknown }).files === 'object'
+      typeof (parsed as { files: unknown }).files === 'object' &&
+      (parsed as { files: unknown }).files !== null
     ) {
-      return (parsed as { files: Record<string, string> }).files;
+      return { ...(parsed as { files: Record<string, string> }).files };
     }
   } catch {
     // A corrupt manifest is treated as absent — sync degrades to conservative.
@@ -323,18 +372,79 @@ function writeSyncManifest(repoDir: string, files: Record<string, string>): void
   writeFileSync(path, `${JSON.stringify({ version: 1, files }, null, 2)}\n`, 'utf8');
 }
 
-// Record shipped-content hashes for every authored file currently identical to
-// what the CLI ships — i.e. files it just wrote or that are already in sync. A
-// file the user edited (on-disk ≠ shipped) is deliberately left out so sync
-// keeps protecting it.
-function recordInSyncManifest(repoDir: string): void {
-  const manifest = readSyncManifest(repoDir);
-  for (const file of syncableAuthoredFiles(repoDir)) {
-    if (existsSync(file.path) && readFileSync(file.path, 'utf8') === file.content) {
-      manifest[relative(repoDir, file.path)] = sha256(file.content);
+/** Repo-relative paths the CLI currently declares as syncable authored files. */
+export function declaredSyncRelPaths(repoDir: string): Set<string> {
+  return new Set(syncableAuthoredFiles(repoDir).map((file) => relative(repoDir, file.path)));
+}
+
+/**
+ * Drop manifest keys the CLI no longer ships. Keeps prior hashes for still-declared
+ * files (including user-edited ones) so conflict detection stays accurate.
+ */
+export function pruneUnknownManifestKeys(
+  manifest: Record<string, string>,
+  declared: Set<string>,
+): Record<string, string> {
+  const next: Record<string, string> = {};
+  for (const [relPath, hash] of Object.entries(manifest)) {
+    if (declared.has(relPath)) {
+      next[relPath] = hash;
     }
   }
-  writeSyncManifest(repoDir, manifest);
+  return next;
+}
+
+/**
+ * Files prune may delete: keys present in the manifest, absent from the declared
+ * template set, and classified `owned`. Never enumerates disk under `.agents/`.
+ * Only deletes when on-disk content still matches the last-written hash (user
+ * edits of a removed path are left alone).
+ */
+export function planOwnedPrune(repoDir: string): string[] {
+  const manifest = readSyncManifest(repoDir);
+  const declared = declaredSyncRelPaths(repoDir);
+  const toDelete: string[] = [];
+  for (const [relPath, hash] of Object.entries(manifest)) {
+    if (declared.has(relPath)) {
+      continue;
+    }
+    if (classifyAgentsPath(relPath) !== 'owned') {
+      continue;
+    }
+    const abs = join(repoDir, relPath);
+    if (!existsSync(abs)) {
+      continue;
+    }
+    try {
+      if (sha256(readFileSync(abs, 'utf8')) !== hash) {
+        continue;
+      }
+    } catch {
+      continue;
+    }
+    toDelete.push(relPath);
+  }
+  return toDelete;
+}
+
+// Record shipped-content hashes for every authored file currently identical to
+// what the CLI ships — i.e. files it just wrote or that are already in sync.
+// Unknown keys (files no longer shipped) are dropped. A file the user edited
+// keeps its prior hash when still declared so sync conflict detection works.
+function recordInSyncManifest(repoDir: string): void {
+  const prev = readSyncManifest(repoDir);
+  const declared = declaredSyncRelPaths(repoDir);
+  const next: Record<string, string> = {};
+  for (const file of syncableAuthoredFiles(repoDir)) {
+    const rel = relative(repoDir, file.path);
+    if (existsSync(file.path) && readFileSync(file.path, 'utf8') === file.content) {
+      next[rel] = sha256(file.content);
+    } else if (prev[rel] !== undefined) {
+      next[rel] = prev[rel]!;
+    }
+  }
+  // Explicitly re-apply declared filter so any non-declared key is gone.
+  writeSyncManifest(repoDir, pruneUnknownManifestKeys(next, declared));
 }
 
 export type FactorySyncStatus = 'up_to_date' | 'create' | 'safe_update' | 'conflict';
@@ -352,6 +462,8 @@ export type FactorySyncOptions = {
   repoDir: string;
   write?: boolean;
   force?: boolean;
+  /** Delete owned files the CLI once shipped but no longer declares (hard-guarded). */
+  prune?: boolean;
   homeDir?: string;
 };
 
@@ -359,6 +471,8 @@ export type FactorySyncResult = {
   repoDir: string;
   entries: FactorySyncEntry[];
   applied: boolean;
+  /** Owned-subtree paths removed when `--prune` applied. */
+  pruned: string[];
 };
 
 export function planFactorySync(repoDir: string): FactorySyncEntry[] {
@@ -402,37 +516,75 @@ export function runFactorySync(options: FactorySyncOptions): FactorySyncResult {
   }
 
   const entries = planFactorySync(repoDir);
-  const apply = options.write === true || options.force === true;
-  if (!apply) {
-    return { repoDir, entries, applied: false };
+  const applyUpdates = options.write === true || options.force === true;
+  const applyPrune = options.prune === true;
+  if (!applyUpdates && !applyPrune) {
+    return { repoDir, entries, applied: false, pruned: [] };
   }
 
-  const manifest = readSyncManifest(repoDir);
-  for (const entry of entries) {
-    const write =
-      entry.status === 'create' ||
-      entry.status === 'safe_update' ||
-      (entry.status === 'conflict' && options.force === true);
-    if (write) {
-      mkdirSync(dirname(entry.path), { recursive: true });
-      writeFileSync(entry.path, entry.shipped, 'utf8');
-      if (entry.executable === true) {
-        chmodSync(entry.path, 0o755);
+  let manifest = readSyncManifest(repoDir);
+  if (applyUpdates) {
+    for (const entry of entries) {
+      const write =
+        entry.status === 'create' ||
+        entry.status === 'safe_update' ||
+        (entry.status === 'conflict' && options.force === true);
+      if (write) {
+        mkdirSync(dirname(entry.path), { recursive: true });
+        writeFileSync(entry.path, entry.shipped, 'utf8');
+        if (entry.executable === true) {
+          chmodSync(entry.path, 0o755);
+        }
+      }
+      if (write || entry.status === 'up_to_date') {
+        manifest[entry.relPath] = sha256(entry.shipped);
       }
     }
-    if (write || entry.status === 'up_to_date') {
-      manifest[entry.relPath] = sha256(entry.shipped);
+  }
+
+  // File prune: only paths the templates no longer declare, and only when
+  // classifyAgentsPath says `owned`. Iterate the manifest (what we wrote), never
+  // enumerate `.agents/` on disk.
+  const pruned: string[] = [];
+  if (applyPrune) {
+    for (const relPath of planOwnedPrune(repoDir)) {
+      rmSync(join(repoDir, relPath), { force: true });
+      pruned.push(relPath);
     }
+  }
+
+  // Manifest is derived state: drop keys for files the CLI no longer ships.
+  const declared = declaredSyncRelPaths(repoDir);
+  if (applyUpdates) {
+    // Re-read declared hashes after writes; keep conflict bases for edited files.
+    const next: Record<string, string> = {};
+    for (const entry of entries) {
+      if (entry.status === 'up_to_date' || entry.status === 'create' || entry.status === 'safe_update') {
+        next[entry.relPath] = sha256(entry.shipped);
+      } else if (entry.status === 'conflict') {
+        if (options.force === true) {
+          next[entry.relPath] = sha256(entry.shipped);
+        } else if (manifest[entry.relPath] !== undefined) {
+          next[entry.relPath] = manifest[entry.relPath]!;
+        }
+      }
+    }
+    manifest = pruneUnknownManifestKeys(next, declared);
+  } else {
+    // Prune-only: drop unknown keys, leave declared entries as they were.
+    manifest = pruneUnknownManifestKeys(manifest, declared);
   }
   writeSyncManifest(repoDir, manifest);
 
   // Now that authored sources are current, refresh the generated files that
-  // depend on them (the sentinel block, skill symlinks, and command adapters).
-  writeFactoryArtifacts(
-    buildFactoryArtifacts(repoDir).filter((artifact) => artifact.action === 'update'),
-  );
+  // depend on them (index/CLAUDE sentinels, skill symlinks, command adapters).
+  if (applyUpdates) {
+    writeFactoryArtifacts(
+      buildFactoryArtifacts(repoDir).filter((artifact) => artifact.action === 'update'),
+    );
+  }
 
-  return { repoDir, entries, applied: true };
+  return { repoDir, entries, applied: true, pruned };
 }
 
 export function formatFactorySyncSummary(result: FactorySyncResult): string {
@@ -447,6 +599,9 @@ export function formatFactorySyncSummary(result: FactorySyncResult): string {
     lines.push('Factory sync applied.');
     if (created.length > 0) lines.push(`created (${created.length}): ${created.map((e) => e.relPath).join(', ')}`);
     if (safe.length > 0) lines.push(`updated (${safe.length}): ${safe.map((e) => e.relPath).join(', ')}`);
+    if (result.pruned.length > 0) {
+      lines.push(`pruned (${result.pruned.length}): ${result.pruned.join(', ')}`);
+    }
     lines.push(`up to date (${upToDate.length}).`);
     if (conflicts.length > 0) {
       lines.push(

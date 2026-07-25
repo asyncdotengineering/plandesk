@@ -13,7 +13,11 @@ import {
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { globalDirRefusalReason } from './connect-artifacts.js';
+import {
+  AGENTS_INDEX_SENTINEL_END,
+  AGENTS_INDEX_SENTINEL_START,
+  globalDirRefusalReason,
+} from './connect-artifacts.js';
 import {
   CURATOR_SKILL_NAMES,
   CURATOR_TEMPLATES,
@@ -22,10 +26,15 @@ import {
 } from './curator-templates.js';
 import {
   WORKER_NAMES,
+  buildAgentsIndexMarkdown,
   buildFactoryArtifacts,
+  classifyAgentsPath,
   FactoryError,
   formatFactoryInitPrint,
   formatFactoryInitSummary,
+  planOwnedPrune,
+  pruneUnknownManifestKeys,
+  readSyncManifest,
   runFactoryInit,
   runFactorySync,
 } from './factory.js';
@@ -551,5 +560,157 @@ describe('factory sync', () => {
 
     runFactorySync({ repoDir: repo, write: true });
     expect(readFileSync(protocolPath, 'utf8')).toBe(shipped); // updated to shipped
+  });
+
+  it('drops unknown keys from the sync manifest on write (no rename-migration table)', async () => {
+    const repo = makeTempDir('plandesk-sync-');
+    runFactoryInit({ repoDir: repo });
+    const manifestPath = join(repo, '.agents/.plandesk-sync.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      files: Record<string, string>;
+    };
+    // Simulate keys left behind by the curator → skills move.
+    manifest.files['.agents/curator/triage.md'] = 'deadbeef';
+    manifest.files['.agents/curator/hooks/session-start.sh'] = 'cafebabe';
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+
+    runFactorySync({ repoDir: repo, write: true });
+    const after = readSyncManifest(repo);
+    expect(after['.agents/curator/triage.md']).toBeUndefined();
+    expect(after['.agents/curator/hooks/session-start.sh']).toBeUndefined();
+    // Still-declared owned files remain.
+    expect(after[protocolRel]).toBeTypeOf('string');
+  });
+
+  it('prunes only owned stale files; foreign and shared-namespace paths survive', async () => {
+    const repo = makeTempDir('plandesk-sync-');
+    runFactoryInit({ repoDir: repo });
+
+    // Foreign files another tool owns.
+    const otherSkill = join(repo, '.agents/skills/other-tool/SKILL.md');
+    const otherMd = join(repo, '.agents/other.md');
+    mkdirSync(join(repo, '.agents/skills/other-tool'), { recursive: true });
+    writeFileSync(otherSkill, 'foreign skill body\n', 'utf8');
+    writeFileSync(otherMd, 'foreign other.md\n', 'utf8');
+
+    // Stale owned path the CLI once shipped (no longer declared).
+    const staleOwnedRel = '.agents/factory/legacy-gone.md';
+    const staleOwned = join(repo, staleOwnedRel);
+    const staleBody = '# legacy\n';
+    writeFileSync(staleOwned, staleBody, 'utf8');
+
+    // Stale shared-namespace path — must NOT be deleted even if in the manifest.
+    const staleSkillRel = '.agents/skills/old-skill/SKILL.md';
+    const staleSkill = join(repo, staleSkillRel);
+    mkdirSync(join(repo, '.agents/skills/old-skill'), { recursive: true });
+    writeFileSync(staleSkill, 'old skill\n', 'utf8');
+
+    const manifestPath = join(repo, '.agents/.plandesk-sync.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      files: Record<string, string>;
+    };
+    manifest.files[staleOwnedRel] = createHash('sha256').update(staleBody, 'utf8').digest('hex');
+    manifest.files[staleSkillRel] = createHash('sha256').update('old skill\n', 'utf8').digest('hex');
+    manifest.files['.agents/curator/triage.md'] = 'orphan-key';
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+
+    expect(planOwnedPrune(repo)).toEqual([staleOwnedRel]);
+
+    const result = runFactorySync({ repoDir: repo, prune: true });
+    expect(result.applied).toBe(true);
+    expect(result.pruned).toEqual([staleOwnedRel]);
+    expect(existsSync(staleOwned)).toBe(false);
+    expect(existsSync(staleSkill)).toBe(true);
+    expect(readFileSync(staleSkill, 'utf8')).toBe('old skill\n');
+    expect(readFileSync(otherSkill, 'utf8')).toBe('foreign skill body\n');
+    expect(readFileSync(otherMd, 'utf8')).toBe('foreign other.md\n');
+
+    const after = readSyncManifest(repo);
+    expect(after[staleOwnedRel]).toBeUndefined();
+    expect(after[staleSkillRel]).toBeUndefined();
+    expect(after['.agents/curator/triage.md']).toBeUndefined();
+  });
+});
+
+describe('classifyAgentsPath', () => {
+  it('classifies owned, shared_namespace, shared_file, and foreign tiers', () => {
+    expect(classifyAgentsPath('.agents/factory/protocol.md')).toBe('owned');
+    expect(classifyAgentsPath('.agents/factory/hooks/session-start.sh')).toBe('owned');
+    expect(classifyAgentsPath('.agents/factory/workers/claude.md')).toBe('owned');
+    expect(classifyAgentsPath('.agents/.plandesk-sync.json')).toBe('owned');
+    expect(classifyAgentsPath('.agents/skills/curator-triage/SKILL.md')).toBe('shared_namespace');
+    expect(classifyAgentsPath('.agents/skills/other-tool/SKILL.md')).toBe('shared_namespace');
+    expect(classifyAgentsPath('.agents/index.md')).toBe('shared_file');
+    expect(classifyAgentsPath('.agents/other.md')).toBe('foreign');
+    expect(classifyAgentsPath('.agents/curator/triage.md')).toBe('foreign');
+  });
+});
+
+describe('pruneUnknownManifestKeys', () => {
+  it('keeps only declared keys', () => {
+    const cleaned = pruneUnknownManifestKeys(
+      {
+        '.agents/factory/protocol.md': 'a',
+        '.agents/curator/triage.md': 'b',
+      },
+      new Set(['.agents/factory/protocol.md']),
+    );
+    expect(cleaned).toEqual({ '.agents/factory/protocol.md': 'a' });
+  });
+});
+
+describe('agents index shared-file sentinel', () => {
+  it('writes a Plan Desk block into index.md and regenerates on every init', async () => {
+    const repo = makeTempDir('plandesk-factory-');
+    const result = runFactoryInit({ repoDir: repo });
+    const indexPath = join(repo, '.agents/index.md');
+    const first = readFileSync(indexPath, 'utf8');
+    expect(first).toContain(AGENTS_INDEX_SENTINEL_START);
+    expect(first).toContain(AGENTS_INDEX_SENTINEL_END);
+    expect(first).toContain(buildAgentsIndexMarkdown().replace(/\n+$/, ''));
+    const indexArtifact = result.artifacts.find((a) => a.path === indexPath);
+    expect(indexArtifact?.action).toBe('create');
+
+    const rerun = runFactoryInit({ repoDir: repo });
+    const second = readFileSync(indexPath, 'utf8');
+    expect(second).toBe(first);
+    expect(second.match(/plandesk-agents-index:start/g)).toHaveLength(1);
+    expect(rerun.artifacts.find((a) => a.path === indexPath)?.action).toBe('update');
+  });
+
+  it('preserves foreign index.md content and inserts exactly one Plan Desk block', async () => {
+    const repo = makeTempDir('plandesk-factory-');
+    mkdirSync(join(repo, '.agents'), { recursive: true });
+    const foreign = '# Other tool map\n\n- [their/file.md](their/file.md)\n';
+    writeFileSync(join(repo, '.agents/index.md'), foreign, 'utf8');
+
+    runFactoryInit({ repoDir: repo });
+    const once = readFileSync(join(repo, '.agents/index.md'), 'utf8');
+    expect(once).toContain('# Other tool map');
+    expect(once).toContain('[their/file.md](their/file.md)');
+    expect(once).toContain(AGENTS_INDEX_SENTINEL_START);
+    expect(once.match(/plandesk-agents-index:start/g)).toHaveLength(1);
+
+    runFactoryInit({ repoDir: repo });
+    const twice = readFileSync(join(repo, '.agents/index.md'), 'utf8');
+    expect(twice).toBe(once);
+    expect(twice.match(/plandesk-agents-index:start/g)).toHaveLength(1);
+  });
+
+  it('foreign skill and foreign other.md survive factory init and sync --prune', async () => {
+    const repo = makeTempDir('plandesk-factory-');
+    mkdirSync(join(repo, '.agents/skills/other-tool'), { recursive: true });
+    const skillPath = join(repo, '.agents/skills/other-tool/SKILL.md');
+    const otherPath = join(repo, '.agents/other.md');
+    const skillBody = 'other-tool skill — do not touch\n';
+    const otherBody = 'other.md — do not touch\n';
+    writeFileSync(skillPath, skillBody, 'utf8');
+    writeFileSync(otherPath, otherBody, 'utf8');
+
+    runFactoryInit({ repoDir: repo });
+    runFactorySync({ repoDir: repo, prune: true });
+
+    expect(readFileSync(skillPath, 'utf8')).toBe(skillBody);
+    expect(readFileSync(otherPath, 'utf8')).toBe(otherBody);
   });
 });
