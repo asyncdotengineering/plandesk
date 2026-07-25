@@ -7,8 +7,11 @@ const DOCUMENT_BODY_DESCRIPTION =
 const NOTE_BODY_DESCRIPTION =
   'Note body in Markdown (rendered as rich text). Notes are free-form working notes scoped to the project — use them for findings, context, or anything worth referring back to. HTML is also accepted.';
 
+// Caller-terms: what the caller gets (an outgoing link), not how storage keeps it.
+// The link_to field is the sole link input now; the legacy linked_task_id dual-write
+// was dropped by the one-link-shape contract, so there is no precedence to state.
 const LINK_TO_DESCRIPTION =
-  'Task or document id(s) to link this document to. Accepts a single uuid or a list. Creates document→target edges (label documents/references).';
+  "Task or document id(s) this document should link to. Accepts a single id or a list; each adds an outgoing link from this document (label 'documents' for a task target, 'references' for a document target). Read these links back — each carries its own edge_id — via get_document.";
 
 const LINK_ENTITY_TYPE = z.enum(['task', 'document']);
 
@@ -235,8 +238,58 @@ export const listEdgesInputSchema = z.object({
 });
 
 export const deleteEdgeInputSchema = z.object({
-  edge_id: z.string().uuid(),
+  edge_id: z
+    .string()
+    .uuid()
+    .describe(
+      'Id of the edge to remove. Obtain it from the `edge_id` field on a get_document links or backlinks entry, or from list_edges. Only this edge is affected; sibling edges on the same entity are left intact.',
+    ),
 });
+
+// ---- outputSchema shapes ----
+// Raw shapes (object of zod fields) passed to McpServer.registerTool's
+// `outputSchema`. The SDK validates the handler's structuredContent against
+// these, so they MUST match serializeDocument / serializeEdge exactly.
+// Ids are randomUUID(); label/arrow_direction/style are nullable text columns.
+
+const entityLinkOutputShape = {
+  type: LINK_ENTITY_TYPE,
+  id: z.string().uuid(),
+  title: z.string(),
+  label: z.string().nullable(),
+  edge_id: z.string().uuid(),
+};
+
+const documentOutputShape = {
+  id: z.string().uuid(),
+  project_id: z.string().uuid(),
+  title: z.string(),
+  body: z.string().nullable(),
+  status_line: z.string().nullable(),
+  parent_id: z.string().uuid().nullable(),
+  folder_id: z.string().uuid().nullable(),
+  links: z.array(z.object(entityLinkOutputShape)),
+  backlinks: z.array(z.object(entityLinkOutputShape)),
+  created_at: z.string(),
+  updated_at: z.string(),
+};
+
+const edgeOutputShape = {
+  id: z.string().uuid(),
+  project_id: z.string().uuid(),
+  from_type: LINK_ENTITY_TYPE,
+  from_id: z.string().uuid(),
+  to_type: LINK_ENTITY_TYPE,
+  to_id: z.string().uuid(),
+  label: z.string().nullable(),
+  arrow_direction: z.string().nullable(),
+  style: z.string().nullable(),
+  created_at: z.string(),
+};
+
+export const getDocumentOutputSchema = { document: z.object(documentOutputShape) };
+export const listEdgesOutputSchema = { edges: z.array(z.object(edgeOutputShape)) };
+export const createEdgeOutputSchema = { edge: z.object(edgeOutputShape) };
 
 export const startAgentRunInputSchema = z.object({
   project_id: z.string().uuid(),

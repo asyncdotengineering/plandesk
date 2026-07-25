@@ -100,6 +100,9 @@ import {
   triageSubmissionInputSchema,
   updateDocumentInputSchema,
   updateTaskInputSchema,
+  getDocumentOutputSchema,
+  listEdgesOutputSchema,
+  createEdgeOutputSchema,
 } from './tools/registry.js';
 import { createStartAgentRunHandler } from './tools/start-agent-run.js';
 import { createUpdateDocumentHandler } from './tools/update-document.js';
@@ -201,8 +204,9 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Get Document',
       description:
-        'Get a document by id, including derived links (outgoing) and backlinks (incoming) so related specs and tasks can be walked without a second query.',
+        'Get a document by id, including derived links (outgoing) and backlinks (incoming) so related specs and tasks can be walked without a second query. Each link/backlink entry carries an `edge_id` — pass it to delete_edge to remove that one relationship.',
       inputSchema: getDocumentInputSchema.shape,
+      outputSchema: getDocumentOutputSchema,
       annotations: { readOnlyHint: true },
     },
     createGetDocumentHandler(services.documentService),
@@ -339,6 +343,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
       description:
         "Create a directed edge between any two entities via from_type/from_id/to_type/to_id (entity types: 'task' or 'document'). Legacy from_task_id/to_task_id still accepted and map to type task. Prefer the label vocabulary: blocks, depends_on, unblocks, feeds, clarifies, enables, supports, documents, references, supersedes, extends.",
       inputSchema: createEdgeInputSchema.shape,
+      outputSchema: createEdgeOutputSchema,
     },
     createCreateEdgeHandler(services.canvasService),
   );
@@ -348,8 +353,9 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'List Edges',
       description:
-        'List edges for a project with typed endpoints (id, from_type, from_id, to_type, to_id, label). Use this to inspect the graph before pruning a stale edge with delete_edge.',
+        'List edges for a project with typed endpoints (id, from_type, from_id, to_type, to_id, label). Use this to inspect the graph before pruning a stale edge with delete_edge — each edge `id` here is exactly the edge_id delete_edge takes.',
       inputSchema: listEdgesInputSchema.shape,
+      outputSchema: listEdgesOutputSchema,
       annotations: { readOnlyHint: true },
     },
     createListEdgesHandler(services.canvasService),
@@ -360,8 +366,14 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Delete Edge',
       description:
-        "Remove one edge by id. Only the addressed edge is deleted; sibling edges on the same entity stay intact. Updates get_next_task's blocked/waiting_on computation immediately for task-graph edges.",
+        "Remove one edge by id (the edge_id from a get_document links/backlinks entry or list_edges). Only the addressed edge is deleted; sibling edges on the same entity stay intact. Updates get_next_task's blocked/waiting_on computation immediately for task-graph edges.",
       inputSchema: deleteEdgeInputSchema.shape,
+      annotations: {
+        destructiveHint: true,
+        // Re-deleting an already-removed edge is a no-op (returns not_found);
+        // no further data changes, so a retry is safe.
+        idempotentHint: true,
+      },
     },
     createDeleteEdgeHandler(services.canvasService),
   );

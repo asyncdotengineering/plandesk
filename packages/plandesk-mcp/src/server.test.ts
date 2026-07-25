@@ -17,7 +17,8 @@ import {
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
-import { v1ToolNames } from './tools/registry.js';
+import { z } from 'zod';
+import { v1ToolNames, getDocumentOutputSchema, listEdgesOutputSchema, createEdgeOutputSchema } from './tools/registry.js';
 import { createMcpApp } from './server.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
@@ -104,8 +105,8 @@ async function connectClient(baseUrl: string, token?: string): Promise<Client> {
 function parseDocumentResult(result: unknown): {
   id: string;
   title: string;
-  links?: Array<{ type: string; id: string; title: string; label: string | null }>;
-  backlinks?: Array<{ type: string; id: string; title: string; label: string | null }>;
+  links?: Array<{ type: string; id: string; title: string; label: string | null; edge_id: string }>;
+  backlinks?: Array<{ type: string; id: string; title: string; label: string | null; edge_id: string }>;
 } {
   const content = (result as { content: unknown }).content as Array<{
     type: string;
@@ -117,8 +118,8 @@ function parseDocumentResult(result: unknown): {
       document: {
         id: string;
         title: string;
-        links?: Array<{ type: string; id: string; title: string; label: string | null }>;
-        backlinks?: Array<{ type: string; id: string; title: string; label: string | null }>;
+        links?: Array<{ type: string; id: string; title: string; label: string | null; edge_id: string }>;
+        backlinks?: Array<{ type: string; id: string; title: string; label: string | null; edge_id: string }>;
       };
     }
   ).document;
@@ -1247,6 +1248,105 @@ describe('createMcpApp', () => {
           ) as { edges: Array<{ id: string }> }
         ).edges;
         expect(after.map((e) => e.id)).toEqual([edgeDocId]);
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('agent can delete one link via get_document edge_id -> delete_edge; siblings survive (self-describing surface)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const task = await createTask(db, { projectId, label: 'Covered task' });
+        const docB = await createDocument(db, { projectId, title: 'Sibling doc' });
+
+        // Hub document links to BOTH a task and another document.
+        const created = await client.callTool({
+          name: 'create_document',
+          arguments: {
+            project_id: projectId,
+            title: 'Hub spec',
+            link_to: [task.id, docB.id],
+          },
+        });
+        expect(created.isError).not.toBe(true);
+        const hub = parseDocumentResult(created);
+        expect(hub.links?.map((l) => l.id).sort()).toEqual([docB.id, task.id].sort());
+
+        // The agent reads the document and takes ONE edge_id from a links entry
+        // — exactly the chain the delete_edge.edge_id description names.
+        const got = await client.callTool({
+          name: 'get_document',
+          arguments: { document_id: hub.id },
+        });
+        const gotDoc = parseDocumentResult(got);
+        const taskLink = gotDoc.links?.find((l) => l.type === 'task');
+        expect(taskLink).toBeDefined();
+        const edgeId = taskLink?.edge_id;
+        expect(edgeId).toBeDefined();
+
+        // Delete that single edge using only the id obtained from get_document.
+        const deleted = await client.callTool({
+          name: 'delete_edge',
+          arguments: { edge_id: edgeId },
+        });
+        expect(deleted.isError).not.toBe(true);
+
+        // Re-read: the task link is gone, the document sibling survives.
+        const after = await client.callTool({
+          name: 'get_document',
+          arguments: { document_id: hub.id },
+        });
+        const afterDoc = parseDocumentResult(after);
+        expect(afterDoc.links?.map((l) => l.id).sort()).toEqual([docB.id]);
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('get_document, list_edges, create_edge outputSchema matches their real structuredContent', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const task = await createTask(db, { projectId, label: 'Target' });
+        const doc = await createDocument(db, { projectId, title: 'Doc' });
+
+        const edgeRes = await client.callTool({
+          name: 'create_edge',
+          arguments: {
+            project_id: projectId,
+            from_type: 'document',
+            from_id: doc.id,
+            to_type: 'task',
+            to_id: task.id,
+            label: 'documents',
+          },
+        });
+        expect(edgeRes.isError).not.toBe(true);
+        // Assert the declared output shape parses the real response — not eyeballed.
+        expect(z.object(createEdgeOutputSchema).safeParse(edgeRes.structuredContent).success).toBe(
+          true,
+        );
+
+        const listRes = await client.callTool({
+          name: 'list_edges',
+          arguments: { project_id: projectId },
+        });
+        expect(listRes.isError).not.toBe(true);
+        expect(z.object(listEdgesOutputSchema).safeParse(listRes.structuredContent).success).toBe(
+          true,
+        );
+
+        const getRes = await client.callTool({
+          name: 'get_document',
+          arguments: { document_id: doc.id },
+        });
+        expect(getRes.isError).not.toBe(true);
+        expect(z.object(getDocumentOutputSchema).safeParse(getRes.structuredContent).success).toBe(
+          true,
+        );
       } finally {
         await client.close();
       }
