@@ -148,6 +148,16 @@ export function serializeTask(task: Task, tags?: Tag[]) {
   };
 }
 
+/** One graph neighbour of a document (or a task, via the backlinks read path). */
+export type SerializedEntityLink = {
+  type: 'task' | 'document';
+  id: string;
+  /** Task label or document title of the other endpoint. */
+  title: string;
+  /** Edge label (`documents`, `references`, `blocks`, …). */
+  label: string | null;
+};
+
 export type SerializedDocument = {
   id: string;
   project_id: string;
@@ -156,7 +166,15 @@ export type SerializedDocument = {
   status_line: string | null;
   parent_id: string | null;
   folder_id: string | null;
+  /**
+   * Legacy single-task pointer. Kept on the payload so MCP/CLI/web keep working
+   * until the contract step drops it. Prefer `links` for multi-target graphs.
+   */
   linked_task_id: string | null;
+  /** Outgoing edges from this document (what it points at). */
+  links: SerializedEntityLink[];
+  /** Incoming edges to this document (what points at it). */
+  backlinks: SerializedEntityLink[];
   created_at: string;
   updated_at: string;
 };
@@ -165,7 +183,13 @@ export type SerializedDocumentTree = SerializedDocument & {
   children: SerializedDocumentTree[];
 };
 
-export function serializeDocument(document: Document): SerializedDocument {
+export function serializeDocument(
+  document: Document,
+  options?: {
+    links?: SerializedEntityLink[];
+    backlinks?: SerializedEntityLink[];
+  },
+): SerializedDocument {
   return {
     id: document.id,
     project_id: document.projectId,
@@ -175,6 +199,8 @@ export function serializeDocument(document: Document): SerializedDocument {
     parent_id: document.parentId,
     folder_id: document.folderId,
     linked_task_id: document.linkedTaskId,
+    links: options?.links ?? [],
+    backlinks: options?.backlinks ?? [],
     created_at: document.createdAt.toISOString(),
     updated_at: document.updatedAt.toISOString(),
   };

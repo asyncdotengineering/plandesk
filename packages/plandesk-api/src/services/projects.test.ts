@@ -192,9 +192,18 @@ describe('projectService', () => {
     expect(result.documents[0]).toMatchObject({
       title: 'Spec',
       linked_task_id: result.key_to_id.b,
+      links: [
+        {
+          type: 'task',
+          id: result.key_to_id.b,
+          title: 'Task B',
+          label: 'documents',
+        },
+      ],
     });
     expect(await listTasks(db, result.project.id)).toHaveLength(3);
-    expect(await listEdges(db, result.project.id)).toHaveLength(1);
+    // Plan edge (task→task) + dual-written document→task link edge.
+    expect(await listEdges(db, result.project.id)).toHaveLength(2);
     expect(await listDocuments(db, result.project.id)).toHaveLength(1);
   });
 
@@ -214,7 +223,8 @@ describe('projectService', () => {
     expect(result.project.id).toBe(existing.id);
     expect(result.counts).toEqual({ tasks: 2, edges: 1, documents: 1 });
     expect(await listTasks(db, existing.id)).toHaveLength(2);
-    expect(await listEdges(db, existing.id)).toHaveLength(1);
+    // Plan edge + dual-written document→task link edge.
+    expect(await listEdges(db, existing.id)).toHaveLength(2);
     expect(await listDocuments(db, existing.id)).toHaveLength(1);
   });
 

@@ -3,6 +3,7 @@ import {
   createComment,
   createDb,
   createDocument,
+  createEdge,
   createFolder,
   createProjectInDefaultOrg as createProject,
   getComment,
@@ -57,8 +58,127 @@ describe('documentService', () => {
       status_line: 'Status: draft',
       linked_task_id: task.id,
       project_id: projectId,
+      links: [{ type: 'task', id: task.id, title: 'Task', label: 'documents' }],
+      backlinks: [],
     });
     expect(document?.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('document linked to three tasks returns all three in links', async () => {
+    const service = createService();
+    const t1 = await createTask(db, { projectId, label: 'One' });
+    const t2 = await createTask(db, { projectId, label: 'Two' });
+    const t3 = await createTask(db, { projectId, label: 'Three' });
+    const document = await service.create(projectId, { title: 'Multi', linkedTaskId: t1.id });
+    expect(document).toBeDefined();
+    if (!document) {
+      return;
+    }
+
+    // Additional links only expressible via edges (the whole reason for this change).
+    await createEdge(db, {
+      projectId,
+      fromType: 'document',
+      fromId: document.id,
+      toType: 'task',
+      toId: t2.id,
+      label: 'documents',
+    });
+    await createEdge(db, {
+      projectId,
+      fromType: 'document',
+      fromId: document.id,
+      toType: 'task',
+      toId: t3.id,
+      label: 'documents',
+    });
+
+    const fetched = await service.get(document.id);
+    expect(fetched?.links).toHaveLength(3);
+    expect(fetched?.links.map((l) => l.id).sort()).toEqual([t1.id, t2.id, t3.id].sort());
+    expect(fetched?.links.map((l) => l.title).sort()).toEqual(['One', 'Three', 'Two']);
+    expect(fetched?.links.every((l) => l.type === 'task' && l.label === 'documents')).toBe(true);
+    // Legacy column still holds the single write path target.
+    expect(fetched?.linked_task_id).toBe(t1.id);
+  });
+
+  it('document A linking to document B puts B in A.links and A in B.backlinks', async () => {
+    const service = createService();
+    const scaffoldTask = await createTask(db, { projectId, label: 'Scaffold' });
+    const docA = await service.create(projectId, { title: 'Doc A' });
+    const docB = await service.create(projectId, { title: 'Doc B' });
+    expect(docA && docB).toBeTruthy();
+    if (!docA || !docB) {
+      return;
+    }
+
+    // document→document needs transitional task FK scaffold until contract drops it.
+    await createEdge(db, {
+      projectId,
+      fromType: 'document',
+      fromId: docA.id,
+      toType: 'document',
+      toId: docB.id,
+      fromTaskId: scaffoldTask.id,
+      toTaskId: scaffoldTask.id,
+      label: 'references',
+    });
+
+    const a = await service.get(docA.id);
+    const b = await service.get(docB.id);
+    expect(a?.links).toEqual([
+      { type: 'document', id: docB.id, title: 'Doc B', label: 'references' },
+    ]);
+    expect(b?.backlinks).toEqual([
+      { type: 'document', id: docA.id, title: 'Doc A', label: 'references' },
+    ]);
+  });
+
+  it('task backlinks report every document that links to it', async () => {
+    const service = createService();
+    const task = await createTask(db, { projectId, label: 'Shared' });
+    const d1 = await service.create(projectId, { title: 'Spec', linkedTaskId: task.id });
+    const d2 = await service.create(projectId, { title: 'Notes' });
+    expect(d1 && d2).toBeTruthy();
+    if (!d1 || !d2) {
+      return;
+    }
+    await createEdge(db, {
+      projectId,
+      fromType: 'document',
+      fromId: d2.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
+    });
+
+    const backlinks = await service.listBacklinks('task', task.id);
+    expect(backlinks).toBeDefined();
+    expect(backlinks?.map((l) => l.id).sort()).toEqual([d1.id, d2.id].sort());
+    expect(backlinks?.every((l) => l.type === 'document' && l.label === 'documents')).toBe(true);
+    expect(backlinks?.map((l) => l.title).sort()).toEqual(['Notes', 'Spec']);
+  });
+
+  it('backlinks from another org return nothing and leak no titles', async () => {
+    const service = createService();
+    const task = await createTask(db, { projectId, label: 'Secret task' });
+    const secret = await service.create(projectId, {
+      title: 'Secret doc',
+      linkedTaskId: task.id,
+    });
+    expect(secret).toBeDefined();
+    if (!secret) {
+      return;
+    }
+
+    // Different org scope: assertProjectInOrg fails → undefined (not an empty list of titles).
+    const foreignService = createDocumentService({
+      db,
+      orgId: '00000000-0000-4000-8000-00000000ffff',
+    });
+    expect(await foreignService.listBacklinks('task', task.id)).toBeUndefined();
+    expect(await foreignService.listBacklinks('document', secret.id)).toBeUndefined();
+    expect(await foreignService.get(secret.id)).toBeUndefined();
   });
 
   it('returns nested document tree', async () => {

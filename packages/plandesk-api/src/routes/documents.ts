@@ -136,5 +136,23 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
     return c.json(document);
   });
 
+  // To-side lookup: every entity pointing at this document.
+  router.get('/documents/:id/backlinks', async (c) => {
+    const backlinks = await documentService.listBacklinks('document', c.req.param('id'));
+    if (!backlinks) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json(backlinks);
+  });
+
+  // To-side lookup: every entity (typically documents) pointing at this task.
+  router.get('/tasks/:id/backlinks', async (c) => {
+    const backlinks = await documentService.listBacklinks('task', c.req.param('id'));
+    if (!backlinks) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json(backlinks);
+  });
+
   return router;
 }
