@@ -1,6 +1,6 @@
 ---
-type: curator-skill
-version: 1
+name: curator-triage
+description: Turn raw signal — client submissions, an ungroomed backlog, or a pasted brain-dump — into deduped, house-style Plan Desk tasks in `scope`. Use when asked to triage the backlog or submissions, or to sort a brain-dump into tasks.
 ---
 
 # Curator: triage

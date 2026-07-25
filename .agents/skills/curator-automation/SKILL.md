@@ -1,6 +1,6 @@
 ---
-type: curator-skill
-version: 1
+name: curator-automation
+description: Wire the Curator triage pass to a schedule and to board events (new submission, task lands in backlog). Use when setting up automatic or unattended triage.
 ---
 
 # Curator: automation (schedule + board-event triggers)

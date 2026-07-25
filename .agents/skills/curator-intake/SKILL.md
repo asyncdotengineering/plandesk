@@ -1,6 +1,6 @@
 ---
-type: curator-skill
-version: 1
+name: curator-intake
+description: Turn an idea or an RFC into a scaffolded Plan Desk project — tasks, dependency edges, lanes, and a Design doc — in one scaffold_project_from_plan call. Use when planning a new project or a substantial new initiative onto the board.
 ---
 
 # Curator: intake (the Planner)

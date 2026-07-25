@@ -1,5 +1,14 @@
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import {
   globalDirRefusalReason,
@@ -8,11 +17,11 @@ import {
 } from './connect-artifacts.js';
 import { resolveAgents } from './connect.js';
 import {
-  CURATOR_DIR,
   CURATOR_HOOKS_SETTINGS_SNIPPET_JSON,
-  CURATOR_SKILLS,
+  CURATOR_SKILL_NAMES,
   CURATOR_TEMPLATES,
-  buildCuratorSkillAdapter,
+  curatorArtifactPath,
+  curatorSkillSymlinkTarget,
 } from './curator-templates.js';
 import { readTemplate } from './templates.js';
 
@@ -40,6 +49,11 @@ export type FactoryArtifact = {
   action: 'create' | 'update' | 'skip';
   /** Set the executable bit (0o755) after writing — for the curator hook scripts. */
   executable?: boolean;
+  /**
+   * When set, write as a symlink to this relative target (same contract as
+   * connect artifacts). Falls back to a content copy if symlinks are unavailable.
+   */
+  symlinkTarget?: string;
 };
 
 export type FactoryInitResult = {
@@ -161,12 +175,11 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
     });
   }
 
-  // Curator artifacts (Plan-Desk-Curator RFC): authored policy, same
-  // skip-if-exists semantics as the factory files above — a user's edited
-  // triage.md must never be clobbered by a second `factory init` run.
-  const curatorDir = join(repoDir, CURATOR_DIR);
+  // Curator artifacts: skills under .agents/skills/curator-*/SKILL.md and hooks
+  // under .agents/factory/hooks/. Same skip-if-exists semantics as factory
+  // policy files — a user's edited skill must never be clobbered on re-init.
   for (const template of CURATOR_TEMPLATES) {
-    const path = join(curatorDir, template.relativePath);
+    const path = curatorArtifactPath(repoDir, template.relativePath);
     artifacts.push({
       path,
       content: template.content,
@@ -175,20 +188,21 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
     });
   }
 
-  // .claude/skills adapters (F5): the curator skills live canonically under
-  // .agents/curator/ (harness-neutral, path-referenced), but Claude Code only
-  // auto-discovers skills at .claude/skills/<name>/SKILL.md carrying name+description
-  // frontmatter. Generate a discoverable adapter per skill — regenerated each run
-  // ('update') so it never drifts, sourced from the on-disk .agents/ file when the
-  // user has one (else the shipped constant).
-  for (const skill of CURATOR_SKILLS) {
-    const sourcePath = join(curatorDir, `${skill.slug}.md`);
-    const source = existsSync(sourcePath) ? readFileSync(sourcePath, 'utf8') : skill.source;
-    const adapterPath = join(repoDir, '.claude', 'skills', skill.name, 'SKILL.md');
+  // .claude/skills/<name>/SKILL.md: symlink to the canonical file under
+  // .agents/skills/ (Claude Code discovers only under .claude/skills/). Same
+  // symlinkTarget + copy-fallback writer as connect. Refresh every run so a
+  // prior plain-file copy is replaced by the link.
+  for (const name of CURATOR_SKILL_NAMES) {
+    const canonicalPath = curatorArtifactPath(repoDir, `skills/${name}/SKILL.md`);
+    const adapterPath = join(repoDir, '.claude', 'skills', name, 'SKILL.md');
+    const content = existsSync(canonicalPath)
+      ? readFileSync(canonicalPath, 'utf8')
+      : readTemplate(`skills/${name}/SKILL.md`);
     artifacts.push({
       path: adapterPath,
-      content: buildCuratorSkillAdapter(source, skill.name, skill.description),
-      action: existsSync(adapterPath) ? 'update' : 'create',
+      content,
+      action: lstatSync(adapterPath, { throwIfNoEntry: false }) === undefined ? 'create' : 'update',
+      symlinkTarget: curatorSkillSymlinkTarget(name),
     });
   }
 
@@ -215,6 +229,17 @@ function writeFactoryArtifacts(artifacts: FactoryArtifact[]): void {
       continue;
     }
     mkdirSync(dirname(artifact.path), { recursive: true });
+    if (artifact.symlinkTarget !== undefined) {
+      // Same contract as connect writeArtifacts: try a symlink, fall back to a
+      // content copy when the platform refuses (unprivileged Windows).
+      rmSync(artifact.path, { force: true });
+      try {
+        symlinkSync(artifact.symlinkTarget, artifact.path);
+      } catch {
+        writeFileSync(artifact.path, artifact.content, 'utf8');
+      }
+      continue;
+    }
     writeFileSync(artifact.path, artifact.content, 'utf8');
     if (artifact.executable === true) {
       chmodSync(artifact.path, 0o755);
@@ -248,11 +273,10 @@ export function authoredFactoryFiles(repoDir: string): SyncableFile[] {
 }
 
 function syncableAuthoredFiles(repoDir: string): SyncableFile[] {
-  const curatorDir = join(repoDir, CURATOR_DIR);
   return [
     ...authoredFactoryFiles(repoDir),
     ...CURATOR_TEMPLATES.map((template) => ({
-      path: join(curatorDir, template.relativePath),
+      path: curatorArtifactPath(repoDir, template.relativePath),
       content: template.content,
       executable: template.executable,
     })),
@@ -403,17 +427,10 @@ export function runFactorySync(options: FactorySyncOptions): FactorySyncResult {
   writeSyncManifest(repoDir, manifest);
 
   // Now that authored sources are current, refresh the generated files that
-  // depend on them (the sentinel block and the skill/command adapters).
-  for (const artifact of buildFactoryArtifacts(repoDir)) {
-    if (artifact.action !== 'update') {
-      continue;
-    }
-    mkdirSync(dirname(artifact.path), { recursive: true });
-    writeFileSync(artifact.path, artifact.content, 'utf8');
-    if (artifact.executable === true) {
-      chmodSync(artifact.path, 0o755);
-    }
-  }
+  // depend on them (the sentinel block, skill symlinks, and command adapters).
+  writeFactoryArtifacts(
+    buildFactoryArtifacts(repoDir).filter((artifact) => artifact.action === 'update'),
+  );
 
   return { repoDir, entries, applied: true };
 }
@@ -506,6 +523,12 @@ export function formatFactoryInitPrint(result: FactoryInitResult): string {
   lines.push(`repo: ${result.repoDir}`);
   lines.push('');
   for (const artifact of result.artifacts) {
+    if (artifact.symlinkTarget !== undefined) {
+      lines.push(
+        `--- ${artifact.action.toUpperCase()} ${artifact.path} -> ${artifact.symlinkTarget}`,
+      );
+      continue;
+    }
     lines.push(`--- ${artifact.action.toUpperCase()} ${artifact.path}`);
     if (artifact.action !== 'skip') {
       lines.push(artifact.content);

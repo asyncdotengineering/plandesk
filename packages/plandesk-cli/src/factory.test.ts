@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -12,7 +14,12 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { globalDirRefusalReason } from './connect-artifacts.js';
-import { CURATOR_SKILLS, CURATOR_TEMPLATES } from './curator-templates.js';
+import {
+  CURATOR_SKILL_NAMES,
+  CURATOR_TEMPLATES,
+  curatorArtifactPath,
+  curatorSkillSymlinkTarget,
+} from './curator-templates.js';
 import {
   WORKER_NAMES,
   buildFactoryArtifacts,
@@ -157,7 +164,7 @@ describe('runFactoryInit', () => {
     // never get written either — not a per-file check.
     for (const template of CURATOR_TEMPLATES) {
       expect(
-        existsSync(join(globalClaude, '.agents/curator', template.relativePath)),
+        existsSync(curatorArtifactPath(globalClaude, template.relativePath)),
         template.relativePath,
       ).toBe(false);
     }
@@ -169,7 +176,7 @@ describe('runFactoryInit', () => {
     // --force lifts the guard for the whole scaffold, curator artifacts included.
     for (const template of CURATOR_TEMPLATES) {
       expect(
-        existsSync(join(globalClaude, '.agents/curator', template.relativePath)),
+        existsSync(curatorArtifactPath(globalClaude, template.relativePath)),
         template.relativePath,
       ).toBe(true);
     }
@@ -294,7 +301,7 @@ describe('curator artifacts (F5)', () => {
     const result = runFactoryInit({ repoDir: repo });
 
     for (const template of CURATOR_TEMPLATES) {
-      const path = join(repo, '.agents/curator', template.relativePath);
+      const path = curatorArtifactPath(repo, template.relativePath);
       expect(existsSync(path), template.relativePath).toBe(true);
       expect(readFileSync(path, 'utf8'), template.relativePath).toBe(template.content);
       const artifact = result.artifacts.find((a) => a.path === path);
@@ -305,16 +312,16 @@ describe('curator artifacts (F5)', () => {
       }
     }
 
-    const triage = readFileSync(join(repo, '.agents/curator/triage.md'), 'utf8');
-    expect(triage).toContain('type: curator-skill');
-    expect(triage.startsWith('---\ntype: curator-skill\n')).toBe(true);
+    const triage = readFileSync(join(repo, '.agents/skills/curator-triage/SKILL.md'), 'utf8');
+    expect(triage.startsWith('---\nname: curator-triage\ndescription: ')).toBe(true);
+    expect(triage).not.toContain('type: curator-skill');
   });
 
   it('never overwrites a curator artifact the user edited, on re-run', async () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
 
-    const triagePath = join(repo, '.agents/curator/triage.md');
+    const triagePath = join(repo, '.agents/skills/curator-triage/SKILL.md');
     writeFileSync(triagePath, 'my edited triage skill\n', 'utf8');
 
     const rerun = runFactoryInit({ repoDir: repo });
@@ -326,7 +333,7 @@ describe('curator artifacts (F5)', () => {
   it('--print previews all 10 curator artifacts and the settings.json merge', async () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo, print: true });
-    expect(existsSync(join(repo, '.agents/curator'))).toBe(false);
+    expect(existsSync(join(repo, '.agents/skills/curator-triage'))).toBe(false);
 
     const printout = formatFactoryInitPrint(result);
     for (const template of CURATOR_TEMPLATES) {
@@ -336,30 +343,32 @@ describe('curator artifacts (F5)', () => {
     expect(printout).toContain('plandesk progress-checkpoint');
   });
 
-  it('generates discoverable .claude/skills adapters with name+description frontmatter', async () => {
+  it('symlinks .claude/skills adapters to the canonical .agents/skills files', async () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
 
-    for (const skill of CURATOR_SKILLS) {
-      const adapterPath = join(repo, '.claude/skills', skill.name, 'SKILL.md');
-      expect(existsSync(adapterPath), skill.name).toBe(true);
+    for (const name of CURATOR_SKILL_NAMES) {
+      const adapterPath = join(repo, '.claude/skills', name, 'SKILL.md');
+      expect(existsSync(adapterPath), name).toBe(true);
+      expect(lstatSync(adapterPath).isSymbolicLink(), name).toBe(true);
+      expect(readlinkSync(adapterPath), name).toBe(curatorSkillSymlinkTarget(name));
       const content = readFileSync(adapterPath, 'utf8');
-      // Claude Code discovers/triggers on name + description frontmatter — the
-      // harness-neutral `type: curator-skill` frontmatter of the .agents source is gone.
-      expect(content.startsWith(`---\nname: ${skill.name}\ndescription: `)).toBe(true);
+      expect(content.startsWith(`---\nname: ${name}\ndescription: `)).toBe(true);
       expect(content).not.toContain('type: curator-skill');
     }
   });
 
-  it('regenerates the .claude/skills adapter from an edited .agents source on re-run', async () => {
+  it('symlink adapter reflects an edited .agents skill without regenerating content', async () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
 
-    const sourcePath = join(repo, '.agents/curator/triage.md');
+    const sourcePath = join(repo, '.agents/skills/curator-triage/SKILL.md');
     writeFileSync(sourcePath, `${readFileSync(sourcePath, 'utf8')}\n\nEDITED MARKER.\n`, 'utf8');
     runFactoryInit({ repoDir: repo });
 
-    const adapter = readFileSync(join(repo, '.claude/skills/curator-triage/SKILL.md'), 'utf8');
+    const adapterPath = join(repo, '.claude/skills/curator-triage/SKILL.md');
+    expect(lstatSync(adapterPath).isSymbolicLink()).toBe(true);
+    const adapter = readFileSync(adapterPath, 'utf8');
     expect(adapter).toContain('EDITED MARKER.');
     expect(adapter.startsWith('---\nname: curator-triage\ndescription: ')).toBe(true);
   });
@@ -382,13 +391,13 @@ describe('curator hooks settings.json merge (F1 wiring)', () => {
     expect(settings.hooks.Stop).toHaveLength(1);
     expect(settings.hooks.PreCompact).toHaveLength(1);
     expect(JSON.stringify(settings.hooks.SessionStart)).toContain(
-      '.agents/curator/hooks/session-start.sh',
+      '.agents/factory/hooks/session-start.sh',
     );
-    expect(JSON.stringify(settings.hooks.Stop)).toContain('.agents/curator/hooks/checkpoint.sh');
+    expect(JSON.stringify(settings.hooks.Stop)).toContain('.agents/factory/hooks/checkpoint.sh');
     // Hook commands are prefixed with $CLAUDE_PROJECT_DIR so they resolve against the
     // project root even when Claude Code is launched from a subdirectory.
     expect(JSON.stringify(settings.hooks.SessionStart)).toContain(
-      '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/session-start.sh',
+      '$CLAUDE_PROJECT_DIR/.agents/factory/hooks/session-start.sh',
     );
   });
 

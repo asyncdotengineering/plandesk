@@ -11,9 +11,10 @@ not-yet-written files.
 - [factory/lanes.md](factory/lanes.md) - risk-lane policy: which changes need which human gates
 - [factory/verifiers/](factory/verifiers/) - fast per-change checks (exit 0 = pass)
 - [skills/](skills/) - Agent Skills (SKILL.md directories) usable by any harness
-- [curator/triage.md](curator/triage.md) - source-agnostic auto-triage: raw signal → house-style `scope` tasks with provenance
-- [curator/provenance.md](curator/provenance.md) - the provenance convention every Curator decision must carry
-- [curator/automation.md](curator/automation.md) - schedule + board-event triggers for the triage skill, and the confidence gate
-- [curator/intake.md](curator/intake.md) - idea/RFC → `scaffold_project_from_plan` planning methodology
-- [curator/autonomy.md](curator/autonomy.md) - vendored, board-bound autonomy posture (drives `get_next_task`, stops at lane gates)
-- [curator/hooks/](curator/hooks/) - board-as-memory hook scripts (`SessionStart`/`Stop`/`PreCompact`) called from project `.claude/settings.json`
+- [skills/curator-triage/SKILL.md](skills/curator-triage/SKILL.md) - source-agnostic auto-triage: raw signal → house-style `scope` tasks with provenance
+- [skills/curator-provenance/SKILL.md](skills/curator-provenance/SKILL.md) - the provenance convention every Curator decision must carry
+- [skills/curator-automation/SKILL.md](skills/curator-automation/SKILL.md) - schedule + board-event triggers for the triage skill, and the confidence gate
+- [skills/curator-intake/SKILL.md](skills/curator-intake/SKILL.md) - idea/RFC → `scaffold_project_from_plan` planning methodology
+- [skills/curator-plan-writer/SKILL.md](skills/curator-plan-writer/SKILL.md) - RFC / design proposal as a Plan Desk `Design:` document (upstream of curator-intake)
+- [skills/curator-autonomy/SKILL.md](skills/curator-autonomy/SKILL.md) - vendored, board-bound autonomy posture (drives `get_next_task`, stops at lane gates)
+- [factory/hooks/](factory/hooks/) - board-as-memory hook scripts (`SessionStart`/`Stop`/`PreCompact`) called from project `.claude/settings.json`

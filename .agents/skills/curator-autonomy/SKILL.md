@@ -1,6 +1,6 @@
 ---
-type: curator-skill
-version: 1
+name: curator-autonomy
+description: Board-bound, lane-gated autonomy posture for driving this project's Plan Desk board unattended without breaching the human gates. Use when running the board loop autonomously.
 ---
 
 # Curator: autonomy posture (vendored, board-bound, lane-gated)
