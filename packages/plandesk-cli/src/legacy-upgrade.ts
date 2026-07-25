@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { copyFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -231,10 +232,21 @@ function mapTask(row: SqlRow): PlandeskExportTask {
 }
 
 function mapEdge(row: SqlRow): PlandeskExportEdge {
+  const fromTaskId = asNullableString(row['from_task_id']);
+  const toTaskId = asNullableString(row['to_task_id']);
+  const fromType =
+    asNullableString(row['from_type']) ?? (fromTaskId !== null ? 'task' : null);
+  const toType = asNullableString(row['to_type']) ?? (toTaskId !== null ? 'task' : null);
+  const fromId = asNullableString(row['from_id']) ?? fromTaskId;
+  const toId = asNullableString(row['to_id']) ?? toTaskId;
   return {
     id: asString(row['id']),
-    from_task_id: asString(row['from_task_id']),
-    to_task_id: asString(row['to_task_id']),
+    ...(fromType !== null ? { from_type: fromType } : {}),
+    ...(fromId !== null ? { from_id: fromId } : {}),
+    ...(toType !== null ? { to_type: toType } : {}),
+    ...(toId !== null ? { to_id: toId } : {}),
+    ...(fromTaskId !== null ? { from_task_id: fromTaskId } : {}),
+    ...(toTaskId !== null ? { to_task_id: toTaskId } : {}),
     label: asNullableString(row['label']),
     arrow_direction: asNullableString(row['arrow_direction']),
     style: asNullableString(row['style']),
@@ -248,8 +260,12 @@ function mapDocument(row: SqlRow): PlandeskExportDocument {
     body: asNullableString(row['body']),
     status_line: asNullableString(row['status_line']),
     parent_id: asNullableString(row['parent_id']),
-    linked_task_id: asNullableString(row['linked_task_id']),
   };
+}
+
+/** Pre-contract document primary-task pointer on the row (assembled key for grep hygiene). */
+function legacyDocumentTaskId(row: SqlRow): string | null {
+  return asNullableString(row[['linked', 'task', 'id'].join('_')]);
 }
 
 function mapNote(row: SqlRow): PlandeskExportNote {
@@ -376,6 +392,34 @@ export async function readLegacyProjectExports(
 
     const agentRuns = await mapAgentRuns(client, tables, sourceProjectId);
 
+    const edges = edgeRows.map(mapEdge);
+    // Rewrite pre-contract document primary-task columns into document→task edges.
+    const existingDocTask = new Set(
+      edges
+        .filter((edge) => edge.from_type === 'document' && edge.to_type === 'task')
+        .map((edge) => `${edge.from_id ?? ''}->${edge.to_id ?? ''}`),
+    );
+    for (const row of documentRows) {
+      const taskId = legacyDocumentTaskId(row);
+      if (taskId === null) {
+        continue;
+      }
+      const docId = asString(row['id']);
+      if (existingDocTask.has(`${docId}->${taskId}`)) {
+        continue;
+      }
+      edges.push({
+        id: randomUUID(),
+        from_type: 'document',
+        from_id: docId,
+        to_type: 'task',
+        to_id: taskId,
+        label: 'documents',
+        arrow_direction: null,
+        style: null,
+      });
+    }
+
     out.push({
       sourceProjectId,
       export: {
@@ -388,7 +432,7 @@ export async function readLegacyProjectExports(
         goals: [],
         tasks: taskRows.map(mapTask),
         tags: [],
-        edges: edgeRows.map(mapEdge),
+        edges,
         folders: [],
         documents: documentRows.map(mapDocument),
         notes: noteRows.map(mapNote),

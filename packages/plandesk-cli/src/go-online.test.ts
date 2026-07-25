@@ -182,7 +182,6 @@ async function makeLocalBoard(): Promise<LocalBoard> {
       projectId: project.id,
       title: `${name} spec`,
       body: `## Why\n${name} needs this.`,
-      linkedTaskId: task.id,
     });
     projects.set(name, [project.id]);
   }
