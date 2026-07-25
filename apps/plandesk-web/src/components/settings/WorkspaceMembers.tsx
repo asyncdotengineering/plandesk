@@ -20,6 +20,7 @@ import {
   useRemoveWorkspaceMember,
   useWorkspaceMembers,
 } from '../../lib/queries.js';
+import { QueryFailure } from './QueryFailure.js';
 
 /**
  * Workspace member roster + owner-gated add/remove + workspace-scoped invites.
@@ -30,12 +31,13 @@ import {
  */
 export function WorkspaceMembers() {
   const session = useAuthSession();
+  const isLoopback = session.data?.kind === 'loopback';
   const role = session.data?.role;
   const isOwner = role === 'owner';
   // Org roles are the ladder in api.orgRoles; owners and managers may invite.
   const canInvite = role === 'owner' || role === 'manager';
-  const orgId = session.data?.org?.id;
-  const activeWorkspaceId = session.data?.active_workspace?.id;
+  const orgId = isLoopback ? undefined : session.data?.org?.id;
+  const activeWorkspaceId = isLoopback ? undefined : session.data?.active_workspace?.id;
   const activeWorkspaceName = session.data?.active_workspace?.name;
 
   const membersQuery = useWorkspaceMembers(activeWorkspaceId);
@@ -134,6 +136,32 @@ export function WorkspaceMembers() {
     return <p className="text-sm text-muted-foreground">Loading session…</p>;
   }
 
+  if (session.isError) {
+    return (
+      <QueryFailure
+        message="Failed to load the current session."
+        onRetry={() => {
+          void session.refetch();
+        }}
+        isRetrying={session.isFetching}
+      />
+    );
+  }
+
+  if (isLoopback) {
+    return (
+      <Card className="max-w-3xl">
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Local workspace access</CardTitle>
+          <CardDescription>
+            A local board does not keep member rows or invitations. Loopback is trusted as owner,
+            so its workspaces are available directly on this machine.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
   if (activeWorkspaceId === undefined) {
     return (
       <p role="alert" className="text-sm text-muted-foreground">
@@ -152,15 +180,20 @@ export function WorkspaceMembers() {
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-4">
-          {membersQuery.isLoading ? (
+          {membersQuery.isLoading || orgMembersQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">Loading members…</p>
           ) : null}
-          {membersQuery.isError ? (
-            <p role="alert" className="text-sm text-destructive">
-              Failed to load workspace members.
-            </p>
+          {membersQuery.isError || orgMembersQuery.isError ? (
+            <QueryFailure
+              message="Failed to load workspace members."
+              onRetry={() => {
+                void membersQuery.refetch();
+                void orgMembersQuery.refetch();
+              }}
+              isRetrying={membersQuery.isFetching || orgMembersQuery.isFetching}
+            />
           ) : null}
-          {membersQuery.data !== undefined ? (
+          {membersQuery.data !== undefined && orgMembersQuery.data !== undefined ? (
             membersQuery.data.length === 0 ? (
               <p className="text-sm text-muted-foreground">No members yet.</p>
             ) : (

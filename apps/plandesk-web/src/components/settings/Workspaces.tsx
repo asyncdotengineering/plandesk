@@ -12,6 +12,7 @@ import {
   useRenameWorkspace,
 } from '../../lib/queries.js';
 import { WorkspaceShareButton } from './WorkspaceShareButton.js';
+import { QueryFailure } from './QueryFailure.js';
 
 type Editing = { id: string; name: string } | null;
 
@@ -80,6 +81,18 @@ export function Workspaces() {
     return <p className="text-sm text-muted-foreground">Loading session…</p>;
   }
 
+  if (session.isError) {
+    return (
+      <QueryFailure
+        message="Failed to load the current session."
+        onRetry={() => {
+          void session.refetch();
+        }}
+        isRetrying={session.isFetching}
+      />
+    );
+  }
+
   return (
     <div className="grid max-w-3xl gap-6">
       <Card>
@@ -94,9 +107,13 @@ export function Workspaces() {
             <p className="text-sm text-muted-foreground">Loading workspaces…</p>
           ) : null}
           {workspacesQuery.isError ? (
-            <p role="alert" className="text-sm text-destructive">
-              Failed to load workspaces.
-            </p>
+            <QueryFailure
+              message="Failed to load workspaces."
+              onRetry={() => {
+                void workspacesQuery.refetch();
+              }}
+              isRetrying={workspacesQuery.isFetching}
+            />
           ) : null}
           {workspacesQuery.data !== undefined ? (
             workspacesQuery.data.length === 0 ? (

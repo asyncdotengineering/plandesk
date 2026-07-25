@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Members } from './Members.js';
 
@@ -21,6 +21,20 @@ const memberSession = {
   orgs: [{ id: 'org-1', name: 'Acme', role: 'member' }],
   active_workspace: null,
   workspaces: [],
+};
+
+const loopbackSession = {
+  ...ownerSession,
+  kind: 'loopback' as const,
+  user_ref: null,
+  org: { id: '00000000-0000-4000-8000-000000000000', name: 'Personal' },
+  orgs: [
+    {
+      id: '00000000-0000-4000-8000-000000000000',
+      name: 'Personal',
+      role: 'owner',
+    },
+  ],
 };
 
 const membersList = {
@@ -98,5 +112,57 @@ describe('Members (read-only org roster; invites moved to Workspaces)', () => {
       expect(screen.getByText('owner@acme.com')).toBeTruthy();
     });
     expect(screen.queryByRole('button', { name: /^invite$/i })).toBeNull();
+  });
+
+  it('explains local owner access without querying hosted member rows', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/session')) {
+        return { ok: true, status: 200, json: async () => loopbackSession };
+      }
+      throw new Error(`unexpected hosted-only request: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderMembers();
+
+    expect(await screen.findByText(/local board access/i)).toBeTruthy();
+    expect(screen.getByText(/loopback is trusted as owner/i)).toBeTruthy();
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).includes('/members')),
+    ).toBe(false);
+  });
+
+  it('shows a failed members request with a retry that refetches', async () => {
+    let memberRequests = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/session')) {
+        return { ok: true, status: 200, json: async () => ownerSession };
+      }
+      if (url.includes('/orgs/org-1/members')) {
+        memberRequests += 1;
+        if (memberRequests === 1) {
+          return {
+            ok: false,
+            status: 503,
+            json: async () => ({ error: 'unavailable' }),
+            text: async () => 'unavailable',
+          };
+        }
+        return { ok: true, status: 200, json: async () => membersList };
+      }
+      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderMembers();
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/failed to load members/i);
+    expect(screen.queryByText(/loading members/i)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    expect(await screen.findByText('owner@acme.com')).toBeTruthy();
+    expect(memberRequests).toBe(2);
   });
 });

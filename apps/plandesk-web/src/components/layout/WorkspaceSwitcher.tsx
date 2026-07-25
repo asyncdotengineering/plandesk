@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,6 +39,7 @@ export function WorkspaceSwitcher() {
   const workspacesQuery = useWorkspaces();
   const setActive = useSetActiveWorkspace();
   const createMutation = useCreateWorkspace();
+  const navigate = useNavigate();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState('');
@@ -64,11 +66,20 @@ export function WorkspaceSwitcher() {
       // Land the user in the workspace they just made.
       await setActive.mutateAsync(created.id);
       toast('Workspace created');
+      await navigate({ to: '/' });
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         toast.error("You don't have permission to create workspaces.");
       }
     }
+  }
+
+  function handleSwitch(workspaceId: string) {
+    setActive.mutate(workspaceId, {
+      onSuccess: () => {
+        void navigate({ to: '/' });
+      },
+    });
   }
 
   return (
@@ -98,7 +109,7 @@ export function WorkspaceSwitcher() {
                   key={workspace.id}
                   disabled={isActive || setActive.isPending}
                   onSelect={() => {
-                    setActive.mutate(workspace.id);
+                    handleSwitch(workspace.id);
                   }}
                 >
                   <span className="switcher-name">{workspace.name}</span>

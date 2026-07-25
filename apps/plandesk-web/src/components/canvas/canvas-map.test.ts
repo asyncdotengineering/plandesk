@@ -117,8 +117,8 @@ describe('canvas-map', () => {
         },
       },
     ];
-    const fromTaskId = sampleEdge.from_task_id ?? sampleEdge.from_id;
-    const toTaskId = sampleEdge.to_task_id ?? sampleEdge.to_id;
+    const fromTaskId = sampleEdge.from_id;
+    const toTaskId = sampleEdge.to_id;
     const edges: Edge<LabeledEdgeData>[] = [
       {
         id: sampleEdge.id,

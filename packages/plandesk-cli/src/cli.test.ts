@@ -23,6 +23,7 @@ import { runInit } from './init.js';
 import { readServerInfo, readWorkspaceJson, writeWorkspaceJson } from './connect-artifacts.js';
 import {
   createListenErrorHandler,
+  resolveServeOrigin,
   resolveServeRuntime,
   startServer,
   validateServeBind,
@@ -646,6 +647,9 @@ describe('startServer', () => {
     const res = await fetch(`http://127.0.0.1:${String(port)}/api/v1/health`);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, dataDir });
+    const localhostRes = await fetch(`http://localhost:${String(port)}/api/v1/health`);
+    expect(localhostRes.status).toBe(200);
+    expect(await localhostRes.json()).toEqual({ ok: true, dataDir });
 
     const info = readServerInfo(dataDir);
     expect(info?.port).toBe(port);
@@ -747,6 +751,18 @@ describe('startServer', () => {
 
     rmSync(dataDir, { recursive: true, force: true });
   }, 10000);
+});
+
+describe('resolveServeOrigin', () => {
+  it('advertises one canonical origin for the interchangeable IPv4 loopback names', () => {
+    expect(resolveServeOrigin('127.0.0.1', 7526)).toBe('http://127.0.0.1:7526');
+    expect(resolveServeOrigin('localhost', 7526)).toBe('http://127.0.0.1:7526');
+  });
+
+  it('preserves non-IPv4-loopback bind hosts and brackets IPv6', () => {
+    expect(resolveServeOrigin('0.0.0.0', 7526)).toBe('http://0.0.0.0:7526');
+    expect(resolveServeOrigin('::1', 7526)).toBe('http://[::1]:7526');
+  });
 });
 
 describe('resolveDataDir', () => {

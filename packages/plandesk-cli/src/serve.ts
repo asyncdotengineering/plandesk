@@ -79,6 +79,15 @@ export type ServeRuntime = {
   strictPort: boolean;
 };
 
+export function resolveServeOrigin(host: string, port: number): string {
+  const advertisedHost = host.trim().toLowerCase() === 'localhost' ? '127.0.0.1' : host;
+  const urlHost =
+    advertisedHost.includes(':') && !advertisedHost.startsWith('[')
+      ? `[${advertisedHost}]`
+      : advertisedHost;
+  return `http://${urlHost}:${String(port)}`;
+}
+
 /**
  * Resolve serve host/port/dataDir from flags > workspace.json > config file >
  * default. Extracted so the precedence (and "boots from a config file alone",
@@ -128,8 +137,7 @@ export async function startServer(
   const dbDisplay = dbUrl ?? dbPath;
   const db =
     dbUrl !== undefined ? await createDb(dbUrl, cfg.values.dbToken) : await createDb(dbPath);
-  const urlHost = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
-  const betterAuthBaseURL = cfg.values.baseUrl ?? `http://${urlHost}:${String(options.port)}`;
+  const betterAuthBaseURL = cfg.values.baseUrl ?? resolveServeOrigin(host, options.port);
   let betterAuthSecret = cfg.values.sessionSecret;
   let auth: ReturnType<typeof createBetterAuth> | undefined;
   if (dbUrl === undefined) {
@@ -195,7 +203,7 @@ export async function startServer(
       startedAt: new Date().toISOString(),
       dataDir,
     });
-    process.stdout.write(`Plan Desk → http://${host}:${String(boundPort)}  (db: ${dbDisplay})\n`);
+    process.stdout.write(`Plan Desk → ${resolveServeOrigin(host, boundPort)}  (db: ${dbDisplay})\n`);
   };
 
   server.once('close', () => {

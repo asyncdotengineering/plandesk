@@ -360,6 +360,57 @@ describe('better-auth session recognition (BA4a)', () => {
     expect(await parseJson(res)).toEqual({ error: 'unauthorized' });
   });
 
+  it('an org-less cookie falls through only on loopback and stays 401 on hosted binds', async () => {
+    const db = await createDb(':memory:');
+    await migrate(db);
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: TEST_SECRET,
+      baseURL: TEST_BASE_URL,
+    });
+    if (auth === undefined) throw new Error('expected better-auth');
+    await runBetterAuthMigrations(auth);
+
+    const { cookie, userId } = await seedBetterAuthUser(auth, {
+      email: 'orgless@example.com',
+      name: 'Org-less',
+      githubAccountId: '2003',
+      org: { id: DEFAULT_ORG_ID, name: 'Personal', slug: 'personal' },
+      role: 'owner',
+    });
+    const adapter = (await auth.$context).adapter;
+    const members = await adapter.findMany<BetterAuthMember>({
+      model: 'member',
+      where: [{ field: 'userId', value: userId }],
+    });
+    for (const member of members) {
+      await adapter.delete({
+        model: 'member',
+        where: [{ field: 'id', value: member.id }],
+      });
+    }
+
+    const local = createApp({ db, bindHost: '127.0.0.1', betterAuthInstance: auth });
+    for (const origin of ['http://127.0.0.1:7526', 'http://localhost:7526']) {
+      const withoutCookie = await local.request(`${origin}/api/v1/auth/session`);
+      expect(withoutCookie.status).toBe(200);
+      expect((await parseJson<{ kind: string }>(withoutCookie)).kind).toBe('loopback');
+
+      const withCookie = await local.request(`${origin}/api/v1/auth/session`, {
+        headers: { Cookie: cookie },
+      });
+      expect(withCookie.status).toBe(200);
+      expect((await parseJson<{ kind: string }>(withCookie)).kind).toBe('loopback');
+    }
+
+    const hosted = createApp({ db, bindHost: '0.0.0.0', betterAuthInstance: auth });
+    const hostedResponse = await hosted.request('/api/v1/auth/session', {
+      headers: { Cookie: cookie },
+    });
+    expect(hostedResponse.status).toBe(401);
+    expect(await parseJson(hostedResponse)).toEqual({ error: 'unauthorized' });
+  });
+
   it('better-auth role gates writes: member denied project:create, owner allowed', async () => {
     const { app, db, auth } = await hostedBetterAuthApp();
     const org = { id: randomUUID(), name: 'Roles' };

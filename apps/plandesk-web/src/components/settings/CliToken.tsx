@@ -3,8 +3,12 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCreateCliToken } from '../../lib/queries.js';
+import { useAuthSession } from '../../lib/auth.js';
+import { QueryFailure } from './QueryFailure.js';
+import { ApiError } from '../../lib/api.js';
 
 export function CliToken() {
+  const session = useAuthSession();
   const createMutation = useCreateCliToken();
   const [rawToken, setRawToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -31,6 +35,48 @@ export function CliToken() {
     }
   }
 
+  if (session.isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading session…</p>;
+  }
+
+  if (session.isError) {
+    return (
+      <QueryFailure
+        message="Failed to load the current session."
+        onRetry={() => {
+          void session.refetch();
+        }}
+        isRetrying={session.isFetching}
+      />
+    );
+  }
+
+  if (session.data?.kind === 'loopback') {
+    return (
+      <Card className="max-w-3xl">
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Local board access</CardTitle>
+          <CardDescription>
+            This board needs no CLI token: loopback is trusted as owner. Run{' '}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">plandesk connect</code> in the
+            repository you want to connect.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  let createError = 'Failed to generate CLI token. Try again.';
+  if (createMutation.error instanceof ApiError) {
+    if (createMutation.error.status === 401) {
+      createError = 'Your session expired. Sign in again before creating a CLI token.';
+    } else if (createMutation.error.status === 403) {
+      createError = 'Only organization owners can create CLI tokens.';
+    } else if (createMutation.error.status === 503) {
+      createError = 'CLI token creation is not configured on this server.';
+    }
+  }
+
   return (
     <div className="grid max-w-3xl gap-6">
       <Card>
@@ -53,7 +99,7 @@ export function CliToken() {
           </Button>
           {createMutation.isError ? (
             <p role="alert" className="mt-3 text-sm text-destructive">
-              Failed to generate CLI token. You may need owner access.
+              {createError}
             </p>
           ) : null}
         </CardContent>
