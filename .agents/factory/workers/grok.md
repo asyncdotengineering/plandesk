@@ -1,13 +1,16 @@
 ---
 type: worker
 probe: command -v grok
-command: grok --prompt-file {prompt_file} --always-approve --output-format plain
+command: grok --prompt-file {prompt_file} --model grok-4.5 --always-approve --output-format plain
 ---
 
 # grok
 
-Fast implementation worker. Pin a model with `--model <id>` after
-checking `grok models` for what is installed here.
+Fast implementation worker (default IC). Model ids change between releases —
+run `grok models` and pin what is actually installed; a stale id fails the
+dispatch immediately with "unknown model id". Never pass `--sandbox` — omitting it grants full IC
+access; `--sandbox` is opt-in to restrict, only for untrusted third-party
+code.
 
 Dispatch rule: run `probe` first — if it fails, this worker does not exist on
 this machine; pick another file in this directory. Substitute {prompt_file}

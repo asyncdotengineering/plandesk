@@ -13,13 +13,14 @@
   },
   "files": [
     "dist",
+    "dist/templates",
     "bin",
     "!dist/**/*.test.js",
     "!dist/**/*.test.d.ts",
     "!dist/**/*.map"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.json && node scripts/copy-templates.mjs",
     "test": "vitest run",
     "lint": "eslint src"
   },

@@ -9,11 +9,12 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { globalDirRefusalReason } from './connect-artifacts.js';
 import { CURATOR_SKILLS, CURATOR_TEMPLATES } from './curator-templates.js';
 import {
+  WORKER_NAMES,
   buildFactoryArtifacts,
   FactoryError,
   formatFactoryInitPrint,
@@ -21,6 +22,7 @@ import {
   runFactoryInit,
   runFactorySync,
 } from './factory.js';
+import { templateExists } from './templates.js';
 
 const tempDirs: string[] = [];
 
@@ -94,7 +96,7 @@ describe('runFactoryInit', () => {
 
     const workflowDoc = readFileSync(join(repo, '.agents/factory/workflow.md'), 'utf8');
     expect(workflowDoc.startsWith('---\ntype: workflow\n')).toBe(true);
-    expect(workflowDoc).toContain('Shipped default');
+    expect(workflowDoc).toContain('Orchestrator workflow');
 
     const factoryDoc = readFileSync(join(repo, '.agents/factory/factory.md'), 'utf8');
     expect(factoryDoc.startsWith('---\ntype: factory\n')).toBe(true);
@@ -234,14 +236,30 @@ describe('buildFactoryArtifacts', () => {
 });
 
 describe('worker files', () => {
+  const dispatchRuleFooter = [
+    'Dispatch rule: run `probe` first — if it fails, this worker does not exist on',
+    'this machine; pick another file in this directory. Substitute {prompt_file}',
+    'with the brief path and run `command` verbatim. The result contract is',
+    'defined in [../protocol.md](../protocol.md).',
+  ].join('\n');
+
   it('every worker declares a probe and a {prompt_file} command template', async () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
-    for (const name of ['claude', 'codex', 'cursor', 'grok', 'opencode', 'pi']) {
+    for (const name of WORKER_NAMES) {
       const content = readFileSync(join(repo, `.agents/factory/workers/${name}.md`), 'utf8');
       expect(content, name).toContain('type: worker');
       expect(content, name).toContain('probe: command -v ');
       expect(content, name).toContain('{prompt_file}');
+    }
+  });
+
+  it('every worker file ends with the shared dispatch-rule footer', async () => {
+    const repo = makeTempDir('plandesk-factory-');
+    runFactoryInit({ repoDir: repo });
+    for (const name of WORKER_NAMES) {
+      const content = readFileSync(join(repo, `.agents/factory/workers/${name}.md`), 'utf8');
+      expect(content, name).toContain(dispatchRuleFooter);
     }
   });
 
@@ -252,6 +270,21 @@ describe('worker files', () => {
     expect(protocol).toContain('type: protocol');
     expect(protocol).toContain('runs/result-<task>.json');
     expect(protocol).toContain('Exit codes are authoritative');
+  });
+});
+
+describe('template invariant', () => {
+  it('every path buildFactoryArtifacts emits under .agents/ resolves to a real template', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    const artifacts = buildFactoryArtifacts(repo);
+    const agentsPaths = artifacts
+      .map((a) => relative(repo, a.path).replace(/\\/g, '/'))
+      .filter((rel) => rel.startsWith('.agents/'));
+    expect(agentsPaths.length).toBeGreaterThan(0);
+    for (const rel of agentsPaths) {
+      const templateRel = rel.slice('.agents/'.length);
+      expect(templateExists(templateRel), `missing template for ${rel}`).toBe(true);
+    }
   });
 });
 
