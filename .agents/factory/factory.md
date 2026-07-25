@@ -42,9 +42,10 @@ is briefs, verification, diff-reading, and integration — not typing the code.
   integrate. The supervisor writes code inline only for: trivial edits,
   brief/spec authoring, integration and conflict resolution, review fixes
   under ~5 lines, or when no worker probe passes on this machine.
-- **Routing is data, not prose.** Model/worker rankings and "use X for Y"
-  live in [workers/](workers/) and [lanes.md](lanes.md) — edit those files,
-  never restate routing tables in agent instructions. Route by the task:
+- **Routing is data, not prose.** Which worker suits which task lives in
+  [routing.md](routing.md); each worker's probe and command live in
+  [workers/](workers/) — edit those files, never restate routing tables in
+  agent instructions. Route by the task:
   mechanical well-specified work → cheapest capable worker; user-facing or
   taste-sensitive work → high-taste worker; verification and review → a
   different model family than the author.
@@ -63,8 +64,8 @@ is briefs, verification, diff-reading, and integration — not typing the code.
 ## Goal completion is proven
 
 The runner drives all cycle-tasks on a goal to `done`, then runs the goal's
-`verification_surface` externally (gate command via `verify-handoff-proof.sh`,
-acceptance checklist, or human sign-off) and calls `complete_goal` with the
+`verification_surface` externally — a gate command this project defines, an
+acceptance checklist, or human sign-off — and calls `complete_goal` with the
 evidence. The API validates evidence against the declared surface — it never
 executes shell. Green evidence completes the goal; red evidence sets the goal
 `blocked` and files one `scope` remediation task.

@@ -71,6 +71,10 @@ export function buildProtocolMarkdown(): string {
   return readTemplate('factory/protocol.md');
 }
 
+export function buildRoutingMarkdown(): string {
+  return readTemplate('factory/routing.md');
+}
+
 export function buildLanesMarkdown(): string {
   return readTemplate('factory/lanes.md');
 }
@@ -233,6 +237,7 @@ export function authoredFactoryFiles(repoDir: string): SyncableFile[] {
     { path: join(factoryDir, 'factory.md'), content: buildFactoryMarkdown() },
     { path: join(factoryDir, 'autonomous-stand.md'), content: buildAutonomousStandMarkdown() },
     { path: join(factoryDir, 'protocol.md'), content: buildProtocolMarkdown() },
+    { path: join(factoryDir, 'routing.md'), content: buildRoutingMarkdown() },
     { path: join(factoryDir, 'lanes.md'), content: buildLanesMarkdown() },
     { path: join(factoryDir, 'verifiers', 'tests-pass.md'), content: buildExampleVerifierMarkdown() },
     ...WORKER_NAMES.map((name) => ({
