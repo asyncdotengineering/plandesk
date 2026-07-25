@@ -11,7 +11,7 @@ import {
   getShareByTokenHashRaw,
   getTask,
   hashShareToken,
-  listDocuments,
+  listDocumentsLinkedToTask,
   listShares as dbListShares,
   listSubmissionsByShareAndParticipant,
   parseSharePermissions,
@@ -536,9 +536,11 @@ export function createShareService(deps: ShareServiceDeps) {
           return undefined;
         }
         projectId = task.projectId;
-        const linkedDocumentIds = (await listDocuments(db, projectId))
-          .filter((doc) => doc.linkedTaskId === task.id)
-          .map((doc) => doc.id);
+        // Union legacy linked_task_id with document→task edges; list is
+        // project-scoped so the share audience cannot widen past this project.
+        const linkedDocumentIds = (
+          await listDocumentsLinkedToTask(db, projectId, task.id)
+        ).map((doc) => doc.id);
         policy = {
           tasks: [task.id],
           documentIds: linkedDocumentIds,

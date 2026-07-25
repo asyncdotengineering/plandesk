@@ -313,6 +313,43 @@ describe('documentService', () => {
     expect(await service.getByTask('00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
+  it('gets document linked only by a document→task edge', async () => {
+    const service = createService();
+    const task = await createTask(db, { projectId, label: 'Task' });
+    const document = await createDocument(db, { projectId, title: 'Edge-only' });
+    await createEdge(db, {
+      projectId,
+      fromType: 'document',
+      fromId: document.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
+    });
+
+    expect((await service.getByTask(task.id))?.id).toBe(document.id);
+  });
+
+  it('getByTask prefers linked_task_id primary when several documents link the task', async () => {
+    const service = createService();
+    const task = await createTask(db, { projectId, label: 'Task' });
+    const legacy = await createDocument(db, {
+      projectId,
+      title: 'Legacy primary',
+      linkedTaskId: task.id,
+    });
+    const edgeOnly = await createDocument(db, { projectId, title: 'Edge peer' });
+    await createEdge(db, {
+      projectId,
+      fromType: 'document',
+      fromId: edgeOnly.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
+    });
+
+    expect((await service.getByTask(task.id))?.id).toBe(legacy.id);
+  });
+
   it('deletes document comments when deleting a document', async () => {
     const service = createService();
     const document = await createDocument(db, { projectId, title: 'Doc' });

@@ -514,7 +514,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         return undefined;
       }
 
-      const document = await dbGetDocumentByTask(db, taskId);
+      const document = await dbGetDocumentByTask(db, task.projectId, taskId);
       if (!document) {
         return undefined;
       }

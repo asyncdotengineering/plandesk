@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
 import { documents } from '../schema.js';
+import { listEdgesByEndpoint } from './edges.js';
 
 export type Document = typeof documents.$inferSelect;
 
@@ -80,8 +81,72 @@ export async function listDocuments(
   return query.all();
 }
 
-export async function getDocumentByTask(db: DbClient, taskId: string): Promise<Document | undefined> {
-  return db.select().from(documents).where(eq(documents.linkedTaskId, taskId)).get();
+/**
+ * Every document in `projectId` linked to `taskId`, via the legacy
+ * `linked_task_id` column and/or a `document → task` edge. Project-scoped only.
+ */
+export async function listDocumentsLinkedToTask(
+  db: DbClient,
+  projectId: string,
+  taskId: string,
+): Promise<Document[]> {
+  const linkedIds = new Set<string>();
+
+  const legacy = await db
+    .select()
+    .from(documents)
+    .where(and(eq(documents.projectId, projectId), eq(documents.linkedTaskId, taskId)))
+    .all();
+  for (const doc of legacy) {
+    linkedIds.add(doc.id);
+  }
+
+  const edges = await listEdgesByEndpoint(db, projectId, 'task', taskId);
+  for (const edge of edges) {
+    if (
+      edge.fromType === 'document' &&
+      edge.fromId !== null &&
+      edge.toType === 'task' &&
+      edge.toId === taskId
+    ) {
+      linkedIds.add(edge.fromId);
+    }
+  }
+
+  if (linkedIds.size === 0) {
+    return [];
+  }
+
+  // Re-fetch by id so edge-only docs are included, still scoped to the project.
+  return db
+    .select()
+    .from(documents)
+    .where(and(eq(documents.projectId, projectId), inArray(documents.id, [...linkedIds])))
+    .all();
+}
+
+/**
+ * Singular primary document for a task (legacy API shape).
+ * Prefers the document whose `linked_task_id` is this task; otherwise the
+ * oldest edge-linked document in the project (createdAt, then id).
+ */
+export async function getDocumentByTask(
+  db: DbClient,
+  projectId: string,
+  taskId: string,
+): Promise<Document | undefined> {
+  const linked = await listDocumentsLinkedToTask(db, projectId, taskId);
+  if (linked.length === 0) {
+    return undefined;
+  }
+  const legacy = linked.find((doc) => doc.linkedTaskId === taskId);
+  if (legacy) {
+    return legacy;
+  }
+  return [...linked].sort((a, b) => {
+    const byTime = a.createdAt.getTime() - b.createdAt.getTime();
+    return byTime !== 0 ? byTime : a.id.localeCompare(b.id);
+  })[0];
 }
 
 export async function getDocumentByProjectAndId(
