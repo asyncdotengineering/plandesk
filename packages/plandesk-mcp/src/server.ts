@@ -171,10 +171,14 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Create Document',
       description:
-        'Create a document with optional linked task. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
+        'Create a document with optional links. Pass link_to as a single id or a list of task/document ids to wire multiple targets; linked_task_id still sets the primary task. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
       inputSchema: createDocumentInputSchema.shape,
     },
-    createCreateDocumentHandler(services.documentService),
+    createCreateDocumentHandler(
+      services.documentService,
+      services.canvasService,
+      services.taskService,
+    ),
   );
 
   server.registerTool(
@@ -182,17 +186,22 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Update Document',
       description:
-        'Update document title, body, or status line. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
+        'Update document title, body, status line, or links. Pass link_to as a single id or list of task/document ids to add outgoing links; linked_task_id still manages the primary task. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
       inputSchema: updateDocumentInputSchema.shape,
     },
-    createUpdateDocumentHandler(services.documentService),
+    createUpdateDocumentHandler(
+      services.documentService,
+      services.canvasService,
+      services.taskService,
+    ),
   );
 
   server.registerTool(
     'get_document',
     {
       title: 'Get Document',
-      description: 'Get a document by id',
+      description:
+        'Get a document by id, including derived links (outgoing) and backlinks (incoming) so related specs and tasks can be walked without a second query.',
       inputSchema: getDocumentInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
@@ -327,7 +336,8 @@ function createMcpServer(services: Services, origin: string): McpServer {
     'create_edge',
     {
       title: 'Create Edge',
-      description: 'Create a canvas edge between two tasks',
+      description:
+        "Create a directed edge between any two entities via from_type/from_id/to_type/to_id (entity types: 'task' or 'document'). Legacy from_task_id/to_task_id still accepted and map to type task. Prefer the label vocabulary: blocks, depends_on, unblocks, feeds, clarifies, enables, supports, documents, references, supersedes, extends.",
       inputSchema: createEdgeInputSchema.shape,
     },
     createCreateEdgeHandler(services.canvasService),
@@ -338,7 +348,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'List Edges',
       description:
-        'List the dependency edges for a project (id, from_task_id, to_task_id, label) so an agent can inspect the dependency graph before pruning a stale edge with delete_edge.',
+        'List edges for a project with typed endpoints (id, from_type, from_id, to_type, to_id, label, plus legacy from_task_id/to_task_id). Use this to inspect the graph before pruning a stale edge with delete_edge.',
       inputSchema: listEdgesInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
@@ -350,7 +360,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Delete Edge',
       description:
-        'Remove a stale or incorrect dependency edge by id. Updates get_next_task\'s blocked/waiting_on computation immediately.',
+        "Remove one edge by id. Only the addressed edge is deleted; sibling edges on the same entity stay intact. Updates get_next_task's blocked/waiting_on computation immediately for task-graph edges.",
       inputSchema: deleteEdgeInputSchema.shape,
     },
     createDeleteEdgeHandler(services.canvasService),
@@ -413,10 +423,14 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Scaffold Project From Plan',
       description:
-        'Scaffold tasks, dependency edges, and linked documents in one atomic call — into a new project, or into an existing one when project_id is given (e.g. the repo-bound project)',
+        'Scaffold tasks, dependency edges, and linked documents in one atomic call — into a new project, or into an existing one when project_id is given (e.g. the repo-bound project). Each document may take link_to as a single plan key or a list of task/document keys (resolved via key_to_id); give documents a key to reference them from other documents.',
       inputSchema: scaffoldProjectFromPlanInputSchema.shape,
     },
-    createScaffoldProjectFromPlanHandler(services.projectService),
+    createScaffoldProjectFromPlanHandler(
+      services.projectService,
+      services.canvasService,
+      services.documentService,
+    ),
   );
 
   server.registerTool(
