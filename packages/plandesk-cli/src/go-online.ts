@@ -5,7 +5,7 @@ import {
   exportProject,
   listProjects,
   type Db,
-  type PlandeskExportV1,
+  type PlandeskExport,
 } from '@plandesk/db';
 import {
   createBetterAuth,
@@ -162,7 +162,7 @@ async function importHostedProject(
   serverUrl: string,
   orgId: string,
   token: string,
-  exported: PlandeskExportV1,
+  exported: PlandeskExport,
 ): Promise<string> {
   const response = await fetcher(`${serverUrl}/api/v1/orgs/${encodeURIComponent(orgId)}/import`, {
     method: 'POST',

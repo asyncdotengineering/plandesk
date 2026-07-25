@@ -7,7 +7,7 @@ import { migrate } from './migrate.js';
 import {
   exportProject,
   importProject,
-  PLANDESK_EXPORT_VERSION,
+  SUPPORTED_EXPORT_VERSIONS,
   type PlandeskExportInput,
 } from './portability.js';
 import { listDocuments } from './repositories/documents.js';
@@ -32,7 +32,9 @@ describe('checkout-revamp dogfood fixture', () => {
 
   it('test:checkout_revamp_fixture_imports with labeled edges and linked docs', async () => {
     const fixture = loadCheckoutRevampFixture();
-    expect(fixture.version).toBe(PLANDESK_EXPORT_VERSION);
+    // Deliberately a v1 fixture: it stays on the older version so this test keeps
+    // proving that a file written before polymorphic links still imports.
+    expect(SUPPORTED_EXPORT_VERSIONS as readonly string[]).toContain(fixture.version);
     expect(fixture.project.name).toBe('Checkout Revamp');
     expect(fixture.tasks.length).toBeGreaterThanOrEqual(6);
     expect(fixture.edges.length).toBeGreaterThanOrEqual(4);

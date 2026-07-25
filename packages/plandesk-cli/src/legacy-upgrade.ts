@@ -11,13 +11,13 @@ import {
   type AgentRunStatus,
   type Client,
   type Db,
-  type PlandeskExportV1,
-  type PlandeskExportV1AgentRun,
-  type PlandeskExportV1Comment,
-  type PlandeskExportV1Document,
-  type PlandeskExportV1Edge,
-  type PlandeskExportV1Note,
-  type PlandeskExportV1Task,
+  type PlandeskExport,
+  type PlandeskExportAgentRun,
+  type PlandeskExportComment,
+  type PlandeskExportDocument,
+  type PlandeskExportEdge,
+  type PlandeskExportNote,
+  type PlandeskExportTask,
   type TaskStatus,
 } from '@plandesk/db';
 import {
@@ -215,7 +215,7 @@ async function selectByProject(
   return result.rows as SqlRow[];
 }
 
-function mapTask(row: SqlRow): PlandeskExportV1Task {
+function mapTask(row: SqlRow): PlandeskExportTask {
   return {
     id: asString(row['id']),
     label: asString(row['label']),
@@ -230,7 +230,7 @@ function mapTask(row: SqlRow): PlandeskExportV1Task {
   };
 }
 
-function mapEdge(row: SqlRow): PlandeskExportV1Edge {
+function mapEdge(row: SqlRow): PlandeskExportEdge {
   return {
     id: asString(row['id']),
     from_task_id: asString(row['from_task_id']),
@@ -241,7 +241,7 @@ function mapEdge(row: SqlRow): PlandeskExportV1Edge {
   };
 }
 
-function mapDocument(row: SqlRow): PlandeskExportV1Document {
+function mapDocument(row: SqlRow): PlandeskExportDocument {
   return {
     id: asString(row['id']),
     title: asString(row['title']),
@@ -252,7 +252,7 @@ function mapDocument(row: SqlRow): PlandeskExportV1Document {
   };
 }
 
-function mapNote(row: SqlRow): PlandeskExportV1Note {
+function mapNote(row: SqlRow): PlandeskExportNote {
   return {
     id: asString(row['id']),
     title: asString(row['title']),
@@ -260,7 +260,7 @@ function mapNote(row: SqlRow): PlandeskExportV1Note {
   };
 }
 
-function mapDocumentComment(row: SqlRow): PlandeskExportV1Comment {
+function mapDocumentComment(row: SqlRow): PlandeskExportComment {
   return {
     id: asString(row['id']),
     target_type: 'document',
@@ -272,7 +272,7 @@ function mapDocumentComment(row: SqlRow): PlandeskExportV1Comment {
   };
 }
 
-function mapPolymorphicComment(row: SqlRow): PlandeskExportV1Comment {
+function mapPolymorphicComment(row: SqlRow): PlandeskExportComment {
   const targetTypeRaw = asString(row['target_type']);
   const targetType =
     targetTypeRaw === 'document' ||
@@ -297,7 +297,7 @@ async function mapAgentRuns(
   client: Client,
   tables: Set<string>,
   projectId: string,
-): Promise<PlandeskExportV1AgentRun[]> {
+): Promise<PlandeskExportAgentRun[]> {
   if (!tables.has('agent_runs')) {
     return [];
   }
@@ -334,14 +334,14 @@ async function mapAgentRuns(
 
 export async function readLegacyProjectExports(
   client: Client,
-): Promise<Array<{ sourceProjectId: string; export: PlandeskExportV1 }>> {
+): Promise<Array<{ sourceProjectId: string; export: PlandeskExport }>> {
   const tables = await tableNames(client);
   if (!tables.has('projects')) {
     throw new LegacyUpgradeError('Legacy board has no projects table');
   }
 
   const projects = await selectAll(client, 'projects');
-  const out: Array<{ sourceProjectId: string; export: PlandeskExportV1 }> = [];
+  const out: Array<{ sourceProjectId: string; export: PlandeskExport }> = [];
 
   for (const project of projects) {
     const sourceProjectId = asString(project['id']);
@@ -362,7 +362,7 @@ export async function readLegacyProjectExports(
       ? await selectByProject(client, 'notes', sourceProjectId)
       : [];
 
-    let comments: PlandeskExportV1Comment[] = [];
+    let comments: PlandeskExportComment[] = [];
     if (tables.has('comments')) {
       const commentRows = await selectByProject(client, 'comments', sourceProjectId);
       comments = commentRows.map(mapPolymorphicComment);
@@ -670,7 +670,7 @@ export async function runLegacyUpgrade(options: {
 
 async function importLegacyExports(
   db: Db,
-  exports: Array<{ sourceProjectId: string; export: PlandeskExportV1 }>,
+  exports: Array<{ sourceProjectId: string; export: PlandeskExport }>,
   meta: { sourcePath: string; backupPath: string; orgId: string; workspaceId: string; workspaceName: string },
 ): Promise<LegacyUpgradeResult> {
   let importedProjects = 0;

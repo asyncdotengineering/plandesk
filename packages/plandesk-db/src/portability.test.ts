@@ -7,7 +7,7 @@ import {
   importProject,
   InvalidExportVersionError,
   PLANDESK_EXPORT_VERSION,
-  type PlandeskExportV1,
+  type PlandeskExport,
 } from './portability.js';
 import { createAgentRunEvent } from './repositories/agent-run-events.js';
 import { createAgentRun, updateAgentRunStatus } from './repositories/agent-runs.js';
@@ -24,7 +24,7 @@ import { createTag, setTaskTags } from './repositories/tags.js';
 import { createTaskWithDefaultGoal as createTask } from './testing.js';
 
 type ComparableExport = {
-  project: PlandeskExportV1['project'];
+  project: PlandeskExport['project'];
   goals: Array<{
     objective: string;
     status: string;
@@ -82,7 +82,7 @@ type ComparableExport = {
   }>;
 };
 
-function toComparable(exported: PlandeskExportV1): ComparableExport {
+function toComparable(exported: PlandeskExport): ComparableExport {
   const taskLabelById = new Map(exported.tasks.map((task) => [task.id, task.label]));
   const goalObjectiveById = new Map(exported.goals.map((goal) => [goal.id, goal.objective]));
   const documentTitleById = new Map(exported.documents.map((doc) => [doc.id, doc.title]));

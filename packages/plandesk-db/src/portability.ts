@@ -39,15 +39,31 @@ import {
   type TaskStatus,
 } from './schema.js';
 
-export const PLANDESK_EXPORT_VERSION = 'plandesk-export-v1' as const;
+/** Version stamped into new exports. */
+export const PLANDESK_EXPORT_VERSION = 'plandesk-export-v2' as const;
 
-export type PlandeskExportV1Project = {
+/**
+ * Every version this importer understands, newest first.
+ *
+ * The check used to be equality against the one current version, which froze it:
+ * bumping the constant would have orphaned every export file already on disk, so
+ * nine successive features were bolted on as optional fields instead and the
+ * version never moved. Accepting a set is what lets it move.
+ *
+ * v1 → v2: edges gained polymorphic endpoints (from_type/from_id/to_type/to_id)
+ * and from_task_id/to_task_id became nullable, because an edge between two
+ * documents names no task. A v1 file still imports — the reader falls back to
+ * the task pair when the typed fields are absent.
+ */
+export const SUPPORTED_EXPORT_VERSIONS = ['plandesk-export-v2', 'plandesk-export-v1'] as const;
+
+export type PlandeskExportProject = {
   name: string;
   description: string | null;
   canvas_layout: string | null;
 };
 
-export type PlandeskExportV1Goal = {
+export type PlandeskExportGoal = {
   id: string;
   objective: string;
   status: GoalStatus;
@@ -62,7 +78,7 @@ export type PlandeskExportV1Goal = {
   updated_at?: string;
 };
 
-export type PlandeskExportV1Task = {
+export type PlandeskExportTask = {
   id: string;
   label: string;
   status: TaskStatus;
@@ -79,13 +95,13 @@ export type PlandeskExportV1Task = {
   updated_at?: string;
 };
 
-export type PlandeskExportV1Tag = {
+export type PlandeskExportTag = {
   id: string;
   name: string;
   color: string | null;
 };
 
-export type PlandeskExportV1Edge = {
+export type PlandeskExportEdge = {
   id: string;
   /** Null for a document→document edge, which names no task. */
   from_task_id: string | null;
@@ -103,13 +119,13 @@ export type PlandeskExportV1Edge = {
   style: string | null;
 };
 
-export type PlandeskExportV1Folder = {
+export type PlandeskExportFolder = {
   id: string;
   name: string;
   parent_folder_id: string | null;
 };
 
-export type PlandeskExportV1Document = {
+export type PlandeskExportDocument = {
   id: string;
   title: string;
   body: string | null;
@@ -120,13 +136,13 @@ export type PlandeskExportV1Document = {
   linked_task_id: string | null;
 };
 
-export type PlandeskExportV1Note = {
+export type PlandeskExportNote = {
   id: string;
   title: string;
   body: string | null;
 };
 
-export type PlandeskExportV1Comment = {
+export type PlandeskExportComment = {
   id: string;
   target_type: CommentTargetType;
   target_id: string;
@@ -136,7 +152,7 @@ export type PlandeskExportV1Comment = {
   created_at: string;
 };
 
-export type PlandeskExportV1DocumentComment = {
+export type PlandeskExportDocumentComment = {
   id: string;
   document_id: string;
   passage: string | null;
@@ -145,7 +161,7 @@ export type PlandeskExportV1DocumentComment = {
   created_at?: string;
 };
 
-export type PlandeskExportV1Artifact = {
+export type PlandeskExportArtifact = {
   id: string;
   title: string;
   kind: ArtifactKind;
@@ -154,7 +170,7 @@ export type PlandeskExportV1Artifact = {
   updated_at?: string;
 };
 
-export type PlandeskExportV1File = {
+export type PlandeskExportFile = {
   id: string;
   filename: string;
   mime: string;
@@ -166,71 +182,73 @@ export type PlandeskExportV1File = {
   created_at: string;
 };
 
-export type PlandeskExportV1AgentRunEvent = {
+export type PlandeskExportAgentRunEvent = {
   message: string;
   created_at: string;
 };
 
-export type PlandeskExportV1AgentRun = {
+export type PlandeskExportAgentRun = {
   id: string;
   status: AgentRunStatus;
   label: string | null;
   started_at: string;
   completed_at: string | null;
-  events: PlandeskExportV1AgentRunEvent[];
+  events: PlandeskExportAgentRunEvent[];
 };
 
-export type PlandeskExportV1 = {
+export type PlandeskExport = {
   version: typeof PLANDESK_EXPORT_VERSION;
-  project: PlandeskExportV1Project;
-  goals: PlandeskExportV1Goal[];
-  tasks: PlandeskExportV1Task[];
-  tags: PlandeskExportV1Tag[];
-  edges: PlandeskExportV1Edge[];
-  folders: PlandeskExportV1Folder[];
-  documents: PlandeskExportV1Document[];
-  notes: PlandeskExportV1Note[];
-  comments: PlandeskExportV1Comment[];
-  agent_runs: PlandeskExportV1AgentRun[];
-  files: PlandeskExportV1File[];
-  artifacts: PlandeskExportV1Artifact[];
+  project: PlandeskExportProject;
+  goals: PlandeskExportGoal[];
+  tasks: PlandeskExportTask[];
+  tags: PlandeskExportTag[];
+  edges: PlandeskExportEdge[];
+  folders: PlandeskExportFolder[];
+  documents: PlandeskExportDocument[];
+  notes: PlandeskExportNote[];
+  comments: PlandeskExportComment[];
+  agent_runs: PlandeskExportAgentRun[];
+  files: PlandeskExportFile[];
+  artifacts: PlandeskExportArtifact[];
 };
 
 export type PlandeskExportInput = {
   version: string;
-  project: PlandeskExportV1Project;
-  tasks: PlandeskExportV1Task[];
+  project: PlandeskExportProject;
+  tasks: PlandeskExportTask[];
   // Optional for backward compatibility with exports written before goals existed.
-  goals?: PlandeskExportV1Goal[];
+  goals?: PlandeskExportGoal[];
   // Optional for backward compatibility with exports written before tags existed.
-  tags?: PlandeskExportV1Tag[];
-  edges: PlandeskExportV1Edge[];
+  tags?: PlandeskExportTag[];
+  edges: PlandeskExportEdge[];
   // Optional for backward compatibility with exports written before folders existed.
-  folders?: PlandeskExportV1Folder[];
-  documents: PlandeskExportV1Document[];
+  folders?: PlandeskExportFolder[];
+  documents: PlandeskExportDocument[];
   // Optional for backward compatibility with exports written before notes existed.
-  notes?: PlandeskExportV1Note[];
+  notes?: PlandeskExportNote[];
   // Optional for backward compatibility with exports written before comments existed.
-  comments?: PlandeskExportV1Comment[];
+  comments?: PlandeskExportComment[];
   // Legacy shape from exports written before polymorphic comments.
-  document_comments?: PlandeskExportV1DocumentComment[];
-  agent_runs: PlandeskExportV1AgentRun[];
+  document_comments?: PlandeskExportDocumentComment[];
+  agent_runs: PlandeskExportAgentRun[];
   // Optional for backward compatibility with exports written before files existed.
-  files?: PlandeskExportV1File[];
+  files?: PlandeskExportFile[];
   // Optional for backward compatibility with exports written before artifacts existed.
-  artifacts?: PlandeskExportV1Artifact[];
+  artifacts?: PlandeskExportArtifact[];
 };
 
 export class InvalidExportVersionError extends Error {
   constructor(version: string) {
-    super(`Unsupported export version: ${version}. Expected ${PLANDESK_EXPORT_VERSION}.`);
+    super(
+      `Unsupported export version: ${version}. This build reads ${SUPPORTED_EXPORT_VERSIONS.join(', ')}. A newer version means the file was written by a newer Plan Desk — upgrade to import it.`,
+    );
     this.name = 'InvalidExportVersionError';
   }
 }
 
-function sortDocumentsForImport(documents: PlandeskExportV1Document[]): PlandeskExportV1Document[] {
+function sortDocumentsForImport(documents: PlandeskExportDocument[]): PlandeskExportDocument[] {
   const remaining = [...documents];
-  const sorted: PlandeskExportV1Document[] = [];
+  const sorted: PlandeskExportDocument[] = [];
   const created = new Set<string>();
 
   while (remaining.length > 0) {
@@ -255,9 +273,9 @@ function sortDocumentsForImport(documents: PlandeskExportV1Document[]): Plandesk
   return sorted;
 }
 
-function sortFoldersForImport(folders: PlandeskExportV1Folder[]): PlandeskExportV1Folder[] {
+function sortFoldersForImport(folders: PlandeskExportFolder[]): PlandeskExportFolder[] {
   const remaining = [...folders];
-  const sorted: PlandeskExportV1Folder[] = [];
+  const sorted: PlandeskExportFolder[] = [];
   const created = new Set<string>();
 
   while (remaining.length > 0) {
@@ -321,7 +339,7 @@ function remapEndpointId(
 export async function exportProject(
   db: DbClient,
   projectId: string,
-): Promise<PlandeskExportV1 | undefined> {
+): Promise<PlandeskExport | undefined> {
   const project = await getProject(db, projectId);
   if (!project) {
     return undefined;
@@ -489,7 +507,7 @@ export async function importProject(
   data: PlandeskExportInput,
   options?: ImportProjectOptions,
 ): Promise<{ projectId: string }> {
-  if (data.version !== PLANDESK_EXPORT_VERSION) {
+  if (!(SUPPORTED_EXPORT_VERSIONS as readonly string[]).includes(data.version)) {
     throw new InvalidExportVersionError(data.version);
   }
 
@@ -718,7 +736,7 @@ export async function importProject(
     );
   }
 
-  const commentEntries: PlandeskExportV1Comment[] = [
+  const commentEntries: PlandeskExportComment[] = [
     ...(data.comments ?? []),
     ...(data.document_comments ?? []).map((legacy) => ({
       id: legacy.id,
