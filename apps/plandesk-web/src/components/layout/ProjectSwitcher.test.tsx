@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { requestUrl } from '../../test-utils.js';
 import { ProjectSwitcher } from './ProjectSwitcher.js';
 
 const session = {
@@ -26,17 +27,17 @@ const project = (id: string, name: string, workspaceId: string) => ({
 });
 
 function ok(body: unknown) {
-  return { ok: true, status: 200, json: async () => body, text: async () => '' };
+  return { ok: true, status: 200, json: () => body, text: () => '' };
 }
 
 function stubProjects(projects: unknown[]) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
       if (url.endsWith('/auth/session')) return ok(session);
       if (url.endsWith('/projects')) return ok(projects);
-      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+      return { ok: false, status: 404, json: () => ({}), text: () => '' };
     }),
   );
 }
@@ -58,7 +59,7 @@ afterEach(() => {
 });
 
 describe('Sidebar project switcher (REQ-3)', () => {
-  it('lists the active workspace\'s projects and navigates on select', async () => {
+  it("lists the active workspace's projects and navigates on select", async () => {
     const onNavigate = vi.fn();
     stubProjects([
       project('p1', 'Alpha', 'ws-1'),
@@ -96,7 +97,7 @@ describe('Sidebar project switcher (REQ-3)', () => {
 
     // The current project is rendered as a disabled menuitem; the other is selectable.
     const items = await screen.findAllByRole('menuitem');
-    const alpha = items.find((el) => (el.textContent ?? '').includes('Alpha'));
+    const alpha = items.find((el) => el.textContent.includes('Alpha'));
     expect(alpha).toBeTruthy();
     expect(alpha?.getAttribute('aria-disabled')).toBe('true');
 

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { requestUrl } from '../../test-utils.js';
 import { Members } from './Members.js';
 
 const ownerSession = {
@@ -68,15 +69,15 @@ afterEach(() => {
 
 describe('Members (read-only org roster; invites moved to Workspaces)', () => {
   it('owner sees the org roster but no invite affordance (REQ-6)', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
       if (url.includes('/auth/session')) {
-        return { ok: true, status: 200, json: async () => ownerSession };
+        return { ok: true, status: 200, json: () => ownerSession };
       }
       if (url.includes('/orgs/org-1/members')) {
-        return { ok: true, status: 200, json: async () => membersList };
+        return { ok: true, status: 200, json: () => membersList };
       }
-      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+      return { ok: false, status: 404, json: () => ({}), text: () => '' };
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -94,15 +95,15 @@ describe('Members (read-only org roster; invites moved to Workspaces)', () => {
   });
 
   it('member sees the org roster with no invite affordance', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
       if (url.includes('/auth/session')) {
-        return { ok: true, status: 200, json: async () => memberSession };
+        return { ok: true, status: 200, json: () => memberSession };
       }
       if (url.includes('/orgs/org-1/members')) {
-        return { ok: true, status: 200, json: async () => membersList };
+        return { ok: true, status: 200, json: () => membersList };
       }
-      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+      return { ok: false, status: 404, json: () => ({}), text: () => '' };
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -115,10 +116,10 @@ describe('Members (read-only org roster; invites moved to Workspaces)', () => {
   });
 
   it('explains local owner access without querying hosted member rows', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
       if (url.includes('/auth/session')) {
-        return { ok: true, status: 200, json: async () => loopbackSession };
+        return { ok: true, status: 200, json: () => loopbackSession };
       }
       throw new Error(`unexpected hosted-only request: ${url}`);
     });
@@ -128,17 +129,15 @@ describe('Members (read-only org roster; invites moved to Workspaces)', () => {
 
     expect(await screen.findByText(/local board access/i)).toBeTruthy();
     expect(screen.getByText(/loopback is trusted as owner/i)).toBeTruthy();
-    expect(
-      fetchMock.mock.calls.some(([url]) => String(url).includes('/members')),
-    ).toBe(false);
+    expect(fetchMock.mock.calls.some(([url]) => requestUrl(url).includes('/members'))).toBe(false);
   });
 
   it('shows a failed members request with a retry that refetches', async () => {
     let memberRequests = 0;
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
       if (url.includes('/auth/session')) {
-        return { ok: true, status: 200, json: async () => ownerSession };
+        return { ok: true, status: 200, json: () => ownerSession };
       }
       if (url.includes('/orgs/org-1/members')) {
         memberRequests += 1;
@@ -146,13 +145,13 @@ describe('Members (read-only org roster; invites moved to Workspaces)', () => {
           return {
             ok: false,
             status: 503,
-            json: async () => ({ error: 'unavailable' }),
-            text: async () => 'unavailable',
+            json: () => ({ error: 'unavailable' }),
+            text: () => 'unavailable',
           };
         }
-        return { ok: true, status: 200, json: async () => membersList };
+        return { ok: true, status: 200, json: () => membersList };
       }
-      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+      return { ok: false, status: 404, json: () => ({}), text: () => '' };
     });
     vi.stubGlobal('fetch', fetchMock);
 

@@ -99,10 +99,7 @@ export function InvitePage({ invitationId }: { invitationId: string }) {
     );
   } else if (preview.data !== undefined) {
     const org = preview.data.organizationName || 'a team';
-    const workspace =
-      preview.data.workspaceName !== undefined && preview.data.workspaceName.length > 0
-        ? preview.data.workspaceName
-        : null;
+    const workspace = preview.data.workspaceName.length > 0 ? preview.data.workspaceName : null;
     content = (
       <div className="space-y-5 text-center">
         <div className="space-y-1.5">

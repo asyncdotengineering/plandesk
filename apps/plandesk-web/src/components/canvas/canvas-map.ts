@@ -1,11 +1,13 @@
 import type { Edge, Node } from '@xyflow/react';
-import type {
-  EdgeLabel,
-  PutCanvasInput,
-  SerializedDocumentTree,
-  SerializedEdge,
-  SerializedTask,
-  TaskStatus,
+import {
+  DEFAULT_EDGE_LABEL,
+  edgeLabels,
+  type EdgeLabel,
+  type PutCanvasInput,
+  type SerializedDocumentTree,
+  type SerializedEdge,
+  type SerializedTask,
+  type TaskStatus,
 } from '../../lib/api.js';
 
 export type TaskNodeData = {
@@ -19,11 +21,20 @@ export type TaskNodeData = {
 };
 
 export type LabeledEdgeData = {
-  label: string;
+  label: EdgeLabel;
   onLabelChange?: (label: EdgeLabel) => void;
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function parseEdgeLabel(label: string | null): EdgeLabel {
+  if (label === null) return DEFAULT_EDGE_LABEL;
+  const matched = edgeLabels.find((candidate) => candidate === label);
+  if (matched === undefined) {
+    throw new TypeError(`Unexpected canvas edge label: ${label}`);
+  }
+  return matched;
+}
 
 /**
  * First document linking to each task (for compact canvas node affordances).
@@ -76,7 +87,7 @@ export function canvasToFlowEdges(edges: SerializedEdge[]): Edge<LabeledEdgeData
       type: 'labeled',
       source: edge.from_id,
       target: edge.to_id,
-      data: { label: edge.label ?? 'depends_on' },
+      data: { label: parseEdgeLabel(edge.label) },
     }));
 }
 

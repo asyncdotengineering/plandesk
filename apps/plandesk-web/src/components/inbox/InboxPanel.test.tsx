@@ -1,25 +1,44 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ChangeEvent, ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InboxPanel } from './InboxPanel.js';
+
+type SelectProps = {
+  children?: ReactNode;
+  value?: string;
+  onValueChange?: (value: string) => void;
+  disabled?: boolean;
+};
+
+type ChildrenProps = { children?: ReactNode };
+type SelectItemProps = ChildrenProps & { value: string };
+type SelectValueProps = { placeholder?: ReactNode };
 
 vi.mock('@/components/ui/select', async () => {
   const React = await import('react');
   return {
-    Select: ({ children, value, onValueChange, disabled }: any) =>
-      React.createElement('select', {
-        value: value ?? '',
-        onChange: (e: React.ChangeEvent<HTMLSelectElement>) => onValueChange?.(e.target.value),
-        disabled,
-        'data-testid': 'merge-task-select',
-      }, children),
-    SelectContent: ({ children }: any) => React.createElement(React.Fragment, {}, children),
-    SelectItem: ({ children, value }: any) =>
-      React.createElement('option', { value }, children),
-    SelectTrigger: ({ children }: any) =>
+    Select: ({ children, value, onValueChange, disabled }: SelectProps) =>
+      React.createElement(
+        'select',
+        {
+          value: value ?? '',
+          onChange: (event: ChangeEvent<HTMLSelectElement>) => {
+            onValueChange?.(event.target.value);
+          },
+          disabled,
+          'data-testid': 'merge-task-select',
+        },
+        children,
+      ),
+    SelectContent: ({ children }: ChildrenProps) =>
       React.createElement(React.Fragment, {}, children),
-    SelectValue: ({ placeholder }: any) =>
+    SelectItem: ({ children, value }: SelectItemProps) =>
+      React.createElement('option', { value }, children),
+    SelectTrigger: ({ children }: ChildrenProps) =>
+      React.createElement(React.Fragment, {}, children),
+    SelectValue: ({ placeholder }: SelectValueProps) =>
       React.createElement('option', { value: '' }, placeholder),
   };
 });
@@ -198,7 +217,11 @@ describe('InboxPanel', () => {
       expect(screen.getByText(/client isn't notified/i)).toBeTruthy();
     });
     const rejectButtons = screen.getAllByRole('button', { name: 'Reject' });
-    fireEvent.click(rejectButtons[rejectButtons.length - 1]!);
+    const confirmReject = rejectButtons.at(-1);
+    if (confirmReject === undefined) {
+      throw new Error('Expected a reject confirmation button');
+    }
+    fireEvent.click(confirmReject);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -349,6 +372,6 @@ describe('InboxPanel', () => {
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Looks good' })).toBeNull();
     expect(screen.getAllByRole('link', { name: /board/i }).length).toBeGreaterThan(0);
-    expect(fetchMock.mock.calls.every(([url]) => !String(url).includes('/triage'))).toBe(true);
+    expect(fetchMock.mock.calls.every(([url]) => !url.includes('/triage'))).toBe(true);
   });
 });

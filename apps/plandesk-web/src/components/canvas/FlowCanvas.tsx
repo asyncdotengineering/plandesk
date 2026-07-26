@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type SubmitEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type SubmitEvent,
+} from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -96,12 +103,10 @@ function AddTaskPanel({ projectId }: { projectId: string }) {
           aria-label="New task name"
           className="h-7 w-40 border-transparent bg-transparent text-[12.5px] shadow-none focus-visible:border-[var(--border-strong)]"
         />
-        <Button
-          type="submit"
-          size="sm"
-          disabled={createTask.isPending || label.trim() === ''}
-        >
-          {createTask.isPending ? 'Adding…' : (
+        <Button type="submit" size="sm" disabled={createTask.isPending || label.trim() === ''}>
+          {createTask.isPending ? (
+            'Adding…'
+          ) : (
             <>
               <Plus /> Add
             </>
@@ -411,9 +416,7 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
 
   const taskNodes = nodes.filter((n) => n.type === 'taskCard');
   const selectedTask =
-    selectedNodeId !== null && canvas !== undefined
-      ? canvas.nodes.find((n) => n.id === selectedNodeId)
-      : undefined;
+    selectedNodeId !== null ? canvas.nodes.find((n) => n.id === selectedNodeId) : undefined;
 
   return (
     <div
@@ -509,7 +512,12 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
           edgeTypes={edgeTypes}
           fitView
         >
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="var(--border-strong)" />
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1.2}
+            color="var(--border-strong)"
+          />
           <AddTaskPanel projectId={projectId} />
           <ArrangePanel onArrange={handleAutoArrange} />
           <ZoomControls />

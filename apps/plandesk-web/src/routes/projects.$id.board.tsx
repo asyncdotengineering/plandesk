@@ -51,7 +51,14 @@ function ProjectBoardPage() {
         <p role="alert" className="text-sm text-destructive">
           Couldn&apos;t load this board.
         </p>
-        <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            void refetch();
+          }}
+        >
           Retry
         </Button>
       </div>

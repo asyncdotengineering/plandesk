@@ -89,7 +89,7 @@ describe('AuthGate', () => {
     const assign = vi.fn();
     Object.defineProperty(window, 'location', {
       configurable: true,
-      value: { ...window.location, assign },
+      value: { assign },
     });
 
     const calls = stubFetch(({ url }) => {
@@ -100,7 +100,10 @@ describe('AuthGate', () => {
         return jsonResponse({ method: 'token', githubEnabled: true });
       }
       if (url === '/api/auth/sign-in/social') {
-        return jsonResponse({ url: 'https://github.com/login/oauth/authorize?x=1', redirect: true });
+        return jsonResponse({
+          url: 'https://github.com/login/oauth/authorize?x=1',
+          redirect: true,
+        });
       }
       throw new Error(`unexpected fetch: ${url}`);
     });
@@ -118,9 +121,7 @@ describe('AuthGate', () => {
       const social = calls.find((c) => c.url === '/api/auth/sign-in/social');
       expect(social?.init?.method).toBe('POST');
       expect(social?.init?.credentials).toBe('include');
-      expect(social?.init?.body).toBe(
-        JSON.stringify({ provider: 'github', callbackURL: '/' }),
-      );
+      expect(social?.init?.body).toBe(JSON.stringify({ provider: 'github', callbackURL: '/' }));
       expect(assign).toHaveBeenCalledWith('https://github.com/login/oauth/authorize?x=1');
     });
   });

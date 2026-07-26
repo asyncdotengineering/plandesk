@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { requestUrl } from '../../test-utils.js';
 import { InvitePage } from './InvitePage.js';
 
 const pendingPreview = {
@@ -29,7 +30,7 @@ function stubAssign() {
   const assign = vi.fn();
   Object.defineProperty(window, 'location', {
     configurable: true,
-    value: { ...window.location, assign },
+    value: { assign },
   });
   return assign;
 }
@@ -41,20 +42,20 @@ afterEach(() => {
 
 describe('InvitePage (invite claim)', () => {
   it('signed-out invitee sees org + role and a GitHub button (no accept)', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
       if (url.includes('/auth/session')) {
         return {
           ok: false,
           status: 401,
-          json: async () => ({ error: 'unauthorized' }),
-          text: async () => '',
+          json: () => ({ error: 'unauthorized' }),
+          text: () => '',
         };
       }
       if (/\/invitations\/inv-1$/.test(url)) {
-        return { ok: true, status: 200, json: async () => pendingPreview };
+        return { ok: true, status: 200, json: () => pendingPreview };
       }
-      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+      return { ok: false, status: 404, json: () => ({}), text: () => '' };
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -72,22 +73,22 @@ describe('InvitePage (invite claim)', () => {
 
   it('signed-in invitee accepts → posts to the accept endpoint', async () => {
     stubAssign();
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = requestUrl(input);
       if (url.includes('/auth/session')) {
-        return { ok: true, status: 200, json: async () => ({ kind: 'session', user_ref: 'u-1' }) };
+        return { ok: true, status: 200, json: () => ({ kind: 'session', user_ref: 'u-1' }) };
       }
       if (
         /\/invitations\/inv-1$/.test(url) &&
         (init?.method === undefined || init.method === 'GET')
       ) {
-        return { ok: true, status: 200, json: async () => pendingPreview };
+        return { ok: true, status: 200, json: () => pendingPreview };
       }
       if (url.includes('/invitations/inv-1/accept') && init?.method === 'POST') {
         return {
           ok: true,
           status: 200,
-          json: async () => ({
+          json: () => ({
             invitationId: 'inv-1',
             organizationId: 'org-1',
             role: 'admin',
@@ -95,7 +96,7 @@ describe('InvitePage (invite claim)', () => {
           }),
         };
       }
-      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+      return { ok: false, status: 404, json: () => ({}), text: () => '' };
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -108,33 +109,31 @@ describe('InvitePage (invite claim)', () => {
 
     await waitFor(() => {
       const acceptCall = fetchMock.mock.calls.find(
-        ([u, i]) =>
-          String(u).includes('/invitations/inv-1/accept') &&
-          (i as RequestInit | undefined)?.method === 'POST',
+        ([u, i]) => requestUrl(u).includes('/invitations/inv-1/accept') && i?.method === 'POST',
       );
       expect(acceptCall).toBeTruthy();
     });
   });
 
   it('already-used invitation shows a notice, no action button', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
       if (url.includes('/auth/session')) {
         return {
           ok: false,
           status: 401,
-          json: async () => ({ error: 'unauthorized' }),
-          text: async () => '',
+          json: () => ({ error: 'unauthorized' }),
+          text: () => '',
         };
       }
       if (/\/invitations\/inv-1$/.test(url)) {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ ...pendingPreview, status: 'accepted' }),
+          json: () => ({ ...pendingPreview, status: 'accepted' }),
         };
       }
-      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+      return { ok: false, status: 404, json: () => ({}), text: () => '' };
     });
     vi.stubGlobal('fetch', fetchMock);
 

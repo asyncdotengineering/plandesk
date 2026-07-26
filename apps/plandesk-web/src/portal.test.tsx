@@ -107,10 +107,14 @@ function renderPortalPage(view: ClientView, onUnauthorized = vi.fn()) {
 }
 
 function projectView(id: string, name: string): ClientView {
+  const firstTask = sampleView.tasks[0];
+  if (firstTask === undefined) {
+    throw new Error('Expected the sample portal view to include a task');
+  }
   return {
     ...sampleView,
     project: { ...sampleView.project, id, name },
-    tasks: [{ ...sampleView.tasks[0]!, label: `${name} task` }],
+    tasks: [{ ...firstTask, label: `${name} task` }],
   };
 }
 
@@ -314,9 +318,7 @@ describe('PortalPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("You don't have permission to submit to this share."),
-      ).toBeTruthy();
+      expect(screen.getByText("You don't have permission to submit to this share.")).toBeTruthy();
     });
   });
 });
@@ -332,7 +334,11 @@ describe('PortalWorkspacePage', () => {
     expect(screen.getByRole('tab', { name: 'Beta' })).toBeTruthy();
     // First project selected by default — its board is the one rendered.
     expect(screen.getByText('Alpha task')).toBeTruthy();
-    expect(document.querySelector('[data-portal-selected-project]')?.getAttribute('data-portal-selected-project')).toBe('proj-a');
+    expect(
+      document
+        .querySelector('[data-portal-selected-project]')
+        ?.getAttribute('data-portal-selected-project'),
+    ).toBe('proj-a');
   });
 
   it('switches the displayed project when a tab is selected', () => {
@@ -343,7 +349,11 @@ describe('PortalWorkspacePage', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Beta' }));
     expect(screen.getByText('Beta task')).toBeTruthy();
     expect(screen.queryByText('Alpha task')).toBeNull();
-    expect(document.querySelector('[data-portal-selected-project]')?.getAttribute('data-portal-selected-project')).toBe('proj-b');
+    expect(
+      document
+        .querySelector('[data-portal-selected-project]')
+        ?.getAttribute('data-portal-selected-project'),
+    ).toBe('proj-b');
   });
 });
 

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { requestUrl } from '../../test-utils.js';
 import { Workspaces } from './Workspaces.js';
 
 const ownerSession = {
@@ -34,22 +35,25 @@ afterEach(() => {
 
 describe('Workspaces — share with client (REQ-6)', () => {
   it('owner-only Share control creates a workspace share link', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = requestUrl(input);
       if (url.includes('/auth/session')) {
-        return { ok: true, status: 200, json: async () => ownerSession };
+        return { ok: true, status: 200, json: () => ownerSession };
       }
       if (url.endsWith('/workspaces')) {
-        return { ok: true, status: 200, json: async () => ({ workspaces: ownerSession.workspaces }) };
+        return { ok: true, status: 200, json: () => ({ workspaces: ownerSession.workspaces }) };
       }
       if (url.includes('/api/v1/workspaces/team-1/share') && init?.method === 'POST') {
         return {
           ok: true,
           status: 201,
-          json: async () => ({ url: 'http://localhost/p/plandesk_share_ws1', token: 'plandesk_share_ws1' }),
+          json: () => ({
+            url: 'http://localhost/p/plandesk_share_ws1',
+            token: 'plandesk_share_ws1',
+          }),
         };
       }
-      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+      return { ok: false, status: 404, json: () => ({}), text: () => '' };
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -76,8 +80,7 @@ describe('Workspaces — share with client (REQ-6)', () => {
 
     const shareCall = fetchMock.mock.calls.find(
       ([url, init]) =>
-        String(url).includes('/api/v1/workspaces/team-1/share') &&
-        (init as RequestInit | undefined)?.method === 'POST',
+        requestUrl(url).includes('/api/v1/workspaces/team-1/share') && init?.method === 'POST',
     );
     expect(shareCall).toBeTruthy();
     expect(shareCall?.[1]).toEqual(

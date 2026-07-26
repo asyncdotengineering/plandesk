@@ -71,6 +71,12 @@ describe('canvas-map', () => {
     ]);
   });
 
+  it('rejects API edge labels outside the canvas contract', () => {
+    expect(() => canvasToFlowEdges([{ ...sampleEdge, label: 'unknown' }])).toThrow(
+      'Unexpected canvas edge label: unknown',
+    );
+  });
+
   it('maps linked documents onto task nodes', () => {
     const docTree: SerializedDocumentTree[] = [
       {

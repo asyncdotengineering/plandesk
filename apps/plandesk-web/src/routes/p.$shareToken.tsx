@@ -11,7 +11,6 @@ import {
   fetchClientView,
   loadPortalSession,
   savePortalSession,
-  type ClientView,
 } from '../lib/portal.js';
 
 function PortalRoutePage() {
@@ -76,7 +75,7 @@ function PortalRoutePage() {
     return <p className="px-5 py-8 text-sm text-muted-foreground">Shared project not found.</p>;
   }
 
-  if ('kind' in data && data.kind === 'workspace') {
+  if ('kind' in data) {
     return (
       <PortalWorkspacePage
         view={data}
@@ -91,10 +90,9 @@ function PortalRoutePage() {
   }
 
   // Project-shaped client view (no workspace kind discriminator).
-  const projectView = data as ClientView;
   return (
     <PortalPage
-      view={projectView}
+      view={data}
       shareToken={shareToken}
       sessionToken={session}
       onUnauthorized={() => {

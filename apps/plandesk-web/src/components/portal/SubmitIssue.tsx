@@ -244,7 +244,7 @@ export function SubmitIssue({
               ) : null}
 
               <div className="flex flex-wrap gap-2">
-                <Button type="submit" disabled={!canSubmit || permissionError !== null}>
+                <Button type="submit" disabled={!canSubmit}>
                   {pending ? 'Submitting…' : 'Submit'}
                 </Button>
                 <Button

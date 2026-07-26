@@ -34,9 +34,9 @@ export function AccountMenu() {
     return null;
   }
 
-  const orgs = session.orgs ?? (session.org === null ? [] : [{ ...session.org, role: session.role }]);
+  const orgs = session.orgs;
   const activeOrg = session.org;
-  const workspaces = session.workspaces ?? [];
+  const workspaces = session.workspaces;
 
   return (
     <div className="flex items-center gap-2">
@@ -91,10 +91,7 @@ export function AccountMenu() {
             {workspaces.map((workspace) => (
               <DropdownMenuItem
                 key={workspace.id}
-                disabled={
-                  activeWorkspace !== null &&
-                  (workspace.id === activeWorkspace.id || switchWorkspace.isPending)
-                }
+                disabled={workspace.id === activeWorkspace.id || switchWorkspace.isPending}
                 onSelect={() => {
                   switchWorkspace.mutate(workspace.id, {
                     onSuccess: () => {
@@ -104,9 +101,7 @@ export function AccountMenu() {
                 }}
               >
                 <span>{workspace.name}</span>
-                {activeWorkspace !== null && workspace.id === activeWorkspace.id ? (
-                  <span aria-label="Current">✓</span>
-                ) : null}
+                {workspace.id === activeWorkspace.id ? <span aria-label="Current">✓</span> : null}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

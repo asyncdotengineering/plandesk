@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,11 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ApiError } from '../../lib/api.js';
 import { useAuthSession, useWorkspaces } from '../../lib/auth.js';
-import {
-  useCreateWorkspace,
-  useDeleteWorkspace,
-  useRenameWorkspace,
-} from '../../lib/queries.js';
+import { useCreateWorkspace, useDeleteWorkspace, useRenameWorkspace } from '../../lib/queries.js';
 import { WorkspaceShareButton } from './WorkspaceShareButton.js';
 import { QueryFailure } from './QueryFailure.js';
 
@@ -27,7 +23,7 @@ export function Workspaces() {
   const [name, setName] = useState('');
   const [editing, setEditing] = useState<Editing>(null);
 
-  async function handleCreate(event: FormEvent) {
+  async function handleCreate(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isOwner) {
       return;
@@ -132,9 +128,9 @@ export function Workspaces() {
                           <Input
                             aria-label={`Rename ${workspace.name}`}
                             value={editing.name}
-                            onChange={(event) =>
-                              setEditing({ id: workspace.id, name: event.target.value })
-                            }
+                            onChange={(event) => {
+                              setEditing({ id: workspace.id, name: event.target.value });
+                            }}
                             className="max-w-xs"
                           />
                           <Button
@@ -142,9 +138,7 @@ export function Workspaces() {
                             onClick={() => {
                               void handleRename();
                             }}
-                            disabled={
-                              renameMutation.isPending || editing.name.trim() === ''
-                            }
+                            disabled={renameMutation.isPending || editing.name.trim() === ''}
                           >
                             Save
                           </Button>
@@ -212,10 +206,17 @@ export function Workspaces() {
         <Card>
           <CardHeader className="border-b pb-4">
             <CardTitle className="text-sm font-semibold">Create workspace</CardTitle>
-            <CardDescription>A new workspace starts empty. Invite members from its tab.</CardDescription>
+            <CardDescription>
+              A new workspace starts empty. Invite members from its tab.
+            </CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
-            <form className="grid gap-4" onSubmit={(event) => void handleCreate(event)}>
+            <form
+              className="grid gap-4"
+              onSubmit={(event) => {
+                void handleCreate(event);
+              }}
+            >
               <div className="grid gap-2">
                 <Label htmlFor="workspace-name">Name</Label>
                 <Input
@@ -223,7 +224,9 @@ export function Workspaces() {
                   type="text"
                   required
                   value={name}
-                  onChange={(event) => setName(event.target.value)}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                  }}
                   placeholder="Fiji TV"
                 />
               </div>

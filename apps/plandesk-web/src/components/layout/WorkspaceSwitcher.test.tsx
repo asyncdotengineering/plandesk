@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { requestUrl } from '../../test-utils.js';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';
 import { listProjects } from '../../lib/api.js';
 
@@ -39,26 +40,28 @@ function ProjectsProbe() {
 }
 
 function ok(body: unknown) {
-  return { ok: true, status: 200, json: async () => body, text: async () => '' };
+  return { ok: true, status: 200, json: () => body, text: () => '' };
 }
 
-function stubFetch(opts: {
-  session?: typeof sessionOwner | typeof sessionMember;
-  workspaces?: typeof workspacesDefault;
-  created?: { id: string; name: string };
-} = {}) {
+function stubFetch(
+  opts: {
+    session?: typeof sessionOwner | typeof sessionMember;
+    workspaces?: typeof workspacesDefault;
+    created?: { id: string; name: string };
+  } = {},
+) {
   const session = opts.session ?? sessionOwner;
   const workspaces = opts.workspaces ?? workspacesDefault;
   const created = opts.created ?? { id: 'ws-new', name: 'Fresh' };
-  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = requestUrl(input);
     const method = init?.method ?? 'GET';
     if (url.endsWith('/auth/session')) return ok(session);
     if (url.endsWith('/workspaces') && method === 'GET') return ok({ workspaces });
     if (url.endsWith('/workspaces') && method === 'POST') return ok(created);
     if (url.endsWith('/set-active-team')) return ok({});
     if (url.endsWith('/projects')) return ok([]);
-    return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+    return { ok: false, status: 404, json: () => ({}), text: () => '' };
   });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
@@ -122,7 +125,9 @@ describe('Sidebar workspace switcher (REQ-1 / REQ-2)', () => {
     });
     // Projects probe mounts once on first render.
     await waitFor(() => {
-      expect(fetchMock.mock.calls.filter((c) => String(c[0]).endsWith('/projects')).length).toBe(1);
+      expect(
+        fetchMock.mock.calls.filter((c) => requestUrl(c[0]).endsWith('/projects')).length,
+      ).toBe(1);
     });
 
     // Open the dropdown via keyboard (robust in jsdom) and pick Fiji TV.
@@ -135,8 +140,7 @@ describe('Sidebar workspace switcher (REQ-1 / REQ-2)', () => {
     // The switch fired.
     await waitFor(() => {
       const switchCall = fetchMock.mock.calls.find(
-        ([url, init]) =>
-          String(url).endsWith('/set-active-team') && (init as RequestInit | undefined)?.method === 'POST',
+        ([url, init]) => requestUrl(url).endsWith('/set-active-team') && init?.method === 'POST',
       );
       expect(switchCall).toBeTruthy();
       expect(switchCall?.[1]).toEqual(
@@ -150,7 +154,9 @@ describe('Sidebar workspace switcher (REQ-1 / REQ-2)', () => {
 
     // set-active-team's onSuccess invalidates every query → projects refetch.
     await waitFor(() => {
-      const projectCalls = fetchMock.mock.calls.filter((c) => String(c[0]).endsWith('/projects')).length;
+      const projectCalls = fetchMock.mock.calls.filter((c) =>
+        requestUrl(c[0]).endsWith('/projects'),
+      ).length;
       expect(projectCalls).toBeGreaterThanOrEqual(2);
     });
 
@@ -182,8 +188,7 @@ describe('Sidebar workspace switcher (REQ-1 / REQ-2)', () => {
     // POST /orgs/:id/workspaces then set-active-team (to the new workspace).
     await waitFor(() => {
       const createCall = fetchMock.mock.calls.find(
-        ([url, init]) =>
-          String(url).endsWith('/workspaces') && (init as RequestInit | undefined)?.method === 'POST',
+        ([url, init]) => requestUrl(url).endsWith('/workspaces') && init?.method === 'POST',
       );
       expect(createCall).toBeTruthy();
       expect(createCall?.[1]).toEqual(
@@ -193,9 +198,9 @@ describe('Sidebar workspace switcher (REQ-1 / REQ-2)', () => {
     await waitFor(() => {
       const switchCall = fetchMock.mock.calls.find(
         ([url, init]) =>
-          String(url).endsWith('/set-active-team') &&
-          (init as RequestInit | undefined)?.method === 'POST' &&
-          (init as RequestInit | undefined)?.body === JSON.stringify({ teamId: 'ws-new' }),
+          requestUrl(url).endsWith('/set-active-team') &&
+          init?.method === 'POST' &&
+          init.body === JSON.stringify({ teamId: 'ws-new' }),
       );
       expect(switchCall).toBeTruthy();
     });

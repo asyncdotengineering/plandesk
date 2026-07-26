@@ -57,7 +57,7 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
     }
   };
 
-  const shareUrl = result !== null ? (result.url || result.markdown_url) : '';
+  const shareUrl = result !== null ? result.url || result.markdown_url : '';
 
   const copy = async () => {
     if (result === null) return;
@@ -91,7 +91,8 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
         <DialogHeader>
           <DialogTitle>Share {resource.kind}</DialogTitle>
           <DialogDescription>
-            Create a public, read-only link that renders this {resource.kind} as agent-ready Markdown
+            Create a public, read-only link that renders this {resource.kind} as agent-ready
+            Markdown
             {resource.kind === 'task' ? ' — with its linked documents and images inlined.' : '.'}
           </DialogDescription>
         </DialogHeader>
@@ -100,7 +101,12 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <span className="mb-1 block text-xs text-muted-foreground">Expires</span>
-              <Select value={ttl} onValueChange={(value) => setTtl(value as ShareTtl)}>
+              <Select
+                value={ttl}
+                onValueChange={(value) => {
+                  setTtl(value as ShareTtl);
+                }}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -111,7 +117,13 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
                 </SelectContent>
               </Select>
             </div>
-            <Button type="button" onClick={create} disabled={creating}>
+            <Button
+              type="button"
+              onClick={() => {
+                void create();
+              }}
+              disabled={creating}
+            >
               {creating ? 'Creating…' : 'Create link'}
             </Button>
           </div>
@@ -139,7 +151,9 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
                 variant="secondary"
                 size="icon-sm"
                 aria-label="Copy link"
-                onClick={copy}
+                onClick={() => {
+                  void copy();
+                }}
               >
                 {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
               </Button>

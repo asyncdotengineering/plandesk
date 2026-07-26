@@ -14,15 +14,9 @@ vi.mock('sonner', () => ({
 
 import { toast } from 'sonner';
 
-function MutateButton({
-  failWith,
-  withOnError,
-}: {
-  failWith: Error;
-  withOnError?: boolean;
-}) {
+function MutateButton({ failWith, withOnError }: { failWith: Error; withOnError?: boolean }) {
   const mutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: () => {
       throw failWith;
     },
     ...(withOnError

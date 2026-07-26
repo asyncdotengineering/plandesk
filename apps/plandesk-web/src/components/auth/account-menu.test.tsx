@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { requestUrl } from '../../test-utils.js';
 import { AccountMenu } from './AccountMenu.js';
 
 const sessionWithWorkspaces = {
@@ -57,12 +58,12 @@ afterEach(() => {
 
 describe('Workspace switcher (REQ-C1)', () => {
   it('renders the active workspace', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
       if (url.endsWith('/auth/session')) {
-        return { ok: true, status: 200, json: async () => sessionWithWorkspaces };
+        return { ok: true, status: 200, json: () => sessionWithWorkspaces };
       }
-      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+      return { ok: false, status: 404, json: () => ({}), text: () => '' };
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -74,15 +75,15 @@ describe('Workspace switcher (REQ-C1)', () => {
   });
 
   it('switching calls setActiveWorkspace (POST set-active-team)', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
+    const fetchMock = vi.fn((...[input]: [RequestInfo | URL, RequestInit?]) => {
+      const url = requestUrl(input);
       if (url.endsWith('/auth/session')) {
-        return { ok: true, status: 200, json: async () => sessionWithWorkspaces };
+        return { ok: true, status: 200, json: () => sessionWithWorkspaces };
       }
       if (url.endsWith('/api/auth/organization/set-active-team')) {
-        return { ok: true, status: 200, json: async () => ({}) };
+        return { ok: true, status: 200, json: () => ({}) };
       }
-      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+      return { ok: false, status: 404, json: () => ({}), text: () => '' };
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -103,8 +104,8 @@ describe('Workspace switcher (REQ-C1)', () => {
     await waitFor(() => {
       const switchCall = fetchMock.mock.calls.find(
         ([url, init]) =>
-          String(url).endsWith('/api/auth/organization/set-active-team') &&
-          (init as RequestInit | undefined)?.method === 'POST',
+          requestUrl(url).endsWith('/api/auth/organization/set-active-team') &&
+          init?.method === 'POST',
       );
       expect(switchCall).toBeTruthy();
       expect(switchCall?.[1]).toEqual(

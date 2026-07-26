@@ -12,7 +12,6 @@ import {
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -126,15 +125,15 @@ function SubmissionRow({
         <div className="flex items-start justify-between gap-3">
           <p className="text-sm font-semibold">{submission.title}</p>
           <span className="flex shrink-0 items-center gap-2">
-            {submission.severity !== null ? (
-              <SeverityBadge severity={submission.severity} />
-            ) : null}
+            {submission.severity !== null ? <SeverityBadge severity={submission.severity} /> : null}
             <span className="text-xs text-muted-foreground">{submission.participant_name}</span>
           </span>
         </div>
 
         {excerpt(submission.body) !== null ? (
-          <p className="text-xs leading-relaxed text-muted-foreground">{excerpt(submission.body)}</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {excerpt(submission.body)}
+          </p>
         ) : null}
 
         {triage.isError ? (
@@ -168,11 +167,7 @@ function SubmissionRow({
           >
             Reject
           </Button>
-          <Select
-            value={mergeTaskId}
-            onValueChange={setMergeTaskId}
-            disabled={triage.isPending}
-          >
+          <Select value={mergeTaskId} onValueChange={setMergeTaskId} disabled={triage.isPending}>
             <SelectTrigger className="h-8 w-44 text-xs">
               <SelectValue placeholder="Select a task" />
             </SelectTrigger>
@@ -246,15 +241,19 @@ function SubmissionRow({
   );
 }
 
-function PendingSubmissions({ projectId, tasks }: { projectId: string; tasks: { id: string; label: string }[] }) {
+function PendingSubmissions({
+  projectId,
+  tasks,
+}: {
+  projectId: string;
+  tasks: { id: string; label: string }[];
+}) {
   const { data: submissions, isLoading, error } = useSubmissions(projectId, 'pending');
 
   return (
     <section aria-label="Pending submissions" className="mb-5">
       <SectionHeader title="Pending submissions" count={submissions?.length} />
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : null}
+      {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
       {error ? (
         <p role="alert" className="text-sm text-destructive">
           Failed to load submissions.
@@ -285,9 +284,7 @@ function BacklogTasks({ projectId }: { projectId: string }) {
   return (
     <section aria-label="Un-triaged backlog" className="mb-5">
       <SectionHeader title="Un-triaged backlog" count={tasks?.length} />
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : null}
+      {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
       {error ? (
         <p role="alert" className="text-sm text-destructive">
           Failed to load backlog tasks.
@@ -344,9 +341,7 @@ function CuratorProposals({ projectId }: { projectId: string }) {
   return (
     <section aria-label="Curator proposals awaiting approval" className="mb-5">
       <SectionHeader title="Curator proposals awaiting approval" count={proposals.length} />
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : null}
+      {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
       {error ? (
         <p role="alert" className="text-sm text-destructive">
           Failed to load proposals.

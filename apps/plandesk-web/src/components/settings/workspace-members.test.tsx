@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { requestUrl } from '../../test-utils.js';
 import { WorkspaceMembers } from './WorkspaceMembers.js';
 
 const ownerSession = {
@@ -60,24 +61,24 @@ afterEach(() => {
 
 describe('WorkspaceMembers invite (workspace-scoped, REQ-5)', () => {
   it('owner invites to the active workspace — posts team_id; renders claim link', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = requestUrl(input);
       if (url.includes('/auth/session')) {
-        return { ok: true, status: 200, json: async () => ownerSession };
+        return { ok: true, status: 200, json: () => ownerSession };
       }
       if (url.includes('/api/auth/organization/list-team-members')) {
-        return { ok: true, status: 200, json: async () => teamMembers };
+        return { ok: true, status: 200, json: () => teamMembers };
       }
       if (
         url.includes('/orgs/org-1/members') &&
         (init?.method === undefined || init.method === 'GET')
       ) {
-        return { ok: true, status: 200, json: async () => orgMembers };
+        return { ok: true, status: 200, json: () => orgMembers };
       }
       if (url.includes('/orgs/org-1/invitations') && init?.method === 'POST') {
-        return { ok: true, status: 201, json: async () => createdInvite };
+        return { ok: true, status: 201, json: () => createdInvite };
       }
-      return { ok: false, status: 404, json: async () => ({}), text: async () => '' };
+      return { ok: false, status: 404, json: () => ({}), text: () => '' };
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -98,8 +99,7 @@ describe('WorkspaceMembers invite (workspace-scoped, REQ-5)', () => {
 
     const inviteCall = fetchMock.mock.calls.find(
       ([url, init]) =>
-        String(url).includes('/orgs/org-1/invitations') &&
-        (init as RequestInit | undefined)?.method === 'POST',
+        requestUrl(url).includes('/orgs/org-1/invitations') && init?.method === 'POST',
     );
     expect(inviteCall).toBeTruthy();
     expect(inviteCall?.[1]).toEqual(
@@ -116,10 +116,10 @@ describe('WorkspaceMembers invite (workspace-scoped, REQ-5)', () => {
   });
 
   it('does not query or render hosted workspace membership on a local board', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
       if (url.includes('/auth/session')) {
-        return { ok: true, status: 200, json: async () => loopbackSession };
+        return { ok: true, status: 200, json: () => loopbackSession };
       }
       throw new Error(`unexpected hosted-only request: ${url}`);
     });

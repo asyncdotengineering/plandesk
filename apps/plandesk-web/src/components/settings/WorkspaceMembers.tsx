@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,7 +62,7 @@ export function WorkspaceMembers() {
     (member) => !memberUserIds.has(member.userId),
   );
 
-  async function handleAdd(event: FormEvent<HTMLFormElement>) {
+  async function handleAdd(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const userId = new FormData(form).get('userId');
@@ -97,7 +97,7 @@ export function WorkspaceMembers() {
     }
   }
 
-  async function handleInvite(event: FormEvent<HTMLFormElement>) {
+  async function handleInvite(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canInvite || activeWorkspaceId === undefined) {
       return;
@@ -154,8 +154,8 @@ export function WorkspaceMembers() {
         <CardHeader>
           <CardTitle className="text-sm font-semibold">Local workspace access</CardTitle>
           <CardDescription>
-            A local board does not keep member rows or invitations. Loopback is trusted as owner,
-            so its workspaces are available directly on this machine.
+            A local board does not keep member rows or invitations. Loopback is trusted as owner, so
+            its workspaces are available directly on this machine.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -256,7 +256,12 @@ export function WorkspaceMembers() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
-            <form className="grid gap-4" onSubmit={(event) => void handleInvite(event)}>
+            <form
+              className="grid gap-4"
+              onSubmit={(event) => {
+                void handleInvite(event);
+              }}
+            >
               <div className="grid gap-2">
                 <Label htmlFor="workspace-invite-email">Email</Label>
                 <Input
@@ -265,7 +270,9 @@ export function WorkspaceMembers() {
                   autoComplete="email"
                   required
                   value={inviteEmail}
-                  onChange={(event) => setInviteEmail(event.target.value)}
+                  onChange={(event) => {
+                    setInviteEmail(event.target.value);
+                  }}
                   placeholder="teammate@example.com"
                 />
               </div>
@@ -273,7 +280,9 @@ export function WorkspaceMembers() {
                 <Label htmlFor="workspace-invite-role">Role</Label>
                 <Select
                   value={inviteRole}
-                  onValueChange={(value) => setInviteRole(value as InviteRole)}
+                  onValueChange={(value) => {
+                    setInviteRole(value as InviteRole);
+                  }}
                 >
                   <SelectTrigger id="workspace-invite-role" className="w-full">
                     <SelectValue />
@@ -338,7 +347,12 @@ export function WorkspaceMembers() {
             <CardDescription>Add an existing org member to this workspace.</CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
-            <form className="grid gap-4" onSubmit={(event) => void handleAdd(event)}>
+            <form
+              className="grid gap-4"
+              onSubmit={(event) => {
+                void handleAdd(event);
+              }}
+            >
               <Select name="userId" disabled={addMutation.isPending || addable.length === 0}>
                 <SelectTrigger id="workspace-add-member" aria-label="Member to add">
                   <SelectValue

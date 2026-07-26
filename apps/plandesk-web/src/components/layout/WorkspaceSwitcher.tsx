@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -53,7 +53,7 @@ export function WorkspaceSwitcher() {
   const label = active?.name ?? 'Workspaces';
   const showPicker = workspaces.length > 1;
 
-  async function handleCreate(event: FormEvent) {
+  async function handleCreate(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = name.trim();
     if (trimmed === '') {
@@ -150,7 +150,12 @@ export function WorkspaceSwitcher() {
               A new workspace starts empty. Invite members from its tab.
             </DialogDescription>
           </DialogHeader>
-          <form className="grid gap-4" onSubmit={(event) => void handleCreate(event)}>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              void handleCreate(event);
+            }}
+          >
             <div className="grid gap-2">
               <Label htmlFor="new-workspace-name">Name</Label>
               <Input
@@ -158,7 +163,9 @@ export function WorkspaceSwitcher() {
                 type="text"
                 required
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => {
+                  setName(event.target.value);
+                }}
                 placeholder="Fiji TV"
                 autoFocus
               />
@@ -167,7 +174,9 @@ export function WorkspaceSwitcher() {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => setCreateOpen(false)}
+                onClick={() => {
+                  setCreateOpen(false);
+                }}
                 disabled={createMutation.isPending}
               >
                 Cancel

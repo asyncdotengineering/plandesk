@@ -47,12 +47,16 @@ export function LabeledEdge({
   });
 
   const [editing, setEditing] = useState(false);
-  const label = (data?.label as EdgeLabel) ?? 'depends_on';
+  const label = data?.label ?? 'depends_on';
   const canEdit = data?.onLabelChange !== undefined;
 
   return (
     <>
-      <BaseEdge id={id} path={edgePath} style={{ stroke: 'var(--border-strong)', strokeWidth: 1.5 }} />
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        style={{ stroke: 'var(--border-strong)', strokeWidth: 1.5 }}
+      />
       <EdgeLabelRenderer>
         <div
           className="nodrag nopan"
@@ -66,7 +70,7 @@ export function LabeledEdge({
             <Select
               value={label}
               onValueChange={(value) => {
-                data?.onLabelChange?.(value as EdgeLabel);
+                data.onLabelChange?.(value as EdgeLabel);
                 setEditing(false);
               }}
               open

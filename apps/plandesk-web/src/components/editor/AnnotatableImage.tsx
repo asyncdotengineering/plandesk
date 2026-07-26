@@ -45,9 +45,10 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
   const originalSrc = node.attrs.originalSrc as string | null;
   const storedAnnotations = node.attrs.annotations as string;
 
-  const [hovered, setHovered] = useState(false);
   const [annotating, setAnnotating] = useState(false);
-  const [shapes, setShapes] = useState<AnnotationShape[]>(() => parseAnnotations(storedAnnotations));
+  const [shapes, setShapes] = useState<AnnotationShape[]>(() =>
+    parseAnnotations(storedAnnotations),
+  );
   const [tool, setTool] = useState<AnnotationTool>('arrow');
   const [color, setColor] = useState<string>(ANNOTATION_COLORS[0]);
   const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });
@@ -325,14 +326,6 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
       data-selected={selected ? 'true' : undefined}
       contentEditable={false}
       draggable={!annotating}
-      onMouseEnter={() => {
-        setHovered(true);
-      }}
-      onMouseLeave={() => {
-        if (!annotating) {
-          setHovered(false);
-        }
-      }}
     >
       <div className="annotatable-image-frame">
         <img
@@ -360,7 +353,6 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
               }}
               onClick={() => {
                 setAnnotating(true);
-                setHovered(false);
               }}
             >
               <PencilLineIcon className="size-3.5" />

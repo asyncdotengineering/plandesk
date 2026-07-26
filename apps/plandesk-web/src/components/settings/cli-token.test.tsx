@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { requestUrl } from '../../test-utils.js';
 import { CliToken } from './CliToken.js';
 
 const created = {
@@ -45,15 +46,15 @@ afterEach(() => {
 
 describe('CliToken', () => {
   it('shows raw token once after generate with copy button and plandesk login hint', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
       if (url.endsWith('/auth/session')) {
-        return { ok: true, status: 200, json: async () => hostedSession };
+        return { ok: true, status: 200, json: () => hostedSession };
       }
       return {
         ok: true,
         status: 200,
-        json: async () => created,
+        json: () => created,
       };
     });
 
@@ -87,10 +88,10 @@ describe('CliToken', () => {
   });
 
   it('replaces the token generator with the local connection model on loopback', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = requestUrl(input);
       if (url.endsWith('/auth/session')) {
-        return { ok: true, status: 200, json: async () => loopbackSession };
+        return { ok: true, status: 200, json: () => loopbackSession };
       }
       throw new Error(`unexpected token request: ${url}`);
     });

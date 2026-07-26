@@ -143,9 +143,7 @@ export function clearPortalSession(shareToken: string): void {
   window.localStorage.removeItem(portalSessionKey(shareToken));
 }
 
-function isWorkspaceClientView(
-  raw: PortalViewResponse,
-): raw is WorkspaceClientView & {
+function isWorkspaceClientView(raw: PortalViewResponse): raw is WorkspaceClientView & {
   audience_name?: string;
   permissions?: { read: boolean; submit: boolean };
 } {
@@ -161,10 +159,7 @@ function normalizePortalResponse(raw: PortalViewResponse): AnyClientView {
       share: raw.share,
     };
   }
-  const projectView = raw as ClientView & {
-    audience_name?: string;
-    permissions?: { read: boolean; submit: boolean };
-  };
+  const projectView = raw;
   const audienceName = projectView.audience_name ?? projectView.share.audience_name;
   const permissions = projectView.permissions ?? projectView.share.permissions;
 
@@ -183,9 +178,7 @@ function normalizePortalResponse(raw: PortalViewResponse): AnyClientView {
 }
 
 export async function fetchShareMeta(shareToken: string): Promise<ShareMeta> {
-  const response = await fetch(
-    `${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/meta`,
-  );
+  const response = await fetch(`${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/meta`);
 
   if (response.status === 401 || response.status === 404) {
     throw new PortalUnauthorizedError();
@@ -202,14 +195,11 @@ export async function joinShare(
   shareToken: string,
   input: { name: string; email?: string },
 ): Promise<JoinShareResult> {
-  const response = await fetch(
-    `${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/join`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    },
-  );
+  const response = await fetch(`${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
 
   if (response.status === 401) {
     throw new PortalUnauthorizedError();
@@ -243,12 +233,9 @@ export async function fetchClientView(
   sessionToken: string,
 ): Promise<AnyClientView> {
   // View is guest-session-gated: join mints the token; without it the API 401s.
-  const response = await fetch(
-    `${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/view`,
-    {
-      headers: { Authorization: `Bearer ${sessionToken}` },
-    },
-  );
+  const response = await fetch(`${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/view`, {
+    headers: { Authorization: `Bearer ${sessionToken}` },
+  });
 
   if (response.status === 401) {
     throw new PortalUnauthorizedError();
@@ -269,7 +256,13 @@ export async function fetchClientView(
 export async function submitIssue(
   shareToken: string,
   sessionToken: string,
-  input: { title: string; body?: string; severity?: string; task_ref?: string; project_id?: string },
+  input: {
+    title: string;
+    body?: string;
+    severity?: string;
+    task_ref?: string;
+    project_id?: string;
+  },
 ): Promise<PortalSubmission> {
   const response = await fetch(
     `${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/submissions`,

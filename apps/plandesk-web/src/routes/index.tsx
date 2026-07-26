@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { PlusIcon } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,7 +16,12 @@ import { Label } from '@/components/ui/label';
 import { BrandMark } from '../components/auth/AuthShell.js';
 import { ThemeToggle } from '../components/layout/ThemeToggle.js';
 import { ApiError } from '../lib/api.js';
-import { useActiveWorkspace, useAuthSession, useSetActiveWorkspace, useWorkspaces } from '../lib/auth.js';
+import {
+  useActiveWorkspace,
+  useAuthSession,
+  useSetActiveWorkspace,
+  useWorkspaces,
+} from '../lib/auth.js';
 import { useCreateWorkspace, useProjects } from '../lib/queries.js';
 
 /**
@@ -63,7 +68,7 @@ function WorkspaceLanding() {
     });
   }
 
-  async function handleCreate(event: FormEvent) {
+  async function handleCreate(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = name.trim();
     if (trimmed === '') {
@@ -188,7 +193,12 @@ function WorkspaceLanding() {
               A new workspace starts empty. Pick it on the landing to add projects.
             </DialogDescription>
           </DialogHeader>
-          <form className="grid gap-4" onSubmit={(event) => void handleCreate(event)}>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              void handleCreate(event);
+            }}
+          >
             <div className="grid gap-2">
               <Label htmlFor="new-workspace-name">Name</Label>
               <Input
@@ -196,7 +206,9 @@ function WorkspaceLanding() {
                 type="text"
                 required
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => {
+                  setName(event.target.value);
+                }}
                 placeholder="Fiji TV"
                 autoFocus
               />
@@ -205,7 +217,9 @@ function WorkspaceLanding() {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => setCreateOpen(false)}
+                onClick={() => {
+                  setCreateOpen(false);
+                }}
                 disabled={createWorkspace.isPending}
               >
                 Cancel

@@ -126,7 +126,9 @@ export function WorkspaceShareButton({ workspaceId, workspaceName }: WorkspaceSh
             </label>
             <Button
               type="button"
-              onClick={create}
+              onClick={() => {
+                void create();
+              }}
               disabled={creating || audienceName.trim() === ''}
             >
               {creating ? 'Creating…' : 'Create link'}
@@ -156,7 +158,9 @@ export function WorkspaceShareButton({ workspaceId, workspaceName }: WorkspaceSh
                 variant="secondary"
                 size="icon-sm"
                 aria-label="Copy link"
-                onClick={copy}
+                onClick={() => {
+                  void copy();
+                }}
               >
                 {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
               </Button>

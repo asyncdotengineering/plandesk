@@ -47,11 +47,10 @@ export function MoveProjectDialog({
 
   useEffect(() => {
     if (open) {
-      setTargetId(candidates[0]?.id ?? '');
+      const firstCandidate = workspaces.find((workspace) => workspace.id !== project.workspace_id);
+      setTargetId(firstCandidate?.id ?? '');
     }
-    // candidates is derived from workspaces + project.workspace_id (stable enough here)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, project.workspace_id, workspaces]);
 
   if (!isOwner || candidates.length === 0) {
     return null;

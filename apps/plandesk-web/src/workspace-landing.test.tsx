@@ -3,6 +3,7 @@ import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/rea
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from './routeTree.gen.js';
+import { requestBodyText, requestUrl } from './test-utils.js';
 
 const localSessionWithWorkspaces = {
   kind: 'loopback' as const,
@@ -23,11 +24,7 @@ const localSessionNoWorkspaces = {
   workspaces: [],
 };
 
-function renderLanding(
-  session: unknown,
-  workspaces: unknown[] = [],
-  projects: unknown[] = [],
-) {
+function renderLanding(session: unknown, workspaces: unknown[] = [], projects: unknown[] = []) {
   vi.stubGlobal(
     'fetch',
     vi.fn((input: unknown) => {
@@ -73,9 +70,30 @@ describe('Workspace landing (/)', () => {
       { id: 'ws-2', name: 'Fiji TV' },
     ];
     const projects = [
-      { id: 'p1', name: 'P1', workspace_id: 'ws-1', description: null, created_at: '', updated_at: '' },
-      { id: 'p2', name: 'P2', workspace_id: 'ws-1', description: null, created_at: '', updated_at: '' },
-      { id: 'p3', name: 'P3', workspace_id: 'ws-2', description: null, created_at: '', updated_at: '' },
+      {
+        id: 'p1',
+        name: 'P1',
+        workspace_id: 'ws-1',
+        description: null,
+        created_at: '',
+        updated_at: '',
+      },
+      {
+        id: 'p2',
+        name: 'P2',
+        workspace_id: 'ws-1',
+        description: null,
+        created_at: '',
+        updated_at: '',
+      },
+      {
+        id: 'p3',
+        name: 'P3',
+        workspace_id: 'ws-2',
+        description: null,
+        created_at: '',
+        updated_at: '',
+      },
     ];
     renderLanding(localSessionWithWorkspaces, workspaces, projects);
 
@@ -129,11 +147,11 @@ describe('Workspace landing (/)', () => {
         .mocked(fetch)
         .mock.calls.find(
           ([url, init]) =>
-            String(url).endsWith('/api/auth/organization/set-active-team') &&
+            requestUrl(url).endsWith('/api/auth/organization/set-active-team') &&
             init?.method === 'POST',
         );
       expect(setActiveCall).toBeTruthy();
-      const body = JSON.parse(String(setActiveCall?.[1]?.body)) as { teamId: string };
+      const body = JSON.parse(requestBodyText(setActiveCall?.[1]?.body)) as { teamId: string };
       expect(body.teamId).toBe('ws-2');
     });
   });

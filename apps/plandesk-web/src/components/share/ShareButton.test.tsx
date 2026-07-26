@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { requestUrl } from '../../test-utils.js';
 import { ShareButton } from './ShareButton';
 
 const PAGE_URL = 'http://127.0.0.1:3456/p/plandesk_share_abc';
@@ -9,10 +10,10 @@ describe('ShareButton', () => {
   beforeEach(() => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => ({
+      vi.fn(() => ({
         ok: true,
         status: 201,
-        json: async () => ({
+        json: () => ({
           url: PAGE_URL,
           markdown_url: MARKDOWN_URL,
           expires_at: '2026-07-13T00:00:00.000Z',
@@ -33,17 +34,20 @@ describe('ShareButton', () => {
     fireEvent.click(screen.getByRole('button', { name: /share task/i }));
     fireEvent.click(await screen.findByRole('button', { name: /create link/i }));
 
-    const input = (await screen.findByDisplayValue(PAGE_URL)) as HTMLInputElement;
+    const input = await screen.findByDisplayValue(PAGE_URL);
     expect(input).toBeTruthy();
 
     // The POST hit the task share endpoint.
-    const call = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes('/tasks/task-1/share'));
+    const call = vi
+      .mocked(fetch)
+      .mock.calls.find(([url]) => requestUrl(url).includes('/tasks/task-1/share'));
     expect(call).toBeTruthy();
     expect(call?.[1]?.method).toBe('POST');
 
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText');
     fireEvent.click(screen.getByRole('button', { name: /copy link/i }));
     await waitFor(() => {
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(PAGE_URL);
+      expect(writeText).toHaveBeenCalledWith(PAGE_URL);
     });
   });
 });
