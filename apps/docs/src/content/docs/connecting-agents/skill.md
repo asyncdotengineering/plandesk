@@ -12,7 +12,6 @@ Copy to your repo as `.plandesk/skill.md` or add to agent instructions. Keep it 
 # Plan Desk MCP Instructions
 
 ## Setup
-
 At the start of any session where Plan Desk may be used, list the available
 Plan Desk MCP tools before calling them. Do not assume tool names or parameter
 shapes; if expected tools are missing, say so before proceeding.
@@ -20,10 +19,16 @@ shapes; if expected tools are missing, say so before proceeding.
 Never guess or hardcode a Plan Desk project, task, or document ID. Resolve the
 project as below; look up tasks/documents by name and use the returned ID.
 
-## Resolving the project
+New to this repo? Run `plandesk onboard` for the full Plan Desk + Factory model
+(how the board works, the execution loop, delegation, and the MCP tools).
 
-1. Read `.plandesk/config.json`. If `projectId` is present, use it. Stop here —
-   do not ask which project.
+## Resolving the project
+1. Read `.plandesk/config.json`.
+   - If `projectId` is present (v1 config), use it. Stop here — do not ask which project.
+   - If `workspaceId` is present (v2 config), the repo is **workspace-bound**.
+     `list_projects` returns only that workspace's projects. Resolve the target
+     project within the bound workspace. A project id outside the workspace is
+     not found.
 2. (Fallback, only if no config file) check conversation history for a named
    project; then the working-directory name for a close match; then an explicit
    name in the request.
@@ -35,14 +40,21 @@ project as below; look up tasks/documents by name and use the returned ID.
 When asked to plan a project, feature, or RFC from scratch, prefer the one-shot
 `scaffold_project_from_plan` tool over many separate calls: it creates the
 project, all tasks, their dependency edges, and linked spec documents in a
-single atomic call. Give each task a stable `key` (a slug you choose) and
-reference those keys in `edges` (`from`/`to`) and in a document's `link_to`.
-The server resolves keys to real IDs and returns a `key_to_id` map. Use the
-granular `create_task`/`create_edge`/`create_document` tools when ADDING to an
-existing plan; use `scaffold_project_from_plan` to build a new one.
+single atomic call. Give each task (and any document you need to reference) a
+stable `key` (a slug you choose) and reference those keys in `edges`
+(`from`/`to`) and in a document's `link_to` (a single key or a list of
+task and document keys). The server resolves keys to real IDs and returns a
+`key_to_id` map covering both tasks and keyed documents.
+
+`scaffold_project_from_plan` works for both a new and an existing project: omit
+`project_id` and pass `name` to create a new one; pass `project_id` (e.g. the
+repo-bound project from `.plandesk/config.json`) to scaffold the whole plan
+atomically INTO that project. When the repo is already bound, pass
+`project_id` — creating a new project duplicates the bound one. Reach for the
+granular `create_task`/`create_edge`/`create_document` tools only for a
+one-off single addition, not for standing up a whole plan.
 
 ## Task creation
-
 - Labels: short, imperative, outcome-focused — "Verb Noun in Location".
   The label must make clear what "done" looks like.
 - Status at creation: `todo` (defined, ready) or `scope` (needs design/sizing).
@@ -70,14 +82,18 @@ existing plan; use `scaffold_project_from_plan` to build a new one.
   above what they block.
 
 ## Documents
-
 - Write bodies as well-structured Markdown — `##` headings, bullet lists,
   fenced code blocks, and blank lines between paragraphs. Bodies render as
-  rich text in the UI (a Notion-style editor); a wall of unbroken text is unreadable for people.
+  rich text in the UI; a wall of unbroken text is unreadable for people.
 - Title prefix: `Investigation:`, `Scope:`, `Design:`, or `Fix:`.
 - Include a `Status:` line near the top: "Ready to implement",
   "Open — requires investigation", "Ready for review", or "Superseded".
-- After creating a document, link it to its primary task in the same step.
+- A document can link to many tasks and to other documents. Prefer
+  `link_to` as a list (task and document keys or ids) rather than a single
+  primary only; `get_document` returns `links` and `backlinks` so related
+  specs can be walked without a second query.
+- After creating a document, link it to every task it covers (and any parent
+  or related specs) in the same step.
 
 ## Notes
 
@@ -100,9 +116,10 @@ memory rather than a deliverable spec.
   base64 — keeps bodies lean. `mime` defaults to `image/png`.
 
 ## Edges
-
-- Connect related tasks with labeled edges. Prefer the vocabulary:
-  `blocks`, `depends_on`, `unblocks`, `feeds`, `clarifies`, `enables`, `supports`.
+- Connect related tasks and documents with labeled edges keyed on
+  `from_type`/`from_id`/`to_type`/`to_id` (`task` or `document`). Prefer the
+  vocabulary: `blocks`, `depends_on`, `unblocks`, `feeds`, `clarifies`,
+  `enables`, `supports`, `documents`, `references`, `supersedes`, `extends`.
 - When you discover a new dependency while working, add the edge.
 
 ## Executing the plan
@@ -124,6 +141,8 @@ Edge direction drives sequencing: `from → to` with most labels (`blocks`,
 `feeds`, `enables`, …) means `from` finishes before `to`; `depends_on` reverses
 it (`from depends_on to` ⇒ `to` first). Add edges so dependencies sequence right.
 
+**Track the moves within a task with the harness task tools** — when a task needs more than one verifiable step, decompose it with `TaskCreate` / `TaskList` / `TaskUpdate`: one sub-task per move, `in_progress` when you start it, `completed` the moment its done-condition holds. The board decides what is next (durable, survives compaction via the F1 hooks); harness tasks are per-session scratchpad for the moves inside the current item — re-derive from the board after a compaction, never trust the harness list as the source of truth.
+
 ## Keeping the board true
 
 The board is only useful when it matches reality. Two standing rules:
@@ -144,9 +163,7 @@ The board is only useful when it matches reality. Two standing rules:
 
 ## Comments
 
-People leave comments on documents in the UI to give you feedback or direction —
-the composer is a full editor, so a comment can carry formatting, images, and
-the same annotation overlay as the document editor.
+People leave comments on documents in the UI to give you feedback or direction.
 
 - At the start of a session, and after finishing a task, pull open feedback with
   `list_comments` (by `project_id`, optionally one `document_id`). By default you
@@ -163,9 +180,7 @@ the same annotation overlay as the document editor.
 Beyond the workspace UI, a person can open any Markdown or HTML file you produced
 in a local previewer and annotate it:
 
-```
-plandesk <file.md>        # or: plandesk *.md, plandesk open <paths...>
-```
+    plandesk <file.md>        # or: plandesk *.md, plandesk open <paths...>
 
 They highlight text and attach notes. In a connected repo those annotations are
 stored as `artifact` comments in this project's board, so you read and resolve
@@ -202,25 +217,19 @@ kept in the workspace (not a file on disk).
   outlive a session — it stays public to anyone who has it.
 
 ## Agent runs
-
 1. Start a run at the beginning of any multi-step Plan Desk operation.
 2. Record progress after each meaningful unit of work (not every tool call).
 3. Complete or fail the run before the session ends — never leave one open.
 
 ## Never do
 
+The highest-consequence guardrails — each section above states the positive
+form; these are the ones worth a hard, consolidated reminder:
+
 - Guess or hardcode IDs.
-- Batch status updates for the end of a session — statuses change atomically
-  as the work happens.
-- Leave a task `in_progress` that nobody is actively working on.
-- Reference line numbers in tasks or documents.
-- Create non-trivial tasks without a description.
-- Set a task to `in_progress` at creation.
-- Skip the duplicate check before creating a task.
-- Delete Plan Desk tasks, documents, notes, or artifacts (there is no delete tool by design).
+- Delete tasks, documents, notes, or artifacts — there is no delete tool by
+  design; resolve, supersede, or set status instead.
+- Batch status updates for the end of a session — statuses flip atomically as
+  the work happens (see "Keeping the board true").
 - Inline large images as base64 in a document/task/comment body — `attach_file`
   and embed the returned `url` instead.
-- Leave open document comments unaddressed — read them with `list_comments` and
-  `resolve_comment` once handled (resolving replaces deleting).
-- Leave an agent run open at session end.
-- Create a document without linking it to a task.

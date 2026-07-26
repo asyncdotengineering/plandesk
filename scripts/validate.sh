@@ -29,6 +29,12 @@ fi
 ( cd "$ROOT" && pnpm exec turbo run lint typecheck )
 echo "cmd:lint_typecheck OK"
 
+# The docs skill page claims `connect` writes "the same content". Nothing
+# enforced that, and it drifted for several releases — telling agents edges
+# only join tasks after documents could already be linked many-to-one.
+node "$ROOT/scripts/sync-skill-doc.mjs" --check
+echo "cmd:skill_doc_in_sync OK"
+
 DATA_DIR="$(mktemp -d "${TMPDIR:-/tmp}/plandesk-validate.XXXXXX")"
 PORT="$(node -e "const net=require('node:net');const s=net.createServer();s.listen(0,'127.0.0.1',()=>{process.stdout.write(String(s.address().port));s.close();});")"
 BASE_URL="http://127.0.0.1:${PORT}"

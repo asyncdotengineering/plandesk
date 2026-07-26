@@ -1,16 +1,23 @@
 ---
 title: Upgrading
-description: Upgrade the Plan Desk CLI, server, and connected repos to the latest version — including the breaking 0.20.0 → better-auth migration.
+description: Upgrade the Plan Desk CLI, server, and connected repos to the latest version — including the 1.x → 2.0.0 link-shape change and the breaking 0.20.0 → better-auth migration.
 ---
 
 Plan Desk ships as one npm package: `@plandesk/cli` contains the CLI, the server (`plandesk serve`), the MCP tools, and the web UI. Your data lives in `~/.plandesk` by default.
 
-There are two kinds of upgrade on this page:
+There are three kinds of upgrade on this page:
 
 - **[Routine upgrade](#routine-upgrade)** — same schema, most releases: update the package, restart the server, migrations run automatically. Your data is untouched.
+- **[The 1.x → 2.0.0 upgrade](#the-1x--200-upgrade-one-link-shape)** — your board migrates **automatically and in place**, and the web UI and CLI need nothing from you. It is a major version because `linked_task_id` was removed from the API and MCP payloads, so it breaks anything *you* wrote that read that field.
 - **[The 0.20.0 → better-auth upgrade](#the-020x--better-auth-upgrade-breaking)** — a one-time **breaking** migration for anyone on 0.20.0 or earlier. The database schema was reset (no in-place migration) and the board moved to a machine-global default. Read that section before you upgrade past 0.20.0.
 
-If you don't know which one applies: run `plandesk --version`. `0.20.x` or earlier → you need the breaking upgrade below. Anything newer → routine upgrade.
+If you don't know which applies, run `plandesk --version`:
+
+| Current version | What you need |
+| --- | --- |
+| `0.20.x` or earlier | [The 0.20.0 upgrade](#the-020x--better-auth-upgrade-breaking) first — your data does not carry forward on its own |
+| `1.x` | [The 1.x → 2.0.0 upgrade](#the-1x--200-upgrade-one-link-shape) — automatic, but read it if you built anything on the API |
+| `2.x` | [Routine upgrade](#routine-upgrade) |
 
 ## Routine upgrade
 
@@ -61,6 +68,67 @@ plandesk doctor --repo .
 ```
 
 Checks the workspace DB, the binding, the token, and that the MCP server lists its tools.
+
+## The 1.x → 2.0.0 upgrade (one link shape)
+
+In 2.0.0 a document can be linked to **many** tasks, and documents can link to each other. Previously a document held a single `linked_task_id` and only tasks could be joined by edges.
+
+### What you do
+
+The same three steps as a [routine upgrade](#routine-upgrade) — update, restart, re-connect each repo. **Your board migrates automatically and in place when the new server boots.** There is no separate migration command and no data export required.
+
+```bash
+npm i -g @plandesk/cli@latest
+plandesk serve          # migration runs here
+```
+
+Every existing `linked_task_id` becomes a `document → task` edge labeled `documents`. Task-to-task edges are untouched. Documents with no link stay unlinked.
+
+Because it is a schema change, take a backup first if the board matters to you:
+
+```bash
+plandesk export --project <id> --out backup.json    # per project, portable
+cp ~/.plandesk/workspace.db ~/plandesk-backup.db    # whole board — stop the server first
+```
+
+A file copy of a running SQLite database can be inconsistent. Stop `plandesk serve` before copying.
+
+### What breaks
+
+Only one thing, and only if you built on it: **`linked_task_id` is gone** from the document payload in the REST API and the MCP tools, and from the `documents` table.
+
+| If you have | Do this |
+| --- | --- |
+| A script or integration reading `document.linked_task_id` | Read `links` instead — entries are `{ type, id, title, label, edge_id }`, filtered to `type === 'task'` |
+| Code writing `linked_task_id` on create/update | Pass `link_to` with a task id, or a list of ids |
+| Code that unlinks by setting it to `null` | Call `delete_edge` with the `edge_id` from the link entry |
+| A saved export file from 1.x | Still imports — the importer accepts older versions |
+
+The web UI, the CLI, `plandesk context`, and the shipped agent skill were all updated. If you only use Plan Desk through those, nothing changes for you except that documents can now cover several tasks.
+
+`share_submissions.linked_task_id` is **unaffected** — it records which task a guest submission targets, which is a different concept.
+
+### Export format
+
+Exports are now `plandesk-export-v3` and carry typed link endpoints. Older export files still import: the importer accepts a set of supported versions rather than requiring an exact match, so files already on disk keep working.
+
+Before 2.0.0, an export → import round trip silently dropped every document link. If you are restoring from a 1.x export, expect document links to be missing from the restored board — re-link them, or re-export from the live board after upgrading.
+
+### Verify the migration
+
+```bash
+plandesk doctor --repo .
+```
+
+To check the board directly, every edge should have typed endpoints and none should be null:
+
+```sql
+select from_type, to_type, label, count(*) from edges group by 1,2,3;
+select count(*) from edges where from_id is null or to_id is null;   -- expect 0
+PRAGMA foreign_key_check;                                            -- expect no rows
+```
+
+Edge count after migration should equal your old edge count **plus** the number of documents that had a `linked_task_id`.
 
 ## The 0.20.x → better-auth upgrade (breaking)
 

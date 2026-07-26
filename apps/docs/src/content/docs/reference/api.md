@@ -20,15 +20,18 @@ description: REST endpoints and MCP tools exposed by Plan Desk v1.
 | PATCH  | `/projects/:id`               | Rename / update `{ name?, description? }`             |
 | DELETE | `/projects/:id`               | Delete project (cascades children)                    |
 | GET    | `/projects/:id/documents`     | Document tree                                         |
-| POST   | `/projects/:id/documents`     | Create doc `{ title, body, linkedNodeId? }`           |
-| GET    | `/documents/:id`              | Document body                                         |
+| POST   | `/projects/:id/documents`     | Create doc `{ title, body, link_to? }`                |
+| GET    | `/documents/:id`              | Document body, plus `links` and `backlinks`           |
 | PATCH  | `/documents/:id`              | Update title/body/status                              |
 | DELETE | `/documents/:id`              | Delete document                                       |
 | GET    | `/projects/:id/tasks`         | Task list (filter query params)                       |
 | POST   | `/projects/:id/tasks`         | Create task `{ label, status?, goal_id?, … }`         |
 | PATCH  | `/tasks/:id`                  | Update status, label, description, position           |
-| DELETE | `/tasks/:id`                  | Delete task (cascades edges, unlinks docs)            |
-| DELETE | `/projects/:id/edges/:edgeId` | Delete a dependency edge                              |
+| DELETE | `/tasks/:id`                  | Delete task (cascades its edges)                      |
+| GET    | `/tasks/:id/backlinks`        | Tasks and documents pointing at this task             |
+| GET    | `/projects/:id/edges`         | List edges                                            |
+| POST   | `/projects/:id/edges`         | Create edge `{ from_type, from_id, to_type, to_id, label?, … }` |
+| DELETE | `/projects/:id/edges/:edgeId` | Delete one edge                                       |
 | POST   | `/projects/:id/goals`         | Create goal `{ objective, verification_surface?, … }` |
 | GET    | `/projects/:id/goals`         | List goals for a project                              |
 | GET    | `/goals/:id`                  | Goal detail incl. `cycle_tasks`                       |
@@ -109,9 +112,9 @@ An **artifact** is a stored agent deliverable — a Markdown report, an RFC, an 
 | `update_task`                | Status, label, description, position, `tags` (replaces set)                                                                |
 | `get_task`                   | Fetch a single task by id                                                                                                  |
 | `list_tasks`                 | Project tasks, filterable by status and tags (OR)                                                                          |
-| `create_document`            | Markdown body; optional link to task                                                                                       |
+| `create_document`            | Markdown body; `link_to` takes one id or a list of task/document ids                                                       |
 | `update_document`            | Patch title/body/status line, folder, and `link_to` (task or document ids; unlink with `delete_edge`)                      |
-| `get_document`               | Fetch a document by id                                                                                                     |
+| `get_document`               | Fetch a document, with `links` (outgoing) and `backlinks` (incoming); each entry carries an `edge_id`                       |
 | `list_documents`             | Project documents as a tree; filter by `folder_id`                                                                         |
 | `create_folder`              | Create a document folder (optionally nested)                                                                               |
 | `update_folder`              | Rename / re-parent a folder (cycles rejected)                                                                              |
@@ -120,7 +123,9 @@ An **artifact** is a stored agent deliverable — a Markdown report, an RFC, an 
 | `get_note`                   | Fetch a note by id                                                                                                         |
 | `list_notes`                 | Project working notes                                                                                                      |
 | `list_tags`                  | Project tags (id, name, color)                                                                                             |
-| `create_edge`                | Labeled dependency between tasks                                                                                           |
+| `create_edge`                | Labeled link between any two entities via `from_type`/`from_id`/`to_type`/`to_id` (`task` or `document`)                    |
+| `list_edges`                 | Every edge in a project, with typed endpoints                                                                              |
+| `delete_edge`                | Remove one edge by `edge_id` (from a `get_document` links entry or `list_edges`); siblings are untouched                    |
 | `attach_file`                | Upload a file (image today), get back `{ file_id, url }` to embed as `![alt](url)`                                        |
 | `create_artifact`            | Store an agent deliverable (report, RFC, HTML diagram); returned `artifact_id` doubles as the comment target              |
 | `get_artifact`               | Fetch a stored artifact by id, including full `content`                                                                    |
