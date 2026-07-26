@@ -12,7 +12,7 @@ Plan Desk ships a named validation suite aligned with the RFC validation section
 | Assertion ID                 | Behavior                                                             | Test location                                        |
 | ---------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------- |
 | `test:canvas_roundtrip`      | PUT 3 nodes + 2 labeled edges; GET returns identical coords + labels | `packages/plandesk-api/src/routes/canvas.test.ts`    |
-| `test:doc_link`              | Create doc with `linkedTaskId`; GET `/tasks/:id/document` returns it | `packages/plandesk-api/src/routes/documents.test.ts` |
+| `test:doc_link`              | Link a doc to several tasks; each task's backlinks return it | `packages/plandesk-api/src/routes/documents.test.ts` |
 | `test:mcp_update_task`       | MCP `update_task` → the REST read reflects the change                | `packages/plandesk-mcp/src/server.test.ts`           |
 | `test:export_import`         | Export → import → node/edge/doc counts + content match               | `packages/plandesk-db/src/portability.test.ts`       |
 | `test:factory_adapter_smoke` | MCP client with token lists ≥1 project on live server                | `packages/plandesk-mcp-client/src/client.test.ts`    |

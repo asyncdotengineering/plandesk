@@ -76,7 +76,7 @@ SQLite workspace at `~/.plandesk/workspace.db` by default (one global board per 
 - `goals` — goal-altitude nodes (`objective`, `verification_surface`, contract fields, `status`, `last_verification`)
 - `tasks` — canvas nodes + board status (`scope` | `todo` | `in_progress` | `done` | `backlog`); every task has a required `goal_id`
 - `edges` — labeled directed dependencies between tasks
-- `documents` — markdown bodies with optional `linked_task_id`
+- `documents` — markdown bodies; links to tasks and to other documents live in `edges`, not on the row
 - `notes` — free-form project working notes
 - `artifacts` — stored agent deliverables (`title`, `kind`: `markdown` | `html`, `content`)
 - `files` — content-addressed uploaded bytes (BLOB by default, pluggable `StorageAdapter`)
