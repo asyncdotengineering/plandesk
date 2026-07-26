@@ -4,6 +4,29 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.1.1] — 2026-07-27
+
+Ships a shipped-policy fix that missed the 2.1.0 tag by one commit, plus the documentation for what 2.1.0 introduced. Only `@plandesk/cli` changed; the other three republish unchanged to stay aligned.
+
+### Fixed
+
+- **The suppression sweep failed honest work.** `protocol.md`'s check for gate-silencing edits used an unanchored `xit\(`, which matches the tail of `process.exit(`. Any dispatch that added a CLI exit code was rejected as if it had suppressed a test. Found by running the factory: a worker implementing an exit-code contract wrote `process.exit(broken > 0 ? 1 : 0)` and its clean dispatch was refused. A gate that fails honest work teaches people to stop running it.
+- **Stall detection could kill a healthy worker.** The check said `ps -o time= -p <pid>` without saying *which* pid. A worker launched through a shell wrapper leaves the parent parked at ~0.01s of CPU while the child does the work, so the check reported "flat" every time. It now says to sample the leaf, gives the command to find it, and notes that some worker CLIs flush their log in bulk — so silence alone is not a stall signal.
+- **`pnpm validate` is green for the first time.** It was failing on 577 accumulated eslint errors (`cli` 221, web 170, `api` 128, `mcp` 58) and, behind those, on a call to `plandesk token create` — a command that has not existed since before 2.0.0. The step had been unreachable, so nobody noticed. No token is needed: `validate` binds loopback, and a loopback bind is the local trust boundary. This matters beyond tidiness — the guard that keeps the shipped skill documentation in sync with its source lives inside `validate` and could never run while the suite was red.
+
+### Documentation
+
+- **`reference/factory.md` documents the conductor.** It described a factory with no way to run one. Now covers the `.agents/skills/` tree, `/factory-foreman` and its cycle, `workmanship.md` as the worker-side bar, and the curator family — all of which shipped in 2.1.0 undocumented.
+
+### Changed — shipped policy
+
+Four lessons from running the factory against a real project, recorded where they will be read rather than in a commit message:
+
+- `protocol.md` names **the engine as the second writer**. "One dispatch at a time per repo" applies to the supervisor too: five policy files edited during a live dispatch were reverted and unrecoverable, because none were staged. Stage every edit as you make it, or stay out of the tree until the dispatch returns.
+- `workmanship.md` gains **"finish the work, do not describe it."** A headless worker that ends on "I'll run the tests now" delivers nothing while reading as complete.
+- `brief.md` gains **"say why, not only what."** A brief that states the change without the intent forces the worker to infer one, and it infers wrong exactly where the judgment matters.
+- `workers/grok.md` and `workers/pi.md` record two failure modes seen live: grok exits 0 having written nothing when a free-tier limit is hit, and pi flushes its log in bulk.
+
 ## [2.1.0] — 2026-07-26
 
 Only `@plandesk/cli` changed. `db`, `api` and `mcp` are republished at the same version with no changes, because 2.0.0 promised the four move together so the number alone answers "which versions go together".
