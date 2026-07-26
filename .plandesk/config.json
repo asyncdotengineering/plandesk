@@ -1,6 +1,14 @@
 {
-  "version": "plandesk-connect-v1",
-  "serverUrl": "http://127.0.0.1:3450",
-  "projectId": "30797fbd-6487-4724-ac12-57dd7ef43924",
-  "projectName": "plandesk-cloud"
+  "version": "plandesk-connect-v2",
+  "serverUrl": "http://127.0.0.1:7526",
+  "orgId": "00000000-0000-4000-8000-0000000000a1",
+  "workspaceId": "MQhE0gzVfc5dpkGF7N0LNBbpiM7vKY0H",
+  "workspaceName": "Plan Desk",
+  "projectIds": [
+    "73213c01-df57-415d-a845-344201ad3dcc",
+    "bb579e27-32c8-42e5-9804-cd654b613560",
+    "08f9ca87-37a8-4685-be49-9713d9cfcf48",
+    "dab91eb3-0446-4414-b954-f122585973c6",
+    "c96abbe2-868b-4d9f-ae93-00202e7e2409"
+  ]
 }

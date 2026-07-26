@@ -2,8 +2,11 @@
   "mcpServers": {
     "plandesk": {
       "type": "http",
-      "url": "http://127.0.0.1:3400/mcp/",
-      "headersHelper": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.plandesk/token\" ]; do d=\"${d%/*}\"; [ -n \"$d\" ] || d=\"/\"; done; printf '{\"Authorization\":\"Bearer %s\"}' \"${PLANDESK_MCP_TOKEN:-$(cat \"$d/.plandesk/token\" 2>/dev/null)}\""
+      "url": "http://127.0.0.1:7526/mcp/",
+      "headersHelper": "d=\"$PWD\"; while [ \"$d\" != \"/\" ] && [ ! -f \"$d/.plandesk/token\" ]; do d=\"${d%/*}\"; [ -n \"$d\" ] || d=\"/\"; done; printf '{\"Authorization\":\"Bearer %s\"}' \"${PLANDESK_MCP_TOKEN:-$(cat \"$d/.plandesk/token\" 2>/dev/null)}\"",
+      "headers": {
+        "x-plandesk-workspace-id": "MQhE0gzVfc5dpkGF7N0LNBbpiM7vKY0H"
+      }
     }
   }
 }

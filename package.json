@@ -23,7 +23,8 @@
     "metrics": "node scripts/metrics.mjs",
     "test:contract": "pnpm test && pnpm validate",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "release:e2e": "bash scripts/release-e2e.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.28.0",

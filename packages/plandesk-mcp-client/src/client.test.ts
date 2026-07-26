@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { getRequestListener } from '@hono/node-server';
 import { createApp, createServices } from '@plandesk/api';
 import {
+  DEFAULT_ORG_ID,
   createDb,
   createProjectInDefaultOrg as createProject,
   migrate,
@@ -177,5 +178,48 @@ describe('test:factory_adapter_smoke', () => {
         await client.close();
       }
     });
+  });
+});
+
+describe('MCP loopback workspace scoping via in-process server', () => {
+  it('list_projects with x-plandesk-workspace-id returns only that workspace', async () => {
+    const db = await createDb(':memory:');
+    await migrate(db);
+    const wsA = crypto.randomUUID();
+    const wsB = crypto.randomUUID();
+    const projectA = await createProject(db, { name: 'Project A', workspaceId: wsA });
+    await createProject(db, { name: 'Project B', workspaceId: wsB });
+
+    const services = createServices({ db, orgId: DEFAULT_ORG_ID });
+    const mcpApp = createMcpApp({ services });
+    const app = createApp({ db, services, mcp: mcpApp, bindHost: '127.0.0.1' });
+
+    const res = await app.request('/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        'x-plandesk-workspace-id': wsA,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: { name: 'list_projects', arguments: {} },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    const dataLine = text.split('\n').find((l) => l.startsWith('data: '));
+    expect(dataLine).toBeDefined();
+    const parsed = JSON.parse(dataLine!.slice('data: '.length)) as {
+      result?: { content: Array<{ type: string; text: string }> };
+    };
+    const contentText = parsed.result?.content[0]?.text;
+    expect(contentText).toBeDefined();
+    const body = JSON.parse(contentText!) as { projects: Array<{ id: string; name: string }> };
+    expect(body.projects.some((p) => p.id === projectA.id)).toBe(true);
+    expect(body.projects.every((p) => p.name === 'Project A')).toBe(true);
   });
 });

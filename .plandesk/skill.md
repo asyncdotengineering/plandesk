@@ -1,6 +1,6 @@
 ---
 name: plandesk
-description: Plan Desk planning conventions. Use when planning projects, features, or RFCs; creating or updating Plan Desk tasks, documents, notes, and edges; executing a plan with get_next_task; or reading and resolving Plan Desk comments.
+description: Plan Desk planning conventions. Use when planning projects, features, or RFCs; creating or updating Plan Desk tasks, documents, notes, files, artifacts, and edges; executing a plan with get_next_task; sharing context with a delegated worker; or reading and resolving Plan Desk comments.
 ---
 
 # Plan Desk MCP Instructions
@@ -12,6 +12,9 @@ shapes; if expected tools are missing, say so before proceeding.
 
 Never guess or hardcode a Plan Desk project, task, or document ID. Resolve the
 project as below; look up tasks/documents by name and use the returned ID.
+
+New to this repo? Run `plandesk onboard` for the full Plan Desk + Factory model
+(how the board works, the execution loop, delegation, and the MCP tools).
 
 ## Resolving the project
 1. Read `.plandesk/config.json`.
@@ -33,9 +36,15 @@ When asked to plan a project, feature, or RFC from scratch, prefer the one-shot
 project, all tasks, their dependency edges, and linked spec documents in a
 single atomic call. Give each task a stable `key` (a slug you choose) and
 reference those keys in `edges` (`from`/`to`) and in a document's `link_to`.
-The server resolves keys to real IDs and returns a `key_to_id` map. Use the
-granular `create_task`/`create_edge`/`create_document` tools when ADDING to an
-existing plan; use `scaffold_project_from_plan` to build a new one.
+The server resolves keys to real IDs and returns a `key_to_id` map.
+
+`scaffold_project_from_plan` works for both a new and an existing project: omit
+`project_id` and pass `name` to create a new one; pass `project_id` (e.g. the
+repo-bound project from `.plandesk/config.json`) to scaffold the whole plan
+atomically INTO that project. When the repo is already bound, pass
+`project_id` — creating a new project duplicates the bound one. Reach for the
+granular `create_task`/`create_edge`/`create_document` tools only for a
+one-off single addition, not for standing up a whole plan.
 
 ## Task creation
 - Labels: short, imperative, outcome-focused — "Verb Noun in Location".
@@ -74,6 +83,12 @@ memory rather than a deliverable spec.
 - Write bodies as well-structured Markdown — `##` headings, bullet lists, blank
   lines between paragraphs. Bodies render as rich text in the UI.
 
+## Files
+
+- Use `attach_file` to upload an image and get back `{ file_id, url }`; embed it
+  in a document, task, or comment body as `![alt](url)` instead of inlining
+  base64 — keeps bodies lean. `mime` defaults to `image/png`.
+
 ## Edges
 - Connect related tasks with labeled edges. Prefer the vocabulary:
   `blocks`, `depends_on`, `unblocks`, `feeds`, `clarifies`, `enables`, `supports`.
@@ -87,11 +102,8 @@ session program — read and follow it when executing the plan (it defers to
 tool-level default it builds on.
 
 To work a plan, do not guess what is next — call `get_next_task`. It returns the
-next actionable `todo` on the project's **active goal** frontier (or pass
-`goal_id` to scope to a specific goal). A task is actionable when its prerequisite
-tasks are all `done`. The response also includes `blocked` tasks and what each is
-`waiting_on`. When no single active goal can be resolved, `reason` is
-`no_active_goal` or `multiple_active_goals`. The loop:
+next actionable `todo` task (one whose prerequisite tasks are all `done`), plus
+the `blocked` tasks and what each is `waiting_on`. The loop:
 
 1. `get_next_task` → the next unblocked task.
 2. Read its linked document before changing anything.
@@ -101,6 +113,8 @@ tasks are all `done`. The response also includes `blocked` tasks and what each i
 Edge direction drives sequencing: `from → to` with most labels (`blocks`,
 `feeds`, `enables`, …) means `from` finishes before `to`; `depends_on` reverses
 it (`from depends_on to` ⇒ `to` first). Add edges so dependencies sequence right.
+
+**Track the moves within a task with the harness task tools** — when a task needs more than one verifiable step, decompose it with `TaskCreate` / `TaskList` / `TaskUpdate`: one sub-task per move, `in_progress` when you start it, `completed` the moment its done-condition holds. The board decides what is next (durable, survives compaction via the F1 hooks); harness tasks are per-session scratchpad for the moves inside the current item — re-derive from the board after a compaction, never trust the harness list as the source of truth.
 
 ## Keeping the board true
 
@@ -148,23 +162,48 @@ them over MCP exactly like document comments — `list_artifact_comments` to pul
 up → you fix it" loop on files, not just documents. When you finish a deliverable
 file, tell the person they can review it with `plandesk <that file>`.
 
+## Artifacts
+
+An artifact is a stored agent deliverable — a report, an RFC, an HTML diagram —
+kept in the workspace (not a file on disk).
+
+- `create_artifact` to store one (`title`, `content`, optional `kind`:
+  `markdown` or `html`); the returned `artifact_id` is exactly the id
+  `list_artifact_comments`/`add_artifact_comment` use, so a human's annotation
+  and your `update_artifact` revision close the loop without a file on disk.
+- `get_artifact` to read one back before revising; `list_artifacts` to check
+  what a project already has before creating a duplicate.
+- Prefer an artifact over a Note or Document when the deliverable is a finished
+  piece meant to be read and marked up (a report, a spec, a diagram) rather than
+  tracked plan state. `artifact_id` is opaque — pass through what `create_artifact`
+  or `list_artifact_comments` gave you, never construct it.
+
+## Sharing
+
+- `create_share_link` hands a delegated worker or sub-agent full context for one
+  task or document without giving it MCP access: pass exactly one of `task_id`/
+  `document_id`, get back `{ url, markdown_url, expires_at }`. Put
+  `Context: <markdown_url>` in the worker's brief instead of pasting context —
+  `markdown_url` returns the resource as agent-ready Markdown with linked docs
+  inlined and embedded images fetchable.
+- `expires` defaults to `24h`; pass `never` only when the link truly needs to
+  outlive a session — it stays public to anyone who has it.
+
 ## Agent runs
 1. Start a run at the beginning of any multi-step Plan Desk operation.
 2. Record progress after each meaningful unit of work (not every tool call).
 3. Complete or fail the run before the session ends — never leave one open.
 
 ## Never do
+
+The highest-consequence guardrails — each section above states the positive
+form; these are the ones worth a hard, consolidated reminder:
+
 - Guess or hardcode IDs.
-- Batch status updates for the end of a session — statuses change atomically
-  as the work happens.
-- Leave a task `in_progress` that nobody is actively working on.
-- Reference line numbers in tasks or documents.
-- Create non-trivial tasks without a description.
-- Set a task to `in_progress` at creation.
-- Skip the duplicate check before creating a task.
-- Delete Plan Desk tasks, documents, or notes (there is no delete tool by design).
-- Leave open document comments unaddressed — read them with `list_comments` and
-  `resolve_comment` once handled (resolving replaces deleting).
-- Leave an agent run open at session end.
-- Create a document without linking it to a task.
+- Delete tasks, documents, notes, or artifacts — there is no delete tool by
+  design; resolve, supersede, or set status instead.
+- Batch status updates for the end of a session — statuses flip atomically as
+  the work happens (see "Keeping the board true").
+- Inline large images as base64 in a document/task/comment body — `attach_file`
+  and embed the returned `url` instead.
 
