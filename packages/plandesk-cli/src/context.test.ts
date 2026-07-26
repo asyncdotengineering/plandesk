@@ -139,6 +139,9 @@ describe('runContext', () => {
         body: 'the plan',
         statusLine: 'Ready to implement',
       });
+      if (!linkedDoc) {
+        throw new Error('expected linked document');
+      }
       // Documents link to tasks through a typed edge now, not a column.
       await services.canvasService.createEdge(projectId, {
         fromType: 'document',
@@ -194,6 +197,9 @@ describe('runContext', () => {
         body: bigBody,
         statusLine: null,
       });
+      if (!bigDoc) {
+        throw new Error('expected big document');
+      }
       await services.canvasService.createEdge(projectId, {
         fromType: 'document',
         fromId: bigDoc.id,
