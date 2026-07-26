@@ -4,6 +4,25 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-07-26
+
+Only `@plandesk/cli` changed. `db`, `api` and `mcp` are republished at the same version with no changes, because 2.0.0 promised the four move together so the number alone answers "which versions go together".
+
+### Added
+
+- **`factory-foreman` — the skill that runs the board.** The factory had policy for every phase of a run and nothing that ran one: `factory.md`, `protocol.md`, `slicing.md` and `brief.md` describe the cycle, the dispatch contract, WBS slices and live share-link context, but they ride in context as prose a supervising agent is expected to internalise. There was no invocable entry point, so the unattended path — hand off a ticket, walk away, come back to a commit — did not exist. `factory-foreman` is that entry point: preflight, resolve scope, groom, slice, dispatch, stage-then-verify, commit per slice, review, lane gate, loop. Invoke it with a task id, `next`, `all todo`, or a goal name, optionally `--to <worker>`.
+
+  It conducts rather than restates — every policy it needs is linked, because a fourth copy of the cycle is exactly the overlapping-authority problem that collapsing `workflow.md` into `factory.md` removed. **Grooming stays inline and only implementation dispatches:** grooming is judgment about intent, and handing that to a worker is how a plan drifts from what was actually wanted.
+
+- **`.agents/factory/workmanship.md` — the worker-side standard**, prepended to implementation briefs. `protocol.md` covers the engine verifying a worker *after* a dispatch; nothing told the worker the bar *before* it started, so a dispatch could only discover the standard by failing verification. Covers no workarounds, never claiming done without proof, tests that fail first, surgical changes, never destroying work it did not create, and honest reporting. Self-contained by necessity — a consumer machine has none of an operator's personal contracts.
+
+- **Two skill families.** `.agents/skills/` now reads as the model: `curator-*` plans, `factory-*` executes.
+
+### Fixed
+
+- **Curator skills had 21 dead cross-links.** They were written for the retired flat `.agents/curator/*.md` layout and never updated when skills moved to `.agents/skills/<name>/SKILL.md`, so `[triage.md](triage.md)` resolved to a sibling of the file citing it. Two also hardcoded `.agents/curator/triage.md`, a path that ships nowhere. Every link now resolves — verified in a scaffolded consumer repo, not only in this one.
+- **No skill was slash-invocable.** None declared `user-invocable`, so `/curator-triage` did nothing and skills could only fire on a description match. The four entry points (`curator-triage`, `curator-intake`, `curator-plan-writer`, `curator-automation`) now declare it with argument hints. `curator-autonomy` and `curator-provenance` stay reference-only on purpose — they are conventions other skills cite, and offering a command that does nothing is worse than offering none.
+
 ## [2.0.0] — 2026-07-26
 
 All four published packages move to **2.0.0** together and stay aligned from here on. Previously they drifted (`db` 1.0.0, `api` 1.0.6, `mcp`/`cli` 1.0.7), which made "which versions go together" a question you had to answer by reading the changelog. Now the answer is the number.
