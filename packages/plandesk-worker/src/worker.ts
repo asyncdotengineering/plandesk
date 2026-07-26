@@ -129,11 +129,11 @@ async function getDb(env: Env): Promise<Db> {
   return db;
 }
 
-async function getBetterAuth(
+function getBetterAuth(
   env: Env,
   db: Db,
   config: { secret: string; baseURL: string },
-): Promise<BetterAuthInstance> {
+): BetterAuthInstance {
   const key = [
     env.PLANDESK_DB_URL,
     env.PLANDESK_DB_TOKEN,
@@ -216,7 +216,7 @@ export default {
     }
 
     const db = await getDb(env);
-    const authInstance = await getBetterAuth(env, db, betterAuth);
+    const authInstance = getBetterAuth(env, db, betterAuth);
     // Storage is optional: prefer R2 binding, then S3 creds, else unavailable
     // (file uploads/artifacts off — no crash). Mirrors `plandesk serve`.
     const storage = resolveWorkerStorage(env, db);

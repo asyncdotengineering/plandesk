@@ -587,7 +587,15 @@ describe('export/import portability', () => {
 
   it('projects table columns stay the base schema after import', async () => {
     const columns = await db.$client.execute('PRAGMA table_info(projects)');
-    const names = columns.rows.map((row) => String(row['name'] ?? row[1])).sort();
+    const names = columns.rows
+      .map((row) => {
+        const name = row['name'] ?? row[1];
+        if (typeof name !== 'string') {
+          throw new Error(`PRAGMA table_info returned a non-string column name: ${typeof name}`);
+        }
+        return name;
+      })
+      .sort();
     expect(names).toEqual([
       'canvas_layout',
       'created_at',

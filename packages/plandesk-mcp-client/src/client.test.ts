@@ -212,13 +212,17 @@ describe('MCP loopback workspace scoping via in-process server', () => {
     expect(res.status).toBe(200);
     const text = await res.text();
     const dataLine = text.split('\n').find((l) => l.startsWith('data: '));
-    expect(dataLine).toBeDefined();
-    const parsed = JSON.parse(dataLine!.slice('data: '.length)) as {
+    if (dataLine === undefined) {
+      throw new Error(`no SSE data line in response: ${text}`);
+    }
+    const parsed = JSON.parse(dataLine.slice('data: '.length)) as {
       result?: { content: Array<{ type: string; text: string }> };
     };
     const contentText = parsed.result?.content[0]?.text;
-    expect(contentText).toBeDefined();
-    const body = JSON.parse(contentText!) as { projects: Array<{ id: string; name: string }> };
+    if (contentText === undefined) {
+      throw new Error(`no tool result content: ${dataLine}`);
+    }
+    const body = JSON.parse(contentText) as { projects: Array<{ id: string; name: string }> };
     expect(body.projects.some((p) => p.id === projectA.id)).toBe(true);
     expect(body.projects.every((p) => p.name === 'Project A')).toBe(true);
   });

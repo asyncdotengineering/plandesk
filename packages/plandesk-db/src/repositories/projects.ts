@@ -84,7 +84,11 @@ export async function listProjects(
   if (options?.workspaceIds !== undefined) {
     conditions.push(inArray(projects.workspaceId, options.workspaceIds));
   }
-  const filter = conditions.length === 1 ? conditions[0]! : and(...conditions);
+  const [onlyCondition] = conditions;
+  const filter =
+    conditions.length === 1 && onlyCondition !== undefined
+      ? onlyCondition
+      : and(...conditions);
   let query = db.select().from(projects).where(filter).$dynamic();
   if (options?.limit !== undefined) {
     query = query.limit(options.limit);

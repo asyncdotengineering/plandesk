@@ -39,10 +39,14 @@ describe('shares repository', () => {
         args: [share.id],
       })
     ).rows[0];
-    expect(row).toBeDefined();
-    expect(row?.token_hash).not.toBe(token);
-    expect(String(row?.token_hash)).toHaveLength(64);
-    expect(row?.token_hash).toBe(hashShareToken(token));
+    if (row === undefined) {
+      throw new Error('expected a shares row');
+    }
+    const tokenHash = row.token_hash;
+    expect(tokenHash).not.toBe(token);
+    expect(typeof tokenHash).toBe('string');
+    expect(tokenHash as string).toHaveLength(64);
+    expect(tokenHash).toBe(hashShareToken(token));
   });
 
   it('gets a share by id', async () => {

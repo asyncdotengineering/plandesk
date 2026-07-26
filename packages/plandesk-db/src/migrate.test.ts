@@ -51,11 +51,27 @@ const LEGACY_TABLES = [
   'mcp_tokens',
 ] as const;
 
+/**
+ * libSQL cells are `string | number | bigint | ArrayBuffer | null`. The schema
+ * metadata we read here is always text or integer, so narrow instead of
+ * `String()`-ing — an ArrayBuffer would silently become "[object Object]" and
+ * compare equal across genuinely different schemas.
+ */
+function cell(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'bigint') {
+    return value.toString();
+  }
+  throw new Error(`expected a scalar column value, got ${typeof value}`);
+}
+
 async function listTables(db: Awaited<ReturnType<typeof createDb>>): Promise<string[]> {
   const result = await db.$client.execute(
     "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
   );
-  return result.rows.map((row) => String(row.name));
+  return result.rows.map((row) => cell(row.name));
 }
 
 async function hasColumn(
@@ -123,7 +139,10 @@ describe('migrate', () => {
     const idx = files.indexOf('0002_ws_share.sql');
     expect(idx).toBeGreaterThan(0);
     const preamble = files.slice(0, idx);
-    const target = files[idx]!;
+    const target = files[idx];
+    if (target === undefined) {
+      throw new Error(`no migration file at index ${String(idx)}`);
+    }
 
     const db = await createDb(':memory:');
     await db.$client.execute('PRAGMA foreign_keys = OFF');
@@ -164,7 +183,10 @@ describe('migrate', () => {
     const idx = files.indexOf('0003_poly_edges.sql');
     expect(idx).toBeGreaterThan(0);
     const preamble = files.slice(0, idx);
-    const target = files[idx]!;
+    const target = files[idx];
+    if (target === undefined) {
+      throw new Error(`no migration file at index ${String(idx)}`);
+    }
 
     const db = await createDb(':memory:');
     await db.$client.execute('PRAGMA foreign_keys = OFF');
@@ -269,7 +291,10 @@ describe('migrate', () => {
     const idx = files.indexOf('0003_poly_edges.sql');
     expect(idx).toBeGreaterThan(0);
     const preamble = files.slice(0, idx);
-    const target = files[idx]!;
+    const target = files[idx];
+    if (target === undefined) {
+      throw new Error(`no migration file at index ${String(idx)}`);
+    }
 
     const db = await createDb(':memory:');
     await db.$client.execute('PRAGMA foreign_keys = OFF');
@@ -304,7 +329,10 @@ describe('migrate', () => {
     const idx = files.indexOf('0005_contract_drop_legacy_link_cols.sql');
     expect(idx).toBeGreaterThan(0);
     const preamble = files.slice(0, idx);
-    const target = files[idx]!;
+    const target = files[idx];
+    if (target === undefined) {
+      throw new Error(`no migration file at index ${String(idx)}`);
+    }
 
     const db = await createDb(':memory:');
     await db.$client.execute('PRAGMA foreign_keys = OFF');
@@ -395,10 +423,10 @@ describe('migrate', () => {
     const shape = async (client: Awaited<ReturnType<typeof createDb>>) => {
       const tables = (await listTables(client)).filter((t) => t !== '__drizzle_migrations').sort();
       const edgeCols = (await client.$client.execute('PRAGMA table_info(edges)')).rows
-        .map((r) => `${String(r.name)}:${String(r.notnull)}`)
+        .map((r) => `${cell(r.name)}:${cell(r.notnull)}`)
         .sort();
       const docCols = (await client.$client.execute('PRAGMA table_info(documents)')).rows
-        .map((r) => `${String(r.name)}:${String(r.notnull)}`)
+        .map((r) => `${cell(r.name)}:${cell(r.notnull)}`)
         .sort();
       return { tables, edgeCols, docCols };
     };
