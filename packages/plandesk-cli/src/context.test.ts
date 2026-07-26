@@ -134,11 +134,21 @@ describe('runContext', () => {
         label: 'Ship board-as-memory hooks',
         status: 'in_progress',
       });
-      await services.documentService.create(projectId, {
+      const linkedDoc = await services.documentService.create(projectId, {
         title: 'Design: hooks',
         body: 'the plan',
         statusLine: 'Ready to implement',
-        linkedTaskId: task.id,
+      });
+      if (!linkedDoc) {
+        throw new Error('expected linked document');
+      }
+      // Documents link to tasks through a typed edge now, not a column.
+      await services.canvasService.createEdge(projectId, {
+        fromType: 'document',
+        fromId: linkedDoc.id,
+        toType: 'task',
+        toId: task.id,
+        label: 'documents',
       });
       const run = await services.agentRunService.start(projectId, 'Worker');
       if (!run) {
@@ -182,11 +192,20 @@ describe('runContext', () => {
       bindRepo(repoDir, baseUrl, projectId);
       const task = await createTask(db, { projectId, label: 'Big doc task', status: 'in_progress' });
       const bigBody = 'x'.repeat(9000);
-      await services.documentService.create(projectId, {
+      const bigDoc = await services.documentService.create(projectId, {
         title: 'Design: big',
         body: bigBody,
         statusLine: null,
-        linkedTaskId: task.id,
+      });
+      if (!bigDoc) {
+        throw new Error('expected big document');
+      }
+      await services.canvasService.createEdge(projectId, {
+        fromType: 'document',
+        fromId: bigDoc.id,
+        toType: 'task',
+        toId: task.id,
+        label: 'documents',
       });
 
       const context = (await runContext(repoDir)) as { linked_doc: { body: string } };

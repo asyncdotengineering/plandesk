@@ -167,17 +167,17 @@ plandesk factory init
 
 What this writes:
 
-- **Factory policy** (`.agents/factory/`): workflow.md (the session program),
-  factory.md (the per-task contract), and autonomous-stand.md (the execution
-  posture: decompose a goal, drive the task list to zero, ship without pausing),
-  plus protocol.md, lanes.md, verifiers/, workers/ (one file per agent CLI,
-  probed). `factory init` writes a **managed sentinel block** into `CLAUDE.md` /
-  `AGENTS.md`: a crisp "default operating mode" preamble (follow the cycle,
-  delegate to a probed worker when one is installed else do it yourself,
-  autonomous-stand, prove before done) plus **one always-on @-include —
-  factory.md**, the per-item contract. The session program and execution posture
-  are referenced by path in the preamble and read on demand, not inlined into
-  every session. The full set is also exposed together as a `/factory` command.
+- **Factory policy** (`.agents/factory/`): factory.md (the per-item serial
+  contract + agent-run lifecycle), execution.md (IC spine: decompose, drive to
+  zero, ship), optional companions (slicing / brief / heartbeat), plus
+  protocol.md, routing.md, lanes.md, verifiers/, workers/ (one file per agent
+  CLI, probed). `factory init` writes a **managed sentinel block** into
+  `CLAUDE.md` / `AGENTS.md`: a crisp "default operating mode" preamble (follow
+  the cycle, delegate to a probed worker when one is installed else do it
+  yourself, execute without pausing, prove before done) plus **one always-on
+  @-include — factory.md**. The IC spine is referenced by path in the preamble
+  and read on demand, not inlined into every session. The `/factory` command
+  loads factory.md + execution.md.
 - **Curator skills** (`.agents/curator/` → `.claude/skills/`): triage, intake,
   autonomy, provenance, automation.
 - **Claude Code hooks**: `.agents/curator/hooks/session-start.sh` + `checkpoint.sh`,

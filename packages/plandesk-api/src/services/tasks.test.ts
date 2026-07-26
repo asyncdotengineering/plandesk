@@ -187,20 +187,28 @@ describe('taskService', () => {
     ).rejects.toThrow(InvalidGoalReferenceError);
   });
 
-  it('deletes a task, cascades edges, and nulls linked documents', async () => {
+  it('deletes a task and cascades edges including document→task links', async () => {
     const service = createService();
     const task = await createTask(db, { projectId, label: 'Delete me' });
     await createEdge(db, { projectId, fromTaskId: task.id, toTaskId: task.id });
     const doc = await createDocument(db, {
       projectId,
       title: 'Linked',
-      linkedTaskId: task.id,
+    });
+    await createEdge(db, {
+      projectId,
+      fromType: 'document',
+      fromId: doc.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
     });
 
     expect(await service.delete(task.id)).toBe(true);
     expect(await getTask(db, task.id)).toBeUndefined();
     expect(await listEdges(db, projectId)).toHaveLength(0);
-    expect((await getDocument(db, doc.id))?.linkedTaskId).toBeNull();
+    // Document row is retained; only edges pointing at the task are removed.
+    expect((await getDocument(db, doc.id))?.id).toBe(doc.id);
   });
 
   it('returns false when deleting a missing task', async () => {

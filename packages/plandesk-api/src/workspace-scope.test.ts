@@ -21,7 +21,7 @@ import {
   type BetterAuthInstance,
 } from './better-auth.js';
 import { createApp } from './server.js';
-import { parseJson } from './test-helpers.js';
+import { createTestApp, parseJson } from './test-helpers.js';
 import { readApiKeyMetadata } from './auth.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
@@ -362,3 +362,83 @@ describe('workspace-scoped agent keys (cross-workspace isolation)', () => {
     });
   });
 });
+
+describe('loopback workspace scoping (local convenience)', () => {
+  it('loopback with x-plandesk-workspace-id header lists only that workspace', async () => {
+    const { app, db } = await createTestApp({ bindHost: '127.0.0.1' });
+    const wsA = randomUUID();
+    const wsB = randomUUID();
+    const projectA = await createProject(db, { name: 'Project A', workspaceId: wsA });
+    await createProject(db, { name: 'Project B', workspaceId: wsB });
+
+    const listRes = await app.request('/api/v1/projects', {
+      headers: { 'x-plandesk-workspace-id': wsA },
+    });
+    expect(listRes.status).toBe(200);
+    const listed = await parseJson<Array<{ id: string; name: string }>>(listRes);
+    expect(listed.some((p) => p.id === projectA.id)).toBe(true);
+    expect(listed.every((p) => p.name === 'Project A')).toBe(true);
+  });
+
+  it('loopback with header → cross-workspace project GET → 404', async () => {
+    const { app, db } = await createTestApp({ bindHost: '127.0.0.1' });
+    const wsA = randomUUID();
+    const wsB = randomUUID();
+    await createProject(db, { name: 'Project A', workspaceId: wsA });
+    const projectB = await createProject(db, { name: 'Project B', workspaceId: wsB });
+
+    const getB = await app.request(`/api/v1/projects/${projectB.id}`, {
+      headers: { 'x-plandesk-workspace-id': wsA },
+    });
+    expect(getB.status).toBe(404);
+    expect(await parseJson(getB)).toEqual({ error: 'not_found' });
+  });
+
+  it('loopback without header → all projects (owner)', async () => {
+    const { app, db } = await createTestApp({ bindHost: '127.0.0.1' });
+    const wsA = randomUUID();
+    const wsB = randomUUID();
+    const projectA = await createProject(db, { name: 'Project A', workspaceId: wsA });
+    const projectB = await createProject(db, { name: 'Project B', workspaceId: wsB });
+
+    const listRes = await app.request('/api/v1/projects');
+    expect(listRes.status).toBe(200);
+    const listed = await parseJson<Array<{ id: string }>>(listRes);
+    expect(listed.some((p) => p.id === projectA.id)).toBe(true);
+    expect(listed.some((p) => p.id === projectB.id)).toBe(true);
+  });
+
+  it('hosted apikey context ignores the workspace header (privilege bug prevention)', async () => {
+    const { app, db, auth } = await hostedApp();
+    const org = { id: randomUUID(), name: 'Header Ignore Org' };
+    const wsA = randomUUID();
+    const wsB = randomUUID();
+    const projectA = await createProject(db, { name: 'Project A', orgId: org.id, workspaceId: wsA });
+    await createProject(db, { name: 'Project B', orgId: org.id, workspaceId: wsB });
+
+    const { userId } = await seedBetterAuthUser(auth, {
+      email: 'header-ignore@example.com',
+      name: 'HeaderIgnore',
+      githubAccountId: '7005',
+      org: { id: org.id, name: org.name, slug: 'header-ignore' },
+      role: 'owner',
+    });
+
+    const ownerKey = await createOrgOwnerKey({
+      auth,
+      userId,
+      orgId: org.id,
+      name: 'owner-key',
+    });
+
+    // Owner key (no workspaceId in metadata) should see ALL projects regardless of header
+    const listRes = await app.request('/api/v1/projects', {
+      headers: { ...bearer(ownerKey.key), 'x-plandesk-workspace-id': wsA },
+    });
+    expect(listRes.status).toBe(200);
+    const listed = await parseJson<Array<{ id: string }>>(listRes);
+    expect(listed.some((p) => p.id === projectA.id)).toBe(true);
+  });
+});
+
+

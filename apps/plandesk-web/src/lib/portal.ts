@@ -143,8 +143,17 @@ export function clearPortalSession(shareToken: string): void {
   window.localStorage.removeItem(portalSessionKey(shareToken));
 }
 
+function isWorkspaceClientView(
+  raw: PortalViewResponse,
+): raw is WorkspaceClientView & {
+  audience_name?: string;
+  permissions?: { read: boolean; submit: boolean };
+} {
+  return 'kind' in raw && (raw as { kind?: string }).kind === 'workspace';
+}
+
 function normalizePortalResponse(raw: PortalViewResponse): AnyClientView {
-  if ('kind' in raw && raw.kind === 'workspace') {
+  if (isWorkspaceClientView(raw)) {
     return {
       kind: 'workspace',
       workspace: raw.workspace,
@@ -152,19 +161,23 @@ function normalizePortalResponse(raw: PortalViewResponse): AnyClientView {
       share: raw.share,
     };
   }
-  const audienceName = raw.audience_name ?? raw.share.audience_name;
-  const permissions = raw.permissions ?? raw.share.permissions;
+  const projectView = raw as ClientView & {
+    audience_name?: string;
+    permissions?: { read: boolean; submit: boolean };
+  };
+  const audienceName = projectView.audience_name ?? projectView.share.audience_name;
+  const permissions = projectView.permissions ?? projectView.share.permissions;
 
   return {
-    project: raw.project,
-    tasks: raw.tasks,
-    edges: raw.edges,
-    documents: raw.documents,
-    progress: raw.progress,
+    project: projectView.project,
+    tasks: projectView.tasks,
+    edges: projectView.edges,
+    documents: projectView.documents,
+    progress: projectView.progress,
     share: {
       audience_name: audienceName,
       permissions,
-      expires_at: raw.share.expires_at,
+      expires_at: projectView.share.expires_at,
     },
   };
 }

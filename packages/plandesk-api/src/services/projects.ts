@@ -27,6 +27,7 @@ import {
   InvalidTaskStatusError,
   isTaskStatus,
   listAgentRuns,
+  listEdges,
   listProjects as dbListProjects,
   listTasks,
   updateProject as dbUpdateProject,
@@ -464,15 +465,27 @@ export function createProjectService(deps: ProjectServiceDeps) {
         }
 
         for (const docInput of input.documents ?? []) {
-          const linkedTaskId =
+          const linkTaskId =
             docInput.linkTo !== undefined ? keyToId.get(docInput.linkTo) : undefined;
           const document = await createDocument(tx, {
             projectId,
             title: docInput.title,
             body: docInput.body,
             statusLine: docInput.statusLine,
-            linkedTaskId: linkedTaskId ?? null,
           });
+          // Document→task edge is the sole link. Not pushed onto edgeRows —
+          // scaffold `edges`/`counts.edges` stay the plan's task-graph edges;
+          // the document link is reflected on the document payload.
+          if (linkTaskId !== undefined) {
+            await createEdge(tx, {
+              projectId,
+              fromType: 'document',
+              fromId: document.id,
+              toType: 'task',
+              toId: linkTaskId,
+              label: 'documents',
+            });
+          }
           documentRows.push(document);
         }
       });
@@ -482,11 +495,47 @@ export function createProjectService(deps: ProjectServiceDeps) {
         throw new Error('scaffolded project missing after transaction');
       }
 
+      // Hydrate document links from the edges just written (and any pre-existing).
+      const allEdges = await listEdges(db, projectId);
+      const documents = documentRows.map((document) => {
+        const links = allEdges
+          .filter((edge) => edge.fromType === 'document' && edge.fromId === document.id)
+          .map((edge) => {
+            const title =
+              edge.toType === 'task'
+                ? (taskRows.find((t) => t.id === edge.toId)?.label ?? edge.toId)
+                : (documentRows.find((d) => d.id === edge.toId)?.title ?? edge.toId);
+            return {
+              type: edge.toType as 'task' | 'document',
+              id: edge.toId,
+              title,
+              label: edge.label,
+              edge_id: edge.id,
+            };
+          });
+        const backlinks = allEdges
+          .filter((edge) => edge.toType === 'document' && edge.toId === document.id)
+          .map((edge) => {
+            const title =
+              edge.fromType === 'task'
+                ? (taskRows.find((t) => t.id === edge.fromId)?.label ?? edge.fromId)
+                : (documentRows.find((d) => d.id === edge.fromId)?.title ?? edge.fromId);
+            return {
+              type: edge.fromType as 'task' | 'document',
+              id: edge.fromId,
+              title,
+              label: edge.label,
+              edge_id: edge.id,
+            };
+          });
+        return serializeDocument(document, { links, backlinks });
+      });
+
       return {
         project: serializeProject(project),
         tasks: taskRows.map((task) => serializeTask(task)),
         edges: edgeRows.map(serializeEdge),
-        documents: documentRows.map(serializeDocument),
+        documents,
         key_to_id: Object.fromEntries(keyToId),
         counts: {
           tasks: taskRows.length,

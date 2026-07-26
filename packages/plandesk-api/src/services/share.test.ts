@@ -3,6 +3,7 @@ import {
   DEFAULT_ORG_ID,
   createDb,
   createDocument,
+  createEdge,
   createProjectInDefaultOrg as createProject,
   getShare,
   getShareByTokenHashRaw,
@@ -10,6 +11,7 @@ import {
   listShares,
   listSubmissions,
   migrate,
+  parseSharePolicy,
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
@@ -154,11 +156,18 @@ describe('shareService', () => {
       label: 'Ship the thing',
       description: 'See ![before](/api/v1/files/abc123) for context.',
     });
-    await createDocument(db, {
+    const spec = await createDocument(db, {
       projectId: project.id,
       title: 'Spec',
       body: '<p>Do the work.</p><img src="/api/v1/files/def456" alt="diagram">',
-      linkedTaskId: task.id,
+    });
+    await createEdge(db, {
+      projectId: project.id,
+      fromType: 'document',
+      fromId: spec.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
     });
 
     const created = await service.createResourceShare(
@@ -208,6 +217,138 @@ describe('shareService', () => {
     }
     expect(markdown.markdown).toContain('# RFC');
     expect(markdown.markdown).toContain('## Design');
+  });
+
+  it('task share includes edge-linked documents', async () => {
+    const service = createService();
+    const project = await createProject(db, { name: 'Edge-linked share' });
+    const task = await createTask(db, { projectId: project.id, label: 'T1' });
+    const primaryDoc = await createDocument(db, {
+      projectId: project.id,
+      title: 'Primary doc',
+    });
+    const newDoc = await createDocument(db, {
+      projectId: project.id,
+      title: 'New-way doc',
+      body: '<p>Edge only</p>',
+    });
+    for (const doc of [primaryDoc, newDoc]) {
+      await createEdge(db, {
+        projectId: project.id,
+        fromType: 'document',
+        fromId: doc.id,
+        toType: 'task',
+        toId: task.id,
+        label: 'documents',
+      });
+    }
+
+    const created = await service.createResourceShare(
+      { resource: { kind: 'task', id: task.id } },
+      'https://plandesk.example',
+    );
+    if (!created) {
+      throw new Error('expected resource share to be created');
+    }
+
+    const share = await getShareByTokenHashRaw(db, hashShareToken(created.token));
+    expect(share).toBeDefined();
+    if (!share) {
+      return;
+    }
+    const policy = parseSharePolicy(share);
+    expect(policy.documentIds.sort()).toEqual([primaryDoc.id, newDoc.id].sort());
+
+    const markdown = await service.getResourceMarkdown(created.token, 'https://plandesk.example');
+    if (markdown.status !== 'ok') {
+      throw new Error('expected markdown');
+    }
+    expect(markdown.markdown).toContain('## Linked document: Primary doc');
+    expect(markdown.markdown).toContain('## Linked document: New-way doc');
+  });
+
+  it('a document linked to three tasks appears in all three task shares', async () => {
+    const service = createService();
+    const project = await createProject(db, { name: 'Multi-task doc' });
+    const t1 = await createTask(db, { projectId: project.id, label: 'T1' });
+    const t2 = await createTask(db, { projectId: project.id, label: 'T2' });
+    const t3 = await createTask(db, { projectId: project.id, label: 'T3' });
+    const doc = await createDocument(db, { projectId: project.id, title: 'Shared design' });
+    for (const task of [t1, t2, t3]) {
+      await createEdge(db, {
+        projectId: project.id,
+        fromType: 'document',
+        fromId: doc.id,
+        toType: 'task',
+        toId: task.id,
+        label: 'documents',
+      });
+    }
+
+    for (const task of [t1, t2, t3]) {
+      const created = await service.createResourceShare(
+        { resource: { kind: 'task', id: task.id } },
+        'https://plandesk.example',
+      );
+      if (!created) {
+        throw new Error('expected resource share');
+      }
+      const share = await getShareByTokenHashRaw(db, hashShareToken(created.token));
+      expect(share).toBeDefined();
+      if (!share) {
+        return;
+      }
+      expect(parseSharePolicy(share).documentIds).toEqual([doc.id]);
+    }
+  });
+
+  it('task share policy never includes a document from another project', async () => {
+    const service = createService();
+    const project = await createProject(db, { name: 'Scoped share' });
+    const other = await createProject(db, { name: 'Other project' });
+    const task = await createTask(db, { projectId: project.id, label: 'T1' });
+    const inScope = await createDocument(db, { projectId: project.id, title: 'In scope' });
+    const foreign = await createDocument(db, { projectId: other.id, title: 'Foreign' });
+    await createEdge(db, {
+      projectId: project.id,
+      fromType: 'document',
+      fromId: inScope.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
+    });
+    // Foreign project edge pointing at the same task id must not widen the share.
+    await createEdge(db, {
+      projectId: other.id,
+      fromType: 'document',
+      fromId: foreign.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
+    });
+
+    const created = await service.createResourceShare(
+      { resource: { kind: 'task', id: task.id } },
+      'https://plandesk.example',
+    );
+    if (!created) {
+      throw new Error('expected resource share');
+    }
+    const share = await getShareByTokenHashRaw(db, hashShareToken(created.token));
+    expect(share).toBeDefined();
+    if (!share) {
+      return;
+    }
+    const policy = parseSharePolicy(share);
+    expect(policy.documentIds).toEqual([inScope.id]);
+    expect(policy.documentIds).not.toContain(foreign.id);
+
+    const markdown = await service.getResourceMarkdown(created.token, 'https://plandesk.example');
+    if (markdown.status !== 'ok') {
+      throw new Error('expected markdown');
+    }
+    expect(markdown.markdown).toContain('## Linked document: In scope');
+    expect(markdown.markdown).not.toContain('Foreign');
   });
 
   it('createResourceShare defaults to a 24h expiry; explicit null never expires', async () => {

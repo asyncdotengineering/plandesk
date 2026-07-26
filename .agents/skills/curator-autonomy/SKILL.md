@@ -1,6 +1,6 @@
 ---
-type: curator-skill
-version: 1
+name: curator-autonomy
+description: Board-bound, lane-gated autonomy posture for driving this project's Plan Desk board unattended without breaching the human gates. Use when running the board loop autonomously.
 ---
 
 # Curator: autonomy posture (vendored, board-bound, lane-gated)
@@ -8,9 +8,9 @@ version: 1
 A distilled, project-local autonomy posture for driving this project's Plan
 Desk board without pausing for permission on every step — bounded strictly
 by the board's own lane gates. Vendored: this file has **no runtime
-dependency on any global skill** (`autonomous-stand`, `autonomous-manager-
-stand`, or anything under an operator's `~/.claude`/`~/.agents`). Copy it,
-don't reference it.
+dependency on any global skill** (generic "drive any goal to done" postures,
+or anything under an operator's `~/.claude`/`~/.agents`). Copy it, don't
+reference it.
 
 **Lane: full** — this governs autonomy itself; treat changes to this file
 with the same scrutiny as a public contract.

@@ -6,6 +6,7 @@ import {
   createComment,
   createDb,
   createDocument,
+  createEdge,
   createFolder,
   createGoal,
   createNote,
@@ -178,7 +179,15 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     const projectOtherOrg = await createProject(db, { name: 'Project Other', orgId: orgB.id, workspaceId: wsA });
 
     const taskA = await createTask(db, { projectId: projectA.id, label: 'Task A', status: 'todo' });
-    const doc = await createDocument(db, { projectId: projectA.id, title: 'Doc A', linkedTaskId: taskA.id });
+    const doc = await createDocument(db, { projectId: projectA.id, title: 'Doc A' });
+    await createEdge(db, {
+      projectId: projectA.id,
+      fromType: 'document',
+      fromId: doc.id,
+      toType: 'task',
+      toId: taskA.id,
+      label: 'documents',
+    });
 
     const { userId: userA } = await seedBetterAuthUser(auth, {
       email: 'a@example.com',

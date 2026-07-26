@@ -1,6 +1,7 @@
 import { useAuthSession } from '../../lib/auth.js';
 import { useOrgMembers } from '../../lib/queries.js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { QueryFailure } from './QueryFailure.js';
 
 /**
  * Read-only org roster. Invitations are workspace-scoped — invite from the
@@ -9,12 +10,39 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
  */
 export function Members() {
   const session = useAuthSession();
-  const orgId = session.data?.org?.id;
+  const isLoopback = session.data?.kind === 'loopback';
+  const orgId = isLoopback ? undefined : session.data?.org?.id;
 
   const membersQuery = useOrgMembers(orgId);
 
   if (session.isLoading) {
     return <p className="text-sm text-muted-foreground">Loading session…</p>;
+  }
+
+  if (session.isError) {
+    return (
+      <QueryFailure
+        message="Failed to load the current session."
+        onRetry={() => {
+          void session.refetch();
+        }}
+        isRetrying={session.isFetching}
+      />
+    );
+  }
+
+  if (isLoopback) {
+    return (
+      <Card className="max-w-3xl">
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Local board access</CardTitle>
+          <CardDescription>
+            A local board does not keep hosted organization member rows. Loopback is trusted as
+            owner, so everyone using this machine&apos;s board has local owner access.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
   }
 
   if (orgId === undefined) {
@@ -39,9 +67,13 @@ export function Members() {
             <p className="text-sm text-muted-foreground">Loading members…</p>
           ) : null}
           {membersQuery.isError ? (
-            <p role="alert" className="text-sm text-destructive">
-              Failed to load members.
-            </p>
+            <QueryFailure
+              message="Failed to load members."
+              onRetry={() => {
+                void membersQuery.refetch();
+              }}
+              isRetrying={membersQuery.isFetching}
+            />
           ) : null}
           {membersQuery.data !== undefined ? (
             membersQuery.data.members.length === 0 ? (

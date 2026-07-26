@@ -222,7 +222,12 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
     setEdges(
       canvasToFlowEdges(canvas.edges).map((edge) => ({
         ...edge,
-        data: { ...edge.data, onLabelChange: stableOnLabelChange },
+        data: {
+          label: edge.data?.label ?? DEFAULT_EDGE_LABEL,
+          onLabelChange: (label: EdgeLabel) => {
+            stableOnLabelChange(edge.id, label);
+          },
+        },
       })),
     );
   }, [canvas, documents, setNodes, setEdges, stableOnLabelChange]);
@@ -283,11 +288,18 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
   const handleConnect = useCallback(
     (connection: Connection) => {
       setEdges((current) => {
+        const edgeId = crypto.randomUUID();
         const next = addEdge(
           {
             ...connection,
+            id: edgeId,
             type: 'labeled',
-            data: { label: DEFAULT_EDGE_LABEL, onLabelChange: stableOnLabelChange },
+            data: {
+              label: DEFAULT_EDGE_LABEL,
+              onLabelChange: (label: EdgeLabel) => {
+                stableOnLabelChange(edgeId, label);
+              },
+            },
           },
           current,
         );

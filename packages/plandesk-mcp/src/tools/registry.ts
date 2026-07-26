@@ -7,8 +7,13 @@ const DOCUMENT_BODY_DESCRIPTION =
 const NOTE_BODY_DESCRIPTION =
   'Note body in Markdown (rendered as rich text). Notes are free-form working notes scoped to the project — use them for findings, context, or anything worth referring back to. HTML is also accepted.';
 
-const LINKED_TASK_DESCRIPTION =
-  'ID (uuid) of the task this document is the spec for. Links the document to its primary task.';
+// Caller-terms: what the caller gets (an outgoing link), not how storage keeps it.
+// The link_to field is the sole link input now; the legacy linked_task_id dual-write
+// was dropped by the one-link-shape contract, so there is no precedence to state.
+const LINK_TO_DESCRIPTION =
+  "Task or document id(s) this document should link to. Accepts a single id or a list; each adds an outgoing link from this document (label 'documents' for a task target, 'references' for a document target). Read these links back — each carries its own edge_id — via get_document.";
+
+const LINK_ENTITY_TYPE = z.enum(['task', 'document']);
 
 const TAGS_SET_DESCRIPTION =
   'Tag names to set on the task. Replaces the FULL tag set; tags that do not exist yet in the project are auto-created by name. Pass [] to remove all tags.';
@@ -69,7 +74,10 @@ export const createDocumentInputSchema = z.object({
   project_id: z.string().uuid(),
   title: z.string().min(1),
   body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
-  linked_task_id: z.string().uuid().optional().describe(LINKED_TASK_DESCRIPTION),
+  link_to: z
+    .union([z.string().uuid(), z.array(z.string().uuid())])
+    .optional()
+    .describe(LINK_TO_DESCRIPTION),
   parent_id: z.string().uuid().optional(),
   folder_id: z
     .string()
@@ -83,12 +91,10 @@ export const updateDocumentInputSchema = z.object({
   title: z.string().optional(),
   body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
   status_line: z.string().optional(),
-  linked_task_id: z
-    .string()
-    .uuid()
-    .nullable()
+  link_to: z
+    .union([z.string().uuid(), z.array(z.string().uuid())])
     .optional()
-    .describe(`${LINKED_TASK_DESCRIPTION} Pass null to unlink the document from its task.`),
+    .describe(LINK_TO_DESCRIPTION),
   folder_id: z
     .string()
     .uuid()
@@ -197,8 +203,32 @@ export const attachFileInputSchema = z.object({
 
 export const createEdgeInputSchema = z.object({
   project_id: z.string().uuid(),
-  from_task_id: z.string().uuid(),
-  to_task_id: z.string().uuid(),
+  from_type: LINK_ENTITY_TYPE.optional().describe(
+    "Entity type of the edge's from endpoint: 'task' or 'document'. Required with from_id for typed edges.",
+  ),
+  from_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('Id of the from endpoint (task or document). Required with from_type for typed edges.'),
+  to_type: LINK_ENTITY_TYPE.optional().describe(
+    "Entity type of the edge's to endpoint: 'task' or 'document'. Required with to_id for typed edges.",
+  ),
+  to_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('Id of the to endpoint (task or document). Required with to_type for typed edges.'),
+  from_task_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('Legacy task-shaped from. Still accepted; maps to from_type=task, from_id=<value>.'),
+  to_task_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('Legacy task-shaped to. Still accepted; maps to to_type=task, to_id=<value>.'),
   label: z.string().optional(),
   style: z.string().optional(),
 });
@@ -208,8 +238,58 @@ export const listEdgesInputSchema = z.object({
 });
 
 export const deleteEdgeInputSchema = z.object({
-  edge_id: z.string().uuid(),
+  edge_id: z
+    .string()
+    .uuid()
+    .describe(
+      'Id of the edge to remove. Obtain it from the `edge_id` field on a get_document links or backlinks entry, or from list_edges. Only this edge is affected; sibling edges on the same entity are left intact.',
+    ),
 });
+
+// ---- outputSchema shapes ----
+// Raw shapes (object of zod fields) passed to McpServer.registerTool's
+// `outputSchema`. The SDK validates the handler's structuredContent against
+// these, so they MUST match serializeDocument / serializeEdge exactly.
+// Ids are randomUUID(); label/arrow_direction/style are nullable text columns.
+
+const entityLinkOutputShape = {
+  type: LINK_ENTITY_TYPE,
+  id: z.string().uuid(),
+  title: z.string(),
+  label: z.string().nullable(),
+  edge_id: z.string().uuid(),
+};
+
+const documentOutputShape = {
+  id: z.string().uuid(),
+  project_id: z.string().uuid(),
+  title: z.string(),
+  body: z.string().nullable(),
+  status_line: z.string().nullable(),
+  parent_id: z.string().uuid().nullable(),
+  folder_id: z.string().uuid().nullable(),
+  links: z.array(z.object(entityLinkOutputShape)),
+  backlinks: z.array(z.object(entityLinkOutputShape)),
+  created_at: z.string(),
+  updated_at: z.string(),
+};
+
+const edgeOutputShape = {
+  id: z.string().uuid(),
+  project_id: z.string().uuid(),
+  from_type: LINK_ENTITY_TYPE,
+  from_id: z.string().uuid(),
+  to_type: LINK_ENTITY_TYPE,
+  to_id: z.string().uuid(),
+  label: z.string().nullable(),
+  arrow_direction: z.string().nullable(),
+  style: z.string().nullable(),
+  created_at: z.string(),
+};
+
+export const getDocumentOutputSchema = { document: z.object(documentOutputShape) };
+export const listEdgesOutputSchema = { edges: z.array(z.object(edgeOutputShape)) };
+export const createEdgeOutputSchema = { edge: z.object(edgeOutputShape) };
 
 export const startAgentRunInputSchema = z.object({
   project_id: z.string().uuid(),
@@ -264,10 +344,22 @@ export const scaffoldProjectFromPlanInputSchema = z.object({
   documents: z
     .array(
       z.object({
+        key: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            'Stable key for this document so other documents can link_to it in the same plan. Resolved into key_to_id alongside task keys.',
+          ),
         title: z.string().min(1),
         body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
         status_line: z.string().optional(),
-        link_to: z.string().optional(),
+        link_to: z
+          .union([z.string().min(1), z.array(z.string().min(1))])
+          .optional()
+          .describe(
+            'Task or document plan key(s) to link. Accepts a single key or a list; resolved through key_to_id. A single string remains accepted for backward compatibility.',
+          ),
       }),
     )
     .optional(),

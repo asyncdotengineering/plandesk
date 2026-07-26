@@ -28,8 +28,10 @@ const sampleTask: SerializedTask = {
 const sampleEdge: SerializedEdge = {
   id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
   project_id: 'proj-1',
-  from_task_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-  to_task_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  from_type: 'task',
+  from_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  to_type: 'task',
+  to_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
   label: 'blocks',
   arrow_direction: null,
   style: null,
@@ -62,8 +64,8 @@ describe('canvas-map', () => {
       {
         id: sampleEdge.id,
         type: 'labeled',
-        source: sampleEdge.from_task_id,
-        target: sampleEdge.to_task_id,
+        source: sampleEdge.from_id,
+        target: sampleEdge.to_id,
         data: { label: 'blocks' },
       },
     ]);
@@ -79,7 +81,16 @@ describe('canvas-map', () => {
         status_line: null,
         parent_id: null,
         folder_id: null,
-        linked_task_id: sampleTask.id,
+        links: [
+          {
+            type: 'task',
+            id: sampleTask.id,
+            title: sampleTask.label,
+            label: 'documents',
+            edge_id: 'edge-1',
+          },
+        ],
+        backlinks: [],
         created_at: '2026-06-07T00:00:00.000Z',
         updated_at: '2026-06-07T00:00:00.000Z',
         children: [],
@@ -106,18 +117,20 @@ describe('canvas-map', () => {
         },
       },
     ];
+    const fromTaskId = sampleEdge.from_id;
+    const toTaskId = sampleEdge.to_id;
     const edges: Edge<LabeledEdgeData>[] = [
       {
         id: sampleEdge.id,
         type: 'labeled',
-        source: sampleEdge.from_task_id,
-        target: sampleEdge.to_task_id,
+        source: fromTaskId,
+        target: toTaskId,
         data: { label: 'blocks' },
       },
       {
         id: 'reactflow__edge-a-b',
         type: 'labeled',
-        source: sampleEdge.from_task_id,
+        source: fromTaskId,
         target: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
         data: { label: 'depends_on' },
       },
@@ -129,12 +142,12 @@ describe('canvas-map', () => {
     expect(payload.edges).toEqual([
       {
         id: sampleEdge.id,
-        from_task_id: sampleEdge.from_task_id,
-        to_task_id: sampleEdge.to_task_id,
+        from_task_id: fromTaskId,
+        to_task_id: toTaskId,
         label: 'blocks',
       },
       {
-        from_task_id: sampleEdge.from_task_id,
+        from_task_id: fromTaskId,
         to_task_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
         label: 'depends_on',
       },

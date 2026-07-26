@@ -1,8 +1,7 @@
 {
   "version": 1,
   "files": {
-    ".agents/factory/autonomous-stand.md": "51d9568b914b9f4e23be07c2b46d64da37561a5f93c03d97a4b7091fced77b51",
-    ".agents/factory/lanes.md": "f189ab8dd30db3a3c48f891dd342871385545c2a78872475407ecf503a5f01e3",
+    ".agents/factory/lanes.md": "b118771f2d34663c3ed741f379bda415f065a45e284c6ef9147c9c6f7fad82f4",
     ".agents/factory/verifiers/tests-pass.md": "50a0739c67254ad60cd23e7c1782617cbb05be5e6988ba9131eba3c751aca2f3",
     ".agents/factory/workers/claude.md": "710fcc79b9b9447687b5eba46de4206804b168281649dd9520a114cdffb424d6",
     ".agents/factory/workers/cursor.md": "48e7cc818c80407e147feb8af38569e5bea80fb6e4924b088b3143c6e97f2c30",
@@ -16,6 +15,16 @@
     ".agents/curator/hooks/session-start.sh": "50b1559ced68b9aa7b458819b9aa1908f84999d9d38eb5fe257bf07f999fa13f",
     ".agents/curator/hooks/checkpoint.sh": "83ec6753811f6ccb475f41be023a1a1b76bb300c74223ecff3a1ed392c06b2ec",
     ".agents/curator/hooks/settings.snippet.json": "17bf6fc390e19706b052c2d8a31259049df8ce7279f0f37ae078d9c328ba3617",
-    ".agents/curator/hooks/README.md": "370ea61df472d97213d9b4b3b2eeecc5727b5679ba51c407db6f957463a905c5"
+    ".agents/curator/hooks/README.md": "370ea61df472d97213d9b4b3b2eeecc5727b5679ba51c407db6f957463a905c5",
+    ".agents/factory/factory.md": "5ef84dc33cd34aef003c2fc613dad681495f0b546b43f52dc062d0fdf8aec113",
+    ".agents/factory/execution.md": "126cf6ed2ddf95bdf217259be6c4cd71185fdaf12f37dffcb091ed66bff7b9b5",
+    ".agents/factory/slicing.md": "9b3e8be49b54125e8c6e5ee18c18d5e578a86013c01e6f524bc80e9b505763bd",
+    ".agents/factory/brief.md": "9cd7f110ce9f5e7482bdcc59ec67c0ffbc04fb8466c05f878519b21c49fade2b",
+    ".agents/factory/heartbeat.md": "2835b9786328a254fd8f96ac8b066e9c40c02bc636c6dfd83c392217a4c382a3",
+    ".agents/factory/protocol.md": "842e36fe31d3ed8517043a16ea858ac020f413b4312b041fb8944d57af62881e",
+    ".agents/factory/routing.md": "f36c79d76148d87efe4b0d2ca1c2febfc5e933badeb1f0c7292573a64a5813f6",
+    ".agents/factory/workers/codex.md": "f684660fa5744124e58f1e5979ec80f7606cef0ae38da938c6b6e6b495fdfef1",
+    ".agents/factory/workers/grok.md": "938a4cc0e871f94fe17e9a7ae7108e922c6ecef1763d518c33297c0387cbb8c7",
+    ".agents/factory/workers/opencode.md": "7cc2f2f88b739376e8a86edb58a56659def4a1c5214cad723dfa4b033df00e8a"
   }
 }

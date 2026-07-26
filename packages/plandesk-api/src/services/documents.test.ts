@@ -3,6 +3,7 @@ import {
   createComment,
   createDb,
   createDocument,
+  createEdge,
   createFolder,
   createProjectInDefaultOrg as createProject,
   getComment,
@@ -20,7 +21,7 @@ describe('documentService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-    let projectId = '';
+  let projectId = '';
   let orgId = '';
 
   function createService() {
@@ -48,17 +49,162 @@ describe('documentService', () => {
       title: 'Spec',
       body: '# Overview',
       statusLine: 'Status: draft',
-      linkedTaskId: task.id,
+    });
+    expect(document).toBeDefined();
+    if (!document) {
+      return;
+    }
+    await createEdge(db, {
+      projectId,
+      fromType: 'document',
+      fromId: document.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
     });
 
-    expect(document).toMatchObject({
+    const fetched = await service.get(document.id);
+    expect(fetched).toMatchObject({
       title: 'Spec',
       body: '# Overview',
       status_line: 'Status: draft',
-      linked_task_id: task.id,
       project_id: projectId,
+      links: [
+        {
+          type: 'task',
+          id: task.id,
+          title: 'Task',
+          label: 'documents',
+          edge_id: expect.any(String),
+        },
+      ],
+      backlinks: [],
     });
-    expect(document?.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(fetched?.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('document linked to three tasks returns all three in links', async () => {
+    const service = createService();
+    const t1 = await createTask(db, { projectId, label: 'One' });
+    const t2 = await createTask(db, { projectId, label: 'Two' });
+    const t3 = await createTask(db, { projectId, label: 'Three' });
+    const document = await service.create(projectId, { title: 'Multi' });
+    expect(document).toBeDefined();
+    if (!document) {
+      return;
+    }
+
+    for (const task of [t1, t2, t3]) {
+      await createEdge(db, {
+        projectId,
+        fromType: 'document',
+        fromId: document.id,
+        toType: 'task',
+        toId: task.id,
+        label: 'documents',
+      });
+    }
+
+    const fetched = await service.get(document.id);
+    expect(fetched?.links).toHaveLength(3);
+    expect(fetched?.links.map((l) => l.id).sort()).toEqual([t1.id, t2.id, t3.id].sort());
+    expect(fetched?.links.map((l) => l.title).sort()).toEqual(['One', 'Three', 'Two']);
+    expect(fetched?.links.every((l) => l.type === 'task' && l.label === 'documents')).toBe(true);
+  });
+
+  it('document A linking to document B puts B in A.links and A in B.backlinks', async () => {
+    const service = createService();
+    const docA = await service.create(projectId, { title: 'Doc A' });
+    const docB = await service.create(projectId, { title: 'Doc B' });
+    expect(docA && docB).toBeTruthy();
+    if (!docA || !docB) {
+      return;
+    }
+
+    await createEdge(db, {
+      projectId,
+      fromType: 'document',
+      fromId: docA.id,
+      toType: 'document',
+      toId: docB.id,
+      label: 'references',
+    });
+
+    const a = await service.get(docA.id);
+    const b = await service.get(docB.id);
+    expect(a?.links).toEqual([
+      {
+        type: 'document',
+        id: docB.id,
+        title: 'Doc B',
+        label: 'references',
+        edge_id: expect.any(String),
+      },
+    ]);
+    expect(b?.backlinks).toEqual([
+      {
+        type: 'document',
+        id: docA.id,
+        title: 'Doc A',
+        label: 'references',
+        edge_id: a!.links[0]!.edge_id,
+      },
+    ]);
+  });
+
+  it('task backlinks report every document that links to it', async () => {
+    const service = createService();
+    const task = await createTask(db, { projectId, label: 'Shared' });
+    const d1 = await service.create(projectId, { title: 'Spec' });
+    const d2 = await service.create(projectId, { title: 'Notes' });
+    expect(d1 && d2).toBeTruthy();
+    if (!d1 || !d2) {
+      return;
+    }
+    for (const doc of [d1, d2]) {
+      await createEdge(db, {
+        projectId,
+        fromType: 'document',
+        fromId: doc.id,
+        toType: 'task',
+        toId: task.id,
+        label: 'documents',
+      });
+    }
+
+    const backlinks = await service.listBacklinks('task', task.id);
+    expect(backlinks).toBeDefined();
+    expect(backlinks?.map((l) => l.id).sort()).toEqual([d1.id, d2.id].sort());
+    expect(backlinks?.every((l) => l.type === 'document' && l.label === 'documents')).toBe(true);
+    expect(backlinks?.map((l) => l.title).sort()).toEqual(['Notes', 'Spec']);
+  });
+
+  it('backlinks from another org return nothing and leak no titles', async () => {
+    const service = createService();
+    const task = await createTask(db, { projectId, label: 'Secret task' });
+    const secret = await service.create(projectId, {
+      title: 'Secret doc',
+    });
+    expect(secret).toBeDefined();
+    if (!secret) {
+      return;
+    }
+    await createEdge(db, {
+      projectId,
+      fromType: 'document',
+      fromId: secret.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
+    });
+
+    const foreignService = createDocumentService({
+      db,
+      orgId: '00000000-0000-4000-8000-00000000ffff',
+    });
+    expect(await foreignService.listBacklinks('task', task.id)).toBeUndefined();
+    expect(await foreignService.listBacklinks('document', secret.id)).toBeUndefined();
+    expect(await foreignService.get(secret.id)).toBeUndefined();
   });
 
   it('returns nested document tree', async () => {
@@ -138,39 +284,47 @@ describe('documentService', () => {
     expect(await service.listByFolder(projectId, '00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
-  it('rejects cross-project task link on create', async () => {
-    const service = createService();
-    const otherProjectId = (await createProject(db, { name: 'Other' })).id;
-    const foreignTask = await createTask(db, { projectId: otherProjectId, label: 'Foreign' });
-
-    await expect(service.create(projectId, {
-        title: 'Bad link',
-        linkedTaskId: foreignTask.id,
-      }),).rejects.toThrow(InvalidDocumentError);
-  });
-
-  it('rejects cross-project task link on update', async () => {
-    const service = createService();
-    const document = await createDocument(db, { projectId, title: 'Doc' });
-    const otherProjectId = (await createProject(db, { name: 'Other' })).id;
-    const foreignTask = await createTask(db, { projectId: otherProjectId, label: 'Foreign' });
-
-    await expect(service.update(document.id, {
-        linkedTaskId: foreignTask.id,
-      }),).rejects.toThrow(InvalidDocumentError);
-  });
-
-  it('gets document linked to a task', async () => {
+  it('gets document linked to a task via edge', async () => {
     const service = createService();
     const task = await createTask(db, { projectId, label: 'Task' });
     const document = await createDocument(db, {
       projectId,
       title: 'Linked',
-      linkedTaskId: task.id,
+    });
+    await createEdge(db, {
+      projectId,
+      fromType: 'document',
+      fromId: document.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
     });
 
     expect((await service.getByTask(task.id))?.id).toBe(document.id);
     expect(await service.getByTask('00000000-0000-4000-8000-000000009999')).toBeUndefined();
+  });
+
+  it('getByTask returns the oldest edge-linked document when several link the task', async () => {
+    const service = createService();
+    const task = await createTask(db, { projectId, label: 'Task' });
+    const first = await createDocument(db, {
+      projectId,
+      title: 'First',
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    const second = await createDocument(db, { projectId, title: 'Second' });
+    for (const doc of [first, second]) {
+      await createEdge(db, {
+        projectId,
+        fromType: 'document',
+        fromId: doc.id,
+        toType: 'task',
+        toId: task.id,
+        label: 'documents',
+      });
+    }
+
+    expect((await service.getByTask(task.id))?.id).toBe(first.id);
   });
 
   it('deletes document comments when deleting a document', async () => {

@@ -341,7 +341,7 @@ describe('CLI export/import/doctor', () => {
     expect(code).toBe(0);
     expect(stdout).toContain(`curator: 0/${String(CURATOR_TEMPLATES.length)} artifacts present`);
     expect(stdout).toContain('curator-missing:');
-    expect(stdout).toContain('.agents/curator/triage.md');
+    expect(stdout).toContain('.agents/skills/curator-triage/SKILL.md');
   });
 
   it('reports all curator artifacts present via doctor --repo after factory init', async () => {

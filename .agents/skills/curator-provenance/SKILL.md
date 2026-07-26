@@ -1,6 +1,6 @@
 ---
-type: curator-skill
-version: 1
+name: curator-provenance
+description: The provenance convention (sources + reason) every Curator triage decision must carry. Reference when recording why a task exists or was merged.
 ---
 
 # Curator: provenance convention

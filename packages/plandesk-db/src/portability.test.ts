@@ -7,7 +7,7 @@ import {
   importProject,
   InvalidExportVersionError,
   PLANDESK_EXPORT_VERSION,
-  type PlandeskExportV1,
+  type PlandeskExport,
 } from './portability.js';
 import { createAgentRunEvent } from './repositories/agent-run-events.js';
 import { createAgentRun, updateAgentRunStatus } from './repositories/agent-runs.js';
@@ -24,7 +24,7 @@ import { createTag, setTaskTags } from './repositories/tags.js';
 import { createTaskWithDefaultGoal as createTask } from './testing.js';
 
 type ComparableExport = {
-  project: PlandeskExportV1['project'];
+  project: PlandeskExport['project'];
   goals: Array<{
     objective: string;
     status: string;
@@ -48,6 +48,8 @@ type ComparableExport = {
   edges: Array<{
     from_label: string;
     to_label: string;
+    from_type: string | null;
+    to_type: string | null;
     label: string | null;
     arrow_direction: string | null;
     style: string | null;
@@ -62,7 +64,6 @@ type ComparableExport = {
     status_line: string | null;
     parent_title: string | null;
     folder_name: string | null;
-    linked_task_label: string | null;
   }>;
   notes: Array<{
     title: string;
@@ -82,7 +83,7 @@ type ComparableExport = {
   }>;
 };
 
-function toComparable(exported: PlandeskExportV1): ComparableExport {
+function toComparable(exported: PlandeskExport): ComparableExport {
   const taskLabelById = new Map(exported.tasks.map((task) => [task.id, task.label]));
   const goalObjectiveById = new Map(exported.goals.map((goal) => [goal.id, goal.objective]));
   const documentTitleById = new Map(exported.documents.map((doc) => [doc.id, doc.title]));
@@ -121,22 +122,42 @@ function toComparable(exported: PlandeskExportV1): ComparableExport {
       .map((tag) => ({ name: tag.name, color: tag.color })),
     edges: [...exported.edges]
       .sort((a, b) => {
-        const fromA = taskLabelById.get(a.from_task_id) ?? '';
-        const fromB = taskLabelById.get(b.from_task_id) ?? '';
+        const labelOf = (type: string | null | undefined, id: string | null | undefined) => {
+          if (id === null || id === undefined) {
+            return '';
+          }
+          if (type === 'document') {
+            return documentTitleById.get(id) ?? id;
+          }
+          return taskLabelById.get(id) ?? id;
+        };
+        const fromA = labelOf(a.from_type, a.from_id);
+        const fromB = labelOf(b.from_type, b.from_id);
         if (fromA !== fromB) {
           return fromA.localeCompare(fromB);
         }
-        const toA = taskLabelById.get(a.to_task_id) ?? '';
-        const toB = taskLabelById.get(b.to_task_id) ?? '';
-        return toA.localeCompare(toB);
+        return labelOf(a.to_type, a.to_id).localeCompare(labelOf(b.to_type, b.to_id));
       })
-      .map((edge) => ({
-        from_label: taskLabelById.get(edge.from_task_id) ?? edge.from_task_id,
-        to_label: taskLabelById.get(edge.to_task_id) ?? edge.to_task_id,
-        label: edge.label,
-        arrow_direction: edge.arrow_direction,
-        style: edge.style,
-      })),
+      .map((edge) => {
+        const labelOf = (type: string | null | undefined, id: string | null | undefined) => {
+          if (id === null || id === undefined) {
+            return '';
+          }
+          if (type === 'document') {
+            return documentTitleById.get(id) ?? id;
+          }
+          return taskLabelById.get(id) ?? id;
+        };
+        return {
+          from_label: labelOf(edge.from_type, edge.from_id),
+          to_label: labelOf(edge.to_type, edge.to_id),
+          from_type: edge.from_type ?? null,
+          to_type: edge.to_type ?? null,
+          label: edge.label,
+          arrow_direction: edge.arrow_direction,
+          style: edge.style,
+        };
+      }),
     folders: [...exported.folders]
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((folder) => ({
@@ -160,10 +181,6 @@ function toComparable(exported: PlandeskExportV1): ComparableExport {
           document.folder_id === null || document.folder_id === undefined
             ? null
             : (folderNameById.get(document.folder_id) ?? document.folder_id),
-        linked_task_label:
-          document.linked_task_id === null
-            ? null
-            : (taskLabelById.get(document.linked_task_id) ?? document.linked_task_id),
       })),
     notes: [...exported.notes]
       .sort((a, b) => a.title.localeCompare(b.title))
@@ -270,7 +287,14 @@ async function buildFixtureProject(db: Db): Promise<string> {
     statusLine: 'Status: draft',
     parentId: parentDoc.id,
     folderId: archiveFolder.id,
-    linkedTaskId: design.id,
+  });
+  await createEdge(db, {
+    projectId: project.id,
+    fromType: 'document',
+    fromId: childDoc.id,
+    toType: 'task',
+    toId: design.id,
+    label: 'documents',
   });
 
   await createComment(db, {

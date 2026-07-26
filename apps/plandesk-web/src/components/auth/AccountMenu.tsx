@@ -5,6 +5,7 @@ import {
   useSetActiveOrganization,
   useSetActiveWorkspace,
 } from '../../lib/auth.js';
+import { useNavigate } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,6 +28,7 @@ export function AccountMenu() {
   const switchOrganization = useSetActiveOrganization();
   const switchWorkspace = useSetActiveWorkspace();
   const activeWorkspace = useActiveWorkspace();
+  const navigate = useNavigate();
 
   if (session === null || session === undefined) {
     return null;
@@ -94,7 +96,11 @@ export function AccountMenu() {
                   (workspace.id === activeWorkspace.id || switchWorkspace.isPending)
                 }
                 onSelect={() => {
-                  switchWorkspace.mutate(workspace.id);
+                  switchWorkspace.mutate(workspace.id, {
+                    onSuccess: () => {
+                      void navigate({ to: '/' });
+                    },
+                  });
                 }}
               >
                 <span>{workspace.name}</span>

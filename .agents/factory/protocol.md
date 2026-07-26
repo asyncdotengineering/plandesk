@@ -14,9 +14,37 @@ shape out — any CLI agent that can follow instructions satisfies it.
 1. Pick a worker file from [workers/](workers/) whose `probe` exits 0 on this
    machine. Never assume a worker exists; never invoke flags from memory —
    only the file's `command` template, with `{prompt_file}` substituted.
-2. Write the brief to `runs/brief-<task>.md`: the task, its spec, the gate
-   command(s) to satisfy, and the result contract below.
-3. Run the command. One process per dispatch, headless, from the repo root.
+   Which worker suits which task is data: [routing.md](routing.md).
+2. Write the brief to `runs/brief-<task>.md`: the gate command(s) to satisfy and
+   the result contract below. **Do not paste the task's spec into the brief** —
+   link it, so the worker reads live state instead of a copy that drifts.
+3. Run the command. One process per dispatch, headless.
+
+### Dispatch mechanics
+
+These four are not optional detail — a dispatch missing any of them is the
+common cause of a run that produces code but no verifiable result.
+
+- **Redirect all output.** Append `> runs/worker-<task>.log 2>&1` to every
+  command. A worker's stdout is evidence: it is where a refusal, a missing
+  credential, or an "unknown model id" appears. Without the redirect that
+  evidence is lost and a failed dispatch looks identical to a silent one.
+- **Working directory is explicit.** State the absolute repo path in the brief,
+  and pass the worker's own cwd flag when its CLI has one. "From the repo root"
+  is not a location — it is an assumption that breaks the moment a dispatch runs
+  anywhere but the tree you were standing in.
+- **Guard stdin only when the prompt is an argument.** A worker whose `command`
+  already redirects the brief in (`< {prompt_file}`) has its stdin consumed and
+  needs nothing further. A worker given the prompt as an argument must add
+  `< /dev/null`, or a CLI that reads stdin when idle will block forever with no
+  output — `codex exec` announces "Reading additional input from stdin…" and
+  hangs.
+- **Completion is a file, not an exit code.** The harness signal fires when the
+  wrapper process exits, which can happen while a child still writes, or after a
+  transient API error. Treat `runs/result-<task>.json` as the completion signal:
+  present and parseable means finished, absent means unfinished regardless of
+  what the process reported. Say this in the brief in those words — the runs
+  that omit the result file are the ones whose brief left it implicit.
 
 ## Result (worker side)
 

@@ -14,7 +14,7 @@ import {
   runBindingDoctor,
   type BindingDoctorReport,
 } from './binding-doctor.js';
-import { CURATOR_DIR, CURATOR_TEMPLATES } from './curator-templates.js';
+import { AGENTS_DIR, CURATOR_TEMPLATES, curatorArtifactPath } from './curator-templates.js';
 import { LAST_EXPORT_FILE } from './export.js';
 import { CorruptWorkspaceError, isDbCorruptionError } from './workspace.js';
 import { ensureLocalBetterAuthSecret } from './init.js';
@@ -57,9 +57,9 @@ export type CuratorDoctorReport = {
 function curatorArtifactReport(repoDir: string): CuratorDoctorReport {
   const missing: string[] = [];
   for (const template of CURATOR_TEMPLATES) {
-    const path = join(repoDir, CURATOR_DIR, template.relativePath);
+    const path = curatorArtifactPath(repoDir, template.relativePath);
     if (!existsSync(path)) {
-      missing.push(join(CURATOR_DIR, template.relativePath));
+      missing.push(join(AGENTS_DIR, template.relativePath));
     }
   }
   return {

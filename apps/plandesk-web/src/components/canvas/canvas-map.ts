@@ -1,5 +1,6 @@
 import type { Edge, Node } from '@xyflow/react';
 import type {
+  EdgeLabel,
   PutCanvasInput,
   SerializedDocumentTree,
   SerializedEdge,
@@ -24,13 +25,19 @@ export type LabeledEdgeData = {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/**
+ * First document linking to each task (for compact canvas node affordances).
+ * Multi-doc lists live on the task detail drawer; Flow stays task-only.
+ */
 export function buildTaskDocumentMap(trees: SerializedDocumentTree[]): Map<string, string> {
   const map = new Map<string, string>();
 
   function walk(nodes: SerializedDocumentTree[]) {
     for (const node of nodes) {
-      if (node.linked_task_id !== null) {
-        map.set(node.linked_task_id, node.id);
+      for (const link of node.links) {
+        if (link.type === 'task' && !map.has(link.id)) {
+          map.set(link.id, node.id);
+        }
       }
       walk(node.children);
     }
@@ -61,13 +68,16 @@ export function canvasToFlowNodes(
 }
 
 export function canvasToFlowEdges(edges: SerializedEdge[]): Edge<LabeledEdgeData>[] {
-  return edges.map((edge) => ({
-    id: edge.id,
-    type: 'labeled',
-    source: edge.from_task_id,
-    target: edge.to_task_id,
-    data: { label: edge.label ?? 'depends_on' },
-  }));
+  // Canvas payload is task-graph only; skip document endpoints.
+  return edges
+    .filter((edge) => edge.from_type === 'task' && edge.to_type === 'task')
+    .map((edge) => ({
+      id: edge.id,
+      type: 'labeled',
+      source: edge.from_id,
+      target: edge.to_id,
+      data: { label: edge.label ?? 'depends_on' },
+    }));
 }
 
 export function buildLayoutPayload(

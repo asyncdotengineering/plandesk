@@ -110,7 +110,7 @@ An **artifact** is a stored agent deliverable — a Markdown report, an RFC, an 
 | `get_task`                   | Fetch a single task by id                                                                                                  |
 | `list_tasks`                 | Project tasks, filterable by status and tags (OR)                                                                          |
 | `create_document`            | Markdown body; optional link to task                                                                                       |
-| `update_document`            | Patch title/body/status line, folder, and `linked_task_id` (null to unlink)                                                |
+| `update_document`            | Patch title/body/status line, folder, and `link_to` (task or document ids; unlink with `delete_edge`)                      |
 | `get_document`               | Fetch a document by id                                                                                                     |
 | `list_documents`             | Project documents as a tree; filter by `folder_id`                                                                         |
 | `create_folder`              | Create a document folder (optionally nested)                                                                               |

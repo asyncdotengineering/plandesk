@@ -1,4 +1,11 @@
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher.js';
@@ -36,7 +43,7 @@ function ok(body: unknown) {
 }
 
 function stubFetch(opts: {
-  session?: typeof sessionOwner;
+  session?: typeof sessionOwner | typeof sessionMember;
   workspaces?: typeof workspacesDefault;
   created?: { id: string; name: string };
 } = {}) {
@@ -57,16 +64,36 @@ function stubFetch(opts: {
   return fetchMock;
 }
 
-function renderSwitcher() {
+function renderSwitcher(path = '/projects/project-a/board') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  const rootRoute = createRootRoute();
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => <p>Workspace landing</p>,
+  });
+  const projectRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/projects/$id/board',
+    component: () => (
+      <>
+        <ProjectsProbe />
+        <WorkspaceSwitcher />
+      </>
+    ),
+  });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([indexRoute, projectRoute]),
+    history: createMemoryHistory({ initialEntries: [path] }),
+  });
+  const rendered = render(
     <QueryClientProvider client={queryClient}>
-      <ProjectsProbe />
-      <WorkspaceSwitcher />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  return { ...rendered, router };
 }
 
 afterEach(() => {
@@ -88,7 +115,7 @@ describe('Sidebar workspace switcher (REQ-1 / REQ-2)', () => {
   it('switching calls set-active-team and invalidates the projects query', async () => {
     const fetchMock = stubFetch();
 
-    renderSwitcher();
+    const { router } = renderSwitcher();
 
     await waitFor(() => {
       expect(screen.getByText('General')).toBeTruthy();
@@ -126,6 +153,12 @@ describe('Sidebar workspace switcher (REQ-1 / REQ-2)', () => {
       const projectCalls = fetchMock.mock.calls.filter((c) => String(c[0]).endsWith('/projects')).length;
       expect(projectCalls).toBeGreaterThanOrEqual(2);
     });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/');
+    });
+    expect(screen.getByText('Workspace landing')).toBeTruthy();
+    expect(localStorage.getItem('plandesk.activeWorkspaceId')).toBe('ws-2');
   });
 
   it('inline "+ New workspace" creates the workspace and switches to it', async () => {

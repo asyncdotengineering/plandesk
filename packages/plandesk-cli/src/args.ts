@@ -263,7 +263,14 @@ export type ParsedArgs =
     }
   | { command: 'deploy'; target?: string }
   | { command: 'factory'; subcommand: 'init'; repoDir?: string; print: boolean; force: boolean }
-  | { command: 'factory'; subcommand: 'sync'; repoDir?: string; write: boolean; force: boolean }
+  | {
+      command: 'factory';
+      subcommand: 'sync';
+      repoDir?: string;
+      write: boolean;
+      force: boolean;
+      prune: boolean;
+    }
   | { command: 'workspace'; subcommand: 'create' | 'list'; repoDir?: string; name?: string; to?: string }
   | { command: 'context'; repoDir?: string }
   | { command: 'progress-checkpoint'; message?: string; repoDir?: string }
@@ -602,6 +609,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
         repoDir: flagString(flags, 'repo'),
         write: flags['write'] === true,
         force: flags['force'] === true,
+        prune: flags['prune'] === true,
       };
     }
     return { command: 'unknown', name: 'factory' };
@@ -676,7 +684,7 @@ Usage:
   plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk deploy [target]   # list deploy guides, or print one for your coding agent: plandesk deploy cloudflare | claude
   plandesk factory init [--repo <dir>] [--print] [--force]
-  plandesk factory sync [--write] [--force] [--repo <dir>]   # update scaffolded policy to the latest shipped version
+  plandesk factory sync [--write] [--force] [--prune] [--repo <dir>]   # update scaffolded policy to the latest shipped version
   plandesk workspace create <name> [--to <orgId>]
   plandesk workspace list [--to <orgId>]
   plandesk context --json [--repo <dir>]   # bound project's current task/doc/progress, for session hooks
@@ -701,6 +709,7 @@ Options:
   --print     Dry-run connect / factory init without writing files
   --write     (factory sync) apply creates + safe updates (customized files are kept)
   --force     (factory init) scaffold even in a global config dir; (factory sync) also overwrite customized files
+  --prune     (factory sync) delete owned factory files the CLI no longer ships (never touches skills/ or foreign paths)
   --out       Output file for export
   --in        Input file for import
   --from      (legacy-upgrade) path to an old workspace.db (default: ~/.plandesk/workspace.db or ./.plandesk/workspace.db)

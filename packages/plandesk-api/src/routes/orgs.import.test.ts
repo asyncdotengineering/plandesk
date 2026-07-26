@@ -163,7 +163,6 @@ describe('POST /api/v1/orgs/:id/import', () => {
       projectId: local.id,
       title: 'Scope',
       body: '## Why\nPromote is one-way sync.',
-      linkedTaskId: taskA.id,
     });
 
     const localExport = await exportProject(db, local.id);

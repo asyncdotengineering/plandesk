@@ -54,7 +54,7 @@ plandesk deploy [target]
 | `whoami`                 | Print the configured hosted server and organization |
 | `serve`                  | Start REST + MCP + web UI; reads the port from `workspace.json` if no `--port` flag is given                            |
 | `url`                    | Print the server URL for this project (`$(plandesk url)` in scripts); `--lan` returns the LAN IP instead of loopback    |
-| `export` / `import`      | Lossless `plandesk-export-v1` JSON round-trip                                                                            |
+| `export` / `import`      | Lossless `plandesk-export-v2` JSON round-trip; `plandesk-export-v1` files still import                                                                            |
 | `legacy-upgrade`         | One-time: lift a pre–better-auth (0.20.x-era) `workspace.db` into the current global board — imports projects/tasks/documents/edges/notes/comments/agent runs, backs up the source file, safe to re-run. `--into-workspace <name>` lands all of an old board's projects in **one workspace** (created if missing; defaults the name to the source folder). See [Upgrading](/reference/upgrading/#the-020x--better-auth-upgrade-breaking) |
 | `admin invite-owner`     | Bootstrap the first org owner of a self-hosted instance without GitHub — mints a link-only owner invitation to deliver by hand. Local uses `--data-dir`; **remote** (Turso/libSQL) uses `--db <url> [--db-token]` plus `--secret` (or `PLANDESK_BETTER_AUTH_SECRET`) matching the deployed instance — run `plandesk migrate` against the remote DB first |
 | `connect` / `disconnect` | Bind / unbind a repo to a project **or workspace** + agent configs; re-run `connect` after upgrading to regenerate artifacts. `--project` binds one project; `--workspace <name>` binds a whole workspace (writes a `plandesk-connect-v2` config). Hosted: `connect --to <org>` mints a scoped agent key (requires prior `login`) — workspace-scoped with `--workspace`, project-scoped otherwise |
@@ -130,7 +130,7 @@ Share a planned project with a client or another team over a read-only live port
 | `--repo`        | cwd                     | Target repository directory                                                |
 | `--port`        | from `workspace.json`, then `7526` | HTTP port for serve; if it's in use, serve fails (one board per machine) — stop the other process or pass a different `--port` |
 | `--strict-port` | —                                  | Exit non-zero when the serve port is in use (already the default — one global board, one port) |
-| `--host`        | `127.0.0.1`                        | Bind address; LAN exposure is opt-in via `--host 0.0.0.0` or `PLANDESK_HOST` |
+| `--host`        | `127.0.0.1`                        | Bind address, and the local trust boundary — see the note below. LAN exposure is opt-in via `--host 0.0.0.0` or `PLANDESK_HOST` |
 | `--lan`         | —                                  | `url` command returns the LAN IP instead of `127.0.0.1`                   |
 | `--project`     | —                                  | Project id or name for connect/export                                      |
 | `--to`          | —                                  | Hosted org id: `connect --to` mints a scoped agent key (requires `login`); also used by `push`, `go-online`, and `workspace create/list` |
@@ -147,6 +147,19 @@ Share a planned project with a client or another team over a read-only live port
 | `--all`         | —                                  | (`go-online`) push every local workspace to the hosted org |
 | `--server`      | from `login`                       | (`go-online`) hosted server URL override |
 | `--token`       | —                       | (`connect`) MCP token; (`go-online`) hosted owner-key override (otherwise from `login`) |
+
+### `--host` is the trust boundary
+
+A **loopback bind** — `127.0.0.1`, `::1` or `localhost` — is how `serve` knows only this machine can
+reach it. On a loopback bind every request is the org owner with no login. That is why a local board
+needs no token and why `connect` removes one if it finds a stale key. On any other bind address that
+trust is gone and better-auth authenticates instead.
+
+**Do not keep the loopback bind and put a reverse proxy in front of it.** Fronting an app with nginx
+or Caddy is normally the right call, but here the server still believes only this machine can reach
+it while the proxy hands the internet an owner session — silently, with nothing looking wrong. If the
+board should be reachable from anywhere but this machine, bind `--host 0.0.0.0` and set
+`PLANDESK_AUTH_PASSWORD`. See [Docker self-hosting](/self-hosting/docker/#the-bind-address-is-the-trust-boundary).
 
 ## Environment variables
 

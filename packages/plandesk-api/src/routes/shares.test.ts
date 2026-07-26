@@ -6,6 +6,7 @@ import {
   DEFAULT_WORKSPACE_ID,
   createDb,
   createDocument,
+  createEdge,
   createProject as createProjectInOrg,
   createProjectInDefaultOrg as createProject,
   migrate,
@@ -193,11 +194,18 @@ describe('shares routes', () => {
 
     const project = await createProject(db, { name: 'Share route' });
     const task = await createTask(db, { projectId: project.id, label: 'Ship it', status: 'todo' });
-    await createDocument(db, {
+    const spec = await createDocument(db, {
       projectId: project.id,
       title: 'Spec',
       body: '<p>Body</p>',
-      linkedTaskId: task.id,
+    });
+    await createEdge(db, {
+      projectId: project.id,
+      fromType: 'document',
+      fromId: spec.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
     });
 
     const created = await services.shareService.createResourceShare(

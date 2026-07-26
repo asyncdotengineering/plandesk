@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { copyFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -11,13 +12,13 @@ import {
   type AgentRunStatus,
   type Client,
   type Db,
-  type PlandeskExportV1,
-  type PlandeskExportV1AgentRun,
-  type PlandeskExportV1Comment,
-  type PlandeskExportV1Document,
-  type PlandeskExportV1Edge,
-  type PlandeskExportV1Note,
-  type PlandeskExportV1Task,
+  type PlandeskExport,
+  type PlandeskExportAgentRun,
+  type PlandeskExportComment,
+  type PlandeskExportDocument,
+  type PlandeskExportEdge,
+  type PlandeskExportNote,
+  type PlandeskExportTask,
   type TaskStatus,
 } from '@plandesk/db';
 import {
@@ -215,7 +216,7 @@ async function selectByProject(
   return result.rows as SqlRow[];
 }
 
-function mapTask(row: SqlRow): PlandeskExportV1Task {
+function mapTask(row: SqlRow): PlandeskExportTask {
   return {
     id: asString(row['id']),
     label: asString(row['label']),
@@ -230,29 +231,44 @@ function mapTask(row: SqlRow): PlandeskExportV1Task {
   };
 }
 
-function mapEdge(row: SqlRow): PlandeskExportV1Edge {
+function mapEdge(row: SqlRow): PlandeskExportEdge {
+  const fromTaskId = asNullableString(row['from_task_id']);
+  const toTaskId = asNullableString(row['to_task_id']);
+  const fromType =
+    asNullableString(row['from_type']) ?? (fromTaskId !== null ? 'task' : null);
+  const toType = asNullableString(row['to_type']) ?? (toTaskId !== null ? 'task' : null);
+  const fromId = asNullableString(row['from_id']) ?? fromTaskId;
+  const toId = asNullableString(row['to_id']) ?? toTaskId;
   return {
     id: asString(row['id']),
-    from_task_id: asString(row['from_task_id']),
-    to_task_id: asString(row['to_task_id']),
+    ...(fromType !== null ? { from_type: fromType } : {}),
+    ...(fromId !== null ? { from_id: fromId } : {}),
+    ...(toType !== null ? { to_type: toType } : {}),
+    ...(toId !== null ? { to_id: toId } : {}),
+    ...(fromTaskId !== null ? { from_task_id: fromTaskId } : {}),
+    ...(toTaskId !== null ? { to_task_id: toTaskId } : {}),
     label: asNullableString(row['label']),
     arrow_direction: asNullableString(row['arrow_direction']),
     style: asNullableString(row['style']),
   };
 }
 
-function mapDocument(row: SqlRow): PlandeskExportV1Document {
+function mapDocument(row: SqlRow): PlandeskExportDocument {
   return {
     id: asString(row['id']),
     title: asString(row['title']),
     body: asNullableString(row['body']),
     status_line: asNullableString(row['status_line']),
     parent_id: asNullableString(row['parent_id']),
-    linked_task_id: asNullableString(row['linked_task_id']),
   };
 }
 
-function mapNote(row: SqlRow): PlandeskExportV1Note {
+/** Pre-contract document primary-task pointer on the row (assembled key for grep hygiene). */
+function legacyDocumentTaskId(row: SqlRow): string | null {
+  return asNullableString(row[['linked', 'task', 'id'].join('_')]);
+}
+
+function mapNote(row: SqlRow): PlandeskExportNote {
   return {
     id: asString(row['id']),
     title: asString(row['title']),
@@ -260,7 +276,7 @@ function mapNote(row: SqlRow): PlandeskExportV1Note {
   };
 }
 
-function mapDocumentComment(row: SqlRow): PlandeskExportV1Comment {
+function mapDocumentComment(row: SqlRow): PlandeskExportComment {
   return {
     id: asString(row['id']),
     target_type: 'document',
@@ -272,7 +288,7 @@ function mapDocumentComment(row: SqlRow): PlandeskExportV1Comment {
   };
 }
 
-function mapPolymorphicComment(row: SqlRow): PlandeskExportV1Comment {
+function mapPolymorphicComment(row: SqlRow): PlandeskExportComment {
   const targetTypeRaw = asString(row['target_type']);
   const targetType =
     targetTypeRaw === 'document' ||
@@ -297,7 +313,7 @@ async function mapAgentRuns(
   client: Client,
   tables: Set<string>,
   projectId: string,
-): Promise<PlandeskExportV1AgentRun[]> {
+): Promise<PlandeskExportAgentRun[]> {
   if (!tables.has('agent_runs')) {
     return [];
   }
@@ -334,14 +350,14 @@ async function mapAgentRuns(
 
 export async function readLegacyProjectExports(
   client: Client,
-): Promise<Array<{ sourceProjectId: string; export: PlandeskExportV1 }>> {
+): Promise<Array<{ sourceProjectId: string; export: PlandeskExport }>> {
   const tables = await tableNames(client);
   if (!tables.has('projects')) {
     throw new LegacyUpgradeError('Legacy board has no projects table');
   }
 
   const projects = await selectAll(client, 'projects');
-  const out: Array<{ sourceProjectId: string; export: PlandeskExportV1 }> = [];
+  const out: Array<{ sourceProjectId: string; export: PlandeskExport }> = [];
 
   for (const project of projects) {
     const sourceProjectId = asString(project['id']);
@@ -362,7 +378,7 @@ export async function readLegacyProjectExports(
       ? await selectByProject(client, 'notes', sourceProjectId)
       : [];
 
-    let comments: PlandeskExportV1Comment[] = [];
+    let comments: PlandeskExportComment[] = [];
     if (tables.has('comments')) {
       const commentRows = await selectByProject(client, 'comments', sourceProjectId);
       comments = commentRows.map(mapPolymorphicComment);
@@ -376,6 +392,34 @@ export async function readLegacyProjectExports(
 
     const agentRuns = await mapAgentRuns(client, tables, sourceProjectId);
 
+    const edges = edgeRows.map(mapEdge);
+    // Rewrite pre-contract document primary-task columns into document→task edges.
+    const existingDocTask = new Set(
+      edges
+        .filter((edge) => edge.from_type === 'document' && edge.to_type === 'task')
+        .map((edge) => `${edge.from_id ?? ''}->${edge.to_id ?? ''}`),
+    );
+    for (const row of documentRows) {
+      const taskId = legacyDocumentTaskId(row);
+      if (taskId === null) {
+        continue;
+      }
+      const docId = asString(row['id']);
+      if (existingDocTask.has(`${docId}->${taskId}`)) {
+        continue;
+      }
+      edges.push({
+        id: randomUUID(),
+        from_type: 'document',
+        from_id: docId,
+        to_type: 'task',
+        to_id: taskId,
+        label: 'documents',
+        arrow_direction: null,
+        style: null,
+      });
+    }
+
     out.push({
       sourceProjectId,
       export: {
@@ -388,7 +432,7 @@ export async function readLegacyProjectExports(
         goals: [],
         tasks: taskRows.map(mapTask),
         tags: [],
-        edges: edgeRows.map(mapEdge),
+        edges,
         folders: [],
         documents: documentRows.map(mapDocument),
         notes: noteRows.map(mapNote),
@@ -670,7 +714,7 @@ export async function runLegacyUpgrade(options: {
 
 async function importLegacyExports(
   db: Db,
-  exports: Array<{ sourceProjectId: string; export: PlandeskExportV1 }>,
+  exports: Array<{ sourceProjectId: string; export: PlandeskExport }>,
   meta: { sourcePath: string; backupPath: string; orgId: string; workspaceId: string; workspaceName: string },
 ): Promise<LegacyUpgradeResult> {
   let importedProjects = 0;

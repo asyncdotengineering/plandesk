@@ -4,9 +4,52 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-07-26
+
+All four published packages move to **2.0.0** together and stay aligned from here on. Previously they drifted (`db` 1.0.0, `api` 1.0.6, `mcp`/`cli` 1.0.7), which made "which versions go together" a question you had to answer by reading the changelog. Now the answer is the number.
+
+`@plandesk/mcp-client` stays at **1.0.0** — nothing in it changed.
+
+### Breaking — one link shape
+
+- **A document can now be linked to many tasks, and documents can link to each other.** This is the headline feature and the reason for the major bump. Previously `documents.linked_task_id` allowed exactly one task per document, and edges could only join task to task.
+- **`edges` are polymorphic.** The table gained `from_type` / `from_id` / `to_type` / `to_id` (each `'task' | 'document'`), replacing the task-only foreign keys, with both directions indexed. This mirrors the `comments` table's existing `target_type` / `target_id` precedent rather than inventing a new pattern.
+- **`linked_task_id` is gone** from the document payload in the REST API and the MCP tools, and `linkedTaskId` is gone from the `documents` table. Read `links` (outgoing) and `backlinks` (incoming) instead — each entry is `{ type, id, title, label, edge_id }`. `share_submissions.linked_task_id` is deliberately retained; it is a different concept (which task a guest submission targets) and is unaffected.
+- **The edge label vocabulary grew** for document sources: `documents`, `references`, `supersedes`, `extends`, alongside the existing task vocabulary.
+- **Migration is automatic and was verified against a real board.** Every existing `linked_task_id` becomes a `document → task` edge labeled `documents`. On a copy of the development board: 443 task→task edges preserved, 129 document links converted to exactly 129 doc→task edges (572 total), 0 null endpoints, 0 foreign-key violations, and the migrated schema is byte-identical to a freshly created one.
+
+### Breaking — export format
+
+- **The export format is now v3, and the importer accepts a set of versions rather than one.** The importer previously compared with equality, which meant bumping the version would have orphaned every export file already on disk — so nine features had been bolted on as optional fields instead of bumping. That is fixed: `SUPPORTED_EXPORT_VERSIONS` gates the import, so the format can evolve without stranding files.
+- **Export/import no longer silently drops document links.** `PlandeskExportV1Edge` never carried typed endpoints, so an export → import round trip discarded every document link. Now carried and restored.
+
+### Breaking — factory
+
+- **One factory operating contract.** `workflow.md` and the untracked workhorse rewrite are gone; `factory.md` is the single always-on mode — the proven serial loop (pull → read → red gate → delegate → prove → observe → gate → ship) plus the agent-run lifecycle (`start_agent_run` / `record_agent_progress` / `complete_agent_run`) that used to live only in `workflow.md`. `autonomous-stand.md` is renamed to `execution.md` so "autonomy" means board authority only. Multi-slice companions ship as `slicing.md` / `brief.md` / `heartbeat.md` (linked extensions, not the default). The always-on sentinel, `/factory` command, skill template, onboarding, and docs follow the new tree. Existing repos: `plandesk factory sync --write` creates the new files; drop or rename retired ones yourself (sync does not delete user-edited paths without `--prune`).
+- **`factory init` reclaims Plan Desk hook entries in `.claude/settings.json`.** Each shipped hook entry now carries a `_plandesk` ownership marker. `mergeCuratorHooksJson` drops every marked entry and re-inserts the current snippet set, so a path or matcher change no longer leaves a stale entry firing forever. Untagged (user) hooks are never touched. **One-time legacy sweep:** untagged entries whose `command` still contains `.agents/curator/hooks/` are also dropped so pre-marker installs converge on first run — remove that path match after one release cycle once consumers have upgraded.
+
 ### Fixed — hosted
 
 - **A hosted board now serves MCP.** The Workers entry never passed an MCP app into `createApp`, so `/mcp` was unmounted on the hosted deployment: `plandesk connect --to <org>` minted a workspace-scoped agent key and wrote an `.mcp.json` pointing at a URL that could not serve a single tool. Local `plandesk serve` was never affected (the CLI already composes both). Not an oversight — `@plandesk/mcp` imports runtime values from `@plandesk/api`, so `api` could not import `mcp` back without a dependency cycle. The Workers entry now lives in a new deploy-only package, **`@plandesk/worker`**, which depends on both and composes them, mirroring `serve.ts` on Node. Self-hosters deploying to Cloudflare now run `wrangler deploy` from `packages/plandesk-worker` (see the updated Cloudflare runbook); the worker name, bindings and asset path are unchanged. No published package changed behavior.
+
+### Added
+
+- **`.agents/` is the source of truth for shipped policy.** The factory and curator templates used to live as string constants in the CLI's TypeScript, with a byte-identical guard against `.agents/`. That inverted: `.agents/` is the real directory, and the CLI build copies it into `dist/templates` for `factory init` to distribute. One place to edit, no drift possible.
+- **`.agents/` is treated as a shared namespace.** `factory init` writes only into paths Plan Desk owns and never overwrites files it did not author — other tools' agent config in the same directory survives. Curator skills moved to the conventional `.agents/skills/` home and are symlinked into `.claude/skills/`.
+- **`POST /api/v1/projects/:id/edges`** creates a typed edge over HTTP, taking `{ from_type, from_id, to_type, to_id, label?, style?, arrow_direction? }`. Deleting a single link is `DELETE /api/v1/projects/:id/edges/:edgeId` with the `edge_id` from a `links` / `backlinks` entry — no re-fetch, no matching on endpoints.
+- **Links and backlinks in the web UI.** A document shows what it points at and what points at it, each entry navigating to its target; a task shows every document linked to it, replacing the single-document slot. The link picker chooses target type, searches within the project, and picks a label from the vocabulary. The Flow canvas stays task-only by design.
+- **The MCP link surface describes itself.** `delete_edge`'s `edge_id` now names where an agent obtains it, so the `get_document` → `edge_id` → `delete_edge` chain is discoverable from the tool list alone. `get_document`, `list_edges` and `create_edge` declare an `outputSchema` and return `structuredContent`, so a client knows the shape without calling first. Annotations were audited across all 48 tools.
+
+### Fixed
+
+- **`plandesk factory init` crashed on every npm install.** npm rewrites a packaged `.gitignore` to `.npmignore` when it *installs* a package, so `factory/runs/.gitignore` was present in the tarball and gone by the time anyone ran the CLI — `factory init` died with `ENOENT`. This was invisible to every gate: the repo build, all five test suites and `pnpm pack` each see the file; only a real `npm install` of the tarball reproduces it. It arrived with the move of templates from TypeScript string constants into shipped files — a constant cannot be mangled, a file can. Templates are now vendored de-dotted, the build **fails** if any dotfile remains under `dist/templates` so the next one cannot ship silently, and the reader resolves either spelling.
+- **A local board behaves like one on `localhost`, not just `127.0.0.1`.** Opening `http://localhost:7526/` returned unauthenticated and could not reach workspaces, while `http://127.0.0.1:7526/` worked — the same server, two different answers. A loopback bind is what makes a local board zero-setup (every request is the org owner, no login), but the check ran only when better-auth had no opinion, and better-auth answered `unauthorized` for `localhost` first. Loopback is now decided before that answer is consulted. The check tests the *server's bind address*, never a caller-supplied `Host` header, so it cannot be spoofed from outside.
+- **Task shares and task→document lookup see edge-linked documents.** A document linked through the new edge path was silently omitted from a task's share bundle and invisible to `getDocumentByTask`, because both still read the legacy column. Found with a purpose-built repro that linked two documents to one task by *different* mechanisms and diffed what each surface returned.
+- **`plandesk context` resolves the linked document through edges.** It feeds `session-start.sh`, so the wrong answer here silently degrades every agent session's starting context.
+
+### Documentation
+
+- **The bind address is named as the trust boundary.** A loopback bind means every request is the org owner with no login. So binding loopback behind a reverse proxy — normally good practice — defeats the model: the server still believes only this machine can reach it while the proxy hands the internet an owner session. There is no error and nothing looks wrong. Both self-hosting guides now state the two safe shapes explicitly.
 
 ## [1.0.7] — 2026-07-19
 

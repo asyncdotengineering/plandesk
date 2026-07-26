@@ -134,7 +134,6 @@ describe('projectService', () => {
     const doc = await createDocument(db, {
       projectId: project.id,
       title: 'Doc',
-      linkedTaskId: task.id,
     });
     const comment = await createComment(db, {
       projectId: project.id,
@@ -185,16 +184,26 @@ describe('projectService', () => {
     expect(result.tasks).toHaveLength(3);
     expect(result.tasks[1]).toMatchObject({ label: 'Task B', x: 240, y: 0 });
     expect(result.edges[0]).toMatchObject({
-      from_task_id: result.key_to_id.a,
-      to_task_id: result.key_to_id.b,
+      from_type: 'task',
+      from_id: result.key_to_id.a,
+      to_type: 'task',
+      to_id: result.key_to_id.b,
       label: 'blocks',
     });
     expect(result.documents[0]).toMatchObject({
       title: 'Spec',
-      linked_task_id: result.key_to_id.b,
+      links: [
+        {
+          type: 'task',
+          id: result.key_to_id.b,
+          title: 'Task B',
+          label: 'documents',
+        },
+      ],
     });
     expect(await listTasks(db, result.project.id)).toHaveLength(3);
-    expect(await listEdges(db, result.project.id)).toHaveLength(1);
+    // Plan edge (task→task) + dual-written document→task link edge.
+    expect(await listEdges(db, result.project.id)).toHaveLength(2);
     expect(await listDocuments(db, result.project.id)).toHaveLength(1);
   });
 
@@ -214,7 +223,8 @@ describe('projectService', () => {
     expect(result.project.id).toBe(existing.id);
     expect(result.counts).toEqual({ tasks: 2, edges: 1, documents: 1 });
     expect(await listTasks(db, existing.id)).toHaveLength(2);
-    expect(await listEdges(db, existing.id)).toHaveLength(1);
+    // Plan edge + dual-written document→task link edge.
+    expect(await listEdges(db, existing.id)).toHaveLength(2);
     expect(await listDocuments(db, existing.id)).toHaveLength(1);
   });
 

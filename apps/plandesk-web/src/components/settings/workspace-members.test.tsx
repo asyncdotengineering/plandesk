@@ -13,6 +13,12 @@ const ownerSession = {
   workspaces: [{ id: 'team-1', name: 'Fiji TV' }],
 };
 
+const loopbackSession = {
+  ...ownerSession,
+  kind: 'loopback' as const,
+  user_ref: null,
+};
+
 const orgMembers = {
   members: [
     {
@@ -107,5 +113,23 @@ describe('WorkspaceMembers invite (workspace-scoped, REQ-5)', () => {
         }),
       }),
     );
+  });
+
+  it('does not query or render hosted workspace membership on a local board', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/session')) {
+        return { ok: true, status: 200, json: async () => loopbackSession };
+      }
+      throw new Error(`unexpected hosted-only request: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderWorkspaceMembers();
+
+    expect(await screen.findByText(/local workspace access/i)).toBeTruthy();
+    expect(screen.getByText(/does not keep member rows/i)).toBeTruthy();
+    expect(screen.queryByText(/invite to workspace/i)).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

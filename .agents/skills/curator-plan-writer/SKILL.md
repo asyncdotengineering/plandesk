@@ -1,6 +1,6 @@
 ---
-type: curator-skill
-version: 1
+name: curator-plan-writer
+description: Write an RFC / design proposal for a substantial change as a Plan Desk `Design:` document — a build contract carrying its own argument (problem, requirements, design, alternatives, verification surface). Use when asked to write an RFC, spec out a change, or draft a design doc before decomposing it; it is the upstream of curator-intake.
 ---
 
 # Curator: plan-writer (the RFC author)

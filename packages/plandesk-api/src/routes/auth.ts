@@ -98,6 +98,9 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
     }
 
     const ctx = getAuthContext();
+    if (ctx.kind === 'loopback') {
+      return c.json({ error: 'loopback_no_token_required' }, 400);
+    }
     if (ctx.kind !== 'session') {
       return c.json({ error: 'unauthorized' }, 401);
     }

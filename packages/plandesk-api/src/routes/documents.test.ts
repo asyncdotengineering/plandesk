@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { createProjectInDefaultOrg as createProject } from '@plandesk/db';
+import { createEdge, createProjectInDefaultOrg as createProject } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createTestApp, parseJson } from '../test-helpers.js';
+
+type EntityLink = {
+  type: 'task' | 'document';
+  id: string;
+  title: string;
+  label: string | null;
+  edge_id: string;
+};
 
 type DocumentResponse = {
   id: string;
@@ -10,7 +18,8 @@ type DocumentResponse = {
   body: string | null;
   status_line: string | null;
   parent_id: string | null;
-  linked_task_id: string | null;
+  links: EntityLink[];
+  backlinks: EntityLink[];
   created_at: string;
   updated_at: string;
 };
@@ -37,42 +46,51 @@ describe('documents routes', () => {
         title: 'Implementation notes',
         body: '# Notes',
         status_line: 'Status: draft',
-        linked_task_id: task.id,
       }),
     });
     expect(createRes.status).toBe(201);
     const created = await parseJson<DocumentResponse>(createRes);
-    expect(created.linked_task_id).toBe(task.id);
     expect(created.status_line).toBe('Status: draft');
+    await createEdge(db, {
+      projectId: project.id,
+      fromType: 'document',
+      fromId: created.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'documents',
+    });
+    const linkedGet = await app.request(`/api/v1/documents/${created.id}`);
+    const linkedDoc = await parseJson<DocumentResponse>(linkedGet);
+    expect(linkedDoc.links).toEqual([
+      {
+        type: 'task',
+        id: task.id,
+        title: 'Implement',
+        label: 'documents',
+        edge_id: expect.any(String),
+      },
+    ]);
+    expect(linkedDoc.backlinks).toEqual([]);
+    const linkEdgeId = linkedDoc.links[0]!.edge_id;
 
     const byTaskRes = await app.request(`/api/v1/tasks/${task.id}/document`);
     expect(byTaskRes.status).toBe(200);
     const linked = await parseJson<DocumentResponse>(byTaskRes);
     expect(linked.id).toBe(created.id);
     expect(linked.title).toBe('Implementation notes');
-  });
 
-  it('accepts linkedTaskId alias on create', async () => {
-    const { app, db } = await createTestApp();
-    const projectRes = await app.request('/api/v1/projects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Alias' }),
-    });
-    const project = await parseJson<{ id: string }>(projectRes);
-    const task = await createTask(db, { projectId: project.id, label: 'Task' });
-
-    const createRes = await app.request(`/api/v1/projects/${project.id}/documents`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: 'Alias doc',
-        linkedTaskId: task.id,
-      }),
-    });
-    expect(createRes.status).toBe(201);
-    const created = await parseJson<DocumentResponse>(createRes);
-    expect(created.linked_task_id).toBe(task.id);
+    const backlinksRes = await app.request(`/api/v1/tasks/${task.id}/backlinks`);
+    expect(backlinksRes.status).toBe(200);
+    const backlinks = await parseJson<EntityLink[]>(backlinksRes);
+    expect(backlinks).toEqual([
+      {
+        type: 'document',
+        id: created.id,
+        title: 'Implementation notes',
+        label: 'documents',
+        edge_id: linkEdgeId,
+      },
+    ]);
   });
 
   it('GET /projects/:id/documents returns nested tree', async () => {
@@ -164,29 +182,6 @@ describe('documents routes', () => {
     );
   });
 
-  it('rejects cross-project task link with 400', async () => {
-    const { app, db } = await createTestApp();
-    const projectRes = await app.request('/api/v1/projects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Main' }),
-    });
-    const project = await parseJson<{ id: string }>(projectRes);
-    const otherProject = await createProject(db, { name: 'Other' });
-    const foreignTask = await createTask(db, { projectId: otherProject.id, label: 'Foreign' });
-
-    const createRes = await app.request(`/api/v1/projects/${project.id}/documents`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: 'Bad link',
-        linked_task_id: foreignTask.id,
-      }),
-    });
-    expect(createRes.status).toBe(400);
-    expect(await parseJson(createRes)).toEqual({ error: 'invalid_argument' });
-  });
-
   it('returns 404 for missing project, document, and task document', async () => {
     const { app } = await createTestApp();
 
@@ -264,5 +259,101 @@ describe('documents routes', () => {
     const project = await createProject(db, { name: 'Paginate docs' });
     const res = await app.request(`/api/v1/projects/${project.id}/documents?offset=-1`);
     expect(res.status).toBe(400);
+  });
+
+  it('document with three task links returns all three; doc→doc is bidirectional; task backlinks list docs', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Multi-link' });
+    const t1 = await createTask(db, { projectId: project.id, label: 'T1' });
+    const t2 = await createTask(db, { projectId: project.id, label: 'T2' });
+    const t3 = await createTask(db, { projectId: project.id, label: 'T3' });
+
+    const createA = await app.request(`/api/v1/projects/${project.id}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Doc A' }),
+    });
+    const docA = await parseJson<DocumentResponse>(createA);
+    const createB = await app.request(`/api/v1/projects/${project.id}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Doc B' }),
+    });
+    const docB = await parseJson<DocumentResponse>(createB);
+
+    for (const task of [t1, t2, t3]) {
+      await createEdge(db, {
+        projectId: project.id,
+        fromType: 'document',
+        fromId: docA.id,
+        toType: 'task',
+        toId: task.id,
+        label: 'documents',
+      });
+    }
+    await createEdge(db, {
+      projectId: project.id,
+      fromType: 'document',
+      fromId: docA.id,
+      toType: 'document',
+      toId: docB.id,
+      label: 'references',
+    });
+
+    const getA = await parseJson<DocumentResponse>(
+      await app.request(`/api/v1/documents/${docA.id}`),
+    );
+    expect(getA.links.filter((l) => l.type === 'task')).toHaveLength(3);
+    expect(getA.links.map((l) => l.id).sort()).toEqual(
+      [t1.id, t2.id, t3.id, docB.id].sort(),
+    );
+    expect(getA.links).toContainEqual(
+      expect.objectContaining({
+        type: 'document',
+        id: docB.id,
+        title: 'Doc B',
+        label: 'references',
+        edge_id: expect.any(String),
+      }),
+    );
+
+    const getB = await parseJson<DocumentResponse>(
+      await app.request(`/api/v1/documents/${docB.id}`),
+    );
+    expect(getB.backlinks).toEqual([
+      expect.objectContaining({
+        type: 'document',
+        id: docA.id,
+        title: 'Doc A',
+        label: 'references',
+        edge_id: expect.any(String),
+      }),
+    ]);
+
+    const docBacklinks = await parseJson<EntityLink[]>(
+      await app.request(`/api/v1/documents/${docB.id}/backlinks`),
+    );
+    expect(docBacklinks).toEqual([
+      expect.objectContaining({
+        type: 'document',
+        id: docA.id,
+        title: 'Doc A',
+        label: 'references',
+        edge_id: expect.any(String),
+      }),
+    ]);
+
+    const taskBacklinks = await parseJson<EntityLink[]>(
+      await app.request(`/api/v1/tasks/${t1.id}/backlinks`),
+    );
+    expect(taskBacklinks).toContainEqual(
+      expect.objectContaining({
+        type: 'document',
+        id: docA.id,
+        title: 'Doc A',
+        label: 'documents',
+        edge_id: expect.any(String),
+      }),
+    );
   });
 });

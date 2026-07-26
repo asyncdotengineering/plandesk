@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
 import { documents } from '../schema.js';
+import { listEdgesByEndpoint } from './edges.js';
 
 export type Document = typeof documents.$inferSelect;
 
@@ -12,7 +13,6 @@ export type NewDocument = {
   statusLine?: string | null;
   parentId?: string | null;
   folderId?: string | null;
-  linkedTaskId?: string | null;
   id?: string;
 };
 
@@ -22,7 +22,6 @@ export type DocumentUpdate = {
   statusLine?: string | null;
   parentId?: string | null;
   folderId?: string | null;
-  linkedTaskId?: string | null;
 };
 
 export async function createDocument(db: DbClient, input: NewDocument): Promise<Document> {
@@ -38,7 +37,6 @@ export async function createDocument(db: DbClient, input: NewDocument): Promise<
       statusLine: input.statusLine ?? null,
       parentId: input.parentId ?? null,
       folderId: input.folderId ?? null,
-      linkedTaskId: input.linkedTaskId ?? null,
       createdAt: now,
       updatedAt: now,
     })
@@ -80,8 +78,59 @@ export async function listDocuments(
   return query.all();
 }
 
-export async function getDocumentByTask(db: DbClient, taskId: string): Promise<Document | undefined> {
-  return db.select().from(documents).where(eq(documents.linkedTaskId, taskId)).get();
+/**
+ * Every document in `projectId` linked to `taskId` via a `document → task` edge.
+ * Project-scoped twice by design: edge query is project-bound, and the final
+ * re-fetch filters candidates by projectId again so a stray edge id cannot leak
+ * a foreign document.
+ */
+export async function listDocumentsLinkedToTask(
+  db: DbClient,
+  projectId: string,
+  taskId: string,
+): Promise<Document[]> {
+  const linkedIds = new Set<string>();
+
+  const edgeRows = await listEdgesByEndpoint(db, projectId, 'task', taskId);
+  for (const edge of edgeRows) {
+    if (
+      edge.fromType === 'document' &&
+      edge.toType === 'task' &&
+      edge.toId === taskId
+    ) {
+      linkedIds.add(edge.fromId);
+    }
+  }
+
+  if (linkedIds.size === 0) {
+    return [];
+  }
+
+  return db
+    .select()
+    .from(documents)
+    .where(and(eq(documents.projectId, projectId), inArray(documents.id, [...linkedIds])))
+    .all();
+}
+
+/**
+ * Singular primary document for a task (legacy API shape).
+ * With no column preference, singular means the oldest edge-linked document
+ * in the project (createdAt ascending, then id).
+ */
+export async function getDocumentByTask(
+  db: DbClient,
+  projectId: string,
+  taskId: string,
+): Promise<Document | undefined> {
+  const linked = await listDocumentsLinkedToTask(db, projectId, taskId);
+  if (linked.length === 0) {
+    return undefined;
+  }
+  return [...linked].sort((a, b) => {
+    const byTime = a.createdAt.getTime() - b.createdAt.getTime();
+    return byTime !== 0 ? byTime : a.id.localeCompare(b.id);
+  })[0];
 }
 
 export async function getDocumentByProjectAndId(
@@ -124,15 +173,6 @@ export async function detachDocumentChildren(db: DbClient, parentId: string): Pr
     .update(documents)
     .set({ parentId: null })
     .where(eq(documents.parentId, parentId))
-    .run();
-  return result.rowsAffected;
-}
-
-export async function nullDocumentsLinkedTask(db: DbClient, taskId: string): Promise<number> {
-  const result = await db
-    .update(documents)
-    .set({ linkedTaskId: null })
-    .where(eq(documents.linkedTaskId, taskId))
     .run();
   return result.rowsAffected;
 }

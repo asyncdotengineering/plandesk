@@ -42,8 +42,10 @@ describe('canvasService', () => {
     expect(canvas?.nodes).toHaveLength(1);
     expect(canvas?.nodes[0]).toMatchObject({ id: task.id, x: 10, y: 20 });
     expect(canvas?.edges[0]).toMatchObject({
-      from_task_id: task.id,
-      to_task_id: task.id,
+      from_type: 'task',
+      from_id: task.id,
+      to_type: 'task',
+      to_id: task.id,
       label: 'feeds',
     });
     expect(canvas?.layout).toBeNull();
@@ -155,8 +157,10 @@ describe('canvasService', () => {
       label: 'blocks',
     });
     expect(edge).toMatchObject({
-      from_task_id: a.id,
-      to_task_id: b.id,
+      from_type: 'task',
+      from_id: a.id,
+      to_type: 'task',
+      to_id: b.id,
       label: 'blocks',
     });
   });
@@ -192,7 +196,7 @@ describe('canvasService', () => {
 
     const edges = await service.listEdges(projectId);
     expect(edges).toEqual([
-      expect.objectContaining({ id: edge?.id, from_task_id: a.id, to_task_id: b.id, label: 'blocks' }),
+      expect.objectContaining({ id: edge?.id, from_type: 'task', from_id: a.id, to_type: 'task', to_id: b.id, label: 'blocks' }),
     ]);
   });
 

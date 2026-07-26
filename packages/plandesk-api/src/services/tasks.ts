@@ -18,7 +18,6 @@ import {
   listTagsByTaskForProject,
   listTagsForTask,
   listTasks,
-  nullDocumentsLinkedTask,
   setTaskTags,
   taskIdsWithAnyTagName,
   updateTask,
@@ -60,16 +59,21 @@ export type ClaimTaskResult =
   | { claimed: false; reason: 'taken_or_not_actionable' };
 
 // depends_on: prerequisite = to, dependent = from. All other labels: prerequisite = from, dependent = to.
+// Only task→task edges participate in sequencing. Polymorphic / scaffold rows are ignored.
 function prerequisiteAndDependent(
   edge: Edge,
 ): { prerequisite: string; dependent: string } | undefined {
-  if (edge.fromTaskId === edge.toTaskId) {
+  if (edge.fromType !== 'task' || edge.toType !== 'task') {
+    return undefined;
+  }
+  // A self-edge sequences nothing.
+  if (edge.fromId === edge.toId) {
     return undefined;
   }
   if (edge.label === 'depends_on') {
-    return { prerequisite: edge.toTaskId, dependent: edge.fromTaskId };
+    return { prerequisite: edge.toId, dependent: edge.fromId };
   }
-  return { prerequisite: edge.fromTaskId, dependent: edge.toTaskId };
+  return { prerequisite: edge.fromId, dependent: edge.toId };
 }
 
 export type TaskServiceDeps = OrgScopedDeps & {
@@ -284,7 +288,6 @@ export function createTaskService(deps: TaskServiceDeps) {
       await withTransaction(db, async (tx) => {
         await deleteCommentsByTarget(tx, 'task', id);
         await deleteEdgesByTaskId(tx, id);
-        await nullDocumentsLinkedTask(tx, id);
         await deleteTaskTagsByTaskId(tx, id);
         await dbDeleteTask(tx, id);
       });

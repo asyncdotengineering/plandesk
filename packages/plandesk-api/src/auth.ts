@@ -417,10 +417,10 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
 
     if (betterAuth !== undefined) {
       const betterAuthCtx = await resolveBetterAuthSessionContext(betterAuth, c.req.raw.headers);
-      if (betterAuthCtx === 'unauthorized') {
+      if (betterAuthCtx === 'unauthorized' && !isLoopbackBind(bindHost)) {
         return c.json({ error: 'unauthorized' }, 401);
       }
-      if (betterAuthCtx !== undefined) {
+      if (betterAuthCtx !== undefined && betterAuthCtx !== 'unauthorized') {
         await runWithAuthContext(betterAuthCtx, async () => {
           await next();
         });

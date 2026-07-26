@@ -4,15 +4,19 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CliToken } from '../components/settings/CliToken.js';
+import { useAuthSession } from '../lib/auth.js';
 
-function connectCommands(): string {
+function connectCommands(isLoopback: boolean): string {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  if (isLoopback) {
+    return `plandesk connect --url ${origin}`;
+  }
   return `plandesk login --server ${origin}\nplandesk connect --to <org>`;
 }
 
-function McpConnectCard() {
+function McpConnectCard({ isLoopback }: { isLoopback: boolean }) {
   const [copied, setCopied] = useState(false);
-  const commands = connectCommands();
+  const commands = connectCommands(isLoopback);
 
   async function handleCopy() {
     try {
@@ -31,8 +35,9 @@ function McpConnectCard() {
       <CardHeader className="border-b pb-4">
         <CardTitle className="text-sm font-semibold">Connect an agent (MCP)</CardTitle>
         <CardDescription>
-          Point the Plan Desk CLI at this server, then connect it to your organization so agents can
-          use the MCP tools.
+          {isLoopback
+            ? 'Connect a repository directly to this local board. No login or token is required.'
+            : 'Point the Plan Desk CLI at this server, then connect it to your organization so agents can use the MCP tools.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3 pt-4">
@@ -66,13 +71,18 @@ function McpConnectCard() {
 }
 
 function McpSettingsPage() {
+  const { data: session } = useAuthSession();
+  const isLoopback = session?.kind === 'loopback';
+
   return (
     <div className="flex-1 overflow-y-auto px-5 py-5 pb-10">
       <div className="mx-auto max-w-3xl">
         <div className="mb-5 flex flex-wrap items-baseline gap-2.5">
           <h2 className="text-[15px] font-semibold tracking-tight">MCP Settings</h2>
           <span className="text-xs text-muted-foreground">
-            Mint a CLI owner key for `plandesk login`, or connect agents with `plandesk connect`.
+            {isLoopback
+              ? 'Connect agents directly to this trusted local board.'
+              : 'Mint a CLI owner key for `plandesk login`, or connect agents with `plandesk connect`.'}
           </span>
         </div>
         <nav className="mb-6 flex flex-wrap gap-3 text-sm" aria-label="Settings sections">
@@ -92,7 +102,7 @@ function McpSettingsPage() {
             MCP / CLI token
           </Link>
         </nav>
-        <McpConnectCard />
+        <McpConnectCard isLoopback={isLoopback} />
         <div className="mb-10">
           <CliToken />
         </div>

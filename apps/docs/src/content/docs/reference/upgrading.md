@@ -44,7 +44,7 @@ Then start a **new** agent session so MCP tools and the skill reload.
 
 ### Sync the factory policy
 
-`connect` and `factory init` regenerate the *generated* files (the sentinel block, adapters, `skill.md`), but the **authored** factory policy — `.agents/factory/{factory,workflow,protocol,lanes,autonomous-stand}.md` and `.agents/curator/*.md` — is created once and never overwritten, so your edits survive. That also means shipped improvements to those files don't reach an existing repo automatically. `plandesk factory sync` closes that gap without clobbering your edits:
+`connect` and `factory init` regenerate the *generated* files (the sentinel block, adapters, `skill.md`), but the **authored** factory policy — `.agents/factory/{factory,execution,protocol,lanes,routing}.md` (and the optional companions `slicing` / `brief` / `heartbeat`) plus curator skills under `.agents/skills/curator-*/` — is created once and never overwritten, so your edits survive. That also means shipped improvements to those files don't reach an existing repo automatically. `plandesk factory sync` closes that gap without clobbering your edits:
 
 ```bash
 plandesk factory sync            # dry-run: show what's stale vs. the shipped version

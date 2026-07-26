@@ -34,9 +34,11 @@ New to this repo? Run \`plandesk onboard\` for the full Plan Desk + Factory mode
 When asked to plan a project, feature, or RFC from scratch, prefer the one-shot
 \`scaffold_project_from_plan\` tool over many separate calls: it creates the
 project, all tasks, their dependency edges, and linked spec documents in a
-single atomic call. Give each task a stable \`key\` (a slug you choose) and
-reference those keys in \`edges\` (\`from\`/\`to\`) and in a document's \`link_to\`.
-The server resolves keys to real IDs and returns a \`key_to_id\` map.
+single atomic call. Give each task (and any document you need to reference) a
+stable \`key\` (a slug you choose) and reference those keys in \`edges\`
+(\`from\`/\`to\`) and in a document's \`link_to\` (a single key or a list of
+task and document keys). The server resolves keys to real IDs and returns a
+\`key_to_id\` map covering both tasks and keyed documents.
 
 \`scaffold_project_from_plan\` works for both a new and an existing project: omit
 \`project_id\` and pass \`name\` to create a new one; pass \`project_id\` (e.g. the
@@ -80,7 +82,12 @@ one-off single addition, not for standing up a whole plan.
 - Title prefix: \`Investigation:\`, \`Scope:\`, \`Design:\`, or \`Fix:\`.
 - Include a \`Status:\` line near the top: "Ready to implement",
   "Open — requires investigation", "Ready for review", or "Superseded".
-- After creating a document, link it to its primary task in the same step.
+- A document can link to many tasks and to other documents. Prefer
+  \`link_to\` as a list (task and document keys or ids) rather than a single
+  primary only; \`get_document\` returns \`links\` and \`backlinks\` so related
+  specs can be walked without a second query.
+- After creating a document, link it to every task it covers (and any parent
+  or related specs) in the same step.
 
 ## Notes
 
@@ -103,16 +110,17 @@ memory rather than a deliverable spec.
   base64 — keeps bodies lean. \`mime\` defaults to \`image/png\`.
 
 ## Edges
-- Connect related tasks with labeled edges. Prefer the vocabulary:
-  \`blocks\`, \`depends_on\`, \`unblocks\`, \`feeds\`, \`clarifies\`, \`enables\`, \`supports\`.
+- Connect related tasks and documents with labeled edges keyed on
+  \`from_type\`/\`from_id\`/\`to_type\`/\`to_id\` (\`task\` or \`document\`). Prefer the
+  vocabulary: \`blocks\`, \`depends_on\`, \`unblocks\`, \`feeds\`, \`clarifies\`,
+  \`enables\`, \`supports\`, \`documents\`, \`references\`, \`supersedes\`, \`extends\`.
 - When you discover a new dependency while working, add the edge.
 
 ## Executing the plan
 
-If \`.agents/factory/workflow.md\` exists in this repo, it is the orchestrator's
-session program — read and follow it when executing the plan (it defers to
-\`.agents/factory/factory.md\` for the per-task contract). The loop below is the
-tool-level default it builds on.
+Follow \`.agents/factory/factory.md\` for the per-item contract (pull → red gate →
+delegate → prove → gate → ship, with the agent-run lifecycle). The loop below is
+the tool-level default it builds on.
 
 To work a plan, do not guess what is next — call \`get_next_task\`. It returns the
 next actionable \`todo\` task (one whose prerequisite tasks are all \`done\`), plus

@@ -351,28 +351,51 @@ export function mergeMcpJson(
   return `${JSON.stringify(doc, null, 2)}\n`;
 }
 
-// Curator hooks (F1): a `.claude/settings.json` `hooks` block, additively
-// merged from the project-local snippet. Never clobbers a user's existing
-// hooks for OTHER events, and never duplicates the curator entries on rerun —
-// each event's array keeps at most one copy of each snippet entry.
+// Curator hooks (F1): a `.claude/settings.json` `hooks` block merged from the
+// project-local snippet. Plan Desk owns entries marked `_plandesk` — on each
+// merge those are dropped and the current snippet set is re-inserted, so path
+// or matcher changes reclaim cleanly. Untagged entries are never touched,
+// except a one-time legacy sweep for pre-marker curator hook paths (see below).
 export type SettingsJson = {
   hooks?: Record<string, unknown[]>;
 };
 
-// Key order must not affect equality here — a linter, formatter, or hand
-// edit reordering an entry's keys is still the same entry, and must still be
-// recognized as a duplicate on rerun.
-function canonicalJson(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map(canonicalJson).join(',')}]`;
+// Ownership marker written on every Plan Desk hook entry in the snippet.
+// Present → drop-and-replace on merge. Absent → leave alone (user-owned).
+function isPlandeskOwnedEntry(entry: unknown): boolean {
+  return (
+    entry !== null &&
+    typeof entry === 'object' &&
+    !Array.isArray(entry) &&
+    Object.prototype.hasOwnProperty.call(entry, '_plandesk')
+  );
+}
+
+// Pre-marker path used by every shipped curator hook before ownership tags.
+// One-time migration: drop untagged entries whose command still points here so
+// a first post-upgrade `factory init` converges without leaving orphans.
+// Removable after one release cycle (see CHANGELOG).
+const LEGACY_CURATOR_HOOKS_PATH = '.agents/curator/hooks/';
+
+function entryCommandContains(entry: unknown, needle: string): boolean {
+  if (entry === null || typeof entry !== 'object') {
+    return false;
   }
-  if (value !== null && typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
-      a.localeCompare(b),
-    );
-    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`;
+  if (Array.isArray(entry)) {
+    return entry.some((item) => entryCommandContains(item, needle));
   }
-  return JSON.stringify(value);
+  const obj = entry as Record<string, unknown>;
+  if (typeof obj['command'] === 'string' && obj['command'].includes(needle)) {
+    return true;
+  }
+  return Object.values(obj).some((value) => entryCommandContains(value, needle));
+}
+
+function isLegacyUntaggedCuratorEntry(entry: unknown): boolean {
+  if (isPlandeskOwnedEntry(entry)) {
+    return false;
+  }
+  return entryCommandContains(entry, LEGACY_CURATOR_HOOKS_PATH);
 }
 
 export function mergeCuratorHooksJson(
@@ -387,14 +410,11 @@ export function mergeCuratorHooksJson(
   const hooks = doc.hooks ?? {};
   for (const [event, snippetEntries] of Object.entries(snippet.hooks ?? {})) {
     const existingEntries = hooks[event] ?? [];
-    const merged = [...existingEntries];
-    for (const entry of snippetEntries) {
-      const entryCanonical = canonicalJson(entry);
-      if (!merged.some((candidate) => canonicalJson(candidate) === entryCanonical)) {
-        merged.push(entry);
-      }
-    }
-    hooks[event] = merged;
+    // Drop Plan Desk–owned and legacy untagged curator entries, keep user hooks.
+    const kept = existingEntries.filter(
+      (entry) => !isPlandeskOwnedEntry(entry) && !isLegacyUntaggedCuratorEntry(entry),
+    );
+    hooks[event] = [...kept, ...snippetEntries];
   }
   doc.hooks = hooks;
   return `${JSON.stringify(doc, null, 2)}\n`;
@@ -419,10 +439,10 @@ export function removeMcpServerEntry(existingContent: string): string | undefine
 // agent cannot guess — everything else lives on disk, path-referenced, pulled on
 // demand. So the sentinel rides the crisp PREAMBLE (the gate) plus exactly one
 // @-include: factory.md, the per-work-item contract whose absence would actually
-// change behavior. The session program (workflow.md) and the execution posture
-// (autonomous-stand.md) are named by path in the preamble and read when needed —
-// inlining ~230 more lines every session is noise a capable agent skims past.
-// Dispatch DATA (protocol, workers, lanes, verifiers) stays on-demand too.
+// change behavior. The IC execution spine (execution.md) is named by path in the
+// preamble and read when needed — inlining it every session is noise a capable
+// agent skims past. Dispatch DATA (protocol, workers, lanes, verifiers) stays
+// on-demand too.
 export const FACTORY_SENTINEL_START = '<!-- plandesk-factory:start -->';
 export const FACTORY_SENTINEL_END = '<!-- plandesk-factory:end -->';
 export const FACTORY_SENTINEL_INCLUDES = ['@.agents/factory/factory.md'];
@@ -433,9 +453,9 @@ export const FACTORY_SENTINEL_INCLUDES = ['@.agents/factory/factory.md'];
 export const FACTORY_SENTINEL_PREAMBLE = `## Plan Desk Factory — default operating mode
 
 This repository runs on the Factory workflow. On any work request:
-1. **Follow the factory cycle** — the always-on [factory.md](.agents/factory/factory.md) contract governs each work item: pull → read → red gate → act → prove → observe → gate → report. For the session program (orient → intake → execute → finish), read [workflow.md](.agents/factory/workflow.md).
+1. **Follow the factory cycle** — the always-on [factory.md](.agents/factory/factory.md) contract governs each work item: pull → read → red gate → delegate → prove → observe → gate → ship. Bracket the session with \`start_agent_run\` / \`complete_agent_run\`; call \`record_agent_progress\` every cycle.
 2. **Delegate implementation by default — when a worker is available.** The supervisor orchestrates; IC workers execute. Probe the dispatchers in [.agents/factory/workers/](.agents/factory/workers/) per [protocol.md](.agents/factory/protocol.md) and hand each work item to a probed worker. **If no worker is installed on this machine, do the work yourself under the same contract** — never skip the cycle just because you are the one typing, and never assume a delegation skill or worker CLI exists that this repo did not ship. Write inline without dispatch only for trivial edits, integration/conflict resolution, and review fixes under ~5 lines.
-3. **Operate in autonomous-stand mode** — decompose the goal into verifiable moves on a harness task list (\`TaskCreate\` / \`TaskList\` / \`TaskUpdate\`), drive them to zero, and ship without pausing for permission. The full posture is [autonomous-stand.md](.agents/factory/autonomous-stand.md).
+3. **Execute without pausing** — decompose the goal into verifiable moves on a harness task list (\`TaskCreate\` / \`TaskList\` / \`TaskUpdate\`), drive them to zero, and ship finished work without pausing for permission. The IC spine is [execution.md](.agents/factory/execution.md).
 4. **Prove before done** — re-run the claimed checks per [protocol.md](.agents/factory/protocol.md); exit codes are authoritative.
 
 New to this repo? Run \`plandesk onboard\` for the full Plan Desk + Factory model and the operating loop.`;
@@ -458,6 +478,29 @@ export function insertBlock(content: string, block: string, start: string, end: 
   }
   const base = content.replace(/\n+$/, '');
   return `${base}\n\n${block}\n`;
+}
+
+// Shared-file ownership for `.agents/index.md`: Plan Desk contributes a sentinel
+// block only. Never whole-file write, never skip — regenerated every init/sync so
+// the map cannot go stale when another tool owns the rest of the file.
+export const AGENTS_INDEX_SENTINEL_START = '<!-- plandesk-agents-index:start -->';
+export const AGENTS_INDEX_SENTINEL_END = '<!-- plandesk-agents-index:end -->';
+
+export function buildAgentsIndexSentinelBlock(body: string): string {
+  const trimmed = body.replace(/\n+$/, '');
+  return `${AGENTS_INDEX_SENTINEL_START}\n${trimmed}\n${AGENTS_INDEX_SENTINEL_END}`;
+}
+
+export function insertAgentsIndexBlock(content: string, body: string): string {
+  const block = buildAgentsIndexSentinelBlock(body);
+  // Upgrade path: prior whole-file index (byte-identical to the block body) is
+  // replaced by the sentinel form so re-init does not leave a duplicate map.
+  const normalizedExisting = content.replace(/\n+$/, '');
+  const normalizedBody = body.replace(/\n+$/, '');
+  if (normalizedExisting === normalizedBody) {
+    return insertBlock('', block, AGENTS_INDEX_SENTINEL_START, AGENTS_INDEX_SENTINEL_END);
+  }
+  return insertBlock(content, block, AGENTS_INDEX_SENTINEL_START, AGENTS_INDEX_SENTINEL_END);
 }
 
 export function insertFactorySentinelBlock(content: string): string {

@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { PencilIcon, XIcon } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { FileTextIcon, PencilIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { StatusMenu } from '../board/StatusChip.js';
 import { CommentsPanel } from '../docs/CommentsPanel.js';
 import { RichTextEditor, type RichTextEditorHandle } from '../editor/RichTextEditor.js';
-import { flattenDocumentTree } from '../docs/DocumentsPanel.js';
+import {
+  documentsByLinkedTask,
+  flattenDocumentTree,
+} from '../docs/DocumentsPanel.js';
 import { useDocuments } from '../../lib/queries.js';
 import type { SerializedTag, TaskStatus } from '../../lib/api.js';
 import type { TaskNodeData } from './canvas-map.js';
-import { OpenDocLink } from './OpenDocLink.js';
 
 type TaskDetailProps = {
   taskId: string;
@@ -55,6 +58,7 @@ export function TaskDetail({
     id: doc.id,
     title: doc.title,
   }));
+  const linkedDocs = documentsByLinkedTask(allDocuments ?? []).get(taskId) ?? [];
 
   useEffect(() => {
     setLabel(data.label);
@@ -189,11 +193,23 @@ export function TaskDetail({
               </span>
             )}
           </dd>
-          {data.documentId !== undefined ? (
+          {linkedDocs.length > 0 ? (
             <>
-              <dt className="text-muted-foreground">Doc</dt>
-              <dd>
-                <OpenDocLink projectId={data.projectId} documentId={data.documentId} />
+              <dt className="text-muted-foreground">
+                {linkedDocs.length === 1 ? 'Doc' : 'Docs'}
+              </dt>
+              <dd className="flex flex-col gap-1">
+                {linkedDocs.map((doc) => (
+                  <Link
+                    key={doc.id}
+                    to="/projects/$id/documents/$docId"
+                    params={{ id: data.projectId, docId: doc.id }}
+                    className="inline-flex items-center gap-1.5 font-medium text-foreground hover:underline"
+                  >
+                    <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{doc.title}</span>
+                  </Link>
+                ))}
               </dd>
             </>
           ) : null}

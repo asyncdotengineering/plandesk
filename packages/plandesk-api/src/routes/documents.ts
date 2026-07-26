@@ -8,9 +8,6 @@ type CreateDocumentBody = {
   status_line?: string | null;
   parent_id?: string | null;
   folder_id?: string | null;
-  linked_task_id?: string | null;
-  linkedTaskId?: string | null;
-  linkedNodeId?: string | null;
 };
 
 type UpdateDocumentBody = {
@@ -19,27 +16,7 @@ type UpdateDocumentBody = {
   status_line?: string | null;
   parent_id?: string | null;
   folder_id?: string | null;
-  linked_task_id?: string | null;
-  linkedTaskId?: string | null;
-  linkedNodeId?: string | null;
 };
-
-function resolveLinkedTaskId(body: {
-  linked_task_id?: string | null;
-  linkedTaskId?: string | null;
-  linkedNodeId?: string | null;
-}): string | null | undefined {
-  if (body.linked_task_id !== undefined) {
-    return body.linked_task_id;
-  }
-  if (body.linkedTaskId !== undefined) {
-    return body.linkedTaskId;
-  }
-  if (body.linkedNodeId !== undefined) {
-    return body.linkedNodeId;
-  }
-  return undefined;
-}
 
 export function createDocumentsRouter(documentService: DocumentService): Hono {
   const router = new Hono();
@@ -69,7 +46,6 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
         statusLine: body.status_line,
         parentId: body.parent_id,
         folderId: body.folder_id,
-        linkedTaskId: resolveLinkedTaskId(body),
       });
 
       if (!document) {
@@ -95,7 +71,6 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
 
   router.patch('/documents/:id', async (c) => {
     const body = await c.req.json<UpdateDocumentBody>();
-    const linkedTaskId = resolveLinkedTaskId(body);
 
     try {
       const document = await documentService.update(c.req.param('id'), {
@@ -104,7 +79,6 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
         ...(body.status_line !== undefined ? { statusLine: body.status_line } : {}),
         ...(body.parent_id !== undefined ? { parentId: body.parent_id } : {}),
         ...(body.folder_id !== undefined ? { folderId: body.folder_id } : {}),
-        ...(linkedTaskId !== undefined ? { linkedTaskId } : {}),
       });
 
       if (!document) {
@@ -134,6 +108,24 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
       return c.json({ error: 'not_found' }, 404);
     }
     return c.json(document);
+  });
+
+  // To-side lookup: every entity pointing at this document.
+  router.get('/documents/:id/backlinks', async (c) => {
+    const backlinks = await documentService.listBacklinks('document', c.req.param('id'));
+    if (!backlinks) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json(backlinks);
+  });
+
+  // To-side lookup: every entity (typically documents) pointing at this task.
+  router.get('/tasks/:id/backlinks', async (c) => {
+    const backlinks = await documentService.listBacklinks('task', c.req.param('id'));
+    if (!backlinks) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json(backlinks);
   });
 
   return router;

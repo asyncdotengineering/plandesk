@@ -8,6 +8,7 @@ import { RichTextEditor } from '../editor/RichTextEditor.js';
 import { SaveStatusIndicator } from '../editor/SaveStatusIndicator.js';
 import { useAutosave } from '../editor/useAutosave.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
+import { DocumentLinks } from './DocumentLinks.js';
 
 export type DocumentEditorMode = 'reader' | 'editor';
 
@@ -129,6 +130,14 @@ export function DocumentEditor({
         projectId={projectId}
         docLinks={docLinks}
       />
+
+      {projectId !== undefined ? (
+        <DocumentLinks
+          projectId={projectId}
+          document={document}
+          editable={mode === 'editor'}
+        />
+      ) : null}
 
       {onDelete !== undefined ? (
         <ConfirmDialog

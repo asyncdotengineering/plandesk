@@ -12,11 +12,13 @@ import {
 } from 'lucide-react';
 import type {
   SerializedDocumentTree,
+  SerializedEntityLink,
   SerializedFolder,
   SerializedTask,
 } from '../../lib/api.js';
 import {
   useCreateDocument,
+  useCreateEdge,
   useCreateFolder,
   useDeleteDocument,
   useDeleteFolder,
@@ -62,7 +64,8 @@ type FlatDocument = {
   title: string;
   folder_id: string | null;
   status_line: string | null;
-  linked_task_id: string | null;
+  links: SerializedEntityLink[];
+  project_id: string;
   updated_at: string;
 };
 
@@ -75,7 +78,8 @@ export function flattenDocumentTree(trees: SerializedDocumentTree[]): FlatDocume
         title: node.title,
         folder_id: node.folder_id,
         status_line: node.status_line,
-        linked_task_id: node.linked_task_id,
+        links: node.links,
+        project_id: node.project_id,
         updated_at: node.updated_at,
       });
       walk(node.children);
@@ -83,6 +87,40 @@ export function flattenDocumentTree(trees: SerializedDocumentTree[]): FlatDocume
   }
   walk(trees);
   return flat;
+}
+
+/** Task ids that appear in any document's outgoing links. */
+export function taskIdsWithLinkedDocuments(trees: SerializedDocumentTree[]): Set<string> {
+  const ids = new Set<string>();
+  for (const doc of flattenDocumentTree(trees)) {
+    for (const link of doc.links) {
+      if (link.type === 'task') {
+        ids.add(link.id);
+      }
+    }
+  }
+  return ids;
+}
+
+/** Map task id → documents that link to it (outgoing doc→task edges). */
+export function documentsByLinkedTask(
+  trees: SerializedDocumentTree[],
+): Map<string, FlatDocument[]> {
+  const map = new Map<string, FlatDocument[]>();
+  for (const doc of flattenDocumentTree(trees)) {
+    for (const link of doc.links) {
+      if (link.type !== 'task') {
+        continue;
+      }
+      const list = map.get(link.id);
+      if (list === undefined) {
+        map.set(link.id, [doc]);
+      } else if (!list.some((existing) => existing.id === doc.id)) {
+        list.push(doc);
+      }
+    }
+  }
+  return map;
 }
 
 export function childFoldersOf(
@@ -316,6 +354,7 @@ export function DocumentsPanel({
 
   const createFolder = useCreateFolder(projectId);
   const createDocument = useCreateDocument(projectId);
+  const createEdge = useCreateEdge(projectId);
   const patchFolder = usePatchFolder();
   const patchDocument = usePatchDocument();
   const deleteFolder = useDeleteFolder();
@@ -381,18 +420,43 @@ export function DocumentsPanel({
     if (title === '') {
       return;
     }
+    const taskId = newDocTask === ROOT_VALUE ? null : newDocTask;
     createDocument.mutate(
       {
         title,
         folder_id: currentFolderId,
-        linked_task_id: newDocTask === ROOT_VALUE ? null : newDocTask,
       },
       {
-        onSuccess: () => {
-          toast('Document created');
-          setNewDocOpen(false);
-          setNewDocTitle('');
-          setNewDocTask(ROOT_VALUE);
+        onSuccess: (created) => {
+          const finish = () => {
+            toast('Document created');
+            setNewDocOpen(false);
+            setNewDocTitle('');
+            setNewDocTask(ROOT_VALUE);
+          };
+          if (taskId === null) {
+            finish();
+            return;
+          }
+          createEdge.mutate(
+            {
+              from_type: 'document',
+              from_id: created.id,
+              to_type: 'task',
+              to_id: taskId,
+              label: 'documents',
+            },
+            {
+              onSuccess: finish,
+              onError: () => {
+                // Document exists; surface the link failure without rolling back.
+                toast('Document created, but linking the task failed');
+                setNewDocOpen(false);
+                setNewDocTitle('');
+                setNewDocTask(ROOT_VALUE);
+              },
+            },
+          );
         },
       },
     );
@@ -677,14 +741,24 @@ export function DocumentsPanel({
                     {statusText(doc.status_line)}
                   </span>
                 ) : null}
-                {doc.linked_task_id !== null && taskLabelById.has(doc.linked_task_id) ? (
-                  <Link
-                    to="/projects/$id/board"
-                    params={{ id: projectId }}
-                    className="hidden shrink-0 items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground md:inline-flex"
-                  >
-                    {taskLabelById.get(doc.linked_task_id)}
-                  </Link>
+                {doc.links
+                  .filter((link) => link.type === 'task')
+                  .slice(0, 2)
+                  .map((link) => (
+                    <Link
+                      key={link.edge_id}
+                      to="/projects/$id/board"
+                      params={{ id: projectId }}
+                      title={link.title}
+                      className="hidden max-w-[140px] shrink-0 truncate rounded-full border bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground md:inline-block"
+                    >
+                      {taskLabelById.get(link.id) ?? link.title}
+                    </Link>
+                  ))}
+                {doc.links.filter((link) => link.type === 'task').length > 2 ? (
+                  <span className="hidden shrink-0 text-[11px] text-muted-foreground md:inline">
+                    +{doc.links.filter((link) => link.type === 'task').length - 2}
+                  </span>
                 ) : null}
                 <RowKebab label={`Actions for document ${doc.title}`}>
                   <DropdownMenuItem
@@ -784,7 +858,14 @@ export function DocumentsPanel({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={createDocument.isPending || newDocTitle.trim() === ''}>
+              <Button
+                type="submit"
+                disabled={
+                  createDocument.isPending ||
+                  createEdge.isPending ||
+                  newDocTitle.trim() === ''
+                }
+              >
                 Create document
               </Button>
             </DialogFooter>

@@ -1,26 +1,44 @@
 import { createHash } from 'node:crypto';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
   rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { globalDirRefusalReason } from './connect-artifacts.js';
-import { CURATOR_SKILLS, CURATOR_TEMPLATES } from './curator-templates.js';
 import {
+  AGENTS_INDEX_SENTINEL_END,
+  AGENTS_INDEX_SENTINEL_START,
+  globalDirRefusalReason,
+} from './connect-artifacts.js';
+import {
+  CURATOR_SKILL_NAMES,
+  CURATOR_TEMPLATES,
+  curatorArtifactPath,
+  curatorSkillSymlinkTarget,
+} from './curator-templates.js';
+import {
+  WORKER_NAMES,
+  buildAgentsIndexMarkdown,
   buildFactoryArtifacts,
+  classifyAgentsPath,
   FactoryError,
   formatFactoryInitPrint,
   formatFactoryInitSummary,
+  planOwnedPrune,
+  pruneUnknownManifestKeys,
+  readSyncManifest,
   runFactoryInit,
   runFactorySync,
 } from './factory.js';
+import { templateExists } from './templates.js';
 
 const tempDirs: string[] = [];
 
@@ -70,9 +88,11 @@ describe('runFactoryInit', () => {
 
     const expected = [
       '.agents/index.md',
-      '.agents/factory/workflow.md',
       '.agents/factory/factory.md',
-      '.agents/factory/autonomous-stand.md',
+      '.agents/factory/execution.md',
+      '.agents/factory/slicing.md',
+      '.agents/factory/brief.md',
+      '.agents/factory/heartbeat.md',
       '.agents/factory/protocol.md',
       '.agents/factory/lanes.md',
       '.agents/factory/verifiers/tests-pass.md',
@@ -92,17 +112,24 @@ describe('runFactoryInit', () => {
     }
     expect(result.artifacts.every((a) => a.action === 'create')).toBe(true);
 
-    const workflowDoc = readFileSync(join(repo, '.agents/factory/workflow.md'), 'utf8');
-    expect(workflowDoc.startsWith('---\ntype: workflow\n')).toBe(true);
-    expect(workflowDoc).toContain('Shipped default');
+    const executionDoc = readFileSync(join(repo, '.agents/factory/execution.md'), 'utf8');
+    expect(executionDoc.startsWith('---\ntype: execution\n')).toBe(true);
+    expect(executionDoc).toContain('IC execution posture');
 
     const factoryDoc = readFileSync(join(repo, '.agents/factory/factory.md'), 'utf8');
     expect(factoryDoc.startsWith('---\ntype: factory\n')).toBe(true);
     expect(factoryDoc).toContain('get_next_task');
+    expect(factoryDoc).toContain('start_agent_run');
 
     const command = readFileSync(join(repo, '.claude/commands/factory.md'), 'utf8');
     expect(command).toContain('@.agents/factory/factory.md');
-    expect(command).toContain('@.agents/factory/autonomous-stand.md');
+    expect(command).toContain('@.agents/factory/execution.md');
+    expect(command).toBe(`# Factory
+
+@.agents/factory/factory.md
+
+@.agents/factory/execution.md
+`);
 
     const runsIgnore = readFileSync(join(repo, '.agents/factory/runs/.gitignore'), 'utf8');
     expect(runsIgnore).toContain('*');
@@ -155,7 +182,7 @@ describe('runFactoryInit', () => {
     // never get written either — not a per-file check.
     for (const template of CURATOR_TEMPLATES) {
       expect(
-        existsSync(join(globalClaude, '.agents/curator', template.relativePath)),
+        existsSync(curatorArtifactPath(globalClaude, template.relativePath)),
         template.relativePath,
       ).toBe(false);
     }
@@ -167,7 +194,7 @@ describe('runFactoryInit', () => {
     // --force lifts the guard for the whole scaffold, curator artifacts included.
     for (const template of CURATOR_TEMPLATES) {
       expect(
-        existsSync(join(globalClaude, '.agents/curator', template.relativePath)),
+        existsSync(curatorArtifactPath(globalClaude, template.relativePath)),
         template.relativePath,
       ).toBe(true);
     }
@@ -193,17 +220,15 @@ describe('always-on policy include', () => {
     expect(first).toContain('<!-- plandesk-factory:start -->');
     // Less-is-more: the always-on block carries the crisp preamble gate plus
     // exactly ONE @-include — factory.md, the per-item contract whose absence
-    // would change behavior. workflow.md and autonomous-stand.md are referenced
-    // by path in the preamble, not inlined into every session's context.
+    // would change behavior. execution.md is referenced by path in the
+    // preamble, not inlined into every session's context.
     expect(first).toContain('@.agents/factory/factory.md');
-    expect(first).not.toContain('@.agents/factory/workflow.md');
-    expect(first).not.toContain('@.agents/factory/autonomous-stand.md');
-    expect(first).toContain('[workflow.md](.agents/factory/workflow.md)');
-    expect(first).toContain('[autonomous-stand.md](.agents/factory/autonomous-stand.md)');
-    // Always-on directive preamble: use the factory as default workflow,
-    // operate in autonomous-stand mode, drive via harness tasks.
+    expect(first).not.toContain('@.agents/factory/execution.md');
+    expect(first).toContain('[execution.md](.agents/factory/execution.md)');
+    // Always-on directive preamble: use the factory cycle, drive via harness
+    // tasks, prove before done.
     expect(first).toContain('Plan Desk Factory — default operating mode');
-    expect(first).toContain('autonomous-stand mode');
+    expect(first).toContain('start_agent_run');
     expect(first).toContain('TaskCreate');
 
     runFactoryInit({ repoDir: repo });
@@ -234,14 +259,30 @@ describe('buildFactoryArtifacts', () => {
 });
 
 describe('worker files', () => {
+  const dispatchRuleFooter = [
+    'Dispatch rule: run `probe` first — if it fails, this worker does not exist on',
+    'this machine; pick another file in this directory. Substitute {prompt_file}',
+    'with the brief path and run `command` verbatim. The result contract is',
+    'defined in [../protocol.md](../protocol.md).',
+  ].join('\n');
+
   it('every worker declares a probe and a {prompt_file} command template', async () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
-    for (const name of ['claude', 'codex', 'cursor', 'grok', 'opencode', 'pi']) {
+    for (const name of WORKER_NAMES) {
       const content = readFileSync(join(repo, `.agents/factory/workers/${name}.md`), 'utf8');
       expect(content, name).toContain('type: worker');
       expect(content, name).toContain('probe: command -v ');
       expect(content, name).toContain('{prompt_file}');
+    }
+  });
+
+  it('every worker file ends with the shared dispatch-rule footer', async () => {
+    const repo = makeTempDir('plandesk-factory-');
+    runFactoryInit({ repoDir: repo });
+    for (const name of WORKER_NAMES) {
+      const content = readFileSync(join(repo, `.agents/factory/workers/${name}.md`), 'utf8');
+      expect(content, name).toContain(dispatchRuleFooter);
     }
   });
 
@@ -255,13 +296,28 @@ describe('worker files', () => {
   });
 });
 
+describe('template invariant', () => {
+  it('every path buildFactoryArtifacts emits under .agents/ resolves to a real template', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    const artifacts = buildFactoryArtifacts(repo);
+    const agentsPaths = artifacts
+      .map((a) => relative(repo, a.path).replace(/\\/g, '/'))
+      .filter((rel) => rel.startsWith('.agents/'));
+    expect(agentsPaths.length).toBeGreaterThan(0);
+    for (const rel of agentsPaths) {
+      const templateRel = rel.slice('.agents/'.length);
+      expect(templateExists(templateRel), `missing template for ${rel}`).toBe(true);
+    }
+  });
+});
+
 describe('curator artifacts (F5)', () => {
   it('scaffolds all 10 curator artifacts create-if-missing, with hook scripts executable', async () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo });
 
     for (const template of CURATOR_TEMPLATES) {
-      const path = join(repo, '.agents/curator', template.relativePath);
+      const path = curatorArtifactPath(repo, template.relativePath);
       expect(existsSync(path), template.relativePath).toBe(true);
       expect(readFileSync(path, 'utf8'), template.relativePath).toBe(template.content);
       const artifact = result.artifacts.find((a) => a.path === path);
@@ -272,16 +328,16 @@ describe('curator artifacts (F5)', () => {
       }
     }
 
-    const triage = readFileSync(join(repo, '.agents/curator/triage.md'), 'utf8');
-    expect(triage).toContain('type: curator-skill');
-    expect(triage.startsWith('---\ntype: curator-skill\n')).toBe(true);
+    const triage = readFileSync(join(repo, '.agents/skills/curator-triage/SKILL.md'), 'utf8');
+    expect(triage.startsWith('---\nname: curator-triage\ndescription: ')).toBe(true);
+    expect(triage).not.toContain('type: curator-skill');
   });
 
   it('never overwrites a curator artifact the user edited, on re-run', async () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
 
-    const triagePath = join(repo, '.agents/curator/triage.md');
+    const triagePath = join(repo, '.agents/skills/curator-triage/SKILL.md');
     writeFileSync(triagePath, 'my edited triage skill\n', 'utf8');
 
     const rerun = runFactoryInit({ repoDir: repo });
@@ -293,7 +349,7 @@ describe('curator artifacts (F5)', () => {
   it('--print previews all 10 curator artifacts and the settings.json merge', async () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo, print: true });
-    expect(existsSync(join(repo, '.agents/curator'))).toBe(false);
+    expect(existsSync(join(repo, '.agents/skills/curator-triage'))).toBe(false);
 
     const printout = formatFactoryInitPrint(result);
     for (const template of CURATOR_TEMPLATES) {
@@ -303,30 +359,32 @@ describe('curator artifacts (F5)', () => {
     expect(printout).toContain('plandesk progress-checkpoint');
   });
 
-  it('generates discoverable .claude/skills adapters with name+description frontmatter', async () => {
+  it('symlinks .claude/skills adapters to the canonical .agents/skills files', async () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
 
-    for (const skill of CURATOR_SKILLS) {
-      const adapterPath = join(repo, '.claude/skills', skill.name, 'SKILL.md');
-      expect(existsSync(adapterPath), skill.name).toBe(true);
+    for (const name of CURATOR_SKILL_NAMES) {
+      const adapterPath = join(repo, '.claude/skills', name, 'SKILL.md');
+      expect(existsSync(adapterPath), name).toBe(true);
+      expect(lstatSync(adapterPath).isSymbolicLink(), name).toBe(true);
+      expect(readlinkSync(adapterPath), name).toBe(curatorSkillSymlinkTarget(name));
       const content = readFileSync(adapterPath, 'utf8');
-      // Claude Code discovers/triggers on name + description frontmatter — the
-      // harness-neutral `type: curator-skill` frontmatter of the .agents source is gone.
-      expect(content.startsWith(`---\nname: ${skill.name}\ndescription: `)).toBe(true);
+      expect(content.startsWith(`---\nname: ${name}\ndescription: `)).toBe(true);
       expect(content).not.toContain('type: curator-skill');
     }
   });
 
-  it('regenerates the .claude/skills adapter from an edited .agents source on re-run', async () => {
+  it('symlink adapter reflects an edited .agents skill without regenerating content', async () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
 
-    const sourcePath = join(repo, '.agents/curator/triage.md');
+    const sourcePath = join(repo, '.agents/skills/curator-triage/SKILL.md');
     writeFileSync(sourcePath, `${readFileSync(sourcePath, 'utf8')}\n\nEDITED MARKER.\n`, 'utf8');
     runFactoryInit({ repoDir: repo });
 
-    const adapter = readFileSync(join(repo, '.claude/skills/curator-triage/SKILL.md'), 'utf8');
+    const adapterPath = join(repo, '.claude/skills/curator-triage/SKILL.md');
+    expect(lstatSync(adapterPath).isSymbolicLink()).toBe(true);
+    const adapter = readFileSync(adapterPath, 'utf8');
     expect(adapter).toContain('EDITED MARKER.');
     expect(adapter.startsWith('---\nname: curator-triage\ndescription: ')).toBe(true);
   });
@@ -349,13 +407,13 @@ describe('curator hooks settings.json merge (F1 wiring)', () => {
     expect(settings.hooks.Stop).toHaveLength(1);
     expect(settings.hooks.PreCompact).toHaveLength(1);
     expect(JSON.stringify(settings.hooks.SessionStart)).toContain(
-      '.agents/curator/hooks/session-start.sh',
+      '.agents/factory/hooks/session-start.sh',
     );
-    expect(JSON.stringify(settings.hooks.Stop)).toContain('.agents/curator/hooks/checkpoint.sh');
+    expect(JSON.stringify(settings.hooks.Stop)).toContain('.agents/factory/hooks/checkpoint.sh');
     // Hook commands are prefixed with $CLAUDE_PROJECT_DIR so they resolve against the
     // project root even when Claude Code is launched from a subdirectory.
     expect(JSON.stringify(settings.hooks.SessionStart)).toContain(
-      '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/session-start.sh',
+      '$CLAUDE_PROJECT_DIR/.agents/factory/hooks/session-start.sh',
     );
   });
 
@@ -509,5 +567,157 @@ describe('factory sync', () => {
 
     runFactorySync({ repoDir: repo, write: true });
     expect(readFileSync(protocolPath, 'utf8')).toBe(shipped); // updated to shipped
+  });
+
+  it('drops unknown keys from the sync manifest on write (no rename-migration table)', async () => {
+    const repo = makeTempDir('plandesk-sync-');
+    runFactoryInit({ repoDir: repo });
+    const manifestPath = join(repo, '.agents/.plandesk-sync.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      files: Record<string, string>;
+    };
+    // Simulate keys left behind by the curator → skills move.
+    manifest.files['.agents/curator/triage.md'] = 'deadbeef';
+    manifest.files['.agents/curator/hooks/session-start.sh'] = 'cafebabe';
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+
+    runFactorySync({ repoDir: repo, write: true });
+    const after = readSyncManifest(repo);
+    expect(after['.agents/curator/triage.md']).toBeUndefined();
+    expect(after['.agents/curator/hooks/session-start.sh']).toBeUndefined();
+    // Still-declared owned files remain.
+    expect(after[protocolRel]).toBeTypeOf('string');
+  });
+
+  it('prunes only owned stale files; foreign and shared-namespace paths survive', async () => {
+    const repo = makeTempDir('plandesk-sync-');
+    runFactoryInit({ repoDir: repo });
+
+    // Foreign files another tool owns.
+    const otherSkill = join(repo, '.agents/skills/other-tool/SKILL.md');
+    const otherMd = join(repo, '.agents/other.md');
+    mkdirSync(join(repo, '.agents/skills/other-tool'), { recursive: true });
+    writeFileSync(otherSkill, 'foreign skill body\n', 'utf8');
+    writeFileSync(otherMd, 'foreign other.md\n', 'utf8');
+
+    // Stale owned path the CLI once shipped (no longer declared).
+    const staleOwnedRel = '.agents/factory/legacy-gone.md';
+    const staleOwned = join(repo, staleOwnedRel);
+    const staleBody = '# legacy\n';
+    writeFileSync(staleOwned, staleBody, 'utf8');
+
+    // Stale shared-namespace path — must NOT be deleted even if in the manifest.
+    const staleSkillRel = '.agents/skills/old-skill/SKILL.md';
+    const staleSkill = join(repo, staleSkillRel);
+    mkdirSync(join(repo, '.agents/skills/old-skill'), { recursive: true });
+    writeFileSync(staleSkill, 'old skill\n', 'utf8');
+
+    const manifestPath = join(repo, '.agents/.plandesk-sync.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      files: Record<string, string>;
+    };
+    manifest.files[staleOwnedRel] = createHash('sha256').update(staleBody, 'utf8').digest('hex');
+    manifest.files[staleSkillRel] = createHash('sha256').update('old skill\n', 'utf8').digest('hex');
+    manifest.files['.agents/curator/triage.md'] = 'orphan-key';
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+
+    expect(planOwnedPrune(repo)).toEqual([staleOwnedRel]);
+
+    const result = runFactorySync({ repoDir: repo, prune: true });
+    expect(result.applied).toBe(true);
+    expect(result.pruned).toEqual([staleOwnedRel]);
+    expect(existsSync(staleOwned)).toBe(false);
+    expect(existsSync(staleSkill)).toBe(true);
+    expect(readFileSync(staleSkill, 'utf8')).toBe('old skill\n');
+    expect(readFileSync(otherSkill, 'utf8')).toBe('foreign skill body\n');
+    expect(readFileSync(otherMd, 'utf8')).toBe('foreign other.md\n');
+
+    const after = readSyncManifest(repo);
+    expect(after[staleOwnedRel]).toBeUndefined();
+    expect(after[staleSkillRel]).toBeUndefined();
+    expect(after['.agents/curator/triage.md']).toBeUndefined();
+  });
+});
+
+describe('classifyAgentsPath', () => {
+  it('classifies owned, shared_namespace, shared_file, and foreign tiers', () => {
+    expect(classifyAgentsPath('.agents/factory/protocol.md')).toBe('owned');
+    expect(classifyAgentsPath('.agents/factory/hooks/session-start.sh')).toBe('owned');
+    expect(classifyAgentsPath('.agents/factory/workers/claude.md')).toBe('owned');
+    expect(classifyAgentsPath('.agents/.plandesk-sync.json')).toBe('owned');
+    expect(classifyAgentsPath('.agents/skills/curator-triage/SKILL.md')).toBe('shared_namespace');
+    expect(classifyAgentsPath('.agents/skills/other-tool/SKILL.md')).toBe('shared_namespace');
+    expect(classifyAgentsPath('.agents/index.md')).toBe('shared_file');
+    expect(classifyAgentsPath('.agents/other.md')).toBe('foreign');
+    expect(classifyAgentsPath('.agents/curator/triage.md')).toBe('foreign');
+  });
+});
+
+describe('pruneUnknownManifestKeys', () => {
+  it('keeps only declared keys', () => {
+    const cleaned = pruneUnknownManifestKeys(
+      {
+        '.agents/factory/protocol.md': 'a',
+        '.agents/curator/triage.md': 'b',
+      },
+      new Set(['.agents/factory/protocol.md']),
+    );
+    expect(cleaned).toEqual({ '.agents/factory/protocol.md': 'a' });
+  });
+});
+
+describe('agents index shared-file sentinel', () => {
+  it('writes a Plan Desk block into index.md and regenerates on every init', async () => {
+    const repo = makeTempDir('plandesk-factory-');
+    const result = runFactoryInit({ repoDir: repo });
+    const indexPath = join(repo, '.agents/index.md');
+    const first = readFileSync(indexPath, 'utf8');
+    expect(first).toContain(AGENTS_INDEX_SENTINEL_START);
+    expect(first).toContain(AGENTS_INDEX_SENTINEL_END);
+    expect(first).toContain(buildAgentsIndexMarkdown().replace(/\n+$/, ''));
+    const indexArtifact = result.artifacts.find((a) => a.path === indexPath);
+    expect(indexArtifact?.action).toBe('create');
+
+    const rerun = runFactoryInit({ repoDir: repo });
+    const second = readFileSync(indexPath, 'utf8');
+    expect(second).toBe(first);
+    expect(second.match(/plandesk-agents-index:start/g)).toHaveLength(1);
+    expect(rerun.artifacts.find((a) => a.path === indexPath)?.action).toBe('update');
+  });
+
+  it('preserves foreign index.md content and inserts exactly one Plan Desk block', async () => {
+    const repo = makeTempDir('plandesk-factory-');
+    mkdirSync(join(repo, '.agents'), { recursive: true });
+    const foreign = '# Other tool map\n\n- [their/file.md](their/file.md)\n';
+    writeFileSync(join(repo, '.agents/index.md'), foreign, 'utf8');
+
+    runFactoryInit({ repoDir: repo });
+    const once = readFileSync(join(repo, '.agents/index.md'), 'utf8');
+    expect(once).toContain('# Other tool map');
+    expect(once).toContain('[their/file.md](their/file.md)');
+    expect(once).toContain(AGENTS_INDEX_SENTINEL_START);
+    expect(once.match(/plandesk-agents-index:start/g)).toHaveLength(1);
+
+    runFactoryInit({ repoDir: repo });
+    const twice = readFileSync(join(repo, '.agents/index.md'), 'utf8');
+    expect(twice).toBe(once);
+    expect(twice.match(/plandesk-agents-index:start/g)).toHaveLength(1);
+  });
+
+  it('foreign skill and foreign other.md survive factory init and sync --prune', async () => {
+    const repo = makeTempDir('plandesk-factory-');
+    mkdirSync(join(repo, '.agents/skills/other-tool'), { recursive: true });
+    const skillPath = join(repo, '.agents/skills/other-tool/SKILL.md');
+    const otherPath = join(repo, '.agents/other.md');
+    const skillBody = 'other-tool skill — do not touch\n';
+    const otherBody = 'other.md — do not touch\n';
+    writeFileSync(skillPath, skillBody, 'utf8');
+    writeFileSync(otherPath, otherBody, 'utf8');
+
+    runFactoryInit({ repoDir: repo });
+    runFactorySync({ repoDir: repo, prune: true });
+
+    expect(readFileSync(skillPath, 'utf8')).toBe(skillBody);
+    expect(readFileSync(otherPath, 'utf8')).toBe(otherBody);
   });
 });

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createProject,
   createTask,
+  createEdge,
   deleteDocument,
   deleteEdge,
   deleteProject,
@@ -62,7 +63,16 @@ const sampleDocument: SerializedDocument = {
   status_line: 'Status: draft',
   parent_id: null,
   folder_id: null,
-  linked_task_id: 'task-1',
+  links: [
+    {
+      type: 'task',
+      id: 'task-1',
+      title: 'Implement',
+      label: 'documents',
+      edge_id: 'edge-1',
+    },
+  ],
+  backlinks: [],
   created_at: '2026-06-07T00:00:00.000Z',
   updated_at: '2026-06-07T00:00:00.000Z',
 };
@@ -211,6 +221,40 @@ describe('api client', () => {
       method: 'DELETE',
       headers: expect.any(Headers) as Headers,
       credentials: 'include',
+    });
+  });
+
+  it('createEdge sends POST with typed endpoints', async () => {
+    const edge = {
+      id: 'edge-1',
+      project_id: 'proj-1',
+      from_type: 'document' as const,
+      from_id: 'doc-1',
+      to_type: 'task' as const,
+      to_id: 'task-1',
+      label: 'documents',
+      arrow_direction: null,
+      style: null,
+      created_at: '2026-06-07T00:00:00.000Z',
+    };
+    mockFetch(edge, { status: 201 });
+    const result = await createEdge('proj-1', {
+      from_type: 'document',
+      from_id: 'doc-1',
+      to_type: 'task',
+      to_id: 'task-1',
+      label: 'documents',
+    });
+    expect(result).toEqual(edge);
+    expectFetchCall('/api/v1/projects/proj-1/edges', {
+      method: 'POST',
+      body: JSON.stringify({
+        from_type: 'document',
+        from_id: 'doc-1',
+        to_type: 'task',
+        to_id: 'task-1',
+        label: 'documents',
+      }),
     });
   });
 

@@ -31,7 +31,6 @@ import {
 } from '@/components/ui/select';
 import {
   type PatchTaskInput,
-  type SerializedDocumentTree,
   type SerializedTag,
   type SerializedTask,
   type TaskStatus,
@@ -44,6 +43,10 @@ import {
   usePatchTask,
   useTags,
 } from '../../lib/queries.js';
+import {
+  documentsByLinkedTask,
+  taskIdsWithLinkedDocuments,
+} from '../docs/DocumentsPanel.js';
 import { boardColumnOrder, columnLabels, filterTasksByAnyTag, groupTasksByStatus, LANE_TAG_PREFIX } from './board-utils.js';
 import { BoardColumn } from './BoardColumn.js';
 import { TaskDrawer } from './TaskDrawer.js';
@@ -62,8 +65,14 @@ export function Board({ projectId, tasks }: BoardProps) {
   const { data: projectTags } = useTags(projectId);
   const { data: documents } = useDocuments(projectId);
 
-  const linkedDocTaskIds = useMemo(() => collectLinkedTaskIds(documents), [documents]);
-  const linkedDocByTask = useMemo(() => mapLinkedDocByTask(documents), [documents]);
+  const linkedDocTaskIds = useMemo(
+    () => taskIdsWithLinkedDocuments(documents ?? []),
+    [documents],
+  );
+  const linkedDocsByTask = useMemo(
+    () => documentsByLinkedTask(documents ?? []),
+    [documents],
+  );
 
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [drawerTaskId, setDrawerTaskId] = useState<string | null>(null);
@@ -238,7 +247,9 @@ export function Board({ projectId, tasks }: BoardProps) {
       <TaskDrawer
         open={drawerTask !== undefined}
         task={drawerTask ?? null}
-        linkedDoc={drawerTask !== undefined ? linkedDocByTask.get(drawerTask.id) : undefined}
+        linkedDocs={
+          drawerTask !== undefined ? (linkedDocsByTask.get(drawerTask.id) ?? []) : []
+        }
         tagSuggestions={tagNames}
         isSaving={patchTask.isPending}
         onOpenChange={(open) => {
@@ -445,42 +456,4 @@ function DeleteTaskDialog({ open, isDeleting, onClose, onConfirm }: DeleteTaskDi
   );
 }
 
-function collectLinkedTaskIds(documents: SerializedDocumentTree[] | undefined): Set<string> {
-  const ids = new Set<string>();
-  if (documents === undefined) {
-    return ids;
-  }
-  const walk = (nodes: SerializedDocumentTree[]) => {
-    for (const node of nodes) {
-      if (node.linked_task_id !== null) {
-        ids.add(node.linked_task_id);
-      }
-      if (node.children.length > 0) {
-        walk(node.children);
-      }
-    }
-  };
-  walk(documents);
-  return ids;
-}
 
-function mapLinkedDocByTask(
-  documents: SerializedDocumentTree[] | undefined,
-): Map<string, SerializedDocumentTree> {
-  const map = new Map<string, SerializedDocumentTree>();
-  if (documents === undefined) {
-    return map;
-  }
-  const walk = (nodes: SerializedDocumentTree[]) => {
-    for (const node of nodes) {
-      if (node.linked_task_id !== null) {
-        map.set(node.linked_task_id, node);
-      }
-      if (node.children.length > 0) {
-        walk(node.children);
-      }
-    }
-  };
-  walk(documents);
-  return map;
-}

@@ -1,0 +1,1 @@
+../../../.agents/skills/curator-plan-writer/SKILL.md

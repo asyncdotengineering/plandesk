@@ -1,4 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AccountMenu } from './AccountMenu.js';
@@ -16,15 +23,31 @@ const sessionWithWorkspaces = {
   ],
 };
 
-function renderAccountMenu() {
+function renderAccountMenu(path = '/projects/project-a/board') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
+  const rootRoute = createRootRoute();
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => <p>Workspace landing</p>,
+  });
+  const projectRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/projects/$id/board',
+    component: AccountMenu,
+  });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([indexRoute, projectRoute]),
+    history: createMemoryHistory({ initialEntries: [path] }),
+  });
+  const rendered = render(
     <QueryClientProvider client={queryClient}>
-      <AccountMenu />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  return { ...rendered, router };
 }
 
 afterEach(() => {
@@ -63,7 +86,7 @@ describe('Workspace switcher (REQ-C1)', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    renderAccountMenu();
+    const { router } = renderAccountMenu();
 
     // Active workspace is visible immediately.
     await waitFor(() => {
@@ -92,5 +115,10 @@ describe('Workspace switcher (REQ-C1)', () => {
         }),
       );
     });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/');
+    });
+    expect(screen.getByText('Workspace landing')).toBeTruthy();
   });
 });

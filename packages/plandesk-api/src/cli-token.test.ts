@@ -276,7 +276,7 @@ describe('POST /api/v1/auth/cli-token (BA4b-2)', () => {
     expect(await parseJson(res)).toEqual({ error: 'unauthorized' });
   });
 
-  it('gate 3c: loopback (no session) cannot mint → 401', async () => {
+  it('gate 3c: loopback reports that no token is required', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
     const auth = createBetterAuth({
@@ -299,8 +299,8 @@ describe('POST /api/v1/auth/cli-token (BA4b-2)', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     });
-    expect(res.status).toBe(401);
-    expect(await parseJson(res)).toEqual({ error: 'unauthorized' });
+    expect(res.status).toBe(400);
+    expect(await parseJson(res)).toEqual({ error: 'loopback_no_token_required' });
   });
 
   it('gate 4: minted owner token authorizes org write and reaches second project', async () => {
