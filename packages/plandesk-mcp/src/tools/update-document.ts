@@ -58,7 +58,7 @@ export function createUpdateDocumentHandler(
         return toolSuccess('document', document);
       }
 
-      const existingLinkIds = new Set((document.links ?? []).map((link: { id: string }) => link.id));
+      const existingLinkIds = new Set(document.links.map((link: { id: string }) => link.id));
 
       for (const id of linkTargets) {
         if (existingLinkIds.has(id)) {

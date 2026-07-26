@@ -55,26 +55,26 @@ afterEach(() => {
 });
 
 describe('globalDirRefusalReason', () => {
-  it('refuses the home directory itself', async () => {
+  it('refuses the home directory itself', () => {
     const home = makeTempDir('plandesk-home-');
     expect(globalDirRefusalReason(home, home)).toBe('your home directory');
   });
 
-  it('refuses global agent config directories under home', async () => {
+  it('refuses global agent config directories under home', () => {
     const home = makeTempDir('plandesk-home-');
     for (const name of ['.claude', '.codex', '.agents', '.config', '.plandesk']) {
       expect(globalDirRefusalReason(join(home, name), home)).toBe(`the global ${name} directory`);
     }
   });
 
-  it('allows project directories, including ones inside global dirs', async () => {
+  it('allows project directories, including ones inside global dirs', () => {
     const home = makeTempDir('plandesk-home-');
     expect(globalDirRefusalReason(join(home, 'projects', 'my-app'), home)).toBeUndefined();
     // A repo nested below a global dir is not the global dir itself.
     expect(globalDirRefusalReason(join(home, '.claude', 'skills', 'foo'), home)).toBeUndefined();
   });
 
-  it('allows a .claude-named directory outside home', async () => {
+  it('allows a .claude-named directory outside home', () => {
     const home = makeTempDir('plandesk-home-');
     const elsewhere = makeTempDir('plandesk-elsewhere-');
     expect(globalDirRefusalReason(join(elsewhere, '.claude'), home)).toBeUndefined();
@@ -82,7 +82,7 @@ describe('globalDirRefusalReason', () => {
 });
 
 describe('runFactoryInit', () => {
-  it('scaffolds the .agents factory tree with a claude command adapter', async () => {
+  it('scaffolds the .agents factory tree with a claude command adapter', () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo });
 
@@ -135,7 +135,7 @@ describe('runFactoryInit', () => {
     expect(runsIgnore).toContain('*');
   });
 
-  it('never overwrites authored policy files on re-run', async () => {
+  it('never overwrites authored policy files on re-run', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
 
@@ -152,7 +152,7 @@ describe('runFactoryInit', () => {
     expect(adapter?.action).toBe('update');
   });
 
-  it('respects agent detection for command adapters', async () => {
+  it('respects agent detection for command adapters', () => {
     const repo = makeTempDir('plandesk-factory-');
     // CLAUDE.md present, no .codex — claude-only repo.
     writeFileSync(join(repo, 'CLAUDE.md'), '# repo\n', 'utf8');
@@ -161,7 +161,7 @@ describe('runFactoryInit', () => {
     expect(existsSync(join(repo, '.codex/commands/factory.md'))).toBe(false);
   });
 
-  it('supports --print without writing files', async () => {
+  it('supports --print without writing files', () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo, print: true });
     expect(existsSync(join(repo, '.agents'))).toBe(false);
@@ -170,7 +170,7 @@ describe('runFactoryInit', () => {
     expect(printout).toContain('.agents/factory/workers/claude.md');
   });
 
-  it('refuses global config directories unless --force', async () => {
+  it('refuses global config directories unless --force', () => {
     const home = makeTempDir('plandesk-home-');
     const globalClaude = join(home, '.claude');
     mkdirSync(globalClaude, { recursive: true });
@@ -201,7 +201,7 @@ describe('runFactoryInit', () => {
     expect(existsSync(join(globalClaude, '.claude/settings.json'))).toBe(true);
   });
 
-  it('formats a summary naming skip semantics', async () => {
+  it('formats a summary naming skip semantics', () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo });
     const summary = formatFactoryInitSummary(result);
@@ -211,7 +211,7 @@ describe('runFactoryInit', () => {
 });
 
 describe('always-on policy include', () => {
-  it('inserts an idempotent factory sentinel block into CLAUDE.md', async () => {
+  it('inserts an idempotent factory sentinel block into CLAUDE.md', () => {
     const repo = makeTempDir('plandesk-factory-');
     writeFileSync(join(repo, 'CLAUDE.md'), '# My repo\n', 'utf8');
     runFactoryInit({ repoDir: repo });
@@ -237,7 +237,7 @@ describe('always-on policy include', () => {
     expect(second.match(/plandesk-factory:start/g)).toHaveLength(1);
   });
 
-  it('updates AGENTS.md when present, never creates it', async () => {
+  it('updates AGENTS.md when present, never creates it', () => {
     const repo = makeTempDir('plandesk-factory-');
     writeFileSync(join(repo, 'AGENTS.md'), '# Agents\n', 'utf8');
     runFactoryInit({ repoDir: repo });
@@ -250,7 +250,7 @@ describe('always-on policy include', () => {
 });
 
 describe('buildFactoryArtifacts', () => {
-  it('is pure with respect to an empty repo', async () => {
+  it('is pure with respect to an empty repo', () => {
     const repo = makeTempDir('plandesk-factory-');
     const artifacts = buildFactoryArtifacts(repo);
     expect(existsSync(join(repo, '.agents'))).toBe(false);
@@ -266,7 +266,7 @@ describe('worker files', () => {
     'defined in [../protocol.md](../protocol.md).',
   ].join('\n');
 
-  it('every worker declares a probe and a {prompt_file} command template', async () => {
+  it('every worker declares a probe and a {prompt_file} command template', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
     for (const name of WORKER_NAMES) {
@@ -277,7 +277,7 @@ describe('worker files', () => {
     }
   });
 
-  it('every worker file ends with the shared dispatch-rule footer', async () => {
+  it('every worker file ends with the shared dispatch-rule footer', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
     for (const name of WORKER_NAMES) {
@@ -286,7 +286,7 @@ describe('worker files', () => {
     }
   });
 
-  it('protocol defines the result contract and deterministic verification', async () => {
+  it('protocol defines the result contract and deterministic verification', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
     const protocol = readFileSync(join(repo, '.agents/factory/protocol.md'), 'utf8');
@@ -312,7 +312,7 @@ describe('template invariant', () => {
 });
 
 describe('curator artifacts (F5)', () => {
-  it('scaffolds all 10 curator artifacts create-if-missing, with hook scripts executable', async () => {
+  it('scaffolds all 10 curator artifacts create-if-missing, with hook scripts executable', () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo });
 
@@ -333,7 +333,7 @@ describe('curator artifacts (F5)', () => {
     expect(triage).not.toContain('type: curator-skill');
   });
 
-  it('never overwrites a curator artifact the user edited, on re-run', async () => {
+  it('never overwrites a curator artifact the user edited, on re-run', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
 
@@ -346,7 +346,7 @@ describe('curator artifacts (F5)', () => {
     expect(triageArtifact?.action).toBe('skip');
   });
 
-  it('--print previews all 10 curator artifacts and the settings.json merge', async () => {
+  it('--print previews all 10 curator artifacts and the settings.json merge', () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo, print: true });
     expect(existsSync(join(repo, '.agents/skills/curator-triage'))).toBe(false);
@@ -359,7 +359,7 @@ describe('curator artifacts (F5)', () => {
     expect(printout).toContain('plandesk progress-checkpoint');
   });
 
-  it('symlinks .claude/skills adapters to the canonical .agents/skills files', async () => {
+  it('symlinks .claude/skills adapters to the canonical .agents/skills files', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
 
@@ -374,7 +374,7 @@ describe('curator artifacts (F5)', () => {
     }
   });
 
-  it('symlink adapter reflects an edited .agents skill without regenerating content', async () => {
+  it('symlink adapter reflects an edited .agents skill without regenerating content', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
 
@@ -391,7 +391,7 @@ describe('curator artifacts (F5)', () => {
 });
 
 describe('curator hooks settings.json merge (F1 wiring)', () => {
-  it('creates .claude/settings.json with the SessionStart/Stop/PreCompact hooks when absent', async () => {
+  it('creates .claude/settings.json with the SessionStart/Stop/PreCompact hooks when absent', () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo });
     const settingsPath = join(repo, '.claude/settings.json');
@@ -417,7 +417,7 @@ describe('curator hooks settings.json merge (F1 wiring)', () => {
     );
   });
 
-  it('merges additively into an existing settings.json without touching unrelated hooks', async () => {
+  it('merges additively into an existing settings.json without touching unrelated hooks', () => {
     const repo = makeTempDir('plandesk-factory-');
     mkdirSync(join(repo, '.claude'), { recursive: true });
     const settingsPath = join(repo, '.claude/settings.json');
@@ -452,7 +452,7 @@ describe('curator hooks settings.json merge (F1 wiring)', () => {
     expect(settings.hooks.PreCompact).toHaveLength(1);
   });
 
-  it('is idempotent — running factory init twice does not duplicate curator hook entries', async () => {
+  it('is idempotent — running factory init twice does not duplicate curator hook entries', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
     const settingsPath = join(repo, '.claude/settings.json');
@@ -471,7 +471,7 @@ describe('curator hooks settings.json merge (F1 wiring)', () => {
     expect(settings.hooks.PreCompact).toHaveLength(1);
   });
 
-  it('preserves a user-added SessionStart hook alongside the curator one on rerun', async () => {
+  it('preserves a user-added SessionStart hook alongside the curator one on rerun', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
     const settingsPath = join(repo, '.claude/settings.json');
@@ -498,7 +498,7 @@ describe('factory sync', () => {
   const protocolRel = '.agents/factory/protocol.md';
   const lanesRel = '.agents/factory/lanes.md';
 
-  it('reports everything up to date right after init (dry-run writes nothing)', async () => {
+  it('reports everything up to date right after init (dry-run writes nothing)', () => {
     const repo = makeTempDir('plandesk-sync-');
     runFactoryInit({ repoDir: repo });
     const result = runFactorySync({ repoDir: repo });
@@ -507,7 +507,7 @@ describe('factory sync', () => {
     expect(result.entries.every((e) => e.status === 'up_to_date')).toBe(true);
   });
 
-  it('recreates a deleted authored file (create), and dry-run leaves it missing', async () => {
+  it('recreates a deleted authored file (create), and dry-run leaves it missing', () => {
     const repo = makeTempDir('plandesk-sync-');
     runFactoryInit({ repoDir: repo });
     const protocolPath = join(repo, protocolRel);
@@ -521,7 +521,7 @@ describe('factory sync', () => {
     expect(existsSync(protocolPath)).toBe(true);
   });
 
-  it('protects a user-edited file as a conflict and keeps it on --write', async () => {
+  it('protects a user-edited file as a conflict and keeps it on --write', () => {
     const repo = makeTempDir('plandesk-sync-');
     runFactoryInit({ repoDir: repo });
     const lanesPath = join(repo, lanesRel);
@@ -534,7 +534,7 @@ describe('factory sync', () => {
     expect(readFileSync(lanesPath, 'utf8')).toBe('# my custom lanes\n'); // kept
   });
 
-  it('overwrites a conflict only with --force', async () => {
+  it('overwrites a conflict only with --force', () => {
     const repo = makeTempDir('plandesk-sync-');
     runFactoryInit({ repoDir: repo });
     const lanesPath = join(repo, lanesRel);
@@ -545,7 +545,7 @@ describe('factory sync', () => {
     expect(readFileSync(lanesPath, 'utf8')).toBe(shipped); // restored
   });
 
-  it('safe-updates a stale-but-unmodified file (manifest base matches on-disk)', async () => {
+  it('safe-updates a stale-but-unmodified file (manifest base matches on-disk)', () => {
     const repo = makeTempDir('plandesk-sync-');
     runFactoryInit({ repoDir: repo });
     const protocolPath = join(repo, protocolRel);
@@ -569,7 +569,7 @@ describe('factory sync', () => {
     expect(readFileSync(protocolPath, 'utf8')).toBe(shipped); // updated to shipped
   });
 
-  it('drops unknown keys from the sync manifest on write (no rename-migration table)', async () => {
+  it('drops unknown keys from the sync manifest on write (no rename-migration table)', () => {
     const repo = makeTempDir('plandesk-sync-');
     runFactoryInit({ repoDir: repo });
     const manifestPath = join(repo, '.agents/.plandesk-sync.json');
@@ -589,7 +589,7 @@ describe('factory sync', () => {
     expect(after[protocolRel]).toBeTypeOf('string');
   });
 
-  it('prunes only owned stale files; foreign and shared-namespace paths survive', async () => {
+  it('prunes only owned stale files; foreign and shared-namespace paths survive', () => {
     const repo = makeTempDir('plandesk-sync-');
     runFactoryInit({ repoDir: repo });
 
@@ -667,7 +667,7 @@ describe('pruneUnknownManifestKeys', () => {
 });
 
 describe('agents index shared-file sentinel', () => {
-  it('writes a Plan Desk block into index.md and regenerates on every init', async () => {
+  it('writes a Plan Desk block into index.md and regenerates on every init', () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo });
     const indexPath = join(repo, '.agents/index.md');
@@ -685,7 +685,7 @@ describe('agents index shared-file sentinel', () => {
     expect(rerun.artifacts.find((a) => a.path === indexPath)?.action).toBe('update');
   });
 
-  it('preserves foreign index.md content and inserts exactly one Plan Desk block', async () => {
+  it('preserves foreign index.md content and inserts exactly one Plan Desk block', () => {
     const repo = makeTempDir('plandesk-factory-');
     mkdirSync(join(repo, '.agents'), { recursive: true });
     const foreign = '# Other tool map\n\n- [their/file.md](their/file.md)\n';
@@ -704,7 +704,7 @@ describe('agents index shared-file sentinel', () => {
     expect(twice.match(/plandesk-agents-index:start/g)).toHaveLength(1);
   });
 
-  it('foreign skill and foreign other.md survive factory init and sync --prune', async () => {
+  it('foreign skill and foreign other.md survive factory init and sync --prune', () => {
     const repo = makeTempDir('plandesk-factory-');
     mkdirSync(join(repo, '.agents/skills/other-tool'), { recursive: true });
     const skillPath = join(repo, '.agents/skills/other-tool/SKILL.md');

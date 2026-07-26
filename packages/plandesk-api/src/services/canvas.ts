@@ -125,14 +125,10 @@ async function resolveEndpointInProject(
     }
     return;
   }
-  if (type === 'document') {
-    const document = await getDocument(db, id);
-    if (!document || document.projectId !== projectId) {
-      throw new InvalidCanvasError(`Edge ${side} document not found in project`);
-    }
-    return;
+  const document = await getDocument(db, id);
+  if (!document || document.projectId !== projectId) {
+    throw new InvalidCanvasError(`Edge ${side} document not found in project`);
   }
-  throw new InvalidCanvasError(`Unknown ${side} entity type: ${type}`);
 }
 
 /**
@@ -182,7 +178,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
     async get(projectId: string) {
       try {
         const project = await assertProjectInOrg(db, projectId, resolveOrgId(deps));
-        return buildCanvas(projectId, project);
+        return await buildCanvas(projectId, project);
       } catch (error) {
         if (error instanceof ProjectNotInOrgError) {
           return undefined;

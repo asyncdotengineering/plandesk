@@ -58,7 +58,7 @@ export async function runStatus(
       dataDir,
       source,
       running,
-      ...(running && info !== undefined ? { pid: info.pid } : {}),
+      ...(running ? { pid: info.pid } : {}),
       ...(info !== undefined ? { port: info.port } : {}),
       projectCount,
     });
@@ -68,8 +68,33 @@ export async function runStatus(
 }
 
 function padColumns(rows: string[][]): string[] {
-  const widths = rows[0]!.map((_, col) => Math.max(...rows.map((row) => row[col]!.length)));
-  return rows.map((row) => row.map((cell, col) => cell.padEnd(widths[col]!)).join('  ').trimEnd());
+  const firstRow = rows[0];
+  if (firstRow === undefined) {
+    throw new Error('Missing first status row');
+  }
+  const widths = firstRow.map((_, col) =>
+    Math.max(
+      ...rows.map((row) => {
+        const cell = row[col];
+        if (cell === undefined) {
+          throw new Error(`Missing status cell in column ${String(col)}`);
+        }
+        return cell.length;
+      }),
+    ),
+  );
+  return rows.map((row) =>
+    row
+      .map((cell, col) => {
+        const width = widths[col];
+        if (width === undefined) {
+          throw new Error(`Missing status width for column ${String(col)}`);
+        }
+        return cell.padEnd(width);
+      })
+      .join('  ')
+      .trimEnd(),
+  );
 }
 
 export function formatStatusReport(boards: BoardStatus[]): string {

@@ -27,14 +27,14 @@ const checklistSurface = JSON.stringify({
 });
 
 describe('verification parsing', () => {
-  it('parses gate_command surface', async () => {
+  it('parses gate_command surface', () => {
     expect(parseVerificationSurface(gateSurface)).toEqual({
       kind: 'gate_command',
       command: 'pnpm test',
     });
   });
 
-  it('rejects malformed and unknown surfaces', async () => {
+  it('rejects malformed and unknown surfaces', () => {
     expect(() => parseVerificationSurface('not json')).toThrow(InvalidVerificationSurfaceError);
     expect(() => parseVerificationSurface(JSON.stringify({ kind: 'bogus' }))).toThrow(
       InvalidVerificationSurfaceError,
@@ -44,7 +44,7 @@ describe('verification parsing', () => {
     ).toThrow(InvalidVerificationSurfaceError);
   });
 
-  it('evaluates evidence per surface kind', async () => {
+  it('evaluates evidence per surface kind', () => {
     const checklist = parseVerificationSurface(checklistSurface);
     if (!checklist) {
       throw new Error('expected checklist surface');

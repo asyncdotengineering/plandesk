@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { createBaOrg, getBaOrg, listBaOrgs } from './test-helpers.js';
+import { getBaOrg, listBaOrgs } from './test-helpers.js';
 /**
  * BA4c — better-auth web GitHub sign-in + personal org provision.
  *
@@ -11,7 +11,6 @@ import { createBaOrg, getBaOrg, listBaOrgs } from './test-helpers.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
 import {
-  DEFAULT_ORG_ID,
   createDb,
   migrate,
   type Db,
@@ -249,7 +248,7 @@ describe('BA4c personal org provision on better-auth GitHub sign-in', () => {
   });
 
   it('gate 3: provisioned better-auth GitHub user → /auth/session org → cli-token 200', async () => {
-    const { app, db, auth } = await hostedApp();
+    const { app, auth } = await hostedApp();
     const { userId } = await createGithubUser(auth, {
       email: 'cli@example.com',
       name: 'CLI Web User',
@@ -258,8 +257,7 @@ describe('BA4c personal org provision on better-auth GitHub sign-in', () => {
 
     // Provision via the same hook path a real OAuth session would take.
     const baSession = await (await auth.$context).internalAdapter.createSession(userId);
-    expect(baSession).not.toBeNull();
-    if (baSession === null) throw new Error('expected session');
+    expect(baSession.userId).toBe(userId);
 
     const memberships = await listMemberOrgs(auth, userId);
     expect(memberships).toHaveLength(1);
@@ -303,7 +301,7 @@ describe('BA4c personal org provision on better-auth GitHub sign-in', () => {
   });
 
   it('OAuth callback path provisions org when better-auth creates the session (end-to-end handler)', async () => {
-    const { db, auth } = await hostedApp();
+    const { auth } = await hostedApp();
 
     vi.stubGlobal(
       'fetch',

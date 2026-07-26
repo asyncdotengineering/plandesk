@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { getRequestListener } from '@hono/node-server';
@@ -24,6 +24,7 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs } from './args.js';
 import { buildConfigJson, parseConfigJson } from './connect-artifacts.js';
+import { readStringCell } from './database-schema.js';
 import { main } from './cli.js';
 import { runInit } from './init.js';
 import { openWorkspace } from './workspace.js';
@@ -147,7 +148,7 @@ async function captureIo(
 }
 
 describe('parseArgs push/pull', () => {
-  it('parses push and pull with project and repo', async () => {
+  it('parses push and pull with project and repo', () => {
     expect(
       parseArgs([
         'node',
@@ -267,7 +268,7 @@ describe('CLI push/pull', () => {
 
     const { db } = await openWorkspace(dataDir);
     const { shareService } = createServices({ db, orgId });
-    const shares = await (await shareService.listShares(projectId)) ?? [];
+    const shares = (await shareService.listShares(projectId)) ?? [];
     expect(shares).toHaveLength(1);
     expect(shares[0]?.audience_name).toBe('Acme Corp');
     expect(shares[0]?.mode).toBe('public');
@@ -315,9 +316,14 @@ describe('CLI push/pull', () => {
     const project = await createProject(hostedDb, { name: 'Hosted collab' });
     const services = createServices({ db: hostedDb, orgId: org.id });
     const hostedApp = createApp({ db: hostedDb, services, bindHost: '127.0.0.1' });
-    const server = createServer(getRequestListener(hostedApp.fetch));
+    const requestListener = getRequestListener(hostedApp.fetch);
+    const server = createServer((request, response) => {
+      void requestListener(request, response);
+    });
     await new Promise<void>((resolve) => {
-      server.listen(0, '127.0.0.1', () => resolve());
+      server.listen(0, '127.0.0.1', () => {
+        resolve();
+      });
     });
     servers.push(server);
 
@@ -397,9 +403,14 @@ describe('CLI push/pull', () => {
       betterAuth: { secret: SYNC_SECRET, baseURL: SYNC_BASE },
       github: { clientId: 'c', clientSecret: 's', callbackUrl: 'https://x.test/cb' },
     });
-    const server = createServer(getRequestListener(hostedApp.fetch));
+    const requestListener = getRequestListener(hostedApp.fetch);
+    const server = createServer((request, response) => {
+      void requestListener(request, response);
+    });
     await new Promise<void>((resolve) => {
-      server.listen(0, '127.0.0.1', () => resolve());
+      server.listen(0, '127.0.0.1', () => {
+        resolve();
+      });
     });
     servers.push(server);
     const addr = server.address();
@@ -457,7 +468,9 @@ describe('CLI push/pull', () => {
     expect(remote?.serverUrl).toBe(serverUrl);
 
     const columns = await localDb.$client.execute('PRAGMA table_info(projects)');
-    const names = columns.rows.map((row) => String(row['name'] ?? row[1])).sort();
+    const names = columns.rows
+      .map((row) => readStringCell(row['name'] ?? row[1], 'pragma_table_info.name'))
+      .sort();
     expect(names).toEqual([
       'canvas_layout',
       'created_at',
@@ -495,9 +508,14 @@ describe('CLI push/pull', () => {
       betterAuth: { secret: SYNC_SECRET, baseURL: SYNC_BASE },
       github: { clientId: 'c', clientSecret: 's', callbackUrl: 'https://x.test/cb' },
     });
-    const server = createServer(getRequestListener(hostedApp.fetch));
+    const requestListener = getRequestListener(hostedApp.fetch);
+    const server = createServer((request, response) => {
+      void requestListener(request, response);
+    });
     await new Promise<void>((resolve) => {
-      server.listen(0, '127.0.0.1', () => resolve());
+      server.listen(0, '127.0.0.1', () => {
+        resolve();
+      });
     });
     servers.push(server);
     const addr = server.address();

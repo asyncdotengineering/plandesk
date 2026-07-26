@@ -412,7 +412,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
           projectId = existing.id;
           const existingTasks = await listTasks(tx, existing.id);
           if (existingTasks.length > 0) {
-            const maxY = existingTasks.reduce((m, t) => Math.max(m, t.y ?? 0), 0);
+            const maxY = existingTasks.reduce((m, t) => Math.max(m, t.y), 0);
             startRow = Math.floor(maxY / 160) + 1;
           }
         } else {
@@ -506,7 +506,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
                 ? (taskRows.find((t) => t.id === edge.toId)?.label ?? edge.toId)
                 : (documentRows.find((d) => d.id === edge.toId)?.title ?? edge.toId);
             return {
-              type: edge.toType as 'task' | 'document',
+              type: edge.toType,
               id: edge.toId,
               title,
               label: edge.label,
@@ -521,7 +521,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
                 ? (taskRows.find((t) => t.id === edge.fromId)?.label ?? edge.fromId)
                 : (documentRows.find((d) => d.id === edge.fromId)?.title ?? edge.fromId);
             return {
-              type: edge.fromType as 'task' | 'document',
+              type: edge.fromType,
               id: edge.fromId,
               title,
               label: edge.label,

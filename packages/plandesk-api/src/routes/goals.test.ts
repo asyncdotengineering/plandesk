@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createDb, createGoal, createProjectInDefaultOrg as createProject, migrate , type Db} from '@plandesk/db';
+import { createDb, createGoal, createProjectInDefaultOrg as createProject, migrate } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createApp } from '../server.js';
 import { createServices } from '../services/index.js';
-import { parseJson } from '../test-helpers.js';
+import { parseJson, readStringCell } from '../test-helpers.js';
 
 async function createTestApp() {
   const db = await createDb(':memory:');
@@ -156,7 +156,7 @@ describe('goals routes', () => {
     ).rows) {
       await db.$client.execute({
         sql: 'UPDATE tasks SET status = ? WHERE id = ?',
-        args: ['done', String(row.id)],
+        args: ['done', readStringCell(row.id, 'tasks.id')],
       });
     }
     const green = await app.request(`/api/v1/goals/${goal.id}/complete`, {

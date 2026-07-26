@@ -29,7 +29,7 @@ describe('preview helpers', () => {
     return d;
   }
 
-  it('computes text selectors with 32-character context', async () => {
+  it('computes text selectors with 32-character context', () => {
     const body = `${'p'.repeat(40)}selected${'s'.repeat(40)}`;
     expect(computeSelector(body, 'selected', 40)).toEqual({
       exact: 'selected',
@@ -40,7 +40,7 @@ describe('preview helpers', () => {
     });
   });
 
-  it('computes text selectors at body boundaries', async () => {
+  it('computes text selectors at body boundaries', () => {
     expect(computeSelector('first and last', 'first', 0)).toEqual({
       exact: 'first',
       prefix: '',
@@ -57,7 +57,7 @@ describe('preview helpers', () => {
     });
   });
 
-  it('resolves only existing previewable files, tagging kind by extension', async () => {
+  it('resolves only existing previewable files, tagging kind by extension', () => {
     const dir = tmp();
     const md = join(dir, 'a.md');
     const html = join(dir, 'b.HTML');
@@ -84,7 +84,7 @@ describe('preview helpers', () => {
     expect(targets[0]?.path.startsWith('/')).toBe(true);
   });
 
-  it('resolveWithinRoot keeps subpaths inside root and rejects escapes', async () => {
+  it('resolveWithinRoot keeps subpaths inside root and rejects escapes', () => {
     const root = tmp();
     const inside = join(root, 'docs', 'page.md');
     mkdirSync(join(root, 'docs'), { recursive: true });
@@ -95,7 +95,7 @@ describe('preview helpers', () => {
     expect(resolveWithinRoot(root, 'a/../../escape')).toBeNull();
   });
 
-  it('resolves directory args to folder-mode tabs and file args to file-mode', async () => {
+  it('resolves directory args to folder-mode tabs and file args to file-mode', () => {
     const dir = tmp();
     writeFileSync(join(dir, 'a.md'), '# A');
     mkdirSync(join(dir, 'sub'), { recursive: true });
@@ -152,18 +152,18 @@ describe('preview helpers', () => {
     expect(doc).toContain('<table>');
   });
 
-  it('injects the html CSP meta into an existing head', async () => {
+  it('injects the html CSP meta into an existing head', () => {
     const out = renderHtmlArtifact('<html><head><title>t</title></head><body>x</body></html>');
     expect(out).toContain(HTML_ARTIFACT_CSP);
     expect(out.indexOf('Content-Security-Policy')).toBeLessThan(out.indexOf('</head>'));
   });
 
-  it('prepends the html CSP meta when there is no head', async () => {
+  it('prepends the html CSP meta when there is no head', () => {
     const out = renderHtmlArtifact('<h1>bare</h1>');
     expect(out.startsWith('<meta http-equiv="Content-Security-Policy"')).toBe(true);
   });
 
-  it('uses distinct secure sandboxes for markdown and html frames', async () => {
+  it('uses distinct secure sandboxes for markdown and html frames', () => {
     const chrome = renderChrome([
       {
         index: 0,
@@ -195,7 +195,7 @@ describe('preview helpers', () => {
     expect(chrome).toContain('<aside id="rail">');
   });
 
-  it('uses folder-mode tree URLs and same-origin sandboxes without scripts', async () => {
+  it('uses folder-mode tree URLs and same-origin sandboxes without scripts', () => {
     const chrome = renderChrome([
       {
         index: 0,
@@ -226,7 +226,7 @@ describe('preview helpers', () => {
     expect(chrome).toContain('src="/tree/0/rfcs/a.html"');
   });
 
-  it('detects a connected-repo workspace (config + token) for annotation routing', async () => {
+  it('detects a connected-repo workspace (config + token) for annotation routing', () => {
     const dir = tmp();
     // No .plandesk yet → standalone (sidecar).
     expect(resolvePreviewWorkspace(dir)).toBeUndefined();
@@ -254,7 +254,7 @@ describe('preview helpers', () => {
     });
   });
 
-  it('selects the board API on loopback when config exists without a token', async () => {
+  it('selects the board API on loopback when config exists without a token', () => {
     const dir = tmp();
     mkdirSync(joinPath(dir, '.plandesk'));
     writeFile(
@@ -280,7 +280,7 @@ describe('preview helpers', () => {
     expect(annotationRequestHeaders(workspace?.token)).not.toHaveProperty('Authorization');
   });
 
-  it('falls back to the local sidecar only when unbound (no config)', async () => {
+  it('falls back to the local sidecar only when unbound (no config)', () => {
     const dir = tmp();
     mkdirSync(joinPath(dir, '.plandesk'));
     expect(resolvePreviewWorkspace(dir)).toBeUndefined();

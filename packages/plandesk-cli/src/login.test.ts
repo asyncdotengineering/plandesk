@@ -24,6 +24,19 @@ function json(body: unknown): Response {
   return new Response(JSON.stringify(body), { status: 200 });
 }
 
+function requestHref(input: string | URL | Request): string {
+  if (typeof input === 'string') {
+    return input;
+  }
+  if (input instanceof URL) {
+    return input.href;
+  }
+  if (input instanceof Request) {
+    return input.url;
+  }
+  throw new Error('unexpected fetch input');
+}
+
 describe('runLogin — token paste path (BA4b-2 owner key)', () => {
   it('stores { server, token, orgId } from /auth/session after paste', async () => {
     const home = makeHome();
@@ -31,8 +44,8 @@ describe('runLogin — token paste path (BA4b-2 owner key)', () => {
     const orgId = 'org-owner-wide';
     const sessionAuths: string[] = [];
 
-    const fetch = ((url: string | URL | Request, init?: RequestInit) => {
-      const href = String(url);
+    const fetch: typeof globalThis.fetch = (url, init) => {
+      const href = requestHref(url);
       if (href.endsWith('/auth/session')) {
         const headers = init?.headers;
         let auth = '';
@@ -55,7 +68,7 @@ describe('runLogin — token paste path (BA4b-2 owner key)', () => {
         );
       }
       throw new Error(`unexpected fetch: ${href}`);
-    }) as unknown as typeof globalThis.fetch;
+    };
 
     const config = await runLogin('https://plan.asyncdot.com', {
       fetch,
@@ -75,8 +88,8 @@ describe('runLogin — token paste path (BA4b-2 owner key)', () => {
 
   it('strips a trailing slash from the server URL', async () => {
     const home = makeHome();
-    const fetch = ((url: string | URL | Request) => {
-      const href = String(url);
+    const fetch: typeof globalThis.fetch = (url) => {
+      const href = requestHref(url);
       if (href.endsWith('/auth/session')) {
         return Promise.resolve(
           json({
@@ -87,7 +100,7 @@ describe('runLogin — token paste path (BA4b-2 owner key)', () => {
         );
       }
       throw new Error(`unexpected fetch: ${href}`);
-    }) as unknown as typeof globalThis.fetch;
+    };
 
     const config = await runLogin('https://plan.asyncdot.com/', {
       fetch,
@@ -115,14 +128,15 @@ describe('runLogin — token paste path (BA4b-2 owner key)', () => {
 describe('runWhoami / runLogout', () => {
   it('whoami reports the logged-in server and org', async () => {
     const home = makeHome();
-    const fetch = ((url: string | URL | Request) => {
-      if (String(url).endsWith('/auth/session')) {
+    const fetch: typeof globalThis.fetch = (url) => {
+      const href = requestHref(url);
+      if (href.endsWith('/auth/session')) {
         return Promise.resolve(
           json({ kind: 'apikey', role: 'owner', org: { id: 'org-1', name: 'Acme' } }),
         );
       }
-      throw new Error(`unexpected fetch: ${String(url)}`);
-    }) as unknown as typeof globalThis.fetch;
+      throw new Error(`unexpected fetch: ${href}`);
+    };
 
     await runLogin('https://plan.asyncdot.com', {
       fetch,
@@ -144,14 +158,15 @@ describe('runWhoami / runLogout', () => {
 
   it('logout removes the stored credentials', async () => {
     const home = makeHome();
-    const fetch = ((url: string | URL | Request) => {
-      if (String(url).endsWith('/auth/session')) {
+    const fetch: typeof globalThis.fetch = (url) => {
+      const href = requestHref(url);
+      if (href.endsWith('/auth/session')) {
         return Promise.resolve(
           json({ kind: 'apikey', role: 'owner', org: { id: 'org-1', name: 'Acme' } }),
         );
       }
-      throw new Error(`unexpected fetch: ${String(url)}`);
-    }) as unknown as typeof globalThis.fetch;
+      throw new Error(`unexpected fetch: ${href}`);
+    };
 
     await runLogin('https://plan.asyncdot.com', {
       fetch,
@@ -166,6 +181,8 @@ describe('runWhoami / runLogout', () => {
   });
 
   it('logout is a no-op when nobody is logged in', () => {
-    expect(() => runLogout(makeHome())).not.toThrow();
+    expect(() => {
+      runLogout(makeHome());
+    }).not.toThrow();
   });
 });

@@ -8,7 +8,6 @@ import {
   deleteTask as dbDeleteTask,
   deleteTaskTagsByTaskId,
   getOrCreateDefaultGoal,
-  getProject,
   listGoals,
   getTagByName,
   getTask,
@@ -282,8 +281,6 @@ export function createTaskService(deps: TaskServiceDeps) {
         }
         throw error;
       }
-
-      const projectId = task.projectId;
 
       await withTransaction(db, async (tx) => {
         await deleteCommentsByTarget(tx, 'task', id);

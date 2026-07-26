@@ -74,7 +74,7 @@ async function fetchWorkspaces(
     );
   }
   const body = (await response.json()) as { workspaces: WorkspaceSummary[] };
-  return body.workspaces ?? [];
+  return body.workspaces;
 }
 
 async function createWorkspaceViaApi(

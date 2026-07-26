@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { createFile, getFile, getFileInOrg, type Db } from '@plandesk/db';
+import { createFile, getFileInOrg, type Db } from '@plandesk/db';
 import { tryGetAuthContext } from '../auth-context.js';
 import { fileUrl, type StorageAdapter } from './adapter.js';
 

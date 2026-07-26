@@ -15,6 +15,7 @@ import { main } from './cli.js';
 import { buildConfigJson } from './connect-artifacts.js';
 import { CURATOR_TEMPLATES } from './curator-templates.js';
 import { SERVER_CONFIG_FILENAME } from './config.js';
+import { readStringCell } from './database-schema.js';
 import { runFactoryInit } from './factory.js';
 import { runInit } from './init.js';
 import { startServer } from './serve.js';
@@ -50,7 +51,7 @@ async function captureIo(
 }
 
 describe('parseArgs export/import/doctor', () => {
-  it('parses export with project, out, and data-dir', async () => {
+  it('parses export with project, out, and data-dir', () => {
     expect(
       parseArgs([
         'node',
@@ -71,7 +72,7 @@ describe('parseArgs export/import/doctor', () => {
     });
   });
 
-  it('parses import with in and data-dir', async () => {
+  it('parses import with in and data-dir', () => {
     expect(
       parseArgs(['node', 'plandesk', 'import', '--in', '/tmp/in.json', '--data-dir', '/tmp/ws']),
     ).toEqual({
@@ -81,35 +82,35 @@ describe('parseArgs export/import/doctor', () => {
     });
   });
 
-  it('parses doctor with data-dir', async () => {
+  it('parses doctor with data-dir', () => {
     expect(parseArgs(['node', 'plandesk', 'doctor', '--data-dir', '/tmp/ws'])).toEqual({
       command: 'doctor',
       dataDir: '/tmp/ws',
     });
   });
 
-  it('returns unknown when export is missing --project', async () => {
+  it('returns unknown when export is missing --project', () => {
     expect(parseArgs(['node', 'plandesk', 'export', '--out', '/tmp/out.json'])).toEqual({
       command: 'unknown',
       name: 'export (missing --project)',
     });
   });
 
-  it('returns unknown when import is missing --in', async () => {
+  it('returns unknown when import is missing --in', () => {
     expect(parseArgs(['node', 'plandesk', 'import'])).toEqual({
       command: 'unknown',
       name: 'import (missing --in)',
     });
   });
 
-  it('parses context with repo', async () => {
+  it('parses context with repo', () => {
     expect(parseArgs(['node', 'plandesk', 'context', '--json', '--repo', '/tmp/repo'])).toEqual({
       command: 'context',
       repoDir: '/tmp/repo',
     });
   });
 
-  it('parses progress-checkpoint with message and repo', async () => {
+  it('parses progress-checkpoint with message and repo', () => {
     expect(
       parseArgs([
         'node',
@@ -127,7 +128,7 @@ describe('parseArgs export/import/doctor', () => {
     });
   });
 
-  it('parses progress-checkpoint with no flags', async () => {
+  it('parses progress-checkpoint with no flags', () => {
     expect(parseArgs(['node', 'plandesk', 'progress-checkpoint'])).toEqual({
       command: 'progress-checkpoint',
       message: undefined,
@@ -399,7 +400,11 @@ describe('CLI export/import/doctor', () => {
       expect(stdout).toContain(doctorsDataDir);
       expect(stdout).toContain(servedDataDir);
     } finally {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await new Promise<void>((resolve) => {
+        server.close(() => {
+          resolve();
+        });
+      });
     }
   });
 
@@ -436,7 +441,11 @@ describe('CLI export/import/doctor', () => {
       expect(code).toBe(0);
       expect(stdout).not.toContain('board-divergence:');
     } finally {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await new Promise<void>((resolve) => {
+        server.close(() => {
+          resolve();
+        });
+      });
     }
   });
 
@@ -533,7 +542,7 @@ describe('CLI export/import/doctor', () => {
 
     const db = await createDb(dbFile);
     const result = await db.$client.execute("SELECT name FROM sqlite_master WHERE type='table'");
-    const names = result.rows.map((row) => String(row.name));
+    const names = result.rows.map((row) => readStringCell(row.name, 'sqlite_master.name'));
     expect(names).toContain('projects');
     expect(names).toContain('__drizzle_migrations');
   });
@@ -603,7 +612,7 @@ describe('CLI context/progress-checkpoint no-binding smoke test', () => {
 });
 
 describe('preview command dispatch', () => {
-  it('parses the explicit open subcommand with paths and flags', async () => {
+  it('parses the explicit open subcommand with paths and flags', () => {
     expect(
       parseArgs(['node', 'plandesk', 'open', 'a.md', 'b.html', '--port', '4000', '--no-open']),
     ).toEqual({
@@ -615,7 +624,7 @@ describe('preview command dispatch', () => {
     });
   });
 
-  it('treats preview and annotate as aliases of open', async () => {
+  it('treats preview and annotate as aliases of open', () => {
     expect(parseArgs(['node', 'plandesk', 'preview', 'x.md'])).toMatchObject({
       command: 'preview',
       paths: ['x.md'],
@@ -627,7 +636,7 @@ describe('preview command dispatch', () => {
     });
   });
 
-  it('routes a bare existing previewable file to preview (plandesk *.md)', async () => {
+  it('routes a bare existing previewable file to preview (plandesk *.md)', () => {
     const dir = mkdtempSync(join(tmpdir(), 'plandesk-preview-'));
     try {
       const md = join(dir, 'report.md');
@@ -644,14 +653,14 @@ describe('preview command dispatch', () => {
     }
   });
 
-  it('does not route a non-existent .md arg to preview (guards against shadowing)', async () => {
+  it('does not route a non-existent .md arg to preview (guards against shadowing)', () => {
     expect(parseArgs(['node', 'plandesk', 'does-not-exist.md'])).toEqual({
       command: 'unknown',
       name: 'does-not-exist.md',
     });
   });
 
-  it('never lets a file shadow a reserved subcommand', async () => {
+  it('never lets a file shadow a reserved subcommand', () => {
     // `serve` is reserved even if a file named `serve` existed in cwd.
     expect(parseArgs(['node', 'plandesk', 'serve'])).toMatchObject({ command: 'serve' });
   });

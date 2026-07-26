@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDb, migrate } from '@plandesk/db';
 import { createApp } from './server.js';
 import { createBetterAuth, runBetterAuthMigrations } from './better-auth.js';
-import { createTestApp } from './test-helpers.js';
 
 // Not a real credential — a fixture secret for constructing better-auth in tests.
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';

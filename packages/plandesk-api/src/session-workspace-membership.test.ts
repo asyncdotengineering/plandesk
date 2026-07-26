@@ -231,7 +231,7 @@ async function setup(): Promise<{
 
 describe('session workspace membership (RFC §12)', () => {
   it('a member sees only their own workspace — list + get; cross-workspace is 404', async () => {
-    const { app, db, auth, orgId, teamA, teamB, projectA, projectB } = await setup();
+    const { app, db, auth, orgId, teamA, projectA, projectB } = await setup();
     const member = await seedUser(auth, {
       orgId,
       email: 'member@example.com',

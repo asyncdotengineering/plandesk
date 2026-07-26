@@ -71,8 +71,11 @@ if ! curl -sf "${BASE_URL}/api/v1/health" >/dev/null; then
 fi
 echo "cmd:plandesk_serve OK (${BASE_URL})"
 
-TOKEN="$("$PLANDESK" token create --name validate --data-dir "$DATA_DIR")"
-pnpm --filter @plandesk/cli exec node scripts/mcp-list-tools.mjs "$BASE_URL" "$TOKEN"
+# No token: validate binds the server to loopback, and a loopback bind is the
+# local trust boundary — every request is the org owner. This previously called
+# `plandesk token create`, a command that no longer exists; the step had been
+# failing unnoticed behind the lint errors ahead of it.
+pnpm --filter @plandesk/cli exec node scripts/mcp-list-tools.mjs "$BASE_URL"
 echo "cmd:mcp_list_tools OK"
 
 echo "validate.sh: all checks passed"

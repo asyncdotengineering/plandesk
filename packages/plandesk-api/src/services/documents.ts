@@ -20,7 +20,6 @@ import {
   type LinkEntityType,
 } from '@plandesk/db';
 import {
-  buildDocumentTree,
   buildFolderTree,
   serializeDocument,
   type PaginationParams,
@@ -89,14 +88,11 @@ async function resolveEndpointTitle(
     }
     return task.label;
   }
-  if (type === 'document') {
-    const document = await dbGetDocument(db, id);
-    if (!document || document.projectId !== projectId) {
-      return undefined;
-    }
-    return document.title;
+  const document = await dbGetDocument(db, id);
+  if (!document || document.projectId !== projectId) {
+    return undefined;
   }
-  return undefined;
+  return document.title;
 }
 
 function edgeFromType(edge: Edge): LinkEntityType {
@@ -466,23 +462,19 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         return collectIncomingLinks(db, document.projectId, 'document', id);
       }
 
-      if (type === 'task') {
-        const task = await getTask(db, id);
-        if (!task) {
+      const task = await getTask(db, id);
+      if (!task) {
+        return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, task.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
           return undefined;
         }
-        try {
-          await assertProjectInOrg(db, task.projectId, resolveOrgId(deps));
-        } catch (error) {
-          if (error instanceof ProjectNotInOrgError) {
-            return undefined;
-          }
-          throw error;
-        }
-        return collectIncomingLinks(db, task.projectId, 'task', id);
+        throw error;
       }
-
-      return undefined;
+      return collectIncomingLinks(db, task.projectId, 'task', id);
     },
 
     async delete(id: string) {

@@ -33,7 +33,7 @@ import {
   createGetTaskHandler,
   createListCommentsHandler,
   createListSubmissionsHandler,
-} from './test-support/mcp-tool-handlers.js';
+} from '../test-support/mcp-tool-handlers.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
 const TEST_BASE_URL = 'http://localhost:3000';
@@ -177,8 +177,9 @@ function workspaceKeyContext(f: Fixture): AuthContext {
   };
 }
 
-function toolPayload<T>(result: { content: Array<{ type: string; text: string }> }): T {
-  return JSON.parse(result.content[0]?.text ?? '{}') as T;
+function toolPayload(result: { content: Array<{ type: string; text: string }> }): unknown {
+  const payload: unknown = JSON.parse(result.content[0]?.text ?? '{}');
+  return payload;
 }
 
 async function join(app: Hono, token: string, name: string): Promise<string> {
@@ -328,11 +329,13 @@ describe('workspace-tier adversarial audit round 3', () => {
     ] as const;
     const responses = await Promise.all(
       requests.map(([path, body]) =>
-        f.app.request(path, {
-          method: 'POST',
-          headers: jsonHeaders(f.workspaceAKey),
-          body: JSON.stringify(body),
-        }),
+        Promise.resolve(
+          f.app.request(path, {
+            method: 'POST',
+            headers: jsonHeaders(f.workspaceAKey),
+            body: JSON.stringify(body),
+          }),
+        ),
       ),
     );
     const canvas = await f.app.request(`/api/v1/projects/${f.projectB.id}/canvas`, {
@@ -461,11 +464,13 @@ describe('workspace-tier adversarial audit round 3', () => {
     ] as const;
     const responses = await Promise.all(
       requests.map(([path, body]) =>
-        f.app.request(path, {
-          method: 'POST',
-          headers: jsonHeaders(f.workspaceAKey),
-          body: JSON.stringify(body),
-        }),
+        Promise.resolve(
+          f.app.request(path, {
+            method: 'POST',
+            headers: jsonHeaders(f.workspaceAKey),
+            body: JSON.stringify(body),
+          }),
+        ),
       ),
     );
     const listKeys = await f.app.request('/api/auth/api-key/list', {
@@ -541,7 +546,8 @@ describe('workspace-tier adversarial audit round 3', () => {
     // makes every Promise compare unequal to undefined.
     const handler = createListSubmissionsHandler(
       f.services.syncService,
-      (projectId: string) => f.services.projectService.get(projectId) !== undefined,
+      async (projectId: string) =>
+        (await f.services.projectService.get(projectId)) !== undefined,
     );
 
     const [workspaceResult, crossOrgResult] = await runWithAuthContext(

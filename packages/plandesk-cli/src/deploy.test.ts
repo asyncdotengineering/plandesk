@@ -111,12 +111,12 @@ describe('plandesk deploy', () => {
     expect(stderr).toContain(`${registry.base}/deploy/cloudflare.md`);
   });
 
-  it('builds the spec URL from PLANDESK_DOCS_URL, trimming a trailing slash', async () => {
+  it('builds the spec URL from PLANDESK_DOCS_URL, trimming a trailing slash', () => {
     vi.stubEnv('PLANDESK_DOCS_URL', 'https://example.test/');
     expect(deploySpecUrl('cloudflare')).toBe('https://example.test/deploy/cloudflare.md');
   });
 
-  it('exposes a non-empty target index and formatters', async () => {
+  it('exposes a non-empty target index and formatters', () => {
     expect(DEPLOY_TARGETS.length).toBeGreaterThan(0);
     expect(formatDeployIndex()).toContain('cloudflare');
     expect(formatUnknownTarget('aws')).toContain('Unknown deploy target: aws');

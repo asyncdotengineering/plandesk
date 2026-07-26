@@ -232,7 +232,10 @@ describe('runConnect', () => {
         interactive: false,
       });
 
-      expect(result.project!.id).toBe(projectId);
+      if (result.project === undefined) {
+        throw new Error('missing connected project');
+      }
+      expect(result.project.id).toBe(projectId);
       expect(existsSync(join(repoDir, '.plandesk', 'token'))).toBe(false);
       expect(committedContents(repoDir)).not.toContain('plandesk_mcp_');
       const mcpJson = readFileSync(join(repoDir, '.mcp.json'), 'utf8');
@@ -414,7 +417,10 @@ describe('runConnect', () => {
         interactive: false,
       });
 
-      expect(rebound.project!.id).toBe(other.id);
+      if (rebound.project === undefined) {
+        throw new Error('missing rebound project');
+      }
+      expect(rebound.project.id).toBe(other.id);
       const parsed2 = parseConfigJson(readFileSync(join(repoDir, '.plandesk/config.json'), 'utf8'));
       expect(parsed2.version).toBe('plandesk-connect-v1');
       expect((parsed2 as { projectId: string }).projectId).toBe(other.id);
@@ -588,7 +594,10 @@ describe('runConnect --to hosted (BA4b-3)', () => {
       interactive: false,
     });
 
-    expect(result.project!.id).toBe(projectA.id);
+    if (result.project === undefined) {
+      throw new Error('missing selected project');
+    }
+    expect(result.project.id).toBe(projectA.id);
     expect(result.serverUrl).toBe(baseUrl.replace(/\/$/, ''));
     expect(result.tokenCreated).toBe(true);
 
@@ -711,7 +720,10 @@ describe('runConnect --to hosted (BA4b-3)', () => {
       interactive: false,
     });
 
-    expect(result.workspace!.name).toBe('General');
+    if (result.workspace === undefined) {
+      throw new Error('missing selected workspace');
+    }
+    expect(result.workspace.name).toBe('General');
     expect(result.tokenCreated).toBe(false);
     expect(existsSync(join(repoDir, '.plandesk', 'token'))).toBe(false);
 

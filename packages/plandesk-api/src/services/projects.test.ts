@@ -142,7 +142,7 @@ describe('projectService', () => {
       body: 'Feedback',
     });
     const run = await createAgentRun(db, { projectId: project.id, label: 'Run' });
-    createAgentRunEvent(db, { runId: run.id, message: 'progress' });
+    await createAgentRunEvent(db, { runId: run.id, message: 'progress' });
 
     expect(await service.delete(project.id)).toBe(true);
     expect(await getProject(db, project.id)).toBeUndefined();

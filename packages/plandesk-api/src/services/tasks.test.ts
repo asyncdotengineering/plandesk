@@ -232,7 +232,7 @@ describe('taskService', () => {
 
   it('returns no_tasks when project has no tasks on the active goal', async () => {
     const service = createService();
-    getOrCreateDefaultGoal(db, projectId);
+    await getOrCreateDefaultGoal(db, projectId);
     expect(await service.nextActionable(projectId)).toEqual({
       next_task: null,
       reason: 'no_tasks',
@@ -555,13 +555,13 @@ describe('taskService', () => {
     const created = await createTask(db, { projectId, label: 'Claim me', status: 'todo' });
 
     const result = await service.claim(created.id, 'agent-42');
-    expect(result).toEqual({
-      claimed: true,
-      task: expect.objectContaining({
-        id: created.id,
-        status: 'in_progress',
-        assignee: 'agent-42',
-      }),
+    if (!result?.claimed) {
+      throw new Error('Expected the task claim to succeed');
+    }
+    expect(result.task).toMatchObject({
+      id: created.id,
+      status: 'in_progress',
+      assignee: 'agent-42',
     });
   });
 

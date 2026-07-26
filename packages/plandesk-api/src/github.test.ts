@@ -63,7 +63,11 @@ describe('resolveGithubIdentity', () => {
     // The secret travels in the POST body to GitHub, never in a URL.
     const exchange = doFetch.mock.calls[0];
     expect(String(exchange?.[0])).toContain('login/oauth/access_token');
-    const body = JSON.parse(String(exchange?.[1]?.body)) as {
+    const exchangeBody = exchange?.[1]?.body;
+    if (typeof exchangeBody !== 'string') {
+      throw new Error('expected GitHub token exchange body to be a string');
+    }
+    const body = JSON.parse(exchangeBody) as {
       client_secret: string;
       code: string;
     };

@@ -171,10 +171,14 @@ export async function getInvitationPreview(
   });
   // better-auth stores team ids comma-joined on the invitation row; take the
   // first. Scoped by org so a stale/foreign id cannot leak a name.
-  const workspaceId =
-    typeof invitation.teamId === 'string' && invitation.teamId.length > 0
-      ? invitation.teamId.split(',')[0]!
-      : null;
+  let workspaceId: string | null = null;
+  if (typeof invitation.teamId === 'string' && invitation.teamId.length > 0) {
+    const firstTeamId = invitation.teamId.split(',')[0];
+    if (firstTeamId === undefined) {
+      throw new Error('Missing workspace id in invitation team ids');
+    }
+    workspaceId = firstTeamId;
+  }
   let workspaceName = '';
   if (workspaceId !== null) {
     const team = await adapter.findOne<{ id: string; name: string }>({
@@ -197,7 +201,7 @@ export async function getInvitationPreview(
     expiresAt:
       invitation.expiresAt instanceof Date
         ? invitation.expiresAt.toISOString()
-        : String(invitation.expiresAt),
+        : invitation.expiresAt,
   };
 }
 

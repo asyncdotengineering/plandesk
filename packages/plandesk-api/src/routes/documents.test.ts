@@ -61,17 +61,22 @@ describe('documents routes', () => {
     });
     const linkedGet = await app.request(`/api/v1/documents/${created.id}`);
     const linkedDoc = await parseJson<DocumentResponse>(linkedGet);
+    const firstLink = linkedDoc.links[0];
+    if (firstLink === undefined) {
+      throw new Error('missing document link edge');
+    }
     expect(linkedDoc.links).toEqual([
       {
         type: 'task',
         id: task.id,
         title: 'Implement',
         label: 'documents',
-        edge_id: expect.any(String),
+        edge_id: firstLink.edge_id,
       },
     ]);
+    expect(typeof firstLink.edge_id).toBe('string');
     expect(linkedDoc.backlinks).toEqual([]);
-    const linkEdgeId = linkedDoc.links[0]!.edge_id;
+    const linkEdgeId = firstLink.edge_id;
 
     const byTaskRes = await app.request(`/api/v1/tasks/${task.id}/document`);
     expect(byTaskRes.status).toBe(200);
@@ -313,9 +318,10 @@ describe('documents routes', () => {
         id: docB.id,
         title: 'Doc B',
         label: 'references',
-        edge_id: expect.any(String),
       }),
     );
+    const documentLink = getA.links.find((link) => link.id === docB.id);
+    expect(typeof documentLink?.edge_id).toBe('string');
 
     const getB = await parseJson<DocumentResponse>(
       await app.request(`/api/v1/documents/${docB.id}`),
@@ -326,9 +332,9 @@ describe('documents routes', () => {
         id: docA.id,
         title: 'Doc A',
         label: 'references',
-        edge_id: expect.any(String),
       }),
     ]);
+    expect(typeof getB.backlinks[0]?.edge_id).toBe('string');
 
     const docBacklinks = await parseJson<EntityLink[]>(
       await app.request(`/api/v1/documents/${docB.id}/backlinks`),
@@ -339,9 +345,9 @@ describe('documents routes', () => {
         id: docA.id,
         title: 'Doc A',
         label: 'references',
-        edge_id: expect.any(String),
       }),
     ]);
+    expect(typeof docBacklinks[0]?.edge_id).toBe('string');
 
     const taskBacklinks = await parseJson<EntityLink[]>(
       await app.request(`/api/v1/tasks/${t1.id}/backlinks`),
@@ -352,8 +358,9 @@ describe('documents routes', () => {
         id: docA.id,
         title: 'Doc A',
         label: 'documents',
-        edge_id: expect.any(String),
       }),
     );
+    const taskBacklink = taskBacklinks.find((link) => link.id === docA.id);
+    expect(typeof taskBacklink?.edge_id).toBe('string');
   });
 });

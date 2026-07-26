@@ -2,9 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { PLANDESK_SKILL_TEMPLATE } from './skill-template.js';
 
 describe('PLANDESK_SKILL_TEMPLATE task creation section', () => {
-  const taskCreationSection = PLANDESK_SKILL_TEMPLATE.split('## Task creation')[1]!.split(
-    '## Documents',
-  )[0]!;
+  const afterTaskCreation = PLANDESK_SKILL_TEMPLATE.split('## Task creation')[1];
+  if (afterTaskCreation === undefined) {
+    throw new Error('missing Task creation section');
+  }
+  const taskCreationSection = afterTaskCreation.split('## Documents')[0];
+  if (taskCreationSection === undefined) {
+    throw new Error('missing Documents section after Task creation');
+  }
 
   it('names build-contract depth for non-trivial task descriptions', () => {
     expect(taskCreationSection).toMatch(/build-contract depth/i);

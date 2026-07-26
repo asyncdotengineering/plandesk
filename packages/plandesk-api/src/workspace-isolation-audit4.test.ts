@@ -108,7 +108,7 @@ import {
   createUpdateGoalHandler,
   createUpdateNoteHandler,
   createUpdateTaskHandler,
-} from './test-support/mcp-tool-handlers.js';
+} from '../test-support/mcp-tool-handlers.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
 const TEST_BASE_URL = 'http://localhost:3000';

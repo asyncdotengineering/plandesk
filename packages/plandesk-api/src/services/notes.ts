@@ -3,7 +3,6 @@ import {
   deleteCommentsByTarget,
   deleteNote as dbDeleteNote,
   getNote as dbGetNote,
-  getProject,
   listNotes as dbListNotes,
   updateNote as dbUpdateNote,
   type Db,

@@ -33,7 +33,7 @@ async function seedSubmission(db: Db, projectId: string) {
   });
 }
 
-afterEach(async () => {
+afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -93,7 +93,7 @@ describe('submissions routes', () => {
     const { app, db, services } = await createTestAppWithServices();
     const project = await createProject(db, { name: 'Accept' });
     await seedSubmission(db, project.id);
-    services.syncService.setRemote(project.id, remote);
+    await services.syncService.setRemote(project.id, remote);
 
     vi.stubGlobal(
       'fetch',
@@ -123,7 +123,7 @@ describe('submissions routes', () => {
     const { app, db, services } = await createTestAppWithServices();
     const project = await createProject(db, { name: 'Reject' });
     await seedSubmission(db, project.id);
-    services.syncService.setRemote(project.id, remote);
+    await services.syncService.setRemote(project.id, remote);
 
     vi.stubGlobal(
       'fetch',
@@ -144,7 +144,7 @@ describe('submissions routes', () => {
     const { app, db, services } = await createTestAppWithServices();
     const project = await createProject(db, { name: 'Invalid' });
     await seedSubmission(db, project.id);
-    services.syncService.setRemote(project.id, remote);
+    await services.syncService.setRemote(project.id, remote);
 
     const invalidRes = await app.request('/api/v1/submissions/sub-1/triage', {
       method: 'POST',

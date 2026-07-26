@@ -207,7 +207,10 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     }
 
     if (hasProjectId) {
-      const projectId = body.project_id!.trim();
+      if (typeof body.project_id !== 'string') {
+        throw new Error('Missing project_id after validation');
+      }
+      const projectId = body.project_id.trim();
       const project = await getProjectInOrg(db, projectId, orgId);
       if (project === undefined) {
         return c.json({ error: 'not_found' }, 404);
@@ -226,7 +229,10 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     }
 
     if (hasTeamId) {
-      const teamId = body.team_id!.trim();
+      if (typeof body.team_id !== 'string') {
+        throw new Error('Missing team_id after validation');
+      }
+      const teamId = body.team_id.trim();
       const adapter = (await betterAuth.$context).adapter;
       const team = await adapter.findOne<{ id: string; organizationId: string }>({
         model: 'team',
@@ -445,10 +451,6 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     if (typeof data.version !== 'string' || data.version !== PLANDESK_EXPORT_VERSION) {
       return c.json({ error: 'invalid_argument' }, 400);
     }
-    if (data.project === undefined || typeof data.project !== 'object') {
-      return c.json({ error: 'invalid_argument' }, 400);
-    }
-
     try {
       // orgId always from authenticated path/context — never from the body.
       const { projectId } = await importProject(db, data, { orgId });

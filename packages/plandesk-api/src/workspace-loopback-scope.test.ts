@@ -59,7 +59,10 @@ describe('workspace loopback scoping (x-plandesk-workspace-id header)', () => {
     // hosted app (non-loopback): owner token sees all regardless of a spoofed header
     const db = await createDb(':memory:');
     await migrate(db);
-    const auth = createBetterAuth({ client: db.$client, secret: TEST_SECRET, baseURL: TEST_BASE_URL, github: { clientId: 'x', clientSecret: 'y' } })!;
+    const auth = createBetterAuth({ client: db.$client, secret: TEST_SECRET, baseURL: TEST_BASE_URL, github: { clientId: 'x', clientSecret: 'y' } });
+    if (auth === undefined) {
+      throw new Error('missing better-auth instance');
+    }
     await runBetterAuthMigrations(auth);
     const app = createApp({ db, bindHost: '0.0.0.0', github: { clientId: 'x', clientSecret: 'y', callbackUrl: 'https://t/cb', dashboardUrl: '/' }, betterAuth: { secret: TEST_SECRET, baseURL: TEST_BASE_URL } });
 

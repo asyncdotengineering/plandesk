@@ -89,7 +89,7 @@ export function isAuthApiError(err: unknown): err is AuthApiErrorShape {
   );
 }
 
-async function callPluginApi(
+function callPluginApi(
   auth: BetterAuthInstance,
   method: string,
   args: Record<string, unknown>,
@@ -98,11 +98,25 @@ async function callPluginApi(
   if (!(method in api)) {
     throw new Error(`better-auth ${method} is not available`);
   }
-  const fn = Reflect.get(api, method);
+  const fn: unknown = Reflect.get(api, method);
   if (typeof fn !== 'function') {
     throw new Error(`better-auth ${method} is not a function`);
   }
-  return fn.call(api, args);
+  const result: unknown = fn.call(api, args);
+  if (!(result instanceof Promise)) {
+    throw new Error(`better-auth ${method} did not return a promise`);
+  }
+  return result;
+}
+
+function parseInvitationDate(value: unknown, field: string): Date {
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    return new Date(value);
+  }
+  throw new Error(`createInvitation ${field} is not a date`);
 }
 
 function parseInvitation(raw: unknown): InvitationRow {
@@ -117,10 +131,8 @@ function parseInvitation(raw: unknown): InvitationRow {
     teamId: typeof raw.teamId === 'string' && raw.teamId.length > 0 ? raw.teamId : null,
     inviterId: typeof raw.inviterId === 'string' ? raw.inviterId : '',
     status: typeof raw.status === 'string' ? raw.status : '',
-    expiresAt:
-      raw.expiresAt instanceof Date ? raw.expiresAt : new Date(String(raw.expiresAt ?? '')),
-    createdAt:
-      raw.createdAt instanceof Date ? raw.createdAt : new Date(String(raw.createdAt ?? '')),
+    expiresAt: parseInvitationDate(raw.expiresAt, 'expiresAt'),
+    createdAt: parseInvitationDate(raw.createdAt, 'createdAt'),
   };
 }
 

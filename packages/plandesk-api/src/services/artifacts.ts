@@ -1,7 +1,6 @@
 import {
   createArtifact as dbCreateArtifact,
   getArtifact as dbGetArtifact,
-  getProject,
   listArtifactsByProject as dbListArtifactsByProject,
   updateArtifact as dbUpdateArtifact,
   type ArtifactKind,

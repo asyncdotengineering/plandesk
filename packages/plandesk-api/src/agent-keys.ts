@@ -50,7 +50,7 @@ export function applyAgentKeyPermissionCeiling(
   const effective = intersectPermissions(keyPerms, rolePerms);
   if (kind === 'agent') {
     for (const resource of AGENT_FORBIDDEN_RESOURCES) {
-      delete effective[resource];
+      Reflect.deleteProperty(effective, resource);
     }
   }
   return effective;
@@ -121,7 +121,7 @@ export async function verifyBetterAuthApiKey(
   if (!isRecord(raw) || typeof raw.valid !== 'boolean') {
     return undefined;
   }
-  if (raw.valid !== true) {
+  if (!raw.valid) {
     return undefined;
   }
   const keyBody = raw.key;

@@ -66,7 +66,7 @@ async function getApp(): Promise<Hono> {
 const handler = async (req: Request): Promise<Response> => {
   try {
     const app = await getApp();
-    return handle(app)(req);
+    return await handle(app)(req);
   } catch (err) {
     const misconfig = hostedMisconfigResponse(err);
     if (misconfig !== undefined) return misconfig;

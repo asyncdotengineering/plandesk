@@ -212,7 +212,14 @@ export async function startServer(
 
   // One global board → one fixed port. Always fail clearly if the port is busy
   // (the other listener is almost always this same board already running).
-  server.on('error', createListenErrorHandler(options.port, exit));
+  const handleListenError = createListenErrorHandler(options.port, exit);
+  server.on('error', (error) => {
+    void handleListenError(error).catch((handlerError: unknown) => {
+      process.nextTick(() => {
+        throw handlerError;
+      });
+    });
+  });
   server.listen(options.port, host, logListening);
 
   return server;

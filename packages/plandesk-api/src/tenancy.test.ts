@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_ORG_ID,
   createTaskWithDefaultGoal as createTask,
   migrate,
   createDb,

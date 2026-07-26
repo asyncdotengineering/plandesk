@@ -23,6 +23,7 @@ import {
 import { createProjectInDefaultOrg as createProject, createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { GoOnlineError, runGoOnline } from './go-online.js';
+import { readStringCell } from './database-schema.js';
 import { runInit } from './init.js';
 import { openWorkspace } from './workspace.js';
 
@@ -114,9 +115,14 @@ async function startHosted(): Promise<Hosted> {
     betterAuth: { secret: SECRET, baseURL: BASE },
     github: { clientId: 'c', clientSecret: 's', callbackUrl: 'https://x.test/cb' },
   });
-  const server = createServer(getRequestListener(app.fetch));
+  const requestListener = getRequestListener(app.fetch);
+  const server = createServer((request, response) => {
+    void requestListener(request, response);
+  });
   await new Promise<void>((resolve) => {
-    server.listen(0, '127.0.0.1', () => resolve());
+    server.listen(0, '127.0.0.1', () => {
+      resolve();
+    });
   });
   const addr = server.address();
   if (addr === null || typeof addr === 'string') throw new Error('expected TCP address');
@@ -172,7 +178,7 @@ async function makeLocalBoard(): Promise<LocalBoard> {
       orgId: DEFAULT_ORG_ID,
       workspaceId: teamId,
     });
-    const task = await createTask(db, {
+    await createTask(db, {
       projectId: project.id,
       label: `${name} task`,
       status: 'todo',
@@ -218,7 +224,9 @@ describe('plandesk go-online', () => {
     const hosted = await startHosted();
     cleanup.push(hosted.close);
     const local = await makeLocalBoard();
-    cleanup.push(() => rmSync(local.dataDir, { recursive: true, force: true }));
+    cleanup.push(() => {
+      rmSync(local.dataDir, { recursive: true, force: true });
+    });
 
     const result = await runGoOnline({
       all: true,
@@ -268,7 +276,9 @@ describe('plandesk go-online', () => {
     const hosted = await startHosted();
     cleanup.push(hosted.close);
     const local = await makeLocalBoard();
-    cleanup.push(() => rmSync(local.dataDir, { recursive: true, force: true }));
+    cleanup.push(() => {
+      rmSync(local.dataDir, { recursive: true, force: true });
+    });
 
     const result = await runGoOnline({
       workspaces: ['Fiji TV'],
@@ -291,7 +301,9 @@ describe('plandesk go-online', () => {
     const hosted = await startHosted();
     cleanup.push(hosted.close);
     const local = await makeLocalBoard();
-    cleanup.push(() => rmSync(local.dataDir, { recursive: true, force: true }));
+    cleanup.push(() => {
+      rmSync(local.dataDir, { recursive: true, force: true });
+    });
 
     const opts = {
       all: true,
@@ -318,7 +330,9 @@ describe('plandesk go-online', () => {
     const hosted = await startHosted();
     cleanup.push(hosted.close);
     const local = await makeLocalBoard();
-    cleanup.push(() => rmSync(local.dataDir, { recursive: true, force: true }));
+    cleanup.push(() => {
+      rmSync(local.dataDir, { recursive: true, force: true });
+    });
 
     await expect(
       runGoOnline({
@@ -334,7 +348,9 @@ describe('plandesk go-online', () => {
 
   it('test:go_online_no_target — missing hosted target is a clear error', async () => {
     const local = await makeLocalBoard();
-    cleanup.push(() => rmSync(local.dataDir, { recursive: true, force: true }));
+    cleanup.push(() => {
+      rmSync(local.dataDir, { recursive: true, force: true });
+    });
 
     await expect(
       runGoOnline({ all: true, dataDir: local.dataDir, home: '/nonexistent-home-zz', out: silentOut() }),
@@ -347,5 +363,5 @@ async function hostedTeamNames(hosted: Hosted): Promise<string[]> {
     sql: 'SELECT name FROM team WHERE organizationId = ?',
     args: [hosted.orgId],
   });
-  return result.rows.map((row) => String(row['name'] ?? ''));
+  return result.rows.map((row) => readStringCell(row['name'], 'team.name'));
 }

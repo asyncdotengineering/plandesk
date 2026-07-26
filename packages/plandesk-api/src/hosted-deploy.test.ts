@@ -240,8 +240,11 @@ describe('hosted better-auth wiring (BA9)', () => {
     expect(ba.status).toBe(404);
 
     const misconfig = hostedMisconfigResponse(new Error(MISSING_BETTER_AUTH_SECRET_MESSAGE));
-    expect(misconfig?.status).toBe(500);
-    const body = await parseJson<{ error: string; message: string }>(misconfig!);
+    if (misconfig === undefined) {
+      throw new Error('missing hosted misconfiguration response');
+    }
+    expect(misconfig.status).toBe(500);
+    const body = await parseJson<{ error: string; message: string }>(misconfig);
     expect(body.error).toBe('misconfigured');
     expect(body.message).toContain('PLANDESK_BETTER_AUTH_SECRET');
   });

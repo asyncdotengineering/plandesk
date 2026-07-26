@@ -35,12 +35,12 @@ function writeRepoConfig(repoDir: string, serverUrl: string): void {
 }
 
 beforeEach(() => {
-  delete process.env[TOKEN_ENV_VAR];
+  Reflect.deleteProperty(process.env, TOKEN_ENV_VAR);
 });
 
 afterEach(() => {
   if (savedEnvToken === undefined) {
-    delete process.env[TOKEN_ENV_VAR];
+    Reflect.deleteProperty(process.env, TOKEN_ENV_VAR);
   } else {
     process.env[TOKEN_ENV_VAR] = savedEnvToken;
   }
@@ -75,7 +75,7 @@ describe('resolvePromoteToken — login→push seam', () => {
     process.env[TOKEN_ENV_VAR] = 'env-token';
     expect(resolvePromoteToken(repoDir, home)).toBe('env-token');
 
-    delete process.env[TOKEN_ENV_VAR];
+    Reflect.deleteProperty(process.env, TOKEN_ENV_VAR);
     writeCliConfig(
       { server: 'https://plan.example', token: '', orgId: 'org-1' },
       home,

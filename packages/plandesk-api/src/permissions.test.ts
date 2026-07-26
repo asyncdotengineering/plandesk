@@ -24,10 +24,12 @@ describe('permissions model', () => {
 
   it('requirePermission throws PermissionDeniedError when action is missing', () => {
     const memberSet = orgRoleToPermissionSet('member');
-    expect(() => requirePermission({ permission: memberSet }, 'project', 'create')).toThrow(
-      PermissionDeniedError,
-    );
-    expect(() => requirePermission({ permission: memberSet }, 'task', 'update')).not.toThrow();
+    expect(() => {
+      requirePermission({ permission: memberSet }, 'project', 'create');
+    }).toThrow(PermissionDeniedError);
+    expect(() => {
+      requirePermission({ permission: memberSet }, 'task', 'update');
+    }).not.toThrow();
   });
 
   it('empty permission set is read-only', () => {

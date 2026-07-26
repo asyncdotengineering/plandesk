@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { createAuthMiddleware, createOrgAuthMiddleware } from './auth.js';
+import { createAuthMiddleware } from './auth.js';
 import { createTestApp, parseJson } from './test-helpers.js';
 
 function basicAuth(password: string): string {

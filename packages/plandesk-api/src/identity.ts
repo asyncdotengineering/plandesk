@@ -189,7 +189,6 @@ export async function getActiveTeamForSession(
 export async function ensureDefaultTeamForOrg(
   auth: BetterAuthInstance,
   organizationId: string,
-  _orgName?: string,
 ): Promise<string> {
   const adapter = (await auth.$context).adapter;
   const existingTeams = await adapter.findMany<TeamRow>({
@@ -198,7 +197,11 @@ export async function ensureDefaultTeamForOrg(
   });
   let team: TeamRow;
   if (existingTeams.length > 0) {
-    team = existingTeams[0]!;
+    const existingTeam = existingTeams[0];
+    if (existingTeam === undefined) {
+      throw new Error(`Missing existing team for organization ${organizationId}`);
+    }
+    team = existingTeam;
   } else {
     const now = new Date();
     const isLocalOrg = organizationId === DEFAULT_ORG_ID;
@@ -253,7 +256,7 @@ export async function backfillDefaultTeams(
       where: [{ field: 'organizationId', value: org.id }],
     });
     const hadTeam = existingTeams.length > 0;
-    await ensureDefaultTeamForOrg(auth, org.id, org.name);
+    await ensureDefaultTeamForOrg(auth, org.id);
     if (!hadTeam) {
       teamsCreated++;
     }
@@ -294,7 +297,7 @@ export async function ensureLocalBetterAuthOrganization(
 ): Promise<OrganizationSummary> {
   const existing = await getOrganizationById(auth, DEFAULT_ORG_ID);
   if (existing !== undefined) {
-    await ensureDefaultTeamForOrg(auth, DEFAULT_ORG_ID, 'Personal');
+    await ensureDefaultTeamForOrg(auth, DEFAULT_ORG_ID);
     return existing;
   }
 
@@ -311,7 +314,7 @@ export async function ensureLocalBetterAuthOrganization(
     data,
     forceAllowId: true,
   });
-  await ensureDefaultTeamForOrg(auth, DEFAULT_ORG_ID, 'Personal');
+  await ensureDefaultTeamForOrg(auth, DEFAULT_ORG_ID);
   return {
     id: created.id,
     name: created.name,
@@ -381,7 +384,7 @@ export async function provisionPersonalOrgIfNeeded(
       createdAt: now,
     },
   });
-  await ensureDefaultTeamForOrg(auth, organization.id, organization.name);
+  await ensureDefaultTeamForOrg(auth, organization.id);
 
   return { created: true, orgId: organization.id, role: 'owner' };
 }

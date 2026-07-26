@@ -333,7 +333,11 @@ describe('CLI legacy-upgrade', () => {
     expect(projects[0]?.name).toBe('Legacy Upgrade Fixture');
     expect(projects[0]?.workspaceId).toBeDefined();
 
-    const projectId = projects[0]!.id;
+    const project = projects[0];
+    if (project === undefined) {
+      throw new Error('missing imported project');
+    }
+    const projectId = project.id;
     const tasks = await listTasks(db, projectId);
     expect(tasks).toHaveLength(1);
     expect(tasks[0]?.label).toBe('Migrate me');
@@ -345,7 +349,11 @@ describe('CLI legacy-upgrade', () => {
     const comments = await listCommentsByProject(db, projectId, { includeResolved: true });
     expect(comments).toHaveLength(1);
     expect(comments[0]?.targetType).toBe('document');
-    expect(comments[0]?.targetId).toBe(documents[0]!.id);
+    const document = documents[0];
+    if (document === undefined) {
+      throw new Error('missing imported document');
+    }
+    expect(comments[0]?.targetId).toBe(document.id);
     expect(comments[0]?.body).toBe('Fix intro');
     expect(comments[0]?.passage).toBe('Select this passage');
     expect(comments[0]?.resolved).toBe(false);
@@ -423,7 +431,11 @@ describe('CLI legacy-upgrade', () => {
     const { db } = await openWorkspace(dataDir);
     const allProjects = await listProjects(db, DEFAULT_ORG_ID);
     expect(allProjects).toHaveLength(2);
-    const workspaceId = allProjects[0]!.workspaceId;
+    const firstProject = allProjects[0];
+    if (firstProject === undefined) {
+      throw new Error('missing first imported project');
+    }
+    const workspaceId = firstProject.workspaceId;
     expect(allProjects[1]?.workspaceId).toBe(workspaceId);
 
     // Verify the team exists
@@ -433,8 +445,10 @@ describe('CLI legacy-upgrade', () => {
     });
     const teamRows = teams.rows as unknown as Array<{ id: string; name: string }>;
     const clientTeam = teamRows.find((t) => t.name === 'Client X');
-    expect(clientTeam).toBeDefined();
-    expect(workspaceId).toBe(clientTeam!.id);
+    if (clientTeam === undefined) {
+      throw new Error('missing Client X workspace');
+    }
+    expect(workspaceId).toBe(clientTeam.id);
   });
 
   it('defaults workspace name to source folder basename when --into-workspace is omitted', async () => {
@@ -444,7 +458,10 @@ describe('CLI legacy-upgrade', () => {
     await createOldSchemaFixture(oldPath);
     await runInit(dataDir);
 
-    const folderName = root.split('/').pop()!;
+    const folderName = root.split('/').pop();
+    if (folderName === undefined) {
+      throw new Error('missing folder name from import root');
+    }
 
     const { code, stdout, stderr } = await captureIo(() =>
       main(['node', 'plandesk', 'legacy-upgrade', '--from', oldPath, '--data-dir', dataDir]),
@@ -464,8 +481,10 @@ describe('CLI legacy-upgrade', () => {
     });
     const teamRows = teams.rows as unknown as Array<{ id: string; name: string }>;
     const folderTeam = teamRows.find((t) => t.name === folderName);
-    expect(folderTeam).toBeDefined();
-    expect(projects[0]?.workspaceId).toBe(folderTeam!.id);
+    if (folderTeam === undefined) {
+      throw new Error(`missing ${folderName} workspace`);
+    }
+    expect(projects[0]?.workspaceId).toBe(folderTeam.id);
   });
 
   it('re-running with the same workspace name reuses the team (no duplicate)', async () => {
@@ -518,7 +537,11 @@ describe('CLI legacy-upgrade', () => {
 
     const projects = await listProjects(db, DEFAULT_ORG_ID);
     expect(projects).toHaveLength(1);
-    expect(projects[0]?.workspaceId).toBe(teamRows[0]!.id);
+    const team = teamRows[0];
+    if (team === undefined) {
+      throw new Error('missing imported workspace');
+    }
+    expect(projects[0]?.workspaceId).toBe(team.id);
   });
 
   it('already-new-schema source is a no-op exit 0', async () => {

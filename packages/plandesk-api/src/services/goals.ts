@@ -3,7 +3,6 @@ import {
   createGoal,
   createTask,
   getGoal,
-  getProject,
   InvalidGoalStatusError,
   isGoalStatus,
   listGoals,

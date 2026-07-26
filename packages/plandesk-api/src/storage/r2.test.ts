@@ -50,25 +50,28 @@ function createFakeR2Bucket(): R2BucketLike & { keys(): string[] } {
       });
       return undefined;
     },
-    async get(key) {
+    get(key) {
       const entry = store.get(key);
       if (entry === undefined) {
-        return null;
+        return Promise.resolve(null);
       }
       const copy = entry.body.slice();
-      return {
-        arrayBuffer: async (): Promise<ArrayBuffer> =>
-          copy.buffer.slice(copy.byteOffset, copy.byteOffset + copy.byteLength) as ArrayBuffer,
+      return Promise.resolve({
+        arrayBuffer: () =>
+          Promise.resolve(copy.buffer.slice(copy.byteOffset, copy.byteOffset + copy.byteLength)),
         httpMetadata: entry.httpMetadata,
         customMetadata: entry.customMetadata,
-      };
+      });
     },
-    async head(key) {
+    head(key) {
       const entry = store.get(key);
       if (entry === undefined) {
-        return null;
+        return Promise.resolve(null);
       }
-      return { httpMetadata: entry.httpMetadata, customMetadata: entry.customMetadata };
+      return Promise.resolve({
+        httpMetadata: entry.httpMetadata,
+        customMetadata: entry.customMetadata,
+      });
     },
   };
 }

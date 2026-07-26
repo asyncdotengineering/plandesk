@@ -310,8 +310,8 @@ describe('canvas routes', () => {
       to_id: string;
       label: string | null;
     }>(res);
+    expect(typeof edge.id).toBe('string');
     expect(edge).toMatchObject({
-      id: expect.any(String),
       from_type: 'task',
       from_id: task.id,
       to_type: 'document',

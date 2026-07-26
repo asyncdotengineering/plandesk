@@ -70,8 +70,6 @@ export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | und
     return undefined;
   }
 
-  // Closed over after construction so session.create.after can use the instance.
-  let authInstance: BetterAuthInstance | undefined;
   const appDb = deps.db;
 
   const options: BetterAuthOptions = {
@@ -104,7 +102,6 @@ export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | und
             session: {
               create: {
                 after: async (session) => {
-                  if (authInstance === undefined) return;
                   await provisionPersonalOrgIfNeeded(authInstance, appDb, session.userId);
                   const activeOrgId = await setDefaultActiveOrganization(
                     authInstance,
@@ -129,7 +126,8 @@ export function createBetterAuth(deps: BetterAuthDeps): BetterAuthInstance | und
       apiKey({ enableMetadata: true, rateLimit: { enabled: false } }),
     ],
   };
-  authInstance = betterAuth(options);
+  // Closed over by session.create.after; hooks run only after construction.
+  const authInstance = betterAuth(options);
   return authInstance;
 }
 

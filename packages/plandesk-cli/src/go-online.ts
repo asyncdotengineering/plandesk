@@ -222,7 +222,13 @@ function selectWorkspaces(
         `Unknown workspace name: ${missing.join(', ')}. Available: ${local.map((ws) => ws.name).join(', ') || '(none)'}`,
       );
     }
-    return names.map((name) => byName.get(name)!);
+    return names.map((name) => {
+      const workspace = byName.get(name);
+      if (workspace === undefined) {
+        throw new GoOnlineError(`Missing workspace after validating name: ${name}`);
+      }
+      return workspace;
+    });
   }
   return pickWorkspacesInteractively(local, out, input);
 }
@@ -239,7 +245,7 @@ async function pickWorkspacesInteractively(
   for (const [index, ws] of local.entries()) {
     out.write(`${String(index + 1)}. ${ws.name}\n`);
   }
-  const rl = createInterface({ input: inStream, output: out as NodeJS.WritableStream });
+  const rl = createInterface({ input: inStream, output: out });
   try {
     const answer = (await rl.question('Select workspace numbers (comma-separated), or "all": ')).trim();
     if (answer.toLowerCase() === 'all') {
@@ -252,7 +258,13 @@ async function pickWorkspacesInteractively(
     if (picks.length === 0) {
       throw new GoOnlineError('No workspace selected.');
     }
-    return picks.map((n) => local[n - 1]!);
+    return picks.map((n) => {
+      const workspace = local[n - 1];
+      if (workspace === undefined) {
+        throw new GoOnlineError(`Missing workspace at selection ${String(n)}.`);
+      }
+      return workspace;
+    });
   } finally {
     rl.close();
   }

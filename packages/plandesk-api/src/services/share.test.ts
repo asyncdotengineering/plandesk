@@ -37,7 +37,7 @@ describe('shareService', () => {
     await db.$client.execute('DELETE FROM projects');
   });
 
-  afterEach(async () => {
+  afterEach(() => {
     vi.restoreAllMocks();
   });
 

@@ -2,7 +2,6 @@ import {
   createAgentRun,
   createAgentRunEvent,
   getAgentRun,
-  getProject,
   listAgentRunEvents,
   listAgentRuns,
   updateAgentRunStatus,

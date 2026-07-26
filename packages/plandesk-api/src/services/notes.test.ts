@@ -22,7 +22,10 @@ describe('noteService', () => {
   it('creates a note', async () => {
     const note = await createService().create(projectId, { title: 'Note' });
     expect(note?.title).toBe('Note');
-    expect(await getNote(db, note!.id)).toBeDefined();
+    if (note === undefined) {
+      throw new Error('missing created note');
+    }
+    expect(await getNote(db, note.id)).toBeDefined();
   });
 
   it('updates and deletes a note', async () => {

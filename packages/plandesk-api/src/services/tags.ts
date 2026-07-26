@@ -1,7 +1,6 @@
 import {
   createTag as dbCreateTag,
   deleteTag as dbDeleteTag,
-  getProject,
   getTag as dbGetTag,
   getTagByName,
   listTags as dbListTags,

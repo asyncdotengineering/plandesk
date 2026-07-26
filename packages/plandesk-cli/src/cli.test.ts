@@ -28,11 +28,11 @@ import {
   startServer,
   validateServeBind,
 } from './serve.js';
-import { resolveServerConfig, SERVER_CONFIG_FILENAME } from './config.js';
-import { DEFAULT_ORG_ID, createDb, migrate } from '@plandesk/db';
+import { SERVER_CONFIG_FILENAME } from './config.js';
+import { createDb, migrate } from '@plandesk/db';
 
 describe('parseArgs', () => {
-  it('parses init with data-dir override', async () => {
+  it('parses init with data-dir override', () => {
     expect(parseArgs(['node', 'plandesk', 'init', '--data-dir', '/tmp/ws'])).toEqual({
       command: 'init',
       dataDir: '/tmp/ws',
@@ -40,7 +40,7 @@ describe('parseArgs', () => {
     });
   });
 
-  it('parses init --local-db', async () => {
+  it('parses init --local-db', () => {
     expect(parseArgs(['node', 'plandesk', 'init', '--local-db'])).toEqual({
       command: 'init',
       dataDir: undefined,
@@ -48,7 +48,7 @@ describe('parseArgs', () => {
     });
   });
 
-  it('parses serve with default port (no flag → undefined, resolved from workspace.json in cli.ts)', async () => {
+  it('parses serve with default port (no flag → undefined, resolved from workspace.json in cli.ts)', () => {
     expect(parseArgs(['node', 'plandesk', 'serve'])).toEqual({
       command: 'serve',
       port: undefined,
@@ -56,7 +56,7 @@ describe('parseArgs', () => {
     });
   });
 
-  it('parses serve with --strict-port', async () => {
+  it('parses serve with --strict-port', () => {
     expect(parseArgs(['node', 'plandesk', 'serve', '--strict-port'])).toEqual({
       command: 'serve',
       port: undefined,
@@ -64,7 +64,7 @@ describe('parseArgs', () => {
     });
   });
 
-  it('parses url command', async () => {
+  it('parses url command', () => {
     expect(parseArgs(['node', 'plandesk', 'url'])).toEqual({
       command: 'url',
       repoDir: undefined,
@@ -82,7 +82,7 @@ describe('parseArgs', () => {
     });
   });
 
-  it('parses serve with port, host, and data-dir', async () => {
+  it('parses serve with port, host, and data-dir', () => {
     expect(
       parseArgs([
         'node',
@@ -168,23 +168,23 @@ describe('parseArgs', () => {
     });
   });
 
-  it('returns help (crash course) for empty argv', async () => {
+  it('returns help (crash course) for empty argv', () => {
     expect(parseArgs(['node', 'plandesk'])).toEqual({ command: 'help', full: false });
   });
 
-  it('returns full help with --commands', async () => {
+  it('returns full help with --commands', () => {
     expect(parseArgs(['node', 'plandesk', 'help', '--commands'])).toEqual({
       command: 'help',
       full: true,
     });
   });
 
-  it('parses version as command and flag', async () => {
+  it('parses version as command and flag', () => {
     expect(parseArgs(['node', 'plandesk', 'version'])).toEqual({ command: 'version' });
     expect(parseArgs(['node', 'plandesk', '--version'])).toEqual({ command: 'version' });
   });
 
-  it('parses onboard as a command', async () => {
+  it('parses onboard as a command', () => {
     expect(parseArgs(['node', 'plandesk', 'onboard'])).toEqual({ command: 'onboard' });
   });
 
@@ -294,7 +294,7 @@ describe('resolveServeRuntime (config file alone, env overrides — REQ-1/REQ-2)
 });
 
 describe('crashCourse', () => {
-  it('orients both humans and agents with real doc links', async () => {
+  it('orients both humans and agents with real doc links', () => {
     const out = crashCourse();
     expect(out).toContain('https://plandesk.asyncdot.com/start.md');
     expect(out).toContain('READ THESE');
@@ -306,7 +306,7 @@ describe('crashCourse', () => {
 });
 
 describe('repo gitignore (BA0b)', () => {
-  it('ignores workspace.db and .pre-* migration backups (no un-ignore negation)', async () => {
+  it('ignores workspace.db and .pre-* migration backups (no un-ignore negation)', () => {
     // packages/plandesk-cli/src → repo root is three levels up
     const rootGitignore = readFileSync(join(process.cwd(), '../../.gitignore'), 'utf8');
     expect(rootGitignore).toMatch(/^\*\.db$/m);
@@ -316,7 +316,7 @@ describe('repo gitignore (BA0b)', () => {
 });
 
 describe('onboard guide', () => {
-  it('teaches the model without assuming any worker CLI or delegation skill exists', async () => {
+  it('teaches the model without assuming any worker CLI or delegation skill exists', () => {
     const out = ONBOARD_GUIDE;
     // Portability invariant: the guide must tell the agent to self-execute when
     // no worker is installed — never assume a delegate skill or worker CLI ships
@@ -329,7 +329,7 @@ describe('onboard guide', () => {
     expect(out).not.toContain('/delegate');
   });
 
-  it('does not claim the board is committed or travels with the code', async () => {
+  it('does not claim the board is committed or travels with the code', () => {
     const out = ONBOARD_GUIDE;
     expect(out).not.toMatch(/travels with the code/i);
     expect(out).not.toMatch(/committed so the plan/i);
@@ -337,7 +337,7 @@ describe('onboard guide', () => {
     expect(out).toContain('plandesk export');
   });
 
-  it('printOnboard writes the guide to the provided sink', async () => {
+  it('printOnboard writes the guide to the provided sink', () => {
     let captured = '';
     printOnboard((s) => {
       captured += s;
@@ -347,24 +347,24 @@ describe('onboard guide', () => {
 });
 
 describe('bind host', () => {
-  it('defaults serve bind host to loopback (LAN is opt-in)', async () => {
+  it('defaults serve bind host to loopback (LAN is opt-in)', () => {
     expect(DEFAULT_BIND_HOST).toBe('127.0.0.1');
     expect(resolveBindHost()).toBe('127.0.0.1');
   });
 
-  it('honors --host over PLANDESK_HOST', async () => {
+  it('honors --host over PLANDESK_HOST', () => {
     vi.stubEnv('PLANDESK_HOST', '192.168.1.5');
     expect(resolveBindHost('0.0.0.0')).toBe('0.0.0.0');
     vi.unstubAllEnvs();
   });
 
-  it('reads PLANDESK_HOST when --host is absent', async () => {
+  it('reads PLANDESK_HOST when --host is absent', () => {
     vi.stubEnv('PLANDESK_HOST', '0.0.0.0');
     expect(resolveBindHost()).toBe('0.0.0.0');
     vi.unstubAllEnvs();
   });
 
-  it('classifies loopback hosts', async () => {
+  it('classifies loopback hosts', () => {
     expect(isLoopbackHost('127.0.0.1')).toBe(true);
     expect(isLoopbackHost('localhost')).toBe(true);
     expect(isLoopbackHost('::1')).toBe(true);
@@ -374,7 +374,7 @@ describe('bind host', () => {
 });
 
 describe('validateServeBind', () => {
-  it('allows non-loopback bind without a password (open LAN access)', async () => {
+  it('allows non-loopback bind without a password (open LAN access)', () => {
     vi.stubEnv('PLANDESK_AUTH_PASSWORD', '');
     expect(validateServeBind({ port: 7526, host: '0.0.0.0' })).toEqual({
       host: '0.0.0.0',
@@ -383,7 +383,7 @@ describe('validateServeBind', () => {
     vi.unstubAllEnvs();
   });
 
-  it('passes authPassword when PLANDESK_AUTH_PASSWORD is set', async () => {
+  it('passes authPassword when PLANDESK_AUTH_PASSWORD is set', () => {
     vi.stubEnv('PLANDESK_AUTH_PASSWORD', 'secret');
     expect(validateServeBind({ port: 7526, host: '0.0.0.0' })).toEqual({
       host: '0.0.0.0',
@@ -394,13 +394,13 @@ describe('validateServeBind', () => {
 });
 
 describe('resolveAuthPassword', () => {
-  it('returns undefined when unset', async () => {
+  it('returns undefined when unset', () => {
     vi.stubEnv('PLANDESK_AUTH_PASSWORD', '');
     expect(resolveAuthPassword()).toBeUndefined();
     vi.unstubAllEnvs();
   });
 
-  it('reads PLANDESK_AUTH_PASSWORD', async () => {
+  it('reads PLANDESK_AUTH_PASSWORD', () => {
     vi.stubEnv('PLANDESK_AUTH_PASSWORD', 'secret');
     expect(resolveAuthPassword()).toBe('secret');
     vi.unstubAllEnvs();
@@ -607,7 +607,11 @@ describe('createListenErrorHandler', () => {
       stderr.mockRestore();
     } finally {
       for (const server of servers.splice(0)) {
-        await new Promise<void>((resolve) => server.close(() => resolve()));
+        await new Promise<void>((resolve) => {
+          server.close(() => {
+            resolve();
+          });
+        });
       }
       rmSync(dataDir, { recursive: true, force: true });
     }
@@ -766,17 +770,17 @@ describe('resolveServeOrigin', () => {
 });
 
 describe('resolveDataDir', () => {
-  it('uses override when provided', async () => {
+  it('uses override when provided', () => {
     expect(resolveDataDir('/tmp/custom')).toBe('/tmp/custom');
   });
 
-  it('reads PLANDESK_DATA_DIR when override is absent', async () => {
+  it('reads PLANDESK_DATA_DIR when override is absent', () => {
     vi.stubEnv('PLANDESK_DATA_DIR', '/data');
     expect(resolveDataDir()).toBe('/data');
     vi.unstubAllEnvs();
   });
 
-  it('finds local workspace only when workspace.db exists (not connect-only .plandesk/)', async () => {
+  it('finds local workspace only when workspace.db exists (not connect-only .plandesk/)', () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-resolve-'));
     const plandeskDir = join(tmpDir, '.plandesk');
     mkdirSync(plandeskDir);
@@ -794,7 +798,7 @@ describe('resolveDataDir', () => {
 });
 
 describe('findLocalPlandeskDir', () => {
-  it('returns undefined when no .plandesk/ exists in the tree', async () => {
+  it('returns undefined when no .plandesk/ exists in the tree', () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-find-'));
     try {
       expect(findLocalPlandeskDir(tmpDir)).toBeUndefined();
@@ -803,7 +807,7 @@ describe('findLocalPlandeskDir', () => {
     }
   });
 
-  it('finds .plandesk/ in the given directory', async () => {
+  it('finds .plandesk/ in the given directory', () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-find-'));
     const plandeskDir = join(tmpDir, '.plandesk');
     mkdirSync(plandeskDir);
@@ -814,7 +818,7 @@ describe('findLocalPlandeskDir', () => {
     }
   });
 
-  it('finds .plandesk/ in a parent directory', async () => {
+  it('finds .plandesk/ in a parent directory', () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-find-'));
     const plandeskDir = join(tmpDir, '.plandesk');
     const child = join(tmpDir, 'sub', 'deep');
@@ -829,20 +833,20 @@ describe('findLocalPlandeskDir', () => {
 });
 
 describe('resolveBoard', () => {
-  it('uses override when provided (source: flag)', async () => {
+  it('uses override when provided (source: flag)', () => {
     expect(resolveBoard({ override: '/tmp/custom' })).toEqual({
       dataDir: '/tmp/custom',
       source: 'flag',
     });
   });
 
-  it('reads PLANDESK_DATA_DIR when override is absent (source: env)', async () => {
+  it('reads PLANDESK_DATA_DIR when override is absent (source: env)', () => {
     vi.stubEnv('PLANDESK_DATA_DIR', '/data');
     expect(resolveBoard({})).toEqual({ dataDir: '/data', source: 'env' });
     vi.unstubAllEnvs();
   });
 
-  it('defaults to the global ~/.plandesk board when no shadow exists (source: default)', async () => {
+  it('defaults to the global ~/.plandesk board when no shadow exists (source: default)', () => {
     const prev = process.env.PLANDESK_DATA_DIR;
     delete process.env.PLANDESK_DATA_DIR;
     // Use an isolated startDir — the dev machine's real directory tree may
@@ -864,7 +868,7 @@ describe('resolveBoard', () => {
     }
   });
 
-  it('with localDb=true targets .plandesk/ in cwd (source: flag)', async () => {
+  it('with localDb=true targets .plandesk/ in cwd (source: flag)', () => {
     const prev = process.env.PLANDESK_DATA_DIR;
     delete process.env.PLANDESK_DATA_DIR;
     try {
@@ -881,7 +885,7 @@ describe('resolveBoard', () => {
     }
   });
 
-  it('finds a repo-local shadow board over the global default (source: shadow)', async () => {
+  it('finds a repo-local shadow board over the global default (source: shadow)', () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-resolve-board-'));
     const plandeskDir = join(tmpDir, '.plandesk');
     mkdirSync(plandeskDir);
@@ -893,7 +897,7 @@ describe('resolveBoard', () => {
     }
   });
 
-  it('precedence: flag > env > local-db > shadow > default', async () => {
+  it('precedence: flag > env > local-db > shadow > default', () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'plandesk-resolve-precedence-'));
     const plandeskDir = join(tmpDir, '.plandesk');
     mkdirSync(plandeskDir);

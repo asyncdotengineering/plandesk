@@ -49,6 +49,13 @@ export async function parseJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
+export function readStringCell(value: unknown, column: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`Expected ${column} to be a string`);
+  }
+  return value;
+}
+
 type ProjectResponse = {
   id: string;
   name: string;

@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
 import {
-  DEFAULT_ORG_ID,
   createDb,
   createTaskWithDefaultGoal as createTask,
   migrate,
@@ -185,7 +184,7 @@ function bearer(key: string): { Authorization: string } {
 
 describe('POST /api/v1/auth/cli-token (BA4b-2)', () => {
   it('gate 1: session owner mints owner key → 200 { token, org_id, org_name }; metadata kind owner, no projectId', async () => {
-    const { app, db, auth } = await hostedApp();
+    const { app, auth } = await hostedApp();
     const org = { id: randomUUID(), name: 'CLI Org' };
     const { cookie } = await seedBetterAuthUser(auth, {
       email: 'owner@example.com',
@@ -219,7 +218,7 @@ describe('POST /api/v1/auth/cli-token (BA4b-2)', () => {
   });
 
   it('gate 2: session member (non-owner) → 403 apiKey:create denied', async () => {
-    const { app, db, auth } = await hostedApp();
+    const { app, auth } = await hostedApp();
     const org = { id: randomUUID(), name: 'Member Org' };
     const { cookie } = await seedBetterAuthUser(auth, {
       email: 'member@example.com',
@@ -239,7 +238,7 @@ describe('POST /api/v1/auth/cli-token (BA4b-2)', () => {
   });
 
   it('gate 3a: apikey owner Bearer cannot mint via this endpoint → 401', async () => {
-    const { app, db, auth } = await hostedApp();
+    const { app, auth } = await hostedApp();
     const org = { id: randomUUID(), name: 'Key Org' };
     const { userId } = await seedBetterAuthUser(auth, {
       email: 'keyowner@example.com',

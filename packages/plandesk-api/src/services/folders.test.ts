@@ -36,7 +36,10 @@ describe('folderService', () => {
     const folder = await createService().create(projectId, { name: 'Specs' });
     expect(folder?.name).toBe('Specs');
     expect(folder?.parent_folder_id).toBeNull();
-    expect(await getFolder(db, folder!.id)).toBeDefined();
+    if (folder === undefined) {
+      throw new Error('missing created folder');
+    }
+    expect(await getFolder(db, folder.id)).toBeDefined();
   });
 
   it('updates and deletes a folder', async () => {

@@ -203,48 +203,44 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
       return 0;
     }
     case 'admin': {
-      if (parsed.subcommand === 'invite-owner') {
-        try {
-          if (parsed.dbUrl !== undefined && parsed.dbUrl.trim() !== '') {
-            const secret =
-              parsed.secret?.trim() ||
-              process.env.PLANDESK_BETTER_AUTH_SECRET?.trim() ||
-              undefined;
-            if (secret === undefined || secret === '') {
-              process.stderr.write(
-                'Remote invite-owner requires --secret or PLANDESK_BETTER_AUTH_SECRET (must match the deployed Worker secret).\n',
-              );
-              return 1;
-            }
-            const db = await createDb(parsed.dbUrl, parsed.dbToken);
-            const result = await runAdminInviteOwner(db, {
-              email: parsed.email,
-              secret,
-            });
-            process.stdout.write(`${formatAdminInviteOwnerSummary(result)}\n`);
-            return 0;
+      try {
+        if (parsed.dbUrl !== undefined && parsed.dbUrl.trim() !== '') {
+          const secret =
+            parsed.secret?.trim() ||
+            process.env.PLANDESK_BETTER_AUTH_SECRET?.trim() ||
+            undefined;
+          if (secret === undefined || secret === '') {
+            process.stderr.write(
+              'Remote invite-owner requires --secret or PLANDESK_BETTER_AUTH_SECRET (must match the deployed Worker secret).\n',
+            );
+            return 1;
           }
-
-          const { db, dataDir } = await openWorkspace(parsed.dataDir);
+          const db = await createDb(parsed.dbUrl, parsed.dbToken);
           const result = await runAdminInviteOwner(db, {
             email: parsed.email,
-            dataDir,
+            secret,
           });
           process.stdout.write(`${formatAdminInviteOwnerSummary(result)}\n`);
           return 0;
-        } catch (err) {
-          if (err instanceof CorruptWorkspaceError) {
-            return reportCorruptDb();
-          }
-          if (err instanceof AdminInviteOwnerError) {
-            process.stderr.write(`${err.message}\n`);
-            return 1;
-          }
-          throw err;
         }
+
+        const { db, dataDir } = await openWorkspace(parsed.dataDir);
+        const result = await runAdminInviteOwner(db, {
+          email: parsed.email,
+          dataDir,
+        });
+        process.stdout.write(`${formatAdminInviteOwnerSummary(result)}\n`);
+        return 0;
+      } catch (err) {
+        if (err instanceof CorruptWorkspaceError) {
+          return reportCorruptDb();
+        }
+        if (err instanceof AdminInviteOwnerError) {
+          process.stderr.write(`${err.message}\n`);
+          return 1;
+        }
+        throw err;
       }
-      process.stderr.write(`Unknown admin subcommand\n`);
-      return 1;
     }
     case 'export': {
       try {
@@ -569,16 +565,12 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
           await runWorkspaceList({ repoDir, to: parsed.to });
           return 0;
         }
-        if (parsed.subcommand === 'create') {
-          if (parsed.name === undefined || parsed.name.trim() === '') {
-            process.stderr.write('workspace create requires a name\n');
-            return 1;
-          }
-          await runWorkspaceCreate({ repoDir, name: parsed.name.trim(), to: parsed.to });
-          return 0;
+        if (parsed.name === undefined || parsed.name.trim() === '') {
+          process.stderr.write('workspace create requires a name\n');
+          return 1;
         }
-        process.stderr.write(`Unknown workspace subcommand\n`);
-        return 1;
+        await runWorkspaceCreate({ repoDir, name: parsed.name.trim(), to: parsed.to });
+        return 0;
       } catch (err) {
         if (err instanceof WorkspaceCommandError) {
           process.stderr.write(`${err.message}\n`);

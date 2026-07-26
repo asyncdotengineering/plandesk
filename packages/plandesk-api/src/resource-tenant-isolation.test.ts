@@ -18,7 +18,6 @@ import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing
 import type { Hono } from 'hono';
 import {
   createOrgOwnerKey,
-  createScopedAgentKey,
   createWorkspaceScopedAgentKey,
   DEFAULT_AGENT_KEY_PERMISSIONS,
 } from './agent-keys.js';
@@ -175,8 +174,8 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     const wsB = randomUUID();
 
     const projectA = await createProject(db, { name: 'Project A', orgId: orgA.id, workspaceId: wsA });
-    const projectB = await createProject(db, { name: 'Project B', orgId: orgA.id, workspaceId: wsB });
-    const projectOtherOrg = await createProject(db, { name: 'Project Other', orgId: orgB.id, workspaceId: wsA });
+    await createProject(db, { name: 'Project B', orgId: orgA.id, workspaceId: wsB });
+    await createProject(db, { name: 'Project Other', orgId: orgB.id, workspaceId: wsA });
 
     const taskA = await createTask(db, { projectId: projectA.id, label: 'Task A', status: 'todo' });
     const doc = await createDocument(db, { projectId: projectA.id, title: 'Doc A' });
@@ -290,8 +289,8 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     const wsB = randomUUID();
 
     const projectA = await createProject(db, { name: 'Project A', orgId: orgA.id, workspaceId: wsA });
-    const projectB = await createProject(db, { name: 'Project B', orgId: orgA.id, workspaceId: wsB });
-    const projectOtherOrg = await createProject(db, { name: 'Project Other', orgId: orgB.id, workspaceId: wsA });
+    await createProject(db, { name: 'Project B', orgId: orgA.id, workspaceId: wsB });
+    await createProject(db, { name: 'Project Other', orgId: orgB.id, workspaceId: wsA });
 
     const goalActive = await createGoal(db, { projectId: projectA.id, objective: 'Active', status: 'active' });
     const goalPaused = await createGoal(db, { projectId: projectA.id, objective: 'Paused', status: 'paused' });
@@ -314,7 +313,7 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     });
 
     const ownerKeyA = await createOrgOwnerKey({ auth, userId: userA, orgId: orgA.id, name: 'owner-a' });
-    const wsKeyA = await createWorkspaceScopedAgentKey({
+    await createWorkspaceScopedAgentKey({
       auth, userId: userA, orgId: orgA.id, teamId: wsA,
       permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-a',
     });
@@ -649,7 +648,7 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     });
 
     const ownerKeyA = await createOrgOwnerKey({ auth, userId: userA, orgId: orgA.id, name: 'owner-a' });
-    const wsKeyA = await createWorkspaceScopedAgentKey({
+    await createWorkspaceScopedAgentKey({
       auth, userId: userA, orgId: orgA.id, teamId: wsA,
       permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-a',
     });

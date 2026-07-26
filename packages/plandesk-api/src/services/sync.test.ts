@@ -48,7 +48,7 @@ describe('syncService', () => {
     vi.restoreAllMocks();
   });
 
-  afterEach(async () => {
+  afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });

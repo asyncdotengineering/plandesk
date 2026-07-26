@@ -3,7 +3,6 @@ import {
   createFolder as dbCreateFolder,
   deleteFolder as dbDeleteFolder,
   getFolder as dbGetFolder,
-  getProject,
   listFolders as dbListFolders,
   moveDocumentsToFolder,
   reparentChildFolders,

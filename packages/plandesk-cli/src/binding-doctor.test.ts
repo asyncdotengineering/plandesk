@@ -46,7 +46,13 @@ async function withBoundRepo(
     await run({ repoDir, baseUrl });
   } finally {
     await new Promise<void>((resolve, reject) => {
-      server.close((err) => (err ? reject(err) : resolve()));
+      server.close((err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
     });
     rmSync(repoDir, { recursive: true, force: true });
   }

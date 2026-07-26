@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
 import {
-  DEFAULT_ORG_ID,
   createDb,
   createTaskWithDefaultGoal as createTask,
   migrate,

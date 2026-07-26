@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDb, createProjectInDefaultOrg as createProject, listTagsForTask, migrate, type Db } from '@plandesk/db';
+import { createDb, createProjectInDefaultOrg as createProject, listTagsForTask, migrate } from '@plandesk/db';
 import { createTagService, InvalidTagError } from './tags.js';
 import { createTaskService } from './tasks.js';
 
@@ -66,10 +66,13 @@ describe('tag service', () => {
       tags: ['alpha', 'beta'],
     });
     expect(task?.tags?.map((t) => t.name).sort()).toEqual(['alpha', 'beta']);
-    const fromDb = await listTagsForTask(db, task!.id);
+    if (task === undefined) {
+      throw new Error('missing created task');
+    }
+    const fromDb = await listTagsForTask(db, task.id);
     expect(fromDb.map((t) => t.name).sort()).toEqual(['alpha', 'beta']);
 
-    const updated = await taskService.update(task!.id, { tags: ['beta', 'gamma'] });
+    const updated = await taskService.update(task.id, { tags: ['beta', 'gamma'] });
     expect(updated?.tags?.map((t) => t.name).sort()).toEqual(['beta', 'gamma']);
   });
 });

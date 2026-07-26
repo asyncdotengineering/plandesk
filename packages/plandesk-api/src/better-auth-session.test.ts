@@ -329,7 +329,7 @@ describe('better-auth session recognition (BA4a)', () => {
   });
 
   it('revoking better-auth membership stops the session (401)', async () => {
-    const { app, db, auth } = await hostedBetterAuthApp();
+    const { app, auth } = await hostedBetterAuthApp();
     const org = { id: randomUUID(), name: 'Team' };
     const { cookie, userId } = await seedBetterAuthUser(auth, {
       email: 'revoked@example.com',
@@ -412,7 +412,7 @@ describe('better-auth session recognition (BA4a)', () => {
   });
 
   it('better-auth role gates writes: member denied project:create, owner allowed', async () => {
-    const { app, db, auth } = await hostedBetterAuthApp();
+    const { app, auth } = await hostedBetterAuthApp();
     const org = { id: randomUUID(), name: 'Roles' };
 
     const member = await seedBetterAuthUser(auth, {
@@ -522,7 +522,7 @@ describe('better-auth session recognition (BA4a)', () => {
   });
 
   it('numeric GitHub id is the identity — rename keeps the same org membership', async () => {
-    const { app, db, auth } = await hostedBetterAuthApp();
+    const { app, auth } = await hostedBetterAuthApp();
     const org = { id: randomUUID(), name: 'Stable' };
     const { cookie } = await seedBetterAuthUser(auth, {
       email: 'stable@example.com',
@@ -562,7 +562,7 @@ describe('better-auth session recognition (BA4a)', () => {
   });
 
   it('an explicitly selected active org wins over membership order', async () => {
-    const { app, db, auth } = await hostedBetterAuthApp();
+    const { app, auth } = await hostedBetterAuthApp();
     const first = { id: randomUUID(), name: 'First' };
     const second = { id: randomUUID(), name: 'Second' };
 

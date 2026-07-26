@@ -269,7 +269,7 @@ describe('workspace-tier adversarial audit round 2', () => {
         headers: bearer(f.workspaceAKey),
       }),
     ];
-    const responses = await Promise.all(requests);
+    const responses = await Promise.all(requests.map((request) => Promise.resolve(request)));
 
     expect(responses.map((response) => response.status)).toEqual([404, 404, 404, 404, 404, 404]);
     expect((await getGoal(f.db, active.id))?.objective).toBe('Workspace B active goal');

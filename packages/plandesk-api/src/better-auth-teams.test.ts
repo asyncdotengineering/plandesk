@@ -253,7 +253,11 @@ describe('better-auth teams (workspace foundation)', () => {
       where: [{ field: 'organizationId', value: orgId }],
     });
     expect(teams.length).toBe(1);
-    expect(teams[0]!.name).toBe('General');
+    const defaultTeam = teams[0];
+    if (defaultTeam === undefined) {
+      throw new Error('missing default General team');
+    }
+    expect(defaultTeam.name).toBe('General');
 
     const teamMembers = await adapter.findMany<TeamMemberRow>({
       model: 'teamMember',

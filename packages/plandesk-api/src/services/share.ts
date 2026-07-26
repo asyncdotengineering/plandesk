@@ -6,7 +6,6 @@ import {
   getDocument,
   getGuestSessionById,
   getProject,
-  getProjectInOrg,
   getShare as dbGetShare,
   getShareByTokenHashRaw,
   getTask,
@@ -66,6 +65,13 @@ export type SerializedShare = {
 
 const DEFAULT_POLICY: SharePolicy = { tasks: 'all', documentIds: [], fields: {} };
 const DEFAULT_PERMISSIONS: SharePermissions = { read: true, submit: false };
+
+function requireProjectId(share: Pick<Share, 'id' | 'projectId'>): string {
+  if (share.projectId === null) {
+    throw new Error(`Missing project id for project share ${share.id}`);
+  }
+  return share.projectId;
+}
 
 export function serializeShare(share: Share): SerializedShare {
   return {
@@ -503,7 +509,7 @@ export function createShareService(deps: ShareServiceDeps) {
         return (await dbRevokeShare(db, id)) !== undefined;
       }
       try {
-        await assertProjectInOrg(db, existing.projectId!, resolveOrgId(deps));
+        await assertProjectInOrg(db, requireProjectId(existing), resolveOrgId(deps));
       } catch (error) {
         if (error instanceof ProjectNotInOrgError) {
           return false;
@@ -653,7 +659,7 @@ export function createShareService(deps: ShareServiceDeps) {
         // workspaceId (projectId null); a project share binds by projectId.
         ...(share.workspaceId !== null
           ? { workspaceId: share.workspaceId }
-          : { projectId: share.projectId! }),
+          : { projectId: requireProjectId(share) }),
         name,
         email: input.email?.trim() || undefined,
       });
@@ -700,7 +706,7 @@ export function createShareService(deps: ShareServiceDeps) {
       if (share.projectId !== auth.projectId) {
         return undefined;
       }
-      return buildClientView(db, share.projectId!, share);
+      return buildClientView(db, requireProjectId(share), share);
     },
 
     // Guest moderated inbox: write a pending share_submissions row the owner
@@ -741,11 +747,11 @@ export function createShareService(deps: ShareServiceDeps) {
         if (share.projectId !== auth.projectId) {
           return { status: 'unauthorized' };
         }
-        targetProjectId = share.projectId!;
+        targetProjectId = requireProjectId(share);
       }
 
       const permissions = parseSharePermissions(share);
-      if (permissions.submit !== true) {
+      if (!permissions.submit) {
         return { status: 'submit_not_permitted' };
       }
 

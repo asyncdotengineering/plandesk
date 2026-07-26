@@ -368,8 +368,8 @@ export function readSyncManifest(repoDir: string): Record<string, string> {
       typeof parsed === 'object' &&
       parsed !== null &&
       'files' in parsed &&
-      typeof (parsed as { files: unknown }).files === 'object' &&
-      (parsed as { files: unknown }).files !== null
+      typeof parsed.files === 'object' &&
+      parsed.files !== null
     ) {
       return { ...(parsed as { files: Record<string, string> }).files };
     }
@@ -452,8 +452,11 @@ function recordInSyncManifest(repoDir: string): void {
     const rel = relative(repoDir, file.path);
     if (existsSync(file.path) && readFileSync(file.path, 'utf8') === file.content) {
       next[rel] = sha256(file.content);
-    } else if (prev[rel] !== undefined) {
-      next[rel] = prev[rel]!;
+    } else {
+      const previousHash = prev[rel];
+      if (previousHash !== undefined) {
+        next[rel] = previousHash;
+      }
     }
   }
   // Explicitly re-apply declared filter so any non-declared key is gone.
@@ -574,11 +577,14 @@ export function runFactorySync(options: FactorySyncOptions): FactorySyncResult {
     for (const entry of entries) {
       if (entry.status === 'up_to_date' || entry.status === 'create' || entry.status === 'safe_update') {
         next[entry.relPath] = sha256(entry.shipped);
-      } else if (entry.status === 'conflict') {
+      } else {
         if (options.force === true) {
           next[entry.relPath] = sha256(entry.shipped);
-        } else if (manifest[entry.relPath] !== undefined) {
-          next[entry.relPath] = manifest[entry.relPath]!;
+        } else {
+          const previousHash = manifest[entry.relPath];
+          if (previousHash !== undefined) {
+            next[entry.relPath] = previousHash;
+          }
         }
       }
     }
@@ -610,15 +616,17 @@ export function formatFactorySyncSummary(result: FactorySyncResult): string {
 
   if (result.applied) {
     lines.push('Factory sync applied.');
-    if (created.length > 0) lines.push(`created (${created.length}): ${created.map((e) => e.relPath).join(', ')}`);
-    if (safe.length > 0) lines.push(`updated (${safe.length}): ${safe.map((e) => e.relPath).join(', ')}`);
+    if (created.length > 0)
+      lines.push(`created (${String(created.length)}): ${created.map((e) => e.relPath).join(', ')}`);
+    if (safe.length > 0)
+      lines.push(`updated (${String(safe.length)}): ${safe.map((e) => e.relPath).join(', ')}`);
     if (result.pruned.length > 0) {
-      lines.push(`pruned (${result.pruned.length}): ${result.pruned.join(', ')}`);
+      lines.push(`pruned (${String(result.pruned.length)}): ${result.pruned.join(', ')}`);
     }
-    lines.push(`up to date (${upToDate.length}).`);
+    lines.push(`up to date (${String(upToDate.length)}).`);
     if (conflicts.length > 0) {
       lines.push(
-        `customized — kept your version (${conflicts.length}): ${conflicts.map((e) => e.relPath).join(', ')}`,
+        `customized — kept your version (${String(conflicts.length)}): ${conflicts.map((e) => e.relPath).join(', ')}`,
       );
       lines.push(
         'These differ from the shipped version AND from what the CLI last wrote — your edits. Review each with `git diff`, or run `plandesk factory sync --force` to overwrite them with the shipped version.',
@@ -630,13 +638,18 @@ export function formatFactorySyncSummary(result: FactorySyncResult): string {
 
   // Dry-run (default): report the plan, write nothing.
   lines.push(`plandesk factory sync — plan for ${result.repoDir}`);
-  lines.push(`up to date: ${upToDate.length}`);
-  if (created.length > 0) lines.push(`would create (${created.length}): ${created.map((e) => e.relPath).join(', ')}`);
+  lines.push(`up to date: ${String(upToDate.length)}`);
+  if (created.length > 0)
+    lines.push(
+      `would create (${String(created.length)}): ${created.map((e) => e.relPath).join(', ')}`,
+    );
   if (safe.length > 0)
-    lines.push(`would update — unmodified, safe (${safe.length}): ${safe.map((e) => e.relPath).join(', ')}`);
+    lines.push(
+      `would update — unmodified, safe (${String(safe.length)}): ${safe.map((e) => e.relPath).join(', ')}`,
+    );
   if (conflicts.length > 0)
     lines.push(
-      `customized — would keep your version (${conflicts.length}): ${conflicts.map((e) => e.relPath).join(', ')}`,
+      `customized — would keep your version (${String(conflicts.length)}): ${conflicts.map((e) => e.relPath).join(', ')}`,
     );
   lines.push('');
   if (created.length + safe.length === 0 && conflicts.length === 0) {

@@ -19,7 +19,6 @@ import {
   runBetterAuthMigrations,
   type BetterAuthInstance,
 } from '../better-auth.js';
-import { ensureDefaultTeamForOrg } from '../identity.js';
 import { createServices } from '../services/index.js';
 import { createApp } from '../server.js';
 

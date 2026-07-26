@@ -23,7 +23,7 @@ import {
   type BetterAuthInstance,
 } from '../index.js';
 import { createApp } from '../server.js';
-import { createTestApp, parseJson } from '../test-helpers.js';
+import { createTestApp, parseJson, readStringCell } from '../test-helpers.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
 const TEST_BASE_URL = 'http://localhost:3000';
@@ -217,7 +217,9 @@ describe('POST /api/v1/orgs/:id/import', () => {
     expect(docTitles(hostedExport.documents)).toEqual(docTitles(localExport.documents));
 
     const columns = await db.$client.execute('PRAGMA table_info(projects)');
-    const names = columns.rows.map((row) => String(row['name'] ?? row[1])).sort();
+    const names = columns.rows
+      .map((row) => readStringCell(row['name'] ?? row[1], 'pragma_table_info.name'))
+      .sort();
     expect(names).toEqual([
       'canvas_layout',
       'created_at',
@@ -393,7 +395,9 @@ describe('POST /api/v1/orgs/:id/import', () => {
   it('projects table columns stay the base schema (no promotion mode flags)', async () => {
     const { db } = await createTestApp();
     const columns = await db.$client.execute('PRAGMA table_info(projects)');
-    const names = columns.rows.map((row) => String(row['name'] ?? row[1])).sort();
+    const names = columns.rows
+      .map((row) => readStringCell(row['name'] ?? row[1], 'pragma_table_info.name'))
+      .sort();
     expect(names).toEqual([
       'canvas_layout',
       'created_at',

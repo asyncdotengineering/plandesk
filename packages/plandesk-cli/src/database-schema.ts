@@ -24,11 +24,18 @@ export const BETTER_AUTH_TABLES = [
 
 export const REQUIRED_TABLES = [...EXPECTED_TABLES, ...BETTER_AUTH_TABLES] as const;
 
+export function readStringCell(value: unknown, column: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`Expected ${column} to be a string`);
+  }
+  return value;
+}
+
 export async function listTables(db: Db): Promise<string[]> {
   const result = await db.$client.execute(
     "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
   );
-  return result.rows.map((row) => String(row.name));
+  return result.rows.map((row) => readStringCell(row.name, 'sqlite_master.name'));
 }
 
 export function missingRequiredTables(tables: readonly string[]): string[] {

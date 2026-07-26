@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { DEFAULT_ORG_ID, createDb, migrate } from '@plandesk/db';
+import { createDb, migrate } from '@plandesk/db';
 import { openWorkspace, WorkspaceNotFoundError } from './workspace.js';
 
 const tempDirs: string[] = [];

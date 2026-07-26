@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
-import { DEFAULT_ORG_ID, createAgentRun, createDb, migrate, type Db } from '@plandesk/db';
+import { createAgentRun, createDb, migrate, type Db } from '@plandesk/db';
 import type { Hono } from 'hono';
 import {
   createBetterAuth,

@@ -95,7 +95,7 @@ export type ConnectResult = {
  */
 export function findShadowingMcpConfig(repoDir: string): string | undefined {
   let dir = dirname(resolve(repoDir));
-  while (true) {
+  for (;;) {
     const candidate = join(dir, MCP_CONFIG_FILE);
     if (existsSync(candidate)) {
       return candidate;
@@ -252,7 +252,7 @@ async function fetchWorkspaces(
     );
   }
   const body = (await response.json()) as { workspaces: WorkspaceApiSummary[] };
-  return body.workspaces ?? [];
+  return body.workspaces;
 }
 
 function matchWorkspace(

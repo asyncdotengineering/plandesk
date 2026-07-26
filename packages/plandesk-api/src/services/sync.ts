@@ -218,9 +218,6 @@ export function createSyncService(deps: SyncServiceDeps) {
         await setPullCursor(db, projectId, maxCreatedAt);
       }
 
-      if (pulled > 0) {
-      }
-
       return { pulled };
     },
 

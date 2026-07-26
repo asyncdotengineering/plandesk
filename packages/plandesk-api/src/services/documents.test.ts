@@ -75,11 +75,11 @@ describe('documentService', () => {
           id: task.id,
           title: 'Task',
           label: 'documents',
-          edge_id: expect.any(String),
         },
       ],
       backlinks: [],
     });
+    expect(typeof fetched?.links[0]?.edge_id).toBe('string');
     expect(fetched?.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
@@ -132,22 +132,30 @@ describe('documentService', () => {
 
     const a = await service.get(docA.id);
     const b = await service.get(docB.id);
-    expect(a?.links).toEqual([
+    if (a === undefined) {
+      throw new Error('missing document A');
+    }
+    const firstLink = a.links[0];
+    if (firstLink === undefined) {
+      throw new Error('missing document A link');
+    }
+    expect(a.links).toEqual([
       {
         type: 'document',
         id: docB.id,
         title: 'Doc B',
         label: 'references',
-        edge_id: expect.any(String),
+        edge_id: firstLink.edge_id,
       },
     ]);
+    expect(typeof firstLink.edge_id).toBe('string');
     expect(b?.backlinks).toEqual([
       {
         type: 'document',
         id: docA.id,
         title: 'Doc A',
         label: 'references',
-        edge_id: a!.links[0]!.edge_id,
+        edge_id: firstLink.edge_id,
       },
     ]);
   });

@@ -156,7 +156,7 @@ describe('createMcpApp', () => {
   });
 
   it('cmd:mcp_list_tools lists all v1 tools', async () => {
-    await withMcpServer(async ({ baseUrl, token }) => {
+    await withMcpServer(async ({ baseUrl }) => {
       const client = await connectClient(baseUrl);
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
@@ -167,7 +167,7 @@ describe('createMcpApp', () => {
   });
 
   it('lists read tools and get_project returns snake_case project detail', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId }) => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
       const client = await connectClient(baseUrl);
 
       const tools = await client.listTools();
@@ -200,7 +200,7 @@ describe('createMcpApp', () => {
   });
 
   it('test:mcp_update_task updates via MCP, REST reflects change', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db, app }) => {
+    await withMcpServer(async ({ baseUrl, projectId, db, app }) => {
       const task = await createTask(db, { projectId, label: 'MCP task', status: 'todo' });
 
       const client = await connectClient(baseUrl);
@@ -220,7 +220,7 @@ describe('createMcpApp', () => {
   });
 
   it('update_task returns tool error for missing task', async () => {
-    await withMcpServer(async ({ baseUrl, token }) => {
+    await withMcpServer(async ({ baseUrl }) => {
       const client = await connectClient(baseUrl);
       const result = await client.callTool({
         name: 'update_task',
@@ -235,7 +235,7 @@ describe('createMcpApp', () => {
   });
 
   it('update_task returns invalid_argument for bad status', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const task = await createTask(db, { projectId, label: 'Bad status' });
       const client = await connectClient(baseUrl);
       const result = await client.callTool({
@@ -251,7 +251,7 @@ describe('createMcpApp', () => {
   });
 
   it('returns tool error for missing project', async () => {
-    await withMcpServer(async ({ baseUrl, token }) => {
+    await withMcpServer(async ({ baseUrl }) => {
       const client = await connectClient(baseUrl);
       const result = await client.callTool({
         name: 'get_project',
@@ -263,7 +263,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_project, get_document, and list_documents work via MCP', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const client = await connectClient(baseUrl);
 
       const createdProject = await client.callTool({
@@ -326,7 +326,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_document and update_document persist links via link_to (round-trip)', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const client = await connectClient(baseUrl);
       const task = await createTask(db, { projectId, label: 'Link target' });
       const other = await createTask(db, { projectId, label: 'Other target' });
@@ -353,7 +353,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_folder, update_folder, and folder-aware documents work via MCP', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId }) => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
 
       const client = await connectClient(baseUrl);
 
@@ -565,7 +565,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_folder returns not_found for missing project and invalid_argument for blank name', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId }) => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
       const client = await connectClient(baseUrl);
 
       const missing = await client.callTool({
@@ -585,7 +585,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_note, list_notes, get_note, and update_note work via MCP', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId }) => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
 
       const client = await connectClient(baseUrl);
 
@@ -634,7 +634,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_note returns not_found for missing project and invalid_argument for blank title', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId }) => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
       const client = await connectClient(baseUrl);
 
       const missing = await client.callTool({
@@ -654,7 +654,7 @@ describe('createMcpApp', () => {
   });
 
   it('attach_file uploads a file and the REST endpoint serves it back', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, app }) => {
+    await withMcpServer(async ({ baseUrl, projectId, app }) => {
       const client = await connectClient(baseUrl);
       const bytes = Buffer.from('fake-png-bytes', 'utf8');
 
@@ -684,7 +684,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_artifact, get_artifact, update_artifact, and list_artifacts close the comment loop', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, app }) => {
+    await withMcpServer(async ({ baseUrl, projectId, app }) => {
       const client = await connectClient(baseUrl);
 
       const created = await client.callTool({
@@ -782,7 +782,7 @@ describe('createMcpApp', () => {
   });
 
   it('attach_file defaults mime to image/png and returns not_found for missing project', async () => {
-    await withMcpServer(async ({ baseUrl, token }) => {
+    await withMcpServer(async ({ baseUrl }) => {
       const client = await connectClient(baseUrl);
       const result = await client.callTool({
         name: 'attach_file',
@@ -798,7 +798,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_share_link mints a resource-scoped link with a working markdown_url', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db, app }) => {
+    await withMcpServer(async ({ baseUrl, projectId, db, app }) => {
       const task = await createTask(db, { projectId, label: 'Shareable task', status: 'todo' });
       const spec = await createDocument(db, { projectId, title: 'Spec', body: '# Spec body' });
       await createEdge(db, {
@@ -838,7 +838,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_share_link requires exactly one of task_id/document_id', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const task = await createTask(db, { projectId, label: 'Either' });
       const doc = await createDocument(db, { projectId, title: 'Either doc' });
       const client = await connectClient(baseUrl);
@@ -857,7 +857,7 @@ describe('createMcpApp', () => {
   });
 
   it('scaffold_project_from_plan creates project atomically via MCP', async () => {
-    await withMcpServer(async ({ baseUrl, token, db }) => {
+    await withMcpServer(async ({ baseUrl, db }) => {
 
       const client = await connectClient(baseUrl);
       const result = await client.callTool({
@@ -896,7 +896,7 @@ describe('createMcpApp', () => {
   });
 
   it('scaffold_project_from_plan returns invalid_argument for duplicate keys', async () => {
-    await withMcpServer(async ({ baseUrl, token }) => {
+    await withMcpServer(async ({ baseUrl }) => {
       const client = await connectClient(baseUrl);
       const result = await client.callTool({
         name: 'scaffold_project_from_plan',
@@ -917,7 +917,7 @@ describe('createMcpApp', () => {
   });
 
   it('goal tools support CRUD and lifecycle', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const client = await connectClient(baseUrl);
 
       const created = await client.callTool({
@@ -1049,10 +1049,10 @@ describe('createMcpApp', () => {
         expect(badEdge.isError).toBe(true);
         const edgeText =
           (badEdge.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
-        expect(JSON.parse(edgeText) as { message?: string }).toMatchObject({
-          error: 'invalid_argument',
-          message: expect.stringMatching(/to task/i),
-        });
+        const edgeError = JSON.parse(edgeText) as { error?: unknown; message?: unknown };
+        expect(edgeError.error).toBe('invalid_argument');
+        expect(typeof edgeError.message).toBe('string');
+        expect(edgeError.message).toMatch(/to task/i);
 
         const badParent = await client.callTool({
           name: 'create_document',
@@ -1065,10 +1065,10 @@ describe('createMcpApp', () => {
         expect(badParent.isError).toBe(true);
         const parentText =
           (badParent.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
-        expect(JSON.parse(parentText) as { message?: string }).toMatchObject({
-          error: 'invalid_argument',
-          message: expect.stringMatching(/parent document/i),
-        });
+        const parentError = JSON.parse(parentText) as { error?: unknown; message?: unknown };
+        expect(parentError.error).toBe('invalid_argument');
+        expect(typeof parentError.message).toBe('string');
+        expect(parentError.message).toMatch(/parent document/i);
       } finally {
         await client.close();
       }
@@ -1401,18 +1401,22 @@ describe('createMcpApp', () => {
 
         const design = payload.scaffold.documents.find((d) => d.title === 'Design: multi');
         const overview = payload.scaffold.documents.find((d) => d.title === 'Overview');
-        expect(design).toBeDefined();
-        expect(overview).toBeDefined();
-        expect(design!.links.map((l) => l.id).sort()).toEqual(
+        if (design === undefined) {
+          throw new Error('missing Design: multi document');
+        }
+        if (overview === undefined) {
+          throw new Error('missing Overview document');
+        }
+        expect(design.links.map((l) => l.id).sort()).toEqual(
           [keys.t1, keys.t2, keys.t3, keys.overview].sort(),
         );
-        expect(design!.links.filter((l) => l.type === 'task')).toHaveLength(3);
-        expect(design!.links.filter((l) => l.type === 'document')).toHaveLength(1);
-        expect(overview!.backlinks.map((l) => l.id)).toEqual([keys.design]);
+        expect(design.links.filter((l) => l.type === 'task')).toHaveLength(3);
+        expect(design.links.filter((l) => l.type === 'document')).toHaveLength(1);
+        expect(overview.backlinks.map((l) => l.id)).toEqual([keys.design]);
 
         const got = await client.callTool({
           name: 'get_document',
-          arguments: { document_id: design!.id },
+          arguments: { document_id: design.id },
         });
         const gotDoc = parseDocumentResult(got);
         expect(gotDoc.links?.map((l) => l.id).sort()).toEqual(
@@ -1423,7 +1427,7 @@ describe('createMcpApp', () => {
         const gotOverview = parseDocumentResult(
           await client.callTool({
             name: 'get_document',
-            arguments: { document_id: overview!.id },
+            arguments: { document_id: overview.id },
           }),
         );
         expect(gotOverview.backlinks?.map((l) => l.id)).toEqual([keys.design]);
@@ -1534,7 +1538,7 @@ describe('createMcpApp', () => {
   });
 
   it('get_next_task returns actionable task and blocked context', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const actionable = await createTask(db, { projectId, label: 'Actionable', status: 'todo' });
       const prerequisite = await createTask(db, { projectId, label: 'Prerequisite', status: 'todo' });
       const blocked = await createTask(db, { projectId, label: 'Blocked', status: 'todo' });
@@ -1572,7 +1576,7 @@ describe('createMcpApp', () => {
   });
 
   it('get_next_task returns not_found for missing project', async () => {
-    await withMcpServer(async ({ baseUrl, token }) => {
+    await withMcpServer(async ({ baseUrl }) => {
       const client = await connectClient(baseUrl);
       const result = await client.callTool({
         name: 'get_next_task',
@@ -1626,7 +1630,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_task sets tags (auto-created by name), update_task replaces the full set, list_tags lists them', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId }) => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
 
       const client = await connectClient(baseUrl);
 
@@ -1675,7 +1679,7 @@ describe('createMcpApp', () => {
   });
 
   it('list_tags returns not_found for missing project', async () => {
-    await withMcpServer(async ({ baseUrl, token }) => {
+    await withMcpServer(async ({ baseUrl }) => {
       const client = await connectClient(baseUrl);
       const result = await client.callTool({
         name: 'list_tags',
@@ -1687,7 +1691,7 @@ describe('createMcpApp', () => {
   });
 
   it('list_tasks and get_next_task tags filters use OR semantics', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, services }) => {
+    await withMcpServer(async ({ baseUrl, projectId, services }) => {
       const frontend = await services.taskService.create(projectId, {
         label: 'Frontend',
         tags: ['frontend'],
@@ -1738,7 +1742,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_task and update_task return invalid_argument for blank tag names', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const client = await connectClient(baseUrl);
 
       const badCreate = await client.callTool({
@@ -1835,7 +1839,7 @@ describe('createMcpApp', () => {
   });
 
   it('list_comments, add_comment, and resolve_comment work via MCP', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
 
       const doc = await createDocument(db, { projectId, title: 'Review doc' });
       const resolved = await createComment(db, {
@@ -1905,7 +1909,7 @@ describe('createMcpApp', () => {
   });
 
   it('add_artifact_comment and list_artifact_comments preserve artifact annotations', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId }) => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
       const client = await connectClient(baseUrl);
       const artifactId = 'sha256:abc123::/workspace/docs/report with spaces.md';
       const anchor = JSON.stringify({ type: 'TextQuoteSelector', exact: 'CSP' });
@@ -1948,7 +1952,7 @@ describe('createMcpApp', () => {
   });
 
   it('list_comments rejects cross-project target', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const otherProject = await createProject(db, { name: 'Other project' });
       const foreignDoc = await createDocument(db, { projectId: otherProject.id, title: 'Foreign' });
 
@@ -1972,7 +1976,7 @@ describe('createMcpApp', () => {
   });
 
   it('add_comment returns invalid_argument for empty body', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const doc = await createDocument(db, { projectId, title: 'Doc' });
       const client = await connectClient(baseUrl);
       const result = await client.callTool({
@@ -1989,7 +1993,7 @@ describe('createMcpApp', () => {
 
 
   it('add_comment renders a Markdown body as rich-text HTML, like create_document/create_note (#17)', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, db }) => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const doc = await createDocument(db, { projectId, title: 'Doc' });
       const client = await connectClient(baseUrl);
       try {
@@ -2016,7 +2020,7 @@ describe('createMcpApp', () => {
   });
 
   it('resolve_comment returns not_found for missing comment', async () => {
-    await withMcpServer(async ({ baseUrl, token }) => {
+    await withMcpServer(async ({ baseUrl }) => {
       const client = await connectClient(baseUrl);
       const result = await client.callTool({
         name: 'resolve_comment',
@@ -2029,7 +2033,7 @@ describe('createMcpApp', () => {
 
   // BA6b single-server: guest submit on plandesk-api → owner MCP list/triage (no sync-server).
   it('guest submit → list_submissions → triage_submission on one server', async () => {
-    await withMcpServer(async ({ baseUrl, token, projectId, services }) => {
+    await withMcpServer(async ({ baseUrl, projectId, services }) => {
       const created = await services.shareService.createShare(projectId, {
         audienceName: 'Reviewers',
         mode: 'public',

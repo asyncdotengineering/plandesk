@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_ORG_ID,
   createDb,
   createTaskWithDefaultGoal as createTask,
   migrate,
@@ -341,7 +340,7 @@ describe('workspace-scoped agent keys (cross-workspace isolation)', () => {
     expect(await parseJson(getB)).toEqual({ error: 'not_found' });
   });
 
-  it('5: readApiKeyMetadata maps teamId → workspaceId; key with neither → both undefined', async () => {
+  it('5: readApiKeyMetadata maps teamId → workspaceId; key with neither → both undefined', () => {
     expect(
       readApiKeyMetadata({ orgId: 'o1', teamId: 't1' }),
     ).toEqual({ orgId: 'o1', projectId: undefined, workspaceId: 't1', kind: 'agent' });
@@ -440,5 +439,3 @@ describe('loopback workspace scoping (local convenience)', () => {
     expect(listed.some((p) => p.id === projectA.id)).toBe(true);
   });
 });
-
-

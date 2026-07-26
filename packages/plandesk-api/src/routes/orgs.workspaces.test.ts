@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
 import {
-  DEFAULT_ORG_ID,
   createDb,
   createProjectInDefaultOrg as createProject,
   migrate,
@@ -11,7 +10,6 @@ import {
 import type { Hono } from 'hono';
 import {
   createOrgOwnerKey,
-  createScopedAgentKey,
   verifyBetterAuthApiKey,
 } from '../agent-keys.js';
 import {
@@ -204,7 +202,11 @@ describe('GET /api/v1/orgs/:orgId/workspaces (REQ-A1)', () => {
     expect(res.status).toBe(200);
     const body = await parseJson<{ workspaces: { id: string; name: string }[] }>(res);
     expect(body.workspaces.length).toBeGreaterThanOrEqual(1);
-    expect(body.workspaces[0]!.name).toBe('General');
+    const workspace = body.workspaces[0];
+    if (workspace === undefined) {
+      throw new Error('missing default General workspace');
+    }
+    expect(workspace.name).toBe('General');
   });
 
   it('404s for unknown org', async () => {

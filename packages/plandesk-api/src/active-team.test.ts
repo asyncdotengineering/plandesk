@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { makeSignature } from 'better-auth/crypto';
 import { createDb, migrate, type Db } from '@plandesk/db';
 import {
   createBetterAuth,
@@ -208,7 +207,7 @@ describe('setDefaultActiveTeam', () => {
       sessionToken: priorToken,
     });
 
-    const teamId = await ensureDefaultTeamForOrg(auth, org.id);
+    await ensureDefaultTeamForOrg(auth, org.id);
 
     // Create a second team in the same org and add Bob to it.
     const adapter = (await auth.$context).adapter;

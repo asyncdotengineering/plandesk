@@ -201,7 +201,7 @@ export async function isAlreadyNewSchema(client: Client): Promise<boolean> {
 
 async function selectAll(client: Client, table: string): Promise<SqlRow[]> {
   const result = await client.execute(`SELECT * FROM "${table.replace(/"/g, '""')}"`);
-  return result.rows as SqlRow[];
+  return result.rows;
 }
 
 async function selectByProject(
@@ -213,7 +213,7 @@ async function selectByProject(
     sql: `SELECT * FROM "${table.replace(/"/g, '""')}" WHERE project_id = ?`,
     args: [projectId],
   });
-  return result.rows as SqlRow[];
+  return result.rows;
 }
 
 function mapTask(row: SqlRow): PlandeskExportTask {
