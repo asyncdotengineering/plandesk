@@ -1,5 +1,5 @@
 ---
-name: foreman
+name: factory-foreman
 description: "Runs the Plan Desk board floor — takes one task or a whole frontier of todos, grooms each into a build contract, cuts slices, dispatches implementation to worker CLIs, verifies their claims, commits each verified slice, and stops at the risk lane. Use whenever asked to work a task, ship a ticket, take the next task, clear the todos, run the board, or hand implementation to a worker — even when the factory is not named."
 user-invocable: true
 argument-hint: "<task id | 'next' | 'all todo' | goal name> [--to <worker>]"

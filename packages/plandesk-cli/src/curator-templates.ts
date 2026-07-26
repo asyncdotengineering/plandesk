@@ -24,11 +24,11 @@ function curatorTemplate(relativePath: string, executable?: boolean): CuratorTem
   };
 }
 
-// `foreman` is not a curator skill — the Curator plans, the Foreman runs the
-// floor — but it ships and symlinks by the same mechanism, so it lives in the
-// same list rather than a parallel one that would drift.
+// Two families ship here: `curator-*` plans, `factory-*` executes. They share
+// one list rather than a parallel one per family, because two lists drift and
+// the scaffolding mechanism (write the file, symlink it) is identical.
 export const SHIPPED_SKILL_NAMES = [
-  'foreman',
+  'factory-foreman',
   'curator-triage',
   'curator-provenance',
   'curator-automation',
