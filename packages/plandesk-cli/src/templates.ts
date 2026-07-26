@@ -32,19 +32,42 @@ export function templatesRoot(): string {
   );
 }
 
+/**
+ * Resolve a template path against the active root, tolerating the de-dotted
+ * spelling the build produces.
+ *
+ * npm rewrites a packaged `.gitignore` to `.npmignore` when it INSTALLS a
+ * package, so a dotfile that is present in the tarball is gone by the time a
+ * consumer runs the CLI. `copy-templates.mjs` therefore vendors `.gitignore`
+ * as `gitignore`; callers keep asking for the real name and land here.
+ * Reading from the monorepo `.agents/` source (vitest, no build) still finds
+ * the literal dotfile, so both roots work from one call site.
+ */
+function resolveTemplatePath(relativePath: string): string {
+  const literal = join(templatesRoot(), relativePath);
+  if (existsSync(literal)) {
+    return literal;
+  }
+  const slash = relativePath.lastIndexOf('/');
+  const base = relativePath.slice(slash + 1);
+  if (base.startsWith('.')) {
+    return join(templatesRoot(), `${relativePath.slice(0, slash + 1)}${base.slice(1)}`);
+  }
+  return literal;
+}
+
 /** Read a template by path relative to the templates root (e.g. `factory/protocol.md`). */
 export function readTemplate(relativePath: string): string {
   const cached = cache.get(relativePath);
   if (cached !== undefined) {
     return cached;
   }
-  const fullPath = join(templatesRoot(), relativePath);
-  const content = readFileSync(fullPath, 'utf8');
+  const content = readFileSync(resolveTemplatePath(relativePath), 'utf8');
   cache.set(relativePath, content);
   return content;
 }
 
 /** True when a template file exists at the given relative path. */
 export function templateExists(relativePath: string): boolean {
-  return existsSync(join(templatesRoot(), relativePath));
+  return existsSync(resolveTemplatePath(relativePath));
 }
