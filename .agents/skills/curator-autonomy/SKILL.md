@@ -31,7 +31,7 @@ fine as a per-session scratchpad for the moves within one item; they just
 don't survive compaction and don't decide what's next.) Every "what's next"
 question is answered by calling `get_next_task` against the bound project —
 never by recalling what you decided three turns ago. This is what makes a
-long run survive compaction (see the board-as-memory hooks in [hooks/](hooks/):
+long run survive compaction (see the board-as-memory hooks in [hooks](../../factory/hooks/):
 they re-inject exactly this state at the forget-moments).
 
 ## The loop
@@ -106,7 +106,7 @@ confirm. If it is genuinely unclear whether an instruction really means
 "release" or "approve", ask once, then act.
 
 Corollary: this posture governs *this project's own dev-task board*
-identically to how [triage.md](triage.md) governs the Curator *feature's*
+identically to how [triage](../curator-triage/SKILL.md) governs the Curator *feature's*
 output — an agent operating under this posture is bound by the same rule it
 is helping build.
 
@@ -136,6 +136,6 @@ resumed session rather than assuming continuity.
 
 `.agents/factory/lanes.md` (lane vocabulary, source of truth this file defers
 to rather than restates); `.agents/factory/factory.md` (the per-task cycle
-this posture drives unattended); [triage.md](triage.md) (the parallel rule for
-the Curator feature's own output); [hooks/](hooks/) (the anchoring mechanism
+this posture drives unattended); [triage](../curator-triage/SKILL.md) (the parallel rule for
+the Curator feature's own output); [hooks](../../factory/hooks/) (the anchoring mechanism
 referenced above).

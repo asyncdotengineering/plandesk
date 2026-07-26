@@ -19,7 +19,7 @@ import {
 import { resolveAgents } from './connect.js';
 import {
   CURATOR_HOOKS_SETTINGS_SNIPPET_JSON,
-  CURATOR_SKILL_NAMES,
+  SHIPPED_SKILL_NAMES,
   CURATOR_TEMPLATES,
   curatorArtifactPath,
   curatorSkillSymlinkTarget,
@@ -139,6 +139,10 @@ export function buildLanesMarkdown(): string {
   return readTemplate('factory/lanes.md');
 }
 
+export function buildWorkmanshipMarkdown(): string {
+  return readTemplate('factory/workmanship.md');
+}
+
 export function buildExampleVerifierMarkdown(): string {
   return readTemplate('factory/verifiers/tests-pass.md');
 }
@@ -244,7 +248,7 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
   // .agents/skills/ (Claude Code discovers only under .claude/skills/). Same
   // symlinkTarget + copy-fallback writer as connect. Refresh every run so a
   // prior plain-file copy is replaced by the link.
-  for (const name of CURATOR_SKILL_NAMES) {
+  for (const name of SHIPPED_SKILL_NAMES) {
     const canonicalPath = curatorArtifactPath(repoDir, `skills/${name}/SKILL.md`);
     const adapterPath = join(repoDir, '.claude', 'skills', name, 'SKILL.md');
     const content = existsSync(canonicalPath)
@@ -319,6 +323,7 @@ export function authoredFactoryFiles(repoDir: string): SyncableFile[] {
     { path: join(factoryDir, 'protocol.md'), content: buildProtocolMarkdown() },
     { path: join(factoryDir, 'routing.md'), content: buildRoutingMarkdown() },
     { path: join(factoryDir, 'lanes.md'), content: buildLanesMarkdown() },
+    { path: join(factoryDir, 'workmanship.md'), content: buildWorkmanshipMarkdown() },
     { path: join(factoryDir, 'verifiers', 'tests-pass.md'), content: buildExampleVerifierMarkdown() },
     ...WORKER_NAMES.map((name) => ({
       path: join(factoryDir, 'workers', `${name}.md`),

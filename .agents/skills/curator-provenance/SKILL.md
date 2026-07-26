@@ -6,7 +6,7 @@ description: The provenance convention (sources + reason) every Curator triage d
 # Curator: provenance convention
 
 The authoritative shape for "why does this task exist" — required output of
-every [triage.md](triage.md) decision that isn't `reject`. Automated triage is
+every [triage](../curator-triage/SKILL.md) decision that isn't `reject`. Automated triage is
 only trustworthy if every decision traces to its source: a task nobody can
 explain back to a request is exactly the vacuous structure the board exists to
 avoid — observation over assertion.
@@ -48,9 +48,9 @@ Both, always — they serve different readers:
 
 ## Where this applies
 
-- `.agents/curator/triage.md` — every `accept-new`/`accept-merge` decision,
+- `.agents/skills/curator-triage/SKILL.md` — every `accept-new`/`accept-merge` decision,
   no exceptions; a decision missing provenance is an invalid triage output.
-- `.agents/curator/automation.md` — scheduled/event-triggered runs carry the
+- `.agents/skills/curator-automation/SKILL.md` — scheduled/event-triggered runs carry the
   same requirement; an automated run is not exempt because a human wasn't
   watching it happen.
 - Any future promotion logic (e.g. a `backlog → scope` auto-promotion) — the
@@ -66,5 +66,5 @@ Both, always — they serve different readers:
 
 ## References
 
-[triage.md](triage.md) (the only current producer of provenance);
+[triage](../curator-triage/SKILL.md) (the only current producer of provenance);
 `.plandesk/skill.md` (house task + note conventions).

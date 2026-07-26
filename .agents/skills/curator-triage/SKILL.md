@@ -1,6 +1,8 @@
 ---
 name: curator-triage
 description: Turn raw signal — client submissions, an ungroomed backlog, or a pasted brain-dump — into deduped, house-style Plan Desk tasks in `scope`. Use when asked to triage the backlog or submissions, or to sort a brain-dump into tasks.
+user-invocable: true
+argument-hint: "[backlog | submissions | <pasted brain-dump>]"
 ---
 
 # Curator: triage
@@ -12,13 +14,13 @@ Uses existing Plan Desk MCP tools only — no new infrastructure.
 
 **Lane: approve** — every proposal lands as a diff against the board; a human
 resolves it (the `scope → todo` drag is that resolution — see
-[autonomy.md](autonomy.md)).
+[autonomy](../curator-autonomy/SKILL.md)).
 
 ## When to run this
 
 - Explicitly asked to "triage the backlog" / "triage submissions" / "sort
   this brain-dump".
-- From [autonomy.md](autonomy.md)'s loop, or a schedule/event trigger (see
+- From [autonomy](../curator-autonomy/SKILL.md)'s loop, or a schedule/event trigger (see
   "Triggers" below).
 
 ## Input adapters
@@ -82,7 +84,7 @@ For every normalized item, in order:
    - The full detail as a comment on the task (via `add_comment` on the
      task's linked document if one exists, otherwise as a project note
      referencing the task) — this is the audit trail; the description line
-     is the at-a-glance. See [provenance.md](provenance.md) for the
+     is the at-a-glance. See [provenance](../curator-provenance/SKILL.md) for the
      authoritative convention.
 5. **Emit a reasoning comment per decision** — even for `reject` and
    `pending` — so the drift and its fix are traceable later. Use
@@ -115,15 +117,15 @@ triage(mode?: "submissions" | "backlog" | "text", items?: string)
 ## Triggers
 
 The Curator is only "auto" if it runs without a human opening the app. See
-[automation.md](automation.md) for how this skill is wired to a schedule and
+[automation](../curator-automation/SKILL.md) for how this skill is wired to a schedule and
 to board events (new submission, task → `backlog`), and for the confidence
 gate that decides `scope` (auto) vs `pending` (proposal comment, no board
 write) per item.
 
 ## References
 
-[autonomy.md](autonomy.md) (the loop that invokes this, and the human-gate
-rule); [provenance.md](provenance.md) (the provenance shape every non-reject
-decision carries); [automation.md](automation.md) (unattended triggers);
+[autonomy](../curator-autonomy/SKILL.md) (the loop that invokes this, and the human-gate
+rule); [provenance](../curator-provenance/SKILL.md) (the provenance shape every non-reject
+decision carries); [automation](../curator-automation/SKILL.md) (unattended triggers);
 `.plandesk/skill.md` (house task conventions); `.agents/factory/lanes.md`
 (lane vocabulary).

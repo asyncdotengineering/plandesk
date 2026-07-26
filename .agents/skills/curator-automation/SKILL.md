@@ -1,21 +1,23 @@
 ---
 name: curator-automation
 description: Wire the Curator triage pass to a schedule and to board events (new submission, task lands in backlog). Use when setting up automatic or unattended triage.
+user-invocable: true
+argument-hint: "[schedule | events] — wire unattended triage"
 ---
 
 # Curator: automation (schedule + board-event triggers)
 
 Auto-triage is only "auto" if it runs without someone opening the app. This
-wires [triage.md](triage.md) to a cadence and to board events, with zero new
+wires [triage](../curator-triage/SKILL.md) to a cadence and to board events, with zero new
 infrastructure — no daemon, no webhook server, no new Plan Desk service.
 Everything here composes existing pieces: a headless coding-agent CLI, the
-`schedule` skill / cron, and the board-as-memory hooks ([hooks/](hooks/)).
+`schedule` skill / cron, and the board-as-memory hooks ([hooks](../../factory/hooks/)).
 
 ## Schedule trigger
 
 Run a headless agent session on a cadence that does exactly two things, in
 order: `sync_pull` (refresh submissions from the sync server, a no-op if the
-project has no published share) then the [triage.md](triage.md) pass over
+project has no published share) then the [triage](../curator-triage/SKILL.md) pass over
 `backlog` (the default adapter — add `submissions` too if the project has a
 share configured).
 
@@ -24,7 +26,7 @@ scheduler into Plan Desk:
 
 ```
 schedule: every 1h (adjust to backlog volume)
-prompt:   "Run .agents/curator/triage.md against the current project's
+prompt:   "Run .agents/skills/curator-triage/SKILL.md against the current project's
            backlog and pending submissions. Follow the confidence gate
            below. Do not ask for confirmation — this is an unattended run."
 ```
@@ -39,7 +41,7 @@ There is no push-based event bus to hook into without adding new
 infrastructure (a real webhook/queue would be its own build, out of scope
 here). Instead, ride the moments an agent is already looking at the board:
 
-- **On session start** — the board-as-memory hook (see [hooks/](hooks/))
+- **On session start** — the board-as-memory hook (see [hooks](../../factory/hooks/))
   already re-hydrates board state on `SessionStart`. When that hydration
   shows new items in `backlog` or new pending submissions since the last
   recorded progress, that is the trigger: run a triage pass before starting
@@ -80,10 +82,10 @@ auto-`scope` band only once you have evidence for it — start narrow.
 `scope → todo` stays human-only, on every trigger path, with no exception.
 An unattended scheduled run has exactly the same authority as an
 interactively-invoked one — automation is not a loophole for a stronger
-autonomy grant (see [autonomy.md](autonomy.md)).
+autonomy grant (see [autonomy](../curator-autonomy/SKILL.md)).
 
 ## References
 
-[triage.md](triage.md) (what runs); [provenance.md](provenance.md) (still
-required on every automated decision); [hooks/](hooks/) (the session-start
+[triage](../curator-triage/SKILL.md) (what runs); [provenance](../curator-provenance/SKILL.md) (still
+required on every automated decision); [hooks](../../factory/hooks/) (the session-start
 re-hydration this rides on); the `schedule` skill (the cadence mechanism).

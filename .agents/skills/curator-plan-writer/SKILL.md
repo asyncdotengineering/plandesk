@@ -1,13 +1,15 @@
 ---
 name: curator-plan-writer
 description: Write an RFC / design proposal for a substantial change as a Plan Desk `Design:` document — a build contract carrying its own argument (problem, requirements, design, alternatives, verification surface). Use when asked to write an RFC, spec out a change, or draft a design doc before decomposing it; it is the upstream of curator-intake.
+user-invocable: true
+argument-hint: "<feature or problem to write an RFC for>"
 ---
 
 # Curator: plan-writer (the RFC author)
 
 Writes an RFC as a Plan Desk `Design:` document — the reasoned proposal for a
 substantial change, written *before* any board exists. It is the upstream of
-[intake.md](intake.md): **plan-writer authors the RFC → intake decomposes it into
+[intake](../curator-intake/SKILL.md): **plan-writer authors the RFC → intake decomposes it into
 a board → the factory executes and proves it.** Curator authors and plans;
 Factory builds; Human decides. This skill is the Curator's authoring half.
 
@@ -35,7 +37,7 @@ tasks. Writing the RFC never releases work to execution.
   obvious shape, skip the RFC — `create_task` directly (see `.plandesk/skill.md`).
   Ceremony that outweighs the decision is the failure mode; a one-paragraph
   proposal is a complete RFC when the decision is small.
-- **Not** the same as [intake.md](intake.md): intake *consumes* an RFC (or a raw
+- **Not** the same as [intake](../curator-intake/SKILL.md): intake *consumes* an RFC (or a raw
   idea) to build the board and owns cycle-sizing the tasks. If you already have a
   clear RFC and just need it on the board, go straight to intake. Plan-writer's
   job ends at a reviewable, buildable document — it does not size tasks.
@@ -54,7 +56,7 @@ Write to these, not to a rigid template:
   factual claim is a guess wearing a fact's clothes — cite at the point of use.
 - **Carry, don't re-derive.** When earlier work already settled the framing, the
   non-goals, or a rejected alternative (a prior investigation, a triaged signal,
-  a decision recorded under [provenance.md](provenance.md)), pull it in by
+  a decision recorded under [provenance](../curator-provenance/SKILL.md)), pull it in by
   reference and compact restatement — re-deriving it is where a settled decision
   quietly gets re-opened at the handoff.
 - **Show the shape, concretely.** The design is the bulk of the RFC. Make it real:
@@ -67,7 +69,7 @@ Write to these, not to a rigid template:
   the acceptance that must end green — an RFC that cannot say how success is
   checked is not ready to plan.
 - **Scale ceremony to weight.** Match depth to the change's blast radius (its lane
-  in [lanes.md](lanes.md)): a small change gets the frame + a stated check and
+  in [lanes](../../factory/lanes.md)): a small change gets the frame + a stated check and
   stops; a cross-cutting or user-facing one earns every section. Never pad a small
   decision into a long document.
 
@@ -109,7 +111,7 @@ Write to these, not to a rigid template:
 
 9. **Decomposition sketch** — the rough shape of the work: the major pieces and
    the order they must land in. Keep it a *sketch*, not a task list —
-   [intake.md](intake.md) owns cycle-sizing and edge-sequencing the real tasks.
+   [intake](../curator-intake/SKILL.md) owns cycle-sizing and edge-sequencing the real tasks.
    Your job is to give intake enough structure that its WBS is obvious.
 10. **Verification surface** — how we'll know it worked: the acceptance that must
     end green, tied back to the requirements (each REQ-N → a named test or a
@@ -176,7 +178,7 @@ every section.
 
 Stop. The RFC is a proposal for a human to read. Do **not** scaffold a board or
 start executing off your own RFC unless the human asked for that in the same
-request — the `Design:` doc → human review → [intake.md](intake.md) handoff is
+request — the `Design:` doc → human review → [intake](../curator-intake/SKILL.md) handoff is
 the gate. Tell the human the RFC is ready for review (they can annotate it in the
 UI, or open the file with `plandesk <file>`; pull their notes with
 `list_comments` / `list_artifact_comments` and `resolve_comment`).
@@ -184,7 +186,7 @@ UI, or open the file with `plandesk <file>`; pull their notes with
 ## References
 
 `.plandesk/skill.md` (document/task conventions, inherited verbatim);
-[intake.md](intake.md) (the downstream skill that decomposes the RFC into a board);
-[provenance.md](provenance.md) (the evidence convention motivation draws on);
-[lanes.md](lanes.md) (the depth dial); [triage.md](triage.md) and
-[autonomy.md](autonomy.md) (the sibling Curator roles).
+[intake](../curator-intake/SKILL.md) (the downstream skill that decomposes the RFC into a board);
+[provenance](../curator-provenance/SKILL.md) (the evidence convention motivation draws on);
+[lanes](../../factory/lanes.md) (the depth dial); [triage](../curator-triage/SKILL.md) and
+[autonomy](../curator-autonomy/SKILL.md) (the sibling Curator roles).

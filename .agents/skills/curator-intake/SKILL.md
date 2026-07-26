@@ -1,13 +1,15 @@
 ---
 name: curator-intake
 description: Turn an idea or an RFC into a scaffolded Plan Desk project — tasks, dependency edges, lanes, and a Design doc — in one scaffold_project_from_plan call. Use when planning a new project or a substantial new initiative onto the board.
+user-invocable: true
+argument-hint: "<idea, RFC, or PRD to scaffold onto the board>"
 ---
 
 # Curator: intake (the Planner)
 
 Turns an idea, a rough ask, or an RFC into a scaffolded Plan Desk project —
 tasks, dependency edges, lanes, and a Design doc — in one `scaffold_project_
-from_plan` call. The greenfield-planning counterpart to [triage.md](triage.md)
+from_plan` call. The greenfield-planning counterpart to [triage](../curator-triage/SKILL.md)
 (existing signal) and the factory (execution): Curator / Factory / Human are
 the three roles; this is the Curator's planning half.
 
@@ -78,7 +80,7 @@ reference embedded in the text itself.
   said to release them (e.g. "plan this and start on the first chunk").
   **Never invent a `todo`** on the strength of the plan alone — the human's
   `scope → todo` release is the approval gate everywhere in this project
-  (see [autonomy.md](autonomy.md)), and intake does not get a special
+  (see [autonomy](../curator-autonomy/SKILL.md)), and intake does not get a special
   exemption.
 
 ### 4. Design doc (the "why", linked to the first task)
@@ -201,6 +203,6 @@ explicitly asked for that in the same request.
 
 `.plandesk/skill.md` (task/document/edge conventions, inherited verbatim);
 `.agents/factory/lanes.md` (lane vocabulary and the stop-after-intake rule);
-[plan-writer.md](plan-writer.md) (the upstream skill that authors the RFC this
-one consumes); [triage.md](triage.md) and [autonomy.md](autonomy.md) (the
+[plan-writer](../curator-plan-writer/SKILL.md) (the upstream skill that authors the RFC this
+one consumes); [triage](../curator-triage/SKILL.md) and [autonomy](../curator-autonomy/SKILL.md) (the
 sibling Curator roles).

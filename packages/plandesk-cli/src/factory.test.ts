@@ -19,7 +19,7 @@ import {
   globalDirRefusalReason,
 } from './connect-artifacts.js';
 import {
-  CURATOR_SKILL_NAMES,
+  SHIPPED_SKILL_NAMES,
   CURATOR_TEMPLATES,
   curatorArtifactPath,
   curatorSkillSymlinkTarget,
@@ -363,7 +363,7 @@ describe('curator artifacts (F5)', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
 
-    for (const name of CURATOR_SKILL_NAMES) {
+    for (const name of SHIPPED_SKILL_NAMES) {
       const adapterPath = join(repo, '.claude/skills', name, 'SKILL.md');
       expect(existsSync(adapterPath), name).toBe(true);
       expect(lstatSync(adapterPath).isSymbolicLink(), name).toBe(true);

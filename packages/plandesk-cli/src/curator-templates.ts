@@ -1,7 +1,7 @@
-// Curator skill + hook artifacts: file-backed under vendored `.agents/`
-// (see `templates.ts`). Skills live at `.agents/skills/curator-*/SKILL.md`
-// with harness-discoverable `name` + `description` frontmatter; hooks live
-// under the owned `.agents/factory/hooks/` subtree.
+// Shipped skill + hook artifacts: file-backed under vendored `.agents/`
+// (see `templates.ts`). Skills live at `.agents/skills/<name>/SKILL.md` with
+// harness-discoverable `name` + `description` frontmatter; hooks live under the
+// owned `.agents/factory/hooks/` subtree.
 
 import { join } from 'node:path';
 import { readTemplate } from './templates.js';
@@ -24,7 +24,11 @@ function curatorTemplate(relativePath: string, executable?: boolean): CuratorTem
   };
 }
 
-export const CURATOR_SKILL_NAMES = [
+// `foreman` is not a curator skill — the Curator plans, the Foreman runs the
+// floor — but it ships and symlinks by the same mechanism, so it lives in the
+// same list rather than a parallel one that would drift.
+export const SHIPPED_SKILL_NAMES = [
+  'foreman',
   'curator-triage',
   'curator-provenance',
   'curator-automation',
@@ -33,7 +37,7 @@ export const CURATOR_SKILL_NAMES = [
   'curator-autonomy',
 ] as const;
 
-export type CuratorSkillName = (typeof CURATOR_SKILL_NAMES)[number];
+export type ShippedSkillName = (typeof SHIPPED_SKILL_NAMES)[number];
 
 /** Relative symlink target from `.claude/skills/<name>/SKILL.md` → canonical skill. */
 export function curatorSkillSymlinkTarget(name: string): string {
@@ -41,7 +45,7 @@ export function curatorSkillSymlinkTarget(name: string): string {
 }
 
 export const CURATOR_TEMPLATES: CuratorTemplate[] = [
-  ...CURATOR_SKILL_NAMES.map((name) => curatorTemplate(`skills/${name}/SKILL.md`)),
+  ...SHIPPED_SKILL_NAMES.map((name) => curatorTemplate(`skills/${name}/SKILL.md`)),
   curatorTemplate('factory/hooks/session-start.sh', true),
   curatorTemplate('factory/hooks/checkpoint.sh', true),
   curatorTemplate('factory/hooks/settings.snippet.json'),
