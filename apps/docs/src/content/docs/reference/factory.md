@@ -16,9 +16,18 @@ Agent config written into global directories (`~/.claude`, `~/.codex`) leaks int
 ```
 .agents/
 ├─ index.md                    # progressive disclosure: what lives here (sentinel block)
+├─ skills/                     # invocable skills — two families
+│  ├─ factory-foreman/         #   /factory-foreman — runs the board (execution)
+│  ├─ curator-triage/          #   /curator-triage — raw signal → scope tasks
+│  ├─ curator-intake/          #   /curator-intake — idea or RFC → a scaffolded board
+│  ├─ curator-plan-writer/     #   /curator-plan-writer — write the RFC
+│  ├─ curator-automation/      #   /curator-automation — wire unattended triage
+│  ├─ curator-autonomy/        #   reference: the lane-gated autonomy posture
+│  └─ curator-provenance/      #   reference: why a task exists (sources + reason)
 └─ factory/
    ├─ factory.md               # the contract: how a work cycle runs (type: factory)
    ├─ execution.md             # IC spine: decompose, drive to zero, ship (type: execution)
+   ├─ workmanship.md           # the bar a dispatched worker's output must meet
    ├─ slicing.md               # optional: cut a wide frontier into tracer-bullet slices
    ├─ brief.md                 # optional: multi-slice dispatch + worktree notes
    ├─ heartbeat.md             # optional: stall fallback for long multi-slice runs
@@ -35,6 +44,7 @@ Agent config written into global directories (`~/.claude`, `~/.codex`) leaks int
    ├─ verifiers/
    │  └─ tests-pass.md         # example per-change check (type: verifier)
    └─ runs/                    # transient machine state — gitignored
+.claude/skills/<name>/         # symlinks to .agents/skills/ — one per skill
 .claude/commands/factory.md    # generated adapter: /factory loads the contract
 .codex/commands/factory.md     # generated adapter (when a .codex/ setup is detected)
 ```
@@ -71,7 +81,43 @@ command: codex exec --full-auto < {prompt_file}
 
 `protocol.md` defines the rest of the contract: briefs are written to `runs/brief-<task>.md`; the worker ends by writing `runs/result-<task>.json` (`status`, `claims` of commands run with exit codes, optional blocking `question`); the engine **re-runs the claimed commands** and treats exit codes as authoritative. A `done` with no claims — or a claim that doesn't reproduce — is a failed dispatch. Model output is metadata; no worker grades its own work.
 
-## Installing skills
+## Running the board: `/factory-foreman`
+
+The files above are policy — they describe how a cycle runs. `factory-foreman` is what *runs* one. Give it a scope and it takes board work to committed:
+
+```bash
+/factory-foreman <task-id>     # one item
+/factory-foreman next          # whatever get_next_task returns
+/factory-foreman all todo      # the whole unblocked frontier
+/factory-foreman next --to pi  # pin the worker instead of routing
+```
+
+Its cycle: preflight (clean tree, no live dispatch, board reachable, a worker probe passes) → resolve the scope → groom → slice if the frontier is wide → dispatch → **stage before reviewing** → verify the claims → commit that item → review the diff → apply the lane → repeat.
+
+Two of those deserve calling out, because both encode an incident:
+
+- **Grooming stays inline; only implementation dispatches.** A task is ready when a worker with no session history could build it — stated outcome, context, constraints, testable acceptance criteria, and the commands that prove it. Anything short of that gets rewritten by the conductor, not shipped to a worker. Grooming is judgment about *intent*, and delegating that is how a plan drifts from what was actually wanted.
+- **Staging happens before review, not after.** Review takes minutes and unstaged work is defenceless for all of them; staged work survives a stray `git checkout` because git restores it from the index.
+
+The skill links the policy rather than restating it, which is deliberate: a second copy of the cycle is a second authority, and they drift.
+
+## The bar for dispatched work: `workmanship.md`
+
+`protocol.md` covers the engine verifying a worker *after* a dispatch returns. `workmanship.md` is the other half — the standard prepended to every implementation brief, so a worker knows the bar before it starts rather than discovering it by failing verification.
+
+It covers: no workarounds and never editing a gate's config to make the gate pass; never claiming done without proof; writing the test so it fails first; surgical changes; never destroying work it did not create; and honest reporting through the result contract.
+
+It is self-contained on purpose. A consumer's machine has none of your personal instruction files, so everything a worker needs lives under `.agents/`. A brief that reaches outside `.agents/` for a contract is the bug.
+
+## Curator skills — getting work onto the board
+
+The `curator-*` family is the planning half. `curator-plan-writer` authors an RFC as a `Design:` document; `curator-intake` decomposes it into tasks, edges and lanes in one `scaffold_project_from_plan` call; `curator-triage` turns raw signal — submissions, an ungroomed backlog, a pasted brain-dump — into deduped `scope` tasks; `curator-automation` wires triage to a cadence and to board events.
+
+`curator-autonomy` and `curator-provenance` are reference-only: they are conventions the others cite, not commands, so they declare no slash invocation.
+
+Across all of them, `scope → todo` stays human-only. Automation is not a route to a stronger autonomy grant.
+
+## Installing more skills
 
 Plan Desk does not ship a skill installer — use the open ecosystem's CLI, which installs Agent Skills into the same `.agents/skills/` root this scaffold uses (and per-agent adapters for 70+ agents, Claude Code's `.claude/skills/` included):
 

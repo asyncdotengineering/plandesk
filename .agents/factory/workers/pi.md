@@ -20,6 +20,12 @@ syntax — not stdin. Pick the provider/model per task:
 reasoning depth (`off|minimal|low|medium|high|xhigh`). Live list:
 `pi --list-models`.
 
+**pi flushes its log in bulk, not line by line.** Observed: an empty log for
+~10 minutes, then ~49KB at once, while the process worked throughout. Treat log
+silence as no information for this worker and judge it on leaf CPU and file
+mtimes instead — see the stall-detection notes in
+[../protocol.md](../protocol.md).
+
 Dispatch rule: run `probe` first — if it fails, this worker does not exist on
 this machine; pick another file in this directory. Substitute {prompt_file}
 with the brief path and run `command` verbatim. The result contract is

@@ -139,6 +139,14 @@ Model output is metadata.
 - **One dispatch at a time per repo.** Two workers on one tree corrupt it.
   Confirm the previous process is dead (`pgrep -f`) before dispatching again —
   a worker CLI can report exit while a child keeps mutating files.
+- **The engine is the second writer.** "One dispatch at a time" applies to you
+  as well: editing files in the same tree while a dispatch is live puts your own
+  unstaged work in the blast radius. A worker told to leave unrelated changes
+  alone can still restore them to HEAD while tidying its scope, and unstaged
+  edits do not survive that. Observed: five policy files edited during a live
+  dispatch, all reverted, none recoverable from git because none were staged.
+  Either stage every edit as you make it, or do not touch the tree until the
+  dispatch returns.
 
 ## Stall detection
 
@@ -146,8 +154,19 @@ A worker is stalled, not thinking, when **all** of these hold:
 
 - no new stdout line for ~10 min, **and**
 - no file modified in the repo for ~10 min (`find . -newermt '-10 minutes'`), **and**
-- CPU time flat across a 25s sample (`ps -o time= -p <pid>`).
+- CPU time flat across a 25s sample on the **leaf** process.
 
-Kill it. Then **assess the tree before re-dispatching** — a stalled worker may
+Two ways to read those signals wrong, both observed:
+
+- **Measure the leaf, not the wrapper.** A worker launched through a shell
+  (`bash -c "… > log 2>&1"`) leaves the parent parked at ~0.01s of CPU forever
+  while the child does the work. Sampling the parent reports "flat" every time.
+  Find the leaf first — `ps -eo pid,ppid,time,command | grep <parent>` — and
+  sample that. A healthy worker was nearly killed on the wrapper's reading.
+- **Silence is not a signal for every CLI.** Some workers flush their log in
+  bulk rather than line by line, so an empty log means nothing on its own. Check
+  the worker's own file before treating quiet as stalled.
+
+Kill it only when the leaf agrees. Then **assess the tree before re-dispatching** — a stalled worker may
 have completed most of the work. Re-running a 25-minute conversion to redo what
 is already correct on disk is waste; scope a follow-up dispatch to the remainder.
