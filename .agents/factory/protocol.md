@@ -77,10 +77,12 @@ The brief instructs the worker to end by writing `runs/result-<task>.json`:
   than satisfy it fails the dispatch:
 
   ```
-  git diff HEAD | grep -nE '^\+.*(@ts-nocheck|@ts-ignore|@ts-expect-error|eslint-disable|as any|as unknown as|\.skip\(|\.todo\(|xit\()'
+  git diff HEAD | grep -nE '^\+.*(@ts-nocheck|@ts-ignore|@ts-expect-error|eslint-disable|as any|as unknown as|\.skip\(|\.todo\(|\bxit\()'
   ```
 
-  `@ts-nocheck` is the dangerous one — one line silences a whole file.
+  `@ts-nocheck` is the dangerous one — one line silences a whole file. Keep the
+  word boundary on `\bxit\(`: unanchored, it matches the tail of `process.exit(`
+  and fails an honest dispatch for adding a CLI exit code.
 - Re-run each claimed command; a claim whose re-run exit code differs from the
   claimed one is a false claim — treat the dispatch as failed, record it, and
   do not retry the same approach blindly.
