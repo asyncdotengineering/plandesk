@@ -4,6 +4,28 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-07-27
+
+Only `@plandesk/cli` changed; the other three republish unchanged to stay aligned.
+
+### Added
+
+- **A lightweight decision-record form in `curator-plan-writer`.** The skill could already record a decision — it names driver, approver and consulted parties — but every decision went through the full 11-section RFC, most of which is meaningless once the call is made: there is no decomposition to sketch and no verification surface, because nothing is being built. That collides with the skill's own threshold ("ceremony that outweighs the decision is the failure mode"), and the observable result is the decision not being written down at all. The short form is Context / Decision / Consequences, chosen by one question the agent can actually apply: **is anything going to be built from this?** Yes is an RFC, no is a decision record. `Decision:` joins the shipped document title prefixes.
+
+- **`plandesk doctor` reports factory staleness, not just presence.** A scaffolded file can be present and several releases behind, which turned out to be the common state — across nine repos, seven were on 5 of 25 policy files and nothing ever told them. Doctor now shows both, reusing the same comparison `factory sync` runs so the two cannot disagree:
+
+  ```
+  factory: 25/27 policy files up to date — 2 behind, run `plandesk factory sync --write`
+  ```
+
+  Chosen over building a notification system because doctor is already what people run when something feels off. One line on an existing habit beats a mechanism nobody remembers to install.
+
+### Fixed
+
+- **The breadcrumb reaches the open document or note.** On a document page the trail read `Workspace › Project › Documents` and stopped, so the deepest crumb named the list you had navigated away from and the open document appeared nowhere; the page compensated with a lone back arrow that discards the path above it. The trail now grows a leaf for the open record, and the view label becomes the link back to its list. Notes had the identical shape and are fixed too.
+- **`factory init` and `factory sync` refuse to run inside Plan Desk's own source tree.** There `.agents/` is the source that `dist/templates` is built from, not a scaffold, so scaffolding writes the output shape back over the input. Found by doing it: a sync run wrapped `.agents/index.md` in the sentinel markers the CLI is supposed to insert, so the template then carried its own markers and every consumer would have received two.
+- **The shipped `.codex` factory adapter pointed at retired files** — `workflow.md` and `autonomous-stand.md`, both removed in 2.0.0.
+
 ## [2.1.1] — 2026-07-27
 
 Ships a shipped-policy fix that missed the 2.1.0 tag by one commit, plus the documentation for what 2.1.0 introduced. Only `@plandesk/cli` changed; the other three republish unchanged to stay aligned.
