@@ -178,9 +178,9 @@ What this writes:
   @-include — factory.md**. The IC spine is referenced by path in the preamble
   and read on demand, not inlined into every session. The `/factory` command
   loads factory.md + execution.md.
-- **Curator skills** (`.agents/curator/` → `.claude/skills/`): triage, intake,
-  autonomy, provenance, automation.
-- **Claude Code hooks**: `.agents/curator/hooks/session-start.sh` + `checkpoint.sh`,
+- **Skills** (`.agents/skills/plandesk-*/` → `.claude/skills/`): plan-writer, scope-work,
+  groom-task, foreman, autonomy, timebox.
+- **Claude Code hooks**: `.agents/factory/hooks/session-start.sh` + `checkpoint.sh`,
   wired into `.claude/settings.json` on `SessionStart` (startup|resume|compact),
   `Stop`, `PreCompact`. **This is how Claude Code discovers the hooks** — the
   session-start hook re-anchors the agent to the board; the checkpoint hook
@@ -211,7 +211,7 @@ Confirm all of:
 - [ ] `CLAUDE.md` (and `AGENTS.md` if present) contains the `@.plandesk/skill.md` include
 - [ ] the board is **not** committed: default is `~/.plandesk/workspace.db` (one board per machine). Travel/backup is hosted (`plandesk push --to <org>`) or an explicit `plandesk export --project <id> --out <path>` outside the repo. Per-machine state stays ignored: `.plandesk/token` (bearer minted per-clone by `connect`) and `.plandesk/server.json`. Everything else under `.agents/`, `.claude/`, `.mcp.json`, `.plandesk/config.json`, `.plandesk/skill.md` is committed policy.
 - [ ] `.agents/factory/factory.md` exists (factory scaffold; unless the user opted out)
-- [ ] `.claude/settings.json` wires `SessionStart`/`Stop`/`PreCompact` to `.agents/curator/hooks/*` (hooks registered — unless the user opted out of the factory)
+- [ ] `.claude/settings.json` wires `SessionStart`/`Stop`/`PreCompact` to `.agents/factory/hooks/*` (hooks registered — unless the user opted out of the factory)
 
 ## 7. Hand off to a planning session
 
@@ -279,10 +279,10 @@ For a repo connected to Plan Desk, commit:
 - `.mcp.json` — the MCP server entry (step 4). Its `headersHelper` reads a
   token file that may not exist — nothing secret lives in the entry itself.
 - `.claude/` — skills (`.claude/skills/plandesk/`), the `/plandesk` command
-  (`.claude/commands/plandesk.md`), and `.claude/settings.json` (the curator
+  (`.claude/commands/plandesk.md`), and `.claude/settings.json` (the board-as-memory
   hooks `factory init` wires up in step 5).
-- `.agents/` — the factory + curator policy (`.agents/factory/`,
-  `.agents/curator/`) written by `plandesk factory init` (step 5).
+- `.agents/` — the agent policy and skills (`.agents/factory/`,
+  `.agents/skills/`) written by `plandesk factory init` (step 5).
 - `.factory`, if this repo has one — treat it like the rest of the committed
   agent policy.
 - `CLAUDE.md` / `AGENTS.md` — the sentinel block `connect` inserts (step 4).

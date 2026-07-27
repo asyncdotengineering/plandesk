@@ -23,7 +23,7 @@ compaction. They assume `plandesk` is on `PATH` (install with
 `plandesk factory init` wires these in automatically — it merges the
 `settings.snippet.json` `hooks` block into the project's `.claude/settings.json`
 additively (never clobbering hooks you've configured for other events, and never
-duplicating the curator entries on re-run). The snippet file is kept here for
+duplicating the Plan Desk entries on re-run). The snippet file is kept here for
 reference and manual re-application. Hook commands are prefixed with
 `$CLAUDE_PROJECT_DIR` so they resolve against the project root regardless of the
 directory Claude Code was launched from.

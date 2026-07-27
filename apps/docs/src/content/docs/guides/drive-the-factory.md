@@ -1,9 +1,9 @@
 ---
 title: Drive the factory
-description: The human operator's guide — how to prompt the Curator skills, run the execution loop, and tune risk lanes so an agent works your board safely.
+description: The human operator's guide — how to prompt the planning skills, run the execution loop, and tune risk lanes so an agent works your board safely.
 ---
 
-The factory does the typing; you set the scope and the safety. This guide is for the **human operator** driving Plan Desk from Claude Code (or Codex): how to prompt the Curator skills, run the execution loop, and use risk lanes to keep control — especially on a live codebase.
+The factory does the typing; you set the scope and the safety. This guide is for the **human operator** driving Plan Desk from Claude Code (or Codex): how to prompt the planning skills, run the execution loop, and use risk lanes to keep control — especially on a live codebase.
 
 If you haven't set up a repo yet, start with [Plan & execute a project](/guides/plan-and-execute/). For the underlying format, see the [Factory reference](/reference/factory/).
 
@@ -13,29 +13,37 @@ Everything moves work through the board. Three roles act on it:
 
 | Role | Does | You interact by |
 | --- | --- | --- |
-| **Curator** (skills) | Turns ideas and raw signal into a plan on the board | prompting with the right vocabulary |
+| **Planning** (skills) | Turns ideas and raw signal into a plan on the board | prompting with the right vocabulary |
 | **Factory** (execution) | Runs the loop — pull → work → prove → done — gated by lanes | releasing work and resolving gates |
 | **You** (human) | Decide what's ready, what's approved, and what to steer | `scope → todo` release, comments, gate approvals |
 
-The Curator plans, the Factory builds, you decide. `plandesk factory init` scaffolds both, plus the hooks that keep the board in sync across sessions.
+Planning fills the board, execution empties it, you decide what moves between. `plandesk factory init` scaffolds both, plus the hooks that keep the board in sync across sessions.
 
 ## The skills
 
 `factory init` installs these into `.agents/skills/` and symlinks them for your agent. Each one fires either when your words match its description, or when you invoke it directly as a slash command.
 
-Two families: **`curator-*` plans, `factory-*` executes.**
+Everything is `plandesk-*`. Four do work; two are postures you chain onto the others.
 
 | Skill | Invoke | Or just say | It produces |
 | --- | --- | --- | --- |
-| **curator-plan-writer** | `/curator-plan-writer <feature>` | "write an RFC for X", "spec this before we build" | a `Design:` document — a build contract: problem, requirements, design, alternatives, verification surface |
-| **curator-intake** | `/curator-intake <idea or RFC>` | "plan X into Plan Desk", "turn this into tasks" | the board itself — tasks + dependency edges + a Design doc, in one `scaffold_project_from_plan` call |
-| **curator-triage** | `/curator-triage backlog` | "triage the backlog", "sort this brain-dump into tasks" | deduped `scope` tasks, each with recorded provenance |
-| **curator-automation** | `/curator-automation schedule` | "run triage on a schedule" | cadence + board-event triggers for unattended triage |
-| **factory-foreman** | `/factory-foreman all todo` | "work the board", "ship the next task" | committed work — the execution half |
+| **plandesk-plan-writer** | `/plandesk-plan-writer <feature>` | "write an RFC for X", "spec this before we build" | a `Design:` document — a build contract: problem, requirements, design, alternatives, verification surface |
+| **plandesk-scope-work** | `/plandesk-scope-work backlog` | "triage the backlog", "plan X into Plan Desk", "sort this brain-dump" | `scope` tasks with provenance — or a whole WBS with edges and a Design doc, in one `scaffold_project_from_plan` call |
+| **plandesk-groom-task** | `/plandesk-groom-task <task-id>` | "groom this task", "this ticket is too thin", "we need X" | one task rewritten in place to a build contract, plus its lane and edges |
+| **plandesk-foreman** | `/plandesk-foreman all todo` | "work the board", "ship the next task" | committed work — the execution half |
 
-`curator-autonomy` and `curator-provenance` ship too but have no slash command on purpose: they are conventions the others cite ("why does this task exist", the lane-gated autonomy posture), not things you run.
+The two postures wrap the others rather than doing work themselves:
 
-The pipeline: **curator-plan-writer** (write the RFC) → **curator-intake** (RFC → board) → *you release `scope` → `todo`* → **factory-foreman** (build it). You rarely need all of it — for a clear idea, go straight to intake.
+| Posture | Chain it like | What it changes |
+| --- | --- | --- |
+| **plandesk-autonomy** | `/plandesk-autonomy /plandesk-foreman all todo` | removes the pause between steps; the lane gates still stop it |
+| **plandesk-timebox** | `/plandesk-timebox 25m /plandesk-foreman next` | adds a fixed interval and a checkpoint report, so a long run never goes dark |
+
+They stack: `/plandesk-autonomy /plandesk-timebox 25m /plandesk-foreman next` runs unattended *and* reports every 25 minutes. Neither grants a permission the wrapped skill didn't already have.
+
+The pipeline: **plan-writer** (write the RFC) → **scope-work** (RFC → board) → *you release `scope` → `todo`* → **foreman** (build it). You rarely need all of it — for a clear idea, go straight to scope-work.
+
+For a single ad-hoc requirement there is no pipeline at all: **plandesk-groom-task** is the whole path. `/plandesk-groom-task <task-id>` takes a one-liner already on the board and rewrites it into something a worker can build; `/plandesk-groom-task "we need X"` creates the task first, then grooms it. It never changes status, so making a task buildable and deciding to build it stay two separate calls — yours. Run `/plandesk-groom-task all scope` before a release to see which tasks are actually ready.
 
 ## How to prompt effectively
 
@@ -57,13 +65,13 @@ The factory's posture is already loaded from `CLAUDE.md`, so you don't re-explai
 
 ## Running the execution loop
 
-`/factory-foreman` runs the loop. Give it a scope and it takes board work to committed:
+`/plandesk-foreman` runs the loop. Give it a scope and it takes board work to committed:
 
 ```bash
-/factory-foreman <task-id>      # one item
-/factory-foreman next           # whatever get_next_task returns
-/factory-foreman all todo       # the whole unblocked frontier
-/factory-foreman next --to pi   # pin the worker instead of routing
+/plandesk-foreman <task-id>      # one item
+/plandesk-foreman next           # whatever get_next_task returns
+/plandesk-foreman all todo       # the whole unblocked frontier
+/plandesk-foreman next --to pi   # pin the worker instead of routing
 ```
 
 Per work item it runs one cycle — **preflight → read spec → groom → red gate → dispatch → stage → verify → commit → review → lane gate** — then takes the next. It grooms inline and only dispatches implementation: grooming is judgment about what you actually meant, and handing that to a worker is how a plan drifts.
@@ -72,9 +80,9 @@ You choose how much runs unattended:
 
 | Mode | How | When |
 | --- | --- | --- |
-| **Manual** | release one task, `/factory-foreman <task-id>`, review, repeat | a new or untrusted repo, or live production |
-| **Released-batch** | release a small `scope → todo` batch, then `/factory-foreman all todo` | the default sweet spot |
-| **Full autonomous** | wide release plus tight lanes, on a schedule | a trusted repo where the lanes carry the safety |
+| **Manual** | release one task, `/plandesk-foreman <task-id>`, review, repeat | a new or untrusted repo, or live production |
+| **Released-batch** | release a small `scope → todo` batch, then `/plandesk-foreman all todo` | the default sweet spot |
+| **Full autonomous** | wide release plus tight lanes, then `/plandesk-autonomy /plandesk-foreman all todo` | a trusted repo where the lanes carry the safety |
 
 Two levers are yours: the **`scope → todo` release** (what is allowed to start) and the **lanes** (what needs your sign-off). Tighten the lanes and wider autonomy becomes safe.
 
@@ -100,10 +108,10 @@ The pairing is the whole game: **tight lanes + small releases** on day one; wide
 ## A worked example
 
 ```
-1. "Read the design brief and use intake to scaffold a project: a task per
+1. "Read the design brief and use scope-work to scaffold a project: a task per
     milestone, dependency edges between them, a Design: spec on the first task,
     and a lane per task by blast radius. Create everything in scope — don't
-    release."                                        ← Curator / intake
+    release."                                        ← plandesk-scope-work
 2.  (review the graph on the Flow canvas, tighten lanes or edges)   ← You
 3. "Release the first milestone to todo."            ← You (the release gate)
 4. "Work the released tasks. Stop at every approve/full lane and post a diff
@@ -115,12 +123,16 @@ The pairing is the whole game: **tight lanes + small releases** on day one; wide
 
 | To… | Run… |
 | --- | --- |
-| Think before building | `/curator-plan-writer <feature>` |
-| Put a plan on the board | `/curator-intake <idea or RFC>` — add "scope only" to hold the release |
-| Clean up a messy backlog | `/curator-triage backlog` |
-| Start execution | release `scope → todo`, then `/factory-foreman all todo` |
-| Ship one specific task | `/factory-foreman <task-id>` |
+| Think before building | `/plandesk-plan-writer <feature>` |
+| Put a plan on the board | `/plandesk-scope-work <idea or RFC>` — add "scope only" to hold the release |
+| Clean up a messy backlog | `/plandesk-scope-work backlog` |
+| Make one thin task buildable | `/plandesk-groom-task <task-id>` — or `/plandesk-groom-task "we need X"` to create it first |
+| Check a batch before releasing it | `/plandesk-groom-task all scope` |
+| Start execution | release `scope → todo`, then `/plandesk-foreman all todo` |
+| Ship one specific task | `/plandesk-foreman <task-id>` |
+| Run a batch without babysitting | `/plandesk-autonomy /plandesk-foreman all todo` |
+| Grind a long list with check-ins | `/plandesk-timebox 25m /plandesk-foreman next` |
 | Keep control on production | tighten `lanes.md`, release small batches |
 | Redirect mid-flight | comment on the task or doc (not a re-prompt) |
 
-The meta-skill: **you plan through the Curator, gate through lanes and releases, and steer through comments — the Foreman and its workers do the typing.** Your words set scope and safety; the board carries the rest.
+The meta-skill: **you plan through the planning skills, gate through lanes and releases, and steer through comments — the foreman and its workers do the typing.** Your words set scope and safety; the board carries the rest.

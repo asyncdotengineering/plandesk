@@ -366,7 +366,7 @@ export function mergeMcpJson(
   return `${JSON.stringify(doc, null, 2)}\n`;
 }
 
-// Curator hooks (F1): a `.claude/settings.json` `hooks` block merged from the
+// Board-as-memory hooks (F1): a `.claude/settings.json` `hooks` block merged from the
 // project-local snippet. Plan Desk owns entries marked `_plandesk` — on each
 // merge those are dropped and the current snippet set is re-inserted, so path
 // or matcher changes reclaim cleanly. Untagged entries are never touched,
@@ -413,7 +413,7 @@ function isLegacyUntaggedCuratorEntry(entry: unknown): boolean {
   return entryCommandContains(entry, LEGACY_CURATOR_HOOKS_PATH);
 }
 
-export function mergeCuratorHooksJson(
+export function mergeHooksJson(
   existingContent: string | undefined,
   snippetContent: string,
 ): string {

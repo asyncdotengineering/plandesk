@@ -15,16 +15,16 @@ import {
   isPlandeskSourceRepo,
   insertAgentsIndexBlock,
   insertFactorySentinelBlock,
-  mergeCuratorHooksJson,
+  mergeHooksJson,
 } from './connect-artifacts.js';
 import { resolveAgents } from './connect.js';
 import {
-  CURATOR_HOOKS_SETTINGS_SNIPPET_JSON,
+  HOOKS_SETTINGS_SNIPPET_JSON,
   SHIPPED_SKILL_NAMES,
-  CURATOR_TEMPLATES,
-  curatorArtifactPath,
-  curatorSkillSymlinkTarget,
-} from './curator-templates.js';
+  SHIPPED_TEMPLATES,
+  agentsArtifactPath,
+  skillSymlinkTarget,
+} from './shipped-templates.js';
 import { readTemplate } from './templates.js';
 
 export class FactoryError extends Error {
@@ -49,7 +49,7 @@ export type FactoryArtifact = {
   path: string;
   content: string;
   action: 'create' | 'update' | 'skip';
-  /** Set the executable bit (0o755) after writing — for the curator hook scripts. */
+  /** Set the executable bit (0o755) after writing — for the hook scripts. */
   executable?: boolean;
   /**
    * When set, write as a symlink to this relative target (same contract as
@@ -232,11 +232,11 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
     });
   }
 
-  // Curator artifacts: skills under .agents/skills/curator-*/SKILL.md and hooks
+  // Shipped artifacts: skills under .agents/skills/plandesk-*/SKILL.md and hooks
   // under .agents/factory/hooks/. Same skip-if-exists semantics as factory
   // policy files — a user's edited skill must never be clobbered on re-init.
-  for (const template of CURATOR_TEMPLATES) {
-    const path = curatorArtifactPath(repoDir, template.relativePath);
+  for (const template of SHIPPED_TEMPLATES) {
+    const path = agentsArtifactPath(repoDir, template.relativePath);
     artifacts.push({
       path,
       content: template.content,
@@ -250,7 +250,7 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
   // symlinkTarget + copy-fallback writer as connect. Refresh every run so a
   // prior plain-file copy is replaced by the link.
   for (const name of SHIPPED_SKILL_NAMES) {
-    const canonicalPath = curatorArtifactPath(repoDir, `skills/${name}/SKILL.md`);
+    const canonicalPath = agentsArtifactPath(repoDir, `skills/${name}/SKILL.md`);
     const adapterPath = join(repoDir, '.claude', 'skills', name, 'SKILL.md');
     const content = existsSync(canonicalPath)
       ? readFileSync(canonicalPath, 'utf8')
@@ -259,21 +259,21 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
       path: adapterPath,
       content,
       action: lstatSync(adapterPath, { throwIfNoEntry: false }) === undefined ? 'create' : 'update',
-      symlinkTarget: curatorSkillSymlinkTarget(name),
+      symlinkTarget: skillSymlinkTarget(name),
     });
   }
 
-  // Curator hooks wiring (F1): merge the SessionStart/Stop/PreCompact block
+  // Hooks wiring (F1): merge the SessionStart/Stop/PreCompact block
   // into .claude/settings.json additively — never clobbers a user's existing
-  // hooks for other events, and never duplicates the curator entries on
-  // rerun (see mergeCuratorHooksJson).
+  // hooks for other events, and never duplicates the Plan Desk entries on
+  // rerun (see mergeHooksJson).
   const settingsJsonPath = join(repoDir, '.claude', 'settings.json');
   const existingSettingsJson = existsSync(settingsJsonPath)
     ? readFileSync(settingsJsonPath, 'utf8')
     : undefined;
   artifacts.push({
     path: settingsJsonPath,
-    content: mergeCuratorHooksJson(existingSettingsJson, CURATOR_HOOKS_SETTINGS_SNIPPET_JSON),
+    content: mergeHooksJson(existingSettingsJson, HOOKS_SETTINGS_SNIPPET_JSON),
     action: existingSettingsJson !== undefined ? 'update' : 'create',
   });
 
@@ -307,7 +307,7 @@ function writeFactoryArtifacts(artifacts: FactoryArtifact[]): void {
 type SyncableFile = { path: string; content: string; executable?: boolean };
 
 // The create-once authored files `factory sync` tracks: owned factory policy
-// docs plus shared-namespace curator skill/hook sources. Generated files (the
+// docs plus shared-namespace skill/hook sources. Generated files (the
 // index.md / CLAUDE.md sentinel blocks, command/skill adapters, settings.json)
 // already refresh on every `factory init`, so sync refreshes those too but they
 // never "conflict". This is the shipped source of truth — `buildFactoryArtifacts`
@@ -336,8 +336,8 @@ export function authoredFactoryFiles(repoDir: string): SyncableFile[] {
 function syncableAuthoredFiles(repoDir: string): SyncableFile[] {
   return [
     ...authoredFactoryFiles(repoDir),
-    ...CURATOR_TEMPLATES.map((template) => ({
-      path: curatorArtifactPath(repoDir, template.relativePath),
+    ...SHIPPED_TEMPLATES.map((template) => ({
+      path: agentsArtifactPath(repoDir, template.relativePath),
       content: template.content,
       executable: template.executable,
     })),
@@ -613,7 +613,7 @@ export function runFactorySync(options: FactorySyncOptions): FactorySyncResult {
   // a generated file that did not exist yet was never made — so a skill shipped
   // after a repo was initialised landed in `.agents/skills/` and stayed
   // unreachable, because the agent reads `.claude/skills/`. Observed on eight
-  // repos after factory-foreman shipped: present, committed, and un-invocable.
+  // repos after plandesk-foreman shipped: present, committed, and un-invocable.
   // `skip` is still excluded — that is the create-once authored policy.
   const linked: string[] = [];
   if (applyUpdates) {

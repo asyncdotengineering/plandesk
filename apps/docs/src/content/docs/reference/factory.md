@@ -16,14 +16,13 @@ Agent config written into global directories (`~/.claude`, `~/.codex`) leaks int
 ```
 .agents/
 ├─ index.md                    # progressive disclosure: what lives here (sentinel block)
-├─ skills/                     # invocable skills — two families
-│  ├─ factory-foreman/         #   /factory-foreman — runs the board (execution)
-│  ├─ curator-triage/          #   /curator-triage — raw signal → scope tasks
-│  ├─ curator-intake/          #   /curator-intake — idea or RFC → a scaffolded board
-│  ├─ curator-plan-writer/     #   /curator-plan-writer — write the RFC
-│  ├─ curator-automation/      #   /curator-automation — wire unattended triage
-│  ├─ curator-autonomy/        #   reference: the lane-gated autonomy posture
-│  └─ curator-provenance/      #   reference: why a task exists (sources + reason)
+├─ skills/                     # invocable skills — all `plandesk-*`
+│  ├─ plandesk-plan-writer/    #   write the RFC before there is a board
+│  ├─ plandesk-scope-work/     #   raw signal or a whole idea → scope tasks + edges
+│  ├─ plandesk-groom-task/     #   thin task → build contract (owns the Definition of Ready)
+│  ├─ plandesk-foreman/        #   runs the board floor (execution)
+│  ├─ plandesk-autonomy/       #   chainable: run another skill unattended
+│  └─ plandesk-timebox/        #   chainable: pace a run in timeboxes
 └─ factory/
    ├─ factory.md               # the contract: how a work cycle runs (type: factory)
    ├─ execution.md             # IC spine: decompose, drive to zero, ship (type: execution)
@@ -81,15 +80,15 @@ command: codex exec --full-auto < {prompt_file}
 
 `protocol.md` defines the rest of the contract: briefs are written to `runs/brief-<task>.md`; the worker ends by writing `runs/result-<task>.json` (`status`, `claims` of commands run with exit codes, optional blocking `question`); the engine **re-runs the claimed commands** and treats exit codes as authoritative. A `done` with no claims — or a claim that doesn't reproduce — is a failed dispatch. Model output is metadata; no worker grades its own work.
 
-## Running the board: `/factory-foreman`
+## Running the board: `/plandesk-foreman`
 
-The files above are policy — they describe how a cycle runs. `factory-foreman` is what *runs* one. Give it a scope and it takes board work to committed:
+The files above are policy — they describe how a cycle runs. `plandesk-foreman` is what *runs* one. Give it a scope and it takes board work to committed:
 
 ```bash
-/factory-foreman <task-id>     # one item
-/factory-foreman next          # whatever get_next_task returns
-/factory-foreman all todo      # the whole unblocked frontier
-/factory-foreman next --to pi  # pin the worker instead of routing
+/plandesk-foreman <task-id>     # one item
+/plandesk-foreman next          # whatever get_next_task returns
+/plandesk-foreman all todo      # the whole unblocked frontier
+/plandesk-foreman next --to pi  # pin the worker instead of routing
 ```
 
 Its cycle: preflight (clean tree, no live dispatch, board reachable, a worker probe passes) → resolve the scope → groom → slice if the frontier is wide → dispatch → **stage before reviewing** → verify the claims → commit that item → review the diff → apply the lane → repeat.
@@ -109,13 +108,31 @@ It covers: no workarounds and never editing a gate's config to make the gate pas
 
 It is self-contained on purpose. A consumer's machine has none of your personal instruction files, so everything a worker needs lives under `.agents/`. A brief that reaches outside `.agents/` for a contract is the bug.
 
-## Curator skills — getting work onto the board
+## Planning skills — getting work onto the board
 
-The `curator-*` family is the planning half. `curator-plan-writer` authors an RFC as a `Design:` document; `curator-intake` decomposes it into tasks, edges and lanes in one `scaffold_project_from_plan` call; `curator-triage` turns raw signal — submissions, an ungroomed backlog, a pasted brain-dump — into deduped `scope` tasks; `curator-automation` wires triage to a cadence and to board events.
-
-`curator-autonomy` and `curator-provenance` are reference-only: they are conventions the others cite, not commands, so they declare no slash invocation.
+`plandesk-plan-writer` authors an RFC as a `Design:` document. `plandesk-scope-work` is the front door for everything that follows: handed a pile of existing items — submissions, an ungroomed backlog, a pasted brain-dump — it dedups them into `scope` tasks with recorded provenance; handed one idea, RFC, or PRD, it decomposes it into a whole WBS with edges, lanes, and a Design doc in a single atomic `scaffold_project_from_plan` call. `plandesk-groom-task` takes a single thin task, or a bare one-line requirement, and makes it buildable in place.
 
 Across all of them, `scope → todo` stays human-only. Automation is not a route to a stronger autonomy grant.
+
+### Two postures, chained onto the rest
+
+`plandesk-autonomy` and `plandesk-timebox` do no work of their own — you chain them in front of a skill that does:
+
+```bash
+/plandesk-autonomy /plandesk-foreman all todo          # no pause between items
+/plandesk-timebox 25m /plandesk-foreman next           # a checkpoint report every 25 minutes
+/plandesk-autonomy /plandesk-timebox 25m /plandesk-foreman next   # both
+```
+
+Autonomy removes the pause between steps; timebox adds a rhythm and a report so a long run never goes dark. Neither widens what the wrapped skill is allowed to do — a wrapped `plandesk-groom-task` still cannot change a task's status, and every risk lane still stops the run cold.
+
+### One Definition of Ready
+
+Three skills need to answer "is this task buildable yet?" — scope-work when it drafts a task, groom-task when it rewrites one, the foreman before it dispatches one. That question is answered in exactly one place: the **Definition of Ready** table in `plandesk-groom-task`. The other two link to it rather than restating it, for the same reason the foreman links the cycle contract instead of copying it — a second copy is a second authority, and they drift.
+
+The split with `.plandesk/skill.md` is deliberate: that file owns the *shape* of a task description (which fields it carries, always loaded in default context), and `plandesk-groom-task` owns the *verdict* (whether each field is good enough yet). Shape is a convention; readiness is a judgement with a gate behind it.
+
+`plandesk-groom-task` is also the only entry point for an **ad-hoc** requirement. Scope-work drafts tasks only at creation time, from whatever the source material carried; the foreman grooms only as a prelude to dispatch. A one-liner someone drops on the board mid-week has no other route to becoming work: `/plandesk-groom-task <task-id>` rewrites it in place, and `/plandesk-groom-task "we need X"` creates the task first and then grooms it. It never changes status — making a task buildable and releasing it stay separate decisions.
 
 ## Installing more skills
 

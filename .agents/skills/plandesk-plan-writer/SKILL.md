@@ -1,29 +1,29 @@
 ---
-name: curator-plan-writer
-description: Write an RFC / design proposal for a substantial change as a Plan Desk `Design:` document — a build contract carrying its own argument (problem, requirements, design, alternatives, verification surface). Use when asked to write an RFC, spec out a change, or draft a design doc before decomposing it; it is the upstream of curator-intake.
+name: plandesk-plan-writer
+description: Write an RFC / design proposal for a substantial change as a Plan Desk `Design:` document — a build contract carrying its own argument (problem, requirements, design, alternatives, verification surface). Use when asked to write an RFC, spec out a change, or draft a design doc before decomposing it; it is the upstream of plandesk-scope-work.
 user-invocable: true
 argument-hint: "<feature or problem to write an RFC for>"
 ---
 
-# Curator: plan-writer (the RFC author)
+# Write the plan (the RFC author)
 
 Writes an RFC as a Plan Desk `Design:` document — the reasoned proposal for a
 substantial change, written *before* any board exists. It is the upstream of
-[intake](../curator-intake/SKILL.md): **plan-writer authors the RFC → intake decomposes it into
-a board → the factory executes and proves it.** Curator authors and plans;
-Factory builds; Human decides. This skill is the Curator's authoring half.
+[scope-work](../plandesk-scope-work/SKILL.md): **plan-writer authors the RFC → scope-work decomposes it into
+a board → the foreman executes and proves it.** Planning authors the argument,
+execution builds it, the human decides. This skill is the authoring half.
 
 An RFC here is **a build contract that carries its own argument.** The house
 styles of mature open-source projects (Sentry, Ember, React, the Vercel / AI SDK
 ecosystem) write RFCs to win *agreement* — the "should we / why / what else"
 debate is the body. A Plan Desk RFC does that too, but its downstream is not a
-comment thread: it is intake (which decomposes it) and an agent factory (which
+comment thread: it is scope-work (which decomposes it) and an agent factory (which
 builds and proves it). So it must also be *executable without guessing* — named
 requirements, a concrete design, and a stated way to check success. Carry enough
 argument to be reviewable, and enough contract to be buildable.
 
 **Lane: approve** — an RFC is a proposal, not a shipped decision. It lands as a
-document a human reads and steers before intake turns it into `scope`/`todo`
+document a human reads and steers before scope-work turns it into `scope`/`todo`
 tasks. Writing the RFC never releases work to execution.
 
 ## When to run this
@@ -36,13 +36,19 @@ tasks. Writing the RFC never releases work to execution.
   not an RFC.
 - **The RFC threshold.** An RFC earns its cost when the change is *substantial or
   contended*: it alters a public surface, is hard to reverse, spans several areas,
-  or reasonable engineers would design it differently. For a task or two with an
-  obvious shape, skip the RFC — `create_task` directly (see `.plandesk/skill.md`).
-  Ceremony that outweighs the decision is the failure mode; a one-paragraph
-  proposal is a complete RFC when the decision is small.
-- **Not** the same as [intake](../curator-intake/SKILL.md): intake *consumes* an RFC (or a raw
+  or reasonable engineers would design it differently. Ceremony that outweighs
+  the decision is the failure mode; a one-paragraph proposal is a complete RFC
+  when the decision is small.
+- **Below the threshold, hand off — do not fall back to bare `create_task`.**
+  Work that does not earn an RFC still earns a build contract. One item with an
+  obvious shape goes to [groom-task](../plandesk-groom-task/SKILL.md), which creates it and
+  grooms it in one move; a batch of them goes to
+  [scope-work](../plandesk-scope-work/SKILL.md), which dedups first. Refusing to write an
+  RFC and then creating untriaged, ungroomed tasks by hand is the worse of the
+  two failures, because nothing downstream can tell the difference.
+- **Not** the same as [scope-work](../plandesk-scope-work/SKILL.md): scope-work *consumes* an RFC (or a raw
   idea) to build the board and owns cycle-sizing the tasks. If you already have a
-  clear RFC and just need it on the board, go straight to intake. Plan-writer's
+  clear RFC and just need it on the board, go straight to scope-work. Plan-writer's
   job ends at a reviewable, buildable document — it does not size tasks.
 
 ## The instincts every good RFC shares
@@ -59,7 +65,7 @@ Write to these, not to a rigid template:
   factual claim is a guess wearing a fact's clothes — cite at the point of use.
 - **Carry, don't re-derive.** When earlier work already settled the framing, the
   non-goals, or a rejected alternative (a prior investigation, a triaged signal,
-  a decision recorded under [provenance](../curator-provenance/SKILL.md)), pull it in by
+  a decision whose provenance [scope-work](../plandesk-scope-work/SKILL.md) recorded), pull it in by
   reference and compact restatement — re-deriving it is where a settled decision
   quietly gets re-opened at the handoff.
 - **Show the shape, concretely.** The design is the bulk of the RFC. Make it real:
@@ -110,23 +116,23 @@ Write to these, not to a rigid template:
    is it a breaking change, is there a phased path, what has to be sequenced; plus
    naming/terminology and how both new and existing users learn it.
 
-**Make it buildable (always — this is what feeds intake and the factory):**
+**Make it buildable (always — this is what feeds scope-work and the factory):**
 
 9. **Decomposition sketch** — the rough shape of the work: the major pieces and
    the order they must land in. Keep it a *sketch*, not a task list —
-   [intake](../curator-intake/SKILL.md) owns cycle-sizing and edge-sequencing the real tasks.
-   Your job is to give intake enough structure that its WBS is obvious.
+   [scope-work](../plandesk-scope-work/SKILL.md) owns cycle-sizing and edge-sequencing the real tasks.
+   Your job is to give scope-work enough structure that its WBS is obvious.
 10. **Verification surface** — how we'll know it worked: the acceptance that must
     end green, tied back to the requirements (each REQ-N → a named test or a
     runnable command). This is not decoration — it becomes the
-    `verification_surface` of the Goal intake decomposes, and the gate the factory
+    `verification_surface` of the Goal scope-work decomposes, and the gate the factory
     proves against. Every requirement should trace to at least one check here.
 
 **Close (always):**
 
 11. **Unresolved questions** — each states a tradeoff and a *proposed* direction.
     A question with no proposal is a genuine fork for the human; surface it rather
-    than guessing. Open questions with no proposal block the handoff to intake.
+    than guessing. Open questions with no proposal block the handoff to scope-work.
 
 ## The short form — a decision record
 
@@ -189,7 +195,7 @@ scaffolding in one pass):
   the moment it exists — an unlinked document is invisible to the plan.
 
 Written this way the RFC hands off cleanly: the decomposition sketch seeds
-intake's WBS, the requirements and verification surface become the Goal's
+scope-work's WBS, the requirements and verification surface become the Goal's
 acceptance, and the unresolved questions become `scope` tasks.
 
 ## Voice
@@ -214,7 +220,7 @@ every section.
 
 Stop. The RFC is a proposal for a human to read. Do **not** scaffold a board or
 start executing off your own RFC unless the human asked for that in the same
-request — the `Design:` doc → human review → [intake](../curator-intake/SKILL.md) handoff is
+request — the `Design:` doc → human review → [scope-work](../plandesk-scope-work/SKILL.md) handoff is
 the gate. Tell the human the RFC is ready for review (they can annotate it in the
 UI, or open the file with `plandesk <file>`; pull their notes with
 `list_comments` / `list_artifact_comments` and `resolve_comment`).
@@ -222,7 +228,8 @@ UI, or open the file with `plandesk <file>`; pull their notes with
 ## References
 
 `.plandesk/skill.md` (document/task conventions, inherited verbatim);
-[intake](../curator-intake/SKILL.md) (the downstream skill that decomposes the RFC into a board);
-[provenance](../curator-provenance/SKILL.md) (the evidence convention motivation draws on);
-[lanes](../../factory/lanes.md) (the depth dial); [triage](../curator-triage/SKILL.md) and
-[autonomy](../curator-autonomy/SKILL.md) (the sibling Curator roles).
+[scope-work](../plandesk-scope-work/SKILL.md) (decomposes this RFC into a board, and
+carries the provenance convention this draws on);
+[groom-task](../plandesk-groom-task/SKILL.md) (finishes a task the RFC left thin);
+[lanes](../../factory/lanes.md) (the depth dial);
+[autonomy](../plandesk-autonomy/SKILL.md) (the human-gate rule).

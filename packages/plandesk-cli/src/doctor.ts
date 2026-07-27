@@ -14,7 +14,7 @@ import {
   runBindingDoctor,
   type BindingDoctorReport,
 } from './binding-doctor.js';
-import { AGENTS_DIR, CURATOR_TEMPLATES, curatorArtifactPath } from './curator-templates.js';
+import { AGENTS_DIR, SHIPPED_TEMPLATES, agentsArtifactPath } from './shipped-templates.js';
 import { LAST_EXPORT_FILE } from './export.js';
 import { planFactorySync } from './factory.js';
 import { CorruptWorkspaceError, isDbCorruptionError } from './workspace.js';
@@ -38,7 +38,7 @@ export type DoctorReport = {
   taskCount: number;
   issues: string[];
   binding?: BindingDoctorReport;
-  curator?: CuratorDoctorReport;
+  scaffold?: ScaffoldDoctorReport;
   /** Resolved server config + per-key source (REQ-4). */
   config?: ResolvedServerConfig;
   /** Set when the server targets a remote DB (self-host topology). */
@@ -47,7 +47,7 @@ export type DoctorReport = {
   lastExport: string | null;
 };
 
-export type CuratorDoctorReport = {
+export type ScaffoldDoctorReport = {
   present: number;
   total: number;
   missing: string[];
@@ -63,12 +63,12 @@ export type CuratorDoctorReport = {
   customized: number;
 };
 
-// Curator artifact adoption is informational, not a health failure — most
-// repos haven't scaffolded the Curator RFC's files and that's not a problem.
-function curatorArtifactReport(repoDir: string): CuratorDoctorReport {
+// Scaffold adoption is informational, not a health failure — plenty of repos
+// never run `factory init` at all, and that is not a problem to report.
+function scaffoldArtifactReport(repoDir: string): ScaffoldDoctorReport {
   const missing: string[] = [];
-  for (const template of CURATOR_TEMPLATES) {
-    const path = curatorArtifactPath(repoDir, template.relativePath);
+  for (const template of SHIPPED_TEMPLATES) {
+    const path = agentsArtifactPath(repoDir, template.relativePath);
     if (!existsSync(path)) {
       missing.push(join(AGENTS_DIR, template.relativePath));
     }
@@ -93,8 +93,8 @@ function curatorArtifactReport(repoDir: string): CuratorDoctorReport {
   }
 
   return {
-    present: CURATOR_TEMPLATES.length - missing.length,
-    total: CURATOR_TEMPLATES.length,
+    present: SHIPPED_TEMPLATES.length - missing.length,
+    total: SHIPPED_TEMPLATES.length,
     missing,
     upToDate,
     tracked,
@@ -132,13 +132,13 @@ export async function runDoctor(
   // doctor only performs read-only schema inspection.
   if (config.values.dbUrl !== undefined) {
     let binding: BindingDoctorReport | undefined;
-    let curator: CuratorDoctorReport | undefined;
+    let scaffold: ScaffoldDoctorReport | undefined;
     if (repoDir !== undefined) {
       binding = await runBindingDoctor(repoDir, dataDir);
       if (binding.present) {
         issues.push(...binding.issues);
       }
-      curator = curatorArtifactReport(repoDir);
+      scaffold = scaffoldArtifactReport(repoDir);
     }
     try {
       const db = await createDb(config.values.dbUrl, config.values.dbToken);
@@ -164,7 +164,7 @@ export async function runDoctor(
         taskCount,
         issues,
         binding,
-        curator,
+        scaffold,
         config,
         dbRemote: config.values.dbUrl,
         lastExport: readLastExport(dataDir),
@@ -183,7 +183,7 @@ export async function runDoctor(
         taskCount: 0,
         issues,
         binding,
-        curator,
+        scaffold,
         config,
         dbRemote: config.values.dbUrl,
         lastExport: readLastExport(dataDir),
@@ -227,13 +227,13 @@ export async function runDoctor(
   const taskCount = tables.includes('tasks') ? await countRows(db, 'tasks') : 0;
 
   let binding: BindingDoctorReport | undefined;
-  let curator: CuratorDoctorReport | undefined;
+  let scaffold: ScaffoldDoctorReport | undefined;
   if (repoDir !== undefined) {
     binding = await runBindingDoctor(repoDir, dataDir);
     if (binding.present) {
       issues.push(...binding.issues);
     }
-    curator = curatorArtifactReport(repoDir);
+    scaffold = scaffoldArtifactReport(repoDir);
   }
 
   return {
@@ -247,7 +247,7 @@ export async function runDoctor(
     taskCount,
     issues,
     binding,
-    curator,
+    scaffold,
     config,
     lastExport: readLastExport(dataDir),
   };
@@ -296,15 +296,15 @@ export function formatDoctorReport(report: DoctorReport): string {
       );
     }
   }
-  if (report.curator !== undefined) {
+  if (report.scaffold !== undefined) {
     lines.push(
-      `curator: ${String(report.curator.present)}/${String(report.curator.total)} artifacts present`,
+      `skills + hooks: ${String(report.scaffold.present)}/${String(report.scaffold.total)} present`,
     );
-    if (report.curator.missing.length > 0) {
-      lines.push(`curator-missing: ${report.curator.missing.join(', ')}`);
+    if (report.scaffold.missing.length > 0) {
+      lines.push(`skills + hooks missing: ${report.scaffold.missing.join(', ')}`);
     }
-    if (report.curator.tracked > 0) {
-      const { upToDate, tracked, customized } = report.curator;
+    if (report.scaffold.tracked > 0) {
+      const { upToDate, tracked, customized } = report.scaffold;
       const stale = tracked - upToDate - customized;
       let line = `factory: ${String(upToDate)}/${String(tracked)} policy files up to date`;
       if (stale > 0) {

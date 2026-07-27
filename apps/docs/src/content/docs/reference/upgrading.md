@@ -51,7 +51,7 @@ Then start a **new** agent session so MCP tools and the skill reload.
 
 ### Sync the factory policy
 
-`connect` and `factory init` regenerate the *generated* files (the sentinel block, adapters, `skill.md`), but the **authored** factory policy — `.agents/factory/{factory,execution,protocol,lanes,routing}.md` (and the optional companions `slicing` / `brief` / `heartbeat`) plus curator skills under `.agents/skills/curator-*/` — is created once and never overwritten, so your edits survive. That also means shipped improvements to those files don't reach an existing repo automatically. `plandesk factory sync` closes that gap without clobbering your edits:
+`connect` and `factory init` regenerate the *generated* files (the sentinel block, adapters, `skill.md`), but the **authored** factory policy — `.agents/factory/{factory,execution,protocol,lanes,routing}.md` (and the optional companions `slicing` / `brief` / `heartbeat`) plus the skills under `.agents/skills/plandesk-*/` — is created once and never overwritten, so your edits survive. That also means shipped improvements to those files don't reach an existing repo automatically. `plandesk factory sync` closes that gap without clobbering your edits:
 
 ```bash
 plandesk factory sync            # dry-run: show what's stale vs. the shipped version
@@ -210,7 +210,7 @@ Hardening across the beta line: Cloudflare Workers deploy fixes (beta.2); R2 fil
 
 ### 0.20.0
 
-Share links in the UI (task/document **Share** action, 24h/7d/never TTL); `plandesk factory sync` to update scaffolded factory/curator policy without clobbering edits.
+Share links in the UI (task/document **Share** action, 24h/7d/never TTL); `plandesk factory sync` to update scaffolded factory policy and skills without clobbering edits.
 
 ### 0.11.x
 

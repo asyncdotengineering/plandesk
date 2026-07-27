@@ -16,7 +16,7 @@ import {
   insertSentinelBlock,
   isPidAlive,
   isServingExpectedBoard,
-  mergeCuratorHooksJson,
+  mergeHooksJson,
   mergeMcpJson,
   parseConfigJson,
   readServerInfo,
@@ -387,7 +387,7 @@ describe('connect artifacts', () => {
     expect(buildSkillMarkdown()).toBe(`${PLANDESK_SKILL_TEMPLATE}\n`);
   });
 
-  describe('mergeCuratorHooksJson', () => {
+  describe('mergeHooksJson', () => {
     const snippet = JSON.stringify({
       hooks: {
         SessionStart: [
@@ -440,7 +440,7 @@ describe('connect artifacts', () => {
     });
 
     it('creates the hooks block when settings.json is absent', () => {
-      const merged = mergeCuratorHooksJson(undefined, snippet);
+      const merged = mergeHooksJson(undefined, snippet);
       const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
       expect(parsed.hooks.SessionStart).toHaveLength(1);
       expect(parsed.hooks.Stop).toHaveLength(1);
@@ -450,7 +450,7 @@ describe('connect artifacts', () => {
       const existing = JSON.stringify({
         hooks: { PostToolUse: [{ hooks: [{ type: 'command', command: 'echo other' }] }] },
       });
-      const merged = mergeCuratorHooksJson(existing, snippet);
+      const merged = mergeHooksJson(existing, snippet);
       const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
       expect(parsed.hooks.PostToolUse).toEqual([
         { hooks: [{ type: 'command', command: 'echo other' }] },
@@ -460,8 +460,8 @@ describe('connect artifacts', () => {
     });
 
     it('is idempotent — merging the same snippet twice does not duplicate entries', () => {
-      const once = mergeCuratorHooksJson(undefined, snippet);
-      const twice = mergeCuratorHooksJson(once, snippet);
+      const once = mergeHooksJson(undefined, snippet);
+      const twice = mergeHooksJson(once, snippet);
       expect(twice).toBe(once);
       const parsed = JSON.parse(twice) as { hooks: Record<string, unknown[]> };
       expect(parsed.hooks.SessionStart).toHaveLength(1);
@@ -472,7 +472,7 @@ describe('connect artifacts', () => {
       const existing = JSON.stringify({
         hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'echo mine' }] }] },
       });
-      const merged = mergeCuratorHooksJson(existing, snippet);
+      const merged = mergeHooksJson(existing, snippet);
       const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
       expect(parsed.hooks.SessionStart).toHaveLength(2);
       expect(JSON.stringify(parsed.hooks.SessionStart)).toContain('echo mine');
@@ -519,9 +519,9 @@ describe('connect artifacts', () => {
           ],
         },
       });
-      const once = mergeCuratorHooksJson(undefined, priorSnippet);
-      const twice = mergeCuratorHooksJson(once, taggedSnippet);
-      const thrice = mergeCuratorHooksJson(twice, taggedSnippet);
+      const once = mergeHooksJson(undefined, priorSnippet);
+      const twice = mergeHooksJson(once, taggedSnippet);
+      const thrice = mergeHooksJson(twice, taggedSnippet);
       expect(thrice).toBe(twice);
       const parsed = JSON.parse(thrice) as { hooks: Record<string, unknown[]> };
       for (const event of ['SessionStart', 'Stop', 'PreCompact'] as const) {
@@ -574,7 +574,7 @@ describe('connect artifacts', () => {
           ],
         },
       });
-      const merged = mergeCuratorHooksJson(legacy, taggedSnippet);
+      const merged = mergeHooksJson(legacy, taggedSnippet);
       const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
       for (const event of ['SessionStart', 'Stop', 'PreCompact'] as const) {
         const hooks = parsed.hooks[event];
@@ -609,7 +609,7 @@ describe('connect artifacts', () => {
           ],
         },
       });
-      const merged = mergeCuratorHooksJson(existing, taggedSnippet);
+      const merged = mergeHooksJson(existing, taggedSnippet);
       const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
       expect(parsed.hooks.SessionStart).toHaveLength(2);
       expect(JSON.stringify(parsed.hooks.SessionStart)).toContain('echo mine');
@@ -632,7 +632,7 @@ describe('connect artifacts', () => {
           Notification: [{ hooks: [{ type: 'command', command: 'echo notify' }] }],
         },
       });
-      const merged = mergeCuratorHooksJson(existing, taggedSnippet);
+      const merged = mergeHooksJson(existing, taggedSnippet);
       const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
       expect(parsed.hooks.PostToolUse).toEqual(userOnly);
       expect(parsed.hooks.Notification).toEqual([

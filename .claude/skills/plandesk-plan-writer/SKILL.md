@@ -1,0 +1,1 @@
+../../../.agents/skills/plandesk-plan-writer/SKILL.md

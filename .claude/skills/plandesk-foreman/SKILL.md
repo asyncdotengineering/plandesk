@@ -1,0 +1,1 @@
+../../../.agents/skills/plandesk-foreman/SKILL.md

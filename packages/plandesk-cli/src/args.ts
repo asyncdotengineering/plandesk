@@ -739,11 +739,11 @@ THE CORE LOOP  (you + your agent)
   Steer by commenting on docs; the agent reads and resolves them. All live.
 
 RUN IT WITH YOUR AGENT  (optional — delegated, lane-gated execution)
-  plandesk factory init                      # scaffold .agents/factory + curator skills
+  plandesk factory init                      # scaffold .agents/factory + the plandesk-* skills
   plandesk onboard                           # teach-me: how to work in a Plan Desk + Factory repo
   Your agent then runs the board unattended: pull get_next_task → dispatch a worker CLI →
-  verify → done, gated by risk lanes. Curator skills triage raw signal into tasks and
-  scaffold plans onto the board. Read .agents/index.md after init.
+  verify → done, gated by risk lanes. The plandesk-* skills turn raw signal or an idea into
+  tasks, groom them into build contracts, and run the board. Read .agents/index.md after init.
 
 SHARE WITH YOUR TEAM  (optional)
   plandesk deploy cloudflare | claude        # agent stands up your sync server

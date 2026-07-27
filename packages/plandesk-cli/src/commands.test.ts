@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs, workspaceDbPath } from './args.js';
 import { main } from './cli.js';
 import { buildConfigJson } from './connect-artifacts.js';
-import { CURATOR_TEMPLATES } from './curator-templates.js';
+import { SHIPPED_TEMPLATES } from './shipped-templates.js';
 import { SERVER_CONFIG_FILENAME } from './config.js';
 import { readStringCell } from './database-schema.js';
 import { runFactoryInit } from './factory.js';
@@ -330,7 +330,7 @@ describe('CLI export/import/doctor', () => {
     expect(stdout).not.toContain('last export: never');
   });
 
-  it('reports missing curator artifacts via doctor --repo', async () => {
+  it('reports missing scaffold artifacts via doctor --repo', async () => {
     const dataDir = await makeWorkspace();
     const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-doctor-repo-'));
     tempDirs.push(repoDir);
@@ -340,12 +340,12 @@ describe('CLI export/import/doctor', () => {
     );
 
     expect(code).toBe(0);
-    expect(stdout).toContain(`curator: 0/${String(CURATOR_TEMPLATES.length)} artifacts present`);
-    expect(stdout).toContain('curator-missing:');
-    expect(stdout).toContain('.agents/skills/curator-triage/SKILL.md');
+    expect(stdout).toContain(`skills + hooks: 0/${String(SHIPPED_TEMPLATES.length)} present`);
+    expect(stdout).toContain('skills + hooks missing:');
+    expect(stdout).toContain('.agents/skills/plandesk-scope-work/SKILL.md');
   });
 
-  it('reports all curator artifacts present via doctor --repo after factory init', async () => {
+  it('reports all scaffold artifacts present via doctor --repo after factory init', async () => {
     const dataDir = await makeWorkspace();
     const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-doctor-repo-'));
     tempDirs.push(repoDir);
@@ -357,9 +357,9 @@ describe('CLI export/import/doctor', () => {
 
     expect(code).toBe(0);
     expect(stdout).toContain(
-      `curator: ${String(CURATOR_TEMPLATES.length)}/${String(CURATOR_TEMPLATES.length)} artifacts present`,
+      `skills + hooks: ${String(SHIPPED_TEMPLATES.length)}/${String(SHIPPED_TEMPLATES.length)} present`,
     );
-    expect(stdout).not.toContain('curator-missing:');
+    expect(stdout).not.toContain('skills + hooks missing:');
   });
 
   it('warns on board divergence when the bound server serves a different board than doctor resolved (#34, A5)', async () => {

@@ -1,1 +1,0 @@
-../../../.agents/skills/curator-provenance/SKILL.md

@@ -1,1 +1,0 @@
-../../../.agents/skills/curator-autonomy/SKILL.md

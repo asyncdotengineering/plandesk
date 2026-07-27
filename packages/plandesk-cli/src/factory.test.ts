@@ -20,10 +20,10 @@ import {
 } from './connect-artifacts.js';
 import {
   SHIPPED_SKILL_NAMES,
-  CURATOR_TEMPLATES,
-  curatorArtifactPath,
-  curatorSkillSymlinkTarget,
-} from './curator-templates.js';
+  SHIPPED_TEMPLATES,
+  agentsArtifactPath,
+  skillSymlinkTarget,
+} from './shipped-templates.js';
 import {
   WORKER_NAMES,
   buildAgentsIndexMarkdown,
@@ -178,11 +178,11 @@ describe('runFactoryInit', () => {
     expect(() => runFactoryInit({ repoDir: globalClaude, homeDir: home })).toThrow(FactoryError);
     expect(existsSync(join(globalClaude, '.agents'))).toBe(false);
     // The guard is all-or-nothing (it throws before buildFactoryArtifacts is
-    // ever called), so proving it covers the curator surface is proving these
+    // ever called), so proving it covers the scaffold surface is proving these
     // never get written either — not a per-file check.
-    for (const template of CURATOR_TEMPLATES) {
+    for (const template of SHIPPED_TEMPLATES) {
       expect(
-        existsSync(curatorArtifactPath(globalClaude, template.relativePath)),
+        existsSync(agentsArtifactPath(globalClaude, template.relativePath)),
         template.relativePath,
       ).toBe(false);
     }
@@ -191,10 +191,10 @@ describe('runFactoryInit', () => {
     const forced = runFactoryInit({ repoDir: globalClaude, homeDir: home, force: true });
     expect(forced.artifacts.length).toBeGreaterThan(0);
     expect(existsSync(join(globalClaude, '.agents/factory/factory.md'))).toBe(true);
-    // --force lifts the guard for the whole scaffold, curator artifacts included.
-    for (const template of CURATOR_TEMPLATES) {
+    // --force lifts the guard for the whole scaffold, shipped artifacts included.
+    for (const template of SHIPPED_TEMPLATES) {
       expect(
-        existsSync(curatorArtifactPath(globalClaude, template.relativePath)),
+        existsSync(agentsArtifactPath(globalClaude, template.relativePath)),
         template.relativePath,
       ).toBe(true);
     }
@@ -311,13 +311,13 @@ describe('template invariant', () => {
   });
 });
 
-describe('curator artifacts (F5)', () => {
-  it('scaffolds all 10 curator artifacts create-if-missing, with hook scripts executable', () => {
+describe('scaffold artifacts (F5)', () => {
+  it('scaffolds all 10 shipped artifacts create-if-missing, with hook scripts executable', () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo });
 
-    for (const template of CURATOR_TEMPLATES) {
-      const path = curatorArtifactPath(repo, template.relativePath);
+    for (const template of SHIPPED_TEMPLATES) {
+      const path = agentsArtifactPath(repo, template.relativePath);
       expect(existsSync(path), template.relativePath).toBe(true);
       expect(readFileSync(path, 'utf8'), template.relativePath).toBe(template.content);
       const artifact = result.artifacts.find((a) => a.path === path);
@@ -328,16 +328,16 @@ describe('curator artifacts (F5)', () => {
       }
     }
 
-    const triage = readFileSync(join(repo, '.agents/skills/curator-triage/SKILL.md'), 'utf8');
-    expect(triage.startsWith('---\nname: curator-triage\ndescription: ')).toBe(true);
+    const triage = readFileSync(join(repo, '.agents/skills/plandesk-scope-work/SKILL.md'), 'utf8');
+    expect(triage.startsWith('---\nname: plandesk-scope-work\ndescription: ')).toBe(true);
     expect(triage).not.toContain('type: curator-skill');
   });
 
-  it('never overwrites a curator artifact the user edited, on re-run', () => {
+  it('never overwrites a shipped artifact the user edited, on re-run', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
 
-    const triagePath = join(repo, '.agents/skills/curator-triage/SKILL.md');
+    const triagePath = join(repo, '.agents/skills/plandesk-scope-work/SKILL.md');
     writeFileSync(triagePath, 'my edited triage skill\n', 'utf8');
 
     const rerun = runFactoryInit({ repoDir: repo });
@@ -346,13 +346,13 @@ describe('curator artifacts (F5)', () => {
     expect(triageArtifact?.action).toBe('skip');
   });
 
-  it('--print previews all 10 curator artifacts and the settings.json merge', () => {
+  it('--print previews all 10 shipped artifacts and the settings.json merge', () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo, print: true });
-    expect(existsSync(join(repo, '.agents/skills/curator-triage'))).toBe(false);
+    expect(existsSync(join(repo, '.agents/skills/plandesk-scope-work'))).toBe(false);
 
     const printout = formatFactoryInitPrint(result);
-    for (const template of CURATOR_TEMPLATES) {
+    for (const template of SHIPPED_TEMPLATES) {
       expect(printout, template.relativePath).toContain(template.relativePath);
     }
     expect(printout).toContain(join(repo, '.claude/settings.json'));
@@ -367,7 +367,7 @@ describe('curator artifacts (F5)', () => {
       const adapterPath = join(repo, '.claude/skills', name, 'SKILL.md');
       expect(existsSync(adapterPath), name).toBe(true);
       expect(lstatSync(adapterPath).isSymbolicLink(), name).toBe(true);
-      expect(readlinkSync(adapterPath), name).toBe(curatorSkillSymlinkTarget(name));
+      expect(readlinkSync(adapterPath), name).toBe(skillSymlinkTarget(name));
       const content = readFileSync(adapterPath, 'utf8');
       expect(content.startsWith(`---\nname: ${name}\ndescription: `)).toBe(true);
       expect(content).not.toContain('type: curator-skill');
@@ -378,19 +378,19 @@ describe('curator artifacts (F5)', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
 
-    const sourcePath = join(repo, '.agents/skills/curator-triage/SKILL.md');
+    const sourcePath = join(repo, '.agents/skills/plandesk-scope-work/SKILL.md');
     writeFileSync(sourcePath, `${readFileSync(sourcePath, 'utf8')}\n\nEDITED MARKER.\n`, 'utf8');
     runFactoryInit({ repoDir: repo });
 
-    const adapterPath = join(repo, '.claude/skills/curator-triage/SKILL.md');
+    const adapterPath = join(repo, '.claude/skills/plandesk-scope-work/SKILL.md');
     expect(lstatSync(adapterPath).isSymbolicLink()).toBe(true);
     const adapter = readFileSync(adapterPath, 'utf8');
     expect(adapter).toContain('EDITED MARKER.');
-    expect(adapter.startsWith('---\nname: curator-triage\ndescription: ')).toBe(true);
+    expect(adapter.startsWith('---\nname: plandesk-scope-work\ndescription: ')).toBe(true);
   });
 });
 
-describe('curator hooks settings.json merge (F1 wiring)', () => {
+describe('board-as-memory hooks settings.json merge (F1 wiring)', () => {
   it('creates .claude/settings.json with the SessionStart/Stop/PreCompact hooks when absent', () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo });
@@ -446,13 +446,13 @@ describe('curator hooks settings.json merge (F1 wiring)', () => {
     expect(settings.hooks.PostToolUse).toEqual([
       { hooks: [{ type: 'command', command: 'echo my-hook' }] },
     ]);
-    // Curator hooks added.
+    // Board-as-memory hooks added.
     expect(settings.hooks.SessionStart).toHaveLength(1);
     expect(settings.hooks.Stop).toHaveLength(1);
     expect(settings.hooks.PreCompact).toHaveLength(1);
   });
 
-  it('is idempotent — running factory init twice does not duplicate curator hook entries', () => {
+  it('is idempotent — running factory init twice does not duplicate hook entries', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
     const settingsPath = join(repo, '.claude/settings.json');
@@ -471,7 +471,7 @@ describe('curator hooks settings.json merge (F1 wiring)', () => {
     expect(settings.hooks.PreCompact).toHaveLength(1);
   });
 
-  it('preserves a user-added SessionStart hook alongside the curator one on rerun', () => {
+  it('preserves a user-added SessionStart hook alongside the Plan Desk one on rerun', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });
     const settingsPath = join(repo, '.claude/settings.json');
@@ -509,17 +509,17 @@ describe('factory sync', () => {
 
   // A skill shipped after a repo was initialised used to land in .agents/skills/
   // and stay invisible: Claude Code reads .claude/skills/, and only `init` wrote
-  // those links. Eight real repos had factory-foreman present and committed, and
+  // those links. Eight real repos had plandesk-foreman present and committed, and
   // not one of them could invoke it.
   it('links a newly shipped skill so the agent can actually reach it', () => {
     const repo = makeTempDir('plandesk-sync-');
     runFactoryInit({ repoDir: repo });
 
     // Simulate a repo initialised before this skill existed.
-    const canonical = join(repo, '.agents/skills/factory-foreman/SKILL.md');
-    const adapter = join(repo, '.claude/skills/factory-foreman/SKILL.md');
-    rmSync(join(repo, '.agents/skills/factory-foreman'), { recursive: true, force: true });
-    rmSync(join(repo, '.claude/skills/factory-foreman'), { recursive: true, force: true });
+    const canonical = join(repo, '.agents/skills/plandesk-foreman/SKILL.md');
+    const adapter = join(repo, '.claude/skills/plandesk-foreman/SKILL.md');
+    rmSync(join(repo, '.agents/skills/plandesk-foreman'), { recursive: true, force: true });
+    rmSync(join(repo, '.claude/skills/plandesk-foreman'), { recursive: true, force: true });
     expect(existsSync(canonical)).toBe(false);
     expect(existsSync(adapter)).toBe(false);
 
@@ -527,7 +527,7 @@ describe('factory sync', () => {
 
     expect(existsSync(canonical)).toBe(true);
     expect(existsSync(adapter)).toBe(true);
-    expect(result.linked).toContain('.claude/skills/factory-foreman/SKILL.md');
+    expect(result.linked).toContain('.claude/skills/plandesk-foreman/SKILL.md');
   });
 
   it('recreates a deleted authored file (create), and dry-run leaves it missing', () => {
@@ -668,7 +668,7 @@ describe('classifyAgentsPath', () => {
     expect(classifyAgentsPath('.agents/factory/hooks/session-start.sh')).toBe('owned');
     expect(classifyAgentsPath('.agents/factory/workers/claude.md')).toBe('owned');
     expect(classifyAgentsPath('.agents/.plandesk-sync.json')).toBe('owned');
-    expect(classifyAgentsPath('.agents/skills/curator-triage/SKILL.md')).toBe('shared_namespace');
+    expect(classifyAgentsPath('.agents/skills/plandesk-scope-work/SKILL.md')).toBe('shared_namespace');
     expect(classifyAgentsPath('.agents/skills/other-tool/SKILL.md')).toBe('shared_namespace');
     expect(classifyAgentsPath('.agents/index.md')).toBe('shared_file');
     expect(classifyAgentsPath('.agents/other.md')).toBe('foreign');

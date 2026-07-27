@@ -15,7 +15,7 @@ decision-maker.
 The verification bar lives in [protocol.md](protocol.md) — exit codes are
 authoritative, no done without proof, root-cause fixes. This file adds only
 what protocol does not: the delivery flip and the operating spine. Board
-authority (who may release or approve) lives in the curator autonomy skill,
+authority (who may release or approve) lives in the plandesk-autonomy skill,
 not here.
 
 ## Role
