@@ -4,6 +4,49 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-07-27
+
+Only `@plandesk/cli` changed; the other three republish unchanged to stay aligned.
+
+### Changed
+
+- **The shipped skills are now one family: `plandesk-*`.** `factory-foreman` → `plandesk-foreman`, `curator-plan-writer` → `plandesk-plan-writer`, `curator-autonomy` → `plandesk-autonomy`, and `curator-triage` + `curator-intake` merge into **`plandesk-scope-work`**. Triage and intake were two entry shapes of one verb — a pile of items that already exist, or one idea that needs breaking down — and splitting them forced the caller to pick before knowing which they had. One skill, two modes, one set of drafting rules.
+
+  Two prefixes meant every request began with a routing decision, and a wrong route is expensive: a real session reached for `curator-plan-writer` with 29 items, got a correct refusal (27 of 29 were below the RFC threshold), and fell through to bare `create_task` — outside every readiness bar the project keeps. Both refusal paths now hand off explicitly instead.
+
+- **`doctor` reports `skills + hooks: N/N present`** where it said `curator: N/N artifacts present`. The count includes the four hook files, so the old label was doubly wrong once no skill was named curator.
+
+### Added
+
+- **`plandesk-groom-task`** — grooms one thin task, or a bare one-line requirement with no card yet, into a build contract **in place**. This was the hole: `plan-writer` needs an RFC-worthy change, `scope-work` drafts only at creation time from whatever the source carried, and the foreman grooms only as a prelude to dispatch. A one-liner dropped on the board mid-week had no entry point at all.
+
+  It also owns the **Definition of Ready**, which had forked four ways — a 3-item rubric in `.plandesk/skill.md`, a 6-item one in the shipped template, a third inside triage, and prose inside the foreman. `scope-work` and `plandesk-foreman` now link it instead of restating it. `.plandesk/skill.md` keeps the *shape* of a description; groom-task owns the *verdict* on whether it is good enough yet.
+
+- **`plandesk-timebox`** — pomodoro pacing over a work list you define, chainable onto another skill (`/plandesk-timebox 25m /plandesk-foreman next`). The interval is a checkpoint cadence, never a kill signal: an expiring box lets the in-flight item finish, verify and commit before reporting. A box that cuts through a dispatch strands work in the one state no report can honestly describe.
+
+- **`plandesk-autonomy` is now invocable and chainable** — `/plandesk-autonomy /plandesk-foreman all todo`. It grants pace, not permission: a wrapped skill's lane gates and boundaries bind unchanged.
+
+### Removed
+
+- **`curator-provenance`** — the `{ sources, reason }` convention now lives inside `plandesk-scope-work`. A skill defining a two-field shape did not earn its own entry.
+- **`curator-automation`**.
+
+### Fixed
+
+- **`.plandesk/skill.md` was 22 lines behind the shipped template** — the repo's own copy carried the 3-item task rubric while consumers received the 6-item build contract. It is regenerated from `buildSkillMarkdown()` and byte-identical to what `connect` writes.
+- Docs described a `.agents/curator/` layout that has not existed for some time — the skills location, the hook paths, and the setup checklist in `start.md` all pointed somewhere real users would have found empty.
+
+### Upgrading
+
+`plandesk factory sync --write` adds the new skills but **will not remove the old ones**: everything under `.agents/skills/` is a shared namespace, so prune deliberately never deletes there (that is what protects skills installed with `npx skills add`). After syncing, delete the superseded directories and their `.claude/skills/` links by hand:
+
+```bash
+rm -rf .agents/skills/{curator-triage,curator-intake,curator-provenance,curator-automation,curator-autonomy,curator-plan-writer,factory-foreman}
+rm -rf .claude/skills/{curator-triage,curator-intake,curator-provenance,curator-automation,curator-autonomy,curator-plan-writer,factory-foreman}
+```
+
+Leaving them costs more than clutter: the stale `curator-triage` and the new `plandesk-scope-work` both trigger on "triage the backlog", and two skills answering one request is how a plan drifts.
+
 ## [2.2.1] — 2026-07-27
 
 Only `@plandesk/cli` changed; the other three republish unchanged to stay aligned.
