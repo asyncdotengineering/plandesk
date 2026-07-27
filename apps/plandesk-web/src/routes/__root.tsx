@@ -5,7 +5,7 @@ import { CommandMenu, CommandMenuProvider } from '../components/layout/CommandMe
 import { Sidebar } from '../components/layout/Sidebar.js';
 import { Toaster } from '@/components/ui/sonner';
 import { useActiveWorkspace } from '../lib/auth.js';
-import { useProject } from '../lib/queries.js';
+import { useDocument, useNote, useProject } from '../lib/queries.js';
 
 const VIEW_LABELS: Record<string, string> = {
   overview: 'Overview',
@@ -16,6 +16,28 @@ const VIEW_LABELS: Record<string, string> = {
   inbox: 'Inbox',
   documents: 'Documents',
 };
+
+/**
+ * The record open under a list view, when the path names one —
+ * `/projects/:id/documents/:docId` → `{ kind: 'documents', recordId }`.
+ *
+ * Without this the trail stops at "Documents" on a document page, so the deepest
+ * crumb names the list you are not looking at and the open record appears
+ * nowhere. The detail pages compensated with a lone back arrow, which loses the
+ * path above it.
+ */
+export function detailFromPath(pathname: string): { kind: 'documents' | 'notes'; recordId: string } | null {
+  const segments = pathname.split('/').filter((segment) => segment.length > 0);
+  if (segments[0] !== 'projects' || segments.length < 4) {
+    return null;
+  }
+  const kind = segments[2];
+  const recordId = segments[3];
+  if (recordId === undefined || (kind !== 'documents' && kind !== 'notes')) {
+    return null;
+  }
+  return { kind, recordId };
+}
 
 function viewLabelFromPath(pathname: string): string | null {
   const segments = pathname.split('/').filter((segment) => segment.length > 0);
@@ -54,7 +76,37 @@ function WorkspaceCrumb() {
   );
 }
 
-function ProjectCrumb({ id, viewLabel }: { id: string; viewLabel: string | null }) {
+function LeafCrumb({ title }: { title: string | undefined }) {
+  return (
+    <>
+      <ChevronRight />
+      <b>{title ?? '…'}</b>
+    </>
+  );
+}
+
+// Split per kind so only the relevant query runs. These hooks are unguarded, so
+// calling both with one id blanked would put a live-polling request on an empty
+// path.
+function DocumentCrumb({ recordId }: { recordId: string }) {
+  const { data } = useDocument(recordId);
+  return <LeafCrumb title={data?.title} />;
+}
+
+function NoteCrumb({ recordId }: { recordId: string }) {
+  const { data } = useNote(recordId);
+  return <LeafCrumb title={data?.title} />;
+}
+
+function ProjectCrumb({
+  id,
+  viewLabel,
+  detail,
+}: {
+  id: string;
+  viewLabel: string | null;
+  detail: { kind: 'documents' | 'notes'; recordId: string } | null;
+}) {
   const { data: project } = useProject(id);
   const name = project?.name ?? '…';
   return (
@@ -70,9 +122,25 @@ function ProjectCrumb({ id, viewLabel }: { id: string; viewLabel: string | null 
       {viewLabel !== null ? (
         <>
           <ChevronRight />
-          <b>{viewLabel}</b>
+          {/* With a record open the view is no longer the leaf — make it the way back. */}
+          {detail === null ? (
+            <b>{viewLabel}</b>
+          ) : detail.kind === 'documents' ? (
+            <Link to="/projects/$id/documents" params={{ id }}>
+              {viewLabel}
+            </Link>
+          ) : (
+            <Link to="/projects/$id/notes" params={{ id }}>
+              {viewLabel}
+            </Link>
+          )}
         </>
       ) : null}
+      {detail === null ? null : detail.kind === 'documents' ? (
+        <DocumentCrumb recordId={detail.recordId} />
+      ) : (
+        <NoteCrumb recordId={detail.recordId} />
+      )}
     </>
   );
 }
@@ -81,12 +149,13 @@ function Crumb() {
   const params = useParams({ strict: false });
   const location = useLocation();
   const viewLabel = viewLabelFromPath(location.pathname);
+  const detail = detailFromPath(location.pathname);
   const id = params.id;
   return (
     <>
       <WorkspaceCrumb />
       {id !== undefined ? (
-        <ProjectCrumb id={id} viewLabel={viewLabel} />
+        <ProjectCrumb id={id} viewLabel={viewLabel} detail={detail} />
       ) : viewLabel !== null ? (
         <>
           <ChevronRight />
