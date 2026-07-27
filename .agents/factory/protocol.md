@@ -117,11 +117,20 @@ Model output is metadata.
   and unstaged work is defenceless for all of them. This is not bookkeeping; it
   is the cheapest real protection available:
 
-  | State when a worker runs `git checkout -- <file>` | Outcome |
-  | --- | --- |
-  | unstaged | work **destroyed** |
-  | **staged** | work **survives** — git restores from the index |
-  | committed | survives `git checkout HEAD -- <file>` too |
+  | State of your work | Survives `git checkout` | Survives `git reset --hard` |
+  | --- | --- | --- |
+  | unstaged | **no** | **no** |
+  | staged | yes — restored from the index | **no** |
+  | committed | yes | **no** — reachable only via reflog |
+  | **pushed** | yes | **yes** — the remote is the only copy a worker cannot reach |
+
+  **Push, do not merely commit.** A brief that forbids `git reset` does not
+  prevent one; nothing enforces the instruction, and a worker that decides to
+  tidy history will take your commits with it. Observed: a worker ran
+  `git reset` back past two of the supervisor's commits — a release and a gate
+  repair — then committed its own work on top. Both commits survived only
+  because they had been pushed, and recovery was `git reset --hard origin/main`.
+  Had they been local, the reflog would have been the only route back.
 
   A real incident hinged on exactly this: a worker undid its own broken codemod
   with `git checkout -- <testfiles>`, which also erased an earlier dispatch's

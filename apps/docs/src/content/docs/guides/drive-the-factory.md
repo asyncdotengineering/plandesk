@@ -19,19 +19,23 @@ Everything moves work through the board. Three roles act on it:
 
 The Curator plans, the Factory builds, you decide. `plandesk factory init` scaffolds both, plus the hooks that keep the board in sync across sessions.
 
-## The Curator skills
+## The skills
 
-Skills load automatically when your words match their description. You can also name one explicitly ("use the intake skill to…"). These ship with `factory init`:
+`factory init` installs these into `.agents/skills/` and symlinks them for your agent. Each one fires either when your words match its description, or when you invoke it directly as a slash command.
 
-| Skill | Say this | It produces |
-| --- | --- | --- |
-| **plan-writer** | "write an RFC / design doc for X", "spec this before we build" | a `Design:` document — a build contract: problem, requirements, design, alternatives, verification surface |
-| **intake** | "plan X into Plan Desk", "scaffold a project from this", "turn this into tasks" | the board itself — tasks + dependency edges + a Design doc, in one `scaffold_project_from_plan` call |
-| **triage** | "triage the backlog", "sort this brain-dump into tasks", "groom the submissions" | deduped `scope` tasks, each with recorded provenance |
-| **autonomy** | "run the board unattended", "work the board autonomously" | the lane-gated autonomous execution loop |
-| **provenance / automation** | (mostly automatic) "why does this task exist", "run triage on a schedule" | evidence records / scheduled, event-driven triage |
+Two families: **`curator-*` plans, `factory-*` executes.**
 
-They form a pipeline: **plan-writer** (write the RFC) → **intake** (RFC → board) → *you release* → **factory** (execute). You rarely need all of it — for a clear idea, go straight to intake.
+| Skill | Invoke | Or just say | It produces |
+| --- | --- | --- | --- |
+| **curator-plan-writer** | `/curator-plan-writer <feature>` | "write an RFC for X", "spec this before we build" | a `Design:` document — a build contract: problem, requirements, design, alternatives, verification surface |
+| **curator-intake** | `/curator-intake <idea or RFC>` | "plan X into Plan Desk", "turn this into tasks" | the board itself — tasks + dependency edges + a Design doc, in one `scaffold_project_from_plan` call |
+| **curator-triage** | `/curator-triage backlog` | "triage the backlog", "sort this brain-dump into tasks" | deduped `scope` tasks, each with recorded provenance |
+| **curator-automation** | `/curator-automation schedule` | "run triage on a schedule" | cadence + board-event triggers for unattended triage |
+| **factory-foreman** | `/factory-foreman all todo` | "work the board", "ship the next task" | committed work — the execution half |
+
+`curator-autonomy` and `curator-provenance` ship too but have no slash command on purpose: they are conventions the others cite ("why does this task exist", the lane-gated autonomy posture), not things you run.
+
+The pipeline: **curator-plan-writer** (write the RFC) → **curator-intake** (RFC → board) → *you release `scope` → `todo`* → **factory-foreman** (build it). You rarely need all of it — for a clear idea, go straight to intake.
 
 ## How to prompt effectively
 
@@ -53,13 +57,24 @@ The factory's posture is already loaded from `CLAUDE.md`, so you don't re-explai
 
 ## Running the execution loop
 
-Per work item the agent runs one cycle — **pull → read spec → red gate → act → prove → observe the diff → lane gate → done, one commit** — then pulls the next. You choose how much runs unattended:
+`/factory-foreman` runs the loop. Give it a scope and it takes board work to committed:
+
+```bash
+/factory-foreman <task-id>      # one item
+/factory-foreman next           # whatever get_next_task returns
+/factory-foreman all todo       # the whole unblocked frontier
+/factory-foreman next --to pi   # pin the worker instead of routing
+```
+
+Per work item it runs one cycle — **preflight → read spec → groom → red gate → dispatch → stage → verify → commit → review → lane gate** — then takes the next. It grooms inline and only dispatches implementation: grooming is judgment about what you actually meant, and handing that to a worker is how a plan drifts.
+
+You choose how much runs unattended:
 
 | Mode | How | When |
 | --- | --- | --- |
-| **Manual** | release one task, direct it, review, repeat | a new or untrusted repo, or live production |
-| **Released-batch** | release a small `scope → todo` batch, let it loop, gated by lanes | the default sweet spot |
-| **Full autonomous** | "work the board autonomously" (the autonomy skill) | a trusted repo with tight lanes |
+| **Manual** | release one task, `/factory-foreman <task-id>`, review, repeat | a new or untrusted repo, or live production |
+| **Released-batch** | release a small `scope → todo` batch, then `/factory-foreman all todo` | the default sweet spot |
+| **Full autonomous** | wide release plus tight lanes, on a schedule | a trusted repo where the lanes carry the safety |
 
 Two levers are yours: the **`scope → todo` release** (what is allowed to start) and the **lanes** (what needs your sign-off). Tighten the lanes and wider autonomy becomes safe.
 
@@ -98,13 +113,14 @@ The pairing is the whole game: **tight lanes + small releases** on day one; wide
 
 ## Cheat-sheet
 
-| To… | Prompt with… |
+| To… | Run… |
 | --- | --- |
-| Think before building | "write an RFC for X" (plan-writer) |
-| Put a plan on the board | "scaffold X into Plan Desk, scope only" (intake) |
-| Clean up a messy backlog | "triage these into tasks" (triage) |
-| Start execution | release `scope → todo`, then "work the released tasks" |
+| Think before building | `/curator-plan-writer <feature>` |
+| Put a plan on the board | `/curator-intake <idea or RFC>` — add "scope only" to hold the release |
+| Clean up a messy backlog | `/curator-triage backlog` |
+| Start execution | release `scope → todo`, then `/factory-foreman all todo` |
+| Ship one specific task | `/factory-foreman <task-id>` |
 | Keep control on production | tighten `lanes.md`, release small batches |
 | Redirect mid-flight | comment on the task or doc (not a re-prompt) |
 
-The meta-skill: **you plan through the Curator, gate through lanes and releases, and steer through comments — the Factory does the typing.** Your words set scope and safety; the board carries the rest.
+The meta-skill: **you plan through the Curator, gate through lanes and releases, and steer through comments — the Foreman and its workers do the typing.** Your words set scope and safety; the board carries the rest.
