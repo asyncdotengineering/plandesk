@@ -4,6 +4,22 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.3.2] — 2026-07-28
+
+### Changed
+
+- **`workmanship.md` is 133 lines shorter by 58%** — the same nine sections, restated as thirteen numbered rules with a one-clause rationale each. It is pasted into every implementation brief, so its length is paid on every dispatch, by a worker that is often a cheaper model than the supervisor. Rules that survive skimming beat rules that read well.
+
+- **`protocol.md` leads with the result contract.** It was under a `## Result (worker side)` heading two thirds of the way down; the JSON shape, and the three ways a result is invalid, now open the file with an instruction to reproduce them verbatim in the brief.
+
+  This targets an observed failure rather than a hypothetical one: of 24 briefs in `runs/`, one result was written as `status: "passed"` with zero claims — not a valid status, and invalid twice over — which looks successful in a directory listing and proves nothing. The rest of the file was deliberately **not** compressed: almost every paragraph is an incident record ("a worker added `noCheck: true`… `pnpm build` then honestly reported 0 errors while hiding 334"), and those are what make a rule believable to a model inclined to reason around it.
+
+### Added
+
+- **`npm publish` is now refused in this workspace.** `scripts/assert-pnpm-publish.mjs`, wired as `prepublishOnly` in all four published packages, exits 1 unless the packager is pnpm.
+
+  2.3.0 was published with npm, which leaves `workspace:*` untouched in the packed manifest — three packages shipped uninstallable and the version number was burned, since npm will not let one be reused. Nothing in the repo recorded that pnpm was required; the only place that knowledge lived was in whoever had cut the previous release. Now the tooling enforces it.
+
 ## [2.3.1] — 2026-07-27
 
 ### Fixed

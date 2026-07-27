@@ -1,6 +1,6 @@
 {
   "name": "@plandesk/cli",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "type": "module",
   "exports": {
     ".": {
@@ -22,7 +22,8 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json && node scripts/copy-templates.mjs",
     "test": "vitest run",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "prepublishOnly": "node ../../scripts/assert-pnpm-publish.mjs"
   },
   "devDependencies": {
     "typescript": "^6.0.3",

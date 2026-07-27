@@ -9,6 +9,28 @@ The deterministic contract between the supervising agent (the engine) and any
 worker CLI. There is no SDK binding: the only contract is files in, one JSON
 shape out — any CLI agent that can follow instructions satisfies it.
 
+## The result contract — put this in every brief, verbatim
+
+Everything below is engine-side detail. This is the part the worker must not
+miss, so it goes first here and near the top of the brief:
+
+```json
+{
+  "status": "done | blocked",
+  "claims": [{ "command": "<gate or check actually run>", "exit_code": 0 }],
+  "question": "<only when blocked: what decision or input is needed>"
+}
+```
+
+Written to `runs/result-<task>.json`, before the worker finishes, whatever the
+outcome. Three ways it is invalid, all treated as a failed dispatch:
+
+- **No file.** Absent means unfinished, regardless of what the process reported.
+- **`status: done` with no claims.** A claim is the only evidence that exists.
+- **A status outside `done | blocked`.** Observed: a result written as
+  `status: "passed"` with zero claims — a dispatch that looked successful in
+  the directory listing and proved nothing.
+
 ## Dispatch (engine side)
 
 1. Pick a worker file from [workers/](workers/) whose `probe` exits 0 on this
@@ -46,21 +68,10 @@ common cause of a run that produces code but no verifiable result.
   what the process reported. Say this in the brief in those words — the runs
   that omit the result file are the ones whose brief left it implicit.
 
-## Result (worker side)
-
-The brief instructs the worker to end by writing `runs/result-<task>.json`:
-
-```json
-{
-  "status": "done | blocked",
-  "claims": [{ "command": "<gate or check run>", "exit_code": 0 }],
-  "question": "<only when blocked: what decision or input is needed>"
-}
-```
-
 ## Verification (engine side — deterministic, no model judgment)
 
-- `status: done` with no `claims` is invalid — treat as failed.
+- Reject an invalid result outright (see the result contract above) — no file,
+  no claims, or an unknown status all mean failed, before anything is re-run.
 - **Verify gate integrity BEFORE re-running any claim.** Re-running a command
   proves nothing if the command's configuration moved:
 

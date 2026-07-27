@@ -1,6 +1,6 @@
 {
   "name": "@plandesk/api",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "type": "module",
   "exports": {
     ".": {
@@ -19,7 +19,8 @@
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "test": "vitest run",
     "lint": "eslint src",
-    "prepack": "node -e \"const fs=require('fs');const s='../../apps/plandesk-web/dist';if(fs.existsSync(s)){fs.rmSync('web',{recursive:true,force:true});fs.cpSync(s,'web',{recursive:true});console.log('bundled web SPA')}else{console.warn('web dist missing; published serve will lack UI')}\""
+    "prepack": "node -e \"const fs=require('fs');const s='../../apps/plandesk-web/dist';if(fs.existsSync(s)){fs.rmSync('web',{recursive:true,force:true});fs.cpSync(s,'web',{recursive:true});console.log('bundled web SPA')}else{console.warn('web dist missing; published serve will lack UI')}\"",
+    "prepublishOnly": "node ../../scripts/assert-pnpm-publish.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250609.0",

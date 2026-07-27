@@ -1,6 +1,6 @@
 {
   "name": "@plandesk/db",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "type": "module",
   "exports": {
     ".": {
@@ -28,7 +28,8 @@
     "test": "vitest run",
     "lint": "eslint src",
     "generate": "drizzle-kit generate",
-    "migrate:kit": "drizzle-kit migrate"
+    "migrate:kit": "drizzle-kit migrate",
+    "prepublishOnly": "node ../../scripts/assert-pnpm-publish.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.15.9",
