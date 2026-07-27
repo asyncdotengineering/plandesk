@@ -71,6 +71,21 @@ export const GLOBAL_CONFIG_DIR_NAMES = [
   '.plandesk',
 ] as const;
 
+/**
+ * True when `repoDir` is Plan Desk's own source tree.
+ *
+ * Here `.agents/` is not a scaffold — it is the source that
+ * `scripts/copy-templates.mjs` vendors into `dist/templates`. Scaffolding into
+ * it writes the *output* shape back over the *input*: observed live, a sync run
+ * wrapped `.agents/index.md` in the sentinel markers the CLI is supposed to
+ * insert, so the template then carried its own markers and every consumer got
+ * two. Detection keys on that script because vendoring `.agents/` is its whole
+ * job, which makes its presence definitional rather than incidental.
+ */
+export function isPlandeskSourceRepo(repoDir: string): boolean {
+  return existsSync(join(resolve(repoDir), 'packages', 'plandesk-cli', 'scripts', 'copy-templates.mjs'));
+}
+
 export function globalDirRefusalReason(repoDir: string, home = homedir()): string | undefined {
   const resolved = resolve(repoDir);
   const resolvedHome = resolve(home);

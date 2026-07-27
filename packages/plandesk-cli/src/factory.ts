@@ -12,6 +12,7 @@ import {
 import { dirname, join, relative, resolve } from 'node:path';
 import {
   globalDirRefusalReason,
+  isPlandeskSourceRepo,
   insertAgentsIndexBlock,
   insertFactorySentinelBlock,
   mergeCuratorHooksJson,
@@ -530,6 +531,14 @@ export function runFactorySync(options: FactorySyncOptions): FactorySyncResult {
       `Refusing to sync in ${refusal}: agent config here leaks into every project on this machine.`,
     );
   }
+  if (isPlandeskSourceRepo(repoDir)) {
+    throw new FactoryError(
+      `Refusing to sync in Plan Desk's own source tree: .agents/ here is the source that dist/templates is built from, ` +
+        `not a scaffold. Syncing writes the scaffolded shape back over the template — a run here once wrapped ` +
+        `.agents/index.md in the sentinel markers the CLI inserts, so every consumer would have received two. ` +
+        `Edit .agents/ directly and rebuild.`,
+    );
+  }
 
   const entries = planFactorySync(repoDir);
   const applyUpdates = options.write === true || options.force === true;
@@ -671,6 +680,12 @@ export function runFactoryInit(options: FactoryInitOptions): FactoryInitResult {
     throw new FactoryError(
       `Refusing to scaffold in ${refusal}: agent config written here leaks into every project on this machine. ` +
         `Run from a project repository (or pass --force if you really mean it).`,
+    );
+  }
+  if (isPlandeskSourceRepo(repoDir)) {
+    throw new FactoryError(
+      `Refusing to scaffold in Plan Desk's own source tree: .agents/ here is the source that dist/templates is built ` +
+        `from, not a scaffold. Edit .agents/ directly and rebuild.`,
     );
   }
 

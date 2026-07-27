@@ -16,6 +16,7 @@ import {
 } from './binding-doctor.js';
 import { AGENTS_DIR, CURATOR_TEMPLATES, curatorArtifactPath } from './curator-templates.js';
 import { LAST_EXPORT_FILE } from './export.js';
+import { planFactorySync } from './factory.js';
 import { CorruptWorkspaceError, isDbCorruptionError } from './workspace.js';
 import { ensureLocalBetterAuthSecret } from './init.js';
 import {
@@ -50,6 +51,16 @@ export type CuratorDoctorReport = {
   present: number;
   total: number;
   missing: string[];
+  /**
+   * Scaffolded policy files matching the version this CLI ships. Presence is not
+   * freshness — a file can be present and several releases behind, which is the
+   * common state and the one nothing else surfaces.
+   */
+  upToDate: number;
+  /** Scaffolded policy files compared (present or not). */
+  tracked: number;
+  /** Files the user edited: sync keeps these, so they are reported, not counted stale. */
+  customized: number;
 };
 
 // Curator artifact adoption is informational, not a health failure — most
@@ -62,10 +73,32 @@ function curatorArtifactReport(repoDir: string): CuratorDoctorReport {
       missing.push(join(AGENTS_DIR, template.relativePath));
     }
   }
+  // Freshness, not just presence. planFactorySync is the same comparison
+  // `factory sync` reports, so doctor cannot disagree with it.
+  let upToDate = 0;
+  let tracked = 0;
+  let customized = 0;
+  try {
+    for (const entry of planFactorySync(repoDir)) {
+      tracked += 1;
+      if (entry.status === 'up_to_date') {
+        upToDate += 1;
+      } else if (entry.status === 'conflict') {
+        customized += 1;
+      }
+    }
+  } catch {
+    // No scaffold here, or it is unreadable — leave the counts at zero rather
+    // than failing a diagnostic whose job is to report, not to throw.
+  }
+
   return {
     present: CURATOR_TEMPLATES.length - missing.length,
     total: CURATOR_TEMPLATES.length,
     missing,
+    upToDate,
+    tracked,
+    customized,
   };
 }
 
@@ -269,6 +302,18 @@ export function formatDoctorReport(report: DoctorReport): string {
     );
     if (report.curator.missing.length > 0) {
       lines.push(`curator-missing: ${report.curator.missing.join(', ')}`);
+    }
+    if (report.curator.tracked > 0) {
+      const { upToDate, tracked, customized } = report.curator;
+      const stale = tracked - upToDate - customized;
+      let line = `factory: ${String(upToDate)}/${String(tracked)} policy files up to date`;
+      if (stale > 0) {
+        line += ` — ${String(stale)} behind, run \`plandesk factory sync --write\``;
+      }
+      if (customized > 0) {
+        line += ` — ${String(customized)} customized (kept; \`factory sync\` shows which)`;
+      }
+      lines.push(line);
     }
   }
   if (report.config !== undefined) {
