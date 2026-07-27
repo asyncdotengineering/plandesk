@@ -85,7 +85,9 @@ one-off single addition, not for standing up a whole plan.
 - Write bodies as well-structured Markdown — `##` headings, bullet lists,
   fenced code blocks, and blank lines between paragraphs. Bodies render as
   rich text in the UI; a wall of unbroken text is unreadable for people.
-- Title prefix: `Investigation:`, `Scope:`, `Design:`, or `Fix:`.
+- Title prefix: `Investigation:`, `Scope:`, `Design:`, `Decision:`, or `Fix:`.
+  `Design:` proposes something to be built; `Decision:` records a call already
+  made (context, what was chosen, what follows) and needs no build contract.
 - Include a `Status:` line near the top: "Ready to implement",
   "Open — requires investigation", "Ready for review", or "Superseded".
 - A document can link to many tasks and to other documents. Prefer

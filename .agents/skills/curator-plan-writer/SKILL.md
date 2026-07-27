@@ -31,6 +31,9 @@ tasks. Writing the RFC never releases work to execution.
 - "Write an RFC / a design doc / a proposal for X", "spec this out before we
   plan it", "think this through on paper first", handed a rough idea and asked to
   reason it out rather than immediately decompose it.
+- Also: "record why we chose X", "write this decision down", "we settled this in
+  the meeting — capture it". That is the [short form](#the-short-form--a-decision-record),
+  not an RFC.
 - **The RFC threshold.** An RFC earns its cost when the change is *substantial or
   contended*: it alters a public surface, is hard to reverse, spans several areas,
   or reasonable engineers would design it differently. For a task or two with an
@@ -125,15 +128,48 @@ Write to these, not to a rigid template:
     A question with no proposal is a genuine fork for the human; surface it rather
     than guessing. Open questions with no proposal block the handoff to intake.
 
-## Two Plan-Desk-native moves
+## The short form — a decision record
 
-- **Decision RFCs record the call.** When the RFC exists to settle a contended
-  choice rather than introduce a feature, name who drove it, who approves, and who
-  was consulted, and record the chosen option with its rationale — so the board
-  keeps *why* this path was taken, not only that it was.
-- **The verification surface is the bridge.** Section 10 is the single most
-  load-bearing part for the factory: it is literally the Goal's acceptance. Write
-  it as checks an agent can run (exit codes, named tests), not aspirations.
+Everything above assumes something will be built from the document. When nothing
+will be, that structure is the ceremony this skill warns against: there is no
+decomposition to sketch and no verification surface, because there is nothing to
+verify. Forcing a settled choice through eleven sections is how it ends up not
+written down at all.
+
+**The test is one question: is anything going to be built from this?** If yes,
+write the RFC above. If no — the call is already made, or is about process,
+tooling, a vendor, a convention — write a decision record instead:
+
+```markdown
+Status: Decided
+Type: decision
+Decided by: <who drove it> · Approved: <who signed off> · Consulted: <who else>
+
+## Context
+The problem space, constraint, or requirement that forced a choice.
+
+## Decision
+What was chosen, stated plainly, and how it answers the context.
+
+## Consequences
+What is now true as a result — including what this closes off, and what it
+costs. The consequences someone will feel later are the reason this document
+exists.
+```
+
+Title it `Decision: <the call>`. Three sections is the whole thing; do not grow
+it back toward an RFC. If you find yourself wanting a design section, the
+decision is not actually made and you want the RFC.
+
+Record the alternatives only when the tradeoff will matter again later — a
+rejected option nobody will revisit is noise.
+
+## The verification surface is the bridge
+
+Section 10 of the RFC is the single most load-bearing part for the factory: it is
+literally the Goal's acceptance. Write it as checks an agent can run (exit codes,
+named tests), not aspirations. A decision record has no equivalent and needs
+none — nothing is being proved, only remembered.
 
 ## The output — a Design document on the board
 
@@ -141,7 +177,7 @@ Write the RFC as one Plan Desk document via `create_document` (or as a
 `documents` entry inside `scaffold_project_from_plan` when authoring and
 scaffolding in one pass):
 
-- **Title** prefixed `Design:` (the RFC-equivalent prefix — see
+- **Title** prefixed `Design:` for an RFC, `Decision:` for a decision record (see
   `.plandesk/skill.md`'s document conventions, inherited verbatim).
 - **A metadata line near the top:** `Status:` (`Open — requires investigation`
   while drafting, `Ready for review` once the argument is complete) and a
