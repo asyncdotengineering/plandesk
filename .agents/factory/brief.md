@@ -6,14 +6,17 @@ a probed worker from [workers/](workers/), receive `runs/result-<task>.json`,
 verify engine-side. This file records only what multi-slice work adds on top;
 it does not restate the dispatch or result contract.
 
-## Addition 1 — the spec travels as a live share link
+## Addition 1 — two extra rows on the WBS snapshot
 
-Do not paste a task's spec into the brief. Mint `create_share_link` on the
-slice's WBS document (or its goal), `expires: 7d`, and put the returned
-`markdown_url` in the brief as `Context:`. The worker `curl`s it for the current
-task descriptions, edges, and comments — **live** board state, not a frozen
-copy. Write the slice's task list, branch, and integration point to
-`runs/wbs-<slice>.md` beside the brief.
+Every brief already carries a WBS snapshot and a live `Context:` link
+([protocol.md](protocol.md)). Multi-slice adds two columns' worth of detail to
+that snapshot — the slice's **branch** and its **integration point** — so a
+worker knows where its work lands and which base it is cutting from. Mint the
+share link on the slice's goal, `expires: 7d`.
+
+Do not write a separate WBS file beside the brief. A second copy of the order
+drifts from the board the first time an edge changes, and the worker reads the
+brief, not the directory.
 
 ## Addition 2 — say why, not only what
 

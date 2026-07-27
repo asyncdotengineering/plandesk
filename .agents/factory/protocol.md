@@ -37,10 +37,44 @@ outcome. Three ways it is invalid, all treated as a failed dispatch:
    machine. Never assume a worker exists; never invoke flags from memory —
    only the file's `command` template, with `{prompt_file}` substituted.
    Which worker suits which task is data: [routing.md](routing.md).
-2. Write the brief to `runs/brief-<task>.md`: the gate command(s) to satisfy and
-   the result contract below. **Do not paste the task's spec into the brief** —
-   link it, so the worker reads live state instead of a copy that drifts.
+2. Write the brief to `runs/brief-<task>.md`. It carries five things:
+
+   | section | content | live or frozen |
+   | --- | --- | --- |
+   | the bar | [workmanship.md](workmanship.md), pasted in full | frozen |
+   | the result contract | the JSON above, verbatim | frozen |
+   | the ground | absolute repo path, and the gate command(s) to satisfy | frozen |
+   | the plan | the WBS snapshot below | **frozen, deliberately** |
+   | the spec | `Context: <markdown_url>` from `create_share_link` | **live** |
+
+   The last two pull in opposite directions on purpose. **The spec is linked,
+   never pasted** — a human editing it mid-flight should reach the worker.
+   **The WBS is pasted, never linked** — a board re-ordered mid-dispatch must
+   not silently redirect a worker that is already building.
 3. Run the command. One process per dispatch, headless.
+
+### The WBS snapshot
+
+A worker is handed one task and can call no MCP tool, so without this it infers
+the plan from a single node. Derive it from `list_tasks` + `list_edges` at
+dispatch time and paste it in:
+
+```markdown
+## Where this sits
+
+| # | task | lane | depends on | status |
+| --- | --- | --- | --- | --- |
+| 1 | t-4b2 Add the schema column | auto | — | done |
+| 2 | **t-9c1 Backfill existing rows ← YOU ARE HERE** | approve | t-4b2 | in_progress |
+| 3 | t-7d8 Read the column in the API | full | t-9c1 | todo |
+
+Owned by later items — do not touch: `src/api/routes/*.ts`
+```
+
+That last line is the one that changes behaviour. A worker given one task and no
+map will helpfully finish the next one too, and the following dispatch then opens
+on a tree it did not write and cannot account for. Naming the paths a later item
+owns costs one line and prevents that.
 
 ### Dispatch mechanics
 

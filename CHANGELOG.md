@@ -4,6 +4,22 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.3.3] — 2026-07-28
+
+### Added
+
+- **Every brief now carries a WBS snapshot.** A worker is handed one task and can call no MCP tool, so until now it inferred the plan from a single node — and a worker with no map helpfully finishes the next item too, leaving the following dispatch to open on a tree it did not write. `protocol.md` now specifies the brief as five sections (the bar, the result contract, the ground, the WBS snapshot, the spec link) and shows the snapshot's shape: the frontier as a table of task, lane, dependency and status, the current item marked, and a line naming the paths later items own.
+
+  The snapshot is derived from `list_tasks` + `list_edges` and **pasted, never linked** — the opposite of the spec, which stays a live `markdown_url`. That asymmetry is deliberate: a human editing a spec mid-flight should reach the worker, but a board re-ordered mid-dispatch must not silently redirect one that is already building.
+
+  This replaces the `runs/wbs-<slice>.md` file that `brief.md` and the foreman skill both referenced. Across 24 dispatches in `runs/`, not one was ever written — it was gated behind slicing, so single-item dispatches never produced one, and nothing derived it from the graph. A second copy of the order would drift from the board on the first edge change anyway, and the worker reads the brief, not the directory.
+
+### Fixed
+
+- **A policy-only edit could ship stale.** `turbo.json` declared no `inputs` for `build`, so the task hashed only files inside each package. `.agents/` lives at the repo root and is vendored into `dist/templates` by `copy-templates.mjs`, so editing a factory policy file left the CLI's build cached — the gate reported green while `dist/` held the previous version of the very file that changed.
+
+  `packages/plandesk-cli/turbo.json` now adds `$TURBO_ROOT$/.agents/**` to the build inputs. Verified by measurement rather than inspection: unchanged tree → cache hit; one edit under `.agents/` → cache miss, rebuild, and `dist/` carries the change.
+
 ## [2.3.2] — 2026-07-28
 
 ### Changed

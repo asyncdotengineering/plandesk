@@ -46,19 +46,19 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
    slicing. Several become deliverable units per
    [slicing.md](../../factory/slicing.md) — complete paths through the layers
    they touch, sized to one worker's context, grouped so parallel workers do not
-   edit the same lines. Write the grouping to `runs/wbs-<slice>.md`; the task
-   descriptions already hold the build contract, so do not restate the work
-   there.
+   edit the same lines. The grouping goes in each brief's WBS snapshot, not in a
+   file of its own — the task descriptions already hold the build contract, so
+   do not restate the work anywhere.
 
 5. **Dispatch implementation.** One dispatch per tree, per
    [protocol.md](../../factory/protocol.md). Pick the worker from
    [routing.md](../../factory/routing.md) unless one was named; a named worker
-   wins, and several named workers split the slices across worktrees. Prepend
-   [workmanship.md](../../factory/workmanship.md) to the brief so the worker
-   knows the bar before it starts. Pass context as a live share link —
-   `create_share_link` on the task or its WBS document, `markdown_url` in the
-   brief — rather than pasting a spec that goes stale the moment someone edits
-   the board.
+   wins, and several named workers split the slices across worktrees. Build the
+   brief to protocol.md's five-section contract — the bar, the result contract,
+   the ground, the WBS snapshot, and a live `Context:` link. Derive the snapshot
+   from `list_tasks` + `list_edges` so the worker sees the agreed order and the
+   paths a later item owns; a worker given one node and no map finishes the next
+   one too.
 
 6. **Stage the moment a worker returns, before reading anything.** Review takes
    minutes and unstaged work is defenceless for all of them; staged work
