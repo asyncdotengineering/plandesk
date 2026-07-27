@@ -4,6 +4,14 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.3.1] — 2026-07-27
+
+### Fixed
+
+- **2.3.0 was uninstallable — use this instead.** It was published with `npm publish`, which does not rewrite pnpm's `workspace:*` protocol, so `@plandesk/api`, `@plandesk/mcp`, and `@plandesk/cli` all shipped `"@plandesk/db": "workspace:*"` in their published manifests. Any install failed with `EUNSUPPORTEDPROTOCOL: Unsupported URL Type "workspace:"`. `pnpm publish` resolves those to the real version at pack time, which is why every prior release was fine.
+
+  2.3.0 is deprecated on the registry. No code changed between 2.3.0 and 2.3.1 — only how the tarball was built.
+
 ## [2.3.0] — 2026-07-27
 
 Only `@plandesk/cli` changed; the other three republish unchanged to stay aligned.
