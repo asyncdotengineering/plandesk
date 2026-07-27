@@ -507,6 +507,29 @@ describe('factory sync', () => {
     expect(result.entries.every((e) => e.status === 'up_to_date')).toBe(true);
   });
 
+  // A skill shipped after a repo was initialised used to land in .agents/skills/
+  // and stay invisible: Claude Code reads .claude/skills/, and only `init` wrote
+  // those links. Eight real repos had factory-foreman present and committed, and
+  // not one of them could invoke it.
+  it('links a newly shipped skill so the agent can actually reach it', () => {
+    const repo = makeTempDir('plandesk-sync-');
+    runFactoryInit({ repoDir: repo });
+
+    // Simulate a repo initialised before this skill existed.
+    const canonical = join(repo, '.agents/skills/factory-foreman/SKILL.md');
+    const adapter = join(repo, '.claude/skills/factory-foreman/SKILL.md');
+    rmSync(join(repo, '.agents/skills/factory-foreman'), { recursive: true, force: true });
+    rmSync(join(repo, '.claude/skills/factory-foreman'), { recursive: true, force: true });
+    expect(existsSync(canonical)).toBe(false);
+    expect(existsSync(adapter)).toBe(false);
+
+    const result = runFactorySync({ repoDir: repo, write: true });
+
+    expect(existsSync(canonical)).toBe(true);
+    expect(existsSync(adapter)).toBe(true);
+    expect(result.linked).toContain('.claude/skills/factory-foreman/SKILL.md');
+  });
+
   it('recreates a deleted authored file (create), and dry-run leaves it missing', () => {
     const repo = makeTempDir('plandesk-sync-');
     runFactoryInit({ repoDir: repo });

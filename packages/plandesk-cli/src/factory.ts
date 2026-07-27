@@ -490,6 +490,8 @@ export type FactorySyncResult = {
   applied: boolean;
   /** Owned-subtree paths removed when `--prune` applied. */
   pruned: string[];
+  /** Per-agent skill links created because they were missing. */
+  linked: string[];
 };
 
 export function planFactorySync(repoDir: string): FactorySyncEntry[] {
@@ -544,7 +546,7 @@ export function runFactorySync(options: FactorySyncOptions): FactorySyncResult {
   const applyUpdates = options.write === true || options.force === true;
   const applyPrune = options.prune === true;
   if (!applyUpdates && !applyPrune) {
-    return { repoDir, entries, applied: false, pruned: [] };
+    return { repoDir, entries, applied: false, pruned: [], linked: [] };
   }
 
   let manifest = readSyncManifest(repoDir);
@@ -606,13 +608,27 @@ export function runFactorySync(options: FactorySyncOptions): FactorySyncResult {
 
   // Now that authored sources are current, refresh the generated files that
   // depend on them (index/CLAUDE sentinels, skill symlinks, command adapters).
+  //
+  // `create` belongs here as much as `update`. Filtering to `update` alone meant
+  // a generated file that did not exist yet was never made — so a skill shipped
+  // after a repo was initialised landed in `.agents/skills/` and stayed
+  // unreachable, because the agent reads `.claude/skills/`. Observed on eight
+  // repos after factory-foreman shipped: present, committed, and un-invocable.
+  // `skip` is still excluded — that is the create-once authored policy.
+  const linked: string[] = [];
   if (applyUpdates) {
-    writeFactoryArtifacts(
-      buildFactoryArtifacts(repoDir).filter((artifact) => artifact.action === 'update'),
+    const generated = buildFactoryArtifacts(repoDir).filter(
+      (artifact) => artifact.action !== 'skip',
     );
+    for (const artifact of generated) {
+      if (artifact.action === 'create' && artifact.symlinkTarget !== undefined) {
+        linked.push(relative(repoDir, artifact.path));
+      }
+    }
+    writeFactoryArtifacts(generated);
   }
 
-  return { repoDir, entries, applied: true, pruned };
+  return { repoDir, entries, applied: true, pruned, linked };
 }
 
 export function formatFactorySyncSummary(result: FactorySyncResult): string {
@@ -631,6 +647,11 @@ export function formatFactorySyncSummary(result: FactorySyncResult): string {
       lines.push(`updated (${String(safe.length)}): ${safe.map((e) => e.relPath).join(', ')}`);
     if (result.pruned.length > 0) {
       lines.push(`pruned (${String(result.pruned.length)}): ${result.pruned.join(', ')}`);
+    }
+    if (result.linked.length > 0) {
+      lines.push(
+        `linked (${String(result.linked.length)}): ${result.linked.join(', ')} — new skills were not reachable by your agent until now`,
+      );
     }
     lines.push(`up to date (${String(upToDate.length)}).`);
     if (conflicts.length > 0) {
