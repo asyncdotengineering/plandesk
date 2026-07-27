@@ -4,6 +4,20 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.2.1] — 2026-07-27
+
+Only `@plandesk/cli` changed; the other three republish unchanged to stay aligned.
+
+### Fixed
+
+- **`factory sync` now links newly shipped skills.** A skill that shipped after a repo was initialised landed in `.agents/skills/` and stayed unreachable: agents read `.claude/skills/`, and sync refreshed generated artifacts with `.filter((artifact) => artifact.action === 'update')` — precisely the set that already exists. A missing link is marked `create` and was filtered out, so sync wrote the skill file and never linked it.
+
+  Observed on eight repos after `factory-foreman` shipped in 2.1.0: the file present, committed, and not one of them able to invoke `/factory-foreman`. Only re-running `factory init` fixed it, which nothing told anyone to do.
+
+  `create` now belongs in that filter alongside `update`; `skip` is still excluded, because that is the create-once authored policy. Sync reports which links it made, since a silent repair leaves you unable to tell it was ever broken.
+
+  **If you scaffolded before 2.1.0, run `plandesk factory sync --write` once** — it will create the missing links and say so.
+
 ## [2.2.0] — 2026-07-27
 
 Only `@plandesk/cli` changed; the other three republish unchanged to stay aligned.
