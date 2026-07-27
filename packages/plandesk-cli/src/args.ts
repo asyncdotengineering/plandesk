@@ -709,7 +709,7 @@ Options:
   --print     Dry-run connect / factory init without writing files
   --write     (factory sync) apply creates + safe updates (customized files are kept)
   --force     (factory init) scaffold even in a global config dir; (factory sync) also overwrite customized files
-  --prune     (factory sync) delete owned factory files the CLI no longer ships (never touches skills/ or foreign paths)
+  --prune     (factory sync) delete what the CLI no longer ships: owned policy files, plus skills it wrote that you have not edited (foreign skills are never touched)
   --out       Output file for export
   --in        Input file for import
   --from      (legacy-upgrade) path to an old workspace.db (default: ~/.plandesk/workspace.db or ./.plandesk/workspace.db)

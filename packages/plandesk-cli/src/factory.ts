@@ -410,11 +410,56 @@ export function pruneUnknownManifestKeys(
 
 /**
  * Files prune may delete: keys present in the manifest, absent from the declared
- * template set, and classified `owned`. Never enumerates disk under `.agents/`.
- * Only deletes when on-disk content still matches the last-written hash (user
- * edits of a removed path are left alone).
+ * template set, and either `owned` or a skill we ourselves wrote. Never
+ * enumerates disk under `.agents/`. Only deletes when on-disk content still
+ * matches the last-written hash — a user edit of a removed path is left alone.
+ *
+ * `.agents/skills/` is a shared namespace, so tier alone cannot say whether a
+ * skill is ours: `npx skills add` drops third-party skills in the same
+ * directory. **Manifest membership is the ownership proof.** A key exists there
+ * only because this CLI wrote that exact path, so a third-party skill is never a
+ * candidate, and the hash guard still protects one the user has since edited.
+ *
+ * Without this, renaming a shipped skill stranded the old one forever: sync
+ * added the new name and left the old file linked and triggering, so two skills
+ * answered the same request. Observed across the `curator-*` → `plandesk-*`
+ * move, where eight repos would have carried thirteen skills instead of six.
  */
-export function planOwnedPrune(repoDir: string): string[] {
+/** `.agents/skills/<name>/SKILL.md` → `<name>`; anything else → undefined. */
+function skillNameFromRelPath(relPath: string): string | undefined {
+  const m = /^\.agents\/skills\/([^/]+)\/SKILL\.md$/.exec(relPath.replace(/\\/g, '/'));
+  return m?.[1];
+}
+
+function readFileIfPresent(abs: string): string | undefined {
+  try {
+    return readFileSync(abs, 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Whether a `.claude/skills/<name>/SKILL.md` adapter is one we wrote, and so may
+ * be removed alongside its canonical file.
+ *
+ * Ours in two shapes: the symlink `init`/`sync` normally writes, or the copy
+ * written on filesystems without symlink support. A regular file whose content
+ * differs from the canonical one is something the user substituted — leave it,
+ * the same way the hash guard leaves an edited canonical file.
+ */
+function adapterOwnedByUs(adapterPath: string, canonical: string | undefined): boolean {
+  const stat = lstatSync(adapterPath, { throwIfNoEntry: false });
+  if (stat === undefined) {
+    return false;
+  }
+  if (stat.isSymbolicLink()) {
+    return true;
+  }
+  return canonical !== undefined && readFileIfPresent(adapterPath) === canonical;
+}
+
+export function planPrune(repoDir: string): string[] {
   const manifest = readSyncManifest(repoDir);
   const declared = declaredSyncRelPaths(repoDir);
   const toDelete: string[] = [];
@@ -422,7 +467,8 @@ export function planOwnedPrune(repoDir: string): string[] {
     if (declared.has(relPath)) {
       continue;
     }
-    if (classifyAgentsPath(relPath) !== 'owned') {
+    const tier = classifyAgentsPath(relPath);
+    if (tier !== 'owned' && tier !== 'shared_namespace') {
       continue;
     }
     const abs = join(repoDir, relPath);
@@ -569,14 +615,32 @@ export function runFactorySync(options: FactorySyncOptions): FactorySyncResult {
     }
   }
 
-  // File prune: only paths the templates no longer declare, and only when
-  // classifyAgentsPath says `owned`. Iterate the manifest (what we wrote), never
-  // enumerate `.agents/` on disk.
+  // File prune: only paths the templates no longer declare, and only ones the
+  // manifest proves we wrote. Iterate the manifest, never enumerate `.agents/`.
+  //
+  // A pruned skill takes its `.claude/skills/<name>/` adapter with it. Deleting
+  // the canonical file alone would leave a dangling link that the agent still
+  // lists, which is worse than either state on its own — a skill that appears
+  // available and resolves to nothing.
   const pruned: string[] = [];
   if (applyPrune) {
-    for (const relPath of planOwnedPrune(repoDir)) {
-      rmSync(join(repoDir, relPath), { force: true });
+    for (const relPath of planPrune(repoDir)) {
+      const abs = join(repoDir, relPath);
+      const canonical = readFileIfPresent(abs);
+      rmSync(abs, { force: true });
       pruned.push(relPath);
+
+      const skillName = skillNameFromRelPath(relPath);
+      if (skillName !== undefined) {
+        // The canonical directory is now empty; leaving it makes the skill look
+        // half-installed to anyone reading the tree.
+        rmSync(dirname(abs), { recursive: true, force: true });
+        const adapterDir = join(repoDir, '.claude', 'skills', skillName);
+        if (adapterOwnedByUs(join(adapterDir, 'SKILL.md'), canonical)) {
+          rmSync(adapterDir, { recursive: true, force: true });
+          pruned.push(`.claude/skills/${skillName}/SKILL.md`);
+        }
+      }
     }
   }
 

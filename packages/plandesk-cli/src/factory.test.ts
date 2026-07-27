@@ -8,10 +8,11 @@ import {
   readlinkSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   AGENTS_INDEX_SENTINEL_END,
@@ -32,7 +33,7 @@ import {
   FactoryError,
   formatFactoryInitPrint,
   formatFactoryInitSummary,
-  planOwnedPrune,
+  planPrune,
   pruneUnknownManifestKeys,
   readSyncManifest,
   runFactoryInit,
@@ -612,11 +613,11 @@ describe('factory sync', () => {
     expect(after[protocolRel]).toBeTypeOf('string');
   });
 
-  it('prunes only owned stale files; foreign and shared-namespace paths survive', () => {
+  it('prunes owned stale files and superseded skills we wrote; foreign paths survive', () => {
     const repo = makeTempDir('plandesk-sync-');
     runFactoryInit({ repoDir: repo });
 
-    // Foreign files another tool owns.
+    // Foreign files another tool owns — never in our manifest, never touched.
     const otherSkill = join(repo, '.agents/skills/other-tool/SKILL.md');
     const otherMd = join(repo, '.agents/other.md');
     mkdirSync(join(repo, '.agents/skills/other-tool'), { recursive: true });
@@ -629,36 +630,84 @@ describe('factory sync', () => {
     const staleBody = '# legacy\n';
     writeFileSync(staleOwned, staleBody, 'utf8');
 
-    // Stale shared-namespace path — must NOT be deleted even if in the manifest.
+    // A skill we shipped under a name we no longer ship, still untouched by the
+    // user. This is the `curator-*` → `plandesk-*` rename case.
     const staleSkillRel = '.agents/skills/old-skill/SKILL.md';
     const staleSkill = join(repo, staleSkillRel);
+    const staleSkillBody = 'old skill\n';
     mkdirSync(join(repo, '.agents/skills/old-skill'), { recursive: true });
-    writeFileSync(staleSkill, 'old skill\n', 'utf8');
+    writeFileSync(staleSkill, staleSkillBody, 'utf8');
+    const staleAdapter = join(repo, '.claude/skills/old-skill/SKILL.md');
+    mkdirSync(dirname(staleAdapter), { recursive: true });
+    symlinkSync('../../../.agents/skills/old-skill/SKILL.md', staleAdapter);
+
+    // Same situation, but the user edited it — the hash guard must spare it.
+    const editedSkillRel = '.agents/skills/edited-skill/SKILL.md';
+    const editedSkill = join(repo, editedSkillRel);
+    mkdirSync(join(repo, '.agents/skills/edited-skill'), { recursive: true });
+    writeFileSync(editedSkill, 'my own edits\n', 'utf8');
 
     const manifestPath = join(repo, '.agents/.plandesk-sync.json');
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
       files: Record<string, string>;
     };
-    manifest.files[staleOwnedRel] = createHash('sha256').update(staleBody, 'utf8').digest('hex');
-    manifest.files[staleSkillRel] = createHash('sha256').update('old skill\n', 'utf8').digest('hex');
+    const sha = (s: string): string => createHash('sha256').update(s, 'utf8').digest('hex');
+    manifest.files[staleOwnedRel] = sha(staleBody);
+    manifest.files[staleSkillRel] = sha(staleSkillBody);
+    // Recorded hash is what we last wrote, not what is on disk now.
+    manifest.files[editedSkillRel] = sha('what we originally shipped\n');
     manifest.files['.agents/curator/triage.md'] = 'orphan-key';
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
 
-    expect(planOwnedPrune(repo)).toEqual([staleOwnedRel]);
+    expect(planPrune(repo).sort()).toEqual([staleOwnedRel, staleSkillRel].sort());
 
     const result = runFactorySync({ repoDir: repo, prune: true });
     expect(result.applied).toBe(true);
-    expect(result.pruned).toEqual([staleOwnedRel]);
+
+    // Gone: the owned file, the superseded skill, and its adapter link.
     expect(existsSync(staleOwned)).toBe(false);
-    expect(existsSync(staleSkill)).toBe(true);
-    expect(readFileSync(staleSkill, 'utf8')).toBe('old skill\n');
+    expect(existsSync(staleSkill)).toBe(false);
+    expect(existsSync(join(repo, '.agents/skills/old-skill'))).toBe(false);
+    expect(lstatSync(staleAdapter, { throwIfNoEntry: false })).toBeUndefined();
+    expect(result.pruned).toContain('.claude/skills/old-skill/SKILL.md');
+
+    // Kept: anything we did not write, and anything the user changed.
     expect(readFileSync(otherSkill, 'utf8')).toBe('foreign skill body\n');
     expect(readFileSync(otherMd, 'utf8')).toBe('foreign other.md\n');
+    expect(readFileSync(editedSkill, 'utf8')).toBe('my own edits\n');
 
     const after = readSyncManifest(repo);
     expect(after[staleOwnedRel]).toBeUndefined();
     expect(after[staleSkillRel]).toBeUndefined();
     expect(after['.agents/curator/triage.md']).toBeUndefined();
+  });
+
+  it('keeps a .claude adapter the user replaced with their own file', () => {
+    const repo = makeTempDir('plandesk-sync-');
+    runFactoryInit({ repoDir: repo });
+
+    const relPath = '.agents/skills/old-skill/SKILL.md';
+    const canonical = join(repo, relPath);
+    mkdirSync(dirname(canonical), { recursive: true });
+    writeFileSync(canonical, 'shipped body\n', 'utf8');
+
+    // A real file rather than our symlink, and not a copy of what we shipped:
+    // the user substituted their own. Removing it would destroy their work.
+    const adapter = join(repo, '.claude/skills/old-skill/SKILL.md');
+    mkdirSync(dirname(adapter), { recursive: true });
+    writeFileSync(adapter, 'the user wrote this\n', 'utf8');
+
+    const manifestPath = join(repo, '.agents/.plandesk-sync.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      files: Record<string, string>;
+    };
+    manifest.files[relPath] = createHash('sha256').update('shipped body\n', 'utf8').digest('hex');
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+
+    runFactorySync({ repoDir: repo, prune: true });
+
+    expect(existsSync(canonical)).toBe(false);
+    expect(readFileSync(adapter, 'utf8')).toBe('the user wrote this\n');
   });
 });
 

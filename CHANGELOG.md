@@ -4,6 +4,20 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.3.4] — 2026-07-28
+
+### Changed
+
+- **`factory sync --prune` now removes skills the CLI no longer ships**, together with their `.claude/skills/<name>/` adapters. Renaming a shipped skill previously stranded the old one forever: sync added the new name and left the old file present and linked, so two skills answered the same request. The 2.3.0 rename would have left every existing repo carrying thirteen skills instead of six, with `curator-triage` and `plandesk-scope-work` both firing on "triage the backlog".
+
+  `.agents/skills/` is a shared namespace — `npx skills add` puts third-party skills in the same directory — so the tier alone cannot say what is ours. **Manifest membership is the ownership proof:** a key exists in `.agents/.plandesk-sync.json` only because this CLI wrote that exact path, so a foreign skill is never a candidate, and the existing hash guard still spares one you have edited. Nothing enumerates the directory.
+
+  A pruned skill takes its adapter with it, unless you replaced that adapter with your own file. Deleting the canonical file alone would leave a dangling link the agent still lists — a skill that appears available and resolves to nothing, which is worse than either state.
+
+  Upgrading from 2.3.x or earlier: `plandesk factory sync --write --prune` now completes the rename in one command. The manual `rm -rf` in the 2.3.0 notes is no longer needed.
+
+- `--prune`'s help text promised it "never touches skills/". That is no longer true, and it now describes what it actually does.
+
 ## [2.3.3] — 2026-07-28
 
 ### Added
