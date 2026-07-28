@@ -1,150 +1,114 @@
 ---
 name: plandesk-plan-writer
-description: Write an RFC / design proposal for a substantial change as a Plan Desk `Design:` document — a build contract carrying its own argument (problem, requirements, design, alternatives, verification surface). Use when asked to write an RFC, spec out a change, or draft a design doc before decomposing it; it is the upstream of plandesk-scope-work.
+description: Writes the reasoning behind a change as a Plan Desk document, in one of two forms. An RFC / design proposal for something still to be built — problem, requirements, design, alternatives, verification surface — landing as a `Design:` document. Or an ADR / architecture decision record for a call already made — context, what was chosen, who signed off, what follows — landing as a `Decision:` document. Use whenever asked to write an RFC, spec out a change, draft a design doc, write an ADR, record an architecture decision, capture why we chose X over Y, or write down a call settled in a meeting. It picks the form by asking whether anything will actually be built from it; it is the upstream of plandesk-scope-work.
 user-invocable: true
-argument-hint: "<feature or problem to write an RFC for>"
+argument-hint: "<feature, problem, or decision to write up>"
 ---
 
-# Write the plan (the RFC author)
+# Write the plan
 
-Writes an RFC as a Plan Desk `Design:` document — the reasoned proposal for a
-substantial change, written *before* any board exists. It is the upstream of
-[scope-work](../plandesk-scope-work/SKILL.md): **plan-writer authors the RFC → scope-work decomposes it into
-a board → the foreman executes and proves it.** Planning authors the argument,
-execution builds it, the human decides. This skill is the authoring half.
+Writes the reasoning behind a change, before any board exists.
+**plan-writer authors the argument → [scope-work](../plandesk-scope-work/SKILL.md)
+decomposes it into a board → [foreman](../plandesk-foreman/SKILL.md) builds and
+proves it.**
 
-An RFC here is **a build contract that carries its own argument.** The house
-styles of mature open-source projects (Sentry, Ember, React, the Vercel / AI SDK
-ecosystem) write RFCs to win *agreement* — the "should we / why / what else"
-debate is the body. A Plan Desk RFC does that too, but its downstream is not a
-comment thread: it is scope-work (which decomposes it) and an agent factory (which
-builds and proves it). So it must also be *executable without guessing* — named
-requirements, a concrete design, and a stated way to check success. Carry enough
-argument to be reviewable, and enough contract to be buildable.
+An RFC here is a build contract that carries its own argument. Open-source RFCs
+are written to win agreement and end in a comment thread; this one ends in a
+decomposition and an agent that has to build from it. It needs enough argument to
+be reviewable *and* enough contract to be buildable.
 
-**Lane: approve** — an RFC is a proposal, not a shipped decision. It lands as a
-document a human reads and steers before scope-work turns it into `scope`/`todo`
-tasks. Writing the RFC never releases work to execution.
+**Lane: approve** — a proposal, not a shipped decision. Writing it never releases
+work to execution.
 
 ## When to run this
 
-- "Write an RFC / a design doc / a proposal for X", "spec this out before we
-  plan it", "think this through on paper first", handed a rough idea and asked to
-  reason it out rather than immediately decompose it.
-- Also: "record why we chose X", "write this decision down", "we settled this in
-  the meeting — capture it". That is the [short form](#the-short-form--a-decision-record),
-  not an RFC.
-- **The RFC threshold.** An RFC earns its cost when the change is *substantial or
-  contended*: it alters a public surface, is hard to reverse, spans several areas,
-  or reasonable engineers would design it differently. Ceremony that outweighs
-  the decision is the failure mode; a one-paragraph proposal is a complete RFC
-  when the decision is small.
-- **Below the threshold, hand off — do not fall back to bare `create_task`.**
-  Work that does not earn an RFC still earns a build contract. One item with an
-  obvious shape goes to [groom-task](../plandesk-groom-task/SKILL.md), which creates it and
-  grooms it in one move; a batch of them goes to
-  [scope-work](../plandesk-scope-work/SKILL.md), which dedups first. Refusing to write an
-  RFC and then creating untriaged, ungroomed tasks by hand is the worse of the
-  two failures, because nothing downstream can tell the difference.
-- **Not** the same as [scope-work](../plandesk-scope-work/SKILL.md): scope-work *consumes* an RFC (or a raw
-  idea) to build the board and owns cycle-sizing the tasks. If you already have a
-  clear RFC and just need it on the board, go straight to scope-work. Plan-writer's
-  job ends at a reviewable, buildable document — it does not size tasks.
+- "Write an RFC / design doc / proposal for X", "spec this out before we plan
+  it", "think this through on paper first".
+- "Write an ADR", "record an architecture decision", "why we chose X over Y",
+  "capture what we settled in the meeting" → the
+  [short form](#the-short-form--a-decision-record), not an RFC. It lands as a
+  `Decision:` document on the board rather than a file in `docs/adr/`, so it is
+  linkable to the tasks it governs and commentable by whoever lives with it.
+- **The threshold.** An RFC earns its cost when the change is substantial or
+  contended: it alters a public surface, is hard to reverse, spans several areas,
+  or reasonable engineers would design it differently. A one-paragraph proposal
+  is a complete RFC when the decision is small.
+- **Below the threshold, hand off — never fall back to bare `create_task`.** One
+  item with an obvious shape goes to
+  [groom-task](../plandesk-groom-task/SKILL.md), which creates and grooms it in one
+  move; a batch goes to [scope-work](../plandesk-scope-work/SKILL.md), which dedups
+  first. Refusing to write an RFC and then hand-creating untriaged, ungroomed
+  tasks is the worse of the two failures, because nothing downstream can tell the
+  difference.
+- **Not** [scope-work](../plandesk-scope-work/SKILL.md): that consumes an RFC and owns
+  cycle-sizing the tasks. Already have a clear RFC? Go straight there.
 
-## The instincts every good RFC shares
+## The structure
 
-Write to these, not to a rigid template:
+Depth scales with blast radius — the change's lane in
+[lanes](../../factory/lanes.md). A small change gets the frame plus a stated check
+and stops; a cross-cutting or user-facing one earns every section. Never pad a
+small decision into a long document.
 
-- **Problem before solution.** Open by making the reader feel the problem. State
-  the constraints you are solving *without* coupling them to your chosen design —
-  a well-argued motivation outlives the specific solution and seeds the
-  alternatives if the first design is rejected. A weak motivation is the most
-  common reason an RFC is poorly received.
-- **Ground every claim.** "Currently works like X" needs a `file:line`, a commit,
-  or a doc URL; "the framework does Z" needs a primary source. An ungrounded
-  factual claim is a guess wearing a fact's clothes — cite at the point of use.
-- **Carry, don't re-derive.** When earlier work already settled the framing, the
-  non-goals, or a rejected alternative (a prior investigation, a triaged signal,
-  a decision whose provenance [scope-work](../plandesk-scope-work/SKILL.md) recorded), pull it in by
-  reference and compact restatement — re-deriving it is where a settled decision
-  quietly gets re-opened at the handoff.
-- **Show the shape, concretely.** The design is the bulk of the RFC. Make it real:
-  pseudocode for the algorithm, then the proposed signatures, a config or CLI
-  snippet as it would look, module and type names (never line numbers), and at
-  least one worked example. Concrete-over-abstract is the strongest signal of a
-  serious RFC.
-- **Argue the other side, then say how you'll know.** Name drawbacks and
-  alternatives honestly (propose one, list the rejected with *why*). Then state
-  the acceptance that must end green — an RFC that cannot say how success is
-  checked is not ready to plan.
-- **Scale ceremony to weight.** Match depth to the change's blast radius (its lane
-  in [lanes](../../factory/lanes.md)): a small change gets the frame + a stated check and
-  stops; a cross-cutting or user-facing one earns every section. Never pad a small
-  decision into a long document.
+**Frame — always**
 
-## The structure — frame, design, argue, make buildable, close
-
-**Frame (always):**
-
-1. **Summary** — one paragraph: what changes and why, in a breath.
+1. **Summary** — what changes and why, in one paragraph.
 2. **Problem & motivation** — the problem, who hits it, and success stated
-   concretely (the metric, behavior, or invariant that must hold after). Keep the
-   constraints separable from the solution. Ground the "today it works like X"
-   claims.
-3. **Non-goals / out of scope** — what this explicitly will *not* do, and what is
-   deferred to a follow-up. This fences the executor: an empty list leaves the
-   agent that builds from the RFC unbounded.
+   concretely (the metric, behaviour, or invariant that must hold after). Keep the
+   constraints separable from your solution: a motivation welded to one design
+   dies with it, and a weak motivation is the most common reason an RFC is poorly
+   received. Ground every "today it works like X" with a `file:line`, a commit, or
+   a doc URL — an ungrounded claim is a guess wearing a fact's clothes.
+3. **Non-goals** — what this explicitly will not do, and what defers to a
+   follow-up. An empty list leaves the agent building from this unbounded.
 
-**Design (always; depth by weight):**
+**Design — always, depth by weight**
 
-4. **Detailed design** — the proposed shape. Pseudocode first (control flow and
-   decisions, stripped of syntax), then the concrete surface: for each public
-   interface, its location, signature, behavior, and error cases; config/CLI/API
-   snippets as they would look; a worked example.
-5. **Requirements (REQ-N)** — the non-negotiable behaviors, numbered, stated as
-   behavior not implementation. Numbering lets the work items and the checks below
-   cite them (REQ-1, REQ-2, …), so nothing the RFC promised gets silently dropped.
+4. **Detailed design** — the bulk of the RFC. Pseudocode first (control flow and
+   decisions, stripped of syntax), then the concrete surface: each public
+   interface's location, signature, behaviour and error cases; config, CLI or API
+   snippets as they would look; at least one worked example. Names, never line
+   numbers. Concrete-over-abstract is the strongest signal of a serious RFC.
+5. **Requirements (REQ-N)** — the non-negotiable behaviours, numbered, stated as
+   behaviour rather than implementation. The numbers let §9 and §10 cite them, so
+   nothing the RFC promised is silently dropped.
 
-**Argue (substantial or contended changes):**
+**Argue — substantial or contended changes**
 
-6. **Alternatives** — the designs you rejected and why; prior art in peer tools.
-   Synthesis with links, not fresh debate.
-7. **Drawbacks** — why we might *not* do this: implementation cost, whether it is
-   doable in user space, teaching cost, integration risk, migration /
-   breaking-change cost.
-8. **Adoption, migration & teaching** — only when it changes a surface people use:
-   is it a breaking change, is there a phased path, what has to be sequenced; plus
-   naming/terminology and how both new and existing users learn it.
+6. **Alternatives** — the designs you rejected and why, plus prior art in peer
+   tools. Synthesis with links, not fresh debate.
+7. **Drawbacks** — why we might *not* do this: implementation cost, whether user
+   space could solve it, teaching cost, integration risk, migration.
+8. **Adoption & migration** — only when it changes a surface people use: breaking
+   or phased, what must be sequenced, naming, how existing users learn it.
 
-**Make it buildable (always — this is what feeds scope-work and the factory):**
+**Make it buildable — always**
 
-9. **Decomposition sketch** — the rough shape of the work: the major pieces and
-   the order they must land in. Keep it a *sketch*, not a task list —
-   [scope-work](../plandesk-scope-work/SKILL.md) owns cycle-sizing and edge-sequencing the real tasks.
-   Your job is to give scope-work enough structure that its WBS is obvious.
-10. **Verification surface** — how we'll know it worked: the acceptance that must
-    end green, tied back to the requirements (each REQ-N → a named test or a
-    runnable command). This is not decoration — it becomes the
-    `verification_surface` of the Goal scope-work decomposes, and the gate the factory
-    proves against. Every requirement should trace to at least one check here.
+9. **Decomposition sketch** — the major pieces and the order they must land in. A
+   sketch, not a task list: [scope-work](../plandesk-scope-work/SKILL.md) owns
+   cycle-sizing and edge-sequencing. Give it enough structure that the WBS is
+   obvious.
+10. **Verification surface** — each REQ-N mapped to a named test or a runnable
+    command. The load-bearing section: it becomes the Goal's
+    `verification_surface` and the gate the factory proves against. Write checks an
+    agent can run — exit codes and named tests, not aspirations.
 
-**Close (always):**
+**Close — always**
 
-11. **Unresolved questions** — each states a tradeoff and a *proposed* direction.
+11. **Unresolved questions** — each states a tradeoff *and* a proposed direction.
     A question with no proposal is a genuine fork for the human; surface it rather
-    than guessing. Open questions with no proposal block the handoff to scope-work.
+    than guessing. Open questions with no proposal block the handoff.
+
+**Carry, don't re-derive.** Where earlier work already settled the framing, the
+non-goals, or a rejected alternative, pull it in by reference and compact
+restatement. Re-deriving is where a settled decision quietly gets re-opened.
 
 ## The short form — a decision record
 
-Everything above assumes something will be built from the document. When nothing
-will be, that structure is the ceremony this skill warns against: there is no
-decomposition to sketch and no verification surface, because there is nothing to
-verify. Forcing a settled choice through eleven sections is how it ends up not
-written down at all.
-
-**The test is one question: is anything going to be built from this?** If yes,
-write the RFC above. If no — the call is already made, or is about process,
-tooling, a vendor, a convention — write a decision record instead:
+**One question decides which you are writing: is anything going to be built from
+this?** Yes → the RFC above. No — the call is already made, or it is about
+process, tooling, a vendor, a convention → a decision record. Forcing a settled
+choice through eleven sections is how it ends up not written down at all.
 
 ```markdown
 Status: Decided
@@ -152,83 +116,71 @@ Type: decision
 Decided by: <who drove it> · Approved: <who signed off> · Consulted: <who else>
 
 ## Context
-The problem space, constraint, or requirement that forced a choice.
+The constraint or requirement that forced a choice.
 
 ## Decision
 What was chosen, stated plainly, and how it answers the context.
 
 ## Consequences
 What is now true as a result — including what this closes off, and what it
-costs. The consequences someone will feel later are the reason this document
-exists.
+costs. The consequences someone feels later are why this document exists.
 ```
 
-Title it `Decision: <the call>`. Three sections is the whole thing; do not grow
-it back toward an RFC. If you find yourself wanting a design section, the
-decision is not actually made and you want the RFC.
+Title it `Decision: <the call>`. Three sections is the whole thing; wanting a
+design section means the decision is not actually made and you want the RFC.
+Record alternatives only when the tradeoff will come round again.
 
-Record the alternatives only when the tradeoff will matter again later — a
-rejected option nobody will revisit is noise.
+**File it in a `Decisions` folder.** `list_documents` returns the project's
+folder tree — read it and reuse whatever is already there. A second `Decisions`
+beside the first is worse than none, because neither is complete. Call
+`create_folder` only when the project genuinely has none, then pass its
+`folder_id`. That makes `list_documents(folder_id)` the "what have we decided?"
+query a title prefix could never answer.
 
-## The verification surface is the bridge
+## Writing it to the board
 
-Section 10 of the RFC is the single most load-bearing part for the factory: it is
-literally the Goal's acceptance. Write it as checks an agent can run (exit codes,
-named tests), not aspirations. A decision record has no equivalent and needs
-none — nothing is being proved, only remembered.
+One document via `create_document`, or a `documents` entry inside
+`scaffold_project_from_plan` when authoring and scaffolding in one pass:
 
-## The output — a Design document on the board
-
-Write the RFC as one Plan Desk document via `create_document` (or as a
-`documents` entry inside `scaffold_project_from_plan` when authoring and
-scaffolding in one pass):
-
-- **Title** prefixed `Design:` for an RFC, `Decision:` for a decision record (see
-  `.plandesk/skill.md`'s document conventions, inherited verbatim).
-- **A metadata line near the top:** `Status:` (`Open — requires investigation`
+- **Title** — `Design:` for an RFC, `Decision:` for a decision record.
+- **Metadata line near the top** — `Status:` (`Open — requires investigation`
   while drafting, `Ready for review` once the argument is complete) and a
-  one-word `Type:` — *feature*, *decision*, or *informational*.
-- **Body as well-structured Markdown** — `##` headings for the sections above,
-  bullet lists, fenced code for the pseudocode/API/config shapes, blank lines
-  between paragraphs. Bodies render as rich text; a wall of prose is unreadable.
-- **Link it** to its entry-point task with `link_to` (or `create_document`'s link)
-  the moment it exists — an unlinked document is invisible to the plan.
+  one-word `Type:`: *feature*, *decision*, or *informational*.
+- **Body** — `##` headings, bullet lists, fenced code for pseudocode and API
+  shapes. It renders as rich text; a wall of prose is unreadable.
+- **Link it** to its entry-point task the moment it exists. An unlinked document
+  is invisible to the plan.
 
-Written this way the RFC hands off cleanly: the decomposition sketch seeds
-scope-work's WBS, the requirements and verification surface become the Goal's
-acceptance, and the unresolved questions become `scope` tasks.
+Written this way it hands off cleanly: the decomposition sketch seeds scope-work's
+WBS, the requirements and verification surface become the Goal's acceptance, and
+the unresolved questions become `scope` tasks.
 
 ## Voice
 
-Engineer-to-engineer and first-person-plural ("we want to make X reliable"),
-problem-first, concrete over abstract, honest about tradeoffs. No marketing
-language, no emoji, no ceremony for its own sake. Match the length to the
-decision: the best short RFC is short on purpose, and the best long one earns
-every section.
+Engineer to engineer, first-person plural, problem first, concrete over abstract,
+honest about tradeoffs. The best short RFC is short on purpose.
 
 ## When to ask vs. proceed
 
-- The problem has no clear boundary ("make it better") → ask before writing; an
-  RFC with no scope is a wish, not a proposal.
-- Two genuinely different design bets exist and the evidence does not favor one →
-  write *both* as alternatives and name the fork for the human rather than
-  silently picking.
-- Everything else — proceed. This skill turns a rough ask into a reviewable,
-  buildable argument, not a Socratic dialogue.
+- No clear boundary ("make it better") → ask before writing. An RFC with no scope
+  is a wish, not a proposal.
+- Two genuinely different design bets and the evidence favours neither → write
+  both as alternatives and name the fork, rather than silently picking.
+- Everything else — proceed. This turns a rough ask into a reviewable, buildable
+  argument, not a Socratic dialogue.
 
 ## After writing
 
-Stop. The RFC is a proposal for a human to read. Do **not** scaffold a board or
-start executing off your own RFC unless the human asked for that in the same
-request — the `Design:` doc → human review → [scope-work](../plandesk-scope-work/SKILL.md) handoff is
-the gate. Tell the human the RFC is ready for review (they can annotate it in the
-UI, or open the file with `plandesk <file>`; pull their notes with
-`list_comments` / `list_artifact_comments` and `resolve_comment`).
+Stop. Do not scaffold a board or start executing off your own RFC unless the
+human asked for that in the same request — `Design:` doc → human review →
+[scope-work](../plandesk-scope-work/SKILL.md) is the gate. Tell them it is ready
+for review; they can annotate it in the UI or with `plandesk <file>`, and you pull
+their notes with `list_comments` / `list_artifact_comments` and `resolve_comment`.
 
 ## References
 
-`.plandesk/skill.md` (document/task conventions, inherited verbatim);
-[scope-work](../plandesk-scope-work/SKILL.md) (decomposes this RFC into a board, and
+`.plandesk/skill.md` (document and task conventions, inherited verbatim);
+[scope-work](../plandesk-scope-work/SKILL.md) (decomposes this into a board, and
 carries the provenance convention this draws on);
 [groom-task](../plandesk-groom-task/SKILL.md) (finishes a task the RFC left thin);
 [lanes](../../factory/lanes.md) (the depth dial);
