@@ -4,6 +4,16 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.3.5] — 2026-07-28
+
+### Changed
+
+- **`plandesk-plan-writer` now advertises that it writes ADRs.** It always could — the skill forks on one question, *"is anything going to be built from this?"*, writing an RFC as a `Design:` document when yes and a decision record as a `Decision:` document when no. But its description named only the RFC, and the description is the entire mechanism deciding whether a skill fires, so "write an ADR" or "record why we chose X over Y" never reached it. The decision-record form sat at line 137 of 243, unreachable in practice.
+
+- **Decision records file into a `Decisions` folder.** `list_documents` already returns the project's folder tree, documents already carry `folder_id`, and `create_folder` already exists — so "what have we decided?" becomes `list_documents(folder_id)` with no schema change. The skill reuses an existing folder rather than creating a second one. A `documents.type` column was considered and rejected as unnecessary for now.
+
+- **`plan-writer` is 23% shorter (243 → 187 lines)** with every rule intact. Two sections were pure duplication: "The instincts every good RFC shares" restated the section list directly beneath it, and "The verification surface is the bridge" repeated §10. Each section now carries its own one-clause rationale instead. Also gone: a name-drop of four projects' RFC conventions that survives as one sentence, and a Voice section instructing a model not to use emoji.
+
 ## [2.3.4] — 2026-07-28
 
 ### Changed
