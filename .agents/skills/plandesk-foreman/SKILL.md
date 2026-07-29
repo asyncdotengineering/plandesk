@@ -55,10 +55,15 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
    [routing.md](../../factory/routing.md) unless one was named; a named worker
    wins, and several named workers split the slices across worktrees. Build the
    brief to protocol.md's five-section contract — the bar, the result contract,
-   the ground, the WBS snapshot, and a live `Context:` link. Derive the snapshot
-   from `list_tasks` + `list_edges` so the worker sees the agreed order and the
-   paths a later item owns; a worker given one node and no map finishes the next
-   one too.
+   the ground, the WBS snapshot, and a live `Context:` link.
+
+   Mint that link explicitly: `create_share_link` on the task (or the goal, for
+   a multi-slice run), `expires: 7d`, and put the returned `markdown_url` in the
+   brief as `Context:`. The worker has no MCP access, so this is the only way it
+   reads live board state instead of a copy that goes stale the moment someone
+   edits the task. Derive the WBS snapshot from `list_tasks` + `list_edges` so
+   the worker sees the agreed order and the paths a later item owns; a worker
+   given one node and no map finishes the next one too.
 
 6. **Stage the moment a worker returns, before reading anything.** Review takes
    minutes and unstaged work is defenceless for all of them; staged work

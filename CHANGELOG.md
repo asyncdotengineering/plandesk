@@ -4,6 +4,30 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.5.1] — 2026-07-29
+
+### Fixed
+
+- **A task in a document's links list now opens that task.** Clicking one navigated to the board and opened nothing: the link pointed at `/projects/$id/board` with no reference to the task at all, while the document link beside it correctly targeted `/projects/$id/documents/$docId`.
+
+  Fixing the href alone would not have worked. The board's task drawer was component state (`drawerTaskId`), never in the URL, so **no task was addressable from anywhere** — not a document's links, not a share link, not a pasted URL. The link had nowhere to point.
+
+  `validateTaskFilterSearch` now accepts a `task` param beside `status`; the drawer follows the URL, so browser back/forward and clicking a link while already on the board both work; and every open and close writes back with `replace: true` so the drawer does not accumulate history entries. Task URLs are consequently shareable, which the portal and share-link flows needed anyway.
+
+### Changed
+
+- **`plandesk-groom-task` states the root-cause rule for bugs plainly.** The Definition of Ready already failed "a symptom with no located cause", but that read as an aside and no skill used the word *bug*.
+
+  A bug is now ready when its Problem carries **either** the located cause — file, function, why it misbehaves — **or** a reproduction plus what has already been ruled out. Never a guess dressed as a cause: a guessed cause is worse than an absent one, because the worker inherits it as evidence, scopes the fix to it, and the real defect survives with a test pinned to the wrong explanation.
+
+  The bug fixed in this same release is the worked example — groomed from its symptom it becomes "fix the link", and that fix would have pointed at nothing.
+
+  Also states that an investigation is a legitimate task shape rather than an ungroomed one: when the cause is unknown the deliverable *is* the cause, and its validation contract is a reproduction and a written finding, not a fix.
+
+- **`plandesk-foreman` names `create_share_link` again when handing off.** 2.3.3 rewrote the dispatch step to add the WBS snapshot and, in doing so, replaced the explicit minting instruction with the phrase "a live `Context:` link" — leaving `protocol.md` as the only place naming the tool, in a table cell.
+
+  That breaks the factory's own rule to write for a weaker model: a model reading "a live Context: link" either skips it or pastes the spec, which protocol.md forbids precisely because a pasted spec goes stale the moment someone edits the task. The step now says which tool, which target, and what expiry, and why it matters — the worker has no MCP access, so the share link is its only route to live board state.
+
 ## [2.5.0] — 2026-07-29
 
 ### Fixed
