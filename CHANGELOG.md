@@ -4,6 +4,20 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.4.0] — 2026-07-29
+
+Both changes came out of reviewing how Linear and Notion structure engineering project management, and both close gaps where Plan Desk already held the data but threw it away.
+
+### Added
+
+- **`plandesk-scope-work` converts a written decomposition instead of re-deriving one.** A `Design:` document from `plandesk-plan-writer` ends with a numbered decomposition sketch in landing order — that sketch *is* the WBS. Scope-work was reading past it and rebuilding one from the surrounding prose.
+
+  Re-deriving a decomposition someone already reasoned through is how a plan quietly becomes a different plan: the author's sequencing carried an argument, and whichever part of it you did not re-read is the part you lose. `plan` mode now reads the sketch with `get_document`, creates one task per entry in the order given, links each back to the source, and requires a stated reason before splitting or merging an entry. The remaining WBS guidance applies only to entries the sketch did not cover, and to sources with no sketch at all.
+
+- **Triage carries prior art from resolved near-matches.** The dedup pass already reads every task across all statuses. A near-match that was already `done` got discarded — correctly, since it is not a duplicate and does not change the decision — but how a comparable problem was investigated and resolved is the most useful thing on the board for whoever picks the new task up, and it was being thrown away on every run.
+
+  Resolved near-matches are now cited in the new task's References as `Prior art: <label> — <what it established>`. Decision outcomes are unchanged; this adds context, never a verdict. The value lands hardest on the reader with the least history, which is usually an agent with none at all.
+
 ## [2.3.5] — 2026-07-28
 
 ### Changed
