@@ -56,12 +56,20 @@ import { useBoardDnd } from './useBoardDnd.js';
 type BoardProps = {
   projectId: string;
   tasks: SerializedTask[];
+  /**
+   * Task to open in the drawer, from the URL. Without this the drawer is
+   * component state only, so nothing outside the board — a document's links, a
+   * share link, a pasted URL — can point at a specific task.
+   */
+  openTaskId?: string | undefined;
+  /** Keeps the URL in step as the drawer opens and closes. */
+  onOpenTaskIdChange?: ((taskId: string | null) => void) | undefined;
 };
 
 const LANE_OPTIONS = ['none', 'auto', 'approve', 'full'] as const;
 type LaneOption = (typeof LANE_OPTIONS)[number];
 
-export function Board({ projectId, tasks }: BoardProps) {
+export function Board({ projectId, tasks, openTaskId, onOpenTaskIdChange }: BoardProps) {
   const { data: projectTags } = useTags(projectId);
   const { data: documents } = useDocuments(projectId);
 
@@ -75,7 +83,7 @@ export function Board({ projectId, tasks }: BoardProps) {
   );
 
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [drawerTaskId, setDrawerTaskId] = useState<string | null>(null);
+  const [drawerTaskId, setDrawerTaskId] = useState<string | null>(openTaskId ?? null);
   const [createForStatus, setCreateForStatus] = useState<TaskStatus | null>(null);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
 
@@ -97,6 +105,17 @@ export function Board({ projectId, tasks }: BoardProps) {
   );
   const activeTask =
     activeTaskId !== null ? tasks.find((task) => task.id === activeTaskId) : undefined;
+
+  // Follow the URL: browser back/forward, and a link clicked while already on
+  // the board, both change the param without remounting.
+  useEffect(() => {
+    setDrawerTaskId(openTaskId ?? null);
+  }, [openTaskId]);
+
+  const openTask = (taskId: string | null) => {
+    setDrawerTaskId(taskId);
+    onOpenTaskIdChange?.(taskId);
+  };
 
   const drawerTask = drawerTaskId !== null ? tasks.find((task) => task.id === drawerTaskId) : undefined;
   const tagNames = (projectTags ?? []).map((tag) => tag.name);
@@ -129,7 +148,7 @@ export function Board({ projectId, tasks }: BoardProps) {
         onSuccess: () => {
           toast('Task deleted');
           if (drawerTaskId === targetId) {
-            setDrawerTaskId(null);
+            openTask(null);
           }
           setDeleteTaskId(null);
         },
@@ -229,7 +248,7 @@ export function Board({ projectId, tasks }: BoardProps) {
                 status={status}
                 tasks={grouped[status]}
                 linkedDocTaskIds={linkedDocTaskIds}
-                onOpenTask={setDrawerTaskId}
+                onOpenTask={openTask}
                 onChangeStatus={handleChangeStatus}
                 onRequestDelete={handleRequestDelete}
                 onAddTask={setCreateForStatus}
@@ -254,7 +273,7 @@ export function Board({ projectId, tasks }: BoardProps) {
         isSaving={patchTask.isPending}
         onOpenChange={(open) => {
           if (!open) {
-            setDrawerTaskId(null);
+            openTask(null);
           }
         }}
         onPatch={handlePatch}

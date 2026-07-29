@@ -79,8 +79,9 @@ function LinkEntryRow({
         <Link
           to="/projects/$id/board"
           params={{ id: projectId }}
+          search={{ task: entry.id }}
           className="min-w-0 flex-1 truncate text-[13px] font-medium hover:underline"
-          title={`Open board (task: ${entry.title})`}
+          title={`Open task: ${entry.title}`}
         >
           {entry.title}
         </Link>

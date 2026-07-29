@@ -22,7 +22,8 @@ function BoardSkeleton() {
 
 function ProjectBoardPage() {
   const { id } = Route.useParams();
-  const { status } = Route.useSearch();
+  const { status, task } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(id);
   const {
     data: tasks,
@@ -71,7 +72,17 @@ function ProjectBoardPage() {
 
   return (
     <section className="flex h-full flex-col">
-      <Board projectId={id} tasks={tasks ?? []} />
+      <Board
+        projectId={id}
+        tasks={tasks ?? []}
+        openTaskId={task}
+        onOpenTaskIdChange={(taskId) => {
+          void navigate({
+            search: (prev) => ({ ...prev, task: taskId ?? undefined }),
+            replace: true,
+          });
+        }}
+      />
     </section>
   );
 }
