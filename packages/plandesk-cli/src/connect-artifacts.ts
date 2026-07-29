@@ -518,9 +518,48 @@ export function insertAgentsIndexBlock(content: string, body: string): string {
   return insertBlock(content, block, AGENTS_INDEX_SENTINEL_START, AGENTS_INDEX_SENTINEL_END);
 }
 
+/** The preamble's own `##` heading — the only reliable marker of a pre-sentinel section. */
+const FACTORY_SECTION_HEADING = FACTORY_SENTINEL_PREAMBLE.split('\n', 1)[0] ?? '';
+
+/**
+ * Replace a pre-sentinel factory section with the sentinel form.
+ *
+ * Early repos received this preamble as plain prose, before the markers existed.
+ * `insertBlock` looks only for the markers, finds none, and appends — leaving the
+ * file with the section twice: one the CLI owns and updates, one it can no longer
+ * see, frozen at whatever it said when it was written. Observed on a repo whose
+ * stale copy still described a `workflow.md` that has not shipped for versions,
+ * so an agent read two contradictory contracts and had no way to tell which was
+ * current.
+ *
+ * The heading is the CLI's own string, so a section under it is ours to reclaim —
+ * the same reasoning that lets the hooks merge drop untagged legacy entries. The
+ * section runs to the next `##` heading, or to end of file.
+ */
+function adoptLegacyFactorySection(content: string): string {
+  if (content.includes(FACTORY_SENTINEL_START) || FACTORY_SECTION_HEADING.length === 0) {
+    return content;
+  }
+  const lines = content.split('\n');
+  const start = lines.findIndex((line) => line.trim() === FACTORY_SECTION_HEADING);
+  if (start === -1) {
+    return content;
+  }
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (/^##\s/.test(lines[i] ?? '')) {
+      end = i;
+      break;
+    }
+  }
+  // Leave the markers to insertBlock: dropping the section makes the file
+  // sentinel-free, so the block lands where the section was rather than appended.
+  return [...lines.slice(0, start), ...lines.slice(end)].join('\n');
+}
+
 export function insertFactorySentinelBlock(content: string): string {
   return insertBlock(
-    content,
+    adoptLegacyFactorySection(content),
     buildFactorySentinelBlock(),
     FACTORY_SENTINEL_START,
     FACTORY_SENTINEL_END,

@@ -4,6 +4,18 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [2.5.0] — 2026-07-29
+
+### Fixed
+
+- **A pre-sentinel factory section in `CLAUDE.md` is now folded into the managed block instead of being appended past.** Early repos received the factory preamble as plain prose, before `<!-- plandesk-factory:start -->` existed. The merge looks only for those markers, found none, and appended — leaving the file with the section **twice**: one copy the CLI owns and updates, one it can no longer see, frozen at whatever it said when it was written.
+
+  This is not cosmetic. The stale copy observed in the wild described the cycle as "act → prove" and pointed at `.agents/factory/workflow.md`, a file that has not shipped for several versions. An agent reading that file got two contradictory operating contracts and no way to tell which was current — and the invisible one never updates, so the drift only widens.
+
+  The heading is the CLI's own string, so a section under it is the CLI's to reclaim — the same reasoning that lets the hooks merge drop untagged legacy entries. The section runs to the next `##` heading or end of file; surrounding content is untouched. Already-sentinelled files and files with no factory section are unaffected, and the operation is idempotent.
+
+  If you have been carrying a duplicate, `plandesk factory sync --write` now resolves it in one run.
+
 ## [2.4.0] — 2026-07-29
 
 Both changes came out of reviewing how Linear and Notion structure engineering project management, and both close gaps where Plan Desk already held the data but threw it away.

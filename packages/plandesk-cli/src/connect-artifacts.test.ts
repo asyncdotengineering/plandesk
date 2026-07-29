@@ -13,6 +13,7 @@ import {
   GITIGNORE_SERVER_INFO_LINE,
   GITIGNORE_SYNC_TOKEN_LINE,
   GITIGNORE_TOKEN_LINE,
+  insertFactorySentinelBlock,
   insertSentinelBlock,
   isPidAlive,
   isServingExpectedBoard,
@@ -23,6 +24,8 @@ import {
   readWorkspaceJson,
   removeMcpServerEntry,
   removeSentinelBlock,
+  FACTORY_SENTINEL_START,
+  FACTORY_SENTINEL_PREAMBLE,
   SENTINEL_END,
   SENTINEL_START,
   TOKEN_ENV_VAR,
@@ -640,5 +643,58 @@ describe('connect artifacts', () => {
       ]);
       expect(parsed.hooks.SessionStart).toHaveLength(1);
     });
+  });
+});
+
+describe('insertFactorySentinelBlock', () => {
+  const heading = FACTORY_SENTINEL_PREAMBLE.split('\n', 1)[0] ?? '';
+
+  function countOccurrences(haystack: string, needle: string): number {
+    return haystack.split(needle).length - 1;
+  }
+
+  it('adopts a pre-sentinel factory section instead of appending a second copy', () => {
+    // Shape observed in a repo scaffolded before the markers existed: the same
+    // heading, prose a generation out of date, referencing a file that no longer
+    // ships. Appending left an agent reading two contradictory contracts.
+    const legacy = [
+      '# Repo',
+      '',
+      '## House rules',
+      '',
+      'Keep it tidy.',
+      '',
+      heading,
+      '',
+      'This repository runs on the Factory workflow. On any work request:',
+      '',
+      '1. Read [workflow.md](.agents/factory/workflow.md) — a file that no longer ships.',
+      '',
+      '@.agents/factory/factory.md',
+    ].join('\n');
+
+    const result = insertFactorySentinelBlock(legacy);
+
+    expect(countOccurrences(result, heading)).toBe(1);
+    expect(countOccurrences(result, FACTORY_SENTINEL_START)).toBe(1);
+    expect(result).not.toContain('workflow.md');
+    // Content the CLI does not own is untouched.
+    expect(result).toContain('## House rules');
+    expect(result).toContain('Keep it tidy.');
+  });
+
+  it('is idempotent once the block is sentinelled', () => {
+    const once = insertFactorySentinelBlock('# Repo\n');
+    const twice = insertFactorySentinelBlock(once);
+    expect(twice).toBe(once);
+    expect(countOccurrences(twice, heading)).toBe(1);
+  });
+
+  it('leaves a file with no factory section alone apart from appending', () => {
+    const other = '# Repo\n\n## Something else\n\nUnrelated.\n';
+    const result = insertFactorySentinelBlock(other);
+    expect(result).toContain('## Something else');
+    expect(result).toContain('Unrelated.');
+    expect(countOccurrences(result, FACTORY_SENTINEL_START)).toBe(1);
   });
 });
