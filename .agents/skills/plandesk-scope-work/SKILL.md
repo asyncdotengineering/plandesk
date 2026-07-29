@@ -58,6 +58,15 @@ Then, for every item in order:
    compare against every existing label and description. A match is a duplicate
    when it describes the same problem or outcome — not merely the same area.
    When unsure, prefer merging over creating a near-duplicate.
+
+   **A near-match that is already `done` is context, not noise.** The default
+   instinct is to discard it — it is not a duplicate, so it does not change the
+   decision. Read it anyway: how a comparable problem was investigated and
+   resolved is the most useful thing on the board for whoever picks this up, and
+   it is invisible to them unless you carry it. Cite it in the new task's
+   **References** as `Prior art: <label> — <what it established>`. This matters
+   most for the person with the least history, which is usually whoever is
+   newest or an agent with none at all.
 2. **Decide exactly one outcome:**
    - `reject` — noise, already shipped, or out of scope. Leave the source
      untouched. For a submission, do not call `triage_submission` unless the
@@ -87,6 +96,22 @@ a raw idea with no scope boundary — "make the app better" — ask before
 scaffolding; a WBS on an unbounded ask produces a plan nobody can execute.
 
 ### 2. Build the WBS with real edges
+
+**If the source is a Plan Desk document that already carries a decomposition
+sketch, convert it — do not re-derive it.** A `Design:` document written by
+[plan-writer](../plandesk-plan-writer/SKILL.md) ends with a numbered sketch of the
+major pieces in landing order. That list *is* the WBS: read it with
+`get_document`, create one task per entry in the order given, and link each back
+to the source document.
+
+Re-deriving a decomposition someone already reasoned through is how a plan
+quietly becomes a different plan — the author's sequencing carried an argument,
+and rebuilding it from the prose loses whichever part of that argument you did
+not re-read. Split or merge an entry only when you can say why, and say so in
+the task.
+
+Everything below applies to entries that need work the sketch did not state, and
+to sources with no sketch at all.
 
 Each node is one task-sized unit. For each, decide its dependencies and express
 them as edges (`blocks`, `depends_on`, `feeds`, `enables`, `unblocks`,
