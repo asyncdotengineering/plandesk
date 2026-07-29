@@ -54,12 +54,21 @@ Then start a **new** agent session so MCP tools and the skill reload.
 `connect` and `factory init` regenerate the *generated* files (the sentinel block, adapters, `skill.md`), but the **authored** factory policy — `.agents/factory/{factory,execution,protocol,lanes,routing}.md` (and the optional companions `slicing` / `brief` / `heartbeat`) plus the skills under `.agents/skills/plandesk-*/` — is created once and never overwritten, so your edits survive. That also means shipped improvements to those files don't reach an existing repo automatically. `plandesk factory sync` closes that gap without clobbering your edits:
 
 ```bash
-plandesk factory sync            # dry-run: show what's stale vs. the shipped version
-plandesk factory sync --write    # apply creates + safe updates; keep files you customized
-plandesk factory sync --force    # also overwrite customized files with the shipped version
+plandesk factory sync                    # dry-run: show what's stale vs. the shipped version
+plandesk factory sync --write            # apply creates + safe updates; keep files you customized
+plandesk factory sync --write --prune    # also remove what the CLI no longer ships
+plandesk factory sync --force            # also overwrite customized files with the shipped version
 ```
 
 It classifies each file as **up to date**, **create** (missing), **safe update** (unmodified since it was scaffolded → updated in place), or **customized** (you edited it → kept, and reported so you can merge by hand or `--force`). Review with `git diff .agents/` before committing.
+
+#### `--prune`, and why it is a separate flag
+
+`--write` only ever adds and updates. **When a shipped skill is renamed, `--write` alone leaves the old one in place** — you get both, and both keep triggering. `--prune` is what removes it.
+
+It deletes only what the CLI itself wrote: a path is a candidate solely because `.agents/.plandesk-sync.json` records this CLI as having written it, and only when the file still matches that recorded hash. So a skill you installed from elsewhere is never a candidate, and one you edited is kept and reported. A pruned skill takes its `.claude/skills/<name>/` link with it, unless you replaced that link with your own file.
+
+It is opt-in because deleting files in someone's repo should be a decision, not a side effect of upgrading.
 
 ### 4. Verify
 
@@ -199,6 +208,34 @@ plandesk doctor --repo .
 Confirm the imported projects appear in the UI (`plandesk serve`, open the printed URL) with their tasks, documents, and edges intact, and that `.pre-legacy-upgrade` backup file exists next to your old database before you delete anything.
 
 ## Version notes
+
+### 2.3.0 — one `plandesk-*` skill family (action required)
+
+The shipped skills collapsed onto a single prefix, and two merged:
+
+| Before | After |
+| --- | --- |
+| `factory-foreman` | `plandesk-foreman` |
+| `curator-triage` + `curator-intake` | **`plandesk-scope-work`** |
+| `curator-plan-writer` | `plandesk-plan-writer` |
+| `curator-autonomy` | `plandesk-autonomy` |
+| `curator-provenance` | folded into `plandesk-scope-work` |
+| `curator-automation` | removed |
+| — | **`plandesk-groom-task`** (new) |
+| — | **`plandesk-timebox`** (new) |
+
+Two prefixes meant every request began with a routing decision, and a wrong route is expensive: one real session reached for `curator-plan-writer` with 29 items, got a correct refusal — most were below the RFC threshold — and fell through to bare `create_task`, outside every readiness bar the project keeps. Both refusal paths now hand off explicitly instead.
+
+**Run this once per repo:**
+
+```bash
+plandesk factory sync --write --prune
+git diff .agents/ .claude/      # review, then commit
+```
+
+Without `--prune` you keep both rosters — thirteen skills instead of six, with `curator-triage` and `plandesk-scope-work` both answering "triage the backlog". Prune landed in 2.3.4; on an earlier CLI you would have had to delete them by hand.
+
+`plandesk-groom-task` also became the single **Definition of Ready** for the project. It had forked four ways — a three-item rubric in `.plandesk/skill.md`, a six-item one in the shipped template, a third inside triage, and prose inside the foreman. `plandesk-scope-work` and `plandesk-foreman` now link it rather than restating it.
 
 ### 1.0.0-beta — better-auth native rewrite
 

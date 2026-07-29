@@ -33,7 +33,7 @@ plandesk go-online [--to <org>] [--server <url>] [--token <key>] [--all | --work
 plandesk disconnect [--repo <dir>]
 plandesk doctor [--data-dir <dir>] [--repo <dir>]
 plandesk factory init [--repo <dir>] [--print] [--force]
-plandesk factory sync [--write] [--force] [--repo <dir>]
+plandesk factory sync [--write] [--prune] [--force] [--repo <dir>]
 
 # Collaboration (share a project with a client or team)
 plandesk push --to <org-id> [--project <id>] [--repo <dir>]
@@ -140,6 +140,7 @@ Share a planned project with a client or another team over a read-only live port
 | `--agent`       | detect                  | Agent config target for connect                                            |
 | `--print`       | —                       | Dry-run connect / factory init without writing files                       |
 | `--force`       | —                       | `factory init`: scaffold even in a global config dir · `factory sync`: also overwrite customized files |
+| `--prune`       | —                       | (`factory sync`) delete what the CLI no longer ships: owned policy files, plus skills it wrote that you have not edited. Foreign skills are never touched |
 | `--out`         | —                       | Output file for export                                                     |
 | `--in`          | —                       | Input file for import                                                      |
 | `--from`        | `~/.plandesk/workspace.db`, else `./.plandesk/workspace.db` | (`legacy-upgrade`) path to the old workspace.db to import |
