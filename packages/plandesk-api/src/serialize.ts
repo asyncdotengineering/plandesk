@@ -130,7 +130,7 @@ export function serializeGoal(goal: Goal) {
   };
 }
 
-export function serializeTask(task: Task, tags?: Tag[]) {
+export function serializeTask(task: Task, tags?: Tag[], waitingOn?: string[]) {
   return {
     id: task.id,
     project_id: task.projectId,
@@ -145,6 +145,9 @@ export function serializeTask(task: Task, tags?: Tag[]) {
     created_at: task.createdAt.toISOString(),
     updated_at: task.updatedAt.toISOString(),
     ...(tags !== undefined ? { tags: tags.map(serializeTag) } : {}),
+    ...(waitingOn !== undefined
+      ? { blocked: waitingOn.length > 0, waiting_on: waitingOn }
+      : {}),
   };
 }
 

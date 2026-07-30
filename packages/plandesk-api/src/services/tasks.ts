@@ -75,6 +75,42 @@ function prerequisiteAndDependent(
   return { prerequisite: edge.fromId, dependent: edge.toId };
 }
 
+export function buildPrerequisiteMap(edges: Edge[]): Map<string, Set<string>> {
+  const prerequisites = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    const pair = prerequisiteAndDependent(edge);
+    if (!pair) {
+      continue;
+    }
+    let set = prerequisites.get(pair.dependent);
+    if (!set) {
+      set = new Set();
+      prerequisites.set(pair.dependent, set);
+    }
+    set.add(pair.prerequisite);
+  }
+  return prerequisites;
+}
+
+export function unfinishedPrerequisiteIds(
+  taskId: string,
+  prerequisites: Map<string, Set<string>>,
+  taskById: Map<string, Task>,
+): string[] {
+  const prereqs = prerequisites.get(taskId);
+  if (!prereqs || prereqs.size === 0) {
+    return [];
+  }
+  const unfinished: string[] = [];
+  for (const prereqId of prereqs) {
+    const prereq = taskById.get(prereqId);
+    if (!prereq || prereq.status !== 'done') {
+      unfinished.push(prereqId);
+    }
+  }
+  return unfinished;
+}
+
 export type TaskServiceDeps = OrgScopedDeps & {
   db: Db;
 };
@@ -175,8 +211,19 @@ export function createTaskService(deps: TaskServiceDeps) {
         ...(filter.tags !== undefined ? { tagNames: filter.tags.map(normalizeTagName) } : {}),
         ...pagination,
       });
+      const edges = await listEdges(db, projectId);
+      const prereqs = buildPrerequisiteMap(edges);
+      // Full project map so unfinished prereqs outside a filtered page still resolve.
+      const allTasks = await listTasks(db, projectId);
+      const taskById = new Map(allTasks.map((task) => [task.id, task]));
       const tagsByTask = await listTagsByTaskForProject(db, projectId);
-      return tasks.map((task) => serializeTask(task, tagsByTask.get(task.id) ?? []));
+      return tasks.map((task) =>
+        serializeTask(
+          task,
+          tagsByTask.get(task.id) ?? [],
+          unfinishedPrerequisiteIds(task.id, prereqs, taskById),
+        ),
+      );
     },
 
     async create(projectId: string, input: CreateTaskInput) {
@@ -359,20 +406,7 @@ export function createTaskService(deps: TaskServiceDeps) {
           ? await taskIdsWithAnyTagName(db, projectId, filter.tags.map(normalizeTagName))
           : undefined;
       const serialize = (task: Task) => serializeTask(task, tagsByTask.get(task.id) ?? []);
-
-      const prerequisites = new Map<string, Set<string>>();
-      for (const edge of edges) {
-        const pair = prerequisiteAndDependent(edge);
-        if (!pair) {
-          continue;
-        }
-        let set = prerequisites.get(pair.dependent);
-        if (!set) {
-          set = new Set();
-          prerequisites.set(pair.dependent, set);
-        }
-        set.add(pair.prerequisite);
-      }
+      const prerequisites = buildPrerequisiteMap(edges);
 
       if (tasks.length === 0) {
         return { next_task: null, reason: 'no_tasks', blocked: [] };
@@ -388,43 +422,22 @@ export function createTaskService(deps: TaskServiceDeps) {
         return { next_task: null, reason: 'no_todo_tasks', blocked: [] };
       }
 
-      const isActionable = (taskId: string): boolean => {
-        const prereqs = prerequisites.get(taskId);
-        if (!prereqs || prereqs.size === 0) {
-          return true;
-        }
-        for (const prereqId of prereqs) {
-          const prereq = taskById.get(prereqId);
-          if (!prereq || prereq.status !== 'done') {
-            return false;
-          }
-        }
-        return true;
-      };
-
-      const unfinishedPrereqs = (taskId: string): SerializedTask[] => {
-        const prereqs = prerequisites.get(taskId);
-        if (!prereqs) {
-          return [];
-        }
-        return [...prereqs]
-          .map((id) => taskById.get(id))
-          .filter((task): task is Task => task !== undefined && task.status !== 'done')
-          .map(serialize);
-      };
-
       const blocked: NextActionableResult['blocked'] = [];
       let nextTask: SerializedTask | null = null;
 
       for (const task of todoTasks) {
-        if (isActionable(task.id)) {
+        const waitingIds = unfinishedPrerequisiteIds(task.id, prerequisites, taskById);
+        if (waitingIds.length === 0) {
           if (nextTask === null) {
             nextTask = serialize(task);
           }
         } else {
           blocked.push({
             task: serialize(task),
-            waiting_on: unfinishedPrereqs(task.id),
+            waiting_on: waitingIds
+              .map((id) => taskById.get(id))
+              .filter((row): row is Task => row !== undefined)
+              .map(serialize),
           });
         }
       }

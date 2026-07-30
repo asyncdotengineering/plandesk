@@ -70,6 +70,9 @@ export type SerializedTask = {
   updated_at: string;
   // Present on task endpoints; canvas nodes omit it.
   tags?: SerializedTag[];
+  // Derived on list: unfinished prerequisite task ids from sequencing edges.
+  blocked?: boolean;
+  waiting_on?: string[];
 };
 
 export type SerializedEdge = {
