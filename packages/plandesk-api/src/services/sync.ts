@@ -43,6 +43,14 @@ export class InvalidTriageInputError extends Error {
   }
 }
 
+/** Thrown when a retry disagrees with an already-recorded triage outcome. Maps to HTTP 409. */
+export class SubmissionRetriageMismatchError extends Error {
+  constructor(message = 'submission already triaged with a different outcome') {
+    super(message);
+    this.name = 'SubmissionRetriageMismatchError';
+  }
+}
+
 export type SyncRemote = {
   serverUrl: string;
   globalProjectId: string;
@@ -307,6 +315,22 @@ export function createSyncService(deps: SyncServiceDeps) {
       }
 
       if (submission.status !== 'pending') {
+        // Corrected retry: same action + same link stays idempotent. Disagreement —
+        // different link, as_task (create-new) against an already-linked accept, or
+        // a reversed action — is a conflict; first-write-wins must not silently no-op.
+        if (
+          (action === 'accept' && submission.status === 'rejected') ||
+          (action === 'reject' && submission.status === 'accepted') ||
+          (action === 'accept' &&
+            submission.status === 'accepted' &&
+            asTask !== undefined) ||
+          (action === 'accept' &&
+            submission.status === 'accepted' &&
+            linkTaskId !== undefined &&
+            linkTaskId !== submission.linkedTaskId)
+        ) {
+          throw new SubmissionRetriageMismatchError();
+        }
         // Idempotent retry recovery: a prior triage may have committed the terminal
         // status locally but failed to ack the remote (legacy remote briefly down),
         // leaving local/remote divergence with no recovery path. Re-ack when the
@@ -336,7 +360,7 @@ export function createSyncService(deps: SyncServiceDeps) {
           linkedTaskId: linkTaskId,
         });
         if (updated === undefined) {
-          throw new InvalidTriageError();
+          throw new SubmissionRetriageMismatchError();
         }
 
         await maybeAck(remote, submissionId, 'accepted');
@@ -366,7 +390,7 @@ export function createSyncService(deps: SyncServiceDeps) {
           linkedTaskId: task.id,
         });
         if (updated === undefined) {
-          throw new InvalidTriageError();
+          throw new SubmissionRetriageMismatchError();
         }
 
         await maybeAck(remote, submissionId, 'accepted');
@@ -375,7 +399,7 @@ export function createSyncService(deps: SyncServiceDeps) {
 
       const updated = await setSubmissionStatus(db, submissionId, { status: 'rejected' });
       if (updated === undefined) {
-        throw new InvalidTriageError();
+        throw new SubmissionRetriageMismatchError();
       }
 
       await maybeAck(remote, submissionId, 'rejected');

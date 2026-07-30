@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type Db } from '../client.js';
 import { migrate } from '../migrate.js';
-import { createProjectInDefaultOrg as createProject } from '../testing.js';
+import {
+  createProjectInDefaultOrg as createProject,
+  createTaskWithDefaultGoal as createTask,
+} from '../testing.js';
 import {
   deleteShareSubmissionsByProjectId,
   deleteSyncStateByProjectId,
@@ -82,6 +85,70 @@ describe('share-submissions repository', () => {
     expect(await listSubmissions(db, project.id)).toHaveLength(2);
     expect(await listSubmissions(db, project.id, 'pending')).toHaveLength(1);
     expect((await listSubmissions(db, project.id, 'pending'))[0]?.title).toBe('Pending');
+  });
+
+  it('setSubmissionStatus against a non-pending submission returns undefined and writes nothing', async () => {
+    const project = await createProject(db, { name: 'CAS guard' });
+    const taskA = await createTask(db, { projectId: project.id, label: 'Task A' });
+    const taskB = await createTask(db, { projectId: project.id, label: 'Task B' });
+    const now = new Date();
+    await upsertSubmission(db, {
+      id: 'sub-cas',
+      projectId: project.id,
+      hostedShareId: 'share-1',
+      participantName: 'Alex',
+      title: 'Already moved',
+      createdAt: now,
+      pulledAt: now,
+    });
+
+    const first = await setSubmissionStatus(db, 'sub-cas', {
+      status: 'accepted',
+      linkedTaskId: taskA.id,
+    });
+    expect(first?.status).toBe('accepted');
+    expect(first?.linkedTaskId).toBe(taskA.id);
+
+    const second = await setSubmissionStatus(db, 'sub-cas', {
+      status: 'accepted',
+      linkedTaskId: taskB.id,
+    });
+    expect(second).toBeUndefined();
+
+    const stored = await getSubmission(db, 'sub-cas');
+    expect(stored?.status).toBe('accepted');
+    expect(stored?.linkedTaskId).toBe(taskA.id);
+  });
+
+  it('test:set_submission_status_race — concurrent setSubmissionStatus yields exactly one winner', async () => {
+    const project = await createProject(db, { name: 'Status Race' });
+    const taskA = await createTask(db, { projectId: project.id, label: 'Task A' });
+    const taskB = await createTask(db, { projectId: project.id, label: 'Task B' });
+    const now = new Date();
+    await upsertSubmission(db, {
+      id: 'sub-race',
+      projectId: project.id,
+      hostedShareId: 'share-1',
+      participantName: 'Alex',
+      title: 'Only one may triage',
+      createdAt: now,
+      pulledAt: now,
+    });
+
+    const [a, b] = await Promise.all([
+      setSubmissionStatus(db, 'sub-race', { status: 'accepted', linkedTaskId: taskA.id }),
+      setSubmissionStatus(db, 'sub-race', { status: 'accepted', linkedTaskId: taskB.id }),
+    ]);
+
+    const winners = [a, b].filter((row) => row !== undefined);
+    const losers = [a, b].filter((row) => row === undefined);
+    expect(winners).toHaveLength(1);
+    expect(losers).toHaveLength(1);
+    expect([taskA.id, taskB.id]).toContain(winners[0]?.linkedTaskId);
+
+    const stored = await getSubmission(db, 'sub-race');
+    expect(stored?.status).toBe('accepted');
+    expect(stored?.linkedTaskId).toBe(winners[0]?.linkedTaskId);
   });
 
   it('stores and updates pull cursor per project', async () => {

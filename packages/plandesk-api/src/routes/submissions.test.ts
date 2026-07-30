@@ -195,4 +195,38 @@ describe('submissions routes', () => {
     expect(scopeTasks).toHaveLength(1);
     expect(scopeTasks[0]?.id).toBe(existing?.id);
   });
+
+  it('POST triage retry with a different link_task_id returns 409 and keeps the original link', async () => {
+    const { app, db, services } = await createTestAppWithServices();
+    const project = await createProject(db, { name: 'Merge mismatch' });
+    await seedSubmission(db, project.id);
+
+    const taskA = await services.taskService.create(project.id, {
+      label: 'Task A',
+      status: 'scope',
+    });
+    const taskB = await services.taskService.create(project.id, {
+      label: 'Task B',
+      status: 'scope',
+    });
+
+    const first = await app.request('/api/v1/submissions/sub-1/triage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'accept', link_task_id: taskA?.id }),
+    });
+    expect(first.status).toBe(200);
+    expect(await parseJson(first)).toMatchObject({ linked_task_id: taskA?.id });
+
+    const retry = await app.request('/api/v1/submissions/sub-1/triage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'accept', link_task_id: taskB?.id }),
+    });
+    expect(retry.status).toBe(409);
+    expect(await parseJson(retry)).toEqual({ error: 'conflict' });
+
+    const stored = await services.syncService.getSubmission('sub-1');
+    expect(stored?.linked_task_id).toBe(taskA?.id);
+  });
 });

@@ -128,6 +128,7 @@ export { InvalidShareError, type ShareService } from './services/share.js';
 export {
   InvalidTriageError,
   InvalidTriageInputError,
+  SubmissionRetriageMismatchError,
   SyncUnavailableError,
   SyncUnauthorizedError,
   type SyncRemote,

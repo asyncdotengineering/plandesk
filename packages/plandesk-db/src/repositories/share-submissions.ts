@@ -154,7 +154,7 @@ export async function setSubmissionStatus(
       status: input.status,
       ...(input.linkedTaskId !== undefined ? { linkedTaskId: input.linkedTaskId } : {}),
     })
-    .where(eq(shareSubmissions.id, id))
+    .where(and(eq(shareSubmissions.id, id), eq(shareSubmissions.status, 'pending')))
     .returning()
     .all();
 

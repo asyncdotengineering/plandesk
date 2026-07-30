@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { shareSubmissionStatuses, type ShareSubmissionStatus } from '@plandesk/db';
 import {
   InvalidTriageError,
+  SubmissionRetriageMismatchError,
   SyncUnauthorizedError,
   SyncUnavailableError,
   type SyncService,
@@ -74,6 +75,9 @@ export function createSubmissionsRouter(
     } catch (error) {
       if (error instanceof InvalidTriageError) {
         return c.json({ error: 'not_found' }, 404);
+      }
+      if (error instanceof SubmissionRetriageMismatchError) {
+        return c.json({ error: 'conflict' }, 409);
       }
       if (error instanceof SyncUnauthorizedError) {
         return c.json({ error: 'sync_unauthorized' }, 400);
