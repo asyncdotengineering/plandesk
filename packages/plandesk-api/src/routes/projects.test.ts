@@ -209,6 +209,191 @@ describe('projects routes', () => {
     expect(body.description).toBe('Updated');
   });
 
+  it('POST /api/v1/projects accepts repo_url and folder_path; omitted fields are null', async () => {
+    const { app } = await createTestApp();
+    const withRepo = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Bound',
+        repo_url: 'https://github.com/acme/plandesk',
+        folder_path: 'packages/plandesk-api',
+      }),
+    });
+    expect(withRepo.status).toBe(201);
+    const bound = await parseJson<ProjectResponse>(withRepo);
+    expect(bound.repo_url).toBe('https://github.com/acme/plandesk');
+    expect(bound.folder_path).toBe('packages/plandesk-api');
+
+    const getRes = await app.request(`/api/v1/projects/${bound.id}`);
+    expect(getRes.status).toBe(200);
+    const detail = await parseJson<ProjectDetailResponse>(getRes);
+    expect(detail.repo_url).toBe('https://github.com/acme/plandesk');
+    expect(detail.folder_path).toBe('packages/plandesk-api');
+
+    const bareRes = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Bare' }),
+    });
+    const bare = await parseJson<ProjectResponse>(bareRes);
+    expect(bare.repo_url).toBeNull();
+    expect(bare.folder_path).toBeNull();
+  });
+
+  it('PATCH /api/v1/projects/:id clears repo_url with null', async () => {
+    const { app } = await createTestApp();
+    const createRes = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Clearable',
+        repo_url: 'https://github.com/acme/plandesk',
+        folder_path: 'apps/web',
+      }),
+    });
+    const created = await parseJson<ProjectResponse>(createRes);
+
+    const res = await app.request(`/api/v1/projects/${created.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repo_url: null }),
+    });
+    expect(res.status).toBe(200);
+    const body = await parseJson<ProjectResponse>(res);
+    expect(body.repo_url).toBeNull();
+    expect(body.folder_path).toBe('apps/web');
+  });
+
+  it('POST /api/v1/projects rejects a malformed repo_url', async () => {
+    const { app } = await createTestApp();
+    const res = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Bad', repo_url: 'not-a-url' }),
+    });
+    expect(res.status).toBe(400);
+    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+  });
+
+  it('POST /api/v1/projects rejects dangerous repo_url schemes and absolute folder_path', async () => {
+    const { app } = await createTestApp();
+    for (const repo_url of [
+      'javascript:alert(1)',
+      'data:text/html,x',
+      'file:///etc/passwd',
+      'vbscript:MsgBox(1)',
+    ]) {
+      const res = await app.request('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Bad', repo_url }),
+      });
+      expect(res.status).toBe(400);
+      expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    }
+    for (const folder_path of ['/etc', '../../other', 'C:\\Windows', 'a//b', 'trailing/']) {
+      const res = await app.request('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Bad', folder_path }),
+      });
+      expect(res.status).toBe(400);
+      expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    }
+  });
+
+  it('POST /api/v1/projects rejects scp-smuggled schemes and Windows drive-relative folder_path', async () => {
+    const { app } = await createTestApp();
+    for (const repo_url of [
+      'javascript:alert@github.com:org/repo.git',
+      'data:text,owned@github.com:org/repo.git',
+      'file:C:@github.com:org/repo.git',
+    ]) {
+      const res = await app.request('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Bad', repo_url }),
+      });
+      expect(res.status).toBe(400);
+      expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    }
+    for (const folder_path of ['C:..\\secret', 'C:relative\\path', 'C:\\abs', 'c:..']) {
+      const res = await app.request('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Bad', folder_path }),
+      });
+      expect(res.status).toBe(400);
+      expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    }
+  });
+
+  it('POST /api/v1/projects accepts scp-style and ssh:// repo_url', async () => {
+    const { app } = await createTestApp();
+    const scp = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'SCP',
+        repo_url: 'git@github.com:acme/plandesk.git',
+        folder_path: 'packages/api',
+      }),
+    });
+    expect(scp.status).toBe(201);
+    expect((await parseJson<ProjectResponse>(scp)).repo_url).toBe(
+      'git@github.com:acme/plandesk.git',
+    );
+
+    const ssh = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'SSH',
+        repo_url: 'ssh://git@github.com/acme/plandesk.git',
+      }),
+    });
+    expect(ssh.status).toBe(201);
+    expect((await parseJson<ProjectResponse>(ssh)).repo_url).toBe(
+      'ssh://git@github.com/acme/plandesk.git',
+    );
+  });
+
+  it('allows two projects to share one repo_url with different folder_path values', async () => {
+    const { app } = await createTestApp();
+    const repoUrl = 'https://github.com/acme/monorepo';
+    const a = await parseJson<ProjectResponse>(
+      await app.request('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'API',
+          repo_url: repoUrl,
+          folder_path: 'packages/plandesk-api',
+        }),
+      }),
+    );
+    const bRes = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'DB',
+        repo_url: repoUrl,
+        folder_path: 'packages/plandesk-db',
+      }),
+    });
+    expect(bRes.status).toBe(201);
+    const b = await parseJson<ProjectResponse>(bRes);
+    expect(a.repo_url).toBe(repoUrl);
+    expect(b.repo_url).toBe(repoUrl);
+    expect(a.folder_path).toBe('packages/plandesk-api');
+    expect(b.folder_path).toBe('packages/plandesk-db');
+
+    const list = await parseJson<ProjectResponse[]>(await app.request('/api/v1/projects'));
+    const names = list.map((p) => p.name).sort();
+    expect(names).toEqual(['API', 'DB']);
+  });
+
   it('PATCH /api/v1/projects/:id returns 404 when missing', async () => {
     const { app } = await createTestApp();
     const res = await app.request('/api/v1/projects/00000000-0000-4000-8000-000000009999', {

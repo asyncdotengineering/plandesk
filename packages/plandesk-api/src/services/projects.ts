@@ -213,12 +213,16 @@ export type ProjectServiceDeps = OrgScopedDeps & {
 export type CreateProjectInput = {
   name: string;
   description?: string | null;
+  repoUrl?: string | null;
+  folderPath?: string | null;
   workspaceId?: string;
 };
 
 export type UpdateProjectInput = {
   name?: string;
   description?: string | null;
+  repoUrl?: string | null;
+  folderPath?: string | null;
 };
 
 function summarizeTasks(tasks: Task[]): TaskStatusSummary {

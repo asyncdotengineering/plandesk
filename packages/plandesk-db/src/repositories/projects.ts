@@ -9,12 +9,16 @@ export type NewProject = {
   orgId: string;
   workspaceId: string;
   description?: string | null;
+  repoUrl?: string | null;
+  folderPath?: string | null;
   id?: string;
 };
 
 export type ProjectUpdate = {
   name?: string;
   description?: string | null;
+  repoUrl?: string | null;
+  folderPath?: string | null;
   canvasLayout?: string | null;
   workspaceId?: string;
 };
@@ -30,6 +34,8 @@ export async function createProject(db: DbClient, input: NewProject): Promise<Pr
       workspaceId: input.workspaceId,
       name: input.name,
       description: input.description ?? null,
+      repoUrl: input.repoUrl ?? null,
+      folderPath: input.folderPath ?? null,
       createdAt: now,
       updatedAt: now,
     })

@@ -226,6 +226,57 @@ describe('PATCH /api/v1/projects/:id { workspace_id } (move project, REQ-A2)', (
     expect(moved.id).toBe(project.id);
   });
 
+  it('PATCH with workspace_id and content fields is rejected (no partial apply)', async () => {
+    const { app, db, auth } = await hostedApp();
+    const org = { id: randomUUID(), name: 'Mixed Patch Org', slug: 'mixed-patch-org' };
+    const { userId } = await seedBetterAuthUser(auth, {
+      email: 'owner-mixed@example.com',
+      name: 'Owner',
+      githubAccountId: '9105',
+      org,
+      role: 'owner',
+    });
+    const ownerKey = await createOrgOwnerKey({ auth, userId, orgId: org.id, name: 'owner' });
+
+    const defaultTeamId = await ensureDefaultTeamForOrg(auth, org.id);
+    const createWsRes = await app.request(`/api/v1/orgs/${org.id}/workspaces`, {
+      method: 'POST',
+      headers: { ...bearer(ownerKey.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Target WS' }),
+    });
+    const target = await parseJson<{ id: string }>(createWsRes);
+
+    const project = await createProject(db, {
+      name: 'Before Name',
+      description: 'Before desc',
+      orgId: org.id,
+      workspaceId: defaultTeamId,
+      repoUrl: 'https://github.com/acme/before',
+      folderPath: 'packages/before',
+    });
+
+    const res = await app.request(`/api/v1/projects/${project.id}`, {
+      method: 'PATCH',
+      headers: { ...bearer(ownerKey.key), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workspace_id: target.id,
+        name: 'After Name',
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+
+    const getRes = await app.request(`/api/v1/projects/${project.id}`, {
+      headers: bearer(ownerKey.key),
+    });
+    const detail = await parseJson<ProjectResponse>(getRes);
+    expect(detail.workspace_id).toBe(defaultTeamId);
+    expect(detail.name).toBe('Before Name');
+    expect(detail.description).toBe('Before desc');
+    expect(detail.repo_url).toBe('https://github.com/acme/before');
+    expect(detail.folder_path).toBe('packages/before');
+  });
+
   it('moving to a team in another org → 404', async () => {
     const { app, db, auth } = await hostedApp();
     const orgA = { id: randomUUID(), name: 'Org A', slug: 'org-a' };

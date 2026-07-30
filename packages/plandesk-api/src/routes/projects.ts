@@ -1,5 +1,10 @@
 import { Hono } from 'hono';
-import { InvalidTaskStatusError, isTaskStatus } from '@plandesk/db';
+import {
+  InvalidTaskStatusError,
+  isTaskStatus,
+  isValidFolderPath,
+  isValidRepoUrl,
+} from '@plandesk/db';
 import type { ProjectService } from '../services/projects.js';
 import { InvalidGoalReferenceError, type TaskService } from '../services/tasks.js';
 import { InvalidTagError } from '../services/tags.js';
@@ -25,10 +30,22 @@ export function createProjectsRouter(
     const body = await c.req.json<{
       name?: string;
       description?: string | null;
+      repo_url?: string | null;
+      folder_path?: string | null;
       workspace_id?: string;
     }>();
     if (typeof body.name !== 'string' || body.name.trim() === '') {
       return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (body.repo_url !== undefined && body.repo_url !== null) {
+      if (typeof body.repo_url !== 'string' || !isValidRepoUrl(body.repo_url)) {
+        return c.json({ error: 'invalid_argument' }, 400);
+      }
+    }
+    if (body.folder_path !== undefined && body.folder_path !== null) {
+      if (typeof body.folder_path !== 'string' || !isValidFolderPath(body.folder_path)) {
+        return c.json({ error: 'invalid_argument' }, 400);
+      }
     }
     const workspaceId =
       typeof body.workspace_id === 'string' && body.workspace_id.length > 0
@@ -38,6 +55,8 @@ export function createProjectsRouter(
       const project = await projectService.create({
         name: body.name,
         description: body.description,
+        ...(body.repo_url !== undefined ? { repoUrl: body.repo_url } : {}),
+        ...(body.folder_path !== undefined ? { folderPath: body.folder_path } : {}),
         ...(workspaceId !== undefined ? { workspaceId } : {}),
       });
       return c.json(project, 201);
@@ -61,9 +80,35 @@ export function createProjectsRouter(
     const body = await c.req.json<{
       name?: string;
       description?: string | null;
+      repo_url?: string | null;
+      folder_path?: string | null;
       workspace_id?: string | null;
     }>();
     if (body.name !== undefined && (typeof body.name !== 'string' || body.name.trim() === '')) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (body.repo_url !== undefined && body.repo_url !== null) {
+      if (typeof body.repo_url !== 'string' || !isValidRepoUrl(body.repo_url)) {
+        return c.json({ error: 'invalid_argument' }, 400);
+      }
+    }
+    if (body.folder_path !== undefined && body.folder_path !== null) {
+      if (typeof body.folder_path !== 'string' || !isValidFolderPath(body.folder_path)) {
+        return c.json({ error: 'invalid_argument' }, 400);
+      }
+    }
+
+    const contentPatch = {
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.repo_url !== undefined ? { repoUrl: body.repo_url } : {}),
+      ...(body.folder_path !== undefined ? { folderPath: body.folder_path } : {}),
+    };
+    const hasContentPatch = Object.keys(contentPatch).length > 0;
+
+    // Move and content edit are different permission axes. Reject a mixed PATCH
+    // before any write so a failed content update cannot leave a half-applied move.
+    if (body.workspace_id !== undefined && hasContentPatch) {
       return c.json({ error: 'invalid_argument' }, 400);
     }
 
@@ -88,10 +133,7 @@ export function createProjectsRouter(
       }
     }
 
-    const project = await projectService.update(c.req.param('id'), {
-      ...(body.name !== undefined ? { name: body.name } : {}),
-      ...(body.description !== undefined ? { description: body.description } : {}),
-    });
+    const project = await projectService.update(c.req.param('id'), contentPatch);
     if (!project) {
       return c.json({ error: 'not_found' }, 404);
     }

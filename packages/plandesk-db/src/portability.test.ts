@@ -600,9 +600,11 @@ describe('export/import portability', () => {
       'canvas_layout',
       'created_at',
       'description',
+      'folder_path',
       'id',
       'name',
       'org_id',
+      'repo_url',
       'updated_at',
       'workspace_id',
     ]);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addCommentInputSchema,
+  createProjectInputSchema,
   createTaskInputSchema,
   getNextTaskInputSchema,
   listCommentsInputSchema,
@@ -8,6 +9,7 @@ import {
   listTasksInputSchema,
   scaffoldProjectFromPlanInputSchema,
   triageSubmissionInputSchema,
+  updateProjectInputSchema,
   updateTaskInputSchema,
   v1ToolNames,
   v1ToolSchemas,
@@ -20,10 +22,108 @@ describe('tool registry tag schemas', () => {
   it('registers list_tags with a schema for every v1 tool', () => {
     expect(v1ToolNames).toContain('list_tags');
     expect(v1ToolNames).toContain('claim_task');
-    expect(v1ToolNames).toHaveLength(48);
+    expect(v1ToolNames).toContain('update_project');
+    expect(v1ToolNames).toHaveLength(49);
     for (const name of v1ToolNames) {
       expect(v1ToolSchemas[name]).toBeDefined();
     }
+  });
+
+  it('create_project and update_project accept repo_url and folder_path; reject dangerous schemes and absolute paths', () => {
+    expect(
+      createProjectInputSchema.safeParse({
+        name: 'P',
+        repo_url: 'https://github.com/acme/plandesk',
+        folder_path: 'packages/api',
+      }).success,
+    ).toBe(true);
+    expect(createProjectInputSchema.safeParse({ name: 'P', repo_url: null }).success).toBe(true);
+    expect(createProjectInputSchema.safeParse({ name: 'P', repo_url: 'not-a-url' }).success).toBe(
+      false,
+    );
+    expect(
+      createProjectInputSchema.safeParse({ name: 'P', repo_url: 'javascript:alert(1)' }).success,
+    ).toBe(false);
+    expect(
+      createProjectInputSchema.safeParse({ name: 'P', repo_url: 'data:text/html,x' }).success,
+    ).toBe(false);
+    expect(
+      createProjectInputSchema.safeParse({ name: 'P', repo_url: 'file:///tmp/x' }).success,
+    ).toBe(false);
+    expect(
+      createProjectInputSchema.safeParse({ name: 'P', folder_path: '/etc' }).success,
+    ).toBe(false);
+    expect(
+      createProjectInputSchema.safeParse({ name: 'P', folder_path: '../../other' }).success,
+    ).toBe(false);
+    expect(
+      updateProjectInputSchema.safeParse({
+        project_id: PROJECT_ID,
+        repo_url: null,
+        folder_path: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      updateProjectInputSchema.safeParse({
+        project_id: PROJECT_ID,
+        repo_url: 'git@github.com:acme/plandesk.git',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('create_project and update_project reject scp-smuggled schemes and drive-relative paths', () => {
+    expect(
+      createProjectInputSchema.safeParse({
+        name: 'P',
+        repo_url: 'javascript:alert@github.com:org/repo.git',
+      }).success,
+    ).toBe(false);
+    expect(
+      createProjectInputSchema.safeParse({
+        name: 'P',
+        repo_url: 'data:text,owned@github.com:org/repo.git',
+      }).success,
+    ).toBe(false);
+    expect(
+      createProjectInputSchema.safeParse({
+        name: 'P',
+        repo_url: 'file:C:@github.com:org/repo.git',
+      }).success,
+    ).toBe(false);
+    expect(
+      createProjectInputSchema.safeParse({ name: 'P', folder_path: 'C:..\\secret' }).success,
+    ).toBe(false);
+    expect(
+      createProjectInputSchema.safeParse({ name: 'P', folder_path: 'C:relative\\path' }).success,
+    ).toBe(false);
+    expect(
+      createProjectInputSchema.safeParse({ name: 'P', folder_path: 'C:\\abs' }).success,
+    ).toBe(false);
+    expect(
+      createProjectInputSchema.safeParse({ name: 'P', folder_path: 'c:..' }).success,
+    ).toBe(false);
+    expect(
+      createProjectInputSchema.safeParse({ name: 'P', folder_path: 'packages/plandesk-api' })
+        .success,
+    ).toBe(true);
+    expect(
+      createProjectInputSchema.safeParse({
+        name: 'P',
+        repo_url: 'git@github.com:org/repo.git',
+      }).success,
+    ).toBe(true);
+    expect(
+      updateProjectInputSchema.safeParse({
+        project_id: PROJECT_ID,
+        repo_url: 'javascript:alert@github.com:org/repo.git',
+      }).success,
+    ).toBe(false);
+    expect(
+      updateProjectInputSchema.safeParse({
+        project_id: PROJECT_ID,
+        folder_path: 'C:..\\secret',
+      }).success,
+    ).toBe(false);
   });
 
   it('create_task accepts an optional tags string array', () => {

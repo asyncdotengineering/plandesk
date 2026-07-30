@@ -1,5 +1,24 @@
 import { z } from 'zod';
-import { artifactKinds, goalStatuses, shareSubmissionStatuses, taskStatuses } from '@plandesk/db';
+import {
+  artifactKinds,
+  goalStatuses,
+  isValidFolderPath,
+  isValidRepoUrl,
+  shareSubmissionStatuses,
+  taskStatuses,
+} from '@plandesk/db';
+
+const repoUrlSchema = z
+  .string()
+  .refine(isValidRepoUrl, { message: 'invalid repo_url' })
+  .nullable()
+  .optional();
+
+const folderPathSchema = z
+  .string()
+  .refine(isValidFolderPath, { message: 'invalid folder_path' })
+  .nullable()
+  .optional();
 
 const DOCUMENT_BODY_DESCRIPTION =
   'Document body in Markdown (rendered as rich text). Structure it well: `##` headings, bullet lists, fenced code blocks, and blank lines between paragraphs. HTML is also accepted.';
@@ -32,6 +51,16 @@ export const listProjectsInputSchema = z.object({});
 export const createProjectInputSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
+  repo_url: repoUrlSchema,
+  folder_path: folderPathSchema,
+});
+
+export const updateProjectInputSchema = z.object({
+  project_id: z.string().uuid(),
+  name: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  repo_url: repoUrlSchema,
+  folder_path: folderPathSchema,
 });
 
 export const getProjectInputSchema = z.object({
@@ -541,6 +570,7 @@ export const v1ToolNames = [
   'list_projects',
   'get_project',
   'create_project',
+  'update_project',
   'create_task',
   'update_task',
   'create_document',
@@ -594,6 +624,7 @@ export const v1ToolSchemas = {
   list_projects: listProjectsInputSchema,
   get_project: getProjectInputSchema,
   create_project: createProjectInputSchema,
+  update_project: updateProjectInputSchema,
   create_task: createTaskInputSchema,
   update_task: updateTaskInputSchema,
   create_document: createDocumentInputSchema,

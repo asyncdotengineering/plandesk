@@ -21,6 +21,7 @@ import { createCreateShareLinkHandler } from './tools/create-share-link.js';
 import { createCreateFolderHandler } from './tools/create-folder.js';
 import { createUpdateFolderHandler } from './tools/update-folder.js';
 import { createCreateProjectHandler } from './tools/create-project.js';
+import { createUpdateProjectHandler } from './tools/update-project.js';
 import { createCreateTaskHandler } from './tools/create-task.js';
 import { createCreateNoteHandler } from './tools/create-note.js';
 import { createUpdateNoteHandler } from './tools/update-note.js';
@@ -67,6 +68,7 @@ import {
   createShareLinkInputSchema,
   updateFolderInputSchema,
   createProjectInputSchema,
+  updateProjectInputSchema,
   createTaskInputSchema,
   getDocumentInputSchema,
   getTaskInputSchema,
@@ -145,6 +147,17 @@ function createMcpServer(services: Services, origin: string): McpServer {
       inputSchema: createProjectInputSchema.shape,
     },
     createCreateProjectHandler(services.projectService),
+  );
+
+  server.registerTool(
+    'update_project',
+    {
+      title: 'Update Project',
+      description:
+        'Update project name, description, repo_url, or folder_path. Pass null for repo_url or folder_path to clear them.',
+      inputSchema: updateProjectInputSchema.shape,
+    },
+    createUpdateProjectHandler(services.projectService),
   );
 
   server.registerTool(

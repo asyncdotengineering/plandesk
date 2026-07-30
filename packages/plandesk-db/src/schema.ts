@@ -65,6 +65,10 @@ export const projects = sqliteTable('projects', {
   workspaceId: text('workspace_id').notNull().default(DEFAULT_WORKSPACE_ID),
   name: text('name').notNull(),
   description: text('description'),
+  // Nullable repo binding — several projects may share one repo_url (monorepo).
+  repoUrl: text('repo_url'),
+  // Path relative to the repo root (e.g. packages/plandesk-api); never absolute.
+  folderPath: text('folder_path'),
   canvasLayout: text('canvas_layout'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()

@@ -57,6 +57,8 @@ export function serializeProject(project: Project) {
     id: project.id,
     name: project.name,
     description: project.description,
+    repo_url: project.repoUrl,
+    folder_path: project.folderPath,
     workspace_id: project.workspaceId,
     created_at: project.createdAt.toISOString(),
     updated_at: project.updatedAt.toISOString(),

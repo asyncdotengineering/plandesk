@@ -108,4 +108,5 @@ export declare function createUpdateDocumentHandler(dep?: unknown, dep2?: unknow
 export declare function createUpdateFolderHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateGoalHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateNoteHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createUpdateProjectHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateTaskHandler(dep?: unknown, dep2?: unknown): McpToolHandler;

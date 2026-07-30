@@ -24,6 +24,8 @@ const sampleProject: SerializedProject = {
   id: 'proj-1',
   name: 'Alpha',
   description: null,
+  repo_url: null,
+  folder_path: null,
   workspace_id: 'ws-1',
   created_at: '2026-06-07T00:00:00.000Z',
   updated_at: '2026-06-07T00:00:00.000Z',

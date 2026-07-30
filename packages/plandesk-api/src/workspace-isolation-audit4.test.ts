@@ -107,6 +107,7 @@ import {
   createUpdateFolderHandler,
   createUpdateGoalHandler,
   createUpdateNoteHandler,
+  createUpdateProjectHandler,
   createUpdateTaskHandler,
 } from '../test-support/mcp-tool-handlers.js';
 
@@ -117,6 +118,7 @@ const MCP_TOOLS = [
   'list_projects',
   'get_project',
   'create_project',
+  'update_project',
   'create_task',
   'update_task',
   'create_document',
@@ -550,6 +552,14 @@ async function runMcpForeignSweep(
 
   const deniedCalls: Array<[string, () => Promise<McpResult>]> = [
     ['get_project', () => createGetProjectHandler(s.projectService)({ project_id: target.project.id })],
+    [
+      'update_project',
+      () =>
+        createUpdateProjectHandler(s.projectService)({
+          project_id: target.project.id,
+          name: 'escaped',
+        }),
+    ],
     [
       'create_task',
       () =>

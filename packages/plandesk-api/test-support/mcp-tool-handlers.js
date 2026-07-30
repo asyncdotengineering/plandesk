@@ -14,6 +14,7 @@ export { createCreateFolderHandler } from "../../plandesk-mcp/src/tools/create-f
 export { createCreateGoalHandler } from "../../plandesk-mcp/src/tools/create-goal.js";
 export { createCreateNoteHandler } from "../../plandesk-mcp/src/tools/create-note.js";
 export { createCreateProjectHandler } from "../../plandesk-mcp/src/tools/create-project.js";
+export { createUpdateProjectHandler } from "../../plandesk-mcp/src/tools/update-project.js";
 export { createCreateShareLinkHandler } from "../../plandesk-mcp/src/tools/create-share-link.js";
 export { createCreateTaskHandler } from "../../plandesk-mcp/src/tools/create-task.js";
 export { createDeleteEdgeHandler } from "../../plandesk-mcp/src/tools/delete-edge.js";

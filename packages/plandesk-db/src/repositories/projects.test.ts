@@ -74,4 +74,58 @@ describe('projects repository', () => {
     expect(await getProject(db, created.id)).toBeUndefined();
     expect(await deleteProject(db, created.id)).toBe(false);
   });
+
+  it('stores repo_url and folder_path, defaulting to null', async () => {
+    const bare = await createProject(db, { name: 'Bare' });
+    expect(bare.repoUrl).toBeNull();
+    expect(bare.folderPath).toBeNull();
+
+    const bound = await createProject(db, {
+      name: 'Bound',
+      repoUrl: 'https://github.com/acme/plandesk',
+      folderPath: 'packages/plandesk-api',
+    });
+    const fetched = await getProject(db, bound.id);
+    expect(fetched?.repoUrl).toBe('https://github.com/acme/plandesk');
+    expect(fetched?.folderPath).toBe('packages/plandesk-api');
+  });
+
+  it('allows two projects to share one repo_url with different folder_path values', async () => {
+    const repoUrl = 'https://github.com/acme/monorepo';
+    const api = await createProject(db, {
+      name: 'API',
+      repoUrl,
+      folderPath: 'packages/plandesk-api',
+    });
+    const dbPkg = await createProject(db, {
+      name: 'DB',
+      repoUrl,
+      folderPath: 'packages/plandesk-db',
+    });
+    expect(api.repoUrl).toBe(repoUrl);
+    expect(dbPkg.repoUrl).toBe(repoUrl);
+    expect(api.folderPath).not.toBe(dbPkg.folderPath);
+    expect(await getProject(db, api.id)).toMatchObject({
+      repoUrl,
+      folderPath: 'packages/plandesk-api',
+    });
+    expect(await getProject(db, dbPkg.id)).toMatchObject({
+      repoUrl,
+      folderPath: 'packages/plandesk-db',
+    });
+  });
+
+  it('clears repo_url and folder_path on update with null', async () => {
+    const created = await createProject(db, {
+      name: 'Clearable',
+      repoUrl: 'https://github.com/acme/plandesk',
+      folderPath: 'apps/web',
+    });
+    const updated = await updateProject(db, created.id, {
+      repoUrl: null,
+      folderPath: null,
+    });
+    expect(updated?.repoUrl).toBeNull();
+    expect(updated?.folderPath).toBeNull();
+  });
 });

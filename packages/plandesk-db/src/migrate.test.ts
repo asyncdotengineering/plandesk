@@ -432,4 +432,83 @@ describe('migrate', () => {
     };
     expect(await shape(db)).toEqual(await shape(fresh));
   });
+
+  // Regression: 0006 only ADDs two nullable columns. A row that existed at 0005
+  // must survive unchanged (including documents/edges) with the new cols null.
+  // An earlier buggy migration that dropped/recreated documents+edges stayed
+  // green because every test inserted rows only after full migrate().
+  it('0006 preserves pre-existing projects, documents, and edges', async () => {
+    const files = readdirSync(drizzleDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    const idx = files.indexOf('0006_oval_silhouette.sql');
+    expect(idx).toBeGreaterThan(0);
+    const preamble = files.slice(0, idx);
+    const target = files[idx];
+    if (target === undefined) {
+      throw new Error(`no migration file at index ${String(idx)}`);
+    }
+
+    const db = await createDb(':memory:');
+    await db.$client.execute('PRAGMA foreign_keys = OFF');
+    for (const f of preamble) {
+      await applyMigrationSqlRaw(db, f);
+    }
+
+    await db.$client.execute(
+      "INSERT INTO projects (id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at) VALUES ('p1','o1','w1','Pre-0006','Known desc','{\"x\":1}',100,200)",
+    );
+    await db.$client.execute(
+      "INSERT INTO documents (id, project_id, title, body, status_line, parent_id, folder_id, created_at, updated_at) VALUES ('d1','p1','Spec','# Body','draft',NULL,NULL,300,400)",
+    );
+    await db.$client.execute(
+      "INSERT INTO edges (id, project_id, from_type, from_id, to_type, to_id, label, arrow_direction, style, created_at) VALUES ('e1','p1','document','d1','document','d1','references',NULL,'solid',500)",
+    );
+
+    const projectBefore = await db.$client.execute(
+      'SELECT id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at FROM projects WHERE id = \'p1\'',
+    );
+    const docBefore = await db.$client.execute(
+      'SELECT id, project_id, title, body, status_line, parent_id, folder_id, created_at, updated_at FROM documents WHERE id = \'d1\'',
+    );
+    const edgeBefore = await db.$client.execute(
+      'SELECT id, project_id, from_type, from_id, to_type, to_id, label, arrow_direction, style, created_at FROM edges WHERE id = \'e1\'',
+    );
+    expect(projectBefore.rows).toHaveLength(1);
+    expect(docBefore.rows).toHaveLength(1);
+    expect(edgeBefore.rows).toHaveLength(1);
+
+    expect(await hasColumn(db, 'projects', 'repo_url')).toBe(false);
+    expect(await hasColumn(db, 'projects', 'folder_path')).toBe(false);
+
+    await applyMigrationSqlRaw(db, target);
+    await db.$client.execute('PRAGMA foreign_keys = ON');
+
+    const fkCheck = await db.$client.execute('PRAGMA foreign_key_check');
+    expect(fkCheck.rows).toHaveLength(0);
+
+    expect(await hasColumn(db, 'projects', 'repo_url')).toBe(true);
+    expect(await hasColumn(db, 'projects', 'folder_path')).toBe(true);
+
+    const projectAfter = await db.$client.execute(
+      'SELECT id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at, repo_url, folder_path FROM projects WHERE id = \'p1\'',
+    );
+    expect(projectAfter.rows).toEqual([
+      {
+        ...projectBefore.rows[0],
+        repo_url: null,
+        folder_path: null,
+      },
+    ]);
+
+    const docAfter = await db.$client.execute(
+      'SELECT id, project_id, title, body, status_line, parent_id, folder_id, created_at, updated_at FROM documents WHERE id = \'d1\'',
+    );
+    expect(docAfter.rows).toEqual(docBefore.rows);
+
+    const edgeAfter = await db.$client.execute(
+      'SELECT id, project_id, from_type, from_id, to_type, to_id, label, arrow_direction, style, created_at FROM edges WHERE id = \'e1\'',
+    );
+    expect(edgeAfter.rows).toEqual(edgeBefore.rows);
+  });
 });

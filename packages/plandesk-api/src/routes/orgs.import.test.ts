@@ -224,9 +224,11 @@ describe('POST /api/v1/orgs/:id/import', () => {
       'canvas_layout',
       'created_at',
       'description',
+      'folder_path',
       'id',
       'name',
       'org_id',
+      'repo_url',
       'updated_at',
       'workspace_id',
     ]);
@@ -402,9 +404,11 @@ describe('POST /api/v1/orgs/:id/import', () => {
       'canvas_layout',
       'created_at',
       'description',
+      'folder_path',
       'id',
       'name',
       'org_id',
+      'repo_url',
       'updated_at',
       'workspace_id',
     ]);

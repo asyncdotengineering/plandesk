@@ -161,7 +161,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(48);
+      expect(names).toHaveLength(49);
       await client.close();
     });
   });
@@ -258,6 +258,98 @@ describe('createMcpApp', () => {
         arguments: { project_id: '00000000-0000-4000-8000-000000009999' },
       });
       expect(result.isError).toBe(true);
+      await client.close();
+    });
+  });
+
+  it('create_project / get_project / update_project round-trip repo_url and folder_path', async () => {
+    await withMcpServer(async ({ baseUrl }) => {
+      const client = await connectClient(baseUrl);
+
+      const bound = await client.callTool({
+        name: 'create_project',
+        arguments: {
+          name: 'Bound MCP',
+          repo_url: 'https://github.com/acme/plandesk',
+          folder_path: 'packages/plandesk-mcp',
+        },
+      });
+      expect(bound.isError).not.toBe(true);
+      const boundContent = bound.content as Array<{ type: string; text?: string }>;
+      const boundText = boundContent[0]?.type === 'text' ? (boundContent[0].text ?? '{}') : '{}';
+      const boundProject = (
+        JSON.parse(boundText) as {
+          project: {
+            id: string;
+            repo_url: string | null;
+            folder_path: string | null;
+          };
+        }
+      ).project;
+      expect(boundProject.repo_url).toBe('https://github.com/acme/plandesk');
+      expect(boundProject.folder_path).toBe('packages/plandesk-mcp');
+
+      const gotBound = await client.callTool({
+        name: 'get_project',
+        arguments: { project_id: boundProject.id },
+      });
+      const gotBoundContent = gotBound.content as Array<{ type: string; text?: string }>;
+      const gotBoundText =
+        gotBoundContent[0]?.type === 'text' ? (gotBoundContent[0].text ?? '{}') : '{}';
+      const gotBoundProject = (
+        JSON.parse(gotBoundText) as {
+          project: { repo_url: string | null; folder_path: string | null };
+        }
+      ).project;
+      expect(gotBoundProject.repo_url).toBe('https://github.com/acme/plandesk');
+      expect(gotBoundProject.folder_path).toBe('packages/plandesk-mcp');
+
+      const bare = await client.callTool({
+        name: 'create_project',
+        arguments: { name: 'Bare MCP' },
+      });
+      expect(bare.isError).not.toBe(true);
+      const bareContent = bare.content as Array<{ type: string; text?: string }>;
+      const bareText = bareContent[0]?.type === 'text' ? (bareContent[0].text ?? '{}') : '{}';
+      const bareProject = (
+        JSON.parse(bareText) as {
+          project: { id: string; repo_url: string | null; folder_path: string | null };
+        }
+      ).project;
+      expect(bareProject.repo_url).toBeNull();
+      expect(bareProject.folder_path).toBeNull();
+
+      const cleared = await client.callTool({
+        name: 'update_project',
+        arguments: { project_id: boundProject.id, repo_url: null },
+      });
+      expect(cleared.isError).not.toBe(true);
+      const clearedContent = cleared.content as Array<{ type: string; text?: string }>;
+      const clearedText =
+        clearedContent[0]?.type === 'text' ? (clearedContent[0].text ?? '{}') : '{}';
+      const clearedProject = (
+        JSON.parse(clearedText) as {
+          project: { repo_url: string | null; folder_path: string | null };
+        }
+      ).project;
+      expect(clearedProject.repo_url).toBeNull();
+      expect(clearedProject.folder_path).toBe('packages/plandesk-mcp');
+
+      const gotCleared = await client.callTool({
+        name: 'get_project',
+        arguments: { project_id: boundProject.id },
+      });
+      const gotClearedContent = gotCleared.content as Array<{ type: string; text?: string }>;
+      const gotClearedText =
+        gotClearedContent[0]?.type === 'text' ? (gotClearedContent[0].text ?? '{}') : '{}';
+      const gotClearedProject = (
+        JSON.parse(gotClearedText) as {
+          project: { repo_url: string | null; folder_path: string | null };
+        }
+      ).project;
+      expect(gotClearedProject.repo_url).toBeNull();
+      expect(gotClearedProject.folder_path).toBe('packages/plandesk-mcp');
+
       await client.close();
     });
   });
