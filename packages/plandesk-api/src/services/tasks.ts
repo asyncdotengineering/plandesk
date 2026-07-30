@@ -17,6 +17,7 @@ import {
   listTagsByTaskForProject,
   listTagsForTask,
   listTasks,
+  listTaskStatusesByIds,
   setTaskTags,
   taskIdsWithAnyTagName,
   updateTask,
@@ -95,7 +96,7 @@ export function buildPrerequisiteMap(edges: Edge[]): Map<string, Set<string>> {
 export function unfinishedPrerequisiteIds(
   taskId: string,
   prerequisites: Map<string, Set<string>>,
-  taskById: Map<string, Task>,
+  statusById: Map<string, TaskStatus>,
 ): string[] {
   const prereqs = prerequisites.get(taskId);
   if (!prereqs || prereqs.size === 0) {
@@ -103,8 +104,9 @@ export function unfinishedPrerequisiteIds(
   }
   const unfinished: string[] = [];
   for (const prereqId of prereqs) {
-    const prereq = taskById.get(prereqId);
-    if (!prereq || prereq.status !== 'done') {
+    const status = statusById.get(prereqId);
+    // Absent from the map = dangling edge; still unfinished.
+    if (status === undefined || status !== 'done') {
       unfinished.push(prereqId);
     }
   }
@@ -213,15 +215,21 @@ export function createTaskService(deps: TaskServiceDeps) {
       });
       const edges = await listEdges(db, projectId);
       const prereqs = buildPrerequisiteMap(edges);
-      // Full project map so unfinished prereqs outside a filtered page still resolve.
-      const allTasks = await listTasks(db, projectId);
-      const taskById = new Map(allTasks.map((task) => [task.id, task]));
+      const needed = new Set<string>();
+      for (const task of tasks) {
+        for (const id of prereqs.get(task.id) ?? []) {
+          needed.add(id);
+        }
+      }
+      const statusById = new Map(
+        (await listTaskStatusesByIds(db, projectId, [...needed])).map((row) => [row.id, row.status]),
+      );
       const tagsByTask = await listTagsByTaskForProject(db, projectId);
       return tasks.map((task) =>
         serializeTask(
           task,
           tagsByTask.get(task.id) ?? [],
-          unfinishedPrerequisiteIds(task.id, prereqs, taskById),
+          unfinishedPrerequisiteIds(task.id, prereqs, statusById),
         ),
       );
     },
@@ -400,6 +408,8 @@ export function createTaskService(deps: TaskServiceDeps) {
       );
       const edges = await listEdges(db, projectId);
       const taskById = new Map<string, Task>(tasks.map((task) => [task.id, task]));
+      // Status map from tasks already loaded — no extra query on this path.
+      const statusById = new Map(tasks.map((task) => [task.id, task.status]));
       const tagsByTask = await listTagsByTaskForProject(db, projectId);
       const tagMatches =
         filter.tags !== undefined && filter.tags.length > 0
@@ -426,7 +436,7 @@ export function createTaskService(deps: TaskServiceDeps) {
       let nextTask: SerializedTask | null = null;
 
       for (const task of todoTasks) {
-        const waitingIds = unfinishedPrerequisiteIds(task.id, prerequisites, taskById);
+        const waitingIds = unfinishedPrerequisiteIds(task.id, prerequisites, statusById);
         if (waitingIds.length === 0) {
           if (nextTask === null) {
             nextTask = serialize(task);

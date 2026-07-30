@@ -123,6 +123,21 @@ export async function listTasks(
   return query.all();
 }
 
+export async function listTaskStatusesByIds(
+  db: DbClient,
+  projectId: string,
+  ids: string[],
+): Promise<{ id: string; status: TaskStatus }[]> {
+  if (ids.length === 0) {
+    return [];
+  }
+  return db
+    .select({ id: tasks.id, status: tasks.status })
+    .from(tasks)
+    .where(and(eq(tasks.projectId, projectId), inArray(tasks.id, ids)))
+    .all();
+}
+
 export async function deleteTask(db: DbClient, id: string): Promise<boolean> {
   const result = await db.delete(tasks).where(eq(tasks.id, id)).run();
   return result.rowsAffected > 0;
