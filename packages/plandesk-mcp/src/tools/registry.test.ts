@@ -152,6 +152,35 @@ describe('tool registry tag schemas', () => {
     expect(updateTaskInputSchema.safeParse({ task_id: TASK_ID, tags: [1] }).success).toBe(false);
   });
 
+  it('update_task accepts commit_refs as hex SHAs (case-insensitive, max 50); create_task does not', () => {
+    expect(
+      updateTaskInputSchema.safeParse({
+        task_id: TASK_ID,
+        commit_refs: ['abc1234', 'deadbeefcafebabe'],
+      }).success,
+    ).toBe(true);
+    expect(updateTaskInputSchema.safeParse({ task_id: TASK_ID, commit_refs: null }).success).toBe(
+      true,
+    );
+    expect(
+      updateTaskInputSchema.safeParse({ task_id: TASK_ID, commit_refs: ['ABC1234'] }).success,
+    ).toBe(true);
+    expect(
+      updateTaskInputSchema.safeParse({ task_id: TASK_ID, commit_refs: ['abc12'] }).success,
+    ).toBe(false);
+    const fifty = Array.from({ length: 50 }, (_, i) => i.toString(16).padStart(7, '0'));
+    expect(
+      updateTaskInputSchema.safeParse({ task_id: TASK_ID, commit_refs: fifty }).success,
+    ).toBe(true);
+    expect(
+      updateTaskInputSchema.safeParse({
+        task_id: TASK_ID,
+        commit_refs: [...fifty, 'aaaaaaa'],
+      }).success,
+    ).toBe(false);
+    expect('commit_refs' in createTaskInputSchema.shape).toBe(false);
+  });
+
   it('get_next_task accepts an optional goal_id filter', () => {
     const GOAL_ID = '00000000-0000-4000-8000-000000000003';
     expect(getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID }).success).toBe(true);

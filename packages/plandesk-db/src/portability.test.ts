@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type Db } from './client.js';
 import { migrate } from './migrate.js';
 import {
+  buildExportFromManifest,
   exportProject,
   importProject,
   InvalidExportVersionError,
@@ -22,6 +23,7 @@ import { getProject, updateProject } from './repositories/projects.js';
 import { createProjectInDefaultOrg as createProject } from './testing.js';
 import { createTag, setTaskTags } from './repositories/tags.js';
 import { createTaskWithDefaultGoal as createTask } from './testing.js';
+import { updateTask } from './repositories/tasks.js';
 
 type ComparableExport = {
   project: PlandeskExport['project'];
@@ -397,6 +399,48 @@ describe('export/import portability', () => {
     expect(await exportProject(db, '00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
+  it('round-trips comment.anchor through export and import', async () => {
+    const project = await createProject(db, { name: 'Anchor Portable' });
+    const artifact = await createArtifact(db, {
+      projectId: project.id,
+      title: 'Annotated report',
+      kind: 'html',
+      content: '<p>sandboxed iframe with a network-dead CSP so annotation happens</p>',
+    });
+    const anchor = JSON.stringify({
+      type: 'TextQuoteSelector',
+      exact: 'network-dead CSP',
+      prefix: 'sandboxed iframe with a ',
+      suffix: ' so annotation happens',
+      start: 24,
+      end: 40,
+    });
+    await createComment(db, {
+      projectId: project.id,
+      targetType: 'artifact',
+      targetId: artifact.id,
+      body: 'Confirm the CSP blocks connect-src',
+      passage: 'network-dead CSP',
+      anchor,
+    });
+
+    const exported = await exportProject(db, project.id);
+    expect(exported).toBeDefined();
+    if (!exported) {
+      return;
+    }
+    expect(exported.comments).toHaveLength(1);
+    expect(exported.comments[0]?.anchor).toBe(anchor);
+
+    const { projectId: importedProjectId } = await importProject(db, exported);
+    const reExported = await exportProject(db, importedProjectId);
+    expect(reExported).toBeDefined();
+    if (!reExported) {
+      return;
+    }
+    expect(reExported.comments[0]?.anchor).toBe(anchor);
+  });
+
   it('imports legacy document_comments-shaped entries', async () => {
     const sourceProjectId = await buildFixtureProject(db);
     const exported = await exportProject(db, sourceProjectId);
@@ -608,5 +652,141 @@ describe('export/import portability', () => {
       'updated_at',
       'workspace_id',
     ]);
+  });
+
+  it('round-trips repo_url, folder_path, and commit_refs; omits stay optional on import', async () => {
+    const source = await createProject(db, {
+      name: 'Bound',
+      repoUrl: 'https://github.com/acme/plandesk.git',
+      folderPath: 'packages/plandesk-api',
+    });
+    const task = await createTask(db, { projectId: source.id, label: 'Ship refs' });
+    await updateTask(db, task.id, {
+      commitRefs: JSON.stringify(['abc1234', 'deadbeef']),
+    });
+
+    const exported = await exportProject(db, source.id);
+    expect(exported).toBeDefined();
+    if (!exported) {
+      return;
+    }
+    expect(exported.project.repo_url).toBe('https://github.com/acme/plandesk.git');
+    expect(exported.project.folder_path).toBe('packages/plandesk-api');
+    expect(exported.tasks[0]?.commit_refs).toEqual(['abc1234', 'deadbeef']);
+
+    const targetDb = await createDb(':memory:');
+    await migrate(targetDb);
+    const { projectId: importedId } = await importProject(targetDb, exported);
+    const reExported = await exportProject(targetDb, importedId);
+    expect(reExported).toBeDefined();
+    if (!reExported) {
+      return;
+    }
+    expect(reExported.project.repo_url).toBe('https://github.com/acme/plandesk.git');
+    expect(reExported.project.folder_path).toBe('packages/plandesk-api');
+    expect(reExported.tasks.find((t) => t.label === 'Ship refs')?.commit_refs).toEqual([
+      'abc1234',
+      'deadbeef',
+    ]);
+
+    // Pre-feature export without the new fields still imports cleanly.
+    const legacy = {
+      ...exported,
+      project: {
+        name: exported.project.name,
+        description: exported.project.description,
+        canvas_layout: exported.project.canvas_layout,
+      },
+      tasks: exported.tasks.map((task) => ({
+        id: task.id,
+        label: task.label,
+        status: task.status,
+        description: task.description,
+        x: task.x,
+        y: task.y,
+        assignee: task.assignee,
+        due_date: task.due_date,
+        goal_id: task.goal_id,
+        tag_ids: task.tag_ids,
+        created_at: task.created_at,
+        updated_at: task.updated_at,
+      })),
+    };
+    const { projectId: legacyId } = await importProject(targetDb, legacy);
+    const legacyRe = await exportProject(targetDb, legacyId);
+    expect(legacyRe?.project.repo_url ?? null).toBeNull();
+    expect(legacyRe?.project.folder_path ?? null).toBeNull();
+    expect(legacyRe?.tasks[0]?.commit_refs ?? []).toEqual([]);
+  });
+
+  it('rejects an unregistered collection key smuggled via spread', async () => {
+    const source = await createProject(db, { name: 'Manifest guard' });
+    const exported = await exportProject(db, source.id);
+    expect(exported).toBeDefined();
+    if (!exported) {
+      return;
+    }
+    const { version, ...collections } = exported;
+    void version;
+    // Cast strips the excess key from the type so this asserts the runtime
+    // guard, not TypeScript's excess-property check (which spreads bypass).
+    const withShares = { ...collections, shares: [{ id: 'share-1' }] } as Omit<
+      PlandeskExport,
+      'version'
+    >;
+    expect(() => buildExportFromManifest(withShares)).toThrow(
+      'export collection not registered in PLANDESK_EXPORT_TABLES: shares',
+    );
+  });
+
+  // Validation and construction must read ONE own-property snapshot. Enumerating
+  // the caller's object twice is a check/use gap: a Proxy whose `ownKeys` differs
+  // between the passes clears validation and then smuggles a key into the spread.
+  it('never emits an unregistered collection from an alternating-ownKeys Proxy', async () => {
+    const source = await createProject(db, { name: 'Manifest proxy' });
+    const exported = await exportProject(db, source.id);
+    expect(exported).toBeDefined();
+    if (!exported) {
+      return;
+    }
+    const { version, ...collections } = exported;
+    void version;
+
+    let enumeration = 0;
+    const target: Record<string, unknown> = { ...collections, shares: [{ id: 'leaked' }] };
+    const rogue = new Proxy(target, {
+      ownKeys(t) {
+        enumeration += 1;
+        const keys = Reflect.ownKeys(t) as string[];
+        return enumeration === 1 ? keys.filter((key) => key !== 'shares') : keys;
+      },
+    }) as Omit<PlandeskExport, 'version'>;
+
+    let built: PlandeskExport | null = null;
+    try {
+      built = buildExportFromManifest(rogue);
+    } catch {
+      built = null;
+    }
+    // Either rejected outright or built without the smuggled key — never with it.
+    expect(built === null || !('shares' in built)).toBe(true);
+  });
+
+  // Object spread copies own properties only, so `in` would accept a
+  // prototype-carried collection that never reaches the output.
+  it('rejects collections carried only on the prototype', async () => {
+    const source = await createProject(db, { name: 'Manifest prototype' });
+    const exported = await exportProject(db, source.id);
+    expect(exported).toBeDefined();
+    if (!exported) {
+      return;
+    }
+    const { version, ...collections } = exported;
+    void version;
+
+    const inherited = Object.create(collections) as Omit<PlandeskExport, 'version'>;
+    expect(() => buildExportFromManifest(inherited)).toThrow(
+      /missing collection registered in PLANDESK_EXPORT_TABLES/,
+    );
   });
 });

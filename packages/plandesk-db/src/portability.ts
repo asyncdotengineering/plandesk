@@ -14,6 +14,7 @@ import { listDocuments } from './repositories/documents.js';
 import { listEdges } from './repositories/edges.js';
 import { listNotes } from './repositories/notes.js';
 import { listTasks } from './repositories/tasks.js';
+import { isValidCommitRefs, normalizeCommitRefs, parseCommitRefs } from './commit-refs.js';
 import {
   agentRunEvents,
   agentRuns,
@@ -67,6 +68,10 @@ export const SUPPORTED_EXPORT_VERSIONS = [
 export type PlandeskExportProject = {
   name: string;
   description: string | null;
+  // Always written on export; optional on import for exports written before repo binding.
+  repo_url?: string | null;
+  // Always written on export; optional on import for exports written before repo binding.
+  folder_path?: string | null;
   canvas_layout: string | null;
 };
 
@@ -98,6 +103,8 @@ export type PlandeskExportTask = {
   goal_id?: string;
   // Optional for backward compatibility with exports written before tags existed.
   tag_ids?: string[];
+  // Always written on export; optional on import for exports written before commit_refs.
+  commit_refs?: string[] | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -154,6 +161,8 @@ export type PlandeskExportComment = {
   target_type: CommentTargetType;
   target_id: string;
   passage: string | null;
+  // Optional for backward compatibility with exports written before anchors were portable.
+  anchor?: string | null;
   body: string;
   resolved: boolean;
   created_at: string;
@@ -218,6 +227,107 @@ export type PlandeskExport = {
   files: PlandeskExportFile[];
   artifacts: PlandeskExportArtifact[];
 };
+
+/**
+ * Physical tables the portable project graph covers.
+ *
+ * This is the single registration point for an exported entity. The coverage
+ * guard asserts its exercised set equals this list. Adding a collection to
+ * {@link PlandeskExport} without registering it here is a compile error via
+ * {@link PLANDESK_EXPORT_TABLE_COLLECTIONS}.
+ */
+export const PLANDESK_EXPORT_TABLES = [
+  'projects',
+  'goals',
+  'tasks',
+  'tags',
+  'task_tags',
+  'edges',
+  'folders',
+  'documents',
+  'notes',
+  'comments',
+  'agent_runs',
+  'agent_run_events',
+  'files',
+  'artifacts',
+] as const;
+
+export type PlandeskExportTable = (typeof PLANDESK_EXPORT_TABLES)[number];
+
+type PlandeskExportCollectionKey = keyof Omit<PlandeskExport, 'version'>;
+
+/**
+ * Maps each export-graph table to the {@link PlandeskExport} collection that
+ * carries it. Nested/association tables share a parent collection key.
+ */
+export const PLANDESK_EXPORT_TABLE_COLLECTIONS = {
+  projects: 'project',
+  goals: 'goals',
+  tasks: 'tasks',
+  tags: 'tags',
+  task_tags: 'tasks',
+  edges: 'edges',
+  folders: 'folders',
+  documents: 'documents',
+  notes: 'notes',
+  comments: 'comments',
+  agent_runs: 'agent_runs',
+  agent_run_events: 'agent_runs',
+  files: 'files',
+  artifacts: 'artifacts',
+} as const satisfies Record<PlandeskExportTable, PlandeskExportCollectionKey>;
+
+type MappedExportCollection =
+  (typeof PLANDESK_EXPORT_TABLE_COLLECTIONS)[PlandeskExportTable];
+
+type AssertExportCollectionsCovered =
+  PlandeskExportCollectionKey extends MappedExportCollection
+    ? MappedExportCollection extends PlandeskExportCollectionKey
+      ? true
+      : never
+    : never;
+
+const _assertExportCollectionsCovered: AssertExportCollectionsCovered = true;
+void _assertExportCollectionsCovered;
+
+/**
+ * Assemble a portable export blob, requiring every collection named by the
+ * export-table manifest. Callers still build each collection; this ties the
+ * return shape to {@link PLANDESK_EXPORT_TABLE_COLLECTIONS} so a registered
+ * collection cannot be dropped silently, and rejects unknown keys so a
+ * spread cannot smuggle an unregistered collection into the blob.
+ */
+export function buildExportFromManifest<C extends Omit<PlandeskExport, 'version'>>(
+  collections: {
+    [K in keyof C]: K extends PlandeskExportCollectionKey ? C[K] : never;
+  } & Omit<PlandeskExport, 'version'>,
+): PlandeskExport {
+  const required = new Set<PlandeskExportCollectionKey>(
+    Object.values(PLANDESK_EXPORT_TABLE_COLLECTIONS),
+  );
+  // One own-property snapshot drives validation AND construction. Enumerating
+  // the caller's object twice is a check/use gap: a Proxy whose `ownKeys`
+  // differs between the two passes validation and then smuggles an
+  // unregistered collection into the spread. Own-properties only — object
+  // spread ignores inherited keys, so `in` would accept a prototype-carried
+  // collection that never reaches the output.
+  const snapshot = new Map<string, unknown>(Object.entries(collections));
+  for (const key of required) {
+    if (!snapshot.has(key)) {
+      throw new Error(`export missing collection registered in PLANDESK_EXPORT_TABLES: ${key}`);
+    }
+  }
+  for (const key of snapshot.keys()) {
+    if (!required.has(key as PlandeskExportCollectionKey)) {
+      throw new Error(`export collection not registered in PLANDESK_EXPORT_TABLES: ${key}`);
+    }
+  }
+  return {
+    version: PLANDESK_EXPORT_VERSION,
+    ...(Object.fromEntries(snapshot) as Omit<PlandeskExport, 'version'>),
+  };
+}
 
 export type PlandeskExportInput = {
   version: string;
@@ -319,6 +429,20 @@ function remapId(idMap: Map<string, string>, oldId: string | null): string | nul
 }
 
 /**
+ * Import commit_refs: optional for pre-feature exports; malformed hand-edits
+ * must not reach storage (null = never set). Valid values are normalised.
+ */
+function commitRefsForImport(value: string[] | null | undefined): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (!isValidCommitRefs(value)) {
+    return null;
+  }
+  return JSON.stringify(normalizeCommitRefs(value));
+}
+
+/**
  * Remap a polymorphic edge endpoint through the id map for its own type.
  * Returns undefined when the export predates polymorphic links, so the caller
  * can fall back to the task pair.
@@ -378,11 +502,12 @@ export async function exportProject(
   const projectFiles = await listFilesByProject(db, projectId);
   const projectArtifacts = await listArtifactsByProject(db, projectId);
 
-  return {
-    version: PLANDESK_EXPORT_VERSION,
+  return buildExportFromManifest({
     project: {
       name: project.name,
       description: project.description,
+      repo_url: project.repoUrl,
+      folder_path: project.folderPath,
       canvas_layout: project.canvasLayout,
     },
     goals: projectGoals.map((goal) => ({
@@ -410,6 +535,7 @@ export async function exportProject(
       due_date: task.dueDate?.toISOString() ?? null,
       goal_id: task.goalId,
       tag_ids: (tagsByTask.get(task.id) ?? []).map((tag) => tag.id),
+      commit_refs: parseCommitRefs(task.commitRefs),
       created_at: task.createdAt.toISOString(),
       updated_at: task.updatedAt.toISOString(),
     })),
@@ -451,6 +577,7 @@ export async function exportProject(
       target_type: comment.targetType,
       target_id: comment.targetId,
       passage: comment.passage,
+      anchor: comment.anchor,
       body: comment.body,
       resolved: comment.resolved,
       created_at: comment.createdAt.toISOString(),
@@ -485,7 +612,7 @@ export async function exportProject(
       created_at: artifact.createdAt.toISOString(),
       updated_at: artifact.updatedAt.toISOString(),
     })),
-  };
+  });
 }
 
 export type ImportProjectOptions = {
@@ -591,6 +718,8 @@ export async function importProject(
       workspaceId,
       name: data.project.name,
       description: data.project.description,
+      repoUrl: data.project.repo_url ?? null,
+      folderPath: data.project.folder_path ?? null,
       canvasLayout: data.project.canvas_layout,
       createdAt: now,
       updatedAt: now,
@@ -640,6 +769,7 @@ export async function importProject(
   for (const task of data.tasks) {
     const goalId =
       (task.goal_id !== undefined ? goalIdMap.get(task.goal_id) : undefined) ?? defaultGoalId;
+    const commitRefsColumn = commitRefsForImport(task.commit_refs);
     statements.push(
       root.insert(tasks).values({
         id: remapId(taskIdMap, task.id) ?? task.id,
@@ -652,6 +782,7 @@ export async function importProject(
         y: task.y,
         assignee: task.assignee,
         dueDate: task.due_date ? new Date(task.due_date) : null,
+        commitRefs: commitRefsColumn,
         createdAt: now,
         updatedAt: now,
       }),
@@ -825,7 +956,7 @@ export async function importProject(
         targetType: comment.target_type,
         targetId,
         passage: comment.passage,
-        anchor: null,
+        anchor: comment.anchor ?? null,
         body: comment.body,
         resolved: comment.resolved,
         createdAt: new Date(comment.created_at),

@@ -115,6 +115,8 @@ export const tasks = sqliteTable('tasks', {
   y: real('y').notNull().default(0),
   assignee: text('assignee'),
   dueDate: integer('due_date', { mode: 'timestamp_ms' }),
+  // JSON array of lowercase hex SHAs (7–40 chars). Null when never set / cleared.
+  commitRefs: text('commit_refs'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),

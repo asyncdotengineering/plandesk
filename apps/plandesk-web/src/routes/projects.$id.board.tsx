@@ -74,6 +74,7 @@ function ProjectBoardPage() {
     <section className="flex h-full flex-col">
       <Board
         projectId={id}
+        repoUrl={project.repo_url}
         tasks={tasks ?? []}
         openTaskId={task}
         onOpenTaskIdChange={(taskId) => {

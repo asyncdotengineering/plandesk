@@ -1770,6 +1770,124 @@ describe('createMcpApp', () => {
     });
   });
 
+  it('update_task sets commit_refs as an array, replaces rather than appends, get_task returns them', async () => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
+      const client = await connectClient(baseUrl);
+
+      const created = await client.callTool({
+        name: 'create_task',
+        arguments: { project_id: projectId, label: 'Ship' },
+      });
+      expect(created.isError).not.toBe(true);
+      const createdContent = created.content as Array<{ type: string; text?: string }>;
+      const createdText =
+        createdContent[0]?.type === 'text' ? (createdContent[0].text ?? '{}') : '{}';
+      const createdPayload = JSON.parse(createdText) as {
+        task: { id: string; commit_refs: string[] };
+      };
+      expect(createdPayload.task.commit_refs).toEqual([]);
+
+      const updated = await client.callTool({
+        name: 'update_task',
+        arguments: {
+          task_id: createdPayload.task.id,
+          commit_refs: ['abc1234', 'deadbeef'],
+        },
+      });
+      expect(updated.isError).not.toBe(true);
+      const updatedContent = updated.content as Array<{ type: string; text?: string }>;
+      const updatedText =
+        updatedContent[0]?.type === 'text' ? (updatedContent[0].text ?? '{}') : '{}';
+      const updatedPayload = JSON.parse(updatedText) as { task: { commit_refs: string[] } };
+      expect(updatedPayload.task.commit_refs).toEqual(['abc1234', 'deadbeef']);
+
+      const replaced = await client.callTool({
+        name: 'update_task',
+        arguments: { task_id: createdPayload.task.id, commit_refs: ['ffffff0'] },
+      });
+      expect(replaced.isError).not.toBe(true);
+      const replacedContent = replaced.content as Array<{ type: string; text?: string }>;
+      const replacedText =
+        replacedContent[0]?.type === 'text' ? (replacedContent[0].text ?? '{}') : '{}';
+      expect(
+        (JSON.parse(replacedText) as { task: { commit_refs: string[] } }).task.commit_refs,
+      ).toEqual(['ffffff0']);
+
+      const got = await client.callTool({
+        name: 'get_task',
+        arguments: { task_id: createdPayload.task.id },
+      });
+      const gotContent = got.content as Array<{ type: string; text?: string }>;
+      const gotText = gotContent[0]?.type === 'text' ? (gotContent[0].text ?? '{}') : '{}';
+      expect((JSON.parse(gotText) as { task: { commit_refs: string[] } }).task.commit_refs).toEqual([
+        'ffffff0',
+      ]);
+
+      const bad = await client.callTool({
+        name: 'update_task',
+        arguments: { task_id: createdPayload.task.id, commit_refs: ['NOT-HEX'] },
+      });
+      expect(bad.isError).toBe(true);
+
+      const upper = await client.callTool({
+        name: 'update_task',
+        arguments: {
+          task_id: createdPayload.task.id,
+          commit_refs: ['ABC1234', 'DeAdBeEf'],
+        },
+      });
+      expect(upper.isError).not.toBe(true);
+      const upperContent = upper.content as Array<{ type: string; text?: string }>;
+      const upperText =
+        upperContent[0]?.type === 'text' ? (upperContent[0].text ?? '{}') : '{}';
+      expect(
+        (JSON.parse(upperText) as { task: { commit_refs: string[] } }).task.commit_refs,
+      ).toEqual(['abc1234', 'deadbeef']);
+
+      const gotUpper = await client.callTool({
+        name: 'get_task',
+        arguments: { task_id: createdPayload.task.id },
+      });
+      const gotUpperContent = gotUpper.content as Array<{ type: string; text?: string }>;
+      const gotUpperText =
+        gotUpperContent[0]?.type === 'text' ? (gotUpperContent[0].text ?? '{}') : '{}';
+      expect(
+        (JSON.parse(gotUpperText) as { task: { commit_refs: string[] } }).task.commit_refs,
+      ).toEqual(['abc1234', 'deadbeef']);
+
+      await client.close();
+    });
+  });
+
+  it('update_task rejects more than 50 commit_refs at the MCP boundary', async () => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
+      const client = await connectClient(baseUrl);
+      const created = await client.callTool({
+        name: 'create_task',
+        arguments: { project_id: projectId, label: 'Many commits' },
+      });
+      const createdContent = created.content as Array<{ type: string; text?: string }>;
+      const createdText =
+        createdContent[0]?.type === 'text' ? (createdContent[0].text ?? '{}') : '{}';
+      const taskId = (JSON.parse(createdText) as { task: { id: string } }).task.id;
+
+      const fifty = Array.from({ length: 50 }, (_, i) => i.toString(16).padStart(7, '0'));
+      const atMax = await client.callTool({
+        name: 'update_task',
+        arguments: { task_id: taskId, commit_refs: fifty },
+      });
+      expect(atMax.isError).not.toBe(true);
+
+      const overMax = await client.callTool({
+        name: 'update_task',
+        arguments: { task_id: taskId, commit_refs: [...fifty, 'aaaaaaa'] },
+      });
+      expect(overMax.isError).toBe(true);
+
+      await client.close();
+    });
+  });
+
   it('list_tags returns not_found for missing project', async () => {
     await withMcpServer(async ({ baseUrl }) => {
       const client = await connectClient(baseUrl);

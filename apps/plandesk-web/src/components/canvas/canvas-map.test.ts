@@ -21,6 +21,7 @@ const sampleTask: SerializedTask = {
   y: 240,
   assignee: null,
   due_date: null,
+  commit_refs: [],
   created_at: '2026-06-07T00:00:00.000Z',
   updated_at: '2026-06-07T00:00:00.000Z',
 };

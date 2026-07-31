@@ -68,6 +68,7 @@ export type SerializedTask = {
   y: number;
   assignee: string | null;
   due_date: string | null;
+  commit_refs: string[];
   created_at: string;
   updated_at: string;
   // Present on task endpoints; canvas nodes omit it.
@@ -180,6 +181,8 @@ export type PatchTaskInput = {
   due_date?: string | null;
   // Replaces the task's FULL tag set by name; unknown names are auto-created.
   tags?: string[];
+  // Replaces the FULL commit_refs array; null clears. Omit to leave unchanged.
+  commit_refs?: string[] | null;
 };
 
 export type CreateTagInput = {

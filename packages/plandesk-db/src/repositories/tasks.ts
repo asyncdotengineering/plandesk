@@ -27,6 +27,8 @@ export type TaskUpdate = {
   assignee?: string | null;
   dueDate?: Date | null;
   goalId?: string;
+  /** JSON text of a string[], or null to clear. */
+  commitRefs?: string | null;
 };
 
 export class InvalidTaskStatusError extends Error {

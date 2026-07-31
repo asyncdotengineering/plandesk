@@ -2,8 +2,10 @@ import { z } from 'zod';
 import {
   artifactKinds,
   goalStatuses,
+  isValidCommitRef,
   isValidFolderPath,
   isValidRepoUrl,
+  MAX_COMMIT_REFS,
   shareSubmissionStatuses,
   taskStatuses,
 } from '@plandesk/db';
@@ -36,6 +38,9 @@ const LINK_ENTITY_TYPE = z.enum(['task', 'document']);
 
 const TAGS_SET_DESCRIPTION =
   'Tag names to set on the task. Replaces the FULL tag set; tags that do not exist yet in the project are auto-created by name. Pass [] to remove all tags.';
+
+const COMMIT_REFS_DESCRIPTION =
+  'Hex commit SHAs (7–40 chars, case-insensitive; stored lowercase) that shipped this task. At most 50. Replaces the FULL array; pass null to clear. Omit to leave unchanged. Not accepted on create_task — a task has no commit at creation.';
 
 const TAGS_FILTER_DESCRIPTION =
   'Optional tag-name filter with OR semantics: a task matches if it carries ANY of the given tags.';
@@ -97,6 +102,12 @@ export const updateTaskInputSchema = z.object({
     .optional()
     .describe('Reassign the task to a different goal in the same project. Omit to leave it unchanged.'),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_SET_DESCRIPTION),
+  commit_refs: z
+    .array(z.string().refine(isValidCommitRef, { message: 'invalid commit_ref' }))
+    .max(MAX_COMMIT_REFS)
+    .nullable()
+    .optional()
+    .describe(COMMIT_REFS_DESCRIPTION),
 });
 
 export const createDocumentInputSchema = z.object({

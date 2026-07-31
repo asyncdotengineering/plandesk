@@ -69,6 +69,7 @@ const backlogTask = {
   y: 0,
   assignee: null,
   due_date: null,
+  commit_refs: [],
   created_at: '2026-07-04T12:00:00.000Z',
   updated_at: '2026-07-04T12:00:00.000Z',
 };
@@ -84,6 +85,7 @@ const proposalTask = {
   y: 0,
   assignee: null,
   due_date: null,
+  commit_refs: [],
   created_at: '2026-07-04T12:00:00.000Z',
   updated_at: '2026-07-04T12:00:00.000Z',
 };

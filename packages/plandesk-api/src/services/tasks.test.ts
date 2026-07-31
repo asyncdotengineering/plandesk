@@ -19,7 +19,7 @@ import {
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { InvalidTagError } from './tags.js';
-import { createTaskService, InvalidGoalReferenceError } from './tasks.js';
+import { createTaskService, InvalidCommitRefsError, InvalidGoalReferenceError } from './tasks.js';
 
 describe('taskService', () => {
   let db: Db;
@@ -330,6 +330,50 @@ describe('taskService', () => {
     expect(cleared?.tags).toEqual([]);
     // Replaced-away tags remain as project tags for reuse.
     expect((await listTags(db, projectId)).map((tag) => tag.name)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('commit_refs: set, replace (not append), clear with null, omit leaves unchanged; never-written is []', async () => {
+    const service = createService();
+    const created = await service.create(projectId, { label: 'Ship it' });
+    expect(created?.commit_refs).toEqual([]);
+    expect(Array.isArray(created?.commit_refs)).toBe(true);
+
+    const set = await service.update(created?.id ?? '', {
+      commitRefs: ['abc1234', 'deadbeef'],
+    });
+    expect(set?.commit_refs).toEqual(['abc1234', 'deadbeef']);
+
+    const got = await service.get(created?.id ?? '');
+    expect(got?.commit_refs).toEqual(['abc1234', 'deadbeef']);
+
+    // Replace, not append — the surprising contract.
+    const replaced = await service.update(created?.id ?? '', {
+      commitRefs: ['ffffff0'],
+    });
+    expect(replaced?.commit_refs).toEqual(['ffffff0']);
+
+    const omitted = await service.update(created?.id ?? '', { label: 'Still shipping' });
+    expect(omitted?.commit_refs).toEqual(['ffffff0']);
+
+    const clearedRefs = await service.update(created?.id ?? '', { commitRefs: null });
+    expect(clearedRefs?.commit_refs).toEqual([]);
+
+    await expect(
+      service.update(created?.id ?? '', { commitRefs: ['NOTHEX!'] }),
+    ).rejects.toThrow(InvalidCommitRefsError);
+
+    const upper = await service.update(created?.id ?? '', {
+      commitRefs: ['ABC1234', 'DeAdBeEf'],
+    });
+    expect(upper?.commit_refs).toEqual(['abc1234', 'deadbeef']);
+    expect((await service.get(created?.id ?? ''))?.commit_refs).toEqual(['abc1234', 'deadbeef']);
+
+    const fifty = Array.from({ length: 50 }, (_, i) => i.toString(16).padStart(7, '0'));
+    const atMax = await service.update(created?.id ?? '', { commitRefs: fifty });
+    expect(atMax?.commit_refs).toEqual(fifty);
+    await expect(
+      service.update(created?.id ?? '', { commitRefs: [...fifty, 'aaaaaaa'] }),
+    ).rejects.toThrow(InvalidCommitRefsError);
   });
 
   it('rejects blank tag names on create and update', async () => {

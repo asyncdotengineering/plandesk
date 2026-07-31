@@ -46,6 +46,7 @@ const cycleTask = {
   y: 0,
   assignee: null,
   due_date: null,
+  commit_refs: [],
   created_at: '2026-07-04T10:00:00.000Z',
   updated_at: '2026-07-04T10:00:00.000Z',
 };

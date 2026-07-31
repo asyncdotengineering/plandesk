@@ -496,6 +496,70 @@ describe('tasks routes', () => {
     expect(listed[0]?.id).toBe(task.id);
   });
 
+  it('PATCH /api/v1/tasks/:id sets, replaces, and clears commit_refs as a string[]', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Commits' });
+    const task = await createTask(db, { projectId: project.id, label: 'Trace' });
+
+    const listed = await parseJson<TaskResponse[]>(
+      await app.request(`/api/v1/projects/${project.id}/tasks`),
+    );
+    expect(listed.find((t) => t.id === task.id)?.commit_refs).toEqual([]);
+
+    const setRes = await app.request(`/api/v1/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commit_refs: ['abc1234', 'deadbeef'] }),
+    });
+    expect(setRes.status).toBe(200);
+    expect((await parseJson<TaskResponse>(setRes)).commit_refs).toEqual(['abc1234', 'deadbeef']);
+
+    const replaceRes = await app.request(`/api/v1/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commit_refs: ['ffffff0'] }),
+    });
+    expect((await parseJson<TaskResponse>(replaceRes)).commit_refs).toEqual(['ffffff0']);
+
+    const bad = await app.request(`/api/v1/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commit_refs: ['NOT-HEX!'] }),
+    });
+    expect(bad.status).toBe(400);
+
+    const upper = await app.request(`/api/v1/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commit_refs: ['ABC1234', 'DeAdBeEf'] }),
+    });
+    expect(upper.status).toBe(200);
+    expect((await parseJson<TaskResponse>(upper)).commit_refs).toEqual(['abc1234', 'deadbeef']);
+
+    const fifty = Array.from({ length: 50 }, (_, i) => i.toString(16).padStart(7, '0'));
+    const atMax = await app.request(`/api/v1/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commit_refs: fifty }),
+    });
+    expect(atMax.status).toBe(200);
+    expect((await parseJson<TaskResponse>(atMax)).commit_refs).toEqual(fifty);
+
+    const overMax = await app.request(`/api/v1/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commit_refs: [...fifty, 'aaaaaaa'] }),
+    });
+    expect(overMax.status).toBe(400);
+
+    const clearRes = await app.request(`/api/v1/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commit_refs: null }),
+    });
+    expect((await parseJson<TaskResponse>(clearRes)).commit_refs).toEqual([]);
+  });
+
   it('PATCH /api/v1/tasks/:id returns 404 when missing', async () => {
     const { app } = await createTestApp();
     const res = await app.request('/api/v1/tasks/00000000-0000-4000-8000-000000009999', {

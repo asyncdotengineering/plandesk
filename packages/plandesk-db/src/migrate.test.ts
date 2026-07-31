@@ -511,4 +511,60 @@ describe('migrate', () => {
     );
     expect(edgeAfter.rows).toEqual(edgeBefore.rows);
   });
+
+  // Regression: 0007 only ADDs commit_refs. A task that existed at 0006 must
+  // survive with the new column null.
+  it('0007 preserves pre-existing tasks and adds commit_refs as null', async () => {
+    const files = readdirSync(drizzleDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    const idx = files.indexOf('0007_blushing_raza.sql');
+    expect(idx).toBeGreaterThan(0);
+    const preamble = files.slice(0, idx);
+    const target = files[idx];
+    if (target === undefined) {
+      throw new Error(`no migration file at index ${String(idx)}`);
+    }
+
+    const db = await createDb(':memory:');
+    await db.$client.execute('PRAGMA foreign_keys = OFF');
+    for (const f of preamble) {
+      await applyMigrationSqlRaw(db, f);
+    }
+
+    await db.$client.execute(
+      "INSERT INTO projects (id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at, repo_url, folder_path) VALUES ('p1','o1','w1','Pre-0007',NULL,NULL,100,200,NULL,NULL)",
+    );
+    await db.$client.execute(
+      "INSERT INTO goals (id, project_id, objective, status, verification_surface, constraints, boundaries, iteration_policy, stop_condition, budget, last_verification, created_at, updated_at) VALUES ('g1','p1','Ship','active',NULL,NULL,NULL,NULL,NULL,NULL,NULL,100,200)",
+    );
+    await db.$client.execute(
+      "INSERT INTO tasks (id, project_id, goal_id, label, status, description, x, y, assignee, due_date, created_at, updated_at) VALUES ('t1','p1','g1','Trace me','todo',NULL,0,0,NULL,NULL,100,200)",
+    );
+
+    expect(await hasColumn(db, 'tasks', 'commit_refs')).toBe(false);
+
+    const taskBefore = await db.$client.execute(
+      "SELECT id, project_id, goal_id, label, status, description, x, y, assignee, due_date, created_at, updated_at FROM tasks WHERE id = 't1'",
+    );
+    expect(taskBefore.rows).toHaveLength(1);
+
+    await applyMigrationSqlRaw(db, target);
+    await db.$client.execute('PRAGMA foreign_keys = ON');
+
+    const fkCheck = await db.$client.execute('PRAGMA foreign_key_check');
+    expect(fkCheck.rows).toHaveLength(0);
+
+    expect(await hasColumn(db, 'tasks', 'commit_refs')).toBe(true);
+
+    const taskAfter = await db.$client.execute(
+      "SELECT id, project_id, goal_id, label, status, description, x, y, assignee, due_date, created_at, updated_at, commit_refs FROM tasks WHERE id = 't1'",
+    );
+    expect(taskAfter.rows).toEqual([
+      {
+        ...taskBefore.rows[0],
+        commit_refs: null,
+      },
+    ]);
+  });
 });

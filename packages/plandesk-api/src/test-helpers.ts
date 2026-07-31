@@ -81,6 +81,7 @@ type TaskResponse = {
   y: number;
   assignee: string | null;
   due_date: string | null;
+  commit_refs: string[];
   created_at: string;
   updated_at: string;
 };

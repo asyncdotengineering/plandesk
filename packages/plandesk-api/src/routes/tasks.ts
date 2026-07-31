@@ -1,6 +1,12 @@
 import { Hono } from 'hono';
-import { InvalidTaskStatusError, isTaskStatus } from '@plandesk/db';
+import {
+  InvalidTaskStatusError,
+  isTaskStatus,
+  isValidCommitRefs,
+  normalizeCommitRefs,
+} from '@plandesk/db';
 import type { TaskService } from '../services/tasks.js';
+import { InvalidCommitRefsError } from '../services/tasks.js';
 import { InvalidTagError } from '../services/tags.js';
 
 export function isStringArray(value: unknown): value is string[] {
@@ -18,6 +24,7 @@ export function createTasksRouter(taskService: TaskService): Hono {
       x?: number;
       y?: number;
       tags?: unknown;
+      commit_refs?: unknown;
     }>();
 
     if (body.status !== undefined && !isTaskStatus(body.status)) {
@@ -25,6 +32,17 @@ export function createTasksRouter(taskService: TaskService): Hono {
     }
 
     if (body.tags !== undefined && !isStringArray(body.tags)) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+
+    let commitRefs: string[] | null | undefined;
+    if (body.commit_refs === undefined) {
+      commitRefs = undefined;
+    } else if (body.commit_refs === null) {
+      commitRefs = null;
+    } else if (isStringArray(body.commit_refs) && isValidCommitRefs(body.commit_refs)) {
+      commitRefs = normalizeCommitRefs(body.commit_refs);
+    } else {
       return c.json({ error: 'invalid_argument' }, 400);
     }
 
@@ -36,6 +54,7 @@ export function createTasksRouter(taskService: TaskService): Hono {
         ...(body.x !== undefined ? { x: body.x } : {}),
         ...(body.y !== undefined ? { y: body.y } : {}),
         ...(body.tags !== undefined ? { tags: body.tags } : {}),
+        ...(commitRefs !== undefined ? { commitRefs } : {}),
       });
 
       if (!task) {
@@ -44,7 +63,11 @@ export function createTasksRouter(taskService: TaskService): Hono {
 
       return c.json(task);
     } catch (error) {
-      if (error instanceof InvalidTaskStatusError || error instanceof InvalidTagError) {
+      if (
+        error instanceof InvalidTaskStatusError ||
+        error instanceof InvalidTagError ||
+        error instanceof InvalidCommitRefsError
+      ) {
         return c.json({ error: 'invalid_argument' }, 400);
       }
       throw error;

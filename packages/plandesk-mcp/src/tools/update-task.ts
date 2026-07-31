@@ -1,4 +1,4 @@
-import { InvalidGoalReferenceError, InvalidTagError, type TaskService } from '@plandesk/api';
+import { InvalidCommitRefsError, InvalidGoalReferenceError, InvalidTagError, type TaskService } from '@plandesk/api';
 import { InvalidTaskStatusError, type TaskStatus } from '@plandesk/db';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
@@ -13,6 +13,7 @@ export function createUpdateTaskHandler(
   y?: number;
   goal_id?: string;
   tags?: string[];
+  commit_refs?: string[] | null;
 }) => Promise<ToolResult> {
   return async (args) => {
     try {
@@ -24,6 +25,7 @@ export function createUpdateTaskHandler(
         ...(args.y !== undefined ? { y: args.y } : {}),
         ...(args.goal_id !== undefined ? { goalId: args.goal_id } : {}),
         ...(args.tags !== undefined ? { tags: args.tags } : {}),
+        ...(args.commit_refs !== undefined ? { commitRefs: args.commit_refs } : {}),
       });
       if (!task) {
         return toolNotFound();
@@ -33,7 +35,8 @@ export function createUpdateTaskHandler(
       if (
         error instanceof InvalidTaskStatusError ||
         error instanceof InvalidTagError ||
-        error instanceof InvalidGoalReferenceError
+        error instanceof InvalidGoalReferenceError ||
+        error instanceof InvalidCommitRefsError
       ) {
         return toolInvalidArgument(error.message);
       }

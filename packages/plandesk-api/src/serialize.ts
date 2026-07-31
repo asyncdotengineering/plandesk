@@ -13,7 +13,9 @@ import type {
   Task,
   TaskStatus,
 } from '@plandesk/db';
-import { taskStatuses } from '@plandesk/db';
+import { parseCommitRefs, taskStatuses } from '@plandesk/db';
+
+export { parseCommitRefs } from '@plandesk/db';
 
 export type PaginationParams = {
   limit?: number;
@@ -144,6 +146,7 @@ export function serializeTask(task: Task, tags?: Tag[], waitingOn?: string[]) {
     y: task.y,
     assignee: task.assignee,
     due_date: task.dueDate?.toISOString() ?? null,
+    commit_refs: parseCommitRefs(task.commitRefs),
     created_at: task.createdAt.toISOString(),
     updated_at: task.updatedAt.toISOString(),
     ...(tags !== undefined ? { tags: tags.map(serializeTag) } : {}),

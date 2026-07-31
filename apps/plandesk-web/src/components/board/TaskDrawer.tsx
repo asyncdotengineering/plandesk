@@ -24,6 +24,7 @@ import { flattenDocumentTree } from '../docs/DocumentsPanel.js';
 import { useDocuments } from '../../lib/queries.js';
 import { CommentsPanel } from '../docs/CommentsPanel.js';
 import type { PatchTaskInput, SerializedTag, SerializedTask, TaskStatus } from '../../lib/api.js';
+import { commitUrl } from '../../lib/commit-url.js';
 import { laneFromTags, LANE_TAG_PREFIX } from './board-utils.js';
 import { StatusMenu } from './StatusChip.js';
 
@@ -35,6 +36,8 @@ type LinkedDocRef = {
 
 type TaskDrawerProps = {
   task: SerializedTask | null;
+  /** Project repo remote — used to link commit refs when the host is known. */
+  repoUrl?: string | null;
   linkedDocs?: LinkedDocRef[];
   tagSuggestions: string[];
   open: boolean;
@@ -48,6 +51,7 @@ type TaskDrawerProps = {
 
 export function TaskDrawer({
   task,
+  repoUrl = null,
   linkedDocs = [],
   tagSuggestions,
   open,
@@ -71,6 +75,7 @@ export function TaskDrawer({
         {task !== null ? (
           <TaskDrawerBody
             task={task}
+            repoUrl={repoUrl}
             linkedDocs={linkedDocs}
             tagSuggestions={tagSuggestions}
             isSaving={isSaving}
@@ -90,6 +95,7 @@ export function TaskDrawer({
 
 type TaskDrawerBodyProps = {
   task: SerializedTask;
+  repoUrl: string | null;
   linkedDocs: LinkedDocRef[];
   tagSuggestions: string[];
   isSaving: boolean;
@@ -102,6 +108,7 @@ type TaskDrawerBodyProps = {
 
 function TaskDrawerBody({
   task,
+  repoUrl,
   linkedDocs,
   tagSuggestions,
   isSaving,
@@ -270,6 +277,37 @@ function TaskDrawerBody({
                     <span className="truncate">{doc.title}</span>
                   </Link>
                 ))}
+              </dd>
+            </>
+          ) : null}
+          {task.commit_refs.length > 0 ? (
+            <>
+              <dt className="text-muted-foreground">
+                {task.commit_refs.length === 1 ? 'Commit' : 'Commits'}
+              </dt>
+              <dd className="flex flex-col gap-1 mono text-[12px]">
+                {task.commit_refs.map((sha) => {
+                  const href = commitUrl(repoUrl, sha);
+                  if (href === null) {
+                    return (
+                      <span key={sha} title={sha}>
+                        {sha}
+                      </span>
+                    );
+                  }
+                  return (
+                    <a
+                      key={sha}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-foreground hover:underline"
+                      title={sha}
+                    >
+                      {sha.slice(0, 7)}
+                    </a>
+                  );
+                })}
               </dd>
             </>
           ) : null}

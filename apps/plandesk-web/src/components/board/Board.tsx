@@ -55,6 +55,8 @@ import { useBoardDnd } from './useBoardDnd.js';
 
 type BoardProps = {
   projectId: string;
+  /** Project repo remote for linking commit refs in the task drawer. */
+  repoUrl?: string | null;
   tasks: SerializedTask[];
   /**
    * Task to open in the drawer, from the URL. Without this the drawer is
@@ -69,7 +71,13 @@ type BoardProps = {
 const LANE_OPTIONS = ['none', 'auto', 'approve', 'full'] as const;
 type LaneOption = (typeof LANE_OPTIONS)[number];
 
-export function Board({ projectId, tasks, openTaskId, onOpenTaskIdChange }: BoardProps) {
+export function Board({
+  projectId,
+  repoUrl = null,
+  tasks,
+  openTaskId,
+  onOpenTaskIdChange,
+}: BoardProps) {
   const { data: projectTags } = useTags(projectId);
   const { data: documents } = useDocuments(projectId);
 
@@ -266,6 +274,7 @@ export function Board({ projectId, tasks, openTaskId, onOpenTaskIdChange }: Boar
       <TaskDrawer
         open={drawerTask !== undefined}
         task={drawerTask ?? null}
+        repoUrl={repoUrl}
         linkedDocs={
           drawerTask !== undefined ? (linkedDocsByTask.get(drawerTask.id) ?? []) : []
         }

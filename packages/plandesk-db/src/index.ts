@@ -30,6 +30,16 @@ export {
 } from './testing.js';
 export * from './schema.js';
 export { isValidFolderPath, isValidRepoUrl } from './project-binding.js';
+export {
+  COMMIT_REF_PATTERN,
+  MAX_COMMIT_REFS,
+  MAX_COMMIT_REFS_RAW_LENGTH,
+  isValidCommitRef,
+  isValidCommitRefs,
+  normalizeCommitRef,
+  normalizeCommitRefs,
+  parseCommitRefs,
+} from './commit-refs.js';
 
 export const version = (): string => {
   // Lazy: module-level fileURLToPath(import.meta.url) breaks the Cloudflare

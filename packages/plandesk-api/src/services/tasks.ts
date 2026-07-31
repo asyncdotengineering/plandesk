@@ -21,6 +21,8 @@ import {
   setTaskTags,
   taskIdsWithAnyTagName,
   updateTask,
+  isValidCommitRefs,
+  normalizeCommitRefs,
   type Db,
   type DbClient,
   type Edge,
@@ -140,7 +142,16 @@ export type UpdateTaskInput = {
   // Replaces the task's FULL tag set by name; names without an existing tag are
   // auto-created. Pass [] to clear all tags. Omit to leave tags unchanged.
   tags?: string[];
+  // Replaces the FULL commit_refs array. Pass null to clear; omit to leave unchanged.
+  commitRefs?: string[] | null;
 };
+
+export class InvalidCommitRefsError extends Error {
+  constructor() {
+    super('Invalid commit_refs');
+    this.name = 'InvalidCommitRefsError';
+  }
+}
 
 export type ListTasksFilter = {
   status?: string;
@@ -304,9 +315,29 @@ export function createTaskService(deps: TaskServiceDeps) {
         throw new InvalidGoalReferenceError(input.goalId);
       }
 
-      const { tags: tagNames, ...columns } = input;
+      if (input.commitRefs !== undefined && input.commitRefs !== null) {
+        if (!isValidCommitRefs(input.commitRefs)) {
+          throw new InvalidCommitRefsError();
+        }
+      }
+
+      const { tags: tagNames, commitRefs, ...columns } = input;
+      const normalizedCommitRefs =
+        commitRefs === undefined
+          ? undefined
+          : commitRefs === null
+            ? null
+            : normalizeCommitRefs(commitRefs);
       const result = await withTransaction(db, async (tx) => {
-        const row = await updateTask(tx, id, columns);
+        const row = await updateTask(tx, id, {
+          ...columns,
+          ...(normalizedCommitRefs !== undefined
+            ? {
+                commitRefs:
+                  normalizedCommitRefs === null ? null : JSON.stringify(normalizedCommitRefs),
+              }
+            : {}),
+        });
         if (!row) {
           return undefined;
         }
