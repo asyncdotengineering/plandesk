@@ -47,6 +47,11 @@ export type AuthContext =
       /** Optional workspace scope from key metadata; cross-workspace → 404. */
       workspaceId?: string;
       /**
+       * Open agent run for this request (x-plandesk-agent-run-id header).
+       * Required for agent-profile keys to resolve a write actor.
+       */
+      agentRunId?: string;
+      /**
        * Live member role when present. Effective authority is always
        * `permission` (key ∩ live role; agent profile also strips apiKey —
        * owner profile retains it when live role allows).

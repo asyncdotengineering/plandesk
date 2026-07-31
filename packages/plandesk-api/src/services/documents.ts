@@ -2,6 +2,7 @@ import {
   withTransaction,
   createDocument as dbCreateDocument,
   deleteCommentsByTarget,
+  deleteRevisionsByTarget,
   deleteDocument as dbDeleteDocument,
   detachDocumentChildren,
   getDocument as dbGetDocument,
@@ -495,6 +496,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       await withTransaction(db, async (tx) => {
         await detachDocumentChildren(tx, id);
         await deleteCommentsByTarget(tx, 'document', id);
+        await deleteRevisionsByTarget(tx, 'document', id);
         await dbDeleteDocument(tx, id);
       });
 

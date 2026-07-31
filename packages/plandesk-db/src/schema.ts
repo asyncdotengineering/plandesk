@@ -26,6 +26,9 @@ export type AgentRunStatus = (typeof agentRunStatuses)[number];
 export const commentTargetTypes = ['document', 'task', 'note', 'submission', 'artifact'] as const;
 export type CommentTargetType = (typeof commentTargetTypes)[number];
 
+export const revisionTargetTypes = ['task', 'document'] as const;
+export type RevisionTargetType = (typeof revisionTargetTypes)[number];
+
 /** Polymorphic edge endpoint kinds. Note/artifact are reachable later; no caller yet. */
 export const linkEntityTypes = ['task', 'document'] as const;
 export type LinkEntityType = (typeof linkEntityTypes)[number];
@@ -247,6 +250,25 @@ export const comments = sqliteTable('comments', {
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
 });
+
+export const revisions = sqliteTable(
+  'revisions',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    targetType: text('target_type', { enum: revisionTargetTypes }).notNull(),
+    targetId: text('target_id').notNull(),
+    snapshot: text('snapshot').notNull(),
+    changedFields: text('changed_fields').notNull(),
+    author: text('author').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  },
+  (t) => [index('revisions_target_idx').on(t.targetType, t.targetId, t.createdAt)],
+);
 
 export const agentRuns = sqliteTable('agent_runs', {
   id: text('id').primaryKey(),

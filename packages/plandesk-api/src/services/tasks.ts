@@ -4,6 +4,7 @@ import {
   createTag,
   createTask,
   deleteCommentsByTarget,
+  deleteRevisionsByTarget,
   deleteEdgesByTaskId,
   deleteTask as dbDeleteTask,
   deleteTaskTagsByTaskId,
@@ -388,6 +389,7 @@ export function createTaskService(deps: TaskServiceDeps) {
 
       await withTransaction(db, async (tx) => {
         await deleteCommentsByTarget(tx, 'task', id);
+        await deleteRevisionsByTarget(tx, 'task', id);
         await deleteEdgesByTaskId(tx, id);
         await deleteTaskTagsByTaskId(tx, id);
         await dbDeleteTask(tx, id);

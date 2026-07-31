@@ -15,10 +15,12 @@ import {
   AmbiguousActiveGoalsError,
   getProject,
   getTask,
+  insertRevision,
   listAgentRuns,
   listCommentsByProject,
   listDocuments,
   listEdges,
+  listRevisionsByTarget,
   listTasks,
   migrate,
   type Db,
@@ -176,6 +178,14 @@ describe('projectService', () => {
     });
     const run = await createAgentRun(db, { projectId: project.id, label: 'Run' });
     await createAgentRunEvent(db, { runId: run.id, message: 'progress' });
+    await insertRevision(db, {
+      projectId: project.id,
+      targetType: 'task',
+      targetId: task.id,
+      snapshot: '{}',
+      changedFields: '[]',
+      author: 'system',
+    });
 
     expect(await service.delete(project.id)).toBe(true);
     expect(await getProject(db, project.id)).toBeUndefined();
@@ -187,6 +197,7 @@ describe('projectService', () => {
     expect(await getTask(db, task.id)).toBeUndefined();
     expect(await getDocument(db, doc.id)).toBeUndefined();
     expect(await getComment(db, comment.id)).toBeUndefined();
+    expect(await listRevisionsByTarget(db, project.id, 'task', task.id)).toHaveLength(0);
     expect(edge).toBeDefined();
   });
 

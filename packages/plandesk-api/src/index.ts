@@ -53,9 +53,19 @@ export {
   runWithAuthContext,
   tryGetAuthContext,
   getAuthContext,
+  getOrgAuthContext,
   ReadOnlyTokenError,
   type AuthContext,
 } from './auth-context.js';
+export {
+  serializeActor,
+  parseActor,
+  resolveWriteActorFromAuthContext,
+  WriteActorUnresolvedError,
+  InvalidActorSerializationError,
+  type WriteActor,
+} from './write-actor.js';
+export { resolveWriteActor, type OrgScopedDeps } from './services/org-scope.js';
 export {
   applyAgentKeyPermissionCeiling,
   createScopedAgentKey,

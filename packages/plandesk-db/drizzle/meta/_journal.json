@@ -64,6 +64,13 @@
       "when": 1785494687446,
       "tag": "0008_woozy_colossus",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1785515454193,
+      "tag": "0009_thick_valeria_richards",
+      "breakpoints": true
     }
   ]
 }

@@ -31,6 +31,7 @@ const EXPECTED_TABLES = [
   'tags',
   'task_tags',
   'comments',
+  'revisions',
   'agent_runs',
   'agent_run_events',
   'shares',
@@ -416,10 +417,14 @@ describe('migrate', () => {
     );
     expect(edges.rows).toHaveLength(3);
 
-    // Fresh migrate() must arrive at the identical domain schema shape for edges/documents.
-    // (Raw SQL path does not create __drizzle_migrations; compare domain tables only.)
+    // Same migration chain on a fresh database must converge to the identical 0005-era shape.
     const fresh = await createDb(':memory:');
-    await migrate(fresh);
+    await fresh.$client.execute('PRAGMA foreign_keys = OFF');
+    for (const f of preamble) {
+      await applyMigrationSqlRaw(fresh, f);
+    }
+    await applyMigrationSqlRaw(fresh, target);
+    await fresh.$client.execute('PRAGMA foreign_keys = ON');
     const shape = async (client: Awaited<ReturnType<typeof createDb>>) => {
       const tables = (await listTables(client)).filter((t) => t !== '__drizzle_migrations').sort();
       const edgeCols = (await client.$client.execute('PRAGMA table_info(edges)')).rows
@@ -566,5 +571,38 @@ describe('migrate', () => {
         commit_refs: null,
       },
     ]);
+  });
+
+  it('0009 adds revisions table on a populated database', async () => {
+    const files = readdirSync(drizzleDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    const idx = files.indexOf('0009_thick_valeria_richards.sql');
+    expect(idx).toBeGreaterThan(0);
+    const preamble = files.slice(0, idx);
+    const target = files[idx];
+    if (target === undefined) {
+      throw new Error(`no migration file at index ${String(idx)}`);
+    }
+
+    const db = await createDb(':memory:');
+    await db.$client.execute('PRAGMA foreign_keys = OFF');
+    for (const f of preamble) {
+      await applyMigrationSqlRaw(db, f);
+    }
+
+    await db.$client.execute(
+      "INSERT INTO projects (id, org_id, workspace_id, name) VALUES ('p1','o1','w1','P')",
+    );
+
+    expect(await hasColumn(db, 'revisions', 'author')).toBe(false);
+
+    await applyMigrationSqlRaw(db, target);
+    await db.$client.execute('PRAGMA foreign_keys = ON');
+
+    const fkCheck = await db.$client.execute('PRAGMA foreign_key_check');
+    expect(fkCheck.rows).toHaveLength(0);
+    expect(await hasColumn(db, 'revisions', 'author')).toBe(true);
+    expect((await listTables(db)).includes('revisions')).toBe(true);
   });
 });

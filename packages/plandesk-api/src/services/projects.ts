@@ -9,6 +9,7 @@ import {
   deleteAgentRun,
   deleteAgentRunEventsByRunId,
   deleteCommentsByProjectId,
+  deleteRevisionsByProjectId,
   deleteDocumentsByProjectId,
   deleteFoldersByProjectId,
   deleteNotesByProjectId,
@@ -374,6 +375,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
         await deleteEdgesByProjectId(tx, id);
         await clearDocumentParentRefsByProject(tx, id);
         await deleteCommentsByProjectId(tx, id);
+        await deleteRevisionsByProjectId(tx, id);
         await deleteDocumentsByProjectId(tx, id);
         await clearFolderParentRefsByProject(tx, id);
         await deleteFoldersByProjectId(tx, id);

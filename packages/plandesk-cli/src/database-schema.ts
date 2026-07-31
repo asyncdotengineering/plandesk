@@ -6,6 +6,7 @@ export const EXPECTED_TABLES = [
   'edges',
   'documents',
   'comments',
+  'revisions',
   'agent_runs',
   'agent_run_events',
   '__drizzle_migrations',

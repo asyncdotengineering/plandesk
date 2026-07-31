@@ -9,6 +9,8 @@ import {
   getDocument,
   getOrCreateDefaultGoal,
   getTask,
+  insertRevision,
+  listRevisionsByTarget,
   InvalidTaskStatusError,
   InvalidTaskKindError,
   listEdges,
@@ -264,6 +266,33 @@ describe('taskService', () => {
     expect(await listEdges(db, projectId)).toHaveLength(0);
     // Document row is retained; only edges pointing at the task are removed.
     expect((await getDocument(db, doc.id))?.id).toBe(doc.id);
+  });
+
+  it('deletes only the target task revisions on task delete', async () => {
+    const service = createService();
+    const doomed = await createTask(db, { projectId, label: 'Doomed' });
+    const survivor = await createTask(db, { projectId, label: 'Survivor' });
+
+    await insertRevision(db, {
+      projectId,
+      targetType: 'task',
+      targetId: doomed.id,
+      snapshot: '{}',
+      changedFields: '[]',
+      author: 'system',
+    });
+    const keep = await insertRevision(db, {
+      projectId,
+      targetType: 'task',
+      targetId: survivor.id,
+      snapshot: '{}',
+      changedFields: '[]',
+      author: 'system',
+    });
+
+    expect(await service.delete(doomed.id)).toBe(true);
+    expect(await listRevisionsByTarget(db, projectId, 'task', doomed.id)).toHaveLength(0);
+    expect(await listRevisionsByTarget(db, projectId, 'task', survivor.id)).toEqual([keep]);
   });
 
   it('returns false when deleting a missing task', async () => {

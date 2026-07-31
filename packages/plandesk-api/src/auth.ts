@@ -5,6 +5,7 @@ import {
   hashShareToken,
   orgRoles,
   verifyGuestSession,
+  getAgentRun,
   type Db,
   type OrgRole,
 } from '@plandesk/db';
@@ -21,11 +22,13 @@ import {
   orgRoleToPermissionSet,
 } from './permissions.js';
 import { readGuestSessionCookie } from './session.js';
+import { assertProjectInOrg, ProjectNotInOrgError } from './services/scope.js';
 
 const BASIC_PREFIX = 'Basic ';
 const BASIC_USER = 'plandesk';
 const BEARER_PREFIX = 'Bearer ';
 const GITHUB_PROVIDER_ID = 'github';
+const AGENT_RUN_HEADER = 'x-plandesk-agent-run-id';
 
 function parseOrgRole(role: string): OrgRole | undefined {
   for (const candidate of orgRoles) {
@@ -273,6 +276,36 @@ async function resolveBetterAuthApiKeyContext(
   };
 }
 
+async function attachAgentRunIdFromHeader(
+  db: Db,
+  ctx: AuthContext,
+  headers: Headers,
+): Promise<AuthContext> {
+  if (ctx.kind !== 'apikey') {
+    return ctx;
+  }
+  const raw = headers.get(AGENT_RUN_HEADER);
+  if (raw === null || raw.trim() === '') {
+    return ctx;
+  }
+  const runId = raw.trim();
+  const run = await getAgentRun(db, runId);
+  if (run?.status !== 'running') {
+    return ctx;
+  }
+  try {
+    // Reuse scope.ts: org boundary via getProjectInOrg; project-bound keys also
+    // reject runs from another project in the same org (BA5).
+    await runWithAuthContext(ctx, () => assertProjectInOrg(db, run.projectId, ctx.orgId));
+  } catch (error) {
+    if (error instanceof ProjectNotInOrgError) {
+      return ctx;
+    }
+    throw error;
+  }
+  return { ...ctx, agentRunId: runId };
+}
+
 /**
  * Endpoints that must answer before the caller holds a credential: the method
  * probe the sign-in UI reads, and better-auth's own sign-in surface at /api/auth/*
@@ -404,7 +437,8 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
           return c.json({ error: 'unauthorized' }, 401);
         }
         if (apiKeyCtx !== undefined) {
-          await runWithAuthContext(apiKeyCtx, async () => {
+          const withRun = await attachAgentRunIdFromHeader(db, apiKeyCtx, c.req.raw.headers);
+          await runWithAuthContext(withRun, async () => {
             await next();
           });
           return;
