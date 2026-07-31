@@ -167,4 +167,28 @@ describe('documents repository', () => {
     expect(updated?.statusLine).toBe('Status: review');
     expect(updated?.updatedAt.getTime()).toBeGreaterThanOrEqual(created.updatedAt.getTime());
   });
+
+  it('updateDocument with a stale expectedUpdatedAt fails rather than clobbering', async () => {
+    const created = await createDocument(db, { projectId, title: 'Race', body: 'v1' });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const first = await updateDocument(
+      db,
+      created.id,
+      { title: 'Winner' },
+      { expectedUpdatedAt: created.updatedAt },
+    );
+    expect(first?.title).toBe('Winner');
+    expect(first?.updatedAt.getTime()).toBeGreaterThan(created.updatedAt.getTime());
+
+    const stale = await updateDocument(
+      db,
+      created.id,
+      { title: 'Stale clobber' },
+      { expectedUpdatedAt: created.updatedAt },
+    );
+    expect(stale).toBeUndefined();
+
+    const current = await getDocument(db, created.id);
+    expect(current?.title).toBe('Winner');
+  });
 });

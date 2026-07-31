@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
@@ -715,5 +718,137 @@ describe('taskService', () => {
 
     const stored = await getTask(db, created.id);
     expect(stored?.status).toBe('todo');
+  });
+});
+
+describe.each([
+  { mode: ':memory:', dbPath: ':memory:' },
+  {
+    mode: 'file:',
+    dbPath: () => join(tmpdir(), `plandesk-task-rev-${randomUUID()}.db`),
+  },
+])('task revision capture ($mode)', ({ dbPath }) => {
+  let db: Db;
+  let projectId = '';
+  let orgId = '';
+
+  function createService(actor?: Parameters<typeof createTaskService>[0]['actor']) {
+    return createTaskService({ db, orgId, ...(actor !== undefined ? { actor } : {}) });
+  }
+
+  beforeEach(async () => {
+    const path = typeof dbPath === 'function' ? dbPath() : dbPath;
+    db = await createDb(path);
+    await migrate(db);
+    await db.$client.execute('DELETE FROM revisions');
+    await db.$client.execute('DELETE FROM edges');
+    await db.$client.execute('DELETE FROM documents');
+    await db.$client.execute('DELETE FROM task_tags');
+    await db.$client.execute('DELETE FROM tags');
+    await db.$client.execute('DELETE FROM tasks');
+    await db.$client.execute('DELETE FROM goals');
+    await db.$client.execute('DELETE FROM projects');
+    const project = await createProject(db, { name: 'Revisions' });
+    projectId = project.id;
+    orgId = project.orgId;
+  });
+
+  it('records one revision with the prior description when description changes', async () => {
+    const service = createService();
+    const task = await createTask(db, { projectId, label: 'Task', description: 'before' });
+
+    await service.update(task.id, { description: 'after' });
+
+    const revisions = await listRevisionsByTarget(db, projectId, 'task', task.id);
+    expect(revisions).toHaveLength(1);
+    expect(JSON.parse(revisions[0]?.snapshot ?? '{}')).toEqual({
+      label: 'Task',
+      description: 'before',
+    });
+    expect(JSON.parse(revisions[0]?.changedFields ?? '[]')).toEqual(['description']);
+    expect((await getTask(db, task.id))?.description).toBe('after');
+  });
+
+  it('records no revision when a versioned field is set to an identical value', async () => {
+    const service = createService();
+    const task = await createTask(db, { projectId, label: 'Same', description: 'unchanged' });
+
+    await service.update(task.id, { description: 'unchanged' });
+
+    expect(await listRevisionsByTarget(db, projectId, 'task', task.id)).toHaveLength(0);
+  });
+
+  it('records no revision when only excluded fields change', async () => {
+    const service = createService();
+    const task = await createTask(db, {
+      projectId,
+      label: 'Pos',
+      status: 'todo',
+      x: 0,
+      y: 0,
+      assignee: null,
+    });
+
+    await service.update(task.id, { status: 'in_progress', x: 10, y: 20 });
+
+    expect(await listRevisionsByTarget(db, projectId, 'task', task.id)).toHaveLength(0);
+  });
+
+  it('records author from human, agent, and system actors', async () => {
+    const task = await createTask(db, { projectId, label: 'Actor', description: 'v0' });
+
+    const human = createService({ kind: 'human', userId: 'user-1' });
+    await human.update(task.id, { description: 'v1' });
+    let revisions = await listRevisionsByTarget(db, projectId, 'task', task.id);
+    expect(revisions[revisions.length - 1]?.author).toBe('human:user-1');
+
+    const agent = createService({ kind: 'agent', runId: 'run-42' });
+    await agent.update(task.id, { description: 'v2' });
+    revisions = await listRevisionsByTarget(db, projectId, 'task', task.id);
+    expect(revisions[revisions.length - 1]?.author).toBe('agent:run-42');
+
+    const system = createService({ kind: 'system' });
+    await system.update(task.id, { description: 'v3' });
+    revisions = await listRevisionsByTarget(db, projectId, 'task', task.id);
+    expect(revisions[revisions.length - 1]?.author).toBe('system');
+  });
+
+  it('concurrent versioned updates race: one winner, one conflict, no orphan revision', async () => {
+    const raceDbPath = join(tmpdir(), `plandesk-task-race-${randomUUID()}.db`);
+    const dbA = await createDb(raceDbPath);
+    const dbB = await createDb(raceDbPath);
+    await migrate(dbA);
+    const project = await createProject(dbA, { name: 'Race' });
+    const raceProjectId = project.id;
+    const raceOrgId = project.orgId;
+    const task = await createTask(dbA, {
+      projectId: raceProjectId,
+      label: 'Start',
+      description: 'v0',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const serviceA = createTaskService({ db: dbA, orgId: raceOrgId });
+    const serviceB = createTaskService({ db: dbB, orgId: raceOrgId });
+    const [a, b] = await Promise.all([
+      serviceA.update(task.id, { label: 'Winner A', description: 'a' }),
+      serviceB.update(task.id, { label: 'Winner B', description: 'b' }),
+    ]);
+
+    const successes = [a, b].filter((row) => row !== undefined);
+    const failures = [a, b].filter((row) => row === undefined);
+    expect(successes).toHaveLength(1);
+    expect(failures).toHaveLength(1);
+
+    const revisions = await listRevisionsByTarget(dbA, raceProjectId, 'task', task.id);
+    expect(revisions).toHaveLength(1);
+    expect(JSON.parse(revisions[0]?.snapshot ?? '{}')).toEqual({
+      label: 'Start',
+      description: 'v0',
+    });
+
+    const stored = await getTask(dbA, task.id);
+    expect(stored?.label).toBe(successes[0]?.label);
+    expect(stored?.description).toBe(successes[0]?.description);
   });
 });

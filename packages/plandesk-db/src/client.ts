@@ -1,6 +1,7 @@
 import { createClient, type Client } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import * as schema from './schema.js';
+import { retryOnSqliteBusy } from './sqlite-errors.js';
 
 /** Re-exported so callers can type the raw driver behind `db.$client` without their own `@libsql/client` dependency. */
 export type { Client };
@@ -8,6 +9,17 @@ export type { Client };
 export type Db = Awaited<ReturnType<typeof createDb>>;
 export type DbTx = Parameters<Parameters<Db['transaction']>[0]>[0];
 export type DbClient = Db | DbTx;
+
+/** Throw from inside `withTransaction` to roll back and return `result` without committing. */
+export class TransactionRollback<T = undefined> extends Error {
+  readonly result: T;
+
+  constructor(result: T) {
+    super('transaction rollback');
+    this.name = 'TransactionRollback';
+    this.result = result;
+  }
+}
 
 function normalizeUrl(path: string): string {
   if (path === ':memory:') {
@@ -39,6 +51,10 @@ export async function createDb(path: string, authToken?: string) {
       : { url },
   );
   await client.execute('PRAGMA foreign_keys = ON');
+  await client.execute('PRAGMA busy_timeout = 250');
+  if (url !== ':memory:') {
+    await client.execute('PRAGMA journal_mode = WAL');
+  }
   return drizzle(client, { schema });
 }
 
@@ -55,13 +71,16 @@ export async function withTransaction<T>(db: Db, fn: (db: Db) => Promise<T>): Pr
   await db.$client.execute('BEGIN');
   try {
     const result = await fn(db);
-    await db.$client.execute('COMMIT');
+    await retryOnSqliteBusy(() => db.$client.execute('COMMIT'));
     return result;
   } catch (error) {
     try {
       await db.$client.execute('ROLLBACK');
     } catch {
       // Ignore rollback failures (connection may already be closed/aborted).
+    }
+    if (error instanceof TransactionRollback) {
+      return error.result as T;
     }
     throw error;
   }

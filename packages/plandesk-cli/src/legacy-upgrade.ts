@@ -5,6 +5,7 @@ import { basename, dirname, join } from 'node:path';
 import {
   DEFAULT_ORG_ID,
   PLANDESK_EXPORT_VERSION,
+  checkpointWalForFileCopy,
   createDb,
   getProject,
   importProject,
@@ -660,6 +661,7 @@ export async function runLegacyUpgrade(options: {
     const exports = await readLegacyProjectExports(sourceDb.$client);
     const backupPath = legacyBackupPath(sourcePath);
     if (!existsSync(backupPath)) {
+      await checkpointWalForFileCopy(sourceDb.$client);
       copyFileSync(sourcePath, backupPath);
     }
 

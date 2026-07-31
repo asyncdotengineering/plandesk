@@ -9,6 +9,10 @@ import {
   getDocumentByTask as dbGetDocumentByTask,
   getFolderByProjectAndId,
   getTask,
+  insertRevision,
+  isSqliteBusy,
+  retryOnSqliteBusy,
+  TransactionRollback,
   listDocuments as dbListDocuments,
   listEdges as dbListEdges,
   listEdgesByEndpoint,
@@ -29,7 +33,13 @@ import {
   type SerializedDocumentTree,
   type SerializedEntityLink,
 } from '../serialize.js';
-import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { serializeActor } from '../write-actor.js';
+import { assertPermission, resolveOrgId, resolveWriteActor, type OrgScopedDeps } from './org-scope.js';
+import {
+  changedVersionedFields,
+  DOCUMENT_VERSIONED_FIELDS,
+  versionedFieldSnapshot,
+} from './revision-capture.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 export type DocumentServiceDeps = OrgScopedDeps & {
   db: Db;
@@ -409,7 +419,39 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         await assertFolderInProject(db, existing.projectId, input.folderId);
       }
 
-      const document = await dbUpdateDocument(db, id, input);
+      const document = await withTransaction<Document | undefined>(db, async (tx) => {
+        const prior = await dbGetDocument(tx, id);
+        if (!prior) {
+          throw new TransactionRollback(undefined);
+        }
+        const versionedChanges = changedVersionedFields(prior, input, DOCUMENT_VERSIONED_FIELDS);
+        let row: Document | undefined;
+        try {
+          row = await retryOnSqliteBusy(() =>
+            dbUpdateDocument(tx, id, input, { expectedUpdatedAt: prior.updatedAt }),
+          );
+        } catch (error) {
+          if (isSqliteBusy(error)) {
+            throw new TransactionRollback(undefined);
+          }
+          throw error;
+        }
+        if (!row) {
+          throw new TransactionRollback(undefined);
+        }
+        if (versionedChanges.length > 0) {
+          const author = serializeActor(resolveWriteActor(deps));
+          await insertRevision(tx, {
+            projectId: prior.projectId,
+            targetType: 'document',
+            targetId: id,
+            snapshot: JSON.stringify(versionedFieldSnapshot(prior, DOCUMENT_VERSIONED_FIELDS)),
+            changedFields: JSON.stringify(versionedChanges),
+            author,
+          });
+        }
+        return row;
+      });
       if (!document) {
         return undefined;
       }

@@ -361,9 +361,11 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
     const taskUpdate = await app.request(`/api/v1/tasks/${task.id}`, {
       method: 'PATCH',
       headers: { ...bearer(minted.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label: 'Updated by demoted' }),
+      body: JSON.stringify({ status: 'in_progress' }),
     });
     expect(taskUpdate.status).toBe(200);
+    const updated = await parseJson<{ status: string }>(taskUpdate);
+    expect(updated.status).toBe('in_progress');
   });
 
   it('property 4: removed member → empty permissions → 403 on privileged ops', async () => {

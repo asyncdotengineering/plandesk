@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createComment,
@@ -7,7 +10,9 @@ import {
   createFolder,
   createProjectInDefaultOrg as createProject,
   getComment,
+  getDocument,
   listCommentsByTarget,
+  listRevisionsByTarget,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -375,5 +380,134 @@ describe('documentService', () => {
         new Date(created.updated_at).getTime(),
       );
     }
+  });
+});
+
+describe.each([
+  { mode: ':memory:', dbPath: ':memory:' },
+  {
+    mode: 'file:',
+    dbPath: () => join(tmpdir(), `plandesk-doc-rev-${randomUUID()}.db`),
+  },
+])('document revision capture ($mode)', ({ dbPath }) => {
+  let db: Db;
+  let projectId = '';
+  let orgId = '';
+
+  function createService(actor?: Parameters<typeof createDocumentService>[0]['actor']) {
+    return createDocumentService({ db, orgId, ...(actor !== undefined ? { actor } : {}) });
+  }
+
+  beforeEach(async () => {
+    const path = typeof dbPath === 'function' ? dbPath() : dbPath;
+    db = await createDb(path);
+    await migrate(db);
+    await db.$client.execute('DELETE FROM revisions');
+    await db.$client.execute('DELETE FROM comments');
+    await db.$client.execute('DELETE FROM documents');
+    await db.$client.execute('UPDATE folders SET parent_folder_id = NULL');
+    await db.$client.execute('DELETE FROM folders');
+    await db.$client.execute('DELETE FROM tasks');
+    await db.$client.execute('DELETE FROM goals');
+    await db.$client.execute('DELETE FROM projects');
+    const project = await createProject(db, { name: 'Doc revisions' });
+    projectId = project.id;
+    orgId = project.orgId;
+  });
+
+  it('records one revision with the prior body when body changes', async () => {
+    const service = createService();
+    const document = await createDocument(db, { projectId, title: 'Spec', body: 'before' });
+
+    await service.update(document.id, { body: 'after' });
+
+    const revisions = await listRevisionsByTarget(db, projectId, 'document', document.id);
+    expect(revisions).toHaveLength(1);
+    expect(JSON.parse(revisions[0]?.snapshot ?? '{}')).toEqual({
+      title: 'Spec',
+      body: 'before',
+      statusLine: null,
+    });
+    expect(JSON.parse(revisions[0]?.changedFields ?? '[]')).toEqual(['body']);
+    expect((await getDocument(db, document.id))?.body).toBe('after');
+  });
+
+  it('records no revision when a versioned field is set to an identical value', async () => {
+    const service = createService();
+    const document = await createDocument(db, { projectId, title: 'Same', body: 'unchanged' });
+
+    await service.update(document.id, { title: 'Same' });
+
+    expect(await listRevisionsByTarget(db, projectId, 'document', document.id)).toHaveLength(0);
+  });
+
+  it('records no revision when only excluded fields change', async () => {
+    const service = createService();
+    const parent = await createDocument(db, { projectId, title: 'Parent' });
+    const folder = await createFolder(db, { projectId, name: 'Specs' });
+    const document = await createDocument(db, { projectId, title: 'Child', parentId: null });
+
+    await service.update(document.id, { parentId: parent.id, folderId: folder.id });
+
+    expect(await listRevisionsByTarget(db, projectId, 'document', document.id)).toHaveLength(0);
+  });
+
+  it('records author from human, agent, and system actors', async () => {
+    const document = await createDocument(db, { projectId, title: 'Actor', body: 'v0' });
+
+    const human = createService({ kind: 'human', userId: 'user-1' });
+    await human.update(document.id, { body: 'v1' });
+    let revisions = await listRevisionsByTarget(db, projectId, 'document', document.id);
+    expect(revisions[revisions.length - 1]?.author).toBe('human:user-1');
+
+    const agent = createService({ kind: 'agent', runId: 'run-42' });
+    await agent.update(document.id, { body: 'v2' });
+    revisions = await listRevisionsByTarget(db, projectId, 'document', document.id);
+    expect(revisions[revisions.length - 1]?.author).toBe('agent:run-42');
+
+    const system = createService({ kind: 'system' });
+    await system.update(document.id, { body: 'v3' });
+    revisions = await listRevisionsByTarget(db, projectId, 'document', document.id);
+    expect(revisions[revisions.length - 1]?.author).toBe('system');
+  });
+
+  it('concurrent versioned updates race: one winner, one conflict, no orphan revision', async () => {
+    const raceDbPath = join(tmpdir(), `plandesk-doc-race-${randomUUID()}.db`);
+    const dbA = await createDb(raceDbPath);
+    const dbB = await createDb(raceDbPath);
+    await migrate(dbA);
+    const project = await createProject(dbA, { name: 'Race' });
+    const raceProjectId = project.id;
+    const raceOrgId = project.orgId;
+    const document = await createDocument(dbA, {
+      projectId: raceProjectId,
+      title: 'Start',
+      body: 'v0',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const serviceA = createDocumentService({ db: dbA, orgId: raceOrgId });
+    const serviceB = createDocumentService({ db: dbB, orgId: raceOrgId });
+    const [a, b] = await Promise.all([
+      serviceA.update(document.id, { title: 'Winner A', body: 'a' }),
+      serviceB.update(document.id, { title: 'Winner B', body: 'b' }),
+    ]);
+
+    const successes = [a, b].filter((row) => row !== undefined);
+    const failures = [a, b].filter((row) => row === undefined);
+    expect(successes).toHaveLength(1);
+    expect(failures).toHaveLength(1);
+
+    const revisions = await listRevisionsByTarget(dbA, raceProjectId, 'document', document.id);
+    expect(revisions).toHaveLength(1);
+    expect(JSON.parse(revisions[0]?.snapshot ?? '{}')).toEqual({
+      title: 'Start',
+      body: 'v0',
+      statusLine: null,
+    });
+
+    const stored = await getDocument(dbA, document.id);
+    expect(stored?.title).toBe(successes[0]?.title);
+    expect(stored?.body).toBe(successes[0]?.body);
   });
 });

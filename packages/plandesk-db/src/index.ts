@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export { createDb, withTransaction, type Client, type Db, type DbClient, type DbTx } from './client.js';
+export { createDb, withTransaction, TransactionRollback, type Client, type Db, type DbClient, type DbTx } from './client.js';
+export { isSqliteBusy, retryOnSqliteBusy } from './sqlite-errors.js';
+export { checkpointWalForFileCopy, WalCheckpointError } from './wal-file-copy.js';
 export { migrate } from './migrate.js';
 export * from './repositories/projects.js';
 export * from './repositories/goals.js';

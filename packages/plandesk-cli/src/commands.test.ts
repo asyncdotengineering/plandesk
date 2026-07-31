@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -154,6 +154,17 @@ describe('CLI export/import/doctor', () => {
     tempDirs.push(dataDir);
     await runInit(dataDir);
     return dataDir;
+  }
+
+  /** WAL sidecars can satisfy reads after the main file is overwritten — remove them too. */
+  function corruptWorkspaceDatabase(dataDir: string, payload = 'corrupt-bytes'): void {
+    const dbPath = workspaceDbPath(dataDir);
+    writeFileSync(dbPath, payload);
+    for (const sidecar of [`${dbPath}-wal`, `${dbPath}-shm`]) {
+      if (existsSync(sidecar)) {
+        rmSync(sidecar);
+      }
+    }
   }
 
   it('exports a project to plandesk-export-v1 JSON', async () => {
@@ -451,7 +462,7 @@ describe('CLI export/import/doctor', () => {
 
   it('exits 2 when database is corrupt', async () => {
     const dataDir = await makeWorkspace();
-    writeFileSync(workspaceDbPath(dataDir), 'this is not a sqlite database');
+    corruptWorkspaceDatabase(dataDir, 'this is not a sqlite database');
 
     const { code, stderr } = await captureIo(() =>
       main(['node', 'plandesk', 'doctor', '--data-dir', dataDir]),
@@ -463,7 +474,7 @@ describe('CLI export/import/doctor', () => {
 
   it('exits 2 on export when database is corrupt', async () => {
     const dataDir = await makeWorkspace();
-    writeFileSync(workspaceDbPath(dataDir), 'corrupt-bytes');
+    corruptWorkspaceDatabase(dataDir);
 
     const { code, stderr } = await captureIo(() =>
       main([

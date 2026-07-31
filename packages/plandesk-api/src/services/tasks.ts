@@ -8,6 +8,8 @@ import {
   deleteEdgesByTaskId,
   deleteTask as dbDeleteTask,
   deleteTaskTagsByTaskId,
+  insertRevision,
+  isSqliteBusy,
   resolveGoalForNewWork,
   listGoals,
   getTagByName,
@@ -21,7 +23,9 @@ import {
   listTagsForTask,
   listTasks,
   listTaskStatusesByIds,
+  retryOnSqliteBusy,
   setTaskTags,
+  TransactionRollback,
   taskIdsWithAnyTagName,
   updateTask,
   isValidCommitRefs,
@@ -34,7 +38,13 @@ import {
   type TaskStatus,
 } from '@plandesk/db';
 import { serializeTask, type PaginationParams } from '../serialize.js';
-import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { serializeActor } from '../write-actor.js';
+import { assertPermission, resolveOrgId, resolveWriteActor, type OrgScopedDeps } from './org-scope.js';
+import {
+  changedVersionedFields,
+  TASK_VERSIONED_FIELDS,
+  versionedFieldSnapshot,
+} from './revision-capture.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 import { normalizeTagName } from './tags.js';
 
@@ -347,21 +357,54 @@ export function createTaskService(deps: TaskServiceDeps) {
           : commitRefs === null
             ? null
             : normalizeCommitRefs(commitRefs);
-      const result = await withTransaction(db, async (tx) => {
-        const row = await updateTask(tx, id, {
-          ...columns,
-          ...(normalizedCommitRefs !== undefined
-            ? {
-                commitRefs:
-                  normalizedCommitRefs === null ? null : JSON.stringify(normalizedCommitRefs),
-              }
-            : {}),
-        });
+      const result = await withTransaction<
+        { task: Task; tags: Awaited<ReturnType<typeof listTagsForTask>> } | undefined
+      >(db, async (tx) => {
+        const prior = await getTask(tx, id);
+        if (!prior) {
+          throw new TransactionRollback(undefined);
+        }
+        const versionedChanges = changedVersionedFields(prior, columns, TASK_VERSIONED_FIELDS);
+        let row: Task | undefined;
+        try {
+          row = await retryOnSqliteBusy(() =>
+            updateTask(
+              tx,
+              id,
+              {
+                ...columns,
+                ...(normalizedCommitRefs !== undefined
+                  ? {
+                      commitRefs:
+                        normalizedCommitRefs === null ? null : JSON.stringify(normalizedCommitRefs),
+                    }
+                  : {}),
+              },
+              { expectedUpdatedAt: prior.updatedAt },
+            ),
+          );
+        } catch (error) {
+          if (isSqliteBusy(error)) {
+            throw new TransactionRollback(undefined);
+          }
+          throw error;
+        }
         if (!row) {
-          return undefined;
+          throw new TransactionRollback(undefined);
+        }
+        if (versionedChanges.length > 0) {
+          const author = serializeActor(resolveWriteActor(deps));
+          await insertRevision(tx, {
+            projectId: prior.projectId,
+            targetType: 'task',
+            targetId: id,
+            snapshot: JSON.stringify(versionedFieldSnapshot(prior, TASK_VERSIONED_FIELDS)),
+            changedFields: JSON.stringify(versionedChanges),
+            author,
+          });
         }
         if (tagNames !== undefined) {
-          await setTaskTags(tx, id, await resolveTagIdsByName(tx, existing.projectId, tagNames));
+          await setTaskTags(tx, id, await resolveTagIdsByName(tx, prior.projectId, tagNames));
         }
         return { task: row, tags: await listTagsForTask(tx, id) };
       });

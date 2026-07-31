@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   DEFAULT_ORG_ID,
+  checkpointWalForFileCopy,
   createDb,
   listCommentsByProject,
   listDocuments,
@@ -326,6 +327,20 @@ describe('CLI legacy-upgrade', () => {
     expect(stdout).toContain('Regenerate a CLI token');
     expect(existsSync(legacyBackupPath(oldPath))).toBe(true);
 
+    const backupDb = await createDb(legacyBackupPath(oldPath));
+    try {
+      const backupProjects = await backupDb.$client.execute('SELECT id, name FROM projects');
+      expect(backupProjects.rows).toHaveLength(1);
+      expect(backupProjects.rows[0]?.['id']).toBe('legacy-proj-001');
+      expect(backupProjects.rows[0]?.['name']).toBe('Legacy Upgrade Fixture');
+
+      const backupTasks = await backupDb.$client.execute('SELECT label FROM tasks');
+      expect(backupTasks.rows).toHaveLength(1);
+      expect(backupTasks.rows[0]?.['label']).toBe('Migrate me');
+    } finally {
+      backupDb.$client.close();
+    }
+
     const { db } = await openWorkspace(dataDir);
     const projects = await listProjects(db, DEFAULT_ORG_ID);
     expect(projects).toHaveLength(1);
@@ -550,6 +565,12 @@ describe('CLI legacy-upgrade', () => {
     await runInit(dataDir);
     const newBoardPath = join(dataDir, 'workspace.db');
     const copyPath = join(root, 'already-new.db');
+    const { db: sourceBoardDb } = await openWorkspace(dataDir);
+    try {
+      await checkpointWalForFileCopy(sourceBoardDb.$client);
+    } finally {
+      sourceBoardDb.$client.close();
+    }
     copyFileSync(newBoardPath, copyPath);
 
     const targetDir = join(root, 'target');

@@ -145,19 +145,28 @@ export async function getDocumentByProjectAndId(
     .get();
 }
 
+export type UpdateDocumentOptions = {
+  expectedUpdatedAt?: Date;
+};
+
 export async function updateDocument(
   db: DbClient,
   id: string,
   input: DocumentUpdate,
+  options?: UpdateDocumentOptions,
 ): Promise<Document | undefined> {
   const now = new Date();
+  const conditions = [eq(documents.id, id)];
+  if (options?.expectedUpdatedAt !== undefined) {
+    conditions.push(eq(documents.updatedAt, options.expectedUpdatedAt));
+  }
   const rows = await db
     .update(documents)
     .set({
       ...input,
       updatedAt: now,
     })
-    .where(eq(documents.id, id))
+    .where(and(...conditions))
     .returning()
     .all();
   return rows[0];
