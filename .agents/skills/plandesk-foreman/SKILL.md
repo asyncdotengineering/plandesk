@@ -77,6 +77,12 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
    survives a later `git checkout` because git restores it from the index. This
    ordering is the cheapest real protection in the whole run.
 
+   **Unless the dispatch was killed.** No result file means it ran no gates and
+   wrote no result, so the tree holds unverified partial output rather than work
+   product. Discard it and re-dispatch clean per
+   [protocol.md](../../factory/protocol.md) — staging it makes salvage look like
+   a deliverable, and the next reader cannot tell the difference.
+
 7. **Verify the claims.** Follow the verification sequence in
    [protocol.md](../../factory/protocol.md) — gate integrity before re-running
    anything, then suppressions, then per-package test counts against the

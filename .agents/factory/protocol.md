@@ -101,11 +101,59 @@ common cause of a run that produces code but no verifiable result.
   present and parseable means finished, absent means unfinished regardless of
   what the process reported. Say this in the brief in those words — the runs
   that omit the result file are the ones whose brief left it implicit.
+- **Never put a timeout on the dispatch itself.** Background the worker and let
+  it run; bound it with the stall check in [heartbeat.md](heartbeat.md), which
+  measures whether work is *happening*, not how long it has taken. A wall-clock
+  limit on the command cannot distinguish a worker that is thinking from one
+  that is stuck, so it kills good work at an arbitrary boundary — and a real
+  build is exactly the kind that runs long. If the harness clamps the value you
+  pass, the effective limit is not even the one you chose.
+
+### When a dispatch is killed
+
+A dispatch ends in one of three states, and they are not interchangeable:
+
+| state | signal | what to do |
+| --- | --- | --- |
+| **done** | result file present and parseable | verify its claims |
+| **blocked** | result file present, `status: "blocked"` | read the wall it named; re-scope |
+| **killed** | **no result file**, process gone | see below |
+
+A killed dispatch ran no gates and wrote no result. Whatever is in the tree is
+**unverified partial output, not work product** — it may not compile, and it may
+be half of a design its author had not finished choosing.
+
+**Discard it and re-dispatch clean.** Do not continue from it, and do not ask
+the next worker to "finish" it. Continuing from salvage is how one task consumed
+eight cycles: each round inherited the previous round's half-made decisions,
+and nobody ever chose the design deliberately. Reverting costs one dispatch;
+building on a foundation nobody chose costs several, and the cost is invisible
+until late.
+
+Before discarding, confirm the tree holds nothing else — a killed dispatch's
+output and your own uncommitted work look identical in `git status`. This is
+the reason the previous slice is committed before the next one starts.
 
 ## Verification (engine side — deterministic, no model judgment)
 
 - Reject an invalid result outright (see the result contract above) — no file,
   no claims, or an unknown status all mean failed, before anything is re-run.
+- **Confirm the work exists before reading the claims.** A result file describes
+  what a worker says it did; `git status` says what changed. Compare them first:
+
+  ```
+  git status --porcelain          # did anything change at all?
+  stat -f '%Sm' -t '%H:%M:%S' <a file the result claims to have edited> \
+                              runs/result-<task>.json
+  ```
+
+  A file whose mtime predates the result was not written by that dispatch.
+  Real incident: a worker returned `status: "done"` with per-guard evidence
+  citing specific line numbers and specific compiler errors, having modified no
+  file. The claims were internally coherent and entirely invented, and the suite
+  was green before and after — because the thing it claimed to fix was inert in
+  both states. Nothing downstream of the result file can catch this; only the
+  filesystem can.
 - **Verify gate integrity BEFORE re-running any claim.** Re-running a command
   proves nothing if the command's configuration moved:
 
@@ -131,6 +179,15 @@ common cause of a run that produces code but no verifiable result.
 - Re-run each claimed command; a claim whose re-run exit code differs from the
   claimed one is a false claim — treat the dispatch as failed, record it, and
   do not retry the same approach blindly.
+- **The gate is the repo-wide suite, never a list of packages you chose.**
+  Require the root command that runs every package (`pnpm test` / `turbo run
+  test` or this repo's equivalent), and require a per-package count for **all**
+  of them in the result. A dispatch reporting four packages in a repo that has
+  seven has not been verified; it has been sampled. Real incident: a run gated on
+  four named packages for hours while a fifth stayed red, and the commit that
+  broke it had been reported green — the break was in a package nobody was
+  running. A missing package in the result is itself the evidence that the root
+  command was not the one executed.
 - **A green suite does not prove an assertion is covered.** A worker maps
   `satisfies_assertions` onto a claim by hand, so `pnpm test` exiting 0 says the
   suite passed — never that a test for REQ-N exists. Diff the per-package test
