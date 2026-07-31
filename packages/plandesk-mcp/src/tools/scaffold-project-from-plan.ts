@@ -1,7 +1,6 @@
 import type { CanvasService, DocumentService, ProjectService } from '@plandesk/api';
 import { InvalidCanvasError, InvalidGoalReferenceError, InvalidScaffoldError } from '@plandesk/api';
 import { AmbiguousActiveGoalsError, InvalidTaskStatusError, type TaskStatus } from '@plandesk/db';
-import { ensureHtmlBody } from './markdown.js';
 import { defaultLinkLabel, normalizeLinkTo, type LinkEntityKind } from './link-to.js';
 import { toolInvalidArgument, toolSuccess, type ToolResult } from './result.js';
 
@@ -102,7 +101,7 @@ export function createScaffoldProjectFromPlanHandler(
                 const firstTaskKey = links.find((key) => taskKeys.has(key));
                 return {
                   title: doc.title,
-                  ...(doc.body !== undefined ? { body: ensureHtmlBody(doc.body) } : {}),
+                  ...(doc.body !== undefined ? { body: doc.body } : {}),
                   ...(doc.status_line !== undefined ? { statusLine: doc.status_line } : {}),
                   ...(firstTaskKey !== undefined ? { linkTo: firstTaskKey } : {}),
                 };

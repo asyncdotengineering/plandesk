@@ -125,6 +125,14 @@ export type { FileService } from './services/files.js';
 export type { ArtifactService } from './services/artifacts.js';
 export type { CommentService } from './services/comments.js';
 export type { AgentRunService } from './services/agent-runs.js';
+export {
+  convertDocumentBody,
+  ensureHtmlBody,
+  type ConvertDocumentBodyOptions,
+  type ConvertDocumentBodyResult,
+  type WikiLinkResolved,
+  type WikiLinkResolver,
+} from './markdown.js';
 export { InvalidDocumentError } from './services/documents.js';
 export { InvalidFolderError } from './services/folders.js';
 export { InvalidNoteError } from './services/notes.js';

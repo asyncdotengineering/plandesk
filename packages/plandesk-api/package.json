@@ -6,6 +6,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./markdown": {
+      "types": "./dist/markdown.d.ts",
+      "import": "./dist/markdown.js"
     }
   },
   "files": [
@@ -33,7 +37,8 @@
     "@libsql/kysely-libsql": "^0.4.1",
     "@plandesk/db": "workspace:*",
     "better-auth": "1.6.23",
-    "hono": "^4.12.23"
+    "hono": "^4.12.23",
+    "marked": "^18.0.5"
   },
   "description": "Plan Desk REST + SSE API and service layer (local-first planning workspace).",
   "license": "MIT",

@@ -66,6 +66,9 @@ importers:
       '@fontsource/geist-sans':
         specifier: ^5.2.5
         version: 5.2.5
+      '@plandesk/api':
+        specifier: workspace:*
+        version: link:../../packages/plandesk-api
       '@tailwindcss/vite':
         specifier: ^4.3.2
         version: 4.3.2(vite@8.0.16(@types/node@25.9.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
@@ -208,6 +211,9 @@ importers:
       hono:
         specifier: ^4.12.23
         version: 4.12.23
+      marked:
+        specifier: ^18.0.5
+        version: 18.0.5
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20250609.0

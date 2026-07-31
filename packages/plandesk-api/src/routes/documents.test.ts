@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createEdge, createProjectInDefaultOrg as createProject } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
+import { ensureHtmlBody } from '../markdown.js';
 import { createTestApp, parseJson } from '../test-helpers.js';
 
 type EntityLink = {
@@ -149,7 +150,7 @@ describe('documents routes', () => {
     const getRes = await app.request(`/api/v1/documents/${created.id}`);
     expect(getRes.status).toBe(200);
     const fetched = await parseJson<DocumentResponse>(getRes);
-    expect(fetched.body).toBe('Hello');
+    expect(fetched.body).toBe(ensureHtmlBody('Hello'));
   });
 
   it('PATCH /documents/:id updates fields', async () => {
@@ -180,7 +181,7 @@ describe('documents routes', () => {
     expect(patchRes.status).toBe(200);
     const updated = await parseJson<DocumentResponse>(patchRes);
     expect(updated.title).toBe('After');
-    expect(updated.body).toBe('v2');
+    expect(updated.body).toBe(ensureHtmlBody('v2'));
     expect(updated.status_line).toBe('Status: done');
     expect(new Date(updated.updated_at).getTime()).toBeGreaterThanOrEqual(
       new Date(created.updated_at).getTime(),

@@ -24,6 +24,8 @@ import {
   type Edge,
   type LinkEntityType,
 } from '@plandesk/db';
+import { ensureWikiLinkEdges, prepareDocumentBody } from '../document-wiki-links.js';
+import type { WikiLinkResolved } from '../markdown.js';
 import {
   buildFolderTree,
   serializeDocument,
@@ -365,14 +367,24 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         await assertFolderInProject(db, projectId, input.folderId);
       }
 
-      const document = await dbCreateDocument(db, {
-        projectId,
-        title: input.title,
-        body: input.body,
-        statusLine: input.statusLine,
-        parentId: input.parentId,
-        folderId: input.folderId,
+      const projectDocuments = await dbListDocuments(db, projectId);
+      const prepared = prepareDocumentBody(input.body, projectId, projectDocuments);
+
+      const document = await withTransaction<Document | undefined>(db, async (tx) => {
+        const row = await dbCreateDocument(tx, {
+          projectId,
+          title: input.title,
+          body: prepared.body,
+          statusLine: input.statusLine,
+          parentId: input.parentId,
+          folderId: input.folderId,
+        });
+        await ensureWikiLinkEdges(tx, projectId, row.id, prepared.resolved);
+        return row;
       });
+      if (!document) {
+        return undefined;
+      }
 
       return serializeDocumentWithLinks(db, document);
     },
@@ -424,11 +436,18 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         if (!prior) {
           throw new TransactionRollback(undefined);
         }
-        const versionedChanges = changedVersionedFields(prior, input, DOCUMENT_VERSIONED_FIELDS);
+        const projectDocuments = await dbListDocuments(tx, prior.projectId);
+        const prepared =
+          input.body !== undefined
+            ? prepareDocumentBody(input.body, prior.projectId, projectDocuments, id)
+            : { body: input.body, resolved: [] as WikiLinkResolved[] };
+        const versionedInput =
+          input.body !== undefined ? { ...input, body: prepared.body } : input;
+        const versionedChanges = changedVersionedFields(prior, versionedInput, DOCUMENT_VERSIONED_FIELDS);
         let row: Document | undefined;
         try {
           row = await retryOnSqliteBusy(() =>
-            dbUpdateDocument(tx, id, input, { expectedUpdatedAt: prior.updatedAt }),
+            dbUpdateDocument(tx, id, versionedInput, { expectedUpdatedAt: prior.updatedAt }),
           );
         } catch (error) {
           if (isSqliteBusy(error)) {
@@ -438,6 +457,9 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         }
         if (!row) {
           throw new TransactionRollback(undefined);
+        }
+        if (prepared.resolved.length > 0) {
+          await ensureWikiLinkEdges(tx, prior.projectId, id, prepared.resolved);
         }
         if (versionedChanges.length > 0) {
           const author = serializeActor(resolveWriteActor(deps));

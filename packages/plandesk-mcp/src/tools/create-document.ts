@@ -1,6 +1,5 @@
 import type { CanvasService, DocumentService, TaskService } from '@plandesk/api';
 import { InvalidCanvasError, InvalidDocumentError } from '@plandesk/api';
-import { ensureHtmlBody } from './markdown.js';
 import { defaultLinkLabel, normalizeLinkTo, type LinkEntityKind } from './link-to.js';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
@@ -50,7 +49,7 @@ export function createCreateDocumentHandler(
 
       const document = await documentService.create(args.project_id, {
         title: args.title,
-        ...(args.body !== undefined ? { body: ensureHtmlBody(args.body) } : {}),
+        ...(args.body !== undefined ? { body: args.body } : {}),
         ...(args.parent_id !== undefined ? { parentId: args.parent_id } : {}),
         ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
       });

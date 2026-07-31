@@ -1,6 +1,5 @@
 import type { CanvasService, DocumentService, TaskService } from '@plandesk/api';
 import { InvalidCanvasError, InvalidDocumentError } from '@plandesk/api';
-import { ensureHtmlBody } from './markdown.js';
 import { defaultLinkLabel, normalizeLinkTo, type LinkEntityKind } from './link-to.js';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
@@ -45,7 +44,7 @@ export function createUpdateDocumentHandler(
 
       const document = await documentService.update(args.document_id, {
         ...(args.title !== undefined ? { title: args.title } : {}),
-        ...(args.body !== undefined ? { body: ensureHtmlBody(args.body) } : {}),
+        ...(args.body !== undefined ? { body: args.body } : {}),
         ...(args.status_line !== undefined ? { statusLine: args.status_line } : {}),
         ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
       });

@@ -32,6 +32,7 @@ import {
   listEdges,
   listProjects as dbListProjects,
   listTasks,
+  updateDocument,
   updateProject as dbUpdateProject,
   type Db,
   type DbClient,
@@ -40,6 +41,7 @@ import {
   type Task,
   type TaskStatus,
 } from '@plandesk/db';
+import { ensureWikiLinkEdges, prepareDocumentBody } from '../document-wiki-links.js';
 import { ensureDefaultTeamForOrg, getTeamInOrg } from '../identity.js';
 import type { BetterAuthInstance } from '../better-auth.js';
 import { InvalidGoalReferenceError } from './tasks.js';
@@ -523,6 +525,25 @@ export function createProjectService(deps: ProjectServiceDeps) {
             });
           }
           documentRows.push(document);
+        }
+
+        for (const document of documentRows) {
+          if (document.body === null) {
+            continue;
+          }
+          const prepared = prepareDocumentBody(
+            document.body,
+            projectId,
+            documentRows,
+            document.id,
+          );
+          if (prepared.body !== document.body) {
+            const updated = await updateDocument(tx, document.id, { body: prepared.body });
+            if (updated !== undefined) {
+              document.body = updated.body;
+            }
+          }
+          await ensureWikiLinkEdges(tx, projectId, document.id, prepared.resolved);
         }
       });
 

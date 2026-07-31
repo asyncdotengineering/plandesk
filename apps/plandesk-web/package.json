@@ -11,6 +11,7 @@
     "dev": "vite"
   },
   "dependencies": {
+    "@plandesk/api": "workspace:*",
     "@dagrejs/dagre": "^3.0.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/utilities": "^3.2.2",

@@ -276,6 +276,15 @@
   text-underline-offset: 2px;
   cursor: pointer;
 }
+.document-editor-content .wikilink-unresolved,
+.document-reader-content .wikilink-unresolved,
+.portal-document-content .wikilink-unresolved {
+  color: var(--destructive);
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-underline-offset: 2px;
+  cursor: not-allowed;
+}
 .document-editor-content:focus,
 .document-editor-content:focus-visible {
   outline: none;

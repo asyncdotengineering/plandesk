@@ -42,4 +42,9 @@ describe('ensureHtmlBody', () => {
     expect(html).toContain('<code>get_next_task</code>');
     expect(html).toContain('<strong>never</strong>');
   });
+
+  it('re-exports wiki-link conversion from @plandesk/api', () => {
+    const html = ensureHtmlBody('[[Missing]]');
+    expect(html).toContain('wikilink-unresolved');
+  });
 });

@@ -156,6 +156,27 @@ describe('DocumentEditor', () => {
     expect(reader?.querySelectorAll('li')).toHaveLength(2);
   });
 
+  it('renders resolved wiki-links in legacy markdown bodies', () => {
+    const markdownDoc: SerializedDocument = {
+      ...sampleDocument,
+      body: 'See [[Spec|the spec]] and [[Missing]].',
+    };
+
+    render(
+      <DocumentEditor
+        document={markdownDoc}
+        mode="reader"
+        onSave={vi.fn()}
+        docLinks={[{ id: 'doc-1', title: 'Spec' }]}
+      />,
+    );
+
+    const reader = document.querySelector('.document-reader-content');
+    expect(reader?.querySelector('a[href="/documents/doc-1"]')?.textContent).toBe('the spec');
+    expect(reader?.querySelector('.wikilink-unresolved')?.textContent).toBe('Missing');
+    expect(reader?.textContent).not.toContain('[[');
+  });
+
   it('surfaces a floating Add-comment button on selection and hands up the passage', async () => {
     const onCommentOnSelection = vi.fn();
     vi.stubGlobal(

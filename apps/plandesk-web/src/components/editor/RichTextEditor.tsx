@@ -95,8 +95,20 @@ function taskListFromMarkdownHtml(html: string): string {
   return template.innerHTML;
 }
 
-function renderHtml(value: string): string {
-  return taskListFromMarkdownHtml(bodyToHtml(value));
+function renderHtml(
+  value: string,
+  projectId: string | undefined,
+  docLinks: { id: string; title: string }[],
+): string {
+  const titleMap = new Map(
+    docLinks.map((doc) => [doc.title.toLowerCase(), { id: doc.id, title: doc.title }]),
+  );
+  return taskListFromMarkdownHtml(
+    bodyToHtml(value, {
+      projectId,
+      resolve: (title) => titleMap.get(title.toLowerCase()),
+    }),
+  );
 }
 
 // TipTap serializes tables with a <colgroup> and wraps every cell in a <p>.
@@ -297,6 +309,8 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     // never forces the editor to be recreated.
     const docLinksRef = useRef<{ id: string; title: string }[]>(docLinks ?? []);
     const projectIdRef = useRef<string | undefined>(projectId);
+    const renderValue = (body: string) =>
+      renderHtml(body, projectIdRef.current, docLinksRef.current);
     // Uploads inserted/annotated images to lean file URLs when a project is
     // known; null (fallback to inline data URLs) otherwise. Mirrored onto the
     // editor storage so FileHandler, the toolbar, and the image node view all
@@ -415,13 +429,13 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     }, [projectId]);
 
     const [editorEmpty, setEditorEmpty] = useState(() => {
-      const html = renderHtml(value).trim();
+      const html = renderValue(value).trim();
       return html === '' || html === '<p></p>';
     });
 
     const editor = useEditor({
       extensions,
-      content: renderHtml(value),
+      content: renderValue(value),
       editable: mode === 'editor',
       onUpdate: ({ editor: updated }) => {
         dirtyRef.current = true;
@@ -467,7 +481,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       // A freshly loaded value is not a user edit.
       dirtyRef.current = false;
       const current = editor.getHTML();
-      const next = renderHtml(value);
+      const next = renderValue(value);
       // Skip while the user is actively typing: a save echoes back into `value`
       // (the patch invalidates the doc query), and re-setting content mid-edit
       // would jump the cursor to the top. When focused, the user owns the DOM;
@@ -582,7 +596,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
                   void router.navigate({ to: href });
                 }
               }}
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderHtml(value)) }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderValue(value)) }}
               style={
                 seamless
                   ? { padding: '0.25rem 0', minHeight: 'calc(100vh - 16rem)' }

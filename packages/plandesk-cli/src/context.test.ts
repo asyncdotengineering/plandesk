@@ -160,7 +160,11 @@ describe('runContext', () => {
       const context = await runContext(repoDir);
       expect(context).toMatchObject({
         current_task: { id: task.id, label: 'Ship board-as-memory hooks', status: 'in_progress' },
-        linked_doc: { title: 'Design: hooks', status_line: 'Ready to implement', body: 'the plan' },
+        linked_doc: {
+          title: 'Design: hooks',
+          status_line: 'Ready to implement',
+          body: '<p>the plan</p>\n',
+        },
         last_progress: { message: 'second update' },
         next_task: null,
       });

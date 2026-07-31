@@ -12,11 +12,13 @@ import {
   getComment,
   getDocument,
   listCommentsByTarget,
+  listEdges,
   listRevisionsByTarget,
   migrate,
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
+import { ensureHtmlBody } from '../markdown.js';
 import { createDocumentService, InvalidDocumentError } from './documents.js';
 
 describe('documentService', () => {
@@ -71,7 +73,7 @@ describe('documentService', () => {
     const fetched = await service.get(document.id);
     expect(fetched).toMatchObject({
       title: 'Spec',
-      body: '# Overview',
+      body: ensureHtmlBody('# Overview'),
       status_line: 'Status: draft',
       project_id: projectId,
       links: [
@@ -372,7 +374,7 @@ describe('documentService', () => {
     });
 
     expect(updated?.title).toBe('After');
-    expect(updated?.body).toBe('v2');
+    expect(updated?.body).toBe(ensureHtmlBody('v2'));
     expect(updated?.status_line).toBe('Status: review');
     expect(updated?.updated_at).toBeDefined();
     if (updated?.updated_at) {
@@ -380,6 +382,108 @@ describe('documentService', () => {
         new Date(created.updated_at).getTime(),
       );
     }
+  });
+
+  it('resolves wiki-links in markdown bodies into anchors and references edges', async () => {
+    const service = createService();
+    const target = await service.create(projectId, { title: 'Existing Doc' });
+    expect(target).toBeDefined();
+    if (!target) {
+      return;
+    }
+
+    const source = await service.create(projectId, {
+      title: 'Source',
+      body: 'See [[Existing Doc|see the spec]] for details.',
+    });
+    expect(source).toBeDefined();
+    if (!source) {
+      return;
+    }
+
+    expect(source.body).toContain('<a href="/projects/');
+    expect(source.body).toContain('see the spec</a>');
+    expect(source.body).not.toContain('[[');
+    expect(source.links).toEqual([
+      expect.objectContaining({
+        type: 'document',
+        id: target.id,
+        title: 'Existing Doc',
+        label: 'references',
+      }),
+    ]);
+  });
+
+  it('re-saving a body with the same wiki-link does not duplicate the edge', async () => {
+    const service = createService();
+    const target = await service.create(projectId, { title: 'Existing Doc' });
+    const source = await service.create(projectId, {
+      title: 'Source',
+      body: '[[Existing Doc]]',
+    });
+    expect(target && source).toBeTruthy();
+    if (!target || !source) {
+      return;
+    }
+
+    const edgesBefore = await listEdges(db, projectId);
+    const references = edgesBefore.filter(
+      (edge) =>
+        edge.fromType === 'document' &&
+        edge.fromId === source.id &&
+        edge.toType === 'document' &&
+        edge.toId === target.id &&
+        edge.label === 'references',
+    );
+    expect(references).toHaveLength(1);
+
+    await service.update(source.id, { body: '[[Existing Doc]]' });
+
+    const edgesAfter = await listEdges(db, projectId);
+    const referencesAfter = edgesAfter.filter(
+      (edge) =>
+        edge.fromType === 'document' &&
+        edge.fromId === source.id &&
+        edge.toType === 'document' &&
+        edge.toId === target.id &&
+        edge.label === 'references',
+    );
+    expect(referencesAfter).toHaveLength(1);
+  });
+
+  it('does not resolve wiki-links to documents in another project', async () => {
+    const service = createService();
+    const otherProjectId = (await createProject(db, { name: 'Other' })).id;
+    await createDocument(db, { projectId: otherProjectId, title: 'Foreign Doc' });
+
+    const source = await service.create(projectId, {
+      title: 'Source',
+      body: '[[Foreign Doc]]',
+    });
+    expect(source).toBeDefined();
+    if (!source) {
+      return;
+    }
+
+    expect(source.body).toContain('class="wikilink-unresolved"');
+    expect(source.links).toEqual([]);
+  });
+
+  it('resolves wiki-link titles containing markdown characters literally', async () => {
+    const service = createService();
+    const target = await service.create(projectId, { title: '`get_next_task`' });
+    const source = await service.create(projectId, {
+      title: 'Source',
+      body: 'Use [[`get_next_task`]] here.',
+    });
+    expect(target && source).toBeTruthy();
+    if (!target || !source) {
+      return;
+    }
+
+    expect(source.body).toContain('`get_next_task`</a>');
+    expect(source.body).not.toContain('<code>get_next_task</code>');
+    expect(source.links[0]?.id).toBe(target.id);
   });
 });
 
@@ -429,7 +533,7 @@ describe.each([
       statusLine: null,
     });
     expect(JSON.parse(revisions[0]?.changedFields ?? '[]')).toEqual(['body']);
-    expect((await getDocument(db, document.id))?.body).toBe('after');
+    expect((await getDocument(db, document.id))?.body).toBe(ensureHtmlBody('after'));
   });
 
   it('records no revision when a versioned field is set to an identical value', async () => {
