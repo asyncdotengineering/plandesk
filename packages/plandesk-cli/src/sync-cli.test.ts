@@ -471,16 +471,14 @@ describe('CLI push/pull', () => {
     const names = columns.rows
       .map((row) => readStringCell(row['name'] ?? row[1], 'pragma_table_info.name'))
       .sort();
-    expect(names).toEqual([
-      'canvas_layout',
-      'created_at',
-      'description',
-      'id',
-      'name',
-      'org_id',
-      'updated_at',
-      'workspace_id',
-    ]);
+    const referenceDb = await createDb(':memory:');
+    await migrate(referenceDb);
+    const referenceColumns = await referenceDb.$client.execute('PRAGMA table_info(projects)');
+    const expectedNames = referenceColumns.rows
+      .map((row) => readStringCell(row['name'] ?? row[1], 'pragma_table_info.name'))
+      .sort();
+    referenceDb.$client.close();
+    expect(names).toEqual(expectedNames);
   });
 
   it('push --to with wrong-org token is rejected', async () => {
