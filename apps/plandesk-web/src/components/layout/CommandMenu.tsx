@@ -7,6 +7,7 @@ import {
   InboxIcon,
   LayoutDashboardIcon,
   LayoutGridIcon,
+  ListIcon,
   SettingsIcon,
   StickyNoteIcon,
   TargetIcon,
@@ -55,6 +56,7 @@ export function useCommandMenu() {
 export const NAV_ITEMS = [
   { label: 'Overview', to: '/projects/$id/overview' as const, icon: LayoutDashboardIcon },
   { label: 'Board', to: '/projects/$id/board' as const, icon: LayoutGridIcon },
+  { label: 'List', to: '/projects/$id/list' as const, icon: ListIcon },
   { label: 'Flow', to: '/projects/$id/flow' as const, icon: GitBranchIcon },
   { label: 'Goals', to: '/projects/$id/goals' as const, icon: TargetIcon },
   { label: 'Documents', to: '/projects/$id/documents' as const, icon: FileTextIcon },

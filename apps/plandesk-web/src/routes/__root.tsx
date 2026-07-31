@@ -10,6 +10,7 @@ import { useDocument, useNote, useProject } from '../lib/queries.js';
 const VIEW_LABELS: Record<string, string> = {
   overview: 'Overview',
   board: 'Board',
+  list: 'List',
   flow: 'Flow',
   goals: 'Goals',
   notes: 'Notes',

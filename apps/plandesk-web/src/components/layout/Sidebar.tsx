@@ -36,6 +36,15 @@ const PLAN_NAV: NavEntry[] = [
     ),
   },
   {
+    label: 'List',
+    to: '/projects/$id/list' as const,
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+        <path d="M4 6h16M4 12h16M4 18h10" />
+      </svg>
+    ),
+  },
+  {
     label: 'Flow',
     to: '/projects/$id/flow' as const,
     icon: (

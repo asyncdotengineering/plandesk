@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -49,15 +50,21 @@ function makeTask(
   };
 }
 
-function renderBoard(tasks: SerializedTask[]) {
+async function renderBoard(tasks: SerializedTask[]) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <Board projectId={projectId} tasks={tasks} />
-    </QueryClientProvider>,
-  );
+  const rootRoute = createRootRoute({
+    component: () => (
+      <QueryClientProvider client={queryClient}>
+        <Board projectId={projectId} tasks={tasks} />
+      </QueryClientProvider>
+    ),
+  });
+  const router = createRouter({ routeTree: rootRoute });
+  const view = render(<RouterProvider router={router} />);
+  await router.load();
+  return view;
 }
 
 beforeEach(() => {
@@ -191,7 +198,7 @@ describe('Board', () => {
       makeTask('t3', 'Ship board', 'in_progress'),
     ];
 
-    const { container } = renderBoard(tasks);
+    const { container } = await renderBoard(tasks);
 
     await waitFor(() => {
       expect(screen.getByText('Plan sprint')).toBeTruthy();
@@ -208,8 +215,8 @@ describe('Board', () => {
     expect(container.querySelector('[data-board-column="in_progress"]')?.textContent).toContain('Ship board');
   });
 
-  it('shows add task controls in each column', () => {
-    const { container } = renderBoard([]);
+  it('shows add task controls in each column', async () => {
+    const { container } = await renderBoard([]);
     const columns = container.querySelectorAll('[data-board-column]');
     expect(columns.length).toBe(5);
     for (const column of columns) {
@@ -218,7 +225,7 @@ describe('Board', () => {
   });
 
   it('clicking a card opens the task detail panel; close dismisses it', async () => {
-    renderBoard([makeTask('t1', 'Plan sprint', 'scope')]);
+    await renderBoard([makeTask('t1', 'Plan sprint', 'scope')]);
 
     fireEvent.click(screen.getByText('Plan sprint'));
 
@@ -235,7 +242,7 @@ describe('Board', () => {
   });
 
   it('patches the changed label but leaves an unedited description untouched', async () => {
-    renderBoard([{ ...makeTask('t1', 'Plan sprint', 'scope'), description: 'Details here' }]);
+    await renderBoard([{ ...makeTask('t1', 'Plan sprint', 'scope'), description: 'Details here' }]);
 
     fireEvent.click(screen.getByText('Plan sprint'));
     await waitFor(() => {
@@ -267,7 +274,7 @@ describe('Board', () => {
 
   it('renders tag chips on task cards', async () => {
     const tasks = [makeTask('t1', 'Tagged card', 'todo', [makeTag('tag-a', 'backend', '#2563eb')])];
-    const { container } = renderBoard(tasks);
+    const { container } = await renderBoard(tasks);
 
     await waitFor(() => {
       expect(screen.getByText('Tagged card')).toBeTruthy();
@@ -298,7 +305,7 @@ describe('Board', () => {
       }),
     );
 
-    renderBoard([
+    await renderBoard([
       makeTask('t1', 'Frontend task', 'todo', [a]),
       makeTask('t2', 'Backend task', 'todo', [b]),
       makeTask('t3', 'Untagged task', 'todo'),
@@ -324,7 +331,7 @@ describe('Board', () => {
   });
 
   it('adding a tag from the detail panel patches the full replacement set', async () => {
-    renderBoard([makeTask('t1', 'Tagged card', 'todo', [makeTag('tag-a', 'backend')])]);
+    await renderBoard([makeTask('t1', 'Tagged card', 'todo', [makeTag('tag-a', 'backend')])]);
 
     fireEvent.click(screen.getByText('Tagged card'));
     await waitFor(() => {
@@ -345,7 +352,7 @@ describe('Board', () => {
   });
 
   it('removing a tag from the detail panel patches the remaining set', async () => {
-    renderBoard([
+    await renderBoard([
       makeTask('t1', 'Tagged card', 'todo', [
         makeTag('tag-a', 'backend'),
         makeTag('tag-b', 'urgent'),
@@ -380,7 +387,7 @@ describe('Board', () => {
       }),
     );
 
-    renderBoard([makeTask('t1', 'Commented card', 'todo')]);
+    await renderBoard([makeTask('t1', 'Commented card', 'todo')]);
 
     fireEvent.click(screen.getByText('Commented card'));
     await waitFor(() => {

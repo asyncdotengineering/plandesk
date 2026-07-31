@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { taskStatuses, type SerializedTask, type TaskStatus } from '../../lib/api.js';
+import { BlockedIndicator } from './BlockedIndicator.js';
 import { columnLabels, laneFromTags, LANE_TAG_PREFIX } from './board-utils.js';
 import { StatusChip, StatusMenu } from './StatusChip.js';
 
@@ -136,19 +137,7 @@ export function TaskCard({ task, hasLinkedDoc, onOpen, onChangeStatus, onRequest
 
       <div className="flex flex-wrap items-center gap-1.5">
         <StatusMenu status={task.status} onChange={onChangeStatus} />
-        {task.blocked === true ? (
-          <span
-            data-blocked
-            className="text-[10.5px] font-medium uppercase tracking-wide text-destructive"
-            title={
-              task.waiting_on !== undefined && task.waiting_on.length > 0
-                ? `Waiting on ${String(task.waiting_on.length)} prerequisite${task.waiting_on.length === 1 ? '' : 's'}`
-                : 'Waiting on unfinished prerequisites'
-            }
-          >
-            Blocked
-          </span>
-        ) : null}
+        <BlockedIndicator blocked={task.blocked} waitingOn={task.waiting_on} />
         {lane !== undefined ? (
           <span
             className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground"
@@ -201,14 +190,7 @@ export function TaskCardPreview({ task, hasLinkedDoc }: { task: SerializedTask; 
       <p className="mb-2 mr-6 text-[13px] font-medium leading-snug">{task.label}</p>
       <div className="flex flex-wrap items-center gap-1.5">
         <StatusChip status={task.status} tabIndex={-1} />
-        {task.blocked === true ? (
-          <span
-            data-blocked
-            className="text-[10.5px] font-medium uppercase tracking-wide text-destructive"
-          >
-            Blocked
-          </span>
-        ) : null}
+        <BlockedIndicator blocked={task.blocked} waitingOn={task.waiting_on} />
         {lane !== undefined ? (
           <span className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
             {lane}

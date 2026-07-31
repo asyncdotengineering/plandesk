@@ -52,6 +52,7 @@ import { BoardColumn } from './BoardColumn.js';
 import { TaskDrawer } from './TaskDrawer.js';
 import { TaskCardPreview } from './TaskCard.js';
 import { useBoardDnd } from './useBoardDnd.js';
+import { ViewSwitcher } from './ViewSwitcher.js';
 
 type BoardProps = {
   projectId: string;
@@ -206,6 +207,7 @@ export function Board({
 
   return (
     <div className="flex h-full flex-col">
+      <ViewSwitcher projectId={projectId} active="board" />
       {projectTags !== undefined && projectTags.length > 0 ? (
         <div role="group" aria-label="Filter by tag" className="mb-3 flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-muted-foreground">Filter:</span>
