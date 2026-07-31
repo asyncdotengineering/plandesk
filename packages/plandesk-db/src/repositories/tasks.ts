@@ -1,7 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
-import { projects, tags, taskStatuses, taskTags, tasks, type TaskStatus } from '../schema.js';
+import {
+  projects,
+  tags,
+  taskKinds,
+  taskStatuses,
+  taskTags,
+  tasks,
+  type TaskKind,
+  type TaskStatus,
+} from '../schema.js';
 
 export type Task = typeof tasks.$inferSelect;
 
@@ -10,6 +19,7 @@ export type NewTask = {
   goalId: string;
   label: string;
   status?: TaskStatus;
+  kind?: TaskKind;
   description?: string | null;
   x?: number;
   y?: number;
@@ -21,6 +31,7 @@ export type NewTask = {
 export type TaskUpdate = {
   label?: string;
   status?: TaskStatus;
+  kind?: TaskKind;
   description?: string | null;
   x?: number;
   y?: number;
@@ -38,8 +49,19 @@ export class InvalidTaskStatusError extends Error {
   }
 }
 
+export class InvalidTaskKindError extends Error {
+  constructor(kind: string) {
+    super(`Invalid task kind: ${kind}`);
+    this.name = 'InvalidTaskKindError';
+  }
+}
+
 export function isTaskStatus(value: string): value is TaskStatus {
   return (taskStatuses as readonly string[]).includes(value);
+}
+
+export function isTaskKind(value: string): value is TaskKind {
+  return (taskKinds as readonly string[]).includes(value);
 }
 
 function assertTaskStatus(status: string): asserts status is TaskStatus {
@@ -48,9 +70,17 @@ function assertTaskStatus(status: string): asserts status is TaskStatus {
   }
 }
 
+function assertTaskKind(kind: string): asserts kind is TaskKind {
+  if (!isTaskKind(kind)) {
+    throw new InvalidTaskKindError(kind);
+  }
+}
+
 export async function createTask(db: DbClient, input: NewTask): Promise<Task> {
   const status = input.status ?? 'todo';
   assertTaskStatus(status);
+  const kind = input.kind ?? 'build';
+  assertTaskKind(kind);
   const now = new Date();
   const id = input.id ?? randomUUID();
   const rows = await db
@@ -61,6 +91,7 @@ export async function createTask(db: DbClient, input: NewTask): Promise<Task> {
       goalId: input.goalId,
       label: input.label,
       status,
+      kind,
       description: input.description ?? null,
       x: input.x ?? 0,
       y: input.y ?? 0,
@@ -84,6 +115,7 @@ export async function getTask(db: DbClient, id: string): Promise<Task | undefine
 
 export type ListTasksOptions = {
   status?: TaskStatus;
+  kind?: TaskKind;
   // OR semantics: keep tasks carrying ANY of the given tag names.
   tagNames?: string[];
   limit?: number;
@@ -98,6 +130,9 @@ export async function listTasks(
   const conditions = [eq(tasks.projectId, projectId)];
   if (options?.status !== undefined) {
     conditions.push(eq(tasks.status, options.status));
+  }
+  if (options?.kind !== undefined) {
+    conditions.push(eq(tasks.kind, options.kind));
   }
   if (options?.tagNames !== undefined && options.tagNames.length > 0) {
     conditions.push(
@@ -162,6 +197,9 @@ export async function updateTask(
 ): Promise<Task | undefined> {
   if (input.status !== undefined) {
     assertTaskStatus(input.status);
+  }
+  if (input.kind !== undefined) {
+    assertTaskKind(input.kind);
   }
   const now = new Date();
   const conditions = [eq(tasks.id, id)];

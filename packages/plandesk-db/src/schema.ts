@@ -14,6 +14,9 @@ import {
 export const taskStatuses = ['scope', 'todo', 'in_progress', 'done', 'backlog'] as const;
 export type TaskStatus = (typeof taskStatuses)[number];
 
+export const taskKinds = ['build', 'decision'] as const;
+export type TaskKind = (typeof taskKinds)[number];
+
 export const goalStatuses = ['active', 'paused', 'complete', 'blocked'] as const;
 export type GoalStatus = (typeof goalStatuses)[number];
 
@@ -110,6 +113,7 @@ export const tasks = sqliteTable('tasks', {
     .references(() => goals.id),
   label: text('label').notNull(),
   status: text('status', { enum: taskStatuses }).notNull().default('todo'),
+  kind: text('kind', { enum: taskKinds }).notNull().default('build'),
   description: text('description'),
   x: real('x').notNull().default(0),
   y: real('y').notNull().default(0),

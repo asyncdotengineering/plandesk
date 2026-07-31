@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import {
+  InvalidTaskKindError,
   InvalidTaskStatusError,
+  isTaskKind,
   isTaskStatus,
   isValidFolderPath,
   isValidRepoUrl,
@@ -152,6 +154,7 @@ export function createProjectsRouter(
     const body = await c.req.json<{
       label?: string;
       status?: string;
+      kind?: string;
       description?: string | null;
       x?: number;
       y?: number;
@@ -166,6 +169,10 @@ export function createProjectsRouter(
     }
 
     if (body.status !== undefined && !isTaskStatus(body.status)) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+
+    if (body.kind !== undefined && !isTaskKind(body.kind)) {
       return c.json({ error: 'invalid_argument' }, 400);
     }
 
@@ -187,6 +194,7 @@ export function createProjectsRouter(
       const task = await taskService.create(c.req.param('id'), {
         label: body.label,
         ...(body.status !== undefined ? { status: body.status } : {}),
+        ...(body.kind !== undefined ? { kind: body.kind } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.x !== undefined ? { x: body.x } : {}),
         ...(body.y !== undefined ? { y: body.y } : {}),
@@ -204,6 +212,7 @@ export function createProjectsRouter(
     } catch (error) {
       if (
         error instanceof InvalidTaskStatusError ||
+        error instanceof InvalidTaskKindError ||
         error instanceof InvalidTagError ||
         error instanceof InvalidGoalReferenceError
       ) {
@@ -220,12 +229,13 @@ export function createProjectsRouter(
         return c.json({ error: 'invalid_argument' }, 400);
       }
       const status = c.req.query('status');
+      const kind = c.req.query('kind');
       // Repeated ?tag= params filter with OR semantics (task matches if it has
       // ANY of the given tags).
       const tags = c.req.queries('tag');
       const tasks = await taskService.listByProject(
         c.req.param('id'),
-        { status, ...(tags !== undefined && tags.length > 0 ? { tags } : {}) },
+        { status, kind, ...(tags !== undefined && tags.length > 0 ? { tags } : {}) },
         pagination,
       );
       if (!tasks) {
@@ -233,7 +243,11 @@ export function createProjectsRouter(
       }
       return c.json(tasks);
     } catch (error) {
-      if (error instanceof InvalidTaskStatusError || error instanceof InvalidTagError) {
+      if (
+        error instanceof InvalidTaskStatusError ||
+        error instanceof InvalidTaskKindError ||
+        error instanceof InvalidTagError
+      ) {
         return c.json({ error: 'invalid_argument' }, 400);
       }
       throw error;

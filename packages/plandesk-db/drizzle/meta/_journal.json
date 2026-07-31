@@ -57,6 +57,13 @@
       "when": 1785447415931,
       "tag": "0007_blushing_raza",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1785494687446,
+      "tag": "0008_woozy_colossus",
+      "breakpoints": true
     }
   ]
 }

@@ -7,6 +7,7 @@ import {
   isValidRepoUrl,
   MAX_COMMIT_REFS,
   shareSubmissionStatuses,
+  taskKinds,
   taskStatuses,
 } from '@plandesk/db';
 
@@ -76,6 +77,7 @@ export const createTaskInputSchema = z.object({
   project_id: z.string().uuid(),
   label: z.string().min(1),
   status: z.enum(taskStatuses).optional(),
+  kind: z.enum(taskKinds).optional(),
   description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
   x: z.number().optional(),
   y: z.number().optional(),
@@ -92,6 +94,7 @@ export const createTaskInputSchema = z.object({
 export const updateTaskInputSchema = z.object({
   task_id: z.string().uuid(),
   status: z.enum(taskStatuses).optional(),
+  kind: z.enum(taskKinds).optional(),
   label: z.string().optional(),
   description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
   x: z.number().optional(),
@@ -507,6 +510,7 @@ export const getTaskInputSchema = z.object({
 export const listTasksInputSchema = z.object({
   project_id: z.string().uuid(),
   status: z.enum(taskStatuses).optional(),
+  kind: z.enum(taskKinds).optional(),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
   compact: z.boolean().optional().describe(COMPACT_DESCRIPTION),
 });

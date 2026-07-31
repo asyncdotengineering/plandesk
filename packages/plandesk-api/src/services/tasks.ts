@@ -13,6 +13,8 @@ import {
   getTask,
   InvalidTaskStatusError,
   isTaskStatus,
+  isTaskKind,
+  InvalidTaskKindError,
   listEdges,
   listTagsByTaskForProject,
   listTagsForTask,
@@ -27,6 +29,7 @@ import {
   type DbClient,
   type Edge,
   type Task,
+  type TaskKind,
   type TaskStatus,
 } from '@plandesk/db';
 import { serializeTask, type PaginationParams } from '../serialize.js';
@@ -122,6 +125,7 @@ export type TaskServiceDeps = OrgScopedDeps & {
 export type CreateTaskInput = {
   label: string;
   status?: TaskStatus;
+  kind?: TaskKind;
   description?: string | null;
   x?: number;
   y?: number;
@@ -135,6 +139,7 @@ export type CreateTaskInput = {
 export type UpdateTaskInput = {
   label?: string;
   status?: TaskStatus;
+  kind?: TaskKind;
   description?: string | null;
   x?: number;
   y?: number;
@@ -155,6 +160,7 @@ export class InvalidCommitRefsError extends Error {
 
 export type ListTasksFilter = {
   status?: string;
+  kind?: string;
   // OR semantics: keep tasks carrying ANY of the given tag names.
   tags?: string[];
 };
@@ -208,6 +214,9 @@ export function createTaskService(deps: TaskServiceDeps) {
       if (filter.status !== undefined && !isTaskStatus(filter.status)) {
         throw new InvalidTaskStatusError(filter.status);
       }
+      if (filter.kind !== undefined && !isTaskKind(filter.kind)) {
+        throw new InvalidTaskKindError(filter.kind);
+      }
 
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
@@ -219,8 +228,10 @@ export function createTaskService(deps: TaskServiceDeps) {
       }
 
       const statusFilter = filter.status;
+      const kindFilter = filter.kind;
       const tasks = await listTasks(db, projectId, {
         ...(statusFilter !== undefined ? { status: statusFilter } : {}),
+        ...(kindFilter !== undefined ? { kind: kindFilter } : {}),
         ...(filter.tags !== undefined ? { tagNames: filter.tags.map(normalizeTagName) } : {}),
         ...pagination,
       });
@@ -250,6 +261,9 @@ export function createTaskService(deps: TaskServiceDeps) {
       if (input.status !== undefined && !isTaskStatus(input.status)) {
         throw new InvalidTaskStatusError(input.status);
       }
+      if (input.kind !== undefined && !isTaskKind(input.kind)) {
+        throw new InvalidTaskKindError(input.kind);
+      }
 
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
@@ -274,6 +288,7 @@ export function createTaskService(deps: TaskServiceDeps) {
           goalId,
           label: input.label,
           status: input.status,
+          kind: input.kind,
           description: input.description,
           x: input.x,
           y: input.y,
@@ -293,6 +308,9 @@ export function createTaskService(deps: TaskServiceDeps) {
       assertPermission(deps, 'task', 'update');
       if (input.status !== undefined && !isTaskStatus(input.status)) {
         throw new InvalidTaskStatusError(input.status);
+      }
+      if (input.kind !== undefined && !isTaskKind(input.kind)) {
+        throw new InvalidTaskKindError(input.kind);
       }
 
       const existing = await getTask(db, id);

@@ -7,6 +7,7 @@ import { createTaskWithDefaultGoal as createTask } from '../testing.js';
 import {
   claimTask,
   getTask,
+  InvalidTaskKindError,
   InvalidTaskStatusError,
   listTasks,
   updateTask,
@@ -58,6 +59,37 @@ describe('tasks repository', () => {
     await createTask(db, { projectId, label: 'Done', status: 'done' });
     expect(await listTasks(db, projectId, { status: 'todo' })).toHaveLength(1);
     expect((await listTasks(db, projectId, { status: 'done' }))[0]?.status).toBe('done');
+  });
+
+  it('defaults kind to build and filters by kind', async () => {
+    await createTask(db, { projectId, label: 'Build task' });
+    await createTask(db, { projectId, label: 'Decision task', kind: 'decision' });
+    const all = await listTasks(db, projectId);
+    const first = all[0];
+    expect(first).toBeDefined();
+    if (!first) {
+      throw new Error('expected a task');
+    }
+    expect((await getTask(db, first.id))?.kind).toBe('build');
+    expect(await listTasks(db, projectId, { kind: 'decision' })).toHaveLength(1);
+    expect(await listTasks(db, projectId, { kind: 'build' })).toHaveLength(1);
+  });
+
+  it('rejects an invalid kind on create', async () => {
+    await expect(
+      createTask(db, {
+        projectId,
+        label: 'Bad kind',
+        kind: 'invalid' as 'build',
+      }),
+    ).rejects.toThrow(InvalidTaskKindError);
+  });
+
+  it('rejects an invalid kind on update', async () => {
+    const task = await createTask(db, { projectId, label: 'Task' });
+    await expect(updateTask(db, task.id, { kind: 'invalid' as 'build' })).rejects.toThrow(
+      InvalidTaskKindError,
+    );
   });
 
   it('rejects an invalid status on create', async () => {

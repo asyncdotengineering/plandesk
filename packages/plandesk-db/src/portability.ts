@@ -37,6 +37,7 @@ import {
   type CommentTargetType,
   type GoalStatus,
   type LinkEntityType,
+  type TaskKind,
   type TaskStatus,
 } from './schema.js';
 
@@ -94,6 +95,8 @@ export type PlandeskExportTask = {
   id: string;
   label: string;
   status: TaskStatus;
+  // Always written on export; optional on import for exports written before kind existed.
+  kind?: TaskKind;
   description: string | null;
   x: number;
   y: number;
@@ -528,6 +531,7 @@ export async function exportProject(
       id: task.id,
       label: task.label,
       status: task.status,
+      kind: task.kind,
       description: task.description,
       x: task.x,
       y: task.y,
@@ -777,6 +781,7 @@ export async function importProject(
         goalId,
         label: task.label,
         status: task.status,
+        kind: task.kind ?? 'build',
         description: task.description,
         x: task.x,
         y: task.y,

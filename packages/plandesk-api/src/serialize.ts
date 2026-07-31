@@ -141,6 +141,7 @@ export function serializeTask(task: Task, tags?: Tag[], waitingOn?: string[]) {
     goal_id: task.goalId,
     label: task.label,
     status: task.status,
+    kind: task.kind,
     description: task.description,
     x: task.x,
     y: task.y,

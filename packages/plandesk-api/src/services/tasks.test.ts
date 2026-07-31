@@ -10,6 +10,7 @@ import {
   getOrCreateDefaultGoal,
   getTask,
   InvalidTaskStatusError,
+  InvalidTaskKindError,
   listEdges,
   listTags,
   listTasks,
@@ -69,6 +70,32 @@ describe('taskService', () => {
     const service = createService();
     await expect(service.listByProject(projectId, { status: 'invalid' })).rejects.toThrow(
       InvalidTaskStatusError,
+    );
+  });
+
+  it('defaults kind to build and round-trips decision kind through create, update, get, and list', async () => {
+    const service = createService();
+    const build = await service.create(projectId, { label: 'Build default' });
+    expect(build?.kind).toBe('build');
+
+    const decision = await service.create(projectId, { label: 'Pick one', kind: 'decision' });
+    expect(decision?.kind).toBe('decision');
+    if (!decision) {
+      throw new Error('expected decision task');
+    }
+
+    const updated = await service.update(decision.id, { kind: 'build' });
+    expect(updated?.kind).toBe('build');
+
+    expect(await service.get(decision.id)).toMatchObject({ kind: 'build' });
+    expect(await service.listByProject(projectId, { kind: 'decision' })).toHaveLength(0);
+    expect(await service.listByProject(projectId, { kind: 'build' })).toHaveLength(2);
+  });
+
+  it('rejects an invalid kind filter', async () => {
+    const service = createService();
+    await expect(service.listByProject(projectId, { kind: 'invalid' })).rejects.toThrow(
+      InvalidTaskKindError,
     );
   });
 

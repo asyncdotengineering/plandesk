@@ -1,5 +1,5 @@
 import { InvalidGoalReferenceError, InvalidTagError, type TaskService } from '@plandesk/api';
-import { InvalidTaskStatusError, type TaskStatus } from '@plandesk/db';
+import { InvalidTaskKindError, InvalidTaskStatusError, type TaskKind, type TaskStatus } from '@plandesk/db';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createCreateTaskHandler(
@@ -8,6 +8,7 @@ export function createCreateTaskHandler(
   project_id: string;
   label: string;
   status?: string;
+  kind?: string;
   description?: string;
   x?: number;
   y?: number;
@@ -19,6 +20,7 @@ export function createCreateTaskHandler(
       const task = await taskService.create(args.project_id, {
         label: args.label,
         ...(args.status !== undefined ? { status: args.status as TaskStatus } : {}),
+        ...(args.kind !== undefined ? { kind: args.kind as TaskKind } : {}),
         ...(args.description !== undefined ? { description: args.description } : {}),
         ...(args.x !== undefined ? { x: args.x } : {}),
         ...(args.y !== undefined ? { y: args.y } : {}),
@@ -32,6 +34,7 @@ export function createCreateTaskHandler(
     } catch (error) {
       if (
         error instanceof InvalidTaskStatusError ||
+        error instanceof InvalidTaskKindError ||
         error instanceof InvalidTagError ||
         error instanceof InvalidGoalReferenceError
       ) {
