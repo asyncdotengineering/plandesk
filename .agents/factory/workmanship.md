@@ -35,6 +35,45 @@ that proves it.** Not that it runs. Not that the types check.
 Cheapest way to know a test is real (rule 6): reintroduce the bug, watch it fail,
 restore it.
 
+## A guard is unverified until you have watched it fail (rule 6)
+
+Rule 6 says write the test so it fails first. This is the same rule for the
+guards that are not tests — type assertions, coverage checks, manifests,
+golden fixtures. They are the easiest thing in a codebase to get wrong, because
+a broken one is indistinguishable from a working one: both are silent, and both
+leave the suite green.
+
+One file in this repo produced **five** guards that looked sound and could not
+fail:
+
+1. a coverage guard comparing its own constants to its own constants
+2. `{} as AssertEveryEntryHasImport` — a cast, so the mapped type was never checked
+3. `true as _GoalGuard` — **an assertion to a conditional type always compiles**,
+   because `never` is assignable to everything, so the assertion succeeds in
+   exactly the case it exists to catch
+4. a coverage snapshot projecting only the collections it already knew about, so
+   a newly added one was absent from *both* sides and compared equal
+5. a canonical-ordering test that returned before asserting, because the fixture
+   happened to contain one row
+
+Every one passed review-by-reading. Every one failed the first sabotage.
+
+**So: for any guard you add or touch, break the thing it guards, watch it fail,
+and restore.** State the observed failure — the file and line — in your notes.
+"The guard is in place" is not a claim; "I removed X, the guard failed at Y:N,
+I restored it" is.
+
+Two specifics worth memorising:
+
+- **Annotation, never assertion.** `const x: Guard = true` fails when `Guard` is
+  `never`. `const x = true as Guard` does not.
+- **A check that compares the system to a hand-maintained description of itself
+  cannot notice what the description omits.** Derive from the production
+  structure, or the guard only covers what someone remembered.
+
+Related: a build that fails after your sabotage is not proof the *guard* fired.
+Confirm the error names the guard, not collateral damage elsewhere.
+
 ## Caller-supplied inputs are authorization surfaces (rule 14)
 
 A header, query parameter, body field, or any id you look something up by is an
