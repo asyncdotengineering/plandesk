@@ -1,9 +1,12 @@
-import { createHash } from 'node:crypto';
 import { getTableColumns } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type Db } from './client.js';
 import { migrate } from './migrate.js';
-import { exportProject, importProject, PLANDESK_EXPORT_TABLES, type PlandeskExport } from './portability.js';
+import {
+  getPortabilityCoverageFromManifest,
+  PLANDESK_EXPORT_TABLES,
+} from './portability-export-manifest.js';
+import { exportProject, importProject, type PlandeskExport } from './portability.js';
 import { createAgentRunEvent } from './repositories/agent-run-events.js';
 import { createAgentRun, updateAgentRunStatus } from './repositories/agent-runs.js';
 import { createArtifact } from './repositories/artifacts.js';
@@ -17,172 +20,24 @@ import { createNote } from './repositories/notes.js';
 import { updateProject } from './repositories/projects.js';
 import { createTag, setTaskTags } from './repositories/tags.js';
 import { createTask, listTasks, updateTask } from './repositories/tasks.js';
-import {
-  agentRunEvents,
-  agentRuns,
-  artifacts,
-  comments,
-  documents,
-  edges,
-  files,
-  folders,
-  goals,
-  notes,
-  projects,
-  tags,
-  taskTags,
-  tasks,
-} from './schema.js';
+import { createHash } from 'node:crypto';
 import { createProjectInDefaultOrg as createProject } from './testing.js';
 
-/**
- * Local schema handles for columns the guard inspects.
- * Table *names* must equal {@link PLANDESK_EXPORT_TABLES} — that production
- * constant is authoritative; this map only supplies drizzle table objects.
- */
-const EXPORT_GRAPH_TABLES = {
-  projects,
-  goals,
-  tasks,
-  tags,
-  task_tags: taskTags,
-  edges,
-  folders,
-  documents,
-  notes,
-  comments,
-  agent_runs: agentRuns,
-  agent_run_events: agentRunEvents,
-  files,
-  artifacts,
-} as const;
+const MANIFEST_COVERAGE = getPortabilityCoverageFromManifest();
 
-type ExportGraphTable = keyof typeof EXPORT_GRAPH_TABLES;
+type ExportGraphTable = keyof typeof MANIFEST_COVERAGE;
 
-/**
- * Columns that intentionally do not round-trip through export/import.
- * Each entry needs a written reason — never a blanket skip.
- */
-const EXPORT_COLUMN_EXCLUSIONS: Record<ExportGraphTable, Record<string, string>> = {
-  projects: {
-    id: 'Remapped on import; export creates a new project',
-    org_id: 'Scoped by import options, not the export file',
-    workspace_id: 'Scoped by import options, not the export file',
-    created_at: 'Server-assigned on import',
-    updated_at: 'Server-assigned on import',
-  },
-  goals: {
-    id: 'Remapped on import',
-    project_id: 'Implied by nesting under the imported project',
-    created_at: 'Server-assigned on import (export writes them; import stamps now)',
-    updated_at: 'Server-assigned on import (export writes them; import stamps now)',
-  },
-  tasks: {
-    id: 'Remapped on import',
-    project_id: 'Implied by nesting under the imported project',
-    created_at: 'Server-assigned on import (export writes them; import stamps now)',
-    updated_at: 'Server-assigned on import (export writes them; import stamps now)',
-  },
-  tags: {
-    id: 'Remapped on import',
-    project_id: 'Implied by nesting under the imported project',
-    created_at: 'Server-assigned on import',
-  },
-  task_tags: {
-    task_id:
-      'Association serialised as task.tag_ids — no direct export type; membership asserted via tag round-trip',
-    tag_id:
-      'Association serialised as task.tag_ids — no direct export type; membership asserted via tag round-trip',
-  },
-  edges: {
-    id: 'Remapped on import',
-    project_id: 'Implied by nesting under the imported project',
-    created_at: 'Server-assigned on import',
-  },
-  folders: {
-    id: 'Remapped on import',
-    project_id: 'Implied by nesting under the imported project',
-    created_at: 'Server-assigned on import',
-    updated_at: 'Server-assigned on import',
-  },
-  documents: {
-    id: 'Remapped on import',
-    project_id: 'Implied by nesting under the imported project',
-    created_at: 'Server-assigned on import',
-    updated_at: 'Server-assigned on import',
-  },
-  notes: {
-    id: 'Remapped on import (content-only identity)',
-    project_id: 'Implied by nesting under the imported project',
-    created_at: 'Server-assigned on import',
-    updated_at: 'Server-assigned on import',
-  },
-  comments: {
-    id: 'Remapped on import',
-    project_id: 'Implied by nesting under the imported project',
-  },
-  agent_runs: {
-    id: 'Remapped on import',
-    project_id: 'Implied by nesting under the imported project',
-  },
-  agent_run_events: {
-    id: 'Remapped on import',
-    run_id: 'Implied by nesting under the parent agent_run in the export',
-  },
-  files: {
-    project_id: 'Implied by nesting under the imported project',
-  },
-  artifacts: {
-    id: 'Remapped on import',
-    project_id: 'Implied by nesting under the imported project',
-    created_at: 'Server-assigned on import (export writes them; import stamps now)',
-    updated_at: 'Server-assigned on import (export writes them; import stamps now)',
-  },
-};
+const EXPORT_GRAPH_TABLES = Object.fromEntries(
+  Object.entries(MANIFEST_COVERAGE).map(([table, spec]) => [table, spec.drizzleTable]),
+) as Record<ExportGraphTable, (typeof MANIFEST_COVERAGE)[ExportGraphTable]['drizzleTable']>;
 
-/**
- * SQL columns the behavioural suite asserts round-trip for.
- * Must equal schema columns minus EXPORT_COLUMN_EXCLUSIONS for each table.
- * Values are verified via export→import→re-export (or tag membership), not by name presence alone.
- */
-const ROUND_TRIPPED_COLUMNS: Record<ExportGraphTable, readonly string[]> = {
-  projects: ['name', 'description', 'repo_url', 'folder_path', 'canvas_layout'],
-  goals: [
-    'objective',
-    'status',
-    'verification_surface',
-    'constraints',
-    'boundaries',
-    'iteration_policy',
-    'stop_condition',
-    'budget',
-    'last_verification',
-  ],
-  tasks: [
-    'goal_id',
-    'label',
-    'status',
-    'kind',
-    'description',
-    'x',
-    'y',
-    'assignee',
-    'due_date',
-    'commit_refs',
-  ],
-  tags: ['name', 'color'],
-  // Membership covered by asserting task.tag_ids ↔ tag names after round-trip.
-  task_tags: [],
-  edges: ['from_type', 'from_id', 'to_type', 'to_id', 'label', 'arrow_direction', 'style'],
-  folders: ['name', 'parent_folder_id'],
-  documents: ['title', 'body', 'status_line', 'parent_id', 'folder_id'],
-  notes: ['title', 'body'],
-  comments: ['target_type', 'target_id', 'passage', 'anchor', 'body', 'resolved', 'created_at'],
-  agent_runs: ['status', 'label', 'started_at', 'completed_at'],
-  agent_run_events: ['message', 'created_at'],
-  files: ['id', 'filename', 'mime', 'size', 'bytes', 'external_url', 'created_at'],
-  artifacts: ['title', 'kind', 'content'],
-};
+const EXPORT_COLUMN_EXCLUSIONS = Object.fromEntries(
+  Object.entries(MANIFEST_COVERAGE).map(([table, spec]) => [table, spec.columnExclusions]),
+) as Record<ExportGraphTable, Record<string, string>>;
+
+const ROUND_TRIPPED_COLUMNS = Object.fromEntries(
+  Object.entries(MANIFEST_COVERAGE).map(([table, spec]) => [table, spec.roundTrippedColumns]),
+) as Record<ExportGraphTable, readonly string[]>;
 
 /** Stable snapshot of portable values — remapped ids resolved to natural keys. */
 type PortableSnapshot = {

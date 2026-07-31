@@ -1,0 +1,172 @@
+{
+  "version": "plandesk-export-v3",
+  "project": {
+    "name": "Coverage Round-Trip Project",
+    "description": "DISTINCT-project-description",
+    "repo_url": "https://example.com/org/coverage-repo.git",
+    "folder_path": "packages/coverage-fixture",
+    "canvas_layout": "{\"zoom\":2.5,\"pan\":[11,22]}"
+  },
+  "goals": [
+    {
+      "id": "00000000-0000-4000-8000-00000000f002",
+      "objective": "DISTINCT-goal-objective",
+      "status": "paused",
+      "verification_surface": "DISTINCT-verification-surface",
+      "constraints": "DISTINCT-constraints",
+      "boundaries": "DISTINCT-boundaries",
+      "iteration_policy": "DISTINCT-iteration-policy",
+      "stop_condition": "DISTINCT-stop-condition",
+      "budget": "DISTINCT-budget",
+      "last_verification": "DISTINCT-last-verification",
+      "created_at": "2028-01-01T00:00:00.000Z",
+      "updated_at": "2028-01-01T00:00:00.000Z"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "00000000-0000-4000-8000-00000000f003",
+      "label": "DISTINCT-task-label",
+      "status": "in_progress",
+      "kind": "decision",
+      "description": "DISTINCT-task-description",
+      "x": 42.5,
+      "y": -17.25,
+      "assignee": "DISTINCT-assignee",
+      "due_date": "2031-04-15T12:30:00.000Z",
+      "goal_id": "00000000-0000-4000-8000-00000000f002",
+      "tag_ids": [
+        "00000000-0000-4000-8000-00000000f004"
+      ],
+      "commit_refs": [
+        "abcdef1",
+        "1234567890abcdef1234567890abcdef12345678"
+      ],
+      "created_at": "2028-01-02T00:00:00.000Z",
+      "updated_at": "2028-01-02T00:00:00.000Z"
+    }
+  ],
+  "tags": [
+    {
+      "id": "00000000-0000-4000-8000-00000000f004",
+      "name": "DISTINCT-tag-name",
+      "color": "#c0ffee"
+    }
+  ],
+  "edges": [
+    {
+      "id": "00000000-0000-4000-8000-00000000f009",
+      "from_type": "document",
+      "from_id": "00000000-0000-4000-8000-00000000f008",
+      "to_type": "task",
+      "to_id": "00000000-0000-4000-8000-00000000f003",
+      "label": "DISTINCT-edge-label",
+      "arrow_direction": "both",
+      "style": "dashed"
+    }
+  ],
+  "folders": [
+    {
+      "id": "00000000-0000-4000-8000-00000000f005",
+      "name": "DISTINCT-parent-folder",
+      "parent_folder_id": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000f006",
+      "name": "DISTINCT-child-folder",
+      "parent_folder_id": "00000000-0000-4000-8000-00000000f005"
+    }
+  ],
+  "documents": [
+    {
+      "id": "00000000-0000-4000-8000-00000000f007",
+      "title": "DISTINCT-parent-doc",
+      "body": "DISTINCT-parent-body",
+      "status_line": "Status: DISTINCT-parent-status",
+      "parent_id": null,
+      "folder_id": "00000000-0000-4000-8000-00000000f005"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000f008",
+      "title": "DISTINCT-child-doc",
+      "body": "DISTINCT-child-body",
+      "status_line": "Status: DISTINCT-child-status",
+      "parent_id": "00000000-0000-4000-8000-00000000f007",
+      "folder_id": "00000000-0000-4000-8000-00000000f006"
+    }
+  ],
+  "notes": [
+    {
+      "id": "00000000-0000-4000-8000-00000000f00a",
+      "title": "DISTINCT-note-title",
+      "body": "DISTINCT-note-body"
+    }
+  ],
+  "comments": [
+    {
+      "id": "00000000-0000-4000-8000-00000000f00c",
+      "target_type": "document",
+      "target_id": "00000000-0000-4000-8000-00000000f007",
+      "passage": "DISTINCT-passage",
+      "anchor": null,
+      "body": "DISTINCT-comment-body",
+      "resolved": true,
+      "created_at": "2030-01-02T03:04:05.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000f00d",
+      "target_type": "artifact",
+      "target_id": "00000000-0000-4000-8000-00000000f00b",
+      "passage": "DISTINCT-artifact-passage",
+      "anchor": "{\"type\":\"TextQuoteSelector\",\"exact\":\"DISTINCT-anchor-exact\",\"prefix\":\"DISTINCT-anchor-prefix \",\"suffix\":\" DISTINCT-anchor-suffix\",\"start\":42,\"end\":61}",
+      "body": "DISTINCT-artifact-comment",
+      "resolved": false,
+      "created_at": "2030-02-03T04:05:06.000Z"
+    }
+  ],
+  "agent_runs": [
+    {
+      "id": "00000000-0000-4000-8000-00000000f00e",
+      "status": "completed",
+      "label": "DISTINCT-agent-run-label",
+      "started_at": "2029-06-01T08:00:00.000Z",
+      "completed_at": "2029-06-01T09:30:00.000Z",
+      "events": [
+        {
+          "message": "DISTINCT-agent-event-message",
+          "created_at": "2029-06-01T08:15:00.000Z"
+        }
+      ]
+    }
+  ],
+  "files": [
+    {
+      "id": "83b76f0ec995f7ad76b9b964ae20c59234e2a4fd2a45b541d87b94bea799635f",
+      "filename": "DISTINCT-blob-file.bin",
+      "mime": "application/octet-stream",
+      "size": 27,
+      "bytes_base64": "RElTVElOQ1QtZmlsZS1ieXRlcy1jb250ZW50",
+      "external_url": null,
+      "created_at": "2028-11-11T11:11:11.000Z"
+    },
+    {
+      "id": "a2e094156ad4e0e95f42b4745fb9f3d10e8dd9b45320fd296d8ab285cdefb008",
+      "filename": "DISTINCT-external-file.pdf",
+      "mime": "application/pdf",
+      "size": 4096,
+      "bytes_base64": null,
+      "external_url": "https://cdn.example.com/DISTINCT-external-file.pdf",
+      "created_at": "2028-12-12T12:12:12.000Z"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "00000000-0000-4000-8000-00000000f00b",
+      "title": "DISTINCT-artifact-title",
+      "kind": "html",
+      "content": "<p>DISTINCT-artifact-content</p>",
+      "created_at": "2028-01-03T00:00:00.000Z",
+      "updated_at": "2028-01-03T00:00:00.000Z"
+    }
+  ]
+}
