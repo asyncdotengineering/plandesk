@@ -16,6 +16,13 @@ project as below; look up tasks/documents by name and use the returned ID.
 New to this repo? Run `plandesk onboard` for the full Plan Desk + Factory model
 (how the board works, the execution loop, delegation, and the MCP tools).
 
+## Referring to board items
+
+**Refer to board items by name.** In anything a person reads — narration, comments,
+progress events — name the task or document by its label, carrying the id inside
+a link rather than in place of the name. `[Add priority as a first-class task field](<url>)`,
+never `2bc337c1`. Ids are for tool calls; names are for people.
+
 ## Resolving the project
 1. Read `.plandesk/config.json`.
    - If `projectId` is present (v1 config), use it. Stop here — do not ask which project.

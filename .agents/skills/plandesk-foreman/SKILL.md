@@ -27,7 +27,8 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
    long run into wasted tokens if it fails halfway, so check before starting,
    not on the way past. Open the run with `start_agent_run`.
 
-2. **Resolve the scope.** A task id works one item. `next` calls
+2. **Resolve the scope.** A named task label (looked up with `list_tasks` /
+   `get_task`) works one item. `next` calls
    `get_next_task`. `all todo` or a goal name takes the whole frontier — only
    `todo` tasks whose prerequisites are `done`; `scope` and `backlog` are
    waiting on a human and are not yours to release. Read each task's linked
@@ -56,6 +57,12 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
    wins, and several named workers split the slices across worktrees. Build the
    brief to protocol.md's five-section contract — the bar, the result contract,
    the ground, the WBS snapshot, and a live `Context:` link.
+
+   **Never dispatch a `kind: 'decision'` task.** Its resolution is a
+   conversation with whoever owns the outcome; a worker given one will answer
+   its own question and record a fabrication as a decision. Report it by task
+   **label** as awaiting a human and take the next frontier item — a decision
+   task blocks only itself; unlike a lane gate it does not stop the run.
 
    Mint that link explicitly: `create_share_link` on the task (or the goal, for
    a multi-slice run), `expires: 7d`, and put the returned `markdown_url` in the
@@ -100,14 +107,24 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
     [heartbeat.md](../../factory/heartbeat.md) — a worker with no output, no
     file changes, and flat CPU is stalled rather than thinking, and the tree may
     already hold most of its work. Close with `complete_agent_run` and report at
-    diff level: what shipped, what is waiting on a human, what failed and why.
+    diff level — naming tasks by label, not bare id (see `.plandesk/skill.md`):
+    what shipped, what is waiting on a human, what failed and why.
 
 ## Stopping
 
-Stop and report — do not work around it — when a lane gate needs a human, a
-worker returns `blocked` with a question you cannot answer from the board, a
-gate cannot be satisfied honestly, or the frontier empties. Never merge, and
-never release `scope` → `todo`; both belong to whoever owns the outcome.
+Stop the run and report — do not work around it — when:
+
+- a **lane gate** needs a human,
+- a worker returns **`blocked`** with a question you cannot answer from the board,
+- a gate cannot be satisfied honestly, or
+- the frontier empties.
+
+**Skip dispatch, but continue the run**, when a frontier item is `kind: 'decision'`.
+Unlike a lane gate — which blocks the tree because uncommitted work occupies it —
+a decision task blocks only itself. Report it by **label** as awaiting a human
+and take the next frontier item.
+
+Never merge, and never release `scope` → `todo`; both belong to whoever owns the outcome.
 
 Leave the board true on the way out. A status that does not match what actually
 happened is worse than no status, because the next run trusts it.
@@ -115,6 +132,10 @@ happened is worse than no status, because the next run trusts it.
 ## Boundaries
 
 - Groom inline, dispatch implementation. Reversing this is the common failure.
+- **Never dispatch a `kind: 'decision'` task.** Its resolution is a conversation
+  with whoever owns the outcome; a worker given one will answer its own question
+  and record a fabrication as a decision. Report it as awaiting a human and take
+  the next frontier item.
 - Do not restate the readiness bar; it lives in
   [groom-task](../plandesk-groom-task/SKILL.md) and a second copy would drift from it.
 - Do not restate the task's spec in a brief — link it live.

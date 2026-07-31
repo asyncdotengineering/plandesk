@@ -99,6 +99,11 @@ small decision into a long document.
     A question with no proposal is a genuine fork for the human; surface it rather
     than guessing. Open questions with no proposal block the handoff.
 
+**Creating a decision task records the question; it does not answer it.** This
+skill does not resolve decision tasks — that is a conversation, and
+[autonomy](../plandesk-autonomy/SKILL.md) already forbids an agent settling a call
+that belongs to a human.
+
 **Carry, don't re-derive.** Where earlier work already settled the framing, the
 non-goals, or a rejected alternative, pull it in by reference and compact
 restatement. Re-deriving is where a settled decision quietly gets re-opened.
@@ -153,7 +158,10 @@ One document via `create_document`, or a `documents` entry inside
 
 Written this way it hands off cleanly: the decomposition sketch seeds scope-work's
 WBS, the requirements and verification surface become the Goal's acceptance, and
-the unresolved questions become `scope` tasks.
+each **Unresolved question** becomes a `decision` task (`kind: 'decision'`,
+`status: 'scope'`), with the question as its Question and the RFC's proposed
+direction as its Recommendation. The RFC has already done the work of stating the
+tradeoff — the task carries it rather than restating it.
 
 ## Voice
 

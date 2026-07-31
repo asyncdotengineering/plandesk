@@ -114,7 +114,8 @@ whether an instruction means "release", ask once, then act.
 
 ## When to stop instead of pushing through
 
-- A lane blocks you — stop and report. Do not route around it by splitting the
+- A lane blocks you — stop and report, naming the task by **label** (see
+  `.plandesk/skill.md`). Do not route around it by splitting the
   task to dodge the lane or jumping to a "related" `auto` task instead. That is
   scope creep wearing productivity's clothes.
 - `get_next_task` returns nothing but `scope`/`backlog` holds unreleased

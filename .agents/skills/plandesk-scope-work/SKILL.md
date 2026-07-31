@@ -34,6 +34,17 @@ single coherent initiative rather than a list of unrelated asks, treat it as
   [groom-task](../plandesk-groom-task/SKILL.md) — the one readiness bar this project
   keeps. Source material rarely clears every row; draft what it supports, never
   invent the rest, and leave the unmet rows for groom to finish.
+- **Decision tasks for open questions.** When decomposition surfaces a question
+  whose answer changes what gets built — a schema tradeoff, a product choice, a
+  dependency call — create a `decision` task (`kind: 'decision'`, `status:
+  'scope'`) rather than folding a guess into a build task's description. A guess
+  written as a spec is indistinguishable from a decision to whoever reads it
+  next. **Creating a decision task records the question; it does not answer it.**
+  This skill does not resolve decision tasks — that is a conversation, and
+  [autonomy](../plandesk-autonomy/SKILL.md) already forbids an agent settling a call
+  that belongs to a human.
+- **Refer to board items by name** in narration and comments — see
+  `.plandesk/skill.md`. Ids are for tool calls.
 - **Label in house style** — imperative and outcome-focused, "Verb Noun in
   Location", so the label alone says what done looks like.
 - **Assign a lane by blast radius** (`auto` / `approve` / `full`, from
