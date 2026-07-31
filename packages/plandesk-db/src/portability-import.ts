@@ -294,6 +294,7 @@ export function emitTasksImport(ctx: ImportContext): void {
         label: task.label,
         status: task.status,
         kind: task.kind ?? 'build',
+        priority: task.priority ?? null,
         description: task.description,
         x: task.x,
         y: task.y,

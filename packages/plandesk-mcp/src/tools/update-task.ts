@@ -1,5 +1,12 @@
 import { InvalidCommitRefsError, InvalidGoalReferenceError, InvalidTagError, type TaskService } from '@plandesk/api';
-import { InvalidTaskKindError, InvalidTaskStatusError, type TaskKind, type TaskStatus } from '@plandesk/db';
+import {
+  InvalidTaskKindError,
+  InvalidTaskPriorityError,
+  InvalidTaskStatusError,
+  type TaskKind,
+  type TaskPriority,
+  type TaskStatus,
+} from '@plandesk/db';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createUpdateTaskHandler(
@@ -8,6 +15,7 @@ export function createUpdateTaskHandler(
   task_id: string;
   status?: string;
   kind?: string;
+  priority?: string | null;
   label?: string;
   description?: string;
   x?: number;
@@ -21,6 +29,7 @@ export function createUpdateTaskHandler(
       const task = await taskService.update(args.task_id, {
         ...(args.status !== undefined ? { status: args.status as TaskStatus } : {}),
         ...(args.kind !== undefined ? { kind: args.kind as TaskKind } : {}),
+        ...(args.priority !== undefined ? { priority: args.priority as TaskPriority | null } : {}),
         ...(args.label !== undefined ? { label: args.label } : {}),
         ...(args.description !== undefined ? { description: args.description } : {}),
         ...(args.x !== undefined ? { x: args.x } : {}),
@@ -37,6 +46,7 @@ export function createUpdateTaskHandler(
       if (
         error instanceof InvalidTaskStatusError ||
         error instanceof InvalidTaskKindError ||
+        error instanceof InvalidTaskPriorityError ||
         error instanceof InvalidTagError ||
         error instanceof InvalidGoalReferenceError ||
         error instanceof InvalidCommitRefsError

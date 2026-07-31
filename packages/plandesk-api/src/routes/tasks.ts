@@ -2,8 +2,10 @@ import { Hono } from 'hono';
 import {
   InvalidTaskStatusError,
   InvalidTaskKindError,
+  InvalidTaskPriorityError,
   isTaskStatus,
   isTaskKind,
+  isTaskPriority,
   isValidCommitRefs,
   normalizeCommitRefs,
 } from '@plandesk/db';
@@ -22,6 +24,7 @@ export function createTasksRouter(taskService: TaskService): Hono {
     const body = await c.req.json<{
       status?: string;
       kind?: string;
+      priority?: string | null;
       label?: string;
       description?: string | null;
       x?: number;
@@ -35,6 +38,14 @@ export function createTasksRouter(taskService: TaskService): Hono {
     }
 
     if (body.kind !== undefined && !isTaskKind(body.kind)) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+
+    if (
+      body.priority !== undefined &&
+      body.priority !== null &&
+      !isTaskPriority(body.priority)
+    ) {
       return c.json({ error: 'invalid_argument' }, 400);
     }
 
@@ -58,6 +69,7 @@ export function createTasksRouter(taskService: TaskService): Hono {
         ...(body.label !== undefined ? { label: body.label } : {}),
         ...(body.status !== undefined ? { status: body.status } : {}),
         ...(body.kind !== undefined ? { kind: body.kind } : {}),
+        ...(body.priority !== undefined ? { priority: body.priority } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.x !== undefined ? { x: body.x } : {}),
         ...(body.y !== undefined ? { y: body.y } : {}),
@@ -74,6 +86,7 @@ export function createTasksRouter(taskService: TaskService): Hono {
       if (
         error instanceof InvalidTaskStatusError ||
         error instanceof InvalidTaskKindError ||
+        error instanceof InvalidTaskPriorityError ||
         error instanceof InvalidTagError ||
         error instanceof InvalidCommitRefsError
       ) {

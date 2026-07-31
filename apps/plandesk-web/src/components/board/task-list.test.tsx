@@ -44,6 +44,7 @@ function makeTask(
     goal_id: 'goal-1',
     label,
     status,
+    priority: 'medium',
     description: null,
     x: 0,
     y: 0,

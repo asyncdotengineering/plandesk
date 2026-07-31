@@ -48,6 +48,7 @@ const sampleTask: SerializedTask = {
   goal_id: 'goal-1',
   label: 'Task one',
   status: 'todo',
+  priority: 'medium',
   description: null,
   x: 0,
   y: 0,

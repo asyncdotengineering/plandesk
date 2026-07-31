@@ -93,6 +93,7 @@ export async function seedDeterministicFullyPopulatedProject(db: Db): Promise<st
     label: 'DISTINCT-task-label',
     status: 'in_progress',
     kind: 'decision',
+    priority: 'urgent',
     description: 'DISTINCT-task-description',
     x: 42.5,
     y: -17.25,

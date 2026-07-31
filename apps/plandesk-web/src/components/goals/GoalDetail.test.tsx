@@ -111,6 +111,7 @@ describe('GoalDetail', () => {
           goal_id: humanSignOffGoal.id,
           label: 'Write tests',
           status: 'todo',
+          priority: 'medium',
           description: null,
           x: 0,
           y: 0,

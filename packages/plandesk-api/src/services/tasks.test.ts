@@ -16,6 +16,7 @@ import {
   listRevisionsByTarget,
   InvalidTaskStatusError,
   InvalidTaskKindError,
+  InvalidTaskPriorityError,
   listEdges,
   listTags,
   listTasks,
@@ -102,6 +103,65 @@ describe('taskService', () => {
     await expect(service.listByProject(projectId, { kind: 'invalid' })).rejects.toThrow(
       InvalidTaskKindError,
     );
+  });
+
+  it('round-trips priority through create, update set/clear/omit, get, and list', async () => {
+    const service = createService();
+    const created = await service.create(projectId, { label: 'No priority' });
+    expect(created?.priority).toBeNull();
+
+    const withPriority = await service.create(projectId, {
+      label: 'Urgent',
+      priority: 'urgent',
+      status: 'todo',
+      kind: 'build',
+      tags: ['area:api'],
+    });
+    expect(withPriority?.priority).toBe('urgent');
+    if (!withPriority) {
+      throw new Error('expected urgent task');
+    }
+
+    const set = await service.update(withPriority.id, { priority: 'high' });
+    expect(set?.priority).toBe('high');
+
+    const cleared = await service.update(withPriority.id, { priority: null });
+    expect(cleared?.priority).toBeNull();
+
+    await service.update(withPriority.id, { priority: 'medium' });
+    const omitted = await service.update(withPriority.id, { label: 'Still medium' });
+    expect(omitted?.priority).toBe('medium');
+    expect(omitted?.label).toBe('Still medium');
+
+    expect(await service.get(withPriority.id)).toMatchObject({ priority: 'medium' });
+    expect(await service.listByProject(projectId, { priority: 'medium' })).toHaveLength(1);
+    expect(
+      await service.listByProject(projectId, {
+        priority: 'medium',
+        status: 'todo',
+        kind: 'build',
+        tags: ['area:api'],
+      }),
+    ).toHaveLength(1);
+  });
+
+  it('rejects an invalid priority filter', async () => {
+    const service = createService();
+    await expect(service.listByProject(projectId, { priority: 'critical' })).rejects.toThrow(
+      InvalidTaskPriorityError,
+    );
+  });
+
+  it('listByProject with priority filter returns nothing for another org project', async () => {
+    const service = createService();
+    const other = await createProject(db, {
+      name: 'Other org board',
+      orgId: '00000000-0000-4000-8000-00000000bbbb',
+      workspaceId: '00000000-0000-4000-8000-00000000bbbw',
+    });
+    await createTask(db, { projectId: other.id, label: 'Secret high', priority: 'high' });
+
+    expect(await service.listByProject(other.id, { priority: 'high' })).toBeUndefined();
   });
 
   it('updates a task and bumps updated_at in serialized output', async () => {

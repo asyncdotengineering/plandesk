@@ -63,6 +63,7 @@ type PortableSnapshot = {
     label: string;
     status: string;
     kind: string | undefined;
+    priority: string | null | undefined;
     description: string | null;
     x: number;
     y: number;
@@ -178,6 +179,7 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
         label: task.label,
         status: task.status,
         kind: task.kind,
+        priority: task.priority,
         description: task.description,
         x: task.x,
         y: task.y,
@@ -325,6 +327,7 @@ async function buildFullyPopulatedProject(db: Db): Promise<string> {
     label: 'DISTINCT-task-label',
     status: 'in_progress',
     kind: 'decision',
+    priority: 'urgent',
     description: 'DISTINCT-task-description',
     x: 42.5,
     y: -17.25,
@@ -594,6 +597,7 @@ describe('portability export behavioural coverage', () => {
         label: 'DISTINCT-task-label',
         status: 'in_progress',
         kind: 'decision',
+        priority: 'urgent',
         description: 'DISTINCT-task-description',
         x: 42.5,
         y: -17.25,
@@ -763,6 +767,47 @@ describe('portability export behavioural coverage', () => {
       const importedTasks = await listTasks(targetDb, importedProjectId);
       expect(importedTasks).toHaveLength(1);
       expect(importedTasks[0]?.kind).toBe('build');
+    });
+
+    it('imports tasks without a priority property as null', async () => {
+      const sourceDb = await createDb(':memory:');
+      await migrate(sourceDb);
+      const sourceProjectId = await buildFullyPopulatedProject(sourceDb);
+      const maybeExported = await exportProject(sourceDb, sourceProjectId);
+      expect(maybeExported).toBeDefined();
+      if (!maybeExported) {
+        throw new Error('exportProject returned undefined');
+      }
+
+      const legacyExport: PlandeskExport = {
+        ...maybeExported,
+        tasks: maybeExported.tasks.map((task) => ({
+          id: task.id,
+          label: task.label,
+          status: task.status,
+          kind: task.kind,
+          description: task.description,
+          x: task.x,
+          y: task.y,
+          assignee: task.assignee,
+          due_date: task.due_date,
+          goal_id: task.goal_id,
+          tag_ids: task.tag_ids,
+          commit_refs: task.commit_refs,
+          created_at: task.created_at,
+          updated_at: task.updated_at,
+        })),
+      };
+      for (const task of legacyExport.tasks) {
+        expect(task).not.toHaveProperty('priority');
+      }
+
+      const targetDb = await createDb(':memory:');
+      await migrate(targetDb);
+      const { projectId: importedProjectId } = await importProject(targetDb, legacyExport);
+      const importedTasks = await listTasks(targetDb, importedProjectId);
+      expect(importedTasks).toHaveLength(1);
+      expect(importedTasks[0]?.priority).toBeNull();
     });
   });
 });

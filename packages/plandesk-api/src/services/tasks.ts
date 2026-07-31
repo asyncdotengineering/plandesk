@@ -18,6 +18,8 @@ import {
   isTaskStatus,
   isTaskKind,
   InvalidTaskKindError,
+  isTaskPriority,
+  InvalidTaskPriorityError,
   listEdges,
   listTagsByTaskForProject,
   listTagsForTask,
@@ -35,6 +37,7 @@ import {
   type Edge,
   type Task,
   type TaskKind,
+  type TaskPriority,
   type TaskStatus,
 } from '@plandesk/db';
 import { serializeTask, type PaginationParams } from '../serialize.js';
@@ -137,6 +140,8 @@ export type CreateTaskInput = {
   label: string;
   status?: TaskStatus;
   kind?: TaskKind;
+  /** Null / omit → stored null. */
+  priority?: TaskPriority | null;
   description?: string | null;
   x?: number;
   y?: number;
@@ -151,6 +156,8 @@ export type UpdateTaskInput = {
   label?: string;
   status?: TaskStatus;
   kind?: TaskKind;
+  /** Pass null to clear; omit to leave unchanged. */
+  priority?: TaskPriority | null;
   description?: string | null;
   x?: number;
   y?: number;
@@ -172,6 +179,7 @@ export class InvalidCommitRefsError extends Error {
 export type ListTasksFilter = {
   status?: string;
   kind?: string;
+  priority?: string;
   // OR semantics: keep tasks carrying ANY of the given tag names.
   tags?: string[];
 };
@@ -228,6 +236,9 @@ export function createTaskService(deps: TaskServiceDeps) {
       if (filter.kind !== undefined && !isTaskKind(filter.kind)) {
         throw new InvalidTaskKindError(filter.kind);
       }
+      if (filter.priority !== undefined && !isTaskPriority(filter.priority)) {
+        throw new InvalidTaskPriorityError(filter.priority);
+      }
 
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
@@ -240,9 +251,11 @@ export function createTaskService(deps: TaskServiceDeps) {
 
       const statusFilter = filter.status;
       const kindFilter = filter.kind;
+      const priorityFilter = filter.priority;
       const tasks = await listTasks(db, projectId, {
         ...(statusFilter !== undefined ? { status: statusFilter } : {}),
         ...(kindFilter !== undefined ? { kind: kindFilter } : {}),
+        ...(priorityFilter !== undefined ? { priority: priorityFilter } : {}),
         ...(filter.tags !== undefined ? { tagNames: filter.tags.map(normalizeTagName) } : {}),
         ...pagination,
       });
@@ -275,6 +288,9 @@ export function createTaskService(deps: TaskServiceDeps) {
       if (input.kind !== undefined && !isTaskKind(input.kind)) {
         throw new InvalidTaskKindError(input.kind);
       }
+      if (input.priority !== undefined && input.priority !== null && !isTaskPriority(input.priority)) {
+        throw new InvalidTaskPriorityError(input.priority);
+      }
 
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
@@ -300,6 +316,7 @@ export function createTaskService(deps: TaskServiceDeps) {
           label: input.label,
           status: input.status,
           kind: input.kind,
+          priority: input.priority,
           description: input.description,
           x: input.x,
           y: input.y,
@@ -322,6 +339,9 @@ export function createTaskService(deps: TaskServiceDeps) {
       }
       if (input.kind !== undefined && !isTaskKind(input.kind)) {
         throw new InvalidTaskKindError(input.kind);
+      }
+      if (input.priority !== undefined && input.priority !== null && !isTaskPriority(input.priority)) {
+        throw new InvalidTaskPriorityError(input.priority);
       }
 
       const existing = await getTask(db, id);

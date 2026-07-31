@@ -1,8 +1,10 @@
 import { Hono } from 'hono';
 import {
   InvalidTaskKindError,
+  InvalidTaskPriorityError,
   InvalidTaskStatusError,
   isTaskKind,
+  isTaskPriority,
   isTaskStatus,
   isValidFolderPath,
   isValidRepoUrl,
@@ -155,6 +157,7 @@ export function createProjectsRouter(
       label?: string;
       status?: string;
       kind?: string;
+      priority?: string | null;
       description?: string | null;
       x?: number;
       y?: number;
@@ -173,6 +176,14 @@ export function createProjectsRouter(
     }
 
     if (body.kind !== undefined && !isTaskKind(body.kind)) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+
+    if (
+      body.priority !== undefined &&
+      body.priority !== null &&
+      !isTaskPriority(body.priority)
+    ) {
       return c.json({ error: 'invalid_argument' }, 400);
     }
 
@@ -195,6 +206,7 @@ export function createProjectsRouter(
         label: body.label,
         ...(body.status !== undefined ? { status: body.status } : {}),
         ...(body.kind !== undefined ? { kind: body.kind } : {}),
+        ...(body.priority !== undefined ? { priority: body.priority } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.x !== undefined ? { x: body.x } : {}),
         ...(body.y !== undefined ? { y: body.y } : {}),
@@ -213,6 +225,7 @@ export function createProjectsRouter(
       if (
         error instanceof InvalidTaskStatusError ||
         error instanceof InvalidTaskKindError ||
+        error instanceof InvalidTaskPriorityError ||
         error instanceof InvalidTagError ||
         error instanceof InvalidGoalReferenceError
       ) {
@@ -230,12 +243,18 @@ export function createProjectsRouter(
       }
       const status = c.req.query('status');
       const kind = c.req.query('kind');
+      const priority = c.req.query('priority');
       // Repeated ?tag= params filter with OR semantics (task matches if it has
       // ANY of the given tags).
       const tags = c.req.queries('tag');
       const tasks = await taskService.listByProject(
         c.req.param('id'),
-        { status, kind, ...(tags !== undefined && tags.length > 0 ? { tags } : {}) },
+        {
+          status,
+          kind,
+          priority,
+          ...(tags !== undefined && tags.length > 0 ? { tags } : {}),
+        },
         pagination,
       );
       if (!tasks) {
@@ -246,6 +265,7 @@ export function createProjectsRouter(
       if (
         error instanceof InvalidTaskStatusError ||
         error instanceof InvalidTaskKindError ||
+        error instanceof InvalidTaskPriorityError ||
         error instanceof InvalidTagError
       ) {
         return c.json({ error: 'invalid_argument' }, 400);

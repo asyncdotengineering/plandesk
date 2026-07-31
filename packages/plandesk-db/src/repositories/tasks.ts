@@ -5,10 +5,12 @@ import {
   projects,
   tags,
   taskKinds,
+  taskPriorities,
   taskStatuses,
   taskTags,
   tasks,
   type TaskKind,
+  type TaskPriority,
   type TaskStatus,
 } from '../schema.js';
 
@@ -20,6 +22,8 @@ export type NewTask = {
   label: string;
   status?: TaskStatus;
   kind?: TaskKind;
+  /** Null / omit → stored null. */
+  priority?: TaskPriority | null;
   description?: string | null;
   x?: number;
   y?: number;
@@ -32,6 +36,8 @@ export type TaskUpdate = {
   label?: string;
   status?: TaskStatus;
   kind?: TaskKind;
+  /** Pass null to clear; omit to leave unchanged. */
+  priority?: TaskPriority | null;
   description?: string | null;
   x?: number;
   y?: number;
@@ -56,12 +62,23 @@ export class InvalidTaskKindError extends Error {
   }
 }
 
+export class InvalidTaskPriorityError extends Error {
+  constructor(priority: string) {
+    super(`Invalid task priority: ${priority}`);
+    this.name = 'InvalidTaskPriorityError';
+  }
+}
+
 export function isTaskStatus(value: string): value is TaskStatus {
   return (taskStatuses as readonly string[]).includes(value);
 }
 
 export function isTaskKind(value: string): value is TaskKind {
   return (taskKinds as readonly string[]).includes(value);
+}
+
+export function isTaskPriority(value: string): value is TaskPriority {
+  return (taskPriorities as readonly string[]).includes(value);
 }
 
 function assertTaskStatus(status: string): asserts status is TaskStatus {
@@ -76,11 +93,21 @@ function assertTaskKind(kind: string): asserts kind is TaskKind {
   }
 }
 
+function assertTaskPriority(priority: string): asserts priority is TaskPriority {
+  if (!isTaskPriority(priority)) {
+    throw new InvalidTaskPriorityError(priority);
+  }
+}
+
 export async function createTask(db: DbClient, input: NewTask): Promise<Task> {
   const status = input.status ?? 'todo';
   assertTaskStatus(status);
   const kind = input.kind ?? 'build';
   assertTaskKind(kind);
+  const priority = input.priority ?? null;
+  if (priority !== null) {
+    assertTaskPriority(priority);
+  }
   const now = new Date();
   const id = input.id ?? randomUUID();
   const rows = await db
@@ -92,6 +119,7 @@ export async function createTask(db: DbClient, input: NewTask): Promise<Task> {
       label: input.label,
       status,
       kind,
+      priority,
       description: input.description ?? null,
       x: input.x ?? 0,
       y: input.y ?? 0,
@@ -116,6 +144,7 @@ export async function getTask(db: DbClient, id: string): Promise<Task | undefine
 export type ListTasksOptions = {
   status?: TaskStatus;
   kind?: TaskKind;
+  priority?: TaskPriority;
   // OR semantics: keep tasks carrying ANY of the given tag names.
   tagNames?: string[];
   limit?: number;
@@ -133,6 +162,9 @@ export async function listTasks(
   }
   if (options?.kind !== undefined) {
     conditions.push(eq(tasks.kind, options.kind));
+  }
+  if (options?.priority !== undefined) {
+    conditions.push(eq(tasks.priority, options.priority));
   }
   if (options?.tagNames !== undefined && options.tagNames.length > 0) {
     conditions.push(
@@ -200,6 +232,9 @@ export async function updateTask(
   }
   if (input.kind !== undefined) {
     assertTaskKind(input.kind);
+  }
+  if (input.priority !== undefined && input.priority !== null) {
+    assertTaskPriority(input.priority);
   }
   const now = new Date();
   const conditions = [eq(tasks.id, id)];

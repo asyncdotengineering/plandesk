@@ -17,6 +17,17 @@ export type TaskStatus = (typeof taskStatuses)[number];
 export const taskKinds = ['build', 'decision'] as const;
 export type TaskKind = (typeof taskKinds)[number];
 
+export const taskPriorities = ['urgent', 'high', 'medium', 'low'] as const;
+export type TaskPriority = (typeof taskPriorities)[number];
+
+/** Ascending sort rank — null sorts after every defined priority. */
+export const taskPriorityOrder: Record<TaskPriority, number> = {
+  urgent: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
 export const goalStatuses = ['active', 'paused', 'complete', 'blocked'] as const;
 export type GoalStatus = (typeof goalStatuses)[number];
 
@@ -117,6 +128,8 @@ export const tasks = sqliteTable('tasks', {
   label: text('label').notNull(),
   status: text('status', { enum: taskStatuses }).notNull().default('todo'),
   kind: text('kind', { enum: taskKinds }).notNull().default('build'),
+  // Nullable — absence is null, never a sentinel like 'none'.
+  priority: text('priority', { enum: taskPriorities }),
   description: text('description'),
   x: real('x').notNull().default(0),
   y: real('y').notNull().default(0),

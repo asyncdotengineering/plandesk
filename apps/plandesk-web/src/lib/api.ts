@@ -1,6 +1,9 @@
 export const taskStatuses = ['scope', 'todo', 'in_progress', 'done', 'backlog'] as const;
 export type TaskStatus = (typeof taskStatuses)[number];
 
+export const taskPriorities = ['urgent', 'high', 'medium', 'low'] as const;
+export type TaskPriority = (typeof taskPriorities)[number];
+
 export const edgeLabels = [
   'blocks',
   'depends_on',
@@ -63,6 +66,7 @@ export type SerializedTask = {
   goal_id: string;
   label: string;
   status: TaskStatus;
+  priority: TaskPriority | null;
   description: string | null;
   x: number;
   y: number;
@@ -160,6 +164,7 @@ export type CreateProjectInput = {
 export type CreateTaskInput = {
   label: string;
   status?: TaskStatus;
+  priority?: TaskPriority | null;
   description?: string | null;
   x?: number;
   y?: number;
@@ -173,6 +178,7 @@ export type CreateTaskInput = {
 
 export type PatchTaskInput = {
   status?: TaskStatus;
+  priority?: TaskPriority | null;
   label?: string;
   description?: string | null;
   x?: number;

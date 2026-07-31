@@ -42,6 +42,7 @@ const baseTask: SerializedTask = {
   goal_id: 'goal-1',
   label: 'Ship commit refs',
   status: 'done',
+  priority: 'high',
   description: null,
   x: 0,
   y: 0,

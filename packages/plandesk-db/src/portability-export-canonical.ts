@@ -90,6 +90,7 @@ export type PortableExportSnapshot = {
     label: string;
     status: string;
     kind: string | undefined;
+    priority: string | null | undefined;
     description: string | null;
     x: number;
     y: number;
@@ -199,6 +200,7 @@ export function toPortableExportSnapshot(exported: PlandeskExport): PortableExpo
         label: task.label,
         status: task.status,
         kind: task.kind,
+        priority: task.priority,
         description: task.description,
         x: task.x,
         y: task.y,
@@ -329,7 +331,7 @@ export function assertGoldenExportFieldCoverage(exported: PlandeskExport): void 
     throw new Error('golden goals mismatch');
   }
   const task = exported.tasks.find((row) => row.label === 'DISTINCT-task-label');
-  if (!task || task.kind !== 'decision' || task.status !== 'in_progress') {
+  if (!task || task.kind !== 'decision' || task.status !== 'in_progress' || task.priority !== 'urgent') {
     throw new Error('golden task mismatch');
   }
   if (exported.tags.length !== 1 || exported.tags[0]?.name !== 'DISTINCT-tag-name') {

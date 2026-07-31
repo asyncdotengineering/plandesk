@@ -20,6 +20,7 @@ import {
   type CommentTargetType,
   type GoalStatus,
   type TaskKind,
+  type TaskPriority,
   type TaskStatus,
 } from './schema.js';
 
@@ -79,6 +80,8 @@ export type PlandeskExportTask = {
   status: TaskStatus;
   // Always written on export; optional on import for exports written before kind existed.
   kind?: TaskKind;
+  // Always written on export; optional on import for exports written before priority existed.
+  priority?: TaskPriority | null;
   description: string | null;
   x: number;
   y: number;

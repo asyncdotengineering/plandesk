@@ -8,10 +8,13 @@ import {
   claimTask,
   getTask,
   InvalidTaskKindError,
+  InvalidTaskPriorityError,
   InvalidTaskStatusError,
   listTasks,
   updateTask,
 } from './tasks.js';
+import { createTag, setTaskTags } from './tags.js';
+import { taskPriorityOrder, type TaskPriority } from '../schema.js';
 
 describe('tasks repository', () => {
   let db: Db;
@@ -90,6 +93,90 @@ describe('tasks repository', () => {
     await expect(updateTask(db, task.id, { kind: 'invalid' as 'build' })).rejects.toThrow(
       InvalidTaskKindError,
     );
+  });
+
+  it('creates without priority as null; set, clear with null, omit leaves unchanged', async () => {
+    const created = await createTask(db, { projectId, label: 'No priority' });
+    expect(created.priority).toBeNull();
+    expect((await getTask(db, created.id))?.priority).toBeNull();
+
+    const set = await updateTask(db, created.id, { priority: 'high' });
+    expect(set?.priority).toBe('high');
+
+    const cleared = await updateTask(db, created.id, { priority: null });
+    expect(cleared?.priority).toBeNull();
+
+    await updateTask(db, created.id, { priority: 'medium' });
+    const omitted = await updateTask(db, created.id, { label: 'Renamed' });
+    expect(omitted?.priority).toBe('medium');
+    expect(omitted?.label).toBe('Renamed');
+  });
+
+  it('rejects an invalid priority on create and update', async () => {
+    await expect(
+      createTask(db, {
+        projectId,
+        label: 'Bad priority',
+        priority: 'critical' as 'high',
+      }),
+    ).rejects.toThrow(InvalidTaskPriorityError);
+
+    const task = await createTask(db, { projectId, label: 'Task', priority: 'low' });
+    await expect(updateTask(db, task.id, { priority: 'critical' as 'low' })).rejects.toThrow(
+      InvalidTaskPriorityError,
+    );
+  });
+
+  it('filters by priority and composes with status, kind, and tags', async () => {
+    const highTodo = await createTask(db, {
+      projectId,
+      label: 'High todo',
+      status: 'todo',
+      kind: 'build',
+      priority: 'high',
+    });
+    await createTask(db, {
+      projectId,
+      label: 'High done',
+      status: 'done',
+      kind: 'build',
+      priority: 'high',
+    });
+    await createTask(db, {
+      projectId,
+      label: 'Low decision',
+      status: 'todo',
+      kind: 'decision',
+      priority: 'low',
+    });
+    const tag = await createTag(db, { projectId, name: 'area:api' });
+    await setTaskTags(db, highTodo.id, [tag.id]);
+
+    expect(await listTasks(db, projectId, { priority: 'high' })).toHaveLength(2);
+    expect(
+      await listTasks(db, projectId, { priority: 'high', status: 'todo', kind: 'build' }),
+    ).toHaveLength(1);
+    expect(
+      await listTasks(db, projectId, {
+        priority: 'high',
+        status: 'todo',
+        kind: 'build',
+        tagNames: ['area:api'],
+      }),
+    ).toEqual([expect.objectContaining({ id: highTodo.id, priority: 'high' })]);
+    expect(
+      await listTasks(db, projectId, { priority: 'high', tagNames: ['missing'] }),
+    ).toHaveLength(0);
+  });
+
+  it('taskPriorityOrder sorts urgent → high → medium → low, with null last', () => {
+    const mixed: Array<TaskPriority | null> = ['low', null, 'urgent', 'medium', 'high', null];
+    const sorted = [...mixed].sort((a, b) => {
+      const rankA = a === null ? Number.POSITIVE_INFINITY : taskPriorityOrder[a];
+      const rankB = b === null ? Number.POSITIVE_INFINITY : taskPriorityOrder[b];
+      return rankA - rankB;
+    });
+    expect(sorted).toEqual(['urgent', 'high', 'medium', 'low', null, null]);
   });
 
   it('rejects an invalid status on create', async () => {

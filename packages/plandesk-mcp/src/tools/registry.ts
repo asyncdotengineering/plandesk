@@ -8,6 +8,7 @@ import {
   MAX_COMMIT_REFS,
   shareSubmissionStatuses,
   taskKinds,
+  taskPriorities,
   taskStatuses,
 } from '@plandesk/db';
 
@@ -78,6 +79,7 @@ export const createTaskInputSchema = z.object({
   label: z.string().min(1),
   status: z.enum(taskStatuses).optional(),
   kind: z.enum(taskKinds).optional(),
+  priority: z.enum(taskPriorities).nullable().optional(),
   description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
   x: z.number().optional(),
   y: z.number().optional(),
@@ -95,6 +97,7 @@ export const updateTaskInputSchema = z.object({
   task_id: z.string().uuid(),
   status: z.enum(taskStatuses).optional(),
   kind: z.enum(taskKinds).optional(),
+  priority: z.enum(taskPriorities).nullable().optional(),
   label: z.string().optional(),
   description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
   x: z.number().optional(),
@@ -525,6 +528,7 @@ export const listTasksInputSchema = z.object({
   project_id: z.string().uuid(),
   status: z.enum(taskStatuses).optional(),
   kind: z.enum(taskKinds).optional(),
+  priority: z.enum(taskPriorities).optional(),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
   compact: z.boolean().optional().describe(COMPACT_DESCRIPTION),
 });

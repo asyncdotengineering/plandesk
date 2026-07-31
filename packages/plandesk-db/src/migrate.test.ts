@@ -605,4 +605,98 @@ describe('migrate', () => {
     expect(await hasColumn(db, 'revisions', 'author')).toBe(true);
     expect((await listTables(db)).includes('revisions')).toBe(true);
   });
+
+  // Regression: 0010 only ADDs nullable priority (plus an additive severity-tag
+  // backfill). A task that existed at 0009 must survive with priority null when
+  // it has no severity:* tag; severity:high maps to high and keeps the tag.
+  it('0010 preserves pre-existing tasks as null priority and backfills severity tags', async () => {
+    const files = readdirSync(drizzleDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    const idx = files.indexOf('0010_smart_sphinx.sql');
+    expect(idx).toBeGreaterThan(0);
+    const preamble = files.slice(0, idx);
+    const target = files[idx];
+    if (target === undefined) {
+      throw new Error(`no migration file at index ${String(idx)}`);
+    }
+
+    const db = await createDb(':memory:');
+    await db.$client.execute('PRAGMA foreign_keys = OFF');
+    for (const f of preamble) {
+      await applyMigrationSqlRaw(db, f);
+    }
+
+    await db.$client.execute(
+      "INSERT INTO projects (id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at, repo_url, folder_path) VALUES ('p1','o1','w1','Pre-0010',NULL,NULL,100,200,NULL,NULL)",
+    );
+    await db.$client.execute(
+      "INSERT INTO goals (id, project_id, objective, status, verification_surface, constraints, boundaries, iteration_policy, stop_condition, budget, last_verification, created_at, updated_at) VALUES ('g1','p1','Ship','active',NULL,NULL,NULL,NULL,NULL,NULL,NULL,100,200)",
+    );
+    await db.$client.execute(
+      "INSERT INTO tasks (id, project_id, goal_id, label, status, kind, description, x, y, assignee, due_date, commit_refs, created_at, updated_at) VALUES ('t-plain','p1','g1','Plain','todo','build',NULL,0,0,NULL,NULL,NULL,100,200)",
+    );
+    await db.$client.execute(
+      "INSERT INTO tasks (id, project_id, goal_id, label, status, kind, description, x, y, assignee, due_date, commit_refs, created_at, updated_at) VALUES ('t-sev','p1','g1','Tagged','todo','build',NULL,0,0,NULL,NULL,NULL,100,200)",
+    );
+    await db.$client.execute(
+      "INSERT INTO tags (id, project_id, name, color, created_at) VALUES ('tag-sev','p1','severity:high',NULL,100)",
+    );
+    await db.$client.execute(
+      "INSERT INTO task_tags (task_id, tag_id) VALUES ('t-sev','tag-sev')",
+    );
+
+    expect(await hasColumn(db, 'tasks', 'priority')).toBe(false);
+
+    const plainBefore = await db.$client.execute(
+      "SELECT id, project_id, goal_id, label, status, kind, description, x, y, assignee, due_date, commit_refs, created_at, updated_at FROM tasks WHERE id = 't-plain'",
+    );
+    expect(plainBefore.rows).toHaveLength(1);
+
+    await applyMigrationSqlRaw(db, target);
+    await db.$client.execute('PRAGMA foreign_keys = ON');
+
+    const fkCheck = await db.$client.execute('PRAGMA foreign_key_check');
+    expect(fkCheck.rows).toHaveLength(0);
+    expect(await hasColumn(db, 'tasks', 'priority')).toBe(true);
+
+    const plainAfter = await db.$client.execute(
+      "SELECT id, project_id, goal_id, label, status, kind, description, x, y, assignee, due_date, commit_refs, created_at, updated_at, priority FROM tasks WHERE id = 't-plain'",
+    );
+    expect(plainAfter.rows).toEqual([
+      {
+        ...plainBefore.rows[0],
+        priority: null,
+      },
+    ]);
+
+    const sevAfter = await db.$client.execute(
+      "SELECT id, label, priority FROM tasks WHERE id = 't-sev'",
+    );
+    expect(sevAfter.rows).toEqual([{ id: 't-sev', label: 'Tagged', priority: 'high' }]);
+
+    // Tag stays attached.
+    const tagStillThere = await db.$client.execute(
+      "SELECT task_id, tag_id FROM task_tags WHERE task_id = 't-sev'",
+    );
+    expect(tagStillThere.rows).toEqual([{ task_id: 't-sev', tag_id: 'tag-sev' }]);
+
+    // Re-running the severity backfill UPDATEs alone is a no-op (idempotent).
+    const backfillOnly = readFileSync(new URL(target, drizzleDir), 'utf8')
+      .split('--> statement-breakpoint')
+      .map((s) => s.trim())
+      .filter((s) => s.startsWith('UPDATE'));
+    expect(backfillOnly.length).toBeGreaterThan(0);
+    for (const stmt of backfillOnly) {
+      await db.$client.execute(stmt);
+    }
+    const sevAgain = await db.$client.execute(
+      "SELECT id, priority FROM tasks WHERE id = 't-sev'",
+    );
+    expect(sevAgain.rows).toEqual([{ id: 't-sev', priority: 'high' }]);
+    const plainStillNull = await db.$client.execute(
+      "SELECT priority FROM tasks WHERE id = 't-plain'",
+    );
+    expect(plainStillNull.rows).toEqual([{ priority: null }]);
+  });
 });

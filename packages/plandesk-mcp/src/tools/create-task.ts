@@ -1,5 +1,12 @@
 import { InvalidGoalReferenceError, InvalidTagError, type TaskService } from '@plandesk/api';
-import { InvalidTaskKindError, InvalidTaskStatusError, type TaskKind, type TaskStatus } from '@plandesk/db';
+import {
+  InvalidTaskKindError,
+  InvalidTaskPriorityError,
+  InvalidTaskStatusError,
+  type TaskKind,
+  type TaskPriority,
+  type TaskStatus,
+} from '@plandesk/db';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createCreateTaskHandler(
@@ -9,6 +16,7 @@ export function createCreateTaskHandler(
   label: string;
   status?: string;
   kind?: string;
+  priority?: string | null;
   description?: string;
   x?: number;
   y?: number;
@@ -21,6 +29,7 @@ export function createCreateTaskHandler(
         label: args.label,
         ...(args.status !== undefined ? { status: args.status as TaskStatus } : {}),
         ...(args.kind !== undefined ? { kind: args.kind as TaskKind } : {}),
+        ...(args.priority !== undefined ? { priority: args.priority as TaskPriority | null } : {}),
         ...(args.description !== undefined ? { description: args.description } : {}),
         ...(args.x !== undefined ? { x: args.x } : {}),
         ...(args.y !== undefined ? { y: args.y } : {}),
@@ -35,6 +44,7 @@ export function createCreateTaskHandler(
       if (
         error instanceof InvalidTaskStatusError ||
         error instanceof InvalidTaskKindError ||
+        error instanceof InvalidTaskPriorityError ||
         error instanceof InvalidTagError ||
         error instanceof InvalidGoalReferenceError
       ) {

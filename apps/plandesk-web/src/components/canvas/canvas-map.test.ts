@@ -16,6 +16,7 @@ const sampleTask: SerializedTask = {
   goal_id: 'goal-1',
   label: 'Design API',
   status: 'in_progress',
+  priority: 'medium',
   description: 'Detailed spec',
   x: 120,
   y: 240,

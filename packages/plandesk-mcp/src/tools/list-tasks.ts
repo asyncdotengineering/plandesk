@@ -1,6 +1,6 @@
 import type { TaskService } from '@plandesk/api';
 import { toolNotFound, toolSuccess, type ToolResult } from './result.js';
-import type { TaskKind, TaskStatus } from '@plandesk/db';
+import type { TaskKind, TaskPriority, TaskStatus } from '@plandesk/db';
 
 export function createListTasksHandler(
   taskService: TaskService,
@@ -8,6 +8,7 @@ export function createListTasksHandler(
   project_id: string;
   status?: TaskStatus;
   kind?: TaskKind;
+  priority?: TaskPriority;
   tags?: string[];
   compact?: boolean;
 }) => Promise<ToolResult> {
@@ -15,6 +16,7 @@ export function createListTasksHandler(
     const tasks = await taskService.listByProject(args.project_id, {
       ...(args.status !== undefined ? { status: args.status } : {}),
       ...(args.kind !== undefined ? { kind: args.kind } : {}),
+      ...(args.priority !== undefined ? { priority: args.priority } : {}),
       ...(args.tags !== undefined ? { tags: args.tags } : {}),
     });
     if (tasks === undefined) {
