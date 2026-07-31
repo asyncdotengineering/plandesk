@@ -30,9 +30,34 @@ that proves it.** Not that it runs. Not that the types check.
 | 11 | If the task is wrong or ambiguous, say so before building it | resolving that is a decision, and decisions belong to whoever owns the outcome |
 | 12 | If the spec and the code disagree, stop and report — never pick one silently | |
 | 13 | Never end on an intention: "I'll run the tests now", "next I would…" | you are headless, so a question ends the run with nothing done rather than pausing it |
+| 14 | If your change accepts a caller-supplied value the server then trusts, say what stops org A supplying org B's value — and test it | an input the task did not specify arrives with no threat model attached |
 
 Cheapest way to know a test is real (rule 6): reintroduce the bug, watch it fail,
 restore it.
+
+## Caller-supplied inputs are authorization surfaces (rule 14)
+
+A header, query parameter, body field, or any id you look something up by is an
+authorization surface, whether or not the task called it one. This applies hardest
+to inputs the task **did not** specify: when a spec asserts a value is "available"
+without saying how it arrives, whoever builds it invents a transport, and an
+invented transport has no threat model attached because nobody wrote down what the
+value is allowed to be.
+
+Two rules:
+
+- **A cross-tenant value behaves exactly like an unknown one — rejected.** Never
+  silently downgrade it to a weaker-but-valid actor, default, or scope. That
+  launders an untrusted input into a trusted one: the same defect wearing a
+  different hat.
+- **Check the direction of every failure branch.** Unknown, malformed and
+  wrong-state values usually fail closed, because someone thought about them. The
+  cross-tenant branch is the one nobody thought about, so it is the one that fails
+  open. If every branch but one fails closed, examine that one.
+
+This repo has closed five separate rounds of workspace-isolation leaks. Every one
+passed a full green suite first, because **a suite with a single tenant has
+nothing to leak to.** Tests exercising one org prove nothing about isolation.
 
 If a gate cannot be satisfied honestly, report `blocked` with what you tried — a
 blocked dispatch that names the wall beats a green one that hid it.
