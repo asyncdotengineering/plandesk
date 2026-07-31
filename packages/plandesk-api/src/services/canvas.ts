@@ -2,7 +2,7 @@ import {
   withTransaction,
   createEdge,
   createTask,
-  getOrCreateDefaultGoal,
+  resolveGoalForNewWork,
   deleteEdge as dbDeleteEdge,
   deleteEdgeByEndpoints,
   getDocument,
@@ -269,7 +269,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
 
           const created = await createTask(tx, {
             projectId,
-            goalId: (await getOrCreateDefaultGoal(tx, projectId)).id,
+            goalId: (await resolveGoalForNewWork(tx, projectId)).id,
             id: node.id,
             label: node.label,
             status: 'todo',

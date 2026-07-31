@@ -7,9 +7,12 @@ import {
   createDocument,
   createComment,
   createEdge,
+  createGoal,
   createProjectInDefaultOrg as createProject,
   getDocument,
   getComment,
+  getOrCreateDefaultGoal,
+  AmbiguousActiveGoalsError,
   getProject,
   getTask,
   listAgentRuns,
@@ -19,11 +22,13 @@ import {
   listTasks,
   migrate,
   type Db,
+  type GoalStatus,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createBetterAuth, runBetterAuthMigrations } from '../better-auth.js';
 import { ensureLocalBetterAuthOrganization } from '../identity.js';
 import { createProjectService, InvalidScaffoldError } from './projects.js';
+import { createTaskService, InvalidGoalReferenceError } from './tasks.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
 const TEST_BASE_URL = 'http://localhost:3000';
@@ -57,6 +62,34 @@ describe('projectService', () => {
       await ensureLocalBetterAuthOrganization(db, auth);
     }
     return createProjectService({ db, orgId, auth });
+  }
+
+  async function backdateGoal(goalId: string, offsetMs: number) {
+    await db.$client.execute({
+      sql: 'UPDATE goals SET created_at = ? WHERE id = ?',
+      args: [Date.now() - offsetMs, goalId],
+    });
+  }
+
+  async function seedOldestInactiveGoal(
+    projectId: string,
+    status: GoalStatus,
+    objective: string,
+  ) {
+    const inactive = await createGoal(db, {
+      projectId,
+      objective,
+      status,
+      id: `11111111-1111-4111-8111-${status === 'complete' ? '111111111111' : status === 'paused' ? '222222222222' : '333333333333'}`,
+    });
+    await backdateGoal(inactive.id, 20_000);
+    const active = await createGoal(db, {
+      projectId,
+      objective: 'Active cycle',
+      status: 'active',
+      id: '44444444-4444-4444-8444-444444444444',
+    });
+    return { inactive, active };
   }
 
   it('creates and lists projects with ISO timestamps', async () => {
@@ -302,5 +335,202 @@ describe('projectService', () => {
         edges: [{ from: 'a', to: 'a' }],
       }),).rejects.toThrow(InvalidScaffoldError);
     expect(await service.list()).toHaveLength(0);
+  });
+
+  it('scaffolds tasks onto an explicit goal and they are reachable by nextActionable', async () => {
+    const service = await createService();
+    const project = await createProject(db, { name: 'Multi-goal' });
+    const targetGoal = await createGoal(db, {
+      projectId: project.id,
+      objective: 'Target cycle',
+      status: 'active',
+    });
+    await getOrCreateDefaultGoal(db, project.id);
+
+    const result = await service.scaffoldFromPlan({
+      projectId: project.id,
+      goalId: targetGoal.id,
+      tasks: [
+        { key: 'a', label: 'Task A', status: 'todo' },
+        { key: 'b', label: 'Task B', status: 'todo' },
+      ],
+    });
+
+    const scaffoldedIds = new Set(Object.values(result.key_to_id));
+    const persisted = await listTasks(db, project.id);
+    for (const task of persisted) {
+      if (scaffoldedIds.has(task.id)) {
+        expect(task.goalId).toBe(targetGoal.id);
+      }
+    }
+
+    const taskService = createTaskService({ db, orgId });
+    const next = await taskService.nextActionable(project.id);
+    expect(next?.reason).toBe('ok');
+    expect(next?.next_task?.goal_id).toBe(targetGoal.id);
+    expect(scaffoldedIds.has(next?.next_task?.id ?? '')).toBe(true);
+  });
+
+  it('scaffolds onto the default goal when goal_id is omitted', async () => {
+    const service = await createService();
+    const project = await createProject(db, { name: 'Default goal' });
+    await createGoal(db, { projectId: project.id, objective: 'Other', status: 'active' });
+    const defaultGoal = await getOrCreateDefaultGoal(db, project.id);
+
+    const result = await service.scaffoldFromPlan({
+      projectId: project.id,
+      tasks: [{ key: 'a', label: 'Task A' }],
+    });
+
+    const taskId = result.key_to_id.a;
+    expect(taskId).toBeTruthy();
+    const task = await getTask(db, taskId as string);
+    expect(task?.goalId).toBe(defaultGoal.id);
+  });
+
+  it('rejects an unknown or cross-project goal_id when scaffolding', async () => {
+    const service = await createService();
+    const project = await createProject(db, { name: 'Home' });
+    const foreign = await createProject(db, { name: 'Foreign' });
+    const foreignGoal = await createGoal(db, {
+      projectId: foreign.id,
+      objective: 'Foreign goal',
+      status: 'active',
+    });
+
+    await expect(
+      service.scaffoldFromPlan({
+        projectId: project.id,
+        goalId: foreignGoal.id,
+        tasks: [{ key: 'a', label: 'A' }],
+      }),
+    ).rejects.toThrow(InvalidGoalReferenceError);
+
+    await expect(
+      service.scaffoldFromPlan({
+        projectId: project.id,
+        goalId: '00000000-0000-4000-8000-000000009999',
+        tasks: [{ key: 'a', label: 'A' }],
+      }),
+    ).rejects.toThrow(InvalidGoalReferenceError);
+
+    expect(await listTasks(db, project.id)).toHaveLength(0);
+  });
+
+  it.each(['complete', 'paused', 'blocked'] as const)(
+    'scaffolds onto the active goal when the oldest goal is %s and tasks are reachable by nextActionable',
+    async (inactiveStatus) => {
+      const service = await createService();
+      const project = await createProject(db, { name: `Oldest ${inactiveStatus}` });
+      const { active } = await seedOldestInactiveGoal(project.id, inactiveStatus, 'Old cycle');
+
+      const result = await service.scaffoldFromPlan({
+        projectId: project.id,
+        tasks: [
+          { key: 'a', label: 'Task A', status: 'todo' },
+          { key: 'b', label: 'Task B', status: 'todo' },
+        ],
+      });
+
+      const scaffoldedIds = new Set(Object.values(result.key_to_id));
+      for (const task of await listTasks(db, project.id)) {
+        if (scaffoldedIds.has(task.id)) {
+          expect(task.goalId).toBe(active.id);
+        }
+      }
+
+      const taskService = createTaskService({ db, orgId });
+      const next = await taskService.nextActionable(project.id);
+      expect(next?.reason).toBe('ok');
+      expect(next?.next_task?.goal_id).toBe(active.id);
+      expect(scaffoldedIds.has(next?.next_task?.id ?? '')).toBe(true);
+    },
+  );
+
+  it('creates a goal and scaffolds onto it when no active goal exists', async () => {
+    const service = await createService();
+    const project = await createProject(db, { name: 'No active goal' });
+    const complete = await createGoal(db, {
+      projectId: project.id,
+      objective: 'Finished',
+      status: 'complete',
+    });
+    await backdateGoal(complete.id, 20_000);
+
+    const result = await service.scaffoldFromPlan({
+      projectId: project.id,
+      tasks: [{ key: 'a', label: 'Task A', status: 'todo' }],
+    });
+
+    const task = await getTask(db, result.key_to_id.a as string);
+    expect(task?.goalId).not.toBe(complete.id);
+
+    const taskService = createTaskService({ db, orgId });
+    const next = await taskService.nextActionable(project.id);
+    expect(next?.reason).toBe('ok');
+    expect(next?.next_task?.goal_id).toBe(task?.goalId);
+    expect(next?.next_task?.id).toBe(task?.id);
+  });
+
+  it('rejects scaffold without goal_id when multiple active goals exist', async () => {
+    const service = await createService();
+    const project = await createProject(db, { name: 'Ambiguous' });
+    const goalA = await createGoal(db, {
+      projectId: project.id,
+      objective: 'Cycle A',
+      status: 'active',
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    });
+    const goalB = await createGoal(db, {
+      projectId: project.id,
+      objective: 'Cycle B',
+      status: 'active',
+      id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    });
+
+    await expect(
+      service.scaffoldFromPlan({
+        projectId: project.id,
+        tasks: [{ key: 'a', label: 'A' }],
+      }),
+    ).rejects.toThrow(AmbiguousActiveGoalsError);
+
+    const message = await service
+      .scaffoldFromPlan({
+        projectId: project.id,
+        tasks: [{ key: 'a', label: 'A' }],
+      })
+      .then(() => '')
+      .catch((error: unknown) => (error instanceof Error ? error.message : String(error)));
+    expect(message).toContain(goalA.id);
+    expect(message).toContain(goalB.id);
+    expect(await listTasks(db, project.id)).toHaveLength(0);
+  });
+
+  it('per-task goal_id overrides the call-level goal_id', async () => {
+    const service = await createService();
+    const project = await createProject(db, { name: 'Per-task goals' });
+    const callGoal = await createGoal(db, {
+      projectId: project.id,
+      objective: 'Call-level',
+      status: 'active',
+    });
+    const taskGoal = await createGoal(db, {
+      projectId: project.id,
+      objective: 'Task-level',
+      status: 'active',
+    });
+
+    const result = await service.scaffoldFromPlan({
+      projectId: project.id,
+      goalId: callGoal.id,
+      tasks: [
+        { key: 'default', label: 'On call goal' },
+        { key: 'override', label: 'On task goal', goalId: taskGoal.id },
+      ],
+    });
+
+    expect((await getTask(db, result.key_to_id.default as string))?.goalId).toBe(callGoal.id);
+    expect((await getTask(db, result.key_to_id.override as string))?.goalId).toBe(taskGoal.id);
   });
 });

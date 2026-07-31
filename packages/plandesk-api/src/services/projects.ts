@@ -21,7 +21,8 @@ import {
   deleteSyncStateByProjectId,
   deleteProject as dbDeleteProject,
   deleteTasksByProjectId,
-  getOrCreateDefaultGoal,
+  resolveGoalForNewWork,
+  listGoals,
   getProject as dbGetProject,
   getProjectInOrg,
   InvalidTaskStatusError,
@@ -40,6 +41,7 @@ import {
 } from '@plandesk/db';
 import { ensureDefaultTeamForOrg, getTeamInOrg } from '../identity.js';
 import type { BetterAuthInstance } from '../better-auth.js';
+import { InvalidGoalReferenceError } from './tasks.js';
 import {
   emptyTaskStatusSummary,
   serializeDocument,
@@ -76,6 +78,8 @@ export type ScaffoldTaskInput = {
   label: string;
   status?: TaskStatus;
   description?: string | null;
+  /** Overrides the call-level goalId for this task. */
+  goalId?: string;
   x?: number;
   y?: number;
 };
@@ -97,6 +101,8 @@ export type ScaffoldDocumentInput = {
 export type ScaffoldPlanInput = {
   /** Target an existing project; when set, the plan is added to it. Omit to create a new project. */
   projectId?: string;
+  /** Goal to attach scaffolded tasks to. Must belong to the target project; omit for the default goal. */
+  goalId?: string;
   /** Name for a new project. Required when projectId is omitted; ignored when it is set. */
   name?: string;
   description?: string | null;
@@ -434,14 +440,38 @@ export function createProjectService(deps: ProjectServiceDeps) {
           });
           projectId = project.id;
         }
-        const defaultGoal = await getOrCreateDefaultGoal(tx, projectId);
+        if (
+          input.goalId !== undefined &&
+          !(await listGoals(tx, projectId)).some((goal) => goal.id === input.goalId)
+        ) {
+          throw new InvalidGoalReferenceError(input.goalId);
+        }
+        const projectGoals = await listGoals(tx, projectId);
+        for (const taskInput of input.tasks) {
+          if (
+            taskInput.goalId !== undefined &&
+            !projectGoals.some((goal) => goal.id === taskInput.goalId)
+          ) {
+            throw new InvalidGoalReferenceError(taskInput.goalId);
+          }
+        }
+        let defaultGoalId: string | undefined;
 
         for (const [i, taskInput] of input.tasks.entries()) {
+          let taskGoalId: string;
+          if (taskInput.goalId !== undefined) {
+            taskGoalId = taskInput.goalId;
+          } else if (input.goalId !== undefined) {
+            taskGoalId = input.goalId;
+          } else {
+            defaultGoalId ??= (await resolveGoalForNewWork(tx, projectId)).id;
+            taskGoalId = defaultGoalId;
+          }
           const x = taskInput.x ?? (i % 4) * 240;
           const y = taskInput.y ?? (startRow + Math.floor(i / 4)) * 160;
           const task = await createTask(tx, {
             projectId,
-            goalId: defaultGoal.id,
+            goalId: taskGoalId,
             label: taskInput.label,
             status: taskInput.status,
             description: taskInput.description,

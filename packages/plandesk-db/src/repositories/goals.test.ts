@@ -6,8 +6,10 @@ import {
   createGoal,
   getGoal,
   getOrCreateDefaultGoal,
+  AmbiguousActiveGoalsError,
   InvalidGoalStatusError,
   listGoals,
+  resolveGoalForNewWork,
   updateGoal,
   updateGoalStatus,
 } from './goals.js';
@@ -100,5 +102,55 @@ describe('goals repository', () => {
     const again = await getOrCreateDefaultGoal(db, projectId);
     expect(again.id).toBe(resolved.id);
     expect(await listGoals(db, projectId)).toHaveLength(2);
+  });
+
+  it('resolveGoalForNewWork returns the sole active goal or creates General', async () => {
+    const created = await resolveGoalForNewWork(db, projectId);
+    expect(created.objective).toBe('General');
+    expect(created.status).toBe('active');
+
+    const again = await resolveGoalForNewWork(db, projectId);
+    expect(again.id).toBe(created.id);
+    expect(await listGoals(db, projectId)).toHaveLength(1);
+  });
+
+  it('resolveGoalForNewWork picks the earliest active goal and ignores inactive ones', async () => {
+    const complete = await createGoal(db, {
+      projectId,
+      objective: 'Done cycle',
+      status: 'complete',
+      id: '11111111-1111-4111-8111-111111111111',
+    });
+    await db.$client.execute({
+      sql: 'UPDATE goals SET created_at = ? WHERE id = ?',
+      args: [Date.now() - 20_000, complete.id],
+    });
+
+    const active = await createGoal(db, {
+      projectId,
+      objective: 'Current cycle',
+      status: 'active',
+      id: '22222222-2222-4222-8222-222222222222',
+    });
+
+    const resolved = await resolveGoalForNewWork(db, projectId);
+    expect(resolved.id).toBe(active.id);
+  });
+
+  it('resolveGoalForNewWork throws when multiple active goals exist', async () => {
+    const first = await createGoal(db, {
+      projectId,
+      objective: 'First active',
+      id: '11111111-1111-4111-8111-111111111111',
+    });
+    const second = await createGoal(db, {
+      projectId,
+      objective: 'Second active',
+      id: '22222222-2222-4222-8222-222222222222',
+    });
+
+    await expect(resolveGoalForNewWork(db, projectId)).rejects.toThrow(AmbiguousActiveGoalsError);
+    await expect(resolveGoalForNewWork(db, projectId)).rejects.toThrow(first.id);
+    await expect(resolveGoalForNewWork(db, projectId)).rejects.toThrow(second.id);
   });
 });

@@ -1,12 +1,13 @@
 import type { CanvasService, DocumentService, ProjectService } from '@plandesk/api';
-import { InvalidCanvasError, InvalidScaffoldError } from '@plandesk/api';
-import { InvalidTaskStatusError, type TaskStatus } from '@plandesk/db';
+import { InvalidCanvasError, InvalidGoalReferenceError, InvalidScaffoldError } from '@plandesk/api';
+import { AmbiguousActiveGoalsError, InvalidTaskStatusError, type TaskStatus } from '@plandesk/db';
 import { ensureHtmlBody } from './markdown.js';
 import { defaultLinkLabel, normalizeLinkTo, type LinkEntityKind } from './link-to.js';
 import { toolInvalidArgument, toolSuccess, type ToolResult } from './result.js';
 
 type ScaffoldArgs = {
   project_id?: string;
+  goal_id?: string;
   name?: string;
   description?: string;
   tasks: Array<{
@@ -14,6 +15,7 @@ type ScaffoldArgs = {
     label: string;
     status?: string;
     description?: string;
+    goal_id?: string;
     x?: number;
     y?: number;
   }>;
@@ -71,6 +73,7 @@ export function createScaffoldProjectFromPlanHandler(
       // Multi-target and document→document links are applied after via typed edges.
       const result = await projectService.scaffoldFromPlan({
         ...(args.project_id !== undefined ? { projectId: args.project_id } : {}),
+        ...(args.goal_id !== undefined ? { goalId: args.goal_id } : {}),
         ...(args.name !== undefined ? { name: args.name } : {}),
         ...(args.description !== undefined ? { description: args.description } : {}),
         tasks: args.tasks.map((task) => ({
@@ -78,6 +81,7 @@ export function createScaffoldProjectFromPlanHandler(
           label: task.label,
           ...(task.status !== undefined ? { status: task.status as TaskStatus } : {}),
           ...(task.description !== undefined ? { description: task.description } : {}),
+          ...(task.goal_id !== undefined ? { goalId: task.goal_id } : {}),
           ...(task.x !== undefined ? { x: task.x } : {}),
           ...(task.y !== undefined ? { y: task.y } : {}),
         })),
@@ -164,6 +168,8 @@ export function createScaffoldProjectFromPlanHandler(
     } catch (error) {
       if (
         error instanceof InvalidScaffoldError ||
+        error instanceof InvalidGoalReferenceError ||
+        error instanceof AmbiguousActiveGoalsError ||
         error instanceof InvalidTaskStatusError ||
         error instanceof InvalidCanvasError
       ) {

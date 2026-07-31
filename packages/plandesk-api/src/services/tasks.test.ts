@@ -163,6 +163,34 @@ describe('taskService', () => {
     expect(created?.goal_id).toBe(goal.id);
   });
 
+  it('create without goal_id lands on the active goal when the oldest goal is complete', async () => {
+    const service = createService();
+    const complete = await createGoal(db, {
+      projectId,
+      objective: 'Old cycle',
+      status: 'complete',
+      id: '11111111-1111-4111-8111-111111111111',
+    });
+    await db.$client.execute({
+      sql: 'UPDATE goals SET created_at = ? WHERE id = ?',
+      args: [Date.now() - 20_000, complete.id],
+    });
+    const active = await createGoal(db, {
+      projectId,
+      objective: 'Current cycle',
+      status: 'active',
+      id: '22222222-2222-4222-8222-222222222222',
+    });
+
+    const created = await service.create(projectId, { label: 'Fresh work', status: 'todo' });
+    expect(created?.goal_id).toBe(active.id);
+
+    const next = await service.nextActionable(projectId);
+    expect(next?.reason).toBe('ok');
+    expect(next?.next_task?.id).toBe(created?.id);
+    expect(next?.next_task?.goal_id).toBe(active.id);
+  });
+
   it('rejects a goal_id that does not belong to the project', async () => {
     const service = createService();
     const otherProject = await createProject(db, { name: 'Other' });

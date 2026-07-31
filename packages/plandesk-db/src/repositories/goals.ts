@@ -38,6 +38,14 @@ export class InvalidGoalStatusError extends Error {
   }
 }
 
+export class AmbiguousActiveGoalsError extends Error {
+  constructor(goals: Array<{ id: string; objective: string }>) {
+    const listing = goals.map((goal) => `"${goal.objective}" (${goal.id})`).join(', ');
+    super(`Multiple active goals: ${listing}. Pass goal_id to choose.`);
+    this.name = 'AmbiguousActiveGoalsError';
+  }
+}
+
 export function isGoalStatus(value: string): value is GoalStatus {
   return (goalStatuses as readonly string[]).includes(value);
 }
@@ -137,6 +145,31 @@ export async function getOrCreateDefaultGoal(db: DbClient, projectId: string): P
     objective: 'General',
     status: 'active',
   });
+}
+
+/** Resolves where new work should land: active goals only; never complete/paused/blocked. */
+export async function resolveGoalForNewWork(db: DbClient, projectId: string): Promise<Goal> {
+  const active = await db
+    .select()
+    .from(goals)
+    .where(eq(goals.projectId, projectId))
+    .orderBy(asc(goals.createdAt), asc(goals.id))
+    .all();
+  const activeGoals = active.filter((goal) => goal.status === 'active');
+  const [soleActiveGoal] = activeGoals;
+  if (activeGoals.length === 1 && soleActiveGoal !== undefined) {
+    return soleActiveGoal;
+  }
+  if (activeGoals.length === 0) {
+    return createGoal(db, {
+      projectId,
+      objective: 'General',
+      status: 'active',
+    });
+  }
+  throw new AmbiguousActiveGoalsError(
+    activeGoals.map((goal) => ({ id: goal.id, objective: goal.objective })),
+  );
 }
 
 export async function deleteGoalsByProjectId(db: DbClient, projectId: string): Promise<number> {

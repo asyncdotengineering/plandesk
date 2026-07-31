@@ -362,6 +362,13 @@ export const scaffoldProjectFromPlanInputSchema = z.object({
     .optional()
     .describe('Name for a NEW project. Required when `project_id` is omitted; ignored when it is set.'),
   description: z.string().optional(),
+  goal_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      'Goal to attach scaffolded tasks to. Must belong to the target project (new or existing). Omit to use the project default goal.',
+    ),
   tasks: z
     .array(
       z.object({
@@ -369,6 +376,13 @@ export const scaffoldProjectFromPlanInputSchema = z.object({
         label: z.string().min(1),
         status: z.enum(taskStatuses).optional(),
         description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
+        goal_id: z
+          .string()
+          .uuid()
+          .optional()
+          .describe(
+            'Goal for this task. Overrides the call-level goal_id when both are set. Must belong to the target project.',
+          ),
         x: z.number().optional(),
         y: z.number().optional(),
       }),

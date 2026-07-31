@@ -7,7 +7,7 @@ import {
   deleteEdgesByTaskId,
   deleteTask as dbDeleteTask,
   deleteTaskTagsByTaskId,
-  getOrCreateDefaultGoal,
+  resolveGoalForNewWork,
   listGoals,
   getTagByName,
   getTask,
@@ -282,7 +282,7 @@ export function createTaskService(deps: TaskServiceDeps) {
       }
 
       const { task, tags } = await withTransaction(db, async (tx) => {
-        const goalId = input.goalId ?? (await getOrCreateDefaultGoal(tx, projectId)).id;
+        const goalId = input.goalId ?? (await resolveGoalForNewWork(tx, projectId)).id;
         const row = await createTask(tx, {
           projectId,
           goalId,
