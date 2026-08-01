@@ -21,6 +21,7 @@ import {
 import type { RichTextEditorHandle } from '../editor/RichTextEditor.js';
 import { RichTextEditor } from '../editor/RichTextEditor.js';
 import { flattenDocumentTree } from '../docs/DocumentsPanel.js';
+import { ContentHistoryButton } from '../history/ContentHistoryPanel.js';
 import { useDocuments } from '../../lib/queries.js';
 import { CommentsPanel } from '../docs/CommentsPanel.js';
 import type { PatchTaskInput, SerializedTag, SerializedTask, TaskStatus } from '../../lib/api.js';
@@ -134,7 +135,7 @@ function TaskDrawerBody({
     setLabel(task.label);
     setNewTag('');
     setEditing(false);
-  }, [task.id, task.label]);
+  }, [task.id, task.label, task.updated_at]);
 
   const lane = laneFromTags(task.tags);
 
@@ -170,6 +171,11 @@ function TaskDrawerBody({
           {shortId(task.id)}
         </span>
         <span className="ml-auto" />
+        <ContentHistoryButton
+          projectId={task.project_id}
+          targetType="task"
+          targetId={task.id}
+        />
         <ShareButton resource={{ kind: 'task', id: task.id }} />
         <Button
           type="button"

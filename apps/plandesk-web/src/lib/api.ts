@@ -393,6 +393,65 @@ export function deleteTask(id: string): Promise<void> {
   return request(`/tasks/${id}`, { method: 'DELETE' });
 }
 
+/** Target kinds that carry content history (authored fields only). */
+export type RevisionTargetType = 'task' | 'document';
+
+/** Metadata-only list row — no snapshot (panel opens cheaply). */
+export type SerializedRevisionMeta = {
+  id: string;
+  author: string;
+  changed_fields: string[];
+  created_at: string;
+};
+
+export type SerializedRevision = SerializedRevisionMeta & {
+  target_type: RevisionTargetType;
+  target_id: string;
+  snapshot: Record<string, unknown>;
+};
+
+export type RevisionDiffHunk = {
+  old_start: number;
+  old_lines: number;
+  new_start: number;
+  new_lines: number;
+  lines: string[];
+};
+
+export type RevisionFieldDiff = {
+  field: string;
+  hunks: RevisionDiffHunk[];
+};
+
+export function listRevisions(
+  projectId: string,
+  targetType: RevisionTargetType,
+  targetId: string,
+): Promise<SerializedRevisionMeta[]> {
+  const params = new URLSearchParams({
+    target_type: targetType,
+    target_id: targetId,
+  });
+  return request(`/projects/${projectId}/revisions?${params.toString()}`);
+}
+
+export function getRevision(id: string): Promise<SerializedRevision> {
+  return request(`/revisions/${id}`);
+}
+
+/** Server-side Markdown-projection diff. Pass `current` to compare against the live row. */
+export function diffRevision(id: string, against: string): Promise<RevisionFieldDiff[]> {
+  const params = new URLSearchParams({ against });
+  return request(`/revisions/${id}/diff?${params.toString()}`);
+}
+
+/** Restore versioned fields through the ordinary update path; returns the live entity. */
+export function restoreRevision(
+  id: string,
+): Promise<SerializedTask | SerializedDocument> {
+  return request(`/revisions/${id}/restore`, { method: 'POST' });
+}
+
 export type ShareTtl = '24h' | '7d' | 'never';
 
 export type ShareLinkResult = {

@@ -389,4 +389,46 @@ describe('api client', () => {
     expect(result.filename).toBe('Alpha-2026-08-01.csv');
     expect(result.blob).toBe(blob);
   });
+
+  it('listRevisions / getRevision / diffRevision / restoreRevision hit the content-history routes', async () => {
+    const {
+      listRevisions,
+      getRevision,
+      diffRevision,
+      restoreRevision,
+    } = await import('./api.js');
+
+    mockFetch([
+      {
+        id: 'rev-1',
+        author: 'human:ada',
+        changed_fields: ['description'],
+        created_at: '2026-07-01T12:00:00.000Z',
+      },
+    ]);
+    await listRevisions('proj-1', 'task', 'task-1');
+    expectFetchCall(
+      '/api/v1/projects/proj-1/revisions?target_type=task&target_id=task-1',
+    );
+
+    mockFetch({
+      id: 'rev-1',
+      author: 'human:ada',
+      changed_fields: ['description'],
+      created_at: '2026-07-01T12:00:00.000Z',
+      target_type: 'task',
+      target_id: 'task-1',
+      snapshot: { label: 'Card', description: 'prior' },
+    });
+    await getRevision('rev-1');
+    expectFetchCall('/api/v1/revisions/rev-1');
+
+    mockFetch([{ field: 'description', hunks: [] }]);
+    await diffRevision('rev-1', 'current');
+    expectFetchCall('/api/v1/revisions/rev-1/diff?against=current');
+
+    mockFetch(sampleTask);
+    await restoreRevision('rev-1');
+    expectFetchCall('/api/v1/revisions/rev-1/restore', { method: 'POST' });
+  });
 });

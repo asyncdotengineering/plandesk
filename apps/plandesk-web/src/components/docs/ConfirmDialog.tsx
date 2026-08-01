@@ -16,6 +16,8 @@ type ConfirmDialogProps = {
   confirmLabel?: string;
   cancelLabel?: string;
   busy?: boolean;
+  /** Label while `busy` is true. Defaults to delete wording for existing callers. */
+  busyLabel?: string;
   onConfirm: () => void;
 };
 
@@ -30,6 +32,7 @@ export function ConfirmDialog({
   confirmLabel = 'Delete',
   cancelLabel = 'Cancel',
   busy = false,
+  busyLabel = 'Deleting…',
   onConfirm,
 }: ConfirmDialogProps) {
   return (
@@ -63,7 +66,7 @@ export function ConfirmDialog({
               onConfirm();
             }}
           >
-            {busy ? 'Deleting…' : confirmLabel}
+            {busy ? busyLabel : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

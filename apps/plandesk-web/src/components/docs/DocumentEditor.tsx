@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { PatchDocumentInput, SerializedDocument } from '../../lib/api.js';
+import type { PatchDocumentInput, SerializedDocument, SerializedTask } from '../../lib/api.js';
 import { ShareButton } from '@/components/share/ShareButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { RichTextEditor } from '../editor/RichTextEditor.js';
 import { SaveStatusIndicator } from '../editor/SaveStatusIndicator.js';
 import { useAutosave } from '../editor/useAutosave.js';
+import { ContentHistoryButton } from '../history/ContentHistoryPanel.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 import { DocumentLinks } from './DocumentLinks.js';
 
@@ -47,9 +48,21 @@ export function DocumentEditor({
   const [title, setTitle] = useState(document.title);
   const [statusLine, setStatusLine] = useState(document.status_line ?? '');
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  // Bumped on restore so the rich-text editor remounts with restored body.
+  const [bodyEpoch, setBodyEpoch] = useState(0);
   // Latest editor HTML, updated on every keystroke via onChange — survives the
   // child editor unmounting during an exit-flush.
   const bodyRef = useRef(document.body ?? '');
+
+  const applyRestored = (entity: SerializedTask | SerializedDocument) => {
+    if (!('title' in entity) || !('body' in entity)) {
+      return;
+    }
+    setTitle(entity.title);
+    setStatusLine(entity.status_line ?? '');
+    bodyRef.current = entity.body ?? '';
+    setBodyEpoch((value) => value + 1);
+  };
 
   const autosave = useAutosave<PatchDocumentInput>({
     buildInput: () => ({
@@ -81,6 +94,12 @@ export function DocumentEditor({
         )}
         <div className="flex shrink-0 items-center gap-3 pt-1.5">
           {mode === 'editor' ? <SaveStatusIndicator status={saveStatus} /> : null}
+          <ContentHistoryButton
+            projectId={document.project_id}
+            targetType="document"
+            targetId={document.id}
+            onRestored={applyRestored}
+          />
           <ShareButton resource={{ kind: 'document', id: document.id }} />
           {mode === 'editor' && onDelete !== undefined ? (
             <Button
@@ -119,7 +138,8 @@ export function DocumentEditor({
       ) : null}
 
       <RichTextEditor
-        value={document.body ?? ''}
+        key={bodyEpoch}
+        value={bodyEpoch === 0 ? (document.body ?? '') : bodyRef.current}
         mode={mode}
         onChange={(html) => {
           bodyRef.current = html;
