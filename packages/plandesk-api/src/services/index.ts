@@ -21,6 +21,7 @@ import { createViewService, type ViewService } from './views.js';
 import { createShareService, type ShareService } from './share.js';
 import { createSyncService, type SyncService } from './sync.js';
 import { createRevisionService, type RevisionService } from './revisions.js';
+import { maxRevisionsFromEnv } from './revision-capture.js';
 
 export type ServicesDeps = {
   db: Db;
@@ -29,6 +30,11 @@ export type ServicesDeps = {
   orgId?: string;
   /** better-auth instance for workspace resolution (project creation). */
   auth?: BetterAuthInstance;
+  /**
+   * Revision retention cap. Omit to read `PLANDESK_MAX_REVISIONS` (fail-fast on
+   * invalid values). Pass `null` to force unlimited regardless of env.
+   */
+  maxRevisions?: number | null;
 };
 
 export type Services = {
@@ -52,11 +58,14 @@ export type Services = {
 };
 
 export function createServices(deps: ServicesDeps): Services {
+  const maxRevisions =
+    deps.maxRevisions !== undefined ? deps.maxRevisions : maxRevisionsFromEnv(process.env);
   const scoped = { db: deps.db, orgId: deps.orgId, auth: deps.auth };
+  const versioned = { ...scoped, maxRevisions };
   const storage = deps.storage ?? createStorageAdapter({ db: deps.db });
   const projectService = createProjectService(scoped);
   const goalService = createGoalService(scoped);
-  const taskService = createTaskService(scoped);
+  const taskService = createTaskService(versioned);
   const tagService = createTagService(scoped);
   const viewService = createViewService(scoped);
   const projectExportService = createProjectExportService({
@@ -65,7 +74,7 @@ export function createServices(deps: ServicesDeps): Services {
     taskService,
   });
   const canvasService = createCanvasService(scoped);
-  const documentService = createDocumentService(scoped);
+  const documentService = createDocumentService(versioned);
   const folderService = createFolderService(scoped);
   const noteService = createNoteService(scoped);
   const commentService = createCommentService(scoped);

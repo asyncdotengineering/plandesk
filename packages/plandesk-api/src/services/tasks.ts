@@ -8,7 +8,6 @@ import {
   deleteEdgesByTaskId,
   deleteTask as dbDeleteTask,
   deleteTaskTagsByTaskId,
-  insertRevision,
   isSqliteBusy,
   resolveGoalForNewWork,
   listGoals,
@@ -44,6 +43,7 @@ import { serializeTask, type PaginationParams } from '../serialize.js';
 import { serializeActor } from '../write-actor.js';
 import { assertPermission, resolveOrgId, resolveWriteActor, type OrgScopedDeps } from './org-scope.js';
 import {
+  captureRevision,
   changedVersionedFields,
   TASK_VERSIONED_FIELDS,
   versionedFieldSnapshot,
@@ -134,6 +134,8 @@ export function unfinishedPrerequisiteIds(
 
 export type TaskServiceDeps = OrgScopedDeps & {
   db: Db;
+  /** Positive keep-count, or null/omit for unlimited. */
+  maxRevisions?: number | null;
 };
 
 export type CreateTaskInput = {
@@ -414,14 +416,18 @@ export function createTaskService(deps: TaskServiceDeps) {
         }
         if (versionedChanges.length > 0) {
           const author = serializeActor(resolveWriteActor(deps));
-          await insertRevision(tx, {
-            projectId: prior.projectId,
-            targetType: 'task',
-            targetId: id,
-            snapshot: JSON.stringify(versionedFieldSnapshot(prior, TASK_VERSIONED_FIELDS)),
-            changedFields: JSON.stringify(versionedChanges),
-            author,
-          });
+          await captureRevision(
+            tx,
+            {
+              projectId: prior.projectId,
+              targetType: 'task',
+              targetId: id,
+              snapshot: JSON.stringify(versionedFieldSnapshot(prior, TASK_VERSIONED_FIELDS)),
+              changedFields: JSON.stringify(versionedChanges),
+              author,
+            },
+            deps.maxRevisions ?? null,
+          );
         }
         if (tagNames !== undefined) {
           await setTaskTags(tx, id, await resolveTagIdsByName(tx, prior.projectId, tagNames));

@@ -6,7 +6,7 @@ import {
   backfillProjectWorkspaces,
   runBetterAuthMigrations,
 } from '@plandesk/api';
-import { createDb, migrate, type Db } from '@plandesk/db';
+import { createDb, migrate, reportRevisionUsage, type Db } from '@plandesk/db';
 import { resolveDataDir, workspaceDbPath } from './args.js';
 import { formatConfigForDoctor, resolveServerConfig, type ResolvedServerConfig } from './config.js';
 import {
@@ -36,6 +36,14 @@ export type DoctorReport = {
   migrationsApplied: boolean;
   projectCount: number;
   taskCount: number;
+  /** Revision retention instrument — count, snapshot bytes, share of the database. */
+  revisions?: {
+    count: number;
+    snapshotBytes: number;
+    databaseBytes: number;
+    snapshotShareOfDatabase: number;
+    targets: number;
+  };
   issues: string[];
   binding?: BindingDoctorReport;
   scaffold?: ScaffoldDoctorReport;
@@ -115,6 +123,18 @@ function readLastExport(dataDir: string): string | null {
   }
 }
 
+function revisionInstrument(
+  report: Awaited<ReturnType<typeof reportRevisionUsage>>,
+): NonNullable<DoctorReport['revisions']> {
+  return {
+    count: report.revisionCount,
+    snapshotBytes: report.snapshotBytes,
+    databaseBytes: report.databaseBytes,
+    snapshotShareOfDatabase: report.snapshotShareOfDatabase,
+    targets: report.perTarget.length,
+  };
+}
+
 export async function runDoctor(
   dataDirOverride?: string,
   repoDir?: string,
@@ -153,6 +173,9 @@ export async function runDoctor(
       }
       const projectCount = tables.includes('projects') ? await countRows(db, 'projects') : 0;
       const taskCount = tables.includes('tasks') ? await countRows(db, 'tasks') : 0;
+      const revisions = tables.includes('revisions')
+        ? revisionInstrument(await reportRevisionUsage(db))
+        : undefined;
       return {
         healthy: issues.length === 0,
         dataDir,
@@ -162,6 +185,7 @@ export async function runDoctor(
         migrationsApplied,
         projectCount,
         taskCount,
+        revisions,
         issues,
         binding,
         scaffold,
@@ -225,6 +249,9 @@ export async function runDoctor(
 
   const projectCount = tables.includes('projects') ? await countRows(db, 'projects') : 0;
   const taskCount = tables.includes('tasks') ? await countRows(db, 'tasks') : 0;
+  const revisions = tables.includes('revisions')
+    ? revisionInstrument(await reportRevisionUsage(db))
+    : undefined;
 
   let binding: BindingDoctorReport | undefined;
   let scaffold: ScaffoldDoctorReport | undefined;
@@ -245,6 +272,7 @@ export async function runDoctor(
     migrationsApplied,
     projectCount,
     taskCount,
+    revisions,
     issues,
     binding,
     scaffold,
@@ -275,6 +303,13 @@ export function formatDoctorReport(report: DoctorReport): string {
     }
     lines.push(`projects: ${String(report.projectCount)}`);
     lines.push(`tasks: ${String(report.taskCount)}`);
+  }
+  if (report.revisions !== undefined) {
+    const sharePct = (report.revisions.snapshotShareOfDatabase * 100).toFixed(2);
+    lines.push(
+      `revisions: ${String(report.revisions.count)} across ${String(report.revisions.targets)} targets; ` +
+        `snapshot ${String(report.revisions.snapshotBytes)} B / db ${String(report.revisions.databaseBytes)} B (${sharePct}%)`,
+    );
   }
   // Global board backup gap: rm -rf ~/.plandesk loses every project with nothing
   // in git. Surface count + last export so the risk is visible.

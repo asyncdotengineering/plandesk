@@ -9,7 +9,6 @@ import {
   getDocumentByTask as dbGetDocumentByTask,
   getFolderByProjectAndId,
   getTask,
-  insertRevision,
   isSqliteBusy,
   retryOnSqliteBusy,
   TransactionRollback,
@@ -38,6 +37,7 @@ import {
 import { serializeActor } from '../write-actor.js';
 import { assertPermission, resolveOrgId, resolveWriteActor, type OrgScopedDeps } from './org-scope.js';
 import {
+  captureRevision,
   changedVersionedFields,
   DOCUMENT_VERSIONED_FIELDS,
   versionedFieldSnapshot,
@@ -45,6 +45,8 @@ import {
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 export type DocumentServiceDeps = OrgScopedDeps & {
   db: Db;
+  /** Positive keep-count, or null/omit for unlimited. */
+  maxRevisions?: number | null;
 };
 
 export type CreateDocumentInput = {
@@ -463,14 +465,18 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         }
         if (versionedChanges.length > 0) {
           const author = serializeActor(resolveWriteActor(deps));
-          await insertRevision(tx, {
-            projectId: prior.projectId,
-            targetType: 'document',
-            targetId: id,
-            snapshot: JSON.stringify(versionedFieldSnapshot(prior, DOCUMENT_VERSIONED_FIELDS)),
-            changedFields: JSON.stringify(versionedChanges),
-            author,
-          });
+          await captureRevision(
+            tx,
+            {
+              projectId: prior.projectId,
+              targetType: 'document',
+              targetId: id,
+              snapshot: JSON.stringify(versionedFieldSnapshot(prior, DOCUMENT_VERSIONED_FIELDS)),
+              changedFields: JSON.stringify(versionedChanges),
+              author,
+            },
+            deps.maxRevisions ?? null,
+          );
         }
         return row;
       });

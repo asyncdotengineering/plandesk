@@ -105,6 +105,11 @@ export { createS3Adapter, type S3AdapterConfig } from './storage/s3.js';
 export { createR2Adapter, type R2BucketLike } from './storage/r2.js';
 export type { StorageAdapter } from './storage/adapter.js';
 export { createServices, type Services, type ServicesDeps } from './services/index.js';
+export {
+  maxRevisionsFromEnv,
+  captureRevision,
+  type MaxRevisionsEnv,
+} from './services/revision-capture.js';
 export { assertProjectInOrg, ProjectNotInOrgError } from './services/scope.js';
 export type { ProjectService } from './services/projects.js';
 export type { GoalService, VerificationEvidence } from './services/goals.js';
