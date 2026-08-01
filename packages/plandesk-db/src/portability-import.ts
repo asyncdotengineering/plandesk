@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { eq } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import type { Db, DbClient } from './client.js';
 import { isValidCommitRefs, normalizeCommitRefs } from './commit-refs.js';
@@ -230,12 +231,35 @@ export function emitProjectImport(ctx: ImportContext): void {
       workspaceId: ctx.workspaceId,
       name: ctx.data.project.name,
       description: ctx.data.project.description,
+      ownerId: ctx.data.project.owner_id ?? null,
+      // Overview pin is applied after documents exist — see emitProjectOverviewLink.
+      overviewDocumentId: null,
       repoUrl: ctx.data.project.repo_url ?? null,
       folderPath: ctx.data.project.folder_path ?? null,
       canvasLayout: ctx.data.project.canvas_layout,
       createdAt: ctx.now,
       updatedAt: ctx.now,
     }),
+  );
+}
+
+/** Link the remapped overview document after documents have been inserted. */
+export function emitProjectOverviewLink(ctx: ImportContext): void {
+  const overviewExportId = ctx.data.project.overview_document_id;
+  if (overviewExportId === undefined || overviewExportId === null) {
+    return;
+  }
+  const remapped = remapId(ctx.documentIdMap, overviewExportId);
+  if (remapped === null) {
+    throw new Error(
+      `overview_document_id ${overviewExportId} is not present in the export documents collection`,
+    );
+  }
+  ctx.statements.push(
+    ctx.root
+      .update(projects)
+      .set({ overviewDocumentId: remapped, updatedAt: ctx.now })
+      .where(eq(projects.id, ctx.projectId)),
   );
 }
 
@@ -441,6 +465,10 @@ export function emitDocumentsImport(ctx: ImportContext): void {
       }),
     );
   }
+
+  // Projects are inserted before documents; apply the overview pin now that
+  // document rows (and their remapped ids) exist.
+  emitProjectOverviewLink(ctx);
 }
 
 export function emitNotesImport(ctx: ImportContext): void {

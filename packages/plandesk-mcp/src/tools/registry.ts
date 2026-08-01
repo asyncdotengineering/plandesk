@@ -58,6 +58,8 @@ export const listProjectsInputSchema = z.object({});
 export const createProjectInputSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
+  owner_id: z.string().min(1).nullable().optional(),
+  overview_document_id: z.string().uuid().nullable().optional(),
   repo_url: repoUrlSchema,
   folder_path: folderPathSchema,
 });
@@ -66,6 +68,8 @@ export const updateProjectInputSchema = z.object({
   project_id: z.string().uuid(),
   name: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
+  owner_id: z.string().min(1).nullable().optional(),
+  overview_document_id: z.string().uuid().nullable().optional(),
   repo_url: repoUrlSchema,
   folder_path: folderPathSchema,
 });
@@ -83,6 +87,7 @@ export const createTaskInputSchema = z.object({
   description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
   x: z.number().optional(),
   y: z.number().optional(),
+  assignee: z.string().min(1).nullable().optional(),
   goal_id: z
     .string()
     .uuid()
@@ -102,6 +107,7 @@ export const updateTaskInputSchema = z.object({
   description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
   x: z.number().optional(),
   y: z.number().optional(),
+  assignee: z.string().min(1).nullable().optional(),
   goal_id: z
     .string()
     .uuid()

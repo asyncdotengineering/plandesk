@@ -41,14 +41,17 @@ function ProjectOverviewPage() {
   const patchProject = usePatchProject();
   const deleteProject = useDeleteProject();
   const [name, setName] = useState('');
+  const [ownerId, setOwnerId] = useState('');
   const [editingName, setEditingName] = useState(false);
+  const [editingOwner, setEditingOwner] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {
     if (project !== undefined) {
       setName(project.name);
+      setOwnerId(project.owner_id ?? '');
     }
-  }, [project?.name, project]);
+  }, [project?.name, project?.owner_id, project]);
 
   const commitName = () => {
     const trimmed = name.trim();
@@ -65,6 +68,35 @@ function ProjectOverviewPage() {
         },
       },
     );
+  };
+
+  const commitOwner = () => {
+    if (project === undefined) {
+      return;
+    }
+    const next = ownerId.trim() === '' ? null : ownerId.trim();
+    if (next === project.owner_id) {
+      setEditingOwner(false);
+      return;
+    }
+    patchProject.mutate(
+      { id, input: { owner_id: next } },
+      {
+        onSuccess: () => {
+          setEditingOwner(false);
+        },
+      },
+    );
+  };
+
+  const setOverviewDocument = (documentId: string | null) => {
+    if (project === undefined) {
+      return;
+    }
+    if (documentId === project.overview_document_id) {
+      return;
+    }
+    patchProject.mutate({ id, input: { overview_document_id: documentId } });
   };
 
   if (isLoading) {
@@ -87,9 +119,11 @@ function ProjectOverviewPage() {
     .sort((a, b) => (a.status === 'complete' ? 1 : 0) - (b.status === 'complete' ? 1 : 0))
     .slice(0, 5);
 
-  const recentDocs = flattenDocumentTree(documents ?? [])
+  const flatDocs = flattenDocumentTree(documents ?? []);
+  const recentDocs = [...flatDocs]
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
     .slice(0, 6);
+  const overviewDoc = flatDocs.find((doc) => doc.id === project.overview_document_id);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -150,6 +184,72 @@ function ProjectOverviewPage() {
         {project.description ? (
           <p className="mt-1.5 max-w-3xl text-sm text-muted-foreground">{project.description}</p>
         ) : null}
+        <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="text-muted-foreground">Owner</span>
+            {editingOwner ? (
+              <Input
+                type="text"
+                value={ownerId}
+                autoFocus
+                onChange={(event) => {
+                  setOwnerId(event.target.value);
+                }}
+                onBlur={commitOwner}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    commitOwner();
+                  }
+                  if (event.key === 'Escape') {
+                    setOwnerId(project.owner_id ?? '');
+                    setEditingOwner(false);
+                  }
+                }}
+                aria-label="Project owner"
+                placeholder="Unassigned"
+                className="h-8 w-48"
+              />
+            ) : (
+              <button
+                type="button"
+                className="text-foreground hover:underline"
+                onClick={() => {
+                  setEditingOwner(true);
+                }}
+              >
+                {project.owner_id ?? 'Unassigned'}
+              </button>
+            )}
+          </div>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="text-muted-foreground">Overview</span>
+            <select
+              aria-label="Overview document"
+              className="h-8 max-w-xs rounded-md border bg-background px-2 text-sm"
+              value={project.overview_document_id ?? ''}
+              onChange={(event) => {
+                const value = event.target.value;
+                setOverviewDocument(value === '' ? null : value);
+              }}
+            >
+              <option value="">None</option>
+              {flatDocs.map((doc) => (
+                <option key={doc.id} value={doc.id}>
+                  {doc.title}
+                </option>
+              ))}
+            </select>
+            {overviewDoc !== undefined ? (
+              <Link
+                to="/projects/$id/documents/$docId"
+                params={{ id, docId: overviewDoc.id }}
+                className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+              >
+                Open <ArrowRightIcon className="size-3.5" />
+              </Link>
+            ) : null}
+          </div>
+        </div>
       </header>
 
       {/* Status at a glance */}

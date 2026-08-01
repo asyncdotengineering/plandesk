@@ -53,6 +53,11 @@ export const SUPPORTED_EXPORT_VERSIONS = [
 export type PlandeskExportProject = {
   name: string;
   description: string | null;
+  // Always written on export; optional on import for exports written before owner existed.
+  owner_id?: string | null;
+  // Always written on export; optional on import for exports written before overview pin existed.
+  // Remapped through documentIdMap on import (set after documents are inserted).
+  overview_document_id?: string | null;
   // Always written on export; optional on import for exports written before repo binding.
   repo_url?: string | null;
   // Always written on export; optional on import for exports written before repo binding.

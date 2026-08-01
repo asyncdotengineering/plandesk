@@ -5,7 +5,9 @@ import {
   deleteProject,
   getProject,
   updateProject,
+  clearOverviewDocumentRefs,
 } from './projects.js';
+import { createDocument, deleteDocument } from './documents.js';
 import { listProjectsInDefaultOrg as listProjects } from '../testing.js';
 import { createProjectInDefaultOrg as createProject } from '../testing.js';
 
@@ -127,5 +129,40 @@ describe('projects repository', () => {
     });
     expect(updated?.repoUrl).toBeNull();
     expect(updated?.folderPath).toBeNull();
+  });
+
+  it('owner and overview default null; set, clear with null, omit leaves unchanged', async () => {
+    const created = await createProject(db, { name: 'Meta' });
+    expect(created.ownerId).toBeNull();
+    expect(created.overviewDocumentId).toBeNull();
+
+    const doc = await createDocument(db, { projectId: created.id, title: 'Spec' });
+
+    const set = await updateProject(db, created.id, {
+      ownerId: 'user-ada',
+      overviewDocumentId: doc.id,
+    });
+    expect(set?.ownerId).toBe('user-ada');
+    expect(set?.overviewDocumentId).toBe(doc.id);
+
+    const cleared = await updateProject(db, created.id, {
+      ownerId: null,
+      overviewDocumentId: null,
+    });
+    expect(cleared?.ownerId).toBeNull();
+    expect(cleared?.overviewDocumentId).toBeNull();
+
+    await updateProject(db, created.id, {
+      ownerId: 'user-bob',
+      overviewDocumentId: doc.id,
+    });
+    const omitted = await updateProject(db, created.id, { name: 'Still Meta' });
+    expect(omitted?.name).toBe('Still Meta');
+    expect(omitted?.ownerId).toBe('user-bob');
+    expect(omitted?.overviewDocumentId).toBe(doc.id);
+
+    await clearOverviewDocumentRefs(db, doc.id);
+    expect((await getProject(db, created.id))?.overviewDocumentId).toBeNull();
+    expect(await deleteDocument(db, doc.id)).toBe(true);
   });
 });

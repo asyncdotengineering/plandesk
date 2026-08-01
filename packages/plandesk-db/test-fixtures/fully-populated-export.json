@@ -3,6 +3,8 @@
   "project": {
     "name": "Coverage Round-Trip Project",
     "description": "DISTINCT-project-description",
+    "owner_id": "DISTINCT-owner-id",
+    "overview_document_id": "00000000-0000-4000-8000-00000000f007",
     "repo_url": "https://example.com/org/coverage-repo.git",
     "folder_path": "packages/coverage-fixture",
     "canvas_layout": "{\"zoom\":2.5,\"pan\":[11,22]}"

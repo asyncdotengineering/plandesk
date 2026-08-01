@@ -5,6 +5,7 @@ import {
   deleteRevisionsByTarget,
   deleteDocument as dbDeleteDocument,
   detachDocumentChildren,
+  clearOverviewDocumentRefs,
   getDocument as dbGetDocument,
   getDocumentByTask as dbGetDocumentByTask,
   getFolderByProjectAndId,
@@ -565,6 +566,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
 
       await withTransaction(db, async (tx) => {
         await detachDocumentChildren(tx, id);
+        await clearOverviewDocumentRefs(tx, id);
         await deleteCommentsByTarget(tx, 'document', id);
         await deleteRevisionsByTarget(tx, 'document', id);
         await dbDeleteDocument(tx, id);

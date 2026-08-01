@@ -209,6 +209,68 @@ describe('projects routes', () => {
     expect(body.description).toBe('Updated');
   });
 
+  it('PATCH owner_id and overview_document_id: set, clear with null, omit leaves unchanged', async () => {
+    const { app, db } = await createTestApp();
+    const { createDocument } = await import('@plandesk/db');
+    const created = await createProject(db, { name: 'Meta' });
+    const doc = await createDocument(db, { projectId: created.id, title: 'Spec' });
+
+    const set = await app.request(`/api/v1/projects/${created.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ owner_id: 'ada', overview_document_id: doc.id }),
+    });
+    expect(set.status).toBe(200);
+    expect(await parseJson<ProjectResponse>(set)).toMatchObject({
+      owner_id: 'ada',
+      overview_document_id: doc.id,
+    });
+
+    const cleared = await app.request(`/api/v1/projects/${created.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ owner_id: null, overview_document_id: null }),
+    });
+    expect(cleared.status).toBe(200);
+    expect(await parseJson<ProjectResponse>(cleared)).toMatchObject({
+      owner_id: null,
+      overview_document_id: null,
+    });
+
+    await app.request(`/api/v1/projects/${created.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ owner_id: 'bob', overview_document_id: doc.id }),
+    });
+    const omitted = await app.request(`/api/v1/projects/${created.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Still Meta' }),
+    });
+    expect(omitted.status).toBe(200);
+    expect(await parseJson<ProjectResponse>(omitted)).toMatchObject({
+      name: 'Still Meta',
+      owner_id: 'bob',
+      overview_document_id: doc.id,
+    });
+  });
+
+  it('PATCH overview_document_id rejects a document from another project', async () => {
+    const { app, db } = await createTestApp();
+    const { createDocument } = await import('@plandesk/db');
+    const project = await createProject(db, { name: 'A' });
+    const other = await createProject(db, { name: 'B' });
+    const foreignDoc = await createDocument(db, { projectId: other.id, title: 'Foreign' });
+
+    const res = await app.request(`/api/v1/projects/${project.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overview_document_id: foreignDoc.id }),
+    });
+    expect(res.status).toBe(400);
+    expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
+  });
+
   it('POST /api/v1/projects accepts repo_url and folder_path; omitted fields are null', async () => {
     const { app } = await createTestApp();
     const withRepo = await app.request('/api/v1/projects', {

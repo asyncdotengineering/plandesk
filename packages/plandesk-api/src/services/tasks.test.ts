@@ -756,6 +756,36 @@ describe('taskService', () => {
     });
   });
 
+  it('claim overwrites a human assignee with the agent_ref (one field, intentional handoff)', async () => {
+    const service = createService();
+    const created = await createTask(db, {
+      projectId,
+      label: 'Human owned',
+      status: 'todo',
+      assignee: 'ada@example.com',
+    });
+
+    const result = await service.claim(created.id, 'agent-42');
+    if (!result?.claimed) {
+      throw new Error('Expected the task claim to succeed');
+    }
+    expect(result.task.assignee).toBe('agent-42');
+    expect((await getTask(db, created.id))?.assignee).toBe('agent-42');
+  });
+
+  it('reaching done retains assignee (record of who did the work)', async () => {
+    const service = createService();
+    const created = await createTask(db, {
+      projectId,
+      label: 'Ship it',
+      status: 'in_progress',
+      assignee: 'agent-42',
+    });
+    const done = await service.update(created.id, { status: 'done' });
+    expect(done).toMatchObject({ status: 'done', assignee: 'agent-42' });
+    expect((await getTask(db, created.id))?.assignee).toBe('agent-42');
+  });
+
   it('claim on an already in_progress task returns not-claimed', async () => {
     const service = createService();
     const created = await createTask(db, {

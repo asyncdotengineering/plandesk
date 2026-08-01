@@ -60,6 +60,8 @@ type ProjectResponse = {
   id: string;
   name: string;
   description: string | null;
+  owner_id: string | null;
+  overview_document_id: string | null;
   repo_url: string | null;
   folder_path: string | null;
   workspace_id: string;

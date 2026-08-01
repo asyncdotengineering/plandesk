@@ -62,6 +62,8 @@ export function serializeProject(project: Project) {
     id: project.id,
     name: project.name,
     description: project.description,
+    owner_id: project.ownerId,
+    overview_document_id: project.overviewDocumentId,
     repo_url: project.repoUrl,
     folder_path: project.folderPath,
     workspace_id: project.workspaceId,

@@ -177,6 +177,8 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
     serialize: (project: Project): PlandeskExportProject => ({
       name: project.name,
       description: project.description,
+      owner_id: project.ownerId,
+      overview_document_id: project.overviewDocumentId,
       repo_url: project.repoUrl,
       folder_path: project.folderPath,
       canvas_layout: project.canvasLayout,
@@ -184,7 +186,15 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
     import: { order: 10, emit: emitProjectImport },
     portability: {
       drizzleTable: projects,
-      roundTrippedColumns: ['name', 'description', 'repo_url', 'folder_path', 'canvas_layout'],
+      roundTrippedColumns: [
+        'name',
+        'description',
+        'owner_id',
+        'overview_document_id',
+        'repo_url',
+        'folder_path',
+        'canvas_layout',
+      ],
       columnExclusions: {
         id: 'Remapped on import; export creates a new project',
         org_id: 'Scoped by import options, not the export file',

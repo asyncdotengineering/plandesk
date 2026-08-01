@@ -79,6 +79,14 @@ export const projects = sqliteTable('projects', {
   workspaceId: text('workspace_id').notNull().default(DEFAULT_WORKSPACE_ID),
   name: text('name').notNull(),
   description: text('description'),
+  // Nullable — absence is null, never a sentinel. User identity lives in better-auth; no FK.
+  ownerId: text('owner_id'),
+  // Nullable pin of the project's source-of-truth document. Real FK; same-project
+  // ownership is enforced at the service boundary. ON DELETE SET NULL so deleting
+  // the overview document clears the pin rather than blocking the delete.
+  overviewDocumentId: text('overview_document_id').references((): AnySQLiteColumn => documents.id, {
+    onDelete: 'set null',
+  }),
   // Nullable repo binding — several projects may share one repo_url (monorepo).
   repoUrl: text('repo_url'),
   // Path relative to the repo root (e.g. packages/plandesk-api); never absolute.

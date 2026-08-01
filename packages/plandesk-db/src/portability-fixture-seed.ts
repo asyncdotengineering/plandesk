@@ -65,7 +65,10 @@ export async function seedDeterministicFullyPopulatedProject(db: Db): Promise<st
     repoUrl: 'https://example.com/org/coverage-repo.git',
     folderPath: 'packages/coverage-fixture',
   });
-  await updateProject(db, project.id, { canvasLayout: '{"zoom":2.5,"pan":[11,22]}' });
+  await updateProject(db, project.id, {
+    canvasLayout: '{"zoom":2.5,"pan":[11,22]}',
+    ownerId: 'DISTINCT-owner-id',
+  });
 
   const goal = await createGoal(db, {
     id: ids.goal,
@@ -152,6 +155,8 @@ export async function seedDeterministicFullyPopulatedProject(db: Db): Promise<st
     parentId: parentDoc.id,
     folderId: childFolder.id,
   });
+
+  await updateProject(db, project.id, { overviewDocumentId: parentDoc.id });
 
   await createEdge(db, {
     id: ids.edge,

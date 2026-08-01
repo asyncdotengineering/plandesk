@@ -83,6 +83,8 @@ describe('portability export manifest', () => {
         description: exported.project.description,
         folder_path: exported.project.folder_path,
         name: exported.project.name,
+        owner_id: exported.project.owner_id,
+        overview_document_id: exported.project.overview_document_id,
         repo_url: exported.project.repo_url,
       },
     };

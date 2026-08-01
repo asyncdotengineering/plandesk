@@ -10,6 +10,7 @@ import {
   isValidRepoUrl,
 } from '@plandesk/db';
 import type { ProjectService } from '../services/projects.js';
+import { InvalidOverviewDocumentError } from '../services/projects.js';
 import {
   InvalidExportRequestError,
   type ProjectExportService,
@@ -39,11 +40,27 @@ export function createProjectsRouter(
     const body = await c.req.json<{
       name?: string;
       description?: string | null;
+      owner_id?: string | null;
+      overview_document_id?: string | null;
       repo_url?: string | null;
       folder_path?: string | null;
       workspace_id?: string;
     }>();
     if (typeof body.name !== 'string' || body.name.trim() === '') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (
+      body.owner_id !== undefined &&
+      body.owner_id !== null &&
+      (typeof body.owner_id !== 'string' || body.owner_id.trim() === '')
+    ) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (
+      body.overview_document_id !== undefined &&
+      body.overview_document_id !== null &&
+      typeof body.overview_document_id !== 'string'
+    ) {
       return c.json({ error: 'invalid_argument' }, 400);
     }
     if (body.repo_url !== undefined && body.repo_url !== null) {
@@ -64,6 +81,10 @@ export function createProjectsRouter(
       const project = await projectService.create({
         name: body.name,
         description: body.description,
+        ...(body.owner_id !== undefined ? { ownerId: body.owner_id } : {}),
+        ...(body.overview_document_id !== undefined
+          ? { overviewDocumentId: body.overview_document_id }
+          : {}),
         ...(body.repo_url !== undefined ? { repoUrl: body.repo_url } : {}),
         ...(body.folder_path !== undefined ? { folderPath: body.folder_path } : {}),
         ...(workspaceId !== undefined ? { workspaceId } : {}),
@@ -72,6 +93,9 @@ export function createProjectsRouter(
     } catch (error) {
       if (error instanceof WorkspaceNotFoundError) {
         return c.json({ error: 'not_found' }, 404);
+      }
+      if (error instanceof InvalidOverviewDocumentError) {
+        return c.json({ error: 'invalid_argument', message: error.message }, 400);
       }
       throw error;
     }
@@ -89,11 +113,27 @@ export function createProjectsRouter(
     const body = await c.req.json<{
       name?: string;
       description?: string | null;
+      owner_id?: string | null;
+      overview_document_id?: string | null;
       repo_url?: string | null;
       folder_path?: string | null;
       workspace_id?: string | null;
     }>();
     if (body.name !== undefined && (typeof body.name !== 'string' || body.name.trim() === '')) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (
+      body.owner_id !== undefined &&
+      body.owner_id !== null &&
+      (typeof body.owner_id !== 'string' || body.owner_id.trim() === '')
+    ) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (
+      body.overview_document_id !== undefined &&
+      body.overview_document_id !== null &&
+      typeof body.overview_document_id !== 'string'
+    ) {
       return c.json({ error: 'invalid_argument' }, 400);
     }
     if (body.repo_url !== undefined && body.repo_url !== null) {
@@ -110,6 +150,10 @@ export function createProjectsRouter(
     const contentPatch = {
       ...(body.name !== undefined ? { name: body.name } : {}),
       ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.owner_id !== undefined ? { ownerId: body.owner_id } : {}),
+      ...(body.overview_document_id !== undefined
+        ? { overviewDocumentId: body.overview_document_id }
+        : {}),
       ...(body.repo_url !== undefined ? { repoUrl: body.repo_url } : {}),
       ...(body.folder_path !== undefined ? { folderPath: body.folder_path } : {}),
     };
@@ -142,11 +186,18 @@ export function createProjectsRouter(
       }
     }
 
-    const project = await projectService.update(c.req.param('id'), contentPatch);
-    if (!project) {
-      return c.json({ error: 'not_found' }, 404);
+    try {
+      const project = await projectService.update(c.req.param('id'), contentPatch);
+      if (!project) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+      return c.json(project);
+    } catch (error) {
+      if (error instanceof InvalidOverviewDocumentError) {
+        return c.json({ error: 'invalid_argument', message: error.message }, 400);
+      }
+      throw error;
     }
-    return c.json(project);
   });
 
   router.delete('/projects/:id', async (c) => {

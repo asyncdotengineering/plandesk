@@ -46,6 +46,8 @@ type PortableSnapshot = {
   project: {
     name: string;
     description: string | null;
+    owner_id: string | null | undefined;
+    overview_document_id: string | null | undefined;
     repo_url: string | null | undefined;
     folder_path: string | null | undefined;
     canvas_layout: string | null;
@@ -159,6 +161,14 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
     project: {
       name: exported.project.name,
       description: exported.project.description,
+      owner_id: exported.project.owner_id ?? null,
+      // Resolve remapped document id to title so round-trip compares equal.
+      overview_document_id:
+        exported.project.overview_document_id === undefined ||
+        exported.project.overview_document_id === null
+          ? null
+          : (documentTitleById.get(exported.project.overview_document_id) ??
+            exported.project.overview_document_id),
       repo_url: exported.project.repo_url ?? null,
       folder_path: exported.project.folder_path ?? null,
       canvas_layout: exported.project.canvas_layout,
@@ -312,7 +322,10 @@ async function buildFullyPopulatedProject(db: Db): Promise<string> {
     repoUrl: 'https://example.com/org/coverage-repo.git',
     folderPath: 'packages/coverage-fixture',
   });
-  await updateProject(db, project.id, { canvasLayout: '{"zoom":2.5,"pan":[11,22]}' });
+  await updateProject(db, project.id, {
+    canvasLayout: '{"zoom":2.5,"pan":[11,22]}',
+    ownerId: 'DISTINCT-owner-id',
+  });
 
   const goal = await createGoal(db, {
     projectId: project.id,
@@ -376,6 +389,8 @@ async function buildFullyPopulatedProject(db: Db): Promise<string> {
     parentId: parentDoc.id,
     folderId: childFolder.id,
   });
+
+  await updateProject(db, project.id, { overviewDocumentId: parentDoc.id });
 
   await createEdge(db, {
     projectId: project.id,
@@ -584,9 +599,15 @@ describe('portability export behavioural coverage', () => {
 
     it('projects columns round-trip', () => {
       expect(exported.project.description).toBe('DISTINCT-project-description');
+      // REVERT-PROOF: non-null owner and overview survive export → import.
+      // A null value would round-trip identically whether the columns were wired.
+      expect(exported.project.owner_id).toBe('DISTINCT-owner-id');
+      expect(exported.project.overview_document_id).toBeTruthy();
       expect(exported.project.repo_url).toBe('https://example.com/org/coverage-repo.git');
       expect(exported.project.folder_path).toBe('packages/coverage-fixture');
       expect(exported.project.canvas_layout).toBe('{"zoom":2.5,"pan":[11,22]}');
+      expect(sourceSnapshot.project.owner_id).toBe('DISTINCT-owner-id');
+      expect(sourceSnapshot.project.overview_document_id).toBe('DISTINCT-parent-doc');
       expect(targetSnapshot.project).toEqual(sourceSnapshot.project);
     });
 

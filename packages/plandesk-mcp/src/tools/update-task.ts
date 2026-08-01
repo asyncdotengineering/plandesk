@@ -20,6 +20,7 @@ export function createUpdateTaskHandler(
   description?: string;
   x?: number;
   y?: number;
+  assignee?: string | null;
   goal_id?: string;
   tags?: string[];
   commit_refs?: string[] | null;
@@ -34,6 +35,7 @@ export function createUpdateTaskHandler(
         ...(args.description !== undefined ? { description: args.description } : {}),
         ...(args.x !== undefined ? { x: args.x } : {}),
         ...(args.y !== undefined ? { y: args.y } : {}),
+        ...(args.assignee !== undefined ? { assignee: args.assignee } : {}),
         ...(args.goal_id !== undefined ? { goalId: args.goal_id } : {}),
         ...(args.tags !== undefined ? { tags: args.tags } : {}),
         ...(args.commit_refs !== undefined ? { commitRefs: args.commit_refs } : {}),

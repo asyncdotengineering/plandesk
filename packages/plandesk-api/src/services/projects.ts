@@ -35,6 +35,7 @@ import {
   listTasks,
   updateDocument,
   updateProject as dbUpdateProject,
+  getDocumentByProjectAndId,
   type Db,
   type DbClient,
   type Document,
@@ -223,6 +224,8 @@ export type ProjectServiceDeps = OrgScopedDeps & {
 export type CreateProjectInput = {
   name: string;
   description?: string | null;
+  ownerId?: string | null;
+  overviewDocumentId?: string | null;
   repoUrl?: string | null;
   folderPath?: string | null;
   workspaceId?: string;
@@ -231,9 +234,18 @@ export type CreateProjectInput = {
 export type UpdateProjectInput = {
   name?: string;
   description?: string | null;
+  ownerId?: string | null;
+  overviewDocumentId?: string | null;
   repoUrl?: string | null;
   folderPath?: string | null;
 };
+
+export class InvalidOverviewDocumentError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidOverviewDocumentError';
+  }
+}
 
 function summarizeTasks(tasks: Task[]): TaskStatusSummary {
   const summary = emptyTaskStatusSummary();
@@ -251,7 +263,23 @@ export function createProjectService(deps: ProjectServiceDeps) {
       assertPermission(deps, 'project', 'create');
       const orgId = resolveOrgId(deps);
       const workspaceId = await resolveWorkspaceForNewProject(deps, db, input.workspaceId);
-      const project = await dbCreateProject(db, { ...input, orgId, workspaceId });
+      // Overview cannot be set on create: the document must already belong to the
+      // project, which does not exist yet. Reject a non-null pin rather than
+      // silently dropping it.
+      if (input.overviewDocumentId !== undefined && input.overviewDocumentId !== null) {
+        throw new InvalidOverviewDocumentError(
+          'overview_document_id cannot be set when creating a project',
+        );
+      }
+      const project = await dbCreateProject(db, {
+        name: input.name,
+        orgId,
+        workspaceId,
+        ...(input.description !== undefined ? { description: input.description } : {}),
+        ...(input.ownerId !== undefined ? { ownerId: input.ownerId } : {}),
+        ...(input.repoUrl !== undefined ? { repoUrl: input.repoUrl } : {}),
+        ...(input.folderPath !== undefined ? { folderPath: input.folderPath } : {}),
+      });
       return serializeProject(project);
     },
 
@@ -305,6 +333,15 @@ export function createProjectService(deps: ProjectServiceDeps) {
           return undefined;
         }
         throw error;
+      }
+      if (input.overviewDocumentId !== undefined && input.overviewDocumentId !== null) {
+        const overview = await getDocumentByProjectAndId(db, id, input.overviewDocumentId);
+        if (overview === undefined) {
+          // Unknown, wrong-project, and cross-org document ids all look the same.
+          throw new InvalidOverviewDocumentError(
+            'overview_document_id must refer to a document in this project',
+          );
+        }
       }
       const project = await dbUpdateProject(db, id, input);
       if (!project) {
@@ -376,6 +413,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
           await deleteAgentRun(tx, run.id);
         }
         await deleteEdgesByProjectId(tx, id);
+        // Null the overview pin before deleting documents — the FK from projects
+        // to documents would otherwise reject the document deletes.
+        await dbUpdateProject(tx, id, { overviewDocumentId: null });
         await clearDocumentParentRefsByProject(tx, id);
         await deleteCommentsByProjectId(tx, id);
         await deleteRevisionsByProjectId(tx, id);

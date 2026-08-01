@@ -649,6 +649,8 @@ describe('export/import portability', () => {
       'id',
       'name',
       'org_id',
+      'overview_document_id',
+      'owner_id',
       'repo_url',
       'updated_at',
       'workspace_id',

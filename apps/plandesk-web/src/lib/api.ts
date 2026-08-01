@@ -54,6 +54,8 @@ export type SerializedProject = {
   id: string;
   name: string;
   description: string | null;
+  owner_id: string | null;
+  overview_document_id: string | null;
   repo_url: string | null;
   folder_path: string | null;
   /** The workspace (better-auth team) the project belongs to. */
@@ -169,6 +171,7 @@ export type PutCanvasInput = {
 export type CreateProjectInput = {
   name: string;
   description?: string | null;
+  owner_id?: string | null;
   repo_url?: string | null;
   folder_path?: string | null;
   /** Workspace to create the project in; defaults to the org's default workspace. */
@@ -218,6 +221,8 @@ export type PatchTagInput = {
 export type PatchProjectInput = {
   name?: string;
   description?: string | null;
+  owner_id?: string | null;
+  overview_document_id?: string | null;
   repo_url?: string | null;
   folder_path?: string | null;
   /** Move the project to another workspace (owner-gated on the server). */

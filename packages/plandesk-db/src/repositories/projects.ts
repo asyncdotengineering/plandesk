@@ -9,6 +9,8 @@ export type NewProject = {
   orgId: string;
   workspaceId: string;
   description?: string | null;
+  ownerId?: string | null;
+  overviewDocumentId?: string | null;
   repoUrl?: string | null;
   folderPath?: string | null;
   id?: string;
@@ -17,6 +19,8 @@ export type NewProject = {
 export type ProjectUpdate = {
   name?: string;
   description?: string | null;
+  ownerId?: string | null;
+  overviewDocumentId?: string | null;
   repoUrl?: string | null;
   folderPath?: string | null;
   canvasLayout?: string | null;
@@ -34,6 +38,8 @@ export async function createProject(db: DbClient, input: NewProject): Promise<Pr
       workspaceId: input.workspaceId,
       name: input.name,
       description: input.description ?? null,
+      ownerId: input.ownerId ?? null,
+      overviewDocumentId: input.overviewDocumentId ?? null,
       repoUrl: input.repoUrl ?? null,
       folderPath: input.folderPath ?? null,
       createdAt: now,
@@ -138,4 +144,22 @@ export async function updateProject(
     .returning()
     .all();
   return rows[0];
+}
+
+/**
+ * Clear overview_document_id on any project that pins this document.
+ * SQLite ALTER ADD COLUMN REFERENCES does not carry ON DELETE SET NULL, so
+ * application code must null the pin before the document row is removed.
+ */
+export async function clearOverviewDocumentRefs(
+  db: DbClient,
+  documentId: string,
+): Promise<number> {
+  const now = new Date();
+  const result = await db
+    .update(projects)
+    .set({ overviewDocumentId: null, updatedAt: now })
+    .where(eq(projects.overviewDocumentId, documentId))
+    .run();
+  return result.rowsAffected;
 }

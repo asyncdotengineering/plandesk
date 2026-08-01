@@ -699,4 +699,56 @@ describe('migrate', () => {
     );
     expect(plainStillNull.rows).toEqual([{ priority: null }]);
   });
+
+  // Regression: 0012 only ADDs nullable owner_id and overview_document_id.
+  // A project that existed at 0011 must survive with both columns null.
+  it('0012 preserves pre-existing projects as null owner and overview', async () => {
+    const files = readdirSync(drizzleDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    const idx = files.indexOf('0012_long_ted_forrester.sql');
+    expect(idx).toBeGreaterThan(0);
+    const preamble = files.slice(0, idx);
+    const target = files[idx];
+    if (target === undefined) {
+      throw new Error(`no migration file at index ${String(idx)}`);
+    }
+
+    const db = await createDb(':memory:');
+    await db.$client.execute('PRAGMA foreign_keys = OFF');
+    for (const f of preamble) {
+      await applyMigrationSqlRaw(db, f);
+    }
+
+    await db.$client.execute(
+      "INSERT INTO projects (id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at, repo_url, folder_path) VALUES ('p1','o1','w1','Pre-0012',NULL,NULL,100,200,NULL,NULL)",
+    );
+
+    expect(await hasColumn(db, 'projects', 'owner_id')).toBe(false);
+    expect(await hasColumn(db, 'projects', 'overview_document_id')).toBe(false);
+
+    const before = await db.$client.execute(
+      "SELECT id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at, repo_url, folder_path FROM projects WHERE id = 'p1'",
+    );
+    expect(before.rows).toHaveLength(1);
+
+    await applyMigrationSqlRaw(db, target);
+    await db.$client.execute('PRAGMA foreign_keys = ON');
+
+    const fkCheck = await db.$client.execute('PRAGMA foreign_key_check');
+    expect(fkCheck.rows).toHaveLength(0);
+    expect(await hasColumn(db, 'projects', 'owner_id')).toBe(true);
+    expect(await hasColumn(db, 'projects', 'overview_document_id')).toBe(true);
+
+    const after = await db.$client.execute(
+      "SELECT id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at, repo_url, folder_path, owner_id, overview_document_id FROM projects WHERE id = 'p1'",
+    );
+    expect(after.rows).toEqual([
+      {
+        ...before.rows[0],
+        owner_id: null,
+        overview_document_id: null,
+      },
+    ]);
+  });
 });

@@ -148,7 +148,7 @@ export { InvalidViewError } from './services/views.js';
 export { InvalidCommentError } from './services/comments.js';
 export { InvalidCanvasError } from './services/canvas.js';
 export { InvalidAgentRunError } from './services/agent-runs.js';
-export { InvalidScaffoldError } from './services/projects.js';
+export { InvalidScaffoldError, InvalidOverviewDocumentError } from './services/projects.js';
 export { InvalidShareError, type ShareService } from './services/share.js';
 export {
   InvalidRevisionQueryError,

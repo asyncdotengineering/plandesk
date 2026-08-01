@@ -1,4 +1,5 @@
 import type { PlandeskExport } from './portability.js';
+import { FIXTURE_EXPORT_IDS } from './portability-fixture-seed.js';
 
 /**
  * Canonical export snapshot for golden-fixture and regression comparisons.
@@ -29,6 +30,8 @@ function reorderProjectFields(project: PlandeskExport['project']): PlandeskExpor
   return {
     name: project.name,
     description: project.description,
+    owner_id: project.owner_id,
+    overview_document_id: project.overview_document_id,
     repo_url: project.repo_url,
     folder_path: project.folder_path,
     canvas_layout: project.canvas_layout,
@@ -183,7 +186,15 @@ export function toPortableExportSnapshot(exported: PlandeskExport): PortableExpo
   );
 
   return {
-    project: reorderProjectFields(exported.project),
+    project: {
+      ...reorderProjectFields(exported.project),
+      overview_document_id:
+        exported.project.overview_document_id === undefined ||
+        exported.project.overview_document_id === null
+          ? null
+          : (documentTitleById.get(exported.project.overview_document_id) ??
+            exported.project.overview_document_id),
+    },
     goals: [...exported.goals]
       .sort((a, b) => a.objective.localeCompare(b.objective))
       .map((goal) => ({
@@ -332,6 +343,14 @@ export function assertGoldenExportFieldCoverage(exported: PlandeskExport): void 
   }
   if (exported.project.description !== 'DISTINCT-project-description') {
     throw new Error('golden project.description mismatch');
+  }
+  if (exported.project.owner_id !== 'DISTINCT-owner-id') {
+    throw new Error(`golden project.owner_id mismatch: ${String(exported.project.owner_id)}`);
+  }
+  if (exported.project.overview_document_id !== FIXTURE_EXPORT_IDS.parentDoc) {
+    throw new Error(
+      `golden project.overview_document_id mismatch: ${String(exported.project.overview_document_id)}`,
+    );
   }
   if (exported.goals.length !== 1 || exported.goals[0]?.objective !== 'DISTINCT-goal-objective') {
     throw new Error('golden goals mismatch');

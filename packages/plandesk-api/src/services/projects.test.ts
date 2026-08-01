@@ -29,7 +29,7 @@ import {
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createBetterAuth, runBetterAuthMigrations } from '../better-auth.js';
 import { ensureLocalBetterAuthOrganization } from '../identity.js';
-import { createProjectService, InvalidScaffoldError } from './projects.js';
+import { createProjectService, InvalidScaffoldError, InvalidOverviewDocumentError } from './projects.js';
 import { createTaskService, InvalidGoalReferenceError } from './tasks.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
@@ -139,6 +139,71 @@ describe('projectService', () => {
     const created = await service.create({ name: 'Before', description: 'Old' });
     const updated = await service.update(created.id, { name: 'After', description: 'New' });
     expect(updated).toMatchObject({ id: created.id, name: 'After', description: 'New' });
+  });
+
+  it('owner and overview: set, clear with null, omit leaves unchanged; rejects cross-project overview', async () => {
+    const service = await createService();
+    const created = await service.create({ name: 'Owned', ownerId: 'ada' });
+    expect(created.owner_id).toBe('ada');
+    expect(created.overview_document_id).toBeNull();
+
+    const doc = await createDocument(db, { projectId: created.id, title: 'Overview' });
+    const other = await createProject(db, { name: 'Other board' });
+    const foreignDoc = await createDocument(db, { projectId: other.id, title: 'Foreign' });
+
+    const set = await service.update(created.id, {
+      overviewDocumentId: doc.id,
+      ownerId: 'bob',
+    });
+    expect(set).toMatchObject({ owner_id: 'bob', overview_document_id: doc.id });
+
+    const cleared = await service.update(created.id, {
+      ownerId: null,
+      overviewDocumentId: null,
+    });
+    expect(cleared).toMatchObject({ owner_id: null, overview_document_id: null });
+
+    await service.update(created.id, { ownerId: 'cara', overviewDocumentId: doc.id });
+    const omitted = await service.update(created.id, { name: 'Still Owned' });
+    expect(omitted).toMatchObject({
+      name: 'Still Owned',
+      owner_id: 'cara',
+      overview_document_id: doc.id,
+    });
+
+    await expect(
+      service.update(created.id, { overviewDocumentId: foreignDoc.id }),
+    ).rejects.toThrow(InvalidOverviewDocumentError);
+  });
+
+  it('REVERT-PROOF: cross-org get/update of owner and overview is denied', async () => {
+    const service = await createService();
+    const home = await service.create({ name: 'Home', ownerId: 'ada' });
+    const doc = await createDocument(db, { projectId: home.id, title: 'Spec' });
+    await service.update(home.id, { overviewDocumentId: doc.id });
+
+    const otherOrgId = '00000000-0000-4000-8000-00000000bbbb';
+    const foreignService = createProjectService({ db, orgId: otherOrgId });
+
+    expect(await foreignService.get(home.id)).toBeUndefined();
+    expect(
+      await foreignService.update(home.id, { ownerId: 'intruder', overviewDocumentId: null }),
+    ).toBeUndefined();
+
+    const stored = await getProject(db, home.id);
+    expect(stored?.ownerId).toBe('ada');
+    expect(stored?.overviewDocumentId).toBe(doc.id);
+  });
+
+  it('deleting a project that pins an overview document still succeeds', async () => {
+    const service = await createService();
+    const project = await service.create({ name: 'With overview' });
+    const doc = await createDocument(db, { projectId: project.id, title: 'Pinned' });
+    await service.update(project.id, { overviewDocumentId: doc.id });
+
+    expect(await service.delete(project.id)).toBe(true);
+    expect(await getProject(db, project.id)).toBeUndefined();
+    expect(await getDocument(db, doc.id)).toBeUndefined();
   });
 
   it('returns undefined when updating a missing project', async () => {

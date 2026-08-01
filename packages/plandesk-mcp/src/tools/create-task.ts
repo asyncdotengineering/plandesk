@@ -20,6 +20,7 @@ export function createCreateTaskHandler(
   description?: string;
   x?: number;
   y?: number;
+  assignee?: string | null;
   goal_id?: string;
   tags?: string[];
 }) => Promise<ToolResult> {
@@ -33,6 +34,7 @@ export function createCreateTaskHandler(
         ...(args.description !== undefined ? { description: args.description } : {}),
         ...(args.x !== undefined ? { x: args.x } : {}),
         ...(args.y !== undefined ? { y: args.y } : {}),
+        ...(args.assignee !== undefined ? { assignee: args.assignee } : {}),
         ...(args.goal_id !== undefined ? { goalId: args.goal_id } : {}),
         ...(args.tags !== undefined ? { tags: args.tags } : {}),
       });
