@@ -9,6 +9,7 @@ import type {
   Goal,
   Note,
   Project,
+  Revision,
   SavedViewConfig,
   Tag,
   Task,
@@ -482,5 +483,69 @@ export function serializeToken(token: {
     name: token.name,
     created_at: token.created_at,
     revoked_at: token.revoked_at,
+  };
+}
+
+/** Wire-format field names for revision snapshots / changed_fields. */
+export function revisionFieldToWire(field: string): string {
+  if (field === 'statusLine') {
+    return 'status_line';
+  }
+  return field;
+}
+
+export function parseRevisionSnapshot(raw: string): Record<string, unknown> {
+  const parsed: unknown = JSON.parse(raw);
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Revision snapshot must be a JSON object');
+  }
+  const wire: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    wire[revisionFieldToWire(key)] = value;
+  }
+  return wire;
+}
+
+export function parseRevisionChangedFields(raw: string): string[] {
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed)) {
+    throw new Error('Revision changed_fields must be a JSON array');
+  }
+  return parsed.map((field) => {
+    if (typeof field !== 'string') {
+      throw new Error('Revision changed_fields entries must be strings');
+    }
+    return revisionFieldToWire(field);
+  });
+}
+
+export type SerializedRevisionMeta = {
+  id: string;
+  author: string;
+  changed_fields: string[];
+  created_at: string;
+};
+
+export type SerializedRevision = SerializedRevisionMeta & {
+  target_type: string;
+  target_id: string;
+  snapshot: Record<string, unknown>;
+};
+
+export function serializeRevisionMeta(revision: Revision): SerializedRevisionMeta {
+  return {
+    id: revision.id,
+    author: revision.author,
+    changed_fields: parseRevisionChangedFields(revision.changedFields),
+    created_at: revision.createdAt.toISOString(),
+  };
+}
+
+export function serializeRevision(revision: Revision): SerializedRevision {
+  return {
+    ...serializeRevisionMeta(revision),
+    target_type: revision.targetType,
+    target_id: revision.targetId,
+    snapshot: parseRevisionSnapshot(revision.snapshot),
   };
 }

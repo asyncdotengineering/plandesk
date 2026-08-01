@@ -7,6 +7,7 @@ import { createTaskWithDefaultGoal as createTask } from '../testing.js';
 import {
   deleteRevisionsByProjectId,
   deleteRevisionsByTarget,
+  getRevision,
   insertRevision,
   listRevisionsByTarget,
 } from './revisions.js';
@@ -47,6 +48,19 @@ describe('revisions repository', () => {
 
     const listed = await listRevisionsByTarget(db, projectId, 'task', taskId);
     expect(listed.map((r) => r.id)).toEqual([mine.id]);
+  });
+
+  it('fetches a revision by id', async () => {
+    const mine = await insertRevision(db, {
+      projectId,
+      targetType: 'task',
+      targetId: taskId,
+      snapshot: JSON.stringify({ label: 'Before' }),
+      changedFields: JSON.stringify(['label']),
+      author: 'human:user-1',
+    });
+    expect(await getRevision(db, mine.id)).toEqual(mine);
+    expect(await getRevision(db, '00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
   it('deletes revisions by target without affecting other targets', async () => {

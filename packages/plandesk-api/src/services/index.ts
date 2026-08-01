@@ -20,6 +20,7 @@ import { createTaskService, type TaskService } from './tasks.js';
 import { createViewService, type ViewService } from './views.js';
 import { createShareService, type ShareService } from './share.js';
 import { createSyncService, type SyncService } from './sync.js';
+import { createRevisionService, type RevisionService } from './revisions.js';
 
 export type ServicesDeps = {
   db: Db;
@@ -47,6 +48,7 @@ export type Services = {
   syncService: SyncService;
   fileService: FileService;
   artifactService: ArtifactService;
+  revisionService: RevisionService;
 };
 
 export function createServices(deps: ServicesDeps): Services {
@@ -72,6 +74,7 @@ export function createServices(deps: ServicesDeps): Services {
   const syncService = createSyncService({ ...scoped, taskService });
   const fileService = createFileService({ ...scoped, storage });
   const artifactService = createArtifactService(scoped);
+  const revisionService = createRevisionService(scoped);
 
   return {
     projectService,
@@ -90,5 +93,6 @@ export function createServices(deps: ServicesDeps): Services {
     syncService,
     fileService,
     artifactService,
+    revisionService,
   };
 }

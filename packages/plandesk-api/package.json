@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250609.0",
+    "@types/turndown": "^5.0.6",
     "csv-parse": "^7.0.1",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
@@ -39,9 +40,12 @@
     "@plandesk/db": "workspace:*",
     "better-auth": "1.6.23",
     "csv-stringify": "^6.8.1",
+    "diff": "^9.0.0",
     "exceljs": "^4.4.0",
     "hono": "^4.12.23",
-    "marked": "^18.0.5"
+    "marked": "^18.0.5",
+    "turndown": "^7.2.4",
+    "turndown-plugin-gfm": "^1.0.2"
   },
   "description": "Plan Desk REST + SSE API and service layer (local-first planning workspace).",
   "license": "MIT",

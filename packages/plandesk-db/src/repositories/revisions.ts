@@ -40,6 +40,13 @@ export async function insertRevision(db: DbClient, input: NewRevision): Promise<
   return row;
 }
 
+export async function getRevision(
+  db: DbClient,
+  id: string,
+): Promise<Revision | undefined> {
+  return db.select().from(revisions).where(eq(revisions.id, id)).get();
+}
+
 export async function listRevisionsByTarget(
   db: DbClient,
   projectId: string,
