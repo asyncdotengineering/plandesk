@@ -27,6 +27,7 @@ import {
   emitTagsImport,
   emitTaskTagsImport,
   emitTasksImport,
+  emitViewsImport,
   preallocateAgentRunIds,
   preallocateArtifactIds,
   preallocateDocumentIds,
@@ -50,6 +51,9 @@ import { listDocuments } from './repositories/documents.js';
 import { listEdges } from './repositories/edges.js';
 import { listNotes } from './repositories/notes.js';
 import { listTasks } from './repositories/tasks.js';
+import { listViews } from './repositories/views.js';
+import type { View } from './repositories/views.js';
+import { parseSavedViewConfig } from './saved-view-config.js';
 import {
   agentRunEvents,
   agentRuns,
@@ -65,6 +69,7 @@ import {
   tags,
   taskTags,
   tasks,
+  views,
 } from './schema.js';
 import type {
   PlandeskExport,
@@ -82,6 +87,7 @@ import type {
   PlandeskExportProject,
   PlandeskExportTag,
   PlandeskExportTask,
+  PlandeskExportView,
 } from './portability.js';
 
 export type PlandeskExportCollectionKey = keyof Omit<PlandeskExport, 'version'>;
@@ -150,6 +156,7 @@ type ExportTableManifestEntryShape =
   | RowsManifestEntry<Folder, PlandeskExportFolder>
   | RowsManifestEntry<Document, PlandeskExportDocument>
   | RowsManifestEntry<Note, PlandeskExportNote>
+  | RowsManifestEntry<View, PlandeskExportView>
   | RowsManifestEntry<Comment, PlandeskExportComment>
   | RowsManifestEntry<AgentRun, PlandeskExportAgentRun>
   | RowsManifestEntry<Awaited<ReturnType<typeof listFilesByProject>>[number], PlandeskExportFile>
@@ -396,6 +403,28 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
     portability: {
       drizzleTable: notes,
       roundTrippedColumns: ['title', 'body'],
+      columnExclusions: {
+        id: 'Remapped on import (content-only identity)',
+        project_id: 'Implied by nesting under the imported project',
+        created_at: 'Server-assigned on import',
+        updated_at: 'Server-assigned on import',
+      },
+    },
+  },
+  views: {
+    scope: 'rows',
+    collection: 'views',
+    read: listViews,
+    serialize: (view: View): PlandeskExportView => ({
+      id: view.id,
+      name: view.name,
+      config: parseSavedViewConfig(view.config),
+      position: view.position,
+    }),
+    import: { order: 95, emit: emitViewsImport },
+    portability: {
+      drizzleTable: views,
+      roundTrippedColumns: ['name', 'config', 'position'],
       columnExclusions: {
         id: 'Remapped on import (content-only identity)',
         project_id: 'Implied by nesting under the imported project',
@@ -662,6 +691,7 @@ async function readProjectScopedRows(
     folders,
     documents,
     notes,
+    views,
     comments,
     agent_runs,
     files,
@@ -674,6 +704,7 @@ async function readProjectScopedRows(
     manifest.folders.read(db, projectId),
     manifest.documents.read(db, projectId),
     manifest.notes.read(db, projectId),
+    manifest.views.read(db, projectId),
     manifest.comments.read(db, projectId),
     manifest.agent_runs.read(db, projectId),
     manifest.files.read(db, projectId),
@@ -687,6 +718,7 @@ async function readProjectScopedRows(
     folders,
     documents,
     notes,
+    views,
     comments,
     agent_runs,
     files,
@@ -725,6 +757,7 @@ function assembleRowCollections(
     folders: (rowReads.folders ?? []).map((row) => manifest.folders.serialize(row)),
     documents: (rowReads.documents ?? []).map((row) => manifest.documents.serialize(row)),
     notes: (rowReads.notes ?? []).map((row) => manifest.notes.serialize(row)),
+    views: (rowReads.views ?? []).map((row) => manifest.views.serialize(row)),
     comments: (rowReads.comments ?? []).map((row) => manifest.comments.serialize(row)),
     agent_runs: (rowReads.agent_runs ?? []).map((row) => manifest.agent_runs.serialize(row, aux)),
     files: (rowReads.files ?? []).map((row) => manifest.files.serialize(row)),

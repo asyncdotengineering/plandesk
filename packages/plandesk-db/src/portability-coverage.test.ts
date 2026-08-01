@@ -20,6 +20,8 @@ import { createNote } from './repositories/notes.js';
 import { updateProject } from './repositories/projects.js';
 import { createTag, setTaskTags } from './repositories/tags.js';
 import { createTask, listTasks, updateTask } from './repositories/tasks.js';
+import { createView } from './repositories/views.js';
+import { NON_TRIVIAL_SAVED_VIEW_CONFIG, type SavedViewConfig } from './saved-view-config.js';
 import { createHash } from 'node:crypto';
 import { createProjectInDefaultOrg as createProject } from './testing.js';
 
@@ -92,6 +94,7 @@ type PortableSnapshot = {
     folder_name: string | null;
   }>;
   notes: Array<{ title: string; body: string | null }>;
+  views: Array<{ name: string; config: SavedViewConfig; position: number }>;
   comments: Array<{
     target_type: string;
     target_key: string;
@@ -246,6 +249,9 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
     notes: [...exported.notes]
       .sort((a, b) => a.title.localeCompare(b.title))
       .map((note) => ({ title: note.title, body: note.body })),
+    views: [...exported.views]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((view) => ({ name: view.name, config: view.config, position: view.position })),
     comments: [...exported.comments]
       .sort((a, b) => a.body.localeCompare(b.body))
       .map((comment) => ({
@@ -386,6 +392,13 @@ async function buildFullyPopulatedProject(db: Db): Promise<string> {
     projectId: project.id,
     title: 'DISTINCT-note-title',
     body: 'DISTINCT-note-body',
+  });
+
+  await createView(db, {
+    projectId: project.id,
+    name: 'DISTINCT-view-name',
+    config: NON_TRIVIAL_SAVED_VIEW_CONFIG,
+    position: 3,
   });
 
   const artifact = await createArtifact(db, {

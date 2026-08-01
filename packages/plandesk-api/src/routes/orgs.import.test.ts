@@ -429,6 +429,7 @@ describe('importProject orgId option', () => {
       folders: [],
       documents: [],
       notes: [],
+      views: [],
       comments: [],
       agent_runs: [],
       files: [],

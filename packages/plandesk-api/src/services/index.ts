@@ -13,6 +13,7 @@ import { createAgentRunService, type AgentRunService } from './agent-runs.js';
 import { createTagService, type TagService } from './tags.js';
 import { createGoalService, type GoalService } from './goals.js';
 import { createTaskService, type TaskService } from './tasks.js';
+import { createViewService, type ViewService } from './views.js';
 import { createShareService, type ShareService } from './share.js';
 import { createSyncService, type SyncService } from './sync.js';
 
@@ -30,6 +31,7 @@ export type Services = {
   goalService: GoalService;
   taskService: TaskService;
   tagService: TagService;
+  viewService: ViewService;
   canvasService: CanvasService;
   documentService: DocumentService;
   folderService: FolderService;
@@ -49,6 +51,7 @@ export function createServices(deps: ServicesDeps): Services {
   const goalService = createGoalService(scoped);
   const taskService = createTaskService(scoped);
   const tagService = createTagService(scoped);
+  const viewService = createViewService(scoped);
   const canvasService = createCanvasService(scoped);
   const documentService = createDocumentService(scoped);
   const folderService = createFolderService(scoped);
@@ -65,6 +68,7 @@ export function createServices(deps: ServicesDeps): Services {
     goalService,
     taskService,
     tagService,
+    viewService,
     canvasService,
     documentService,
     folderService,

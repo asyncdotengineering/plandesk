@@ -18,6 +18,7 @@ export type CanonicalExportSnapshot = {
   folders: PlandeskExport['folders'];
   documents: PlandeskExport['documents'];
   notes: PlandeskExport['notes'];
+  views: PlandeskExport['views'];
   comments: PlandeskExport['comments'];
   agent_runs: PlandeskExport['agent_runs'];
   files: PlandeskExport['files'];
@@ -63,6 +64,7 @@ export function canonicalizeExportForComparison(exported: PlandeskExport): Canon
     folders: [...exported.folders].sort((a, b) => compareBy(a, b, (f) => f.name, (f) => f.id)),
     documents: [...exported.documents].sort((a, b) => compareBy(a, b, (d) => d.title, (d) => d.id)),
     notes: [...exported.notes].sort((a, b) => compareBy(a, b, (n) => n.title, (n) => n.id)),
+    views: [...exported.views].sort((a, b) => compareBy(a, b, (v) => v.name, (v) => v.id)),
     comments: [...exported.comments].sort((a, b) => compareBy(a, b, (c) => c.body, (c) => c.id)),
     agent_runs: [...exported.agent_runs].sort((a, b) =>
       compareBy(a, b, (r) => r.label ?? '', (r) => r.id),
@@ -119,6 +121,7 @@ export type PortableExportSnapshot = {
     folder_name: string | null;
   }>;
   notes: Array<{ title: string; body: string | null }>;
+  views: Array<{ name: string; config: PlandeskExport['views'][number]['config']; position: number }>;
   comments: Array<{
     target_type: string;
     target_key: string;
@@ -267,6 +270,9 @@ export function toPortableExportSnapshot(exported: PlandeskExport): PortableExpo
     notes: [...exported.notes]
       .sort((a, b) => a.title.localeCompare(b.title))
       .map((note) => ({ title: note.title, body: note.body })),
+    views: [...exported.views]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((view) => ({ name: view.name, config: view.config, position: view.position })),
     comments: [...exported.comments]
       .sort((a, b) => a.body.localeCompare(b.body))
       .map((comment) => ({
@@ -336,5 +342,17 @@ export function assertGoldenExportFieldCoverage(exported: PlandeskExport): void 
   }
   if (exported.tags.length !== 1 || exported.tags[0]?.name !== 'DISTINCT-tag-name') {
     throw new Error('golden tags mismatch');
+  }
+  const view = exported.views[0];
+  if (
+    exported.views.length !== 1 ||
+    view === undefined ||
+    view.name !== 'DISTINCT-view-name' ||
+    view.config.filter === null ||
+    view.config.sort.length !== 2 ||
+    view.config.group === null ||
+    view.config.group.length !== 2
+  ) {
+    throw new Error('golden views mismatch');
   }
 }

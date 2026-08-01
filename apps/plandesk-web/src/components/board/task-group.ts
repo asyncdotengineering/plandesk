@@ -1,4 +1,10 @@
 import {
+  GROUPABLE_FIELDS,
+  type GroupableField,
+  type GroupSpec,
+  type GroupSpecs,
+} from '@plandesk/db/saved-view-config';
+import {
   taskPriorityOrder,
   taskStatuses,
   type SerializedTask,
@@ -7,20 +13,8 @@ import {
 } from '../../lib/api.js';
 import { sortTasks, type SortSpec } from './task-sort.js';
 
-export type GroupableField =
-  | 'status'
-  | 'goal_id'
-  | 'assignee'
-  | 'priority'
-  | 'blocked'
-  | 'tag';
-
-export type GroupSpec = {
-  field: GroupableField;
-  direction: 'asc' | 'desc';
-};
-
-export type GroupSpecs = [GroupSpec] | [GroupSpec, GroupSpec];
+export type { GroupableField, GroupSpec, GroupSpecs };
+export { GROUPABLE_FIELDS };
 
 export type AggregateOp =
   | 'count'
@@ -64,15 +58,6 @@ export type GroupNode = {
   children: GroupNode[] | null;
   aggregates: AggregateResult[];
 };
-
-export const GROUPABLE_FIELDS: readonly GroupableField[] = [
-  'status',
-  'goal_id',
-  'assignee',
-  'priority',
-  'blocked',
-  'tag',
-] as const;
 
 export const GROUPABLE_FIELD_LABELS: Record<GroupableField, string> = {
   status: 'Status',

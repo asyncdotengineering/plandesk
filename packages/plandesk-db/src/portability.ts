@@ -23,6 +23,7 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from './schema.js';
+import type { SavedViewConfig } from './saved-view-config.js';
 
 /** Version stamped into new exports. */
 export const PLANDESK_EXPORT_VERSION = 'plandesk-export-v3' as const;
@@ -144,6 +145,13 @@ export type PlandeskExportNote = {
   body: string | null;
 };
 
+export type PlandeskExportView = {
+  id: string;
+  name: string;
+  config: SavedViewConfig;
+  position: number;
+};
+
 export type PlandeskExportComment = {
   id: string;
   target_type: CommentTargetType;
@@ -210,6 +218,7 @@ export type PlandeskExport = {
   folders: PlandeskExportFolder[];
   documents: PlandeskExportDocument[];
   notes: PlandeskExportNote[];
+  views: PlandeskExportView[];
   comments: PlandeskExportComment[];
   agent_runs: PlandeskExportAgentRun[];
   files: PlandeskExportFile[];
@@ -266,6 +275,8 @@ export type PlandeskExportInput = {
   documents: PlandeskExportDocument[];
   // Optional for backward compatibility with exports written before notes existed.
   notes?: PlandeskExportNote[];
+  // Optional for backward compatibility with exports written before views existed.
+  views?: PlandeskExportView[];
   // Optional for backward compatibility with exports written before comments existed.
   comments?: PlandeskExportComment[];
   // Legacy shape from exports written before polymorphic comments.

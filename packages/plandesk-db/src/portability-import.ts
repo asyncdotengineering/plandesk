@@ -21,8 +21,10 @@ import {
   tags,
   taskTags,
   tasks,
+  views,
   type LinkEntityType,
 } from './schema.js';
+import { parseSavedViewConfig, stringifySavedViewConfig } from './saved-view-config.js';
 import type {
   PlandeskExportComment,
   PlandeskExportDocument,
@@ -449,6 +451,23 @@ export function emitNotesImport(ctx: ImportContext): void {
         projectId: ctx.projectId,
         title: note.title,
         body: note.body,
+        createdAt: ctx.now,
+        updatedAt: ctx.now,
+      }),
+    );
+  }
+}
+
+export function emitViewsImport(ctx: ImportContext): void {
+  for (const view of ctx.data.views ?? []) {
+    const config = parseSavedViewConfig(view.config);
+    ctx.statements.push(
+      ctx.root.insert(views).values({
+        id: randomUUID(),
+        projectId: ctx.projectId,
+        name: view.name,
+        config: stringifySavedViewConfig(config),
+        position: view.position,
         createdAt: ctx.now,
         updatedAt: ctx.now,
       }),

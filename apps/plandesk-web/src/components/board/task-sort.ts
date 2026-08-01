@@ -1,4 +1,9 @@
 import {
+  SORTABLE_FIELDS,
+  type SortableField,
+  type SortSpec,
+} from '@plandesk/db/saved-view-config';
+import {
   taskPriorityOrder,
   taskStatuses,
   type SerializedTask,
@@ -6,29 +11,8 @@ import {
   type TaskStatus,
 } from '../../lib/api.js';
 
-export type SortableField =
-  | 'label'
-  | 'status'
-  | 'priority'
-  | 'assignee'
-  | 'due_date'
-  | 'created_at'
-  | 'updated_at';
-
-export type SortSpec = {
-  field: SortableField;
-  direction: 'asc' | 'desc';
-};
-
-export const SORTABLE_FIELDS: readonly SortableField[] = [
-  'label',
-  'status',
-  'priority',
-  'assignee',
-  'due_date',
-  'created_at',
-  'updated_at',
-] as const;
+export type { SortableField, SortSpec };
+export { SORTABLE_FIELDS };
 
 export const SORTABLE_FIELD_LABELS: Record<SortableField, string> = {
   label: 'Label',

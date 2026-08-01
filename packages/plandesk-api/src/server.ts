@@ -13,6 +13,7 @@ import type { BetterAuthInstance } from './better-auth.js';
 import { createProjectsRouter } from './routes/projects.js';
 import { createTasksRouter } from './routes/tasks.js';
 import { createTagsRouter } from './routes/tags.js';
+import { createViewsRouter } from './routes/views.js';
 import { createCanvasRouter } from './routes/canvas.js';
 import { createCommentsRouter } from './routes/comments.js';
 import { createDocumentsRouter } from './routes/documents.js';
@@ -78,6 +79,7 @@ export function createApp(deps: AppDeps): Hono {
     goalService,
     taskService,
     tagService,
+    viewService,
     canvasService,
     documentService,
     folderService,
@@ -140,6 +142,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createGoalsRouter(goalService));
   app.route('/api/v1', createTasksRouter(taskService));
   app.route('/api/v1', createTagsRouter(tagService));
+  app.route('/api/v1', createViewsRouter(viewService));
   app.route('/api/v1', createCanvasRouter(canvasService));
   app.route('/api/v1', createDocumentsRouter(documentService));
   app.route('/api/v1', createFilesRouter(fileService));

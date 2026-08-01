@@ -14,6 +14,8 @@ import { createNote } from './repositories/notes.js';
 import { updateProject } from './repositories/projects.js';
 import { createTag, setTaskTags } from './repositories/tags.js';
 import { createTask, updateTask } from './repositories/tasks.js';
+import { createView } from './repositories/views.js';
+import { NON_TRIVIAL_SAVED_VIEW_CONFIG } from './saved-view-config.js';
 import { artifacts, goals, tasks } from './schema.js';
 import { createProjectInDefaultOrg as createProject } from './testing.js';
 
@@ -41,6 +43,7 @@ export const FIXTURE_EXPORT_IDS = {
   artifactComment: '00000000-0000-4000-8000-00000000f00d',
   agentRun: '00000000-0000-4000-8000-00000000f00e',
   agentRunEvent: '00000000-0000-4000-8000-00000000f00f',
+  view: '00000000-0000-4000-8000-00000000f010',
 } as const;
 
 const BLOB_BYTES = Buffer.from('DISTINCT-file-bytes-content', 'utf8');
@@ -167,6 +170,14 @@ export async function seedDeterministicFullyPopulatedProject(db: Db): Promise<st
     projectId: project.id,
     title: 'DISTINCT-note-title',
     body: 'DISTINCT-note-body',
+  });
+
+  await createView(db, {
+    id: ids.view,
+    projectId: project.id,
+    name: 'DISTINCT-view-name',
+    config: NON_TRIVIAL_SAVED_VIEW_CONFIG,
+    position: 3,
   });
 
   const artifact = await createArtifact(db, {

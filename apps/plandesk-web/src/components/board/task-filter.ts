@@ -1,66 +1,17 @@
 import {
+  FIELD_OPERATORS,
+  FILTERABLE_FIELDS,
+  type FilterableField,
+  type FilterNode,
+  type FilterOperator,
+} from '@plandesk/db/saved-view-config';
+import {
   type SerializedTask,
 } from '../../lib/api.js';
 import { laneFromTags, LANE_TAG_PREFIX } from './board-utils.js';
 
-export type FilterableField =
-  | 'label'
-  | 'status'
-  | 'priority'
-  | 'assignee'
-  | 'tags'
-  | 'lane'
-  | 'due_date'
-  | 'created_at'
-  | 'updated_at'
-  | 'goal_id'
-  | 'blocked';
-
-export type FilterOperator =
-  | 'is'
-  | 'is_not'
-  | 'contains'
-  | 'does_not_contain'
-  | 'is_empty'
-  | 'is_not_empty'
-  | 'before'
-  | 'after';
-
-export type FilterNode =
-  | { kind: 'group'; op: 'and' | 'or'; children: FilterNode[] }
-  | { kind: 'condition'; field: FilterableField; operator: FilterOperator; value: unknown };
-
-/**
- * Single source of truth for which operators a field accepts. The filter UI
- * reads this table so an impossible condition cannot be constructed.
- */
-export const FIELD_OPERATORS: Record<FilterableField, readonly FilterOperator[]> = {
-  label: ['is', 'is_not', 'contains', 'does_not_contain', 'is_empty', 'is_not_empty'],
-  status: ['is', 'is_not'],
-  priority: ['is', 'is_not', 'is_empty', 'is_not_empty'],
-  assignee: ['is', 'is_not', 'contains', 'does_not_contain', 'is_empty', 'is_not_empty'],
-  tags: ['contains', 'does_not_contain', 'is', 'is_not', 'is_empty', 'is_not_empty'],
-  lane: ['is', 'is_not', 'is_empty', 'is_not_empty'],
-  due_date: ['is', 'is_not', 'before', 'after', 'is_empty', 'is_not_empty'],
-  created_at: ['is', 'is_not', 'before', 'after'],
-  updated_at: ['is', 'is_not', 'before', 'after'],
-  goal_id: ['is', 'is_not', 'is_empty', 'is_not_empty'],
-  blocked: ['is', 'is_not', 'is_empty', 'is_not_empty'],
-};
-
-export const FILTERABLE_FIELDS: readonly FilterableField[] = [
-  'label',
-  'status',
-  'priority',
-  'assignee',
-  'tags',
-  'lane',
-  'due_date',
-  'created_at',
-  'updated_at',
-  'goal_id',
-  'blocked',
-] as const;
+export type { FilterableField, FilterNode, FilterOperator };
+export { FIELD_OPERATORS, FILTERABLE_FIELDS };
 
 export const FILTERABLE_FIELD_LABELS: Record<FilterableField, string> = {
   label: 'Label',

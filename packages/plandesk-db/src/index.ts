@@ -24,6 +24,8 @@ export * from './repositories/share-submissions.js';
 export * from './repositories/sync-remotes.js';
 export * from './repositories/agent-runs.js';
 export * from './repositories/agent-run-events.js';
+export * from './repositories/views.js';
+export * from './saved-view-config.js';
 export * from './portability.js';
 export { seed, FIXTURE_PROJECT_ID } from './seed.js';
 export {

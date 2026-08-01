@@ -18,6 +18,10 @@
     "./vocabulary": {
       "types": "./dist/vocabulary.d.ts",
       "import": "./dist/vocabulary.js"
+    },
+    "./saved-view-config": {
+      "types": "./dist/saved-view-config.d.ts",
+      "import": "./dist/saved-view-config.js"
     }
   },
   "files": [

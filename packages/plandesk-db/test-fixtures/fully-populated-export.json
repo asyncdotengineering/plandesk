@@ -68,25 +68,17 @@
   ],
   "folders": [
     {
-      "id": "00000000-0000-4000-8000-00000000f005",
-      "name": "DISTINCT-parent-folder",
-      "parent_folder_id": null
-    },
-    {
       "id": "00000000-0000-4000-8000-00000000f006",
       "name": "DISTINCT-child-folder",
       "parent_folder_id": "00000000-0000-4000-8000-00000000f005"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000f005",
+      "name": "DISTINCT-parent-folder",
+      "parent_folder_id": null
     }
   ],
   "documents": [
-    {
-      "id": "00000000-0000-4000-8000-00000000f007",
-      "title": "DISTINCT-parent-doc",
-      "body": "DISTINCT-parent-body",
-      "status_line": "Status: DISTINCT-parent-status",
-      "parent_id": null,
-      "folder_id": "00000000-0000-4000-8000-00000000f005"
-    },
     {
       "id": "00000000-0000-4000-8000-00000000f008",
       "title": "DISTINCT-child-doc",
@@ -94,6 +86,14 @@
       "status_line": "Status: DISTINCT-child-status",
       "parent_id": "00000000-0000-4000-8000-00000000f007",
       "folder_id": "00000000-0000-4000-8000-00000000f006"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000f007",
+      "title": "DISTINCT-parent-doc",
+      "body": "DISTINCT-parent-body",
+      "status_line": "Status: DISTINCT-parent-status",
+      "parent_id": null,
+      "folder_id": "00000000-0000-4000-8000-00000000f005"
     }
   ],
   "notes": [
@@ -103,17 +103,74 @@
       "body": "DISTINCT-note-body"
     }
   ],
-  "comments": [
+  "views": [
     {
-      "id": "00000000-0000-4000-8000-00000000f00c",
-      "target_type": "document",
-      "target_id": "00000000-0000-4000-8000-00000000f007",
-      "passage": "DISTINCT-passage",
-      "anchor": null,
-      "body": "DISTINCT-comment-body",
-      "resolved": true,
-      "created_at": "2030-01-02T03:04:05.000Z"
-    },
+      "id": "00000000-0000-4000-8000-00000000f010",
+      "name": "DISTINCT-view-name",
+      "config": {
+        "version": 1,
+        "filter": {
+          "kind": "group",
+          "op": "and",
+          "children": [
+            {
+              "kind": "condition",
+              "field": "status",
+              "operator": "is",
+              "value": "blocked"
+            },
+            {
+              "kind": "group",
+              "op": "or",
+              "children": [
+                {
+                  "kind": "condition",
+                  "field": "priority",
+                  "operator": "is",
+                  "value": "urgent"
+                },
+                {
+                  "kind": "condition",
+                  "field": "tags",
+                  "operator": "contains",
+                  "value": "p0"
+                }
+              ]
+            }
+          ]
+        },
+        "sort": [
+          {
+            "field": "priority",
+            "direction": "desc"
+          },
+          {
+            "field": "due_date",
+            "direction": "asc"
+          }
+        ],
+        "group": [
+          {
+            "field": "goal_id",
+            "direction": "asc"
+          },
+          {
+            "field": "status",
+            "direction": "asc"
+          }
+        ],
+        "visibleColumns": [
+          "label",
+          "status",
+          "priority",
+          "assignee",
+          "due_date"
+        ]
+      },
+      "position": 3
+    }
+  ],
+  "comments": [
     {
       "id": "00000000-0000-4000-8000-00000000f00d",
       "target_type": "artifact",
@@ -123,6 +180,16 @@
       "body": "DISTINCT-artifact-comment",
       "resolved": false,
       "created_at": "2030-02-03T04:05:06.000Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000f00c",
+      "target_type": "document",
+      "target_id": "00000000-0000-4000-8000-00000000f007",
+      "passage": "DISTINCT-passage",
+      "anchor": null,
+      "body": "DISTINCT-comment-body",
+      "resolved": true,
+      "created_at": "2030-01-02T03:04:05.000Z"
     }
   ],
   "agent_runs": [

@@ -161,7 +161,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(49);
+      expect(names).toHaveLength(50);
       await client.close();
     });
   });
@@ -1896,6 +1896,44 @@ describe('createMcpApp', () => {
         arguments: { project_id: '00000000-0000-4000-8000-000000009999' },
       });
       expect(result.isError).toBe(true);
+      await client.close();
+    });
+  });
+
+  it('list_views returns saved views and the surface has no mutating view tools', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, services }) => {
+      const { NON_TRIVIAL_SAVED_VIEW_CONFIG } = await import('@plandesk/db');
+      const created = await services.viewService.create(projectId, {
+        name: 'Blocked & urgent',
+        config: NON_TRIVIAL_SAVED_VIEW_CONFIG,
+      });
+      expect(created).toBeDefined();
+
+      const client = await connectClient(baseUrl);
+      const tools = await client.listTools();
+      const names = tools.tools.map((tool) => tool.name);
+      expect(names).toContain('list_views');
+      expect(names.filter((name) => /^(create|update|delete)_views?$/.test(name))).toEqual([]);
+
+      const result = await client.callTool({
+        name: 'list_views',
+        arguments: { project_id: projectId },
+      });
+      expect(result.isError).toBeFalsy();
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const text = content[0]?.type === 'text' ? (content[0].text ?? '{}') : '{}';
+      const payload = JSON.parse(text) as {
+        views: Array<{ name: string; config: unknown }>;
+      };
+      expect(payload.views).toHaveLength(1);
+      expect(payload.views[0]?.name).toBe('Blocked & urgent');
+      expect(payload.views[0]?.config).toEqual(NON_TRIVIAL_SAVED_VIEW_CONFIG);
+
+      const denied = await client.callTool({
+        name: 'list_views',
+        arguments: { project_id: '00000000-0000-4000-8000-000000009999' },
+      });
+      expect(denied.isError).toBe(true);
       await client.close();
     });
   });

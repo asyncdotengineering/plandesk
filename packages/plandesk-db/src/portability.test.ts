@@ -600,6 +600,7 @@ describe('export/import portability', () => {
       folders: [],
       documents: [],
       notes: [],
+      views: [],
       comments: [],
       agent_runs: [],
       files: [

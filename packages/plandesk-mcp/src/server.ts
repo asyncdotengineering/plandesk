@@ -43,6 +43,7 @@ import { createGetProjectHandler } from './tools/get-project.js';
 import { createGetTaskHandler } from './tools/get-task.js';
 import { createListTasksHandler } from './tools/list-tasks.js';
 import { createListTagsHandler } from './tools/list-tags.js';
+import { createListViewsHandler } from './tools/list-views.js';
 import { createListCommentsHandler } from './tools/list-comments.js';
 import { createListArtifactCommentsHandler } from './tools/list-artifact-comments.js';
 import { createListDocumentsHandler } from './tools/list-documents.js';
@@ -74,6 +75,7 @@ import {
   getTaskInputSchema,
   listTasksInputSchema,
   listTagsInputSchema,
+  listViewsInputSchema,
   createNoteInputSchema,
   updateNoteInputSchema,
   getNoteInputSchema,
@@ -587,6 +589,18 @@ function createMcpServer(services: Services, origin: string): McpServer {
       annotations: { readOnlyHint: true },
     },
     createListTagsHandler(services.tagService),
+  );
+
+  server.registerTool(
+    'list_views',
+    {
+      title: 'List Views',
+      description:
+        'List saved named views for a project (name + config). Views are human-authored named queries — agents consume them via this read-only tool; there is no create/update/delete view tool.',
+      inputSchema: listViewsInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListViewsHandler(services.viewService),
   );
 
   server.registerTool(

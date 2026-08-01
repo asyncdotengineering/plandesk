@@ -117,6 +117,7 @@ export {
 export type { TaskService } from './services/tasks.js';
 export { InvalidGoalReferenceError, InvalidCommitRefsError } from './services/tasks.js';
 export type { TagService } from './services/tags.js';
+export type { ViewService } from './services/views.js';
 export type { CanvasService } from './services/canvas.js';
 export type { DocumentService } from './services/documents.js';
 export type { FolderService } from './services/folders.js';
@@ -138,6 +139,7 @@ export { InvalidFolderError } from './services/folders.js';
 export { InvalidNoteError } from './services/notes.js';
 export { InvalidArtifactError } from './services/artifacts.js';
 export { InvalidTagError } from './services/tags.js';
+export { InvalidViewError } from './services/views.js';
 export { InvalidCommentError } from './services/comments.js';
 export { InvalidCanvasError } from './services/canvas.js';
 export { InvalidAgentRunError } from './services/agent-runs.js';

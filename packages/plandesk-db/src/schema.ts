@@ -214,6 +214,28 @@ export const notes = sqliteTable('notes', {
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
 });
 
+/** Project-scoped named list views. Config is JSON {@link SavedViewConfig}. */
+export const views = sqliteTable(
+  'views',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    name: text('name').notNull(),
+    /** JSON SavedViewConfig — validated on write via parseSavedViewConfig. */
+    config: text('config').notNull(),
+    position: integer('position').notNull().default(0),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  },
+  (table) => [index('views_project_id_position_idx').on(table.projectId, table.position)],
+);
+
 export const tags = sqliteTable(
   'tags',
   {

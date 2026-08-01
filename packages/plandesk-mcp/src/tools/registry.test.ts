@@ -6,6 +6,7 @@ import {
   getNextTaskInputSchema,
   listCommentsInputSchema,
   listTagsInputSchema,
+  listViewsInputSchema,
   listTasksInputSchema,
   scaffoldProjectFromPlanInputSchema,
   triageSubmissionInputSchema,
@@ -21,9 +22,10 @@ const TASK_ID = '00000000-0000-4000-8000-000000000002';
 describe('tool registry tag schemas', () => {
   it('registers list_tags with a schema for every v1 tool', () => {
     expect(v1ToolNames).toContain('list_tags');
+    expect(v1ToolNames).toContain('list_views');
     expect(v1ToolNames).toContain('claim_task');
     expect(v1ToolNames).toContain('update_project');
-    expect(v1ToolNames).toHaveLength(49);
+    expect(v1ToolNames).toHaveLength(50);
     for (const name of v1ToolNames) {
       expect(v1ToolSchemas[name]).toBeDefined();
     }
@@ -209,6 +211,20 @@ describe('tool registry tag schemas', () => {
   it('list_tags requires a project id', () => {
     expect(listTagsInputSchema.safeParse({ project_id: PROJECT_ID }).success).toBe(true);
     expect(listTagsInputSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('list_views requires a project id', () => {
+    expect(listViewsInputSchema.safeParse({ project_id: PROJECT_ID }).success).toBe(true);
+    expect(listViewsInputSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('MCP surface has list_views and no create/update/delete view tools', () => {
+    expect(v1ToolNames).toContain('list_views');
+    const names: readonly string[] = v1ToolNames;
+    const mutatingViewTools = names.filter((name) =>
+      /^(create|update|delete)_views?$/.test(name),
+    );
+    expect(mutatingViewTools).toEqual([]);
   });
 
   it('triage_submission accepts an optional link_task_id alongside as_task', () => {

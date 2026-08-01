@@ -537,6 +537,10 @@ export const listTagsInputSchema = z.object({
   project_id: z.string().uuid(),
 });
 
+export const listViewsInputSchema = z.object({
+  project_id: z.string().uuid(),
+});
+
 export const listCommentsInputSchema = z.object({
   project_id: z.string().uuid(),
   target_type: z.enum(['document', 'task', 'note', 'submission']).optional(),
@@ -641,6 +645,7 @@ export const v1ToolNames = [
   'get_task',
   'list_tasks',
   'list_tags',
+  'list_views',
   'list_comments',
   'add_comment',
   'list_artifact_comments',
@@ -695,6 +700,7 @@ export const v1ToolSchemas = {
   get_task: getTaskInputSchema,
   list_tasks: listTasksInputSchema,
   list_tags: listTagsInputSchema,
+  list_views: listViewsInputSchema,
   list_comments: listCommentsInputSchema,
   add_comment: addCommentInputSchema,
   list_artifact_comments: listArtifactCommentsInputSchema,

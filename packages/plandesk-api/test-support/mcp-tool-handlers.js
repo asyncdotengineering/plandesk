@@ -36,6 +36,7 @@ export { createListNotesHandler } from "../../plandesk-mcp/src/tools/list-notes.
 export { createListProjectsHandler } from "../../plandesk-mcp/src/tools/list-projects.js";
 export { createListSubmissionsHandler } from "../../plandesk-mcp/src/tools/list-submissions.js";
 export { createListTagsHandler } from "../../plandesk-mcp/src/tools/list-tags.js";
+export { createListViewsHandler } from "../../plandesk-mcp/src/tools/list-views.js";
 export { createListTasksHandler } from "../../plandesk-mcp/src/tools/list-tasks.js";
 export { createRecordAgentProgressHandler } from "../../plandesk-mcp/src/tools/record-agent-progress.js";
 export { createResolveCommentHandler } from "../../plandesk-mcp/src/tools/resolve-comment.js";

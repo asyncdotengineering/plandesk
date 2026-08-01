@@ -9,11 +9,13 @@ import type {
   Goal,
   Note,
   Project,
+  SavedViewConfig,
   Tag,
   Task,
   TaskStatus,
+  View,
 } from '@plandesk/db';
-import { parseCommitRefs, taskStatuses } from '@plandesk/db';
+import { parseCommitRefs, parseSavedViewConfig, taskStatuses } from '@plandesk/db';
 
 export { parseCommitRefs } from '@plandesk/db';
 
@@ -89,6 +91,28 @@ export function serializeTag(tag: Tag): SerializedTag {
     name: tag.name,
     color: tag.color,
     created_at: tag.createdAt.toISOString(),
+  };
+}
+
+export type SerializedView = {
+  id: string;
+  project_id: string;
+  name: string;
+  config: SavedViewConfig;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export function serializeView(view: View): SerializedView {
+  return {
+    id: view.id,
+    project_id: view.projectId,
+    name: view.name,
+    config: parseSavedViewConfig(view.config),
+    position: view.position,
+    created_at: view.createdAt.toISOString(),
+    updated_at: view.updatedAt.toISOString(),
   };
 }
 

@@ -93,6 +93,7 @@ import {
   createListProjectsHandler,
   createListSubmissionsHandler,
   createListTagsHandler,
+  createListViewsHandler,
   createListTasksHandler,
   createPauseGoalHandler,
   createRecordAgentProgressHandler,
@@ -156,6 +157,7 @@ const MCP_TOOLS = [
   'get_task',
   'list_tasks',
   'list_tags',
+  'list_views',
   'list_comments',
   'add_comment',
   'list_artifact_comments',
@@ -739,6 +741,7 @@ async function runMcpForeignSweep(
     ['get_task', () => createGetTaskHandler(s.taskService)({ task_id: target.task.id })],
     ['list_tasks', () => createListTasksHandler(s.taskService)({ project_id: target.project.id })],
     ['list_tags', () => createListTagsHandler(s.tagService)({ project_id: target.project.id })],
+    ['list_views', () => createListViewsHandler(s.viewService)({ project_id: target.project.id })],
     [
       'list_comments',
       () => createListCommentsHandler(s.commentService)({ project_id: target.project.id }),
