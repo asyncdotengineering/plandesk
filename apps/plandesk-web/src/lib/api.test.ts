@@ -3,6 +3,7 @@ import { SAVED_VIEW_CONFIG_VERSION } from '@plandesk/db/saved-view-config';
 import {
   createProject,
   createTask,
+  convertDocumentBullets,
   createEdge,
   deleteDocument,
   deleteEdge,
@@ -230,6 +231,23 @@ describe('api client', () => {
       headers: expect.any(Headers) as Headers,
       credentials: 'include',
     });
+  });
+
+  it('convertDocumentBullets posts labels and returns created/skipped', async () => {
+    mockFetch(
+      {
+        created: [{ ...sampleTask, label: 'From bullet', status: 'scope' }],
+        skipped: ['Already there'],
+      },
+      { status: 201 },
+    );
+    const result = await convertDocumentBullets('doc-1', ['From bullet', 'Already there']);
+    expectFetchCall('/api/v1/documents/doc-1/convert-bullets', {
+      method: 'POST',
+      body: JSON.stringify({ labels: ['From bullet', 'Already there'] }),
+    });
+    expect(result.created[0]?.label).toBe('From bullet');
+    expect(result.skipped).toEqual(['Already there']);
   });
 
   it('createEdge sends POST with typed endpoints', async () => {

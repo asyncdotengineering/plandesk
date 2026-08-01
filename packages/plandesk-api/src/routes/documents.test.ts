@@ -364,4 +364,96 @@ describe('documents routes', () => {
     const taskBacklink = taskBacklinks.find((link) => link.id === docA.id);
     expect(typeof taskBacklink?.edge_id).toBe('string');
   });
+
+  it('REVERT-PROOF: a converted bullet lands on an active goal and is reachable once released', async () => {
+    const { app } = await createTestApp();
+    const projectRes = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Reachable' }),
+    });
+    const project = await parseJson<{ id: string }>(projectRes);
+    const createDoc = await app.request(`/api/v1/projects/${project.id}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Plan', body: '<ul><li><p>Ship it</p></li></ul>' }),
+    });
+    const document = await parseJson<{ id: string }>(createDoc);
+
+    const convert = await app.request(`/api/v1/documents/${document.id}/convert-bullets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labels: ['Ship it'] }),
+    });
+    expect(convert.status).toBe(201);
+    const { created } = await parseJson<{ created: Array<{ id: string }> }>(convert);
+    const taskId = created[0]?.id;
+    if (taskId === undefined) {
+      throw new Error('expected convert-bullets to create a task');
+    }
+
+    // Storing a plausible goal_id is not the same as being schedulable: a task
+    // on a completed goal reads back fine and is invisible to nextActionable
+    // forever. Release it and prove the scheduler can actually see it.
+    const release = await app.request(`/api/v1/tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'todo' }),
+    });
+    expect(release.status).toBe(200);
+
+    const next = await app.request(`/api/v1/projects/${project.id}/next-task`);
+    expect(next.status).toBe(200);
+    const body = await parseJson<{ next_task: { id: string } | null }>(next);
+    expect(body.next_task?.id).toBe(taskId);
+  });
+
+  it('POST /documents/:id/convert-bullets creates scope tasks and skips duplicates', async () => {
+    const { app } = await createTestApp();
+    const projectRes = await app.request('/api/v1/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Convert' }),
+    });
+    const project = await parseJson<{ id: string }>(projectRes);
+    const createDoc = await app.request(`/api/v1/projects/${project.id}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Overview',
+        body: '<ul><li><p>First</p></li><li><p>Second</p></li></ul>',
+      }),
+    });
+    const document = await parseJson<{ id: string; body: string | null }>(createDoc);
+    const bodyBefore = document.body;
+
+    const first = await app.request(`/api/v1/documents/${document.id}/convert-bullets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labels: ['First', 'Second'] }),
+    });
+    expect(first.status).toBe(201);
+    const created = await parseJson<{
+      created: Array<{ id: string; label: string; status: string; y: number }>;
+      skipped: string[];
+    }>(first);
+    expect(created.created.map((task) => task.label)).toEqual(['First', 'Second']);
+    expect(created.created.every((task) => task.status === 'scope')).toBe(true);
+    expect(created.skipped).toEqual([]);
+
+    const second = await app.request(`/api/v1/documents/${document.id}/convert-bullets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labels: ['First', 'Second'] }),
+    });
+    expect(second.status).toBe(201);
+    const skipped = await parseJson<{ created: unknown[]; skipped: string[] }>(second);
+    expect(skipped.created).toEqual([]);
+    expect(skipped.skipped).toEqual(['First', 'Second']);
+
+    const after = await parseJson<{ body: string | null }>(
+      await app.request(`/api/v1/documents/${document.id}`),
+    );
+    expect(after.body).toBe(bodyBefore);
+  });
 });

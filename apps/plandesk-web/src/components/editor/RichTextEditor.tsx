@@ -19,12 +19,13 @@ import {
 import { toast } from 'sonner';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
-import { MessageSquarePlusIcon } from 'lucide-react';
+import { ListTodoIcon, MessageSquarePlusIcon } from 'lucide-react';
 import { bodyToHtml } from '../../lib/markdown.js';
 import { sanitizeHtml } from '../../lib/sanitize.js';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { selectedListItems } from '../docs/selected-list-items.js';
 import { createDocLinkExtension, createSlashExtension } from './editor-extensions.js';
 import '../docs/document-editor.css';
 
@@ -274,6 +275,9 @@ type RichTextEditorProps = {
   // anchored to the selection (which stays highlighted). On submit the comment
   // is created and appears in the rail. Takes precedence over onCommentOnSelection.
   onCreateComment?: (input: { passage: string; body: string }) => Promise<void>;
+  // Editor-mode only: convert selected list items into tasks (labels in
+  // document order). Omitted or reader mode → no convert affordance.
+  onConvertListItems?: (labels: string[]) => void | Promise<void>;
   // When set, enables the Notion-style "/" slash menu and "[[" document-link
   // suggestion. `projectId` builds the link target; `docLinks` is the searchable
   // document list (read live, so a changing set never recreates the editor).
@@ -293,6 +297,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       onChange,
       onCommentOnSelection,
       onCreateComment,
+      onConvertListItems,
       projectId,
       docLinks,
     },
@@ -327,7 +332,9 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       top: number;
       left: number;
       text: string;
+      listLabels: string[];
     } | null>(null);
+    const [converting, setConverting] = useState(false);
     // The in-context comment composer: the captured range (for the highlight +
     // repositioning), the passage text, and its on-screen anchor.
     const draftRangeRef = useRef<Range | null>(null);
@@ -496,7 +503,12 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     // avoids the `document` global shadow. Best-effort positioning
     // (getBoundingClientRect can throw on a detached range under jsdom).
     useEffect(() => {
-      if (onCommentOnSelection === undefined && onCreateComment === undefined) {
+      const convertEnabled = mode === 'editor' && onConvertListItems !== undefined;
+      if (
+        onCommentOnSelection === undefined &&
+        onCreateComment === undefined &&
+        !convertEnabled
+      ) {
         return;
       }
       const container = contentRef.current;
@@ -506,7 +518,14 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       const showForSelection = () => {
         const selection = window.getSelection();
         const text = selection?.toString().trim() ?? '';
-        if (selection === null || selection.rangeCount === 0 || text === '') {
+        const listLabels = convertEnabled
+          ? selectedListItems(editor).map((item) => item.text)
+          : [];
+        if (
+          selection === null ||
+          selection.rangeCount === 0 ||
+          (text === '' && listLabels.length === 0)
+        ) {
           setSelectionMenu(null);
           return;
         }
@@ -524,7 +543,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         } catch {
           // detached range
         }
-        setSelectionMenu({ top, left, text });
+        setSelectionMenu({ top, left, text, listLabels });
       };
       const clearSelection = () => {
         setSelectionMenu(null);
@@ -535,7 +554,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         container.removeEventListener('mouseup', showForSelection);
         container.removeEventListener('mousedown', clearSelection);
       };
-    }, [onCommentOnSelection, onCreateComment]);
+    }, [onCommentOnSelection, onCreateComment, onConvertListItems, mode, editor]);
 
     // While the inline composer is open, keep it anchored to the highlighted
     // passage as the document column scrolls or the window resizes.
@@ -640,8 +659,11 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
 
         {selectionMenu !== null &&
         commentDraft === null &&
-        (onCreateComment !== undefined || onCommentOnSelection !== undefined) ? (
+        (onCreateComment !== undefined ||
+          onCommentOnSelection !== undefined ||
+          (onConvertListItems !== undefined && selectionMenu.listLabels.length > 0)) ? (
           <div
+            className="flex items-center gap-1"
             style={{
               position: 'fixed',
               top: Math.max(selectionMenu.top - 46, 8),
@@ -650,25 +672,57 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
               zIndex: 50,
             }}
           >
-            <Button
-              type="button"
-              size="sm"
-              className="shadow-md"
-              onMouseDown={(event) => {
-                event.preventDefault();
-              }}
-              onClick={() => {
-                if (onCreateComment !== undefined) {
-                  openCommentDraft();
-                  return;
+            {onConvertListItems !== undefined && selectionMenu.listLabels.length > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                className="shadow-md"
+                disabled={converting}
+                aria-label={
+                  selectionMenu.listLabels.length === 1
+                    ? 'Create task from bullet'
+                    : `Create ${String(selectionMenu.listLabels.length)} tasks from bullets`
                 }
-                onCommentOnSelection?.(selectionMenu.text);
-                setSelectionMenu(null);
-                window.getSelection()?.removeAllRanges();
-              }}
-            >
-              <MessageSquarePlusIcon className="size-3.5" /> Add comment
-            </Button>
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                }}
+                onClick={() => {
+                  const labels = selectionMenu.listLabels;
+                  setSelectionMenu(null);
+                  window.getSelection()?.removeAllRanges();
+                  setConverting(true);
+                  void Promise.resolve(onConvertListItems(labels)).finally(() => {
+                    setConverting(false);
+                  });
+                }}
+              >
+                <ListTodoIcon className="size-3.5" />
+                {selectionMenu.listLabels.length === 1
+                  ? 'Create task'
+                  : `Create ${String(selectionMenu.listLabels.length)} tasks`}
+              </Button>
+            ) : null}
+            {onCreateComment !== undefined || onCommentOnSelection !== undefined ? (
+              <Button
+                type="button"
+                size="sm"
+                className="shadow-md"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                }}
+                onClick={() => {
+                  if (onCreateComment !== undefined) {
+                    openCommentDraft();
+                    return;
+                  }
+                  onCommentOnSelection?.(selectionMenu.text);
+                  setSelectionMenu(null);
+                  window.getSelection()?.removeAllRanges();
+                }}
+              >
+                <MessageSquarePlusIcon className="size-3.5" /> Add comment
+              </Button>
+            ) : null}
           </div>
         ) : null}
 

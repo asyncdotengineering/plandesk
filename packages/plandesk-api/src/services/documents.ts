@@ -1,6 +1,7 @@
 import {
   withTransaction,
   createDocument as dbCreateDocument,
+  createEdge,
   deleteCommentsByTarget,
   deleteRevisionsByTarget,
   deleteDocument as dbDeleteDocument,
@@ -17,6 +18,7 @@ import {
   listEdges as dbListEdges,
   listEdgesByEndpoint,
   listFolders as dbListFolders,
+  listTasks,
   updateDocument as dbUpdateDocument,
   type Db,
   type DbClient,
@@ -29,6 +31,7 @@ import type { WikiLinkResolved } from '../markdown.js';
 import {
   buildFolderTree,
   serializeDocument,
+  serializeTask,
   type PaginationParams,
   type SerializedDocument,
   type SerializedDocumentFolderTree,
@@ -44,11 +47,29 @@ import {
   versionedFieldSnapshot,
 } from './revision-capture.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
+import type { TaskService } from './tasks.js';
+
+type SerializedTask = ReturnType<typeof serializeTask>;
+
 export type DocumentServiceDeps = OrgScopedDeps & {
   db: Db;
   /** Positive keep-count, or null/omit for unlimited. */
   maxRevisions?: number | null;
+  /**
+   * Existing task write path — convertBullets must not invent a second one.
+   * Optional only so document-only unit tests that never call convertBullets
+   * can omit it; the production wiring always supplies it.
+   */
+  taskService?: TaskService;
 };
+
+export type ConvertBulletsResult = {
+  created: SerializedTask[];
+  skipped: string[];
+};
+
+/** Vertical gap between cards placed from a convert pass (matches board skill). */
+const CONVERT_Y_SPACING = 200;
 
 export type CreateDocumentInput = {
   title: string;
@@ -573,6 +594,115 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       });
 
       return true;
+    },
+
+    /**
+     * Create one `scope` task per label from a document bullet selection.
+     * Does not mutate the document body. Skips a label when a task with that
+     * exact label is already linked from this document (documents → task).
+     * Placement starts below the project's lowest card so new cards never overlap.
+     */
+    async convertBullets(
+      id: string,
+      labels: string[],
+    ): Promise<ConvertBulletsResult | undefined> {
+      // Writing the document is the gate: converting is an edit affordance on
+      // the source doc, even though the body itself is left unchanged.
+      assertPermission(deps, 'document', 'update');
+      assertPermission(deps, 'edge', 'create');
+
+      const taskService = deps.taskService;
+      if (taskService === undefined) {
+        throw new Error('documentService.convertBullets requires taskService');
+      }
+
+      const existing = await dbGetDocument(db, id);
+      if (!existing) {
+        return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+
+      const projectId = existing.projectId;
+      const bodyBefore = existing.body;
+      const edges = await listEdgesByEndpoint(db, projectId, 'document', id);
+      const linkedTaskIds = new Set<string>();
+      for (const edge of edges) {
+        if (
+          edge.fromType === 'document' &&
+          edge.fromId === id &&
+          edge.toType === 'task'
+        ) {
+          linkedTaskIds.add(edge.toId);
+        }
+      }
+
+      const projectTasks = await listTasks(db, projectId);
+      const linkedLabels = new Set<string>();
+      for (const task of projectTasks) {
+        if (linkedTaskIds.has(task.id)) {
+          linkedLabels.add(task.label);
+        }
+      }
+
+      let maxY = 0;
+      for (const task of projectTasks) {
+        if (task.y > maxY) {
+          maxY = task.y;
+        }
+      }
+      let nextY = projectTasks.length === 0 ? 0 : maxY + CONVERT_Y_SPACING;
+
+      const created: SerializedTask[] = [];
+      const skipped: string[] = [];
+
+      for (const raw of labels) {
+        const label = raw.trim();
+        if (label === '') {
+          continue;
+        }
+        if (linkedLabels.has(label)) {
+          skipped.push(label);
+          continue;
+        }
+
+        const task = await taskService.create(projectId, {
+          label,
+          status: 'scope',
+          x: 0,
+          y: nextY,
+        });
+        if (task === undefined) {
+          return undefined;
+        }
+
+        await createEdge(db, {
+          projectId,
+          fromType: 'document',
+          fromId: id,
+          toType: 'task',
+          toId: task.id,
+          label: 'documents',
+        });
+
+        linkedLabels.add(label);
+        created.push(task);
+        nextY += CONVERT_Y_SPACING;
+      }
+
+      // Body must stay byte-identical — convert never writes the document.
+      const after = await dbGetDocument(db, id);
+      if (after === undefined || after.body !== bodyBefore) {
+        throw new Error('convertBullets mutated document body');
+      }
+
+      return { created, skipped };
     },
   };
 }

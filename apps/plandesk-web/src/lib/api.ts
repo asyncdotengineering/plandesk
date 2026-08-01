@@ -562,6 +562,22 @@ export function deleteDocument(id: string): Promise<void> {
   return request(`/documents/${id}`, { method: 'DELETE' });
 }
 
+export type ConvertBulletsResult = {
+  created: SerializedTask[];
+  skipped: string[];
+};
+
+/** Create scope tasks from selected document bullet labels; body is unchanged. */
+export function convertDocumentBullets(
+  id: string,
+  labels: string[],
+): Promise<ConvertBulletsResult> {
+  return request(`/documents/${id}/convert-bullets`, {
+    method: 'POST',
+    body: JSON.stringify({ labels }),
+  });
+}
+
 export type UploadedFile = {
   id: string;
   url: string;

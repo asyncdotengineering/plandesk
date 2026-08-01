@@ -8,6 +8,7 @@ import {
   createWorkspace,
   createComment,
   createDocument,
+  convertDocumentBullets,
   createFolder,
   createGoal,
   createNote,
@@ -316,6 +317,19 @@ export function useDeleteDocument() {
     mutationFn: ({ id }: { id: string; projectId: string }) => deleteDocument(id),
     onSuccess: (_result, { projectId }) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.documents(projectId) });
+    },
+  });
+}
+
+export function useConvertDocumentBullets(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, labels }: { id: string; labels: string[] }) =>
+      convertDocumentBullets(id, labels),
+    onSuccess: () => {
+      invalidateTaskQueries(queryClient, projectId);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.documents(projectId) });
+      void queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
   });
 }

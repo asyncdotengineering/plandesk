@@ -8,9 +8,11 @@ import {
   createDocument,
   createEdge,
   createFolder,
+  createGoal,
   createProjectInDefaultOrg as createProject,
   getComment,
   getDocument,
+  getTask,
   listCommentsByTarget,
   listEdges,
   listRevisionsByTarget,
@@ -19,7 +21,9 @@ import {
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { ensureHtmlBody } from '../markdown.js';
-import { createDocumentService, InvalidDocumentError } from './documents.js';
+import { PermissionDeniedError } from '../permissions.js';
+import { createDocumentService, InvalidDocumentError, type DocumentServiceDeps } from './documents.js';
+import { createTaskService } from './tasks.js';
 
 describe('documentService', () => {
   let db: Db;
@@ -31,8 +35,9 @@ describe('documentService', () => {
   let projectId = '';
   let orgId = '';
 
-  function createService() {
-    return createDocumentService({ db, orgId });
+  function createService(extra?: Omit<DocumentServiceDeps, 'db' | 'orgId' | 'taskService'>) {
+    const taskService = createTaskService({ db, orgId, ...extra });
+    return createDocumentService({ db, orgId, taskService, ...extra });
   }
 
   beforeEach(async () => {
@@ -484,6 +489,202 @@ describe('documentService', () => {
     expect(source.body).toContain('`get_next_task`</a>');
     expect(source.body).not.toContain('<code>get_next_task</code>');
     expect(source.links[0]?.id).toBe(target.id);
+  });
+
+  describe('convertBullets', () => {
+    it('lands created tasks on the active goal and get_next_task sees them once released (revert-proof)', async () => {
+      const service = createService();
+      const taskService = createTaskService({ db, orgId });
+      const complete = await createGoal(db, {
+        projectId,
+        objective: 'Old cycle',
+        status: 'complete',
+        id: '11111111-1111-4111-8111-111111111111',
+      });
+      await db.$client.execute({
+        sql: 'UPDATE goals SET created_at = ? WHERE id = ?',
+        args: [Date.now() - 20_000, complete.id],
+      });
+      const active = await createGoal(db, {
+        projectId,
+        objective: 'Current cycle',
+        status: 'active',
+        id: '22222222-2222-4222-8222-222222222222',
+      });
+
+      const document = await service.create(projectId, {
+        title: 'Overview',
+        body: '<ul><li><p>Ship the converter</p></li></ul>',
+      });
+      expect(document).toBeDefined();
+      if (!document) {
+        return;
+      }
+
+      const result = await service.convertBullets(document.id, ['Ship the converter']);
+      expect(result?.created).toHaveLength(1);
+      const created = result?.created[0];
+      if (created === undefined) {
+        throw new Error('expected created task');
+      }
+      expect(created.goal_id).toBe(active.id);
+      expect(created.status).toBe('scope');
+
+      // Scope is not on the frontier — release, then prove scheduler reachability.
+      const released = await taskService.update(created.id, { status: 'todo' });
+      expect(released?.status).toBe('todo');
+
+      const next = await taskService.nextActionable(projectId);
+      expect(next?.reason).toBe('ok');
+      expect(next?.next_task?.id).toBe(created.id);
+      expect(next?.next_task?.goal_id).toBe(active.id);
+    });
+
+    it('converting the same bullet twice does not silently produce two tasks (revert-proof)', async () => {
+      const service = createService();
+      const document = await service.create(projectId, {
+        title: 'Overview',
+        body: '<ul><li><p>Do the thing</p></li></ul>',
+      });
+      expect(document).toBeDefined();
+      if (!document) {
+        return;
+      }
+
+      const first = await service.convertBullets(document.id, ['Do the thing']);
+      expect(first?.created).toHaveLength(1);
+      expect(first?.skipped).toEqual([]);
+
+      const second = await service.convertBullets(document.id, ['Do the thing']);
+      expect(second?.created).toEqual([]);
+      expect(second?.skipped).toEqual(['Do the thing']);
+
+      const edges = await listEdges(db, projectId);
+      const docTaskEdges = edges.filter(
+        (edge) =>
+          edge.fromType === 'document' &&
+          edge.fromId === document.id &&
+          edge.toType === 'task',
+      );
+      expect(docTaskEdges).toHaveLength(1);
+    });
+
+    it('converts multiple labels in order as scope tasks linked from the document', async () => {
+      const service = createService();
+      const existing = await createTask(db, {
+        projectId,
+        label: 'Anchor',
+        status: 'todo',
+        x: 0,
+        y: 400,
+      });
+      const document = await service.create(projectId, {
+        title: 'Overview',
+        body: '<ul><li><p>A</p></li><li><p>B</p></li><li><p>C</p></li></ul>',
+      });
+      expect(document).toBeDefined();
+      if (!document) {
+        return;
+      }
+
+      const result = await service.convertBullets(document.id, ['A', 'B', 'C']);
+      expect(result?.created.map((task) => task.label)).toEqual(['A', 'B', 'C']);
+      expect(result?.created.every((task) => task.status === 'scope')).toBe(true);
+      expect(result?.created.map((task) => task.y)).toEqual([600, 800, 1000]);
+      expect(result?.created.every((task) => task.x === 0)).toBe(true);
+
+      const linked = await service.get(document.id);
+      expect(linked?.links.filter((link) => link.type === 'task').map((link) => link.title)).toEqual(
+        expect.arrayContaining(['A', 'B', 'C']),
+      );
+      expect(linked?.body).toBe(document.body);
+      // Existing card untouched.
+      expect((await getTask(db, existing.id))?.y).toBe(400);
+    });
+
+    it('leaves the document body unchanged when a bullet contains a wiki-link', async () => {
+      const service = createService();
+      const target = await service.create(projectId, { title: 'the spec' });
+      expect(target).toBeDefined();
+      if (!target) {
+        return;
+      }
+      const document = await service.create(projectId, {
+        title: 'Overview',
+        body: `See [[the spec]] then ship.`,
+      });
+      expect(document).toBeDefined();
+      if (!document) {
+        return;
+      }
+      // Body is HTML with a real <a> after wiki-link resolution.
+      expect(document.body).toContain(`/documents/${target.id}`);
+      const bodyBefore = document.body;
+
+      const result = await service.convertBullets(document.id, ['See the spec then ship.']);
+      expect(result?.created).toHaveLength(1);
+      expect(result?.created[0]?.label).toBe('See the spec then ship.');
+
+      const after = await service.get(document.id);
+      expect(after?.body).toBe(bodyBefore);
+      expect(after?.body).toContain(`/documents/${target.id}`);
+      expect(after?.body).toContain('>the spec</a>');
+    });
+
+    it('denies convert when the caller cannot write the document', async () => {
+      const writer = createService();
+      const document = await writer.create(projectId, {
+        title: 'Overview',
+        body: '<ul><li><p>Secret</p></li></ul>',
+      });
+      expect(document).toBeDefined();
+      if (!document) {
+        return;
+      }
+
+      const reader = createService({
+        permission: {
+          task: ['create', 'read', 'update', 'delete'],
+          document: ['read'],
+          edge: ['create', 'read'],
+          goal: ['read'],
+          comment: ['read'],
+          agent_run: ['read'],
+          project: [],
+          organization: [],
+          member: [],
+          invitation: [],
+          team: [],
+          ac: [],
+          apiKey: [],
+        },
+      });
+
+      await expect(reader.convertBullets(document.id, ['Secret'])).rejects.toThrow(
+        PermissionDeniedError,
+      );
+      expect(await listEdges(db, projectId)).toHaveLength(0);
+    });
+
+    it('treats a foreign-org document id like an unknown one', async () => {
+      const service = createService();
+      const document = await service.create(projectId, { title: 'Ours' });
+      expect(document).toBeDefined();
+      if (!document) {
+        return;
+      }
+
+      const foreign = createDocumentService({
+        db,
+        orgId: '00000000-0000-4000-8000-00000000ffff',
+        taskService: createTaskService({
+          db,
+          orgId: '00000000-0000-4000-8000-00000000ffff',
+        }),
+      });
+      expect(await foreign.convertBullets(document.id, ['Leak'])).toBeUndefined();
+      expect(await listEdges(db, projectId)).toHaveLength(0);
+    });
   });
 });
 

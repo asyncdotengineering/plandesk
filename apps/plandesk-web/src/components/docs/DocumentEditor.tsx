@@ -25,6 +25,8 @@ type DocumentEditorProps = {
   onCommentOnSelection?: (passage: string) => void;
   // Inline flow: create a passage-anchored comment from the floating composer.
   onCreateComment?: (input: { passage: string; body: string }) => Promise<void>;
+  // Convert selected list-item labels into tasks (editor mode only).
+  onConvertListItems?: (labels: string[]) => void | Promise<void>;
   // Enables the "/" slash menu + "[[" document links in the editor.
   projectId?: string;
   docLinks?: { id: string; title: string }[];
@@ -39,6 +41,7 @@ export function DocumentEditor({
   isDeleting = false,
   onCommentOnSelection,
   onCreateComment,
+  onConvertListItems,
   projectId,
   docLinks,
 }: DocumentEditorProps) {
@@ -147,6 +150,7 @@ export function DocumentEditor({
         }}
         onCommentOnSelection={onCommentOnSelection}
         onCreateComment={onCreateComment}
+        onConvertListItems={mode === 'editor' ? onConvertListItems : undefined}
         projectId={projectId}
         docLinks={docLinks}
       />

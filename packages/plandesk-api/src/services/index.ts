@@ -74,7 +74,7 @@ export function createServices(deps: ServicesDeps): Services {
     taskService,
   });
   const canvasService = createCanvasService(scoped);
-  const documentService = createDocumentService(versioned);
+  const documentService = createDocumentService({ ...versioned, taskService });
   const folderService = createFolderService(scoped);
   const noteService = createNoteService(scoped);
   const commentService = createCommentService(scoped);

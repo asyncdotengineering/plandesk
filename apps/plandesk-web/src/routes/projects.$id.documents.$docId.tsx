@@ -7,6 +7,7 @@ import { DocumentEditor, type DocumentEditorMode } from '../components/docs/Docu
 import { flattenDocumentTree } from '../components/docs/DocumentsPanel.js';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  useConvertDocumentBullets,
   useCreateComment,
   useDeleteDocument,
   useDocument,
@@ -24,6 +25,7 @@ function DocumentPage() {
   const patchDocument = usePatchDocument();
   const deleteDocument = useDeleteDocument();
   const createComment = useCreateComment({ type: 'document', id: docId });
+  const convertBullets = useConvertDocumentBullets(id);
   const [mode, setMode] = useState<DocumentEditorMode>('reader');
   // A brand-new / empty document opens in Edit so you can start writing; an
   // existing document opens read-first. Runs once when the doc first loads.
@@ -108,6 +110,31 @@ function DocumentPage() {
           onCreateComment={async ({ passage, body }) => {
             await createComment.mutateAsync({ body, passage });
             toast('Comment added');
+          }}
+          onConvertListItems={async (labels) => {
+            if (labels.length === 0) {
+              return;
+            }
+            try {
+              const result = await convertBullets.mutateAsync({
+                id: docId,
+                labels,
+              });
+              const created = result.created.length;
+              const skipped = result.skipped.length;
+              if (created === 0 && skipped > 0) {
+                toast('Already converted — no new tasks');
+              } else if (created > 0 && skipped > 0) {
+                toast(
+                  `Created ${String(created)} task${created === 1 ? '' : 's'}; skipped ${String(skipped)} already linked`,
+                );
+              } else if (created > 0) {
+                toast(`Created ${String(created)} task${created === 1 ? '' : 's'}`);
+              }
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Failed to create tasks';
+              toast.error(message);
+            }
           }}
           onSave={(input) => patchDocument.mutateAsync({ id: docId, input }).then(() => undefined)}
           onDelete={() => {
