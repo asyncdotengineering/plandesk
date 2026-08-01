@@ -12,7 +12,7 @@ export function createLocalBlobAdapter(deps: LocalBlobAdapterDeps): StorageAdapt
 
   return {
     async put(input) {
-      const id = createHash('sha256').update(input.bytes).digest('hex');
+      const id = createHash('sha256').update(new Uint8Array(input.bytes)).digest('hex');
       await createFile(db, {
         id,
         projectId: input.projectId,

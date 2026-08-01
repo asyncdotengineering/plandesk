@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SAVED_VIEW_CONFIG_VERSION } from '@plandesk/db/saved-view-config';
 import {
   createProject,
   createTask,
@@ -7,6 +8,7 @@ import {
   deleteEdge,
   deleteProject,
   deleteTask,
+  exportProjectView,
   getDocument,
   getProject,
   listProjects,
@@ -355,5 +357,36 @@ describe('api client', () => {
     const result = await listAgentRuns('proj-1');
     expectFetchCall('/api/v1/projects/proj-1/agent-runs');
     expect(result).toEqual(sampleRuns);
+  });
+
+  it('exportProjectView posts view state and returns the file blob', async () => {
+    const view = {
+      version: SAVED_VIEW_CONFIG_VERSION,
+      filter: null,
+      sort: [],
+      group: null,
+      visibleColumns: ['label', 'status'],
+    };
+    const blob = new Blob(['label,status\nA,todo\n'], { type: 'text/csv' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({
+          'Content-Disposition': 'attachment; filename="Alpha-2026-08-01.csv"',
+        }),
+        blob: () => Promise.resolve(blob),
+        text: () => Promise.resolve(''),
+      }),
+    );
+
+    const result = await exportProjectView('proj-1', { format: 'csv', view });
+    expectFetchCall('/api/v1/projects/proj-1/export', {
+      method: 'POST',
+      body: JSON.stringify({ format: 'csv', view }),
+    });
+    expect(result.filename).toBe('Alpha-2026-08-01.csv');
+    expect(result.blob).toBe(blob);
   });
 });

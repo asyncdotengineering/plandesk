@@ -9,6 +9,10 @@ import { createFileService, type FileService } from './files.js';
 import { createFolderService, type FolderService } from './folders.js';
 import { createNoteService, type NoteService } from './notes.js';
 import { createProjectService, type ProjectService } from './projects.js';
+import {
+  createProjectExportService,
+  type ProjectExportService,
+} from './project-export.js';
 import { createAgentRunService, type AgentRunService } from './agent-runs.js';
 import { createTagService, type TagService } from './tags.js';
 import { createGoalService, type GoalService } from './goals.js';
@@ -32,6 +36,7 @@ export type Services = {
   taskService: TaskService;
   tagService: TagService;
   viewService: ViewService;
+  projectExportService: ProjectExportService;
   canvasService: CanvasService;
   documentService: DocumentService;
   folderService: FolderService;
@@ -52,6 +57,11 @@ export function createServices(deps: ServicesDeps): Services {
   const taskService = createTaskService(scoped);
   const tagService = createTagService(scoped);
   const viewService = createViewService(scoped);
+  const projectExportService = createProjectExportService({
+    ...scoped,
+    projectService,
+    taskService,
+  });
   const canvasService = createCanvasService(scoped);
   const documentService = createDocumentService(scoped);
   const folderService = createFolderService(scoped);
@@ -69,6 +79,7 @@ export function createServices(deps: ServicesDeps): Services {
     taskService,
     tagService,
     viewService,
+    projectExportService,
     canvasService,
     documentService,
     folderService,

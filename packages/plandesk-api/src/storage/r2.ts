@@ -50,7 +50,7 @@ export function createR2Adapter(deps: R2AdapterDeps): StorageAdapter {
 
   return {
     async put(input) {
-      const id = createHash('sha256').update(input.bytes).digest('hex');
+      const id = createHash('sha256').update(new Uint8Array(input.bytes)).digest('hex');
       const body = new Uint8Array(input.bytes);
       await bucket.put(objectKey(input.projectId, id), body, {
         httpMetadata: { contentType: input.mime },

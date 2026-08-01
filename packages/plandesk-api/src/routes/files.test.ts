@@ -26,7 +26,7 @@ describe('files routes', () => {
     });
     expect(createRes.status).toBe(201);
     const created = await parseJson<UploadedFileResponse>(createRes);
-    expect(created.id).toBe(createHash('sha256').update(bytes).digest('hex'));
+    expect(created.id).toBe(createHash('sha256').update(new Uint8Array(bytes)).digest('hex'));
     expect(created.url).toBe(`/api/v1/files/${created.id}`);
     expect(created.filename).toBe('shot.png');
     expect(created.mime).toBe('image/png');

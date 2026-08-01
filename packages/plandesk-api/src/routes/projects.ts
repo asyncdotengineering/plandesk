@@ -10,6 +10,10 @@ import {
   isValidRepoUrl,
 } from '@plandesk/db';
 import type { ProjectService } from '../services/projects.js';
+import {
+  InvalidExportRequestError,
+  type ProjectExportService,
+} from '../services/project-export.js';
 import { InvalidGoalReferenceError, type TaskService } from '../services/tasks.js';
 import { InvalidTagError } from '../services/tags.js';
 import { isStringArray } from './tasks.js';
@@ -19,6 +23,7 @@ import { WorkspaceNotFoundError } from '../services/scope.js';
 export function createProjectsRouter(
   projectService: ProjectService,
   taskService: TaskService,
+  exportService: ProjectExportService,
 ): Hono {
   const router = new Hono();
 
@@ -280,6 +285,36 @@ export function createProjectsRouter(
       return c.json({ error: 'not_found' }, 404);
     }
     return c.json(result);
+  });
+
+  router.post('/projects/:id/export', async (c) => {
+    let body: { format?: unknown; view?: unknown };
+    try {
+      body = await c.req.json<{ format?: unknown; view?: unknown }>();
+    } catch {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (body.view === undefined) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    try {
+      const result = await exportService.exportView(c.req.param('id'), {
+        format: body.format,
+        view: body.view,
+      });
+      if (result === undefined) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+      return c.body(new Uint8Array(result.body), 200, {
+        'Content-Type': result.contentType,
+        'Content-Disposition': result.contentDisposition,
+      });
+    } catch (error) {
+      if (error instanceof InvalidExportRequestError) {
+        return c.json({ error: 'invalid_argument', message: error.message }, 400);
+      }
+      throw error;
+    }
   });
 
   return router;

@@ -1,16 +1,25 @@
-import { ChevronDownIcon, ChevronRightIcon, Columns3Icon } from 'lucide-react';
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  Columns3Icon,
+  DownloadIcon,
+} from 'lucide-react';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { SAVED_VIEW_CONFIG_VERSION } from '@plandesk/db/saved-view-config';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  exportProjectView,
+  type ExportFormat,
   type PatchTaskInput,
   type SerializedTask,
   type TaskStatus,
@@ -148,6 +157,34 @@ export function TaskList({
   const tagNames = (projectTags ?? []).map((tag) => tag.name);
   const columnOrder = LIST_COLUMNS.filter((column) => visibleColumns.has(column));
 
+  const handleExport = (format: ExportFormat) => {
+    void (async () => {
+      try {
+        const { blob, filename } = await exportProjectView(projectId, {
+          format,
+          view: {
+            version: SAVED_VIEW_CONFIG_VERSION,
+            filter: filterRoot,
+            sort: sortSpecs,
+            group: activeGroupSpecs,
+            visibleColumns: columnOrder,
+          },
+        });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        anchor.rel = 'noopener';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      } catch {
+        toast.error('Export failed');
+      }
+    })();
+  };
+
   const toggleColumn = (column: ListColumnId, checked: boolean) => {
     setVisibleColumns((current) => {
       const next = new Set(current);
@@ -226,6 +263,32 @@ export function TaskList({
                   {LIST_COLUMN_LABELS[column]}
                 </DropdownMenuCheckboxItem>
               ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="sm" aria-label="Export">
+                <DownloadIcon className="size-3.5" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuLabel>Download</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => {
+                  handleExport('csv');
+                }}
+              >
+                CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  handleExport('xlsx');
+                }}
+              >
+                Excel (XLSX)
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

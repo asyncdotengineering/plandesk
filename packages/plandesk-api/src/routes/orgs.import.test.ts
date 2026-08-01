@@ -344,7 +344,7 @@ describe('POST /api/v1/orgs/:id/import', () => {
     });
 
     const bytes = Buffer.from('identical-bytes-for-two-orgs', 'utf8');
-    const fileId = createHash('sha256').update(bytes).digest('hex');
+    const fileId = createHash('sha256').update(new Uint8Array(bytes)).digest('hex');
 
     const seed = await createProject(db, { name: 'With File', orgId: orgA.id });
     await createFile(db, {

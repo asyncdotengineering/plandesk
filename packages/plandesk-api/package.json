@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250609.0",
+    "csv-parse": "^7.0.1",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
   },
@@ -37,6 +38,8 @@
     "@libsql/kysely-libsql": "^0.4.1",
     "@plandesk/db": "workspace:*",
     "better-auth": "1.6.23",
+    "csv-stringify": "^6.8.1",
+    "exceljs": "^4.4.0",
     "hono": "^4.12.23",
     "marked": "^18.0.5"
   },

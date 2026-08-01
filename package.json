@@ -12,7 +12,8 @@
       "esbuild"
     ],
     "overrides": {
-      "@libsql/kysely-libsql>@libsql/client": "^0.15.9"
+      "@libsql/kysely-libsql>@libsql/client": "^0.15.9",
+      "@types/node": "25.9.2"
     }
   },
   "scripts": {

@@ -173,6 +173,81 @@ afterEach(() => {
 });
 
 describe('TaskList', () => {
+  it('Export menu posts the current view state for CSV download', async () => {
+    const tasks = [makeTask('t1', 'Export me', 'todo')];
+    await renderTaskListReady(tasks);
+
+    const requestUrl = (path: RequestInfo | URL): string => {
+      if (typeof path === 'string') {
+        return path;
+      }
+      if (path instanceof URL) {
+        return path.href;
+      }
+      return path.url;
+    };
+
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockImplementation((path: RequestInfo | URL) => {
+      const url = requestUrl(path);
+      if (url.endsWith(`/projects/${projectId}/export`)) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({
+            'Content-Disposition': 'attachment; filename="proj-2026-08-01.csv"',
+          }),
+          blob: () => Promise.resolve(new Blob(['ok'], { type: 'text/csv' })),
+          text: () => Promise.resolve(''),
+          json: () => Promise.resolve({}),
+        }) as Promise<Response>;
+      }
+      if (url.endsWith(`/projects/${projectId}/goals`)) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve([makeGoal('goal-1', 'Ship list view')]),
+        }) as Promise<Response>;
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve([]),
+      }) as Promise<Response>;
+    });
+
+    const createObjectURL = vi.fn(() => 'blob:export');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL,
+      revokeObjectURL,
+    });
+
+    const exportTrigger = screen.getByRole('button', { name: 'Export' });
+    fireEvent.pointerDown(exportTrigger, { button: 0 });
+    fireEvent.pointerUp(exportTrigger, { button: 0 });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'CSV' }));
+
+    await waitFor(() => {
+      const exportCall = fetchMock.mock.calls.find(
+        ([path]) => requestUrl(path) === `/api/v1/projects/${projectId}/export`,
+      );
+      expect(exportCall).toBeDefined();
+      const init = exportCall?.[1];
+      expect(init?.method).toBe('POST');
+      expect(typeof init?.body).toBe('string');
+      const body = JSON.parse(init?.body as string) as {
+        format: string;
+        view: { visibleColumns: string[]; version: number };
+      };
+      expect(body.format).toBe('csv');
+      expect(body.view.version).toBe(1);
+      expect(body.view.visibleColumns).toContain('label');
+    });
+    expect(createObjectURL).toHaveBeenCalled();
+  });
+
   it('renders every task as a row across several goals', async () => {
     const goals = [
       makeGoal('goal-a', 'Goal Alpha'),

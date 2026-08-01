@@ -5,6 +5,7 @@
 // Imported *and* re-exported: `export … from` alone re-exports without binding
 // the names locally, and SerializedTask below refers to TaskPriority in this
 // module's own scope.
+import type { SavedViewConfig } from '@plandesk/db/saved-view-config';
 import {
   taskStatuses,
   taskPriorities,
@@ -15,6 +16,7 @@ import {
 
 export { taskStatuses, taskPriorities, taskPriorityOrder };
 export type { TaskStatus, TaskPriority };
+export type { SavedViewConfig };
 
 export const edgeLabels = [
   'blocks',
@@ -348,6 +350,32 @@ export function listTasks(
   }
   const query = params.toString();
   return request(`/projects/${projectId}/tasks${query ? `?${query}` : ''}`);
+}
+
+export type ExportFormat = 'csv' | 'xlsx';
+
+/**
+ * Download a list-view report. The server re-runs the view query; the client
+ * sends view state, not rows.
+ */
+export async function exportProjectView(
+  projectId: string,
+  input: { format: ExportFormat; view: SavedViewConfig },
+): Promise<{ blob: Blob; filename: string }> {
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  const response = await fetch(`${BASE}/projects/${projectId}/export`, {
+    method: 'POST',
+    headers,
+    credentials: 'include',
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
+  const disposition = response.headers.get('Content-Disposition') ?? '';
+  const match = /filename="([^"]+)"/.exec(disposition);
+  const filename = match?.[1] ?? `export.${input.format}`;
+  return { blob: await response.blob(), filename };
 }
 
 export function createTask(projectId: string, input: CreateTaskInput): Promise<SerializedTask> {

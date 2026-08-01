@@ -40,7 +40,7 @@ export function createS3Adapter(deps: S3AdapterDeps): StorageAdapter {
 
   return {
     put(input) {
-      const id = createHash('sha256').update(input.bytes).digest('hex');
+      const id = createHash('sha256').update(new Uint8Array(input.bytes)).digest('hex');
       const key = `${input.projectId}/${id}`;
       return Promise.reject(
         new Error(`s3 adapter not built: cannot PUT "${key}" to bucket "${config.bucket}"`),

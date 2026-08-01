@@ -113,7 +113,7 @@ describe('createR2Adapter (REQ-1)', () => {
     // Without the persisted files row this is a 500 ("did not persist file metadata").
     expect(createRes.status).toBe(201);
     const created = await parseJson<UploadedFileResponse>(createRes);
-    expect(created.id).toBe(createHash('sha256').update(bytes).digest('hex'));
+    expect(created.id).toBe(createHash('sha256').update(new Uint8Array(bytes)).digest('hex'));
     expect(created.size).toBe(bytes.length);
 
     // Bytes are stored under the project-scoped key, never a bare content id.
@@ -158,7 +158,7 @@ describe('createR2Adapter (REQ-1)', () => {
     if (mine === null || 'redirectUrl' in mine) {
       throw new Error('expected bytes for the owning org');
     }
-    expect(Buffer.from(mine.bytes)).toEqual(bytes);
+    expect(Uint8Array.from(mine.bytes)).toEqual(Uint8Array.from(bytes));
     expect(mine.mime).toBe('text/plain');
 
     // A different org gets null even though it knows the content id.

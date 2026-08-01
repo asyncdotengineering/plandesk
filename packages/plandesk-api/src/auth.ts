@@ -72,7 +72,8 @@ function credentialsMatch(provided: Buffer, expected: Buffer): boolean {
   if (provided.length !== expected.length) {
     return false;
   }
-  return timingSafeEqual(provided, expected);
+  // @types/node Buffer generics are not assignable to ArrayBufferView directly.
+  return timingSafeEqual(new Uint8Array(provided), new Uint8Array(expected));
 }
 
 function extractBearerToken(header: string | undefined): string | undefined {
