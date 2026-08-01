@@ -26,6 +26,10 @@ function openSortMenu() {
   fireEvent.click(screen.getByRole('button', { name: 'Sort' }));
 }
 
+function openGroupMenu() {
+  fireEvent.click(screen.getByRole('button', { name: 'Group' }));
+}
+
 function makeTag(id: string, name: string): SerializedTag {
   return {
     id,
@@ -307,6 +311,119 @@ describe('TaskList', () => {
         row.getAttribute('data-task-id'),
       );
       expect(ids).toEqual(['t-scope', 't-todo', 't-progress']);
+    });
+  });
+
+  it('sub-groups by status inside each goal and collapsing a parent hides nested rows', async () => {
+    const goals = [
+      makeGoal('goal-a', 'Goal Alpha'),
+      makeGoal('goal-b', 'Goal Beta'),
+    ];
+    const tasks = [
+      makeTask('t-a-todo', 'Alpha todo', 'todo', { goal_id: 'goal-a' }),
+      makeTask('t-a-scope', 'Alpha scope', 'scope', { goal_id: 'goal-a' }),
+      makeTask('t-b-todo', 'Beta todo', 'todo', { goal_id: 'goal-b' }),
+    ];
+
+    const { container } = await renderTaskListReady(tasks, { goals });
+
+    await waitFor(() => {
+      expect(screen.getByText('Alpha todo')).toBeTruthy();
+    });
+
+    openGroupMenu();
+    fireEvent.click(await screen.findByRole('button', { name: 'Add group level' }));
+    await waitFor(() => {
+      expect(container.querySelector('[data-group-level="0"]')).toBeTruthy();
+    });
+    fireEvent.change(screen.getByLabelText('Group field 1'), { target: { value: 'goal_id' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add group level' }));
+    await waitFor(() => {
+      expect(container.querySelector('[data-group-level="1"]')).toBeTruthy();
+    });
+    fireEvent.change(screen.getByLabelText('Group field 2'), { target: { value: 'status' } });
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-group-field="goal_id"]')).toHaveLength(2);
+      expect(
+        container.querySelectorAll('[data-group-field="status"]').length,
+      ).toBeGreaterThanOrEqual(2);
+    });
+
+    const alphaParent = [...container.querySelectorAll('[data-group-field="goal_id"]')].find(
+      (row) => row.textContent.includes('Goal Alpha'),
+    );
+    if (alphaParent === undefined) {
+      throw new Error('expected Goal Alpha group row');
+    }
+    const alphaId = alphaParent.getAttribute('data-group-id');
+    if (alphaId === null) {
+      throw new Error('expected data-group-id on Goal Alpha group row');
+    }
+    expect(container.querySelectorAll(`[data-group-id^="${alphaId}/"]`).length).toBeGreaterThanOrEqual(
+      2,
+    );
+
+    fireEvent.click(screen.getByLabelText('Collapse group Goal Alpha'));
+
+    await waitFor(() => {
+      expect(
+        container.querySelector(`[data-group-id="${alphaId}"]`)?.getAttribute('data-group-collapsed'),
+      ).toBe('true');
+      expect(container.querySelector('[data-task-id="t-a-todo"]')).toBeNull();
+      expect(container.querySelector('[data-task-id="t-a-scope"]')).toBeNull();
+      expect(container.querySelectorAll(`[data-group-id^="${alphaId}/"]`)).toHaveLength(0);
+      expect(container.querySelector('[data-task-id="t-b-todo"]')).toBeTruthy();
+    });
+
+    // Re-render via an unrelated UI change; collapse state must stick.
+    openColumnsMenu();
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Assignee' }));
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-list-column="assignee"]')).toBeNull();
+      expect(
+        container.querySelector(`[data-group-id="${alphaId}"]`)?.getAttribute('data-group-collapsed'),
+      ).toBe('true');
+      expect(container.querySelector('[data-task-id="t-a-todo"]')).toBeNull();
+    });
+
+    fireEvent.click(screen.getByLabelText('Expand group Goal Alpha'));
+    await waitFor(() => {
+      expect(container.querySelector('[data-task-id="t-a-todo"]')).toBeTruthy();
+      expect(container.querySelector('[data-task-id="t-a-scope"]')).toBeTruthy();
+    });
+  });
+
+  it('grouping by tag shows a two-tag task twice and notes that totals exceed the task count', async () => {
+    const tasks = [
+      makeTask('t-both', 'Both tags', 'todo', {
+        tags: [makeTag('tag-a', 'alpha'), makeTag('tag-b', 'beta')],
+      }),
+      makeTask('t-one', 'One tag', 'todo', { tags: [makeTag('tag-a2', 'alpha')] }),
+    ];
+
+    const { container } = await renderTaskListReady(tasks);
+
+    await waitFor(() => {
+      expect(screen.getByText('Both tags')).toBeTruthy();
+    });
+
+    openGroupMenu();
+    fireEvent.click(await screen.findByRole('button', { name: 'Add group level' }));
+    fireEvent.change(await screen.findByLabelText('Group field 1'), {
+      target: { value: 'tag' },
+    });
+
+    await waitFor(() => {
+      const tagNote = container.querySelector('[data-group-tag-note]');
+      expect(tagNote).toBeTruthy();
+      if (tagNote === null) {
+        throw new Error('expected tag fan-out note');
+      }
+      expect(tagNote.textContent.toLowerCase()).toMatch(/exceed/);
+      expect(container.querySelectorAll('tr[data-task-id="t-both"]')).toHaveLength(2);
     });
   });
 });

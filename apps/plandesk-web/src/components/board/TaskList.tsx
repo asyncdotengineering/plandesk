@@ -1,5 +1,5 @@
-import { Columns3Icon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { ChevronDownIcon, ChevronRightIcon, Columns3Icon } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,7 +32,16 @@ import {
 } from './list-columns.js';
 import { StatusChip } from './StatusChip.js';
 import { TaskDrawer } from './TaskDrawer.js';
+import { TaskListGroupMenu, toGroupSpecs } from './TaskListGroupMenu.js';
 import { TaskListSortMenu } from './TaskListSortMenu.js';
+import {
+  TAG_COUNT_NOTE,
+  formatAggregate,
+  groupCountsExceedTaskTotal,
+  groupTasks,
+  type GroupNode,
+  type GroupSpec,
+} from './task-group.js';
 import { sortTasks, type SortSpec } from './task-sort.js';
 import { ViewSwitcher } from './ViewSwitcher.js';
 
@@ -71,9 +80,32 @@ export function TaskList({
 
   const [visibleColumns, setVisibleColumns] = useState<Set<ListColumnId>>(defaultVisibleColumns);
   const [sortSpecs, setSortSpecs] = useState<SortSpec[]>([]);
+  const [groupSpecs, setGroupSpecs] = useState<GroupSpec[]>([]);
+  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(() => new Set());
   const [drawerTaskId, setDrawerTaskId] = useState<string | null>(openTaskId ?? null);
 
+  const activeGroupSpecs = useMemo(() => toGroupSpecs(groupSpecs), [groupSpecs]);
+
   const sortedTasks = useMemo(() => sortTasks(tasks, sortSpecs), [tasks, sortSpecs]);
+
+  const groupedTasks = useMemo(() => {
+    if (activeGroupSpecs === null) {
+      return null;
+    }
+    return groupTasks(tasks, activeGroupSpecs, {
+      sort: sortSpecs,
+      aggregates: [
+        { field: 'label', op: 'count' },
+        { field: 'label', op: 'percent_of_parent' },
+        { field: 'due_date', op: 'earliest' },
+      ],
+    });
+  }, [tasks, activeGroupSpecs, sortSpecs]);
+
+  const showTagCountNote =
+    groupedTasks !== null &&
+    groupSpecs.some((spec) => spec.field === 'tag') &&
+    groupCountsExceedTaskTotal(groupedTasks, tasks.length);
 
   useEffect(() => {
     setDrawerTaskId(openTaskId ?? null);
@@ -84,8 +116,20 @@ export function TaskList({
     onOpenTaskIdChange?.(taskId);
   };
 
+  const toggleGroupCollapsed = (groupId: string) => {
+    setCollapsedGroupIds((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
+
   const drawerTask =
-    drawerTaskId !== null ? sortedTasks.find((task) => task.id === drawerTaskId) : undefined;
+    drawerTaskId !== null ? tasks.find((task) => task.id === drawerTaskId) : undefined;
   const tagNames = (projectTags ?? []).map((tag) => tag.name);
   const columnOrder = LIST_COLUMNS.filter((column) => visibleColumns.has(column));
 
@@ -139,6 +183,7 @@ export function TaskList({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ViewSwitcher projectId={projectId} active="list" />
         <div className="flex flex-wrap items-center gap-2">
+          <TaskListGroupMenu specs={groupSpecs} onChange={setGroupSpecs} />
           <TaskListSortMenu specs={sortSpecs} onChange={setSortSpecs} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -166,7 +211,7 @@ export function TaskList({
         </div>
       </div>
 
-      {sortedTasks.length === 0 ? (
+      {tasks.length === 0 ? (
         <p
           data-list-empty
           className="flex flex-1 items-center justify-center text-sm text-muted-foreground"
@@ -175,6 +220,14 @@ export function TaskList({
         </p>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border">
+          {showTagCountNote ? (
+            <p
+              data-group-tag-note
+              className="border-b border-border px-3 py-2 text-xs text-muted-foreground"
+            >
+              {TAG_COUNT_NOTE}
+            </p>
+          ) : null}
           <table className="w-full min-w-[720px] border-collapse text-sm" data-task-list>
             <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
               <tr>
@@ -191,27 +244,29 @@ export function TaskList({
               </tr>
             </thead>
             <tbody>
-              {sortedTasks.map((task) => (
-                <tr
-                  key={task.id}
-                  data-task-id={task.id}
-                  className="cursor-pointer border-b border-border/60 transition-colors hover:bg-muted/40"
-                  onClick={() => {
-                    openTask(task.id);
-                  }}
-                >
-                  {columnOrder.map((column) => (
-                    <td
-                      key={column}
-                      data-list-cell={column}
-                      data-task-id={task.id}
-                      className="px-3 py-2 align-middle"
-                    >
-                      <TaskListCell task={task} column={column} goalById={goalById} />
-                    </td>
+              {groupedTasks === null
+                ? sortedTasks.map((task) => (
+                    <TaskListRow
+                      key={task.id}
+                      task={task}
+                      columnOrder={columnOrder}
+                      goalById={goalById}
+                      onOpen={openTask}
+                    />
+                  ))
+                : groupedTasks.map((group) => (
+                    <GroupRows
+                      key={group.id}
+                      group={group}
+                      depth={0}
+                      columnCount={columnOrder.length}
+                      columnOrder={columnOrder}
+                      goalById={goalById}
+                      collapsedGroupIds={collapsedGroupIds}
+                      onToggleCollapsed={toggleGroupCollapsed}
+                      onOpenTask={openTask}
+                    />
                   ))}
-                </tr>
-              ))}
             </tbody>
           </table>
         </div>
@@ -241,6 +296,127 @@ export function TaskList({
         onRemoveTag={handleRemoveTag}
       />
     </div>
+  );
+}
+
+function TaskListRow({
+  task,
+  columnOrder,
+  goalById,
+  onOpen,
+}: {
+  task: SerializedTask;
+  columnOrder: ListColumnId[];
+  goalById: Map<string, string>;
+  onOpen: (taskId: string) => void;
+}) {
+  return (
+    <tr
+      data-task-id={task.id}
+      className="cursor-pointer border-b border-border/60 transition-colors hover:bg-muted/40"
+      onClick={() => {
+        onOpen(task.id);
+      }}
+    >
+      {columnOrder.map((column) => (
+        <td
+          key={column}
+          data-list-cell={column}
+          data-task-id={task.id}
+          className="px-3 py-2 align-middle"
+        >
+          <TaskListCell task={task} column={column} goalById={goalById} />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+function groupHeaderLabel(group: GroupNode, goalById: Map<string, string>): string {
+  if (group.field === 'goal_id' && group.value !== null) {
+    return goalById.get(group.value) ?? group.value;
+  }
+  return group.label;
+}
+
+function GroupRows({
+  group,
+  depth,
+  columnCount,
+  columnOrder,
+  goalById,
+  collapsedGroupIds,
+  onToggleCollapsed,
+  onOpenTask,
+}: {
+  group: GroupNode;
+  depth: number;
+  columnCount: number;
+  columnOrder: ListColumnId[];
+  goalById: Map<string, string>;
+  collapsedGroupIds: Set<string>;
+  onToggleCollapsed: (groupId: string) => void;
+  onOpenTask: (taskId: string) => void;
+}) {
+  const collapsed = collapsedGroupIds.has(group.id);
+  const Chevron = collapsed ? ChevronRightIcon : ChevronDownIcon;
+  const aggregateText = group.aggregates.map((entry) => formatAggregate(entry)).join(' · ');
+
+  return (
+    <Fragment>
+      <tr
+        data-group-id={group.id}
+        data-group-field={group.field}
+        data-group-depth={depth}
+        data-group-collapsed={collapsed ? 'true' : 'false'}
+        className="border-b border-border bg-muted/50"
+      >
+        <td colSpan={columnCount} className="px-2 py-1.5">
+          <button
+            type="button"
+            data-group-toggle={group.id}
+            aria-expanded={!collapsed}
+            aria-label={`${collapsed ? 'Expand' : 'Collapse'} group ${groupHeaderLabel(group, goalById)}`}
+            className="flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-left text-xs font-medium hover:bg-muted"
+            style={{ paddingLeft: `${String(depth * 12 + 4)}px` }}
+            onClick={() => {
+              onToggleCollapsed(group.id);
+            }}
+          >
+            <Chevron className="size-3.5 shrink-0 text-muted-foreground" />
+            <span data-group-label>{groupHeaderLabel(group, goalById)}</span>
+            <span data-group-aggregates className="font-normal text-muted-foreground">
+              {aggregateText}
+            </span>
+          </button>
+        </td>
+      </tr>
+      {collapsed ? null : group.children !== null ? (
+        group.children.map((child) => (
+          <GroupRows
+            key={child.id}
+            group={child}
+            depth={depth + 1}
+            columnCount={columnCount}
+            columnOrder={columnOrder}
+            goalById={goalById}
+            collapsedGroupIds={collapsedGroupIds}
+            onToggleCollapsed={onToggleCollapsed}
+            onOpenTask={onOpenTask}
+          />
+        ))
+      ) : (
+        group.tasks.map((task) => (
+          <TaskListRow
+            key={`${group.id}:${task.id}`}
+            task={task}
+            columnOrder={columnOrder}
+            goalById={goalById}
+            onOpen={onOpenTask}
+          />
+        ))
+      )}
+    </Fragment>
   );
 }
 
