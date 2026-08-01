@@ -18,15 +18,23 @@ import {
   revisionFieldToWire,
   serializeRevision,
   serializeRevisionMeta,
+  type SerializedDocument,
   type SerializedRevision,
   type SerializedRevisionMeta,
 } from '../serialize.js';
 import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
+import type { DocumentService, UpdateDocumentInput } from './documents.js';
+import type { TaskService, UpdateTaskInput } from './tasks.js';
 
 export type RevisionServiceDeps = OrgScopedDeps & {
   db: Db;
+  taskService: TaskService;
+  documentService: DocumentService;
 };
+
+/** Live entity returned by restore — same shape as a normal GET. */
+export type RestoredEntity = NonNullable<Awaited<ReturnType<TaskService['update']>>> | SerializedDocument;
 
 export class InvalidRevisionQueryError extends Error {
   constructor(message: string) {
@@ -49,6 +57,33 @@ function parseStoredSnapshot(revision: Revision): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
+/** Only versioned task fields — never status, position, assignee, etc. */
+function taskUpdateFromSnapshot(snapshot: Record<string, unknown>): UpdateTaskInput {
+  const input: UpdateTaskInput = {};
+  if (typeof snapshot.label === 'string') {
+    input.label = snapshot.label;
+  }
+  if (snapshot.description === null || typeof snapshot.description === 'string') {
+    input.description = snapshot.description;
+  }
+  return input;
+}
+
+/** Only versioned document fields — never parent, folder, etc. */
+function documentUpdateFromSnapshot(snapshot: Record<string, unknown>): UpdateDocumentInput {
+  const input: UpdateDocumentInput = {};
+  if (typeof snapshot.title === 'string') {
+    input.title = snapshot.title;
+  }
+  if (snapshot.body === null || typeof snapshot.body === 'string') {
+    input.body = snapshot.body;
+  }
+  if (snapshot.statusLine === null || typeof snapshot.statusLine === 'string') {
+    input.statusLine = snapshot.statusLine;
+  }
+  return input;
+}
+
 async function loadCurrentSnapshot(
   db: Db,
   targetType: RevisionTargetType,
@@ -69,7 +104,7 @@ async function loadCurrentSnapshot(
 }
 
 export function createRevisionService(deps: RevisionServiceDeps) {
-  const { db } = deps;
+  const { db, taskService, documentService } = deps;
 
   return {
     async list(
@@ -111,6 +146,32 @@ export function createRevisionService(deps: RevisionServiceDeps) {
         throw error;
       }
       return serializeRevision(revision);
+    },
+
+    /**
+     * Apply a revision's versioned fields through the ordinary update path.
+     * That records a new revision of the state being replaced — restore is
+     * itself undoable. No dedicated write path.
+     */
+    async restore(id: string): Promise<RestoredEntity | undefined> {
+      const revision = await dbGetRevision(db, id);
+      if (!revision) {
+        return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, revision.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+
+      const snapshot = parseStoredSnapshot(revision);
+      if (revision.targetType === 'task') {
+        return taskService.update(revision.targetId, taskUpdateFromSnapshot(snapshot));
+      }
+      return documentService.update(revision.targetId, documentUpdateFromSnapshot(snapshot));
     },
 
     async diff(id: string, against: string): Promise<FieldDiff[] | undefined> {

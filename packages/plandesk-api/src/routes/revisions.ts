@@ -54,5 +54,13 @@ export function createRevisionsRouter(revisionService: RevisionService): Hono {
     }
   });
 
+  router.post('/revisions/:id/restore', async (c) => {
+    const entity = await revisionService.restore(c.req.param('id'));
+    if (!entity) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json(entity);
+  });
+
   return router;
 }

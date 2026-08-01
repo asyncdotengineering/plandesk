@@ -74,7 +74,11 @@ export function createServices(deps: ServicesDeps): Services {
   const syncService = createSyncService({ ...scoped, taskService });
   const fileService = createFileService({ ...scoped, storage });
   const artifactService = createArtifactService(scoped);
-  const revisionService = createRevisionService(scoped);
+  const revisionService = createRevisionService({
+    ...scoped,
+    taskService,
+    documentService,
+  });
 
   return {
     projectService,

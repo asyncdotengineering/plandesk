@@ -9,9 +9,9 @@ import {
   migrate,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
+import { createOrgOwnerKey, createScopedAgentKey } from '../agent-keys.js';
 import {
   createBetterAuth,
-  createOrgOwnerKey,
   runBetterAuthMigrations,
 } from '../index.js';
 import { ensureHtmlBody } from '../markdown.js';
@@ -395,5 +395,285 @@ describe('revisions routes', () => {
       title: 'Doc',
       status_line: 'draft',
     });
+  });
+
+  it('restoring an older revision makes the live row match its versioned fields', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProjectInDefaultOrg(db, { name: 'Restore match' });
+    const taskService = createTaskService({ db, orgId: project.orgId });
+    const task = await createTask(db, {
+      projectId: project.id,
+      label: 'Original',
+      description: 'v0 body',
+    });
+    await taskService.update(task.id, { label: 'Changed', description: 'v1 body' });
+
+    const listed = await parseJson<RevisionMeta[]>(
+      await app.request(
+        `/api/v1/projects/${project.id}/revisions?target_type=task&target_id=${task.id}`,
+      ),
+    );
+    expect(listed).toHaveLength(1);
+    const revisionId = listed[0]?.id;
+    expect(revisionId).toBeDefined();
+    if (revisionId === undefined) {
+      return;
+    }
+
+    const restoreRes = await app.request(`/api/v1/revisions/${revisionId}/restore`, {
+      method: 'POST',
+    });
+    expect(restoreRes.status).toBe(200);
+    const restored = await parseJson<{
+      id: string;
+      label: string;
+      description: string | null;
+    }>(restoreRes);
+    expect(restored).toMatchObject({
+      id: task.id,
+      label: 'Original',
+      description: 'v0 body',
+    });
+  });
+
+  it('REVERT-PROOF: restoring produces a new revision; restoring twice returns to the first state with three revisions', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProjectInDefaultOrg(db, { name: 'Append-only' });
+    const taskService = createTaskService({ db, orgId: project.orgId });
+    const task = await createTask(db, {
+      projectId: project.id,
+      label: 'Card',
+      description: 'v0',
+    });
+    await taskService.update(task.id, { description: 'v1' });
+
+    const afterEdit = await parseJson<RevisionMeta[]>(
+      await app.request(
+        `/api/v1/projects/${project.id}/revisions?target_type=task&target_id=${task.id}`,
+      ),
+    );
+    expect(afterEdit).toHaveLength(1);
+    const priorRevisionId = afterEdit[0]?.id;
+    expect(priorRevisionId).toBeDefined();
+    if (priorRevisionId === undefined) {
+      return;
+    }
+
+    const firstRestore = await app.request(`/api/v1/revisions/${priorRevisionId}/restore`, {
+      method: 'POST',
+    });
+    expect(firstRestore.status).toBe(200);
+    expect(await parseJson<{ description: string | null }>(firstRestore)).toMatchObject({
+      description: 'v0',
+    });
+
+    const afterFirst = await parseJson<RevisionMeta[]>(
+      await app.request(
+        `/api/v1/projects/${project.id}/revisions?target_type=task&target_id=${task.id}`,
+      ),
+    );
+    expect(afterFirst).toHaveLength(2);
+
+    // Newest revision holds the state just replaced (v1). Restore it to undo the undo.
+    const redoRevisionId = afterFirst[0]?.id;
+    expect(redoRevisionId).toBeDefined();
+    if (redoRevisionId === undefined) {
+      return;
+    }
+    const secondRestore = await app.request(`/api/v1/revisions/${redoRevisionId}/restore`, {
+      method: 'POST',
+    });
+    expect(secondRestore.status).toBe(200);
+    expect(await parseJson<{ description: string | null }>(secondRestore)).toMatchObject({
+      description: 'v1',
+    });
+
+    const afterSecond = await parseJson<RevisionMeta[]>(
+      await app.request(
+        `/api/v1/projects/${project.id}/revisions?target_type=task&target_id=${task.id}`,
+      ),
+    );
+    expect(afterSecond).toHaveLength(3);
+  });
+
+  it('REVERT-PROOF: restore leaves status, assignee and position untouched', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProjectInDefaultOrg(db, { name: 'Not revert' });
+    const taskService = createTaskService({ db, orgId: project.orgId });
+    const task = await createTask(db, {
+      projectId: project.id,
+      label: 'Parked',
+      description: 'old copy',
+      status: 'todo',
+      assignee: 'ada@example.com',
+      x: 10,
+      y: 20,
+    });
+    await taskService.update(task.id, {
+      description: 'new copy',
+      status: 'in_progress',
+      x: 100,
+      y: 200,
+    });
+
+    const listed = await parseJson<RevisionMeta[]>(
+      await app.request(
+        `/api/v1/projects/${project.id}/revisions?target_type=task&target_id=${task.id}`,
+      ),
+    );
+    const revisionId = listed[0]?.id;
+    expect(revisionId).toBeDefined();
+    if (revisionId === undefined) {
+      return;
+    }
+
+    const restored = await parseJson<{
+      description: string | null;
+      status: string;
+      assignee: string | null;
+      x: number;
+      y: number;
+    }>(await app.request(`/api/v1/revisions/${revisionId}/restore`, { method: 'POST' }));
+
+    expect(restored.description).toBe('old copy');
+    expect(restored.status).toBe('in_progress');
+    expect(restored.assignee).toBe('ada@example.com');
+    expect(restored.x).toBe(100);
+    expect(restored.y).toBe(200);
+  });
+
+  it('restoring a revision whose target was deleted returns not-found', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProjectInDefaultOrg(db, { name: 'Gone' });
+    const orphanId = randomUUID();
+    const revision = await insertRevision(db, {
+      projectId: project.id,
+      targetType: 'task',
+      targetId: orphanId,
+      snapshot: JSON.stringify({ label: 'Ghost', description: 'should not resurrect' }),
+      changedFields: JSON.stringify(['description']),
+      author: 'human:tester',
+    });
+
+    const res = await app.request(`/api/v1/revisions/${revision.id}/restore`, { method: 'POST' });
+    expect(res.status).toBe(404);
+    expect(await parseJson(res)).toEqual({ error: 'not_found' });
+
+    const check = await app.request(`/api/v1/tasks/${orphanId}`);
+    expect(check.status).toBe(404);
+  });
+
+  it('denies restore when the caller has read but not write access', async () => {
+    const db = await createDb(':memory:');
+    await migrate(db);
+    const org = { id: randomUUID(), name: 'Read-only Org' };
+    const project = await createProject(db, {
+      name: 'Board',
+      orgId: org.id,
+      workspaceId: randomUUID(),
+    });
+    const task = await createTask(db, {
+      projectId: project.id,
+      label: 'Locked',
+      description: 'v0',
+    });
+    const revision = await insertRevision(db, {
+      projectId: project.id,
+      targetType: 'task',
+      targetId: task.id,
+      snapshot: JSON.stringify({ label: 'Locked', description: 'v0' }),
+      changedFields: JSON.stringify(['description']),
+      author: 'human:owner',
+    });
+
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: TEST_SECRET,
+      baseURL: TEST_BASE_URL,
+      github: { clientId: 'c', clientSecret: 's' },
+    });
+    if (auth === undefined) {
+      throw new Error('expected better-auth');
+    }
+    await runBetterAuthMigrations(auth);
+
+    const adapter = (await auth.$context).adapter;
+    const now = new Date();
+    const user = await adapter.create<{ id: string }>({
+      model: 'user',
+      data: {
+        name: 'Reader',
+        email: `reader-${randomUUID()}@example.com`,
+        emailVerified: true,
+        image: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await adapter.create({
+      model: 'account',
+      data: {
+        accountId: '9201',
+        providerId: 'github',
+        userId: user.id,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await adapter.create({
+      model: 'organization',
+      data: {
+        id: org.id,
+        name: org.name,
+        slug: `org-ro-${randomUUID().slice(0, 8)}`,
+        createdAt: now,
+      },
+      forceAllowId: true,
+    });
+    await adapter.create({
+      model: 'member',
+      data: {
+        organizationId: org.id,
+        userId: user.id,
+        role: 'owner',
+        createdAt: now,
+      },
+    });
+
+    const minted = await createScopedAgentKey({
+      auth,
+      userId: user.id,
+      orgId: org.id,
+      projectId: project.id,
+      permissions: { task: ['read'] },
+      name: 'read-only-restore',
+    });
+
+    const app = createApp({
+      db,
+      bindHost: '0.0.0.0',
+      betterAuth: { secret: TEST_SECRET, baseURL: TEST_BASE_URL },
+      github: {
+        clientId: 'c',
+        clientSecret: 's',
+        callbackUrl: 'https://x.test/cb',
+      },
+    });
+
+    const res = await app.request(`/api/v1/revisions/${revision.id}/restore`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${minted.key}` },
+    });
+    expect(res.status).toBe(403);
+    expect(await parseJson(res)).toEqual({ error: 'forbidden' });
+  });
+
+  it('REVERT-PROOF: denies cross-org restore', async () => {
+    const f = await seedCrossOrgFixture();
+    const res = await f.app.request(`/api/v1/revisions/${f.revision.id}/restore`, {
+      method: 'POST',
+      headers: f.bearer,
+    });
+    expect(res.status).toBe(404);
   });
 });
