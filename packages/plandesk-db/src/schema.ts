@@ -11,25 +11,22 @@ import {
   type AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
 
-export const taskStatuses = ['scope', 'todo', 'in_progress', 'done', 'backlog'] as const;
-export type TaskStatus = (typeof taskStatuses)[number];
+// Vocabularies live in ./vocabulary.ts so a browser bundle can import them
+// without drizzle. Re-exported here so every existing `from './schema.js'`
+// import keeps working — there is one definition, reachable by two paths.
+export {
+  taskStatuses,
+  taskKinds,
+  taskPriorities,
+  taskPriorityOrder,
+  goalStatuses,
+  type TaskStatus,
+  type TaskKind,
+  type TaskPriority,
+  type GoalStatus,
+} from './vocabulary.js';
 
-export const taskKinds = ['build', 'decision'] as const;
-export type TaskKind = (typeof taskKinds)[number];
-
-export const taskPriorities = ['urgent', 'high', 'medium', 'low'] as const;
-export type TaskPriority = (typeof taskPriorities)[number];
-
-/** Ascending sort rank — null sorts after every defined priority. */
-export const taskPriorityOrder: Record<TaskPriority, number> = {
-  urgent: 0,
-  high: 1,
-  medium: 2,
-  low: 3,
-};
-
-export const goalStatuses = ['active', 'paused', 'complete', 'blocked'] as const;
-export type GoalStatus = (typeof goalStatuses)[number];
+import { taskStatuses, taskKinds, taskPriorities, goalStatuses } from './vocabulary.js';
 
 export const agentRunStatuses = ['running', 'completed', 'failed'] as const;
 export type AgentRunStatus = (typeof agentRunStatuses)[number];

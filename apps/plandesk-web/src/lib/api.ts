@@ -1,8 +1,20 @@
-export const taskStatuses = ['scope', 'todo', 'in_progress', 'done', 'backlog'] as const;
-export type TaskStatus = (typeof taskStatuses)[number];
+// One definition, imported — not mirrored. `@plandesk/db/vocabulary` is a
+// browser-safe subpath holding nothing but these enums, so the bundle gets the
+// same constants the database orders by. A local copy would agree today and
+// drift later, ordering the UI differently from the data.
+// Imported *and* re-exported: `export … from` alone re-exports without binding
+// the names locally, and SerializedTask below refers to TaskPriority in this
+// module's own scope.
+import {
+  taskStatuses,
+  taskPriorities,
+  taskPriorityOrder,
+  type TaskStatus,
+  type TaskPriority,
+} from '@plandesk/db/vocabulary';
 
-export const taskPriorities = ['urgent', 'high', 'medium', 'low'] as const;
-export type TaskPriority = (typeof taskPriorities)[number];
+export { taskStatuses, taskPriorities, taskPriorityOrder };
+export type { TaskStatus, TaskPriority };
 
 export const edgeLabels = [
   'blocks',

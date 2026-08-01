@@ -22,6 +22,10 @@ function openColumnsMenu() {
   fireEvent.pointerUp(trigger, { button: 0 });
 }
 
+function openSortMenu() {
+  fireEvent.click(screen.getByRole('button', { name: 'Sort' }));
+}
+
 function makeTag(id: string, name: string): SerializedTag {
   return {
     id,
@@ -268,5 +272,41 @@ describe('TaskList', () => {
     });
     expect(container.querySelector('[data-task-list]')).toBeNull();
     expect(container.querySelector('[data-list-column]')).toBeNull();
+  });
+
+  it('sort menu reorders rows by the chosen field', async () => {
+    const tasks = [
+      makeTask('t-scope', 'Scope row', 'scope'),
+      makeTask('t-progress', 'Progress row', 'in_progress'),
+      makeTask('t-todo', 'Todo row', 'todo'),
+    ];
+
+    const { container } = await renderTaskListReady(tasks);
+
+    await waitFor(() => {
+      expect(screen.getByText('Scope row')).toBeTruthy();
+    });
+
+    const idsBefore = [...container.querySelectorAll('[data-task-list] tbody tr')].map(
+      (row) => row.getAttribute('data-task-id'),
+    );
+    expect(idsBefore).toEqual(['t-scope', 't-progress', 't-todo']);
+
+    openSortMenu();
+    fireEvent.click(await screen.findByRole('button', { name: 'Add sort level' }));
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-sort-level="0"]')).toBeTruthy();
+    });
+
+    const fieldSelect = screen.getByLabelText('Sort field 1');
+    fireEvent.change(fieldSelect, { target: { value: 'status' } });
+
+    await waitFor(() => {
+      const ids = [...container.querySelectorAll('[data-task-list] tbody tr')].map((row) =>
+        row.getAttribute('data-task-id'),
+      );
+      expect(ids).toEqual(['t-scope', 't-todo', 't-progress']);
+    });
   });
 });

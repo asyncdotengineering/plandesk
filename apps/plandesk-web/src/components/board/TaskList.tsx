@@ -32,6 +32,8 @@ import {
 } from './list-columns.js';
 import { StatusChip } from './StatusChip.js';
 import { TaskDrawer } from './TaskDrawer.js';
+import { TaskListSortMenu } from './TaskListSortMenu.js';
+import { sortTasks, type SortSpec } from './task-sort.js';
 import { ViewSwitcher } from './ViewSwitcher.js';
 
 type TaskListProps = {
@@ -68,7 +70,10 @@ export function TaskList({
   );
 
   const [visibleColumns, setVisibleColumns] = useState<Set<ListColumnId>>(defaultVisibleColumns);
+  const [sortSpecs, setSortSpecs] = useState<SortSpec[]>([]);
   const [drawerTaskId, setDrawerTaskId] = useState<string | null>(openTaskId ?? null);
+
+  const sortedTasks = useMemo(() => sortTasks(tasks, sortSpecs), [tasks, sortSpecs]);
 
   useEffect(() => {
     setDrawerTaskId(openTaskId ?? null);
@@ -80,7 +85,7 @@ export function TaskList({
   };
 
   const drawerTask =
-    drawerTaskId !== null ? tasks.find((task) => task.id === drawerTaskId) : undefined;
+    drawerTaskId !== null ? sortedTasks.find((task) => task.id === drawerTaskId) : undefined;
   const tagNames = (projectTags ?? []).map((tag) => tag.name);
   const columnOrder = LIST_COLUMNS.filter((column) => visibleColumns.has(column));
 
@@ -133,32 +138,35 @@ export function TaskList({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ViewSwitcher projectId={projectId} active="list" />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="sm" aria-label="Columns">
-              <Columns3Icon className="size-3.5" />
-              Columns
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {LIST_COLUMNS.map((column) => (
-              <DropdownMenuCheckboxItem
-                key={column}
-                checked={visibleColumns.has(column)}
-                onCheckedChange={(checked) => {
-                  toggleColumn(column, checked);
-                }}
-              >
-                {LIST_COLUMN_LABELS[column]}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex flex-wrap items-center gap-2">
+          <TaskListSortMenu specs={sortSpecs} onChange={setSortSpecs} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="outline" size="sm" aria-label="Columns">
+                <Columns3Icon className="size-3.5" />
+                Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {LIST_COLUMNS.map((column) => (
+                <DropdownMenuCheckboxItem
+                  key={column}
+                  checked={visibleColumns.has(column)}
+                  onCheckedChange={(checked) => {
+                    toggleColumn(column, checked);
+                  }}
+                >
+                  {LIST_COLUMN_LABELS[column]}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
-      {tasks.length === 0 ? (
+      {sortedTasks.length === 0 ? (
         <p
           data-list-empty
           className="flex flex-1 items-center justify-center text-sm text-muted-foreground"
@@ -183,7 +191,7 @@ export function TaskList({
               </tr>
             </thead>
             <tbody>
-              {tasks.map((task) => (
+              {sortedTasks.map((task) => (
                 <tr
                   key={task.id}
                   data-task-id={task.id}
