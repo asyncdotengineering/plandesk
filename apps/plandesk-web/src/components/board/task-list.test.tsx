@@ -30,6 +30,10 @@ function openGroupMenu() {
   fireEvent.click(screen.getByRole('button', { name: 'Group' }));
 }
 
+function openFilterMenu() {
+  fireEvent.click(screen.getByRole('button', { name: 'Filter' }));
+}
+
 function makeTag(id: string, name: string): SerializedTag {
   return {
     id,
@@ -394,6 +398,100 @@ describe('TaskList', () => {
       expect(container.querySelector('[data-task-id="t-a-todo"]')).toBeTruthy();
       expect(container.querySelector('[data-task-id="t-a-scope"]')).toBeTruthy();
     });
+  });
+
+  it('filter menu hides operators that are invalid for the selected field', async () => {
+    await renderTaskListReady([makeTask('t1', 'Only', 'todo')]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Only')).toBeTruthy();
+    });
+
+    openFilterMenu();
+    fireEvent.click(await screen.findByRole('button', { name: 'Add condition to root' }));
+
+    const fieldSelect = await screen.findByLabelText('Filter field root.0');
+    fireEvent.change(fieldSelect, { target: { value: 'status' } });
+
+    const operatorSelect = screen.getByLabelText('Filter operator root.0');
+    const statusOptions = [...operatorSelect.querySelectorAll('option')].map(
+      (option) => option.getAttribute('value'),
+    );
+    expect(statusOptions).toContain('is');
+    expect(statusOptions).not.toContain('before');
+    expect(statusOptions).not.toContain('contains');
+
+    fireEvent.change(fieldSelect, { target: { value: 'due_date' } });
+    await waitFor(() => {
+      const dateOptions = [...screen.getByLabelText('Filter operator root.0').querySelectorAll('option')].map(
+        (option) => option.getAttribute('value'),
+      );
+      expect(dateOptions).toContain('before');
+      expect(dateOptions).toContain('after');
+      expect(dateOptions).not.toContain('contains');
+    });
+
+    fireEvent.change(fieldSelect, { target: { value: 'tags' } });
+    await waitFor(() => {
+      const tagsOperator = screen.getByLabelText('Filter operator root.0');
+      expect(tagsOperator).toHaveProperty('value', 'contains');
+      const tagOptions = [...tagsOperator.querySelectorAll('option')].map((option) =>
+        option.getAttribute('value'),
+      );
+      expect(tagOptions).toContain('contains');
+      expect(tagOptions).not.toContain('before');
+    });
+  });
+
+  it('nested filter updates visible rows without a refetch', async () => {
+    const tasks = [
+      makeTask('full-todo', 'Full todo', 'todo', {
+        tags: [makeTag('l1', 'lane:full')],
+      }),
+      makeTask('full-scope', 'Full scope', 'scope', {
+        tags: [makeTag('l2', 'lane:full')],
+      }),
+      makeTask('auto-todo', 'Auto todo', 'todo', {
+        tags: [makeTag('l3', 'lane:auto')],
+      }),
+      makeTask('full-done', 'Full done', 'done', {
+        tags: [makeTag('l4', 'lane:full')],
+      }),
+    ];
+
+    const { container } = await renderTaskListReady(tasks);
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-task-list] tbody tr')).toHaveLength(4);
+    });
+
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const callsBefore = fetchMock.mock.calls.length;
+
+    openFilterMenu();
+    // lane is full
+    fireEvent.click(await screen.findByRole('button', { name: 'Add condition to root' }));
+    fireEvent.change(screen.getByLabelText('Filter field root.0'), { target: { value: 'lane' } });
+    fireEvent.change(screen.getByLabelText('Filter value root.0'), { target: { value: 'full' } });
+
+    // nested OR group: status todo OR scope
+    fireEvent.click(screen.getByRole('button', { name: 'Add group to root' }));
+    fireEvent.change(screen.getByLabelText('Filter group op root.1'), { target: { value: 'or' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add condition to root.1' }));
+    fireEvent.change(screen.getByLabelText('Filter field root.1.0'), { target: { value: 'status' } });
+    fireEvent.change(screen.getByLabelText('Filter value root.1.0'), { target: { value: 'todo' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add condition to root.1' }));
+    fireEvent.change(screen.getByLabelText('Filter field root.1.1'), { target: { value: 'status' } });
+    fireEvent.change(screen.getByLabelText('Filter value root.1.1'), { target: { value: 'scope' } });
+
+    await waitFor(() => {
+      const ids = [...container.querySelectorAll('[data-task-list] tbody tr')].map((row) =>
+        row.getAttribute('data-task-id'),
+      );
+      expect(ids.sort()).toEqual(['full-scope', 'full-todo']);
+    });
+
+    expect(fetchMock.mock.calls.length).toBe(callsBefore);
   });
 
   it('grouping by tag shows a two-tag task twice and notes that totals exceed the task count', async () => {

@@ -32,8 +32,13 @@ import {
 } from './list-columns.js';
 import { StatusChip } from './StatusChip.js';
 import { TaskDrawer } from './TaskDrawer.js';
+import { TaskListFilterMenu } from './TaskListFilterMenu.js';
 import { TaskListGroupMenu, toGroupSpecs } from './TaskListGroupMenu.js';
 import { TaskListSortMenu } from './TaskListSortMenu.js';
+import {
+  filterTasks,
+  type FilterNode,
+} from './task-filter.js';
 import {
   TAG_COUNT_NOTE,
   formatAggregate,
@@ -79,6 +84,7 @@ export function TaskList({
   );
 
   const [visibleColumns, setVisibleColumns] = useState<Set<ListColumnId>>(defaultVisibleColumns);
+  const [filterRoot, setFilterRoot] = useState<FilterNode | null>(null);
   const [sortSpecs, setSortSpecs] = useState<SortSpec[]>([]);
   const [groupSpecs, setGroupSpecs] = useState<GroupSpec[]>([]);
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(() => new Set());
@@ -86,13 +92,22 @@ export function TaskList({
 
   const activeGroupSpecs = useMemo(() => toGroupSpecs(groupSpecs), [groupSpecs]);
 
-  const sortedTasks = useMemo(() => sortTasks(tasks, sortSpecs), [tasks, sortSpecs]);
+  // Filter → group → sort within groups (or flat sort when ungrouped).
+  const filteredTasks = useMemo(
+    () => filterTasks(tasks, filterRoot),
+    [tasks, filterRoot],
+  );
+
+  const sortedTasks = useMemo(
+    () => sortTasks(filteredTasks, sortSpecs),
+    [filteredTasks, sortSpecs],
+  );
 
   const groupedTasks = useMemo(() => {
     if (activeGroupSpecs === null) {
       return null;
     }
-    return groupTasks(tasks, activeGroupSpecs, {
+    return groupTasks(filteredTasks, activeGroupSpecs, {
       sort: sortSpecs,
       aggregates: [
         { field: 'label', op: 'count' },
@@ -100,12 +115,12 @@ export function TaskList({
         { field: 'due_date', op: 'earliest' },
       ],
     });
-  }, [tasks, activeGroupSpecs, sortSpecs]);
+  }, [filteredTasks, activeGroupSpecs, sortSpecs]);
 
   const showTagCountNote =
     groupedTasks !== null &&
     groupSpecs.some((spec) => spec.field === 'tag') &&
-    groupCountsExceedTaskTotal(groupedTasks, tasks.length);
+    groupCountsExceedTaskTotal(groupedTasks, filteredTasks.length);
 
   useEffect(() => {
     setDrawerTaskId(openTaskId ?? null);
@@ -183,6 +198,11 @@ export function TaskList({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ViewSwitcher projectId={projectId} active="list" />
         <div className="flex flex-wrap items-center gap-2">
+          <TaskListFilterMenu
+            root={filterRoot}
+            onChange={setFilterRoot}
+            tagSuggestions={tagNames}
+          />
           <TaskListGroupMenu specs={groupSpecs} onChange={setGroupSpecs} />
           <TaskListSortMenu specs={sortSpecs} onChange={setSortSpecs} />
           <DropdownMenu>
