@@ -161,7 +161,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(50);
+      expect(names).toHaveLength(52);
       await client.close();
     });
   });
@@ -2337,6 +2337,90 @@ describe('createMcpApp', () => {
       expect(triagePayload.submission.linked_task_id).toBeTruthy();
 
       await client.close();
+    });
+  });
+
+  it('list_revisions / get_revision MCP round-trip: twice-edited task, newest first, no list snapshots', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, services }) => {
+      const task = await services.taskService.create(projectId, {
+        label: 'Card',
+        description: 'v0',
+      });
+      if (!task) {
+        throw new Error('expected task');
+      }
+      await services.taskService.update(task.id, { description: 'v1' });
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      await services.taskService.update(task.id, { description: 'v2' });
+
+      const client = await connectClient(baseUrl);
+      try {
+        const listed = await client.callTool({
+          name: 'list_revisions',
+          arguments: {
+            project_id: projectId,
+            target_type: 'task',
+            target_id: task.id,
+          },
+        });
+        expect(listed.isError).toBeFalsy();
+        const listText =
+          (listed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+        const listPayload = JSON.parse(listText) as {
+          revisions: Array<{
+            id: string;
+            author: string;
+            changed_fields: string[];
+            created_at: string;
+            snapshot?: unknown;
+            target_type?: string;
+            target_id?: string;
+          }>;
+        };
+        expect(listPayload.revisions).toHaveLength(2);
+        expect(new Date(listPayload.revisions[0]?.created_at ?? 0).getTime()).toBeGreaterThanOrEqual(
+          new Date(listPayload.revisions[1]?.created_at ?? 0).getTime(),
+        );
+        for (const row of listPayload.revisions) {
+          expect(typeof row.id).toBe('string');
+          expect(typeof row.author).toBe('string');
+          expect(row.changed_fields).toEqual(['description']);
+          expect(typeof row.created_at).toBe('string');
+          expect(row).not.toHaveProperty('snapshot');
+          expect(row).not.toHaveProperty('target_type');
+          expect(row).not.toHaveProperty('target_id');
+        }
+
+        const olderId = listPayload.revisions[1]?.id;
+        if (olderId === undefined) {
+          throw new Error('expected older revision');
+        }
+        const got = await client.callTool({
+          name: 'get_revision',
+          arguments: { revision_id: olderId },
+        });
+        expect(got.isError).toBeFalsy();
+        const gotText = (got.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+        const gotPayload = JSON.parse(gotText) as {
+          revision: {
+            id: string;
+            target_type: string;
+            target_id: string;
+            snapshot: Record<string, unknown>;
+            changed_fields: string[];
+          };
+        };
+        expect(gotPayload.revision.id).toBe(olderId);
+        expect(gotPayload.revision.target_type).toBe('task');
+        expect(gotPayload.revision.target_id).toBe(task.id);
+        expect(gotPayload.revision.snapshot).toMatchObject({
+          label: 'Card',
+          description: 'v0',
+        });
+        expect(gotPayload.revision.changed_fields).toEqual(['description']);
+      } finally {
+        await client.close();
+      }
     });
   });
 });

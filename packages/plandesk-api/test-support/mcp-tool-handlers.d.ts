@@ -95,6 +95,8 @@ export declare function createListProjectsHandler(dep?: unknown, dep2?: unknown)
 export declare function createListSubmissionsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListTagsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListViewsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createListRevisionsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createGetRevisionHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListTasksHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createPauseGoalHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createRecordAgentProgressHandler(dep?: unknown, dep2?: unknown): McpToolHandler;

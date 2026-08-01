@@ -24,8 +24,10 @@ import {
   getGoal,
   getNote,
   getProject,
+  getRevision,
   getSubmission,
   getTask,
+  insertRevision,
   listAgentRuns,
   listArtifactsByProject,
   listCommentsByProject,
@@ -94,6 +96,8 @@ import {
   createListSubmissionsHandler,
   createListTagsHandler,
   createListViewsHandler,
+  createListRevisionsHandler,
+  createGetRevisionHandler,
   createListTasksHandler,
   createPauseGoalHandler,
   createRecordAgentProgressHandler,
@@ -158,6 +162,8 @@ const MCP_TOOLS = [
   'list_tasks',
   'list_tags',
   'list_views',
+  'list_revisions',
+  'get_revision',
   'list_comments',
   'add_comment',
   'list_artifact_comments',
@@ -194,6 +200,7 @@ type ForeignResources = {
   completeRun: Awaited<ReturnType<typeof createAgentRun>>;
   comment: Awaited<ReturnType<typeof createComment>>;
   submission: Awaited<ReturnType<typeof createGuestSubmission>>;
+  revision: Awaited<ReturnType<typeof insertRevision>>;
 };
 
 type Fixture = {
@@ -314,6 +321,14 @@ async function seedForeignResources(db: Db, project: Project, label: string): Pr
     participantName: `${label} participant`,
     title: `${label} submission secret`,
   });
+  const revision = await insertRevision(db, {
+    projectId: project.id,
+    targetType: 'task',
+    targetId: task.id,
+    snapshot: JSON.stringify({ label: `${label} task secret`, description: `${label} prior body secret` }),
+    changedFields: JSON.stringify(['description']),
+    author: `human:${label}-author`,
+  });
   return {
     project,
     task,
@@ -330,6 +345,7 @@ async function seedForeignResources(db: Db, project: Project, label: string): Pr
     completeRun,
     comment,
     submission,
+    revision,
   };
 }
 
@@ -493,6 +509,7 @@ async function mutationSnapshot(db: Db, target: ForeignResources) {
     completeRun: await getAgentRun(db, target.completeRun.id),
     comment: await getComment(db, target.comment.id),
     submission: await getSubmission(db, target.submission.id),
+    revision: await getRevision(db, target.revision.id),
     counts: {
       tasks: (await listTasks(db, target.project.id)).length,
       documents: (await listDocuments(db, target.project.id)).length,
@@ -742,6 +759,19 @@ async function runMcpForeignSweep(
     ['list_tasks', () => createListTasksHandler(s.taskService)({ project_id: target.project.id })],
     ['list_tags', () => createListTagsHandler(s.tagService)({ project_id: target.project.id })],
     ['list_views', () => createListViewsHandler(s.viewService)({ project_id: target.project.id })],
+    [
+      'list_revisions',
+      () =>
+        createListRevisionsHandler(s.revisionService)({
+          project_id: target.project.id,
+          target_type: 'task',
+          target_id: target.task.id,
+        }),
+    ],
+    [
+      'get_revision',
+      () => createGetRevisionHandler(s.revisionService)({ revision_id: target.revision.id }),
+    ],
     [
       'list_comments',
       () => createListCommentsHandler(s.commentService)({ project_id: target.project.id }),

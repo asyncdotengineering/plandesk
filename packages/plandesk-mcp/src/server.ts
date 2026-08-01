@@ -44,6 +44,8 @@ import { createGetTaskHandler } from './tools/get-task.js';
 import { createListTasksHandler } from './tools/list-tasks.js';
 import { createListTagsHandler } from './tools/list-tags.js';
 import { createListViewsHandler } from './tools/list-views.js';
+import { createListRevisionsHandler } from './tools/list-revisions.js';
+import { createGetRevisionHandler } from './tools/get-revision.js';
 import { createListCommentsHandler } from './tools/list-comments.js';
 import { createListArtifactCommentsHandler } from './tools/list-artifact-comments.js';
 import { createListDocumentsHandler } from './tools/list-documents.js';
@@ -76,6 +78,8 @@ import {
   listTasksInputSchema,
   listTagsInputSchema,
   listViewsInputSchema,
+  listRevisionsInputSchema,
+  getRevisionInputSchema,
   createNoteInputSchema,
   updateNoteInputSchema,
   getNoteInputSchema,
@@ -601,6 +605,30 @@ function createMcpServer(services: Services, origin: string): McpServer {
       annotations: { readOnlyHint: true },
     },
     createListViewsHandler(services.viewService),
+  );
+
+  server.registerTool(
+    'list_revisions',
+    {
+      title: 'List Revisions',
+      description:
+        'List content-history metadata for a task or document (id, author, changed fields, timestamp). Newest first. Does not include snapshot bodies — use get_revision for those.',
+      inputSchema: listRevisionsInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListRevisionsHandler(services.revisionService),
+  );
+
+  server.registerTool(
+    'get_revision',
+    {
+      title: 'Get Revision',
+      description:
+        'Get one content-history revision including its full prior-state snapshot. Read-only — there is no restore tool over MCP.',
+      inputSchema: getRevisionInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createGetRevisionHandler(services.revisionService),
   );
 
   server.registerTool(

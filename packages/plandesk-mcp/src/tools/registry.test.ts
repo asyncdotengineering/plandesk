@@ -4,7 +4,9 @@ import {
   createProjectInputSchema,
   createTaskInputSchema,
   getNextTaskInputSchema,
+  getRevisionInputSchema,
   listCommentsInputSchema,
+  listRevisionsInputSchema,
   listTagsInputSchema,
   listViewsInputSchema,
   listTasksInputSchema,
@@ -23,12 +25,56 @@ describe('tool registry tag schemas', () => {
   it('registers list_tags with a schema for every v1 tool', () => {
     expect(v1ToolNames).toContain('list_tags');
     expect(v1ToolNames).toContain('list_views');
+    expect(v1ToolNames).toContain('list_revisions');
+    expect(v1ToolNames).toContain('get_revision');
     expect(v1ToolNames).toContain('claim_task');
     expect(v1ToolNames).toContain('update_project');
-    expect(v1ToolNames).toHaveLength(50);
+    expect(v1ToolNames).toHaveLength(52);
     for (const name of v1ToolNames) {
       expect(v1ToolSchemas[name]).toBeDefined();
     }
+  });
+
+  it('REVERT-PROOF: MCP surface has no mutating or restore revision tools', () => {
+    const names: readonly string[] = v1ToolNames;
+    expect(names).toContain('list_revisions');
+    expect(names).toContain('get_revision');
+    expect(names).not.toContain('restore_revision');
+    const revisionTools = names.filter((name) => name.includes('revision'));
+    expect(revisionTools).toEqual(['list_revisions', 'get_revision']);
+    const mutatingRevisionTools = names.filter((name) =>
+      /^(create|update|delete|restore)_revisions?$/.test(name),
+    );
+    expect(mutatingRevisionTools).toEqual([]);
+  });
+
+  it('list_revisions and get_revision schemas require the stated ids', () => {
+    const PROJECT_ID = '00000000-0000-4000-8000-000000000001';
+    const TARGET_ID = '00000000-0000-4000-8000-000000000002';
+    const REVISION_ID = '00000000-0000-4000-8000-000000000003';
+    expect(
+      listRevisionsInputSchema.safeParse({
+        project_id: PROJECT_ID,
+        target_type: 'task',
+        target_id: TARGET_ID,
+      }).success,
+    ).toBe(true);
+    expect(
+      listRevisionsInputSchema.safeParse({
+        project_id: PROJECT_ID,
+        target_type: 'document',
+        target_id: TARGET_ID,
+      }).success,
+    ).toBe(true);
+    expect(
+      listRevisionsInputSchema.safeParse({
+        project_id: PROJECT_ID,
+        target_type: 'note',
+        target_id: TARGET_ID,
+      }).success,
+    ).toBe(false);
+    expect(getRevisionInputSchema.safeParse({ revision_id: REVISION_ID }).success).toBe(true);
+    expect(getRevisionInputSchema.safeParse({}).success).toBe(false);
   });
 
   it('create_project and update_project accept repo_url and folder_path; reject dangerous schemes and absolute paths', () => {

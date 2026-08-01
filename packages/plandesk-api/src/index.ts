@@ -146,6 +146,10 @@ export { InvalidAgentRunError } from './services/agent-runs.js';
 export { InvalidScaffoldError } from './services/projects.js';
 export { InvalidShareError, type ShareService } from './services/share.js';
 export {
+  InvalidRevisionQueryError,
+  type RevisionService,
+} from './services/revisions.js';
+export {
   InvalidTriageError,
   InvalidTriageInputError,
   SubmissionRetriageMismatchError,

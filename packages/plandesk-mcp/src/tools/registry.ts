@@ -541,6 +541,16 @@ export const listViewsInputSchema = z.object({
   project_id: z.string().uuid(),
 });
 
+export const listRevisionsInputSchema = z.object({
+  project_id: z.string().uuid(),
+  target_type: z.enum(['task', 'document']),
+  target_id: z.string().uuid(),
+});
+
+export const getRevisionInputSchema = z.object({
+  revision_id: z.string().uuid(),
+});
+
 export const listCommentsInputSchema = z.object({
   project_id: z.string().uuid(),
   target_type: z.enum(['document', 'task', 'note', 'submission']).optional(),
@@ -646,6 +656,8 @@ export const v1ToolNames = [
   'list_tasks',
   'list_tags',
   'list_views',
+  'list_revisions',
+  'get_revision',
   'list_comments',
   'add_comment',
   'list_artifact_comments',
@@ -701,6 +713,8 @@ export const v1ToolSchemas = {
   list_tasks: listTasksInputSchema,
   list_tags: listTagsInputSchema,
   list_views: listViewsInputSchema,
+  list_revisions: listRevisionsInputSchema,
+  get_revision: getRevisionInputSchema,
   list_comments: listCommentsInputSchema,
   add_comment: addCommentInputSchema,
   list_artifact_comments: listArtifactCommentsInputSchema,
