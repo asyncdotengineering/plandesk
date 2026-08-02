@@ -10,16 +10,14 @@ function summaryDocument(doc: JsonRecord): JsonRecord {
   return Array.isArray(children) ? { ...rest, children: children.map(summaryDocument) } : rest;
 }
 
-// Strips `body` from a folder-tree node's nested documents and sub-folders.
+// Strips embedded document bodies from folder metadata while preserving recursion.
 function summaryFolderTree(node: JsonRecord): JsonRecord {
-  const { folders, documents, ...rest } = node as JsonRecord & {
+  const { folders, ...rest } = node as JsonRecord & {
     folders?: JsonRecord[];
-    documents?: JsonRecord[];
   };
   return {
     ...rest,
     ...(Array.isArray(folders) ? { folders: folders.map(summaryFolderTree) } : {}),
-    ...(Array.isArray(documents) ? { documents: documents.map(summaryDocument) } : {}),
   };
 }
 

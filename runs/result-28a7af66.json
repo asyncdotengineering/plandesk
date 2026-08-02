@@ -1,0 +1,11 @@
+{
+  "status": "blocked",
+  "claims": [
+    { "command": "pnpm --filter @plandesk/api test", "exit_code": 0 },
+    { "command": "pnpm --filter @plandesk/mcp test", "exit_code": 0 },
+    { "command": "pnpm build", "exit_code": 0 },
+    { "command": "pnpm exec turbo run test --force", "exit_code": 1 },
+    { "command": "pnpm validate", "exit_code": 0 }
+  ],
+  "question": "pnpm exec turbo run test --force fails in the web-owned apps/plandesk-web/src/project-list.test.tsx because the Projects heading is not found while the page remains in Loading projects…; this stream must not edit that path."
+}

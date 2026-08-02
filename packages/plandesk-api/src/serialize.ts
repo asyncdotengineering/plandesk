@@ -468,14 +468,14 @@ export function serializeFolder(folder: Folder): SerializedFolder {
   };
 }
 
-export type SerializedFolderTree = SerializedFolder & {
+export type SerializedFolderTree = Pick<SerializedFolder, 'id' | 'name' | 'parent_folder_id'> & {
   folders: SerializedFolderTree[];
-  documents: SerializedDocumentTree[];
+  doc_count: number;
 };
 
 export type SerializedDocumentFolderTree = {
   folders: SerializedFolderTree[];
-  documents: SerializedDocumentTree[];
+  documents: SerializedDocument[];
 };
 
 export function buildFolderTree(
@@ -484,7 +484,14 @@ export function buildFolderTree(
 ): SerializedDocumentFolderTree {
   const folderNodes = new Map<string, SerializedFolderTree>();
   for (const folder of folders) {
-    folderNodes.set(folder.id, { ...serializeFolder(folder), folders: [], documents: [] });
+    const serialized = serializeFolder(folder);
+    folderNodes.set(folder.id, {
+      id: serialized.id,
+      name: serialized.name,
+      parent_folder_id: serialized.parent_folder_id,
+      folders: [],
+      doc_count: 0,
+    });
   }
 
   const rootFolders: SerializedFolderTree[] = [];
@@ -520,13 +527,13 @@ export function buildFolderTree(
     }
     const node = folderNodes.get(folderId);
     if (node) {
-      node.documents = buildDocumentTree(group);
+      node.doc_count = group.length;
     }
   }
 
   return {
     folders: rootFolders,
-    documents: buildDocumentTree(documentsByFolder.get(null) ?? []),
+    documents: documents.map((document) => serializeDocument(document)),
   };
 }
 

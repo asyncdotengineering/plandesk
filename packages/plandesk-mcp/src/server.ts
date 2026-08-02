@@ -247,7 +247,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'List Documents',
       description:
-        'List documents for a project as a folder tree (folders with nested documents, plus root documents). Pass folder_id to list only the documents inside one folder. Returns summary fields by default; pass verbose: true to include bodies.',
+        'List documents for a project with every document in the top-level documents array. The recursive folders array contains metadata-only nodes with id, name, parent_folder_id, doc_count, and nested folders; it never embeds document bodies. Pass folder_id to return only that folder’s documents. Returns summary fields by default; pass verbose: true to include bodies.',
       inputSchema: listDocumentsInputSchema.shape,
       annotations: { readOnlyHint: true },
     },

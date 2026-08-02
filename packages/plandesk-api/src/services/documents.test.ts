@@ -272,7 +272,7 @@ describe('documentService', () => {
     );
   });
 
-  it('listFolderTree nests folders with their documents', async () => {
+  it('listFolderTree returns every document flat and folders as metadata-only recursion', async () => {
     const service = createService();
     const parent = await createFolder(db, { projectId, name: 'Parent' });
     const child = await createFolder(db, { projectId, name: 'Child', parentFolderId: parent.id });
@@ -282,14 +282,20 @@ describe('documentService', () => {
 
     const tree = await service.listFolderTree(projectId);
     expect(tree).toBeDefined();
-    expect(tree?.documents.map((doc) => doc.title)).toEqual(['Root doc']);
+    expect(tree?.documents.map((doc) => doc.title)).toEqual(['Root doc', 'Parent doc', 'Child doc']);
     expect(tree?.folders).toHaveLength(1);
     const parentNode = tree?.folders[0];
     expect(parentNode?.name).toBe('Parent');
-    expect(parentNode?.documents.map((doc) => doc.title)).toEqual(['Parent doc']);
+    expect(parentNode?.doc_count).toBe(1);
+    expect(parentNode).not.toHaveProperty('documents');
     expect(parentNode?.folders).toHaveLength(1);
     expect(parentNode?.folders[0]?.name).toBe('Child');
-    expect(parentNode?.folders[0]?.documents.map((doc) => doc.title)).toEqual(['Child doc']);
+    expect(parentNode?.folders[0]?.doc_count).toBe(1);
+    expect(parentNode?.folders[0]).not.toHaveProperty('documents');
+    expect(tree?.documents.find((doc) => doc.folder_id === parentNode?.id)?.title).toBe('Parent doc');
+    expect(tree?.documents.find((doc) => doc.folder_id === parentNode?.folders[0]?.id)?.title).toBe(
+      'Child doc',
+    );
   });
 
   it('listByFolder returns only documents in the folder', async () => {

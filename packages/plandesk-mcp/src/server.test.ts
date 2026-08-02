@@ -570,18 +570,23 @@ describe('createMcpApp', () => {
       const treeContent = tree.content as Array<{ type: string; text?: string }>;
       const treeText = treeContent[0]?.type === 'text' ? (treeContent[0].text ?? '{}') : '{}';
       const treePayload = JSON.parse(treeText) as {
-        documents: Array<{ title: string }>;
+        documents: Array<{ id: string; title: string; folder_id: string | null }>;
         folders: Array<{
           id: string;
           name: string;
-          folders: Array<{ name: string }>;
-          documents: Array<{ id: string }>;
+          doc_count: number;
+          folders: Array<{ name: string; doc_count: number }>;
         }>;
       };
       expect(treePayload.documents.some((entry) => entry.title === 'At root')).toBe(true);
+      expect(treePayload.documents.some((entry) => entry.id === docId && entry.folder_id === folderId)).toBe(
+        true,
+      );
       const specsNode = treePayload.folders.find((entry) => entry.id === folderId);
-      expect(specsNode?.documents.map((entry) => entry.id)).toEqual([docId]);
+      expect(specsNode?.doc_count).toBe(1);
       expect(specsNode?.folders.map((entry) => entry.name)).toEqual(['Old specs']);
+      expect(specsNode).not.toHaveProperty('documents');
+      expect(specsNode?.folders[0]).not.toHaveProperty('documents');
 
       const moved = await client.callTool({
         name: 'update_document',
@@ -656,10 +661,11 @@ describe('createMcpApp', () => {
           (summaryTree.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
         ) as {
           documents: Array<Record<string, unknown>>;
-          folders: Array<{ documents: Array<Record<string, unknown>> }>;
+          folders: Array<Record<string, unknown>>;
         };
-        expect(summaryTreePayload.documents[0]).not.toHaveProperty('body');
-        expect(summaryTreePayload.folders[0]?.documents[0]).not.toHaveProperty('body');
+        expect(summaryTreePayload.documents).toHaveLength(2);
+        expect(summaryTreePayload.documents.every((document) => !('body' in document))).toBe(true);
+        expect(summaryTreePayload.folders[0]).not.toHaveProperty('documents');
 
         const verboseTree = await client.callTool({
           name: 'list_documents',
@@ -669,10 +675,11 @@ describe('createMcpApp', () => {
           (verboseTree.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
         ) as {
           documents: Array<{ body: string | null }>;
-          folders: Array<{ documents: Array<{ body: string | null }> }>;
+          folders: Array<Record<string, unknown>>;
         };
-        expect(verboseTreePayload.documents[0]?.body).toBe('<p>root body</p>');
-        expect(verboseTreePayload.folders[0]?.documents[0]?.body).toBe('<p>secret body</p>');
+        expect(verboseTreePayload.documents.find((document) => document.body === '<p>root body</p>')).toBeDefined();
+        expect(verboseTreePayload.documents.find((document) => document.body === '<p>secret body</p>')).toBeDefined();
+        expect(verboseTreePayload.folders[0]).not.toHaveProperty('documents');
 
         const summaryFlat = await client.callTool({
           name: 'list_documents',
