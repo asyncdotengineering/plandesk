@@ -1459,7 +1459,7 @@ export function DocumentsPanel({
           }
         }}
         title={folderToDelete === null ? '' : `Delete folder "${folderToDelete.name}"?`}
-        description="Its documents and subfolders move up a level — nothing is orphaned."
+        description="Documents and subfolders move to this folder's parent (or Unfiled if it is at the root). Nothing is orphaned or deleted."
         busy={deleteFolder.isPending}
         onConfirm={confirmDeleteFolder}
       />

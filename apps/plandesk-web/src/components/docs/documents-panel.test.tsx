@@ -302,6 +302,11 @@ describe('DocumentsPanel folder tree', () => {
 
     openKebab('Actions for folder Specs');
     fireEvent.click(screen.getByText('Delete'));
+    expect(
+      screen.getByText(
+        /Documents and subfolders move to this folder's parent \(or Unfiled if it is at the root\)/,
+      ),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {

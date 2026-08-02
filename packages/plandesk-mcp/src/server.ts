@@ -18,6 +18,7 @@ import { createDeleteEdgeHandler } from './tools/delete-edge.js';
 import { createCreateShareLinkHandler } from './tools/create-share-link.js';
 import { createCreateFolderHandler } from './tools/create-folder.js';
 import { createUpdateFolderHandler } from './tools/update-folder.js';
+import { createDeleteFolderHandler } from './tools/delete-folder.js';
 import { createMoveDocumentsHandler } from './tools/move-documents.js';
 import { createCreatePrototypeHandler } from './tools/create-prototype.js';
 import { createListPrototypesHandler } from './tools/list-prototypes.js';
@@ -79,6 +80,7 @@ import {
   updatePrototypeInputSchema,
   createShareLinkInputSchema,
   updateFolderInputSchema,
+  deleteFolderInputSchema,
   moveDocumentsInputSchema,
   createProjectInputSchema,
   updateProjectInputSchema,
@@ -276,6 +278,17 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       inputSchema: updateFolderInputSchema.shape,
     },
     createUpdateFolderHandler(services.folderService),
+  );
+
+  server.registerTool(
+    'delete_folder',
+    {
+      title: 'Delete Folder',
+      description:
+        'Delete a folder without orphaning contents. By default documents and sub-folders move to the deleted folder\'s parent (Unfiled when it was at the project root). Pass reparent_to null for Unfiled, or a folder id to move contents there.',
+      inputSchema: deleteFolderInputSchema.shape,
+    },
+    createDeleteFolderHandler(services.folderService),
   );
 
   server.registerTool(

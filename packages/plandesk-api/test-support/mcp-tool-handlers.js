@@ -60,6 +60,7 @@ export {
 } from '../../plandesk-mcp/src/tools/move-copy-screen.js';
 export { createUpdateDocumentHandler } from '../../plandesk-mcp/src/tools/update-document.js';
 export { createUpdateFolderHandler } from '../../plandesk-mcp/src/tools/update-folder.js';
+export { createDeleteFolderHandler } from '../../plandesk-mcp/src/tools/delete-folder.js';
 export { createMoveDocumentsHandler } from '../../plandesk-mcp/src/tools/move-documents.js';
 export { createUpdatePrototypeHandler } from '../../plandesk-mcp/src/tools/update-prototype.js';
 export { createUpdateGoalHandler } from '../../plandesk-mcp/src/tools/update-goal.js';

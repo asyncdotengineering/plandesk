@@ -196,6 +196,18 @@ export const updateFolderInputSchema = z.object({
     ),
 });
 
+export const deleteFolderInputSchema = z.object({
+  folder_id: z.string().uuid(),
+  reparent_to: z
+    .string()
+    .uuid()
+    .nullable()
+    .optional()
+    .describe(
+      'Where documents and sub-folders go. Omit to use the deleted folder\'s parent (Unfiled when it was at the project root). Pass null for Unfiled. Pass a folder id to move contents there. Never orphans or deletes contents.',
+    ),
+});
+
 export const moveDocumentsInputSchema = z.object({
   document_ids: z
     .array(z.string().uuid())
@@ -744,6 +756,7 @@ export const v1ToolNames = [
   'list_documents',
   'create_folder',
   'update_folder',
+  'delete_folder',
   'move_documents',
   'create_prototype',
   'list_prototypes',
@@ -808,6 +821,7 @@ export const v1ToolSchemas = {
   list_documents: listDocumentsInputSchema,
   create_folder: createFolderInputSchema,
   update_folder: updateFolderInputSchema,
+  delete_folder: deleteFolderInputSchema,
   move_documents: moveDocumentsInputSchema,
   create_prototype: createPrototypeInputSchema,
   list_prototypes: listPrototypesInputSchema,

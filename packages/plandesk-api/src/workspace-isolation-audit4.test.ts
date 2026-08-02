@@ -118,6 +118,7 @@ import {
   createCopyScreenHandler,
   createUpdateDocumentHandler,
   createUpdateFolderHandler,
+  createDeleteFolderHandler,
   createMoveDocumentsHandler,
   createUpdatePrototypeHandler,
   createUpdateGoalHandler,
@@ -142,6 +143,7 @@ const MCP_TOOLS = [
   'list_documents',
   'create_folder',
   'update_folder',
+  'delete_folder',
   'move_documents',
   'create_prototype',
   'list_prototypes',
@@ -674,6 +676,13 @@ async function runMcpForeignSweep(
         }),
     ],
     [
+      'delete_folder',
+      () =>
+        createDeleteFolderHandler(s.folderService)({
+          folder_id: target.folder.id,
+        }),
+    ],
+    [
       'move_documents',
       () =>
         createMoveDocumentsHandler(s.documentService)({
@@ -1071,6 +1080,10 @@ describe('workspace-tier adversarial audit round 4', () => {
         createUpdateFolderHandler(f.services.folderService)({
           folder_id: folderA.id,
           parent_folder_id: f.foreignB.folder.id,
+        }),
+        createDeleteFolderHandler(f.services.folderService)({
+          folder_id: folderA.id,
+          reparent_to: f.foreignB.folder.id,
         }),
         createCreateArtifactHandler(f.services.artifactService)({
           project_id: f.projectA.id,

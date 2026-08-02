@@ -160,6 +160,63 @@ describe('folderService', () => {
     expect((await getDocument(db, doc.id))?.folderId).toBeNull();
   });
 
+  it('delete with explicit reparentTo moves contents there; null means Unfiled', async () => {
+    const service = createService();
+    const docService = createDocService();
+    const keep = await service.create(projectId, { name: 'Keep' });
+    const doomed = await service.create(projectId, { name: 'Doomed' });
+    const nested = await service.create(projectId, { name: 'Nested', parentFolderId: doomed?.id });
+    const doc = await docService.create(projectId, { title: 'Inside', folderId: doomed?.id });
+    expect(keep && doomed && nested && doc).toBeTruthy();
+    if (!keep || !doomed || !nested || !doc) {
+      return;
+    }
+
+    expect(await service.delete(doomed.id, { reparentTo: keep.id })).toBe(true);
+    expect((await getFolder(db, nested.id))?.parentFolderId).toBe(keep.id);
+    expect((await getDocument(db, doc.id))?.folderId).toBe(keep.id);
+
+    const doomed2 = await service.create(projectId, { name: 'Doomed2' });
+    const nested2 = await service.create(projectId, {
+      name: 'Nested2',
+      parentFolderId: doomed2?.id,
+    });
+    if (!doomed2 || !nested2) {
+      return;
+    }
+    expect(await service.delete(doomed2.id, { reparentTo: null })).toBe(true);
+    expect((await getFolder(db, nested2.id))?.parentFolderId).toBeNull();
+  });
+
+  it('delete rejects reparentTo that is the folder or a descendant', async () => {
+    const service = createService();
+    const root = await service.create(projectId, { name: 'Root' });
+    const child = await service.create(projectId, { name: 'Child', parentFolderId: root?.id });
+    if (!root || !child) {
+      return;
+    }
+    await expect(service.delete(root.id, { reparentTo: root.id })).rejects.toThrow(
+      InvalidFolderError,
+    );
+    await expect(service.delete(root.id, { reparentTo: child.id })).rejects.toThrow(
+      InvalidFolderError,
+    );
+  });
+
+  it('delete rejects a reparentTo folder from another project', async () => {
+    const service = createService();
+    const folder = await service.create(projectId, { name: 'Local' });
+    const otherProject = (await createProject(db, { name: 'Other' })).id;
+    const foreign = await service.create(otherProject, { name: 'Foreign' });
+    expect(folder && foreign).toBeTruthy();
+    if (!folder || !foreign) {
+      return;
+    }
+    await expect(service.delete(folder.id, { reparentTo: foreign.id })).rejects.toThrow(
+      InvalidFolderError,
+    );
+  });
+
   it('delete returns false for a missing folder', async () => {
     expect(await createService().delete('00000000-0000-4000-8000-000000009999')).toBe(false);
   });

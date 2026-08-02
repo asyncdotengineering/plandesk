@@ -196,7 +196,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(59);
+      expect(names).toHaveLength(60);
       await client.close();
     });
   });
@@ -592,6 +592,39 @@ describe('createMcpApp', () => {
       expect(
         (JSON.parse(movedText) as { document: { folder_id: string | null } }).document.folder_id,
       ).toBeNull();
+
+      // Put the doc back in the folder, then delete the folder — contents must survive.
+      await client.callTool({
+        name: 'update_document',
+        arguments: { document_id: docId, folder_id: folderId },
+      });
+      const deleted = await client.callTool({
+        name: 'delete_folder',
+        arguments: { folder_id: folderId },
+      });
+      expect(deleted.isError).not.toBe(true);
+      const deletedContent = deleted.content as Array<{ type: string; text?: string }>;
+      const deletedText =
+        deletedContent[0]?.type === 'text' ? (deletedContent[0].text ?? '{}') : '{}';
+      expect((JSON.parse(deletedText) as { deleted: boolean }).deleted).toBe(true);
+
+      const afterDelete = await client.callTool({
+        name: 'get_document',
+        arguments: { document_id: docId },
+      });
+      const afterDeleteContent = afterDelete.content as Array<{ type: string; text?: string }>;
+      const afterDeleteText =
+        afterDeleteContent[0]?.type === 'text' ? (afterDeleteContent[0].text ?? '{}') : '{}';
+      expect(
+        (JSON.parse(afterDeleteText) as { document: { folder_id: string | null } }).document
+          .folder_id,
+      ).toBeNull();
+
+      const childStillThere = await client.callTool({
+        name: 'update_folder',
+        arguments: { folder_id: childId, name: 'Still here' },
+      });
+      expect(childStillThere.isError).not.toBe(true);
 
       await client.close();
     });
