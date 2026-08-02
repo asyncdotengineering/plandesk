@@ -68,6 +68,8 @@ function asExportTasks(tasks: Awaited<ReturnType<TaskService['listByProject']>>)
     label: task.label,
     status: task.status,
     priority: task.priority,
+    lane: task.lane,
+    severity: task.severity,
     description: task.description,
     assignee: task.assignee,
     due_date: task.due_date,

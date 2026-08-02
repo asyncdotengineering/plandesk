@@ -1956,28 +1956,48 @@ describe('createMcpApp', () => {
 
       const created = await client.callTool({
         name: 'create_task',
-        arguments: { project_id: projectId, label: 'Tagged', tags: ['backend', 'urgent'] },
+        arguments: {
+          project_id: projectId,
+          label: 'Tagged',
+          lane: 'approve',
+          severity: 'high',
+          tags: ['backend', 'urgent'],
+        },
       });
       expect(created.isError).not.toBe(true);
       const createdContent = created.content as Array<{ type: string; text?: string }>;
       const createdText =
         createdContent[0]?.type === 'text' ? (createdContent[0].text ?? '{}') : '{}';
       const createdPayload = JSON.parse(createdText) as {
-        task: { id: string; tags: Array<{ id: string; name: string; color: string | null }> };
+        task: {
+          id: string;
+          lane: string;
+          severity: string;
+          tags: Array<{ id: string; name: string; color: string | null }>;
+        };
       };
+      expect(createdPayload.task.lane).toBe('approve');
+      expect(createdPayload.task.severity).toBe('high');
       expect(createdPayload.task.tags.map((tag) => tag.name)).toEqual(['backend', 'urgent']);
 
       const updated = await client.callTool({
         name: 'update_task',
-        arguments: { task_id: createdPayload.task.id, tags: ['backend', 'api'] },
+        arguments: {
+          task_id: createdPayload.task.id,
+          lane: 'full',
+          severity: 'medium',
+          tags: ['backend', 'api'],
+        },
       });
       expect(updated.isError).not.toBe(true);
       const updatedContent = updated.content as Array<{ type: string; text?: string }>;
       const updatedText =
         updatedContent[0]?.type === 'text' ? (updatedContent[0].text ?? '{}') : '{}';
       const updatedPayload = JSON.parse(updatedText) as {
-        task: { tags: Array<{ name: string }> };
+        task: { lane: string; severity: string; tags: Array<{ name: string }> };
       };
+      expect(updatedPayload.task.lane).toBe('full');
+      expect(updatedPayload.task.severity).toBe('medium');
       expect(updatedPayload.task.tags.map((tag) => tag.name)).toEqual(['api', 'backend']);
 
       const listed = await client.callTool({

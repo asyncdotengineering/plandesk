@@ -16,7 +16,9 @@ import {
   listRevisionsByTarget,
   InvalidTaskStatusError,
   InvalidTaskKindError,
+  InvalidTaskLaneError,
   InvalidTaskPriorityError,
+  InvalidTaskSeverityError,
   listEdges,
   listTags,
   listTasks,
@@ -149,6 +151,36 @@ describe('taskService', () => {
     const service = createService();
     await expect(service.listByProject(projectId, { priority: 'critical' })).rejects.toThrow(
       InvalidTaskPriorityError,
+    );
+  });
+
+  it('round-trips and filters lane and severity fields', async () => {
+    const service = createService();
+    const created = await service.create(projectId, {
+      label: 'Approval task',
+      lane: 'approve',
+      severity: 'high',
+    });
+    expect(created).toMatchObject({ lane: 'approve', severity: 'high' });
+    if (!created) {
+      throw new Error('expected created task');
+    }
+
+    const updated = await service.update(created.id, { lane: 'full', severity: 'medium' });
+    expect(updated).toMatchObject({ lane: 'full', severity: 'medium' });
+    expect(await service.get(created.id)).toMatchObject({ lane: 'full', severity: 'medium' });
+    expect(await service.listByProject(projectId, { lane: 'full', severity: 'medium' })).toEqual([
+      expect.objectContaining({ id: created.id, lane: 'full', severity: 'medium' }),
+    ]);
+  });
+
+  it('rejects invalid lane and severity filters', async () => {
+    const service = createService();
+    await expect(service.listByProject(projectId, { lane: 'manual' })).rejects.toThrow(
+      InvalidTaskLaneError,
+    );
+    await expect(service.listByProject(projectId, { severity: 'critical' })).rejects.toThrow(
+      InvalidTaskSeverityError,
     );
   });
 

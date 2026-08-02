@@ -1,0 +1,12 @@
+{
+  "status": "blocked",
+  "claims": [
+    { "command": "pnpm --filter @plandesk/db test", "exit_code": 0 },
+    { "command": "pnpm --filter @plandesk/api test", "exit_code": 0 },
+    { "command": "pnpm --filter @plandesk/mcp test", "exit_code": 0 },
+    { "command": "pnpm build", "exit_code": 0 },
+    { "command": "pnpm exec turbo run test --force", "exit_code": 1 },
+    { "command": "pnpm validate", "exit_code": 0 }
+  ],
+  "question": "pnpm exec turbo run test --force fails in the web-owned apps/plandesk-web tests: project-list.test.tsx (2 failures) and components/board/task-list.test.tsx (2 failures). This stream must not edit those paths."
+}

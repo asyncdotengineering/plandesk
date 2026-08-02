@@ -182,7 +182,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Create Task',
       description:
-        'Create a canvas node and task row. Optional `tags` sets the task tags by name; tags that do not exist yet in the project are auto-created.',
+        'Create a canvas node and task row. `lane` and `severity` are typed execution fields; optional `tags` sets task tags by name, auto-creating missing project tags.',
       inputSchema: createTaskInputSchema.shape,
     },
     createCreateTaskHandler(services.taskService),
@@ -193,7 +193,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Update Task',
       description:
-        'Update task status, label, description, position, goal, tags, or commit_refs. `goal_id` reassigns the task to a different goal in the same project, preserving its edges, comments, and documents. `tags` REPLACES the full tag set (auto-creating tags by name that do not exist yet; [] clears all tags); omit it to leave tags unchanged. `commit_refs` REPLACES the full array of hex SHAs (case-insensitive, stored lowercase; max 50; pass null to clear); omit to leave unchanged.',
+        'Update task status, label, description, position, goal, typed lane/severity fields, tags, or commit_refs. `goal_id` reassigns the task to a different goal in the same project, preserving its edges, comments, and documents. `tags` REPLACES the full tag set (auto-creating tags by name that do not exist yet; [] clears all tags); omit it to leave tags unchanged. `commit_refs` REPLACES the full array of hex SHAs (case-insensitive, stored lowercase; max 50; pass null to clear); omit to leave unchanged.',
       inputSchema: updateTaskInputSchema.shape,
     },
     createUpdateTaskHandler(services.taskService),
@@ -655,7 +655,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'List Tasks',
       description:
-        'List all tasks for a project, optionally filtered by status and/or tags. The `tags` filter uses OR semantics: a task matches if it carries ANY of the given tag names. Use this to reconcile the board against reality. Returns summary fields by default; pass verbose: true to include descriptions.',
+        'List all tasks for a project, optionally filtered by status, typed lane/severity, and/or tags. The `tags` filter uses OR semantics: a task matches if it carries ANY of the given tag names. Use this to reconcile the board against reality. Returns summary fields by default; pass verbose: true to include descriptions.',
       inputSchema: listTasksInputSchema.shape,
       annotations: { readOnlyHint: true },
     },

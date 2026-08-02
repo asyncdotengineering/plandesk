@@ -182,6 +182,8 @@ export type PortableExportSnapshot = {
     status: string;
     kind: string | undefined;
     priority: string | null | undefined;
+    lane: string | null | undefined;
+    severity: string | null | undefined;
     description: string | null;
     x: number;
     y: number;
@@ -321,6 +323,8 @@ export function toPortableExportSnapshot(exported: PlandeskExport): PortableExpo
         status: task.status,
         kind: task.kind,
         priority: task.priority,
+        lane: task.lane,
+        severity: task.severity,
         description: task.description,
         x: task.x,
         y: task.y,

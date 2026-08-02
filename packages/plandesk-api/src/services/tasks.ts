@@ -16,9 +16,13 @@ import {
   InvalidTaskStatusError,
   isTaskStatus,
   isTaskKind,
+  isTaskLane,
   InvalidTaskKindError,
+  InvalidTaskLaneError,
   isTaskPriority,
   InvalidTaskPriorityError,
+  isTaskSeverity,
+  InvalidTaskSeverityError,
   listEdges,
   listTagsByTaskForProject,
   listTagsForTask,
@@ -36,8 +40,10 @@ import {
   type Edge,
   type Task,
   type TaskKind,
+  type TaskLane,
   type TaskPriority,
   type TaskStatus,
+  type TaskSeverity,
 } from '@plandesk/db';
 import {
   serializeTask,
@@ -148,6 +154,8 @@ export type CreateTaskInput = {
   kind?: TaskKind;
   /** Null / omit → stored null. */
   priority?: TaskPriority | null;
+  lane?: TaskLane | null;
+  severity?: TaskSeverity | null;
   description?: string | null;
   x?: number;
   y?: number;
@@ -164,6 +172,8 @@ export type UpdateTaskInput = {
   kind?: TaskKind;
   /** Pass null to clear; omit to leave unchanged. */
   priority?: TaskPriority | null;
+  lane?: TaskLane | null;
+  severity?: TaskSeverity | null;
   description?: string | null;
   x?: number;
   y?: number;
@@ -186,6 +196,8 @@ export type ListTasksFilter = {
   status?: string;
   kind?: string;
   priority?: string;
+  lane?: string;
+  severity?: string;
   // OR semantics: keep tasks carrying ANY of the given tag names.
   tags?: string[];
 };
@@ -245,6 +257,12 @@ export function createTaskService(deps: TaskServiceDeps) {
       if (filter.priority !== undefined && !isTaskPriority(filter.priority)) {
         throw new InvalidTaskPriorityError(filter.priority);
       }
+      if (filter.lane !== undefined && !isTaskLane(filter.lane)) {
+        throw new InvalidTaskLaneError(filter.lane);
+      }
+      if (filter.severity !== undefined && !isTaskSeverity(filter.severity)) {
+        throw new InvalidTaskSeverityError(filter.severity);
+      }
 
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
@@ -258,10 +276,14 @@ export function createTaskService(deps: TaskServiceDeps) {
       const statusFilter = filter.status;
       const kindFilter = filter.kind;
       const priorityFilter = filter.priority;
+      const laneFilter = filter.lane;
+      const severityFilter = filter.severity;
       const tasks = await listTasks(db, projectId, {
         ...(statusFilter !== undefined ? { status: statusFilter } : {}),
         ...(kindFilter !== undefined ? { kind: kindFilter } : {}),
         ...(priorityFilter !== undefined ? { priority: priorityFilter } : {}),
+        ...(laneFilter !== undefined ? { lane: laneFilter } : {}),
+        ...(severityFilter !== undefined ? { severity: severityFilter } : {}),
         ...(filter.tags !== undefined ? { tagNames: filter.tags.map(normalizeTagName) } : {}),
         ...pagination,
       });
@@ -297,6 +319,12 @@ export function createTaskService(deps: TaskServiceDeps) {
       if (input.priority !== undefined && input.priority !== null && !isTaskPriority(input.priority)) {
         throw new InvalidTaskPriorityError(input.priority);
       }
+      if (input.lane !== undefined && input.lane !== null && !isTaskLane(input.lane)) {
+        throw new InvalidTaskLaneError(input.lane);
+      }
+      if (input.severity !== undefined && input.severity !== null && !isTaskSeverity(input.severity)) {
+        throw new InvalidTaskSeverityError(input.severity);
+      }
 
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
@@ -323,6 +351,8 @@ export function createTaskService(deps: TaskServiceDeps) {
           status: input.status,
           kind: input.kind,
           priority: input.priority,
+          lane: input.lane,
+          severity: input.severity,
           description: input.description,
           x: input.x,
           y: input.y,
@@ -348,6 +378,12 @@ export function createTaskService(deps: TaskServiceDeps) {
       }
       if (input.priority !== undefined && input.priority !== null && !isTaskPriority(input.priority)) {
         throw new InvalidTaskPriorityError(input.priority);
+      }
+      if (input.lane !== undefined && input.lane !== null && !isTaskLane(input.lane)) {
+        throw new InvalidTaskLaneError(input.lane);
+      }
+      if (input.severity !== undefined && input.severity !== null && !isTaskSeverity(input.severity)) {
+        throw new InvalidTaskSeverityError(input.severity);
       }
 
       const existing = await getTask(db, id);

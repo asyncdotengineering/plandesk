@@ -3,9 +3,13 @@ import {
   InvalidTaskStatusError,
   InvalidTaskKindError,
   InvalidTaskPriorityError,
+  InvalidTaskLaneError,
+  InvalidTaskSeverityError,
   isTaskStatus,
   isTaskKind,
   isTaskPriority,
+  isTaskLane,
+  isTaskSeverity,
   isValidCommitRefs,
   normalizeCommitRefs,
 } from '@plandesk/db';
@@ -25,6 +29,8 @@ export function createTasksRouter(taskService: TaskService): Hono {
       status?: string;
       kind?: string;
       priority?: string | null;
+      lane?: string | null;
+      severity?: string | null;
       label?: string;
       description?: string | null;
       x?: number;
@@ -49,6 +55,13 @@ export function createTasksRouter(taskService: TaskService): Hono {
       return c.json({ error: 'invalid_argument' }, 400);
     }
 
+    if (body.lane !== undefined && body.lane !== null && !isTaskLane(body.lane)) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (body.severity !== undefined && body.severity !== null && !isTaskSeverity(body.severity)) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+
     if (body.tags !== undefined && !isStringArray(body.tags)) {
       return c.json({ error: 'invalid_argument' }, 400);
     }
@@ -70,6 +83,8 @@ export function createTasksRouter(taskService: TaskService): Hono {
         ...(body.status !== undefined ? { status: body.status } : {}),
         ...(body.kind !== undefined ? { kind: body.kind } : {}),
         ...(body.priority !== undefined ? { priority: body.priority } : {}),
+        ...(body.lane !== undefined ? { lane: body.lane } : {}),
+        ...(body.severity !== undefined ? { severity: body.severity } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.x !== undefined ? { x: body.x } : {}),
         ...(body.y !== undefined ? { y: body.y } : {}),
@@ -87,6 +102,8 @@ export function createTasksRouter(taskService: TaskService): Hono {
         error instanceof InvalidTaskStatusError ||
         error instanceof InvalidTaskKindError ||
         error instanceof InvalidTaskPriorityError ||
+        error instanceof InvalidTaskLaneError ||
+        error instanceof InvalidTaskSeverityError ||
         error instanceof InvalidTagError ||
         error instanceof InvalidCommitRefsError
       ) {

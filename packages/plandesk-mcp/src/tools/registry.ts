@@ -8,7 +8,9 @@ import {
   MAX_COMMIT_REFS,
   shareSubmissionStatuses,
   taskKinds,
+  taskLanes,
   taskPriorities,
+  taskSeverities,
   taskStatuses,
 } from '@plandesk/db';
 
@@ -84,6 +86,8 @@ export const createTaskInputSchema = z.object({
   status: z.enum(taskStatuses).optional(),
   kind: z.enum(taskKinds).optional(),
   priority: z.enum(taskPriorities).nullable().optional(),
+  lane: z.enum(taskLanes).nullable().optional(),
+  severity: z.enum(taskSeverities).nullable().optional(),
   description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
   x: z.number().optional(),
   y: z.number().optional(),
@@ -103,6 +107,8 @@ export const updateTaskInputSchema = z.object({
   status: z.enum(taskStatuses).optional(),
   kind: z.enum(taskKinds).optional(),
   priority: z.enum(taskPriorities).nullable().optional(),
+  lane: z.enum(taskLanes).nullable().optional(),
+  severity: z.enum(taskSeverities).nullable().optional(),
   label: z.string().optional(),
   description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
   x: z.number().optional(),
@@ -634,6 +640,8 @@ export const listTasksInputSchema = z.object({
   status: z.enum(taskStatuses).optional(),
   kind: z.enum(taskKinds).optional(),
   priority: z.enum(taskPriorities).optional(),
+  lane: z.enum(taskLanes).optional(),
+  severity: z.enum(taskSeverities).optional(),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
   verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });

@@ -32,6 +32,8 @@
       "status": "in_progress",
       "kind": "decision",
       "priority": "urgent",
+      "lane": null,
+      "severity": null,
       "description": "DISTINCT-task-description",
       "x": 42.5,
       "y": -17.25,

@@ -164,8 +164,8 @@ once the cause is known — that second task is the one that carries it.
    dependency — do not resolve it. State it as an open question in the comment,
    leave that row not-ready, and carry on with the next task.
 6. **Write it.** One `update_task` per task carrying the full rewritten
-   description, plus `lane` and `severity` tags (tasks have no dedicated field
-   for either yet). Add every missing dependency with `create_edge`.
+   description, plus typed `lane` and `severity` fields. Add every missing
+   dependency with `create_edge`.
 7. **Comment the diff.** One comment per groomed task: what changed, what was
    inferred, what is still open. Refer to tasks and documents by **label**, not
    bare id — see `.plandesk/skill.md`. This comment is the `approve` gate's

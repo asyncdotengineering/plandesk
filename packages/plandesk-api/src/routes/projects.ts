@@ -1,10 +1,14 @@
 import { Hono } from 'hono';
 import {
   InvalidTaskKindError,
+  InvalidTaskLaneError,
   InvalidTaskPriorityError,
   InvalidTaskStatusError,
+  InvalidTaskSeverityError,
   isTaskKind,
+  isTaskLane,
   isTaskPriority,
+  isTaskSeverity,
   isTaskStatus,
   isValidFolderPath,
   isValidRepoUrl,
@@ -214,6 +218,8 @@ export function createProjectsRouter(
       status?: string;
       kind?: string;
       priority?: string | null;
+      lane?: string | null;
+      severity?: string | null;
       description?: string | null;
       x?: number;
       y?: number;
@@ -243,6 +249,13 @@ export function createProjectsRouter(
       return c.json({ error: 'invalid_argument' }, 400);
     }
 
+    if (body.lane !== undefined && body.lane !== null && !isTaskLane(body.lane)) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (body.severity !== undefined && body.severity !== null && !isTaskSeverity(body.severity)) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+
     if (body.tags !== undefined && !isStringArray(body.tags)) {
       return c.json({ error: 'invalid_argument' }, 400);
     }
@@ -263,6 +276,8 @@ export function createProjectsRouter(
         ...(body.status !== undefined ? { status: body.status } : {}),
         ...(body.kind !== undefined ? { kind: body.kind } : {}),
         ...(body.priority !== undefined ? { priority: body.priority } : {}),
+        ...(body.lane !== undefined ? { lane: body.lane } : {}),
+        ...(body.severity !== undefined ? { severity: body.severity } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.x !== undefined ? { x: body.x } : {}),
         ...(body.y !== undefined ? { y: body.y } : {}),
@@ -282,6 +297,8 @@ export function createProjectsRouter(
         error instanceof InvalidTaskStatusError ||
         error instanceof InvalidTaskKindError ||
         error instanceof InvalidTaskPriorityError ||
+        error instanceof InvalidTaskLaneError ||
+        error instanceof InvalidTaskSeverityError ||
         error instanceof InvalidTagError ||
         error instanceof InvalidGoalReferenceError
       ) {
@@ -300,6 +317,8 @@ export function createProjectsRouter(
       const status = c.req.query('status');
       const kind = c.req.query('kind');
       const priority = c.req.query('priority');
+      const lane = c.req.query('lane');
+      const severity = c.req.query('severity');
       // Repeated ?tag= params filter with OR semantics (task matches if it has
       // ANY of the given tags).
       const tags = c.req.queries('tag');
@@ -309,6 +328,8 @@ export function createProjectsRouter(
           status,
           kind,
           priority,
+          lane,
+          severity,
           ...(tags !== undefined && tags.length > 0 ? { tags } : {}),
         },
         pagination,

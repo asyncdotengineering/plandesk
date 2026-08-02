@@ -203,6 +203,23 @@ describe('tool registry tag schemas', () => {
     ).toBe(false);
   });
 
+  it('accepts only the typed lane and severity vocabularies', () => {
+    expect(
+      createTaskInputSchema.safeParse({ project_id: PROJECT_ID, label: 'T', lane: 'auto', severity: 'high' })
+        .success,
+    ).toBe(true);
+    expect(
+      createTaskInputSchema.safeParse({ project_id: PROJECT_ID, label: 'T', lane: 'manual' }).success,
+    ).toBe(false);
+    expect(
+      updateTaskInputSchema.safeParse({ task_id: TASK_ID, severity: 'critical' }).success,
+    ).toBe(false);
+    expect(
+      listTasksInputSchema.safeParse({ project_id: PROJECT_ID, lane: 'approve', severity: 'low' })
+        .success,
+    ).toBe(true);
+  });
+
   it('uses one verbose projection control across MCP read tools', () => {
     expect(listTasksInputSchema.safeParse({ project_id: PROJECT_ID, verbose: true }).success).toBe(
       true,

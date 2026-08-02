@@ -22,6 +22,12 @@ export type TaskKind = (typeof taskKinds)[number];
 export const taskPriorities = ['urgent', 'high', 'medium', 'low'] as const;
 export type TaskPriority = (typeof taskPriorities)[number];
 
+export const taskLanes = ['auto', 'approve', 'full'] as const;
+export type TaskLane = (typeof taskLanes)[number];
+
+export const taskSeverities = ['low', 'medium', 'high'] as const;
+export type TaskSeverity = (typeof taskSeverities)[number];
+
 /** Ascending sort rank — null sorts after every defined priority. */
 export const taskPriorityOrder: Record<TaskPriority, number> = {
   urgent: 0,
