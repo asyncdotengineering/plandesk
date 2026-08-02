@@ -34,7 +34,9 @@ import {
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createBetterAuth, runBetterAuthMigrations } from '../better-auth.js';
-import { ensureLocalBetterAuthOrganization } from '../identity.js';
+import { createTeamForOrg, ensureLocalBetterAuthOrganization } from '../identity.js';
+import { runWithAuthContext, type AuthContext } from '../auth-context.js';
+import { DEFAULT_AGENT_KEY_PERMISSIONS } from '../agent-keys.js';
 import { createProjectService, InvalidScaffoldError, InvalidOverviewDocumentError } from './projects.js';
 import { createTaskService, InvalidGoalReferenceError } from './tasks.js';
 
@@ -70,6 +72,24 @@ describe('projectService', () => {
       await ensureLocalBetterAuthOrganization(db, auth);
     }
     return createProjectService({ db, orgId, auth });
+  }
+
+  async function createWorkspaceBoundService() {
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: TEST_SECRET,
+      baseURL: TEST_BASE_URL,
+    });
+    if (auth === undefined) {
+      throw new Error('expected better-auth');
+    }
+    await runBetterAuthMigrations(auth);
+    await ensureLocalBetterAuthOrganization(db, auth);
+    const workspace = await createTeamForOrg(auth, orgId, 'Bound workspace');
+    return {
+      service: createProjectService({ db, orgId, auth }),
+      workspaceId: workspace.id,
+    };
   }
 
   async function backdateGoal(goalId: string, offsetMs: number) {
@@ -111,6 +131,47 @@ describe('projectService', () => {
     const projects = await service.list();
     expect(projects).toHaveLength(1);
     expect(projects[0]?.id).toBe(created.id);
+  });
+
+  it('keeps create_project and scaffold_project_from_plan in the bound workspace', async () => {
+    const { service, workspaceId } = await createWorkspaceBoundService();
+    const context: AuthContext = {
+      kind: 'apikey',
+      orgId,
+      userId: 'bound-workspace-user',
+      profile: 'agent',
+      workspaceId,
+      role: 'owner',
+      permission: DEFAULT_AGENT_KEY_PERMISSIONS,
+    };
+
+    const created = await runWithAuthContext(context, () =>
+      service.create({ name: 'Bound create_project' }),
+    );
+    expect(created.workspace_id).toBe(workspaceId);
+    expect((await runWithAuthContext(context, () => service.list())).map((p) => p.id)).toContain(
+      created.id,
+    );
+
+    const scaffold = await runWithAuthContext(context, () =>
+      service.scaffoldFromPlan({
+        name: 'Bound scaffold_project_from_plan',
+        tasks: [{ key: 'setup', label: 'Setup' }],
+      }),
+    );
+    expect(scaffold.project.workspace_id).toBe(workspaceId);
+    expect(
+      (await runWithAuthContext(context, () => service.list())).map((p) => p.id),
+    ).toContain(scaffold.project.id);
+
+    const roundTrip = await runWithAuthContext(context, () =>
+      service.scaffoldFromPlan({
+        projectId: scaffold.project.id,
+        tasks: [{ key: 'build', label: 'Build' }],
+      }),
+    );
+    expect(roundTrip.project.id).toBe(scaffold.project.id);
+    expect(roundTrip.tasks).toHaveLength(1);
   });
 
   it('returns project detail with task counts by status', async () => {
