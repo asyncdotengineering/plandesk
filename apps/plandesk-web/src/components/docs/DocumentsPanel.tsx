@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import {
@@ -236,6 +236,7 @@ function TextDialog({
 const ROOT_VALUE = '__root__';
 
 // Move-target picker (folder → different parent, or document → different folder).
+// Native <select> stays keyboard-accessible; the searchable picker lands in a later slice.
 function MoveDialog({
   open,
   onOpenChange,
@@ -268,19 +269,26 @@ function MoveDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <Select value={choice} onValueChange={setChoice}>
-          <SelectTrigger>
-            <SelectValue placeholder="Choose a destination" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ROOT_VALUE}>Root (no folder)</SelectItem>
+        <div className="space-y-1.5">
+          <Label htmlFor="move-destination" className="text-xs text-muted-foreground">
+            Destination
+          </Label>
+          <select
+            id="move-destination"
+            value={choice}
+            onChange={(event) => {
+              setChoice(event.target.value);
+            }}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <option value={ROOT_VALUE}>Unfiled (no folder)</option>
             {targets.map((folder) => (
-              <SelectItem key={folder.id} value={folder.id}>
+              <option key={folder.id} value={folder.id}>
                 {folder.name}
-              </SelectItem>
+              </option>
             ))}
-          </SelectContent>
-        </Select>
+          </select>
+        </div>
         <DialogFooter>
           <Button
             type="button"
@@ -338,6 +346,9 @@ function statusText(statusLine: string | null): string | null {
 /** Stable expand-state key for the synthetic Unfiled root. */
 export const UNFILED_FOLDER_KEY = '__unfiled__';
 
+/** Drag payload for moving a document onto a folder / Unfiled. */
+export const DOCUMENT_DRAG_MIME = 'application/x-plandesk-document-id';
+
 export function folderExpandStorageKey(projectId: string): string {
   return `plandesk.docs.expandedFolders.${projectId}`;
 }
@@ -394,6 +405,11 @@ export function DocumentsPanel({
     const stored = loadExpandedFolderIds(projectId);
     return stored ?? defaultExpandedIds(folders);
   });
+  /** Optimistic folder_id overrides while a move is in flight (doc id → folder id | null). */
+  const [optimisticFolderById, setOptimisticFolderById] = useState<Map<string, string | null>>(
+    () => new Map(),
+  );
+  const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
 
   const createFolder = useCreateFolder(projectId);
   const createDocument = useCreateDocument(projectId);
@@ -404,10 +420,39 @@ export function DocumentsPanel({
   const deleteDocument = useDeleteDocument();
 
   const allDocuments = useMemo(() => flattenDocumentTree(documents), [documents]);
+  const displayDocuments = useMemo(
+    () =>
+      allDocuments.map((doc) => {
+        if (!optimisticFolderById.has(doc.id)) {
+          return doc;
+        }
+        return { ...doc, folder_id: optimisticFolderById.get(doc.id) ?? null };
+      }),
+    [allDocuments, optimisticFolderById],
+  );
   const taskLabelById = useMemo(
     () => new Map(tasks.map((t) => [t.id, t.label])),
     [tasks],
   );
+
+  // Drop optimistic overrides once the server-backed props catch up.
+  useEffect(() => {
+    setOptimisticFolderById((prev) => {
+      if (prev.size === 0) {
+        return prev;
+      }
+      let changed = false;
+      const next = new Map(prev);
+      for (const [id, folderId] of prev) {
+        const live = allDocuments.find((doc) => doc.id === id);
+        if (live !== undefined && live.folder_id === folderId) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [allDocuments]);
 
   // When folders arrive after first paint (or the set grows), expand new ids once.
   useEffect(() => {
@@ -447,17 +492,17 @@ export function DocumentsPanel({
 
   const recent = useMemo(
     () =>
-      [...allDocuments]
+      [...displayDocuments]
         .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
         .slice(0, 4),
-    [allDocuments],
+    [displayDocuments],
   );
 
   const rootFolders = childFoldersOf(folders, null);
-  const unfiledDocuments = allDocuments
+  const unfiledDocuments = displayDocuments
     .filter((doc) => doc.folder_id === null)
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-  const workspaceEmpty = folders.length === 0 && allDocuments.length === 0;
+  const workspaceEmpty = folders.length === 0 && displayDocuments.length === 0;
 
   const handleCreateFolder = (name: string) => {
     createFolder.mutate(
@@ -549,21 +594,90 @@ export function DocumentsPanel({
     );
   };
 
-  const handleMoveDocument = (destination: string | null) => {
-    if (docToMove === null || destination === docToMove.folder_id) {
-      setDocToMove(null);
+  const clearOptimisticFolder = (docId: string) => {
+    setOptimisticFolderById((prev) => {
+      if (!prev.has(docId)) {
+        return prev;
+      }
+      const next = new Map(prev);
+      next.delete(docId);
+      return next;
+    });
+  };
+
+  const moveDocumentToFolder = (docId: string, destination: string | null) => {
+    const source = allDocuments.find((doc) => doc.id === docId);
+    if (source === undefined) {
       return;
     }
+    const current = optimisticFolderById.get(docId) ?? source.folder_id;
+    if (current === destination) {
+      return;
+    }
+    setOptimisticFolderById((prev) => {
+      const next = new Map(prev);
+      next.set(docId, destination);
+      return next;
+    });
     patchDocument.mutate(
-      { id: docToMove.id, input: { folder_id: destination } },
+      { id: docId, input: { folder_id: destination } },
       {
         onSuccess: () => {
+          // Keep the optimistic folder_id until props catch up (see effect above).
           toast('Document moved');
+          setDocToMove(null);
+        },
+        onError: () => {
+          clearOptimisticFolder(docId);
+          toast.error("Couldn't move document — it was restored.");
           setDocToMove(null);
         },
       },
     );
   };
+
+  const handleMoveDocument = (destination: string | null) => {
+    if (docToMove === null) {
+      return;
+    }
+    const current = optimisticFolderById.get(docToMove.id) ?? docToMove.folder_id;
+    if (destination === current) {
+      setDocToMove(null);
+      return;
+    }
+    moveDocumentToFolder(docToMove.id, destination);
+  };
+
+  const acceptDocumentDrop = (event: DragEvent, destination: string | null) => {
+    event.preventDefault();
+    setDropTargetKey(null);
+    const docId = event.dataTransfer.getData(DOCUMENT_DRAG_MIME);
+    if (docId === '') {
+      return;
+    }
+    moveDocumentToFolder(docId, destination);
+  };
+
+  const folderDropHandlers = (destination: string | null, targetKey: string) => ({
+    onDragOver: (event: DragEvent) => {
+      if (![...event.dataTransfer.types].includes(DOCUMENT_DRAG_MIME)) {
+        return;
+      }
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      setDropTargetKey(targetKey);
+    },
+    onDragLeave: (event: DragEvent) => {
+      // Ignore leave events that stay within the same target.
+      if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+        return;
+      }
+      setDropTargetKey((current) => (current === targetKey ? null : current));
+    },
+    onDrop: (event: DragEvent) => {
+      acceptDocumentDrop(event, destination);
+    },
+  });
 
   const confirmDeleteFolder = () => {
     if (folderToDelete === null) {
@@ -606,7 +720,16 @@ export function DocumentsPanel({
   const renderDocumentRow = (doc: FlatDocument, depth: number) => (
     <li
       key={doc.id}
-      className="group flex items-center gap-2 py-1.5 pr-2 transition-colors hover:bg-accent"
+      draggable
+      data-testid={`document-row-${doc.id}`}
+      onDragStart={(event) => {
+        event.dataTransfer.setData(DOCUMENT_DRAG_MIME, doc.id);
+        event.dataTransfer.effectAllowed = 'move';
+      }}
+      onDragEnd={() => {
+        setDropTargetKey(null);
+      }}
+      className="group flex cursor-grab items-center gap-2 py-1.5 pr-2 transition-colors hover:bg-accent active:cursor-grabbing"
       style={{ paddingLeft: `${String(12 + depth * 16)}px` }}
     >
       <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -664,18 +787,26 @@ export function DocumentsPanel({
 
   const renderFolderNode = (folder: SerializedFolder, depth: number): ReactNode => {
     const childFolders = childFoldersOf(folders, folder.id);
-    const folderDocs = allDocuments
+    const folderDocs = displayDocuments
       .filter((doc) => doc.folder_id === folder.id)
       .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-    const docCount = directDocumentCount(allDocuments, folder.id);
+    const docCount = directDocumentCount(displayDocuments, folder.id);
     const isOpen = expandedIds.has(folder.id);
     const isEmpty = childFolders.length === 0 && folderDocs.length === 0;
+    const isDropTarget = dropTargetKey === folder.id;
+    const dropHandlers = folderDropHandlers(folder.id, folder.id);
 
     return (
       <li key={folder.id} className="list-none">
         <div
-          className="group flex items-center gap-1 py-1.5 pr-2 transition-colors hover:bg-accent"
+          data-testid={`folder-drop-${folder.id}`}
+          className={
+            isDropTarget
+              ? 'group flex items-center gap-1 bg-accent py-1.5 pr-2 ring-1 ring-inset ring-ring transition-colors'
+              : 'group flex items-center gap-1 py-1.5 pr-2 transition-colors hover:bg-accent'
+          }
           style={{ paddingLeft: `${String(4 + depth * 16)}px` }}
+          {...dropHandlers}
         >
           <button
             type="button"
@@ -742,7 +873,9 @@ export function DocumentsPanel({
   };
 
   const unfiledOpen = expandedIds.has(UNFILED_FOLDER_KEY);
-  const unfiledCount = directDocumentCount(allDocuments, null);
+  const unfiledCount = directDocumentCount(displayDocuments, null);
+  const unfiledDropHandlers = folderDropHandlers(null, UNFILED_FOLDER_KEY);
+  const unfiledIsDropTarget = dropTargetKey === UNFILED_FOLDER_KEY;
 
   return (
     <section aria-label="Documents">
@@ -809,7 +942,16 @@ export function DocumentsPanel({
         <ul className="rounded-lg border py-1" aria-label="Folder tree">
           {rootFolders.map((folder) => renderFolderNode(folder, 0))}
           <li className="list-none">
-            <div className="group flex items-center gap-1 py-1.5 pr-2 transition-colors hover:bg-accent" style={{ paddingLeft: '4px' }}>
+            <div
+              data-testid="folder-drop-unfiled"
+              className={
+                unfiledIsDropTarget
+                  ? 'group flex items-center gap-1 bg-accent py-1.5 pr-2 ring-1 ring-inset ring-ring transition-colors'
+                  : 'group flex items-center gap-1 py-1.5 pr-2 transition-colors hover:bg-accent'
+              }
+              style={{ paddingLeft: '4px' }}
+              {...unfiledDropHandlers}
+            >
               <button
                 type="button"
                 aria-expanded={unfiledOpen}

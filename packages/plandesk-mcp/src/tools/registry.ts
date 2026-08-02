@@ -154,7 +154,9 @@ export const updateDocumentInputSchema = z.object({
     .uuid()
     .nullable()
     .optional()
-    .describe('Move the document into a folder. Pass null to move it back to the project root.'),
+    .describe(
+      'Move the document into a folder (MCP equivalent of dragging onto a folder). Pass null to move it to Unfiled at the project root.',
+    ),
 });
 
 export const getDocumentInputSchema = z.object({

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedDocumentTree, SerializedFolder } from '../../lib/api.js';
 import {
   DocumentsPanel,
+  DOCUMENT_DRAG_MIME,
   UNFILED_FOLDER_KEY,
   childFoldersOf,
   directDocumentCount,
@@ -307,5 +308,120 @@ describe('DocumentsPanel folder tree', () => {
     renderPanel([makeDocument('d1', 'Spec doc', null)], []);
     const links = await screen.findAllByRole('link', { name: 'Spec doc' });
     expect(links[0]?.getAttribute('href')).toBe(`/projects/${projectId}/documents/d1`);
+  });
+});
+
+describe('DocumentsPanel drag and drop', () => {
+  function makeDataTransfer(initial: Record<string, string> = {}) {
+    const store = { ...initial };
+    return {
+      store,
+      setData: (type: string, value: string) => {
+        store[type] = value;
+      },
+      getData: (type: string) => store[type] ?? '',
+      get types() {
+        return Object.keys(store);
+      },
+      effectAllowed: 'all' as string,
+      dropEffect: 'none' as string,
+    };
+  }
+
+  it('dragging a document onto a folder PATCHes folder_id and updates counts', async () => {
+    const folders = [makeFolder('f1', 'Specs', null)];
+    const documents = [makeDocument('d1', 'Loose doc', null)];
+    renderPanel(documents, folders);
+    await panelReady();
+
+    const dt = makeDataTransfer();
+    fireEvent.dragStart(screen.getByTestId('document-row-d1'), { dataTransfer: dt });
+    expect(dt.store[DOCUMENT_DRAG_MIME]).toBe('d1');
+
+    fireEvent.dragOver(screen.getByTestId('folder-drop-f1'), { dataTransfer: dt });
+    fireEvent.drop(screen.getByTestId('folder-drop-f1'), { dataTransfer: dt });
+
+    await waitFor(() => {
+      const patchCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PATCH');
+      expect(patchCall?.[0]).toBe('/api/v1/documents/d1');
+      expect(patchCall?.[1]?.body).toBe(JSON.stringify({ folder_id: 'f1' }));
+    });
+
+    // Optimistic: doc moves under Specs and counts flip before refetch.
+    const tree = screen.getByRole('list', { name: 'Folder tree' });
+    expect(within(tree).getByText('Loose doc')).toBeTruthy();
+    expect(screen.getByTestId('doc-count-f1').textContent).toBe('1');
+    expect(screen.getByTestId('doc-count-unfiled').textContent).toBe('0');
+  });
+
+  it('dragging onto Unfiled clears folder_id', async () => {
+    const folders = [makeFolder('f1', 'Specs', null)];
+    const documents = [makeDocument('d1', 'Spec doc', 'f1')];
+    renderPanel(documents, folders);
+    await panelReady();
+
+    const dt = makeDataTransfer({ [DOCUMENT_DRAG_MIME]: 'd1' });
+    fireEvent.drop(screen.getByTestId('folder-drop-unfiled'), { dataTransfer: dt });
+
+    await waitFor(() => {
+      const patchCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PATCH');
+      expect(patchCall?.[1]?.body).toBe(JSON.stringify({ folder_id: null }));
+    });
+    expect(screen.getByTestId('doc-count-unfiled').textContent).toBe('1');
+    expect(screen.getByTestId('doc-count-f1').textContent).toBe('0');
+  });
+
+  it('rolls back and toasts when the server rejects the move', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ error: 'boom' }),
+      text: () => Promise.resolve('boom'),
+    } as Response);
+
+    const folders = [makeFolder('f1', 'Specs', null)];
+    const documents = [makeDocument('d1', 'Loose doc', null)];
+    renderPanel(documents, folders);
+    await panelReady();
+
+    const dt = makeDataTransfer({ [DOCUMENT_DRAG_MIME]: 'd1' });
+    fireEvent.drop(screen.getByTestId('folder-drop-f1'), { dataTransfer: dt });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('doc-count-unfiled').textContent).toBe('1');
+      expect(screen.getByTestId('doc-count-f1').textContent).toBe('0');
+    });
+  });
+
+  it('dropping outside a folder target does not PATCH', async () => {
+    renderPanel([makeDocument('d1', 'Loose doc', null)], [makeFolder('f1', 'Specs', null)]);
+    await panelReady();
+
+    const dt = makeDataTransfer({ [DOCUMENT_DRAG_MIME]: 'd1' });
+    fireEvent.drop(screen.getByRole('heading', { name: 'Documents' }), { dataTransfer: dt });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
+  });
+
+  it('keyboard Move dialog performs the same folder_id PATCH', async () => {
+    renderPanel([makeDocument('d1', 'Loose doc', null)], [makeFolder('f1', 'Specs', null)]);
+    await panelReady();
+
+    openKebab('Actions for document Loose doc');
+    fireEvent.click(screen.getByText('Move…'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Move "Loose doc"')).toBeTruthy();
+
+    fireEvent.change(within(dialog).getByLabelText('Destination'), {
+      target: { value: 'f1' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Move' }));
+
+    await waitFor(() => {
+      const patchCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PATCH');
+      expect(patchCall?.[0]).toBe('/api/v1/documents/d1');
+      expect(patchCall?.[1]?.body).toBe(JSON.stringify({ folder_id: 'f1' }));
+    });
   });
 });

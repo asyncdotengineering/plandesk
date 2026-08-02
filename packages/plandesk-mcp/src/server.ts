@@ -219,7 +219,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Update Document',
       description:
-        'Update document title, body, status line, or links. Pass link_to as a single id or list of task/document ids to add outgoing document→target edges. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
+        'Update document title, body, status line, folder, or links. Pass folder_id to move the document into a folder (the MCP equivalent of dragging a row onto a folder in the UI), or null to file it under Unfiled at the project root. Pass link_to as a single id or list of task/document ids to add outgoing document→target edges. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
       inputSchema: updateDocumentInputSchema.shape,
     },
     createUpdateDocumentHandler(
