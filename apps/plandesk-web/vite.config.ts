@@ -12,10 +12,7 @@ function devApiTarget(): string {
   if (process.env.PLANDESK_DEV_API) return process.env.PLANDESK_DEV_API;
   try {
     const cfg = JSON.parse(
-      readFileSync(
-        fileURLToPath(new URL('../../.plandesk/config.json', import.meta.url)),
-        'utf8',
-      ),
+      readFileSync(fileURLToPath(new URL('../../.plandesk/config.json', import.meta.url)), 'utf8'),
     ) as { serverUrl?: string };
     if (typeof cfg.serverUrl === 'string' && cfg.serverUrl !== '') {
       return cfg.serverUrl;
@@ -56,5 +53,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
+    // Playwright specs live under browser-tests/; keep them out of vitest run.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/browser-tests/**'],
   },
 });

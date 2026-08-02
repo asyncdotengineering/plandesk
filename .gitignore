@@ -4,6 +4,10 @@ dist/
 .plandesk/*.pre-*
 .turbo/
 coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 .plandesk/token
 .plandesk/*.log
 .handoff/result-*.txt

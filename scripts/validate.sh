@@ -78,4 +78,9 @@ echo "cmd:plandesk_serve OK (${BASE_URL})"
 pnpm --filter @plandesk/cli exec node scripts/mcp-list-tools.mjs "$BASE_URL"
 echo "cmd:mcp_list_tools OK"
 
+# Prototype frame contract — Chromium / Playwright. Boots its own ephemeral
+# serve (does not reuse SERVER_PID above). Not part of turbo's test pipeline.
+( cd "$ROOT" && pnpm --filter plandesk-web test:browser )
+echo "cmd:browser_contract OK"
+
 echo "validate.sh: all checks passed"
