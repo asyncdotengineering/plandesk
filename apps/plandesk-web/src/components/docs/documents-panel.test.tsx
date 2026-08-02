@@ -425,3 +425,50 @@ describe('DocumentsPanel drag and drop', () => {
     });
   });
 });
+
+describe('DocumentsPanel multi-select', () => {
+  it('selects a range with shift-click and moves all via Move to folder', async () => {
+    const folders = [makeFolder('f1', 'Specs', null)];
+    const documents = [
+      makeDocument('d1', 'Alpha', null),
+      makeDocument('d2', 'Beta', null),
+      makeDocument('d3', 'Gamma', null),
+    ];
+    renderPanel(documents, folders);
+    await panelReady();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Alpha' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Gamma' }), { shiftKey: true });
+
+    expect(screen.getByTestId('selection-bar').textContent).toMatch(/3 selected/);
+
+    // Collapse Unfiled — selection bar stays.
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse Unfiled' }));
+    expect(screen.getByTestId('selection-bar').textContent).toMatch(/3 selected/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move to folder' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Destination'), {
+      target: { value: 'f1' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Move' }));
+
+    await waitFor(() => {
+      const patches = vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'PATCH');
+      expect(patches).toHaveLength(3);
+      expect(patches.every(([, init]) => init?.body === JSON.stringify({ folder_id: 'f1' }))).toBe(
+        true,
+      );
+    });
+    expect(screen.getByTestId('doc-count-f1').textContent).toBe('3');
+  });
+
+  it('Clear empties the selection affordance', async () => {
+    renderPanel([makeDocument('d1', 'Alpha', null)], []);
+    await panelReady();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Alpha' }));
+    expect(screen.getByTestId('selection-bar')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.queryByTestId('selection-bar')).toBeNull();
+  });
+});

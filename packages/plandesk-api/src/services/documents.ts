@@ -269,7 +269,7 @@ async function collectIncomingLinks(
 export function createDocumentService(deps: DocumentServiceDeps) {
   const { db } = deps;
 
-  return {
+  const api = {
     async listTree(
       projectId: string,
       pagination: PaginationParams = {},
@@ -552,6 +552,48 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       return serializeDocumentWithLinks(db, document);
     },
 
+    /**
+     * Move many documents into `folderId` (or Unfiled when null).
+     * Per-item results — not atomic: each id is attempted independently so a
+     * single missing/foreign/invalid id does not roll back the rest.
+     * Cross-tenant ids surface as "not found" for that item (fail closed).
+     */
+    async moveMany(
+      documentIds: string[],
+      folderId: string | null,
+    ): Promise<{
+      moved: string[];
+      failed: Array<{ document_id: string; error: string }>;
+    }> {
+      assertPermission(deps, 'document', 'update');
+      const moved: string[] = [];
+      const failed: Array<{ document_id: string; error: string }> = [];
+      const seen = new Set<string>();
+
+      for (const documentId of documentIds) {
+        if (seen.has(documentId)) {
+          continue;
+        }
+        seen.add(documentId);
+        try {
+          const result = await api.update(documentId, { folderId });
+          if (result === undefined) {
+            failed.push({ document_id: documentId, error: 'Document not found' });
+          } else {
+            moved.push(documentId);
+          }
+        } catch (error) {
+          if (error instanceof InvalidDocumentError) {
+            failed.push({ document_id: documentId, error: error.message });
+          } else {
+            throw error;
+          }
+        }
+      }
+
+      return { moved, failed };
+    },
+
     async getByTask(taskId: string): Promise<SerializedDocument | undefined> {
       const task = await getTask(db, taskId);
       if (!task) {
@@ -748,6 +790,8 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       return { created, skipped };
     },
   };
+
+  return api;
 }
 
 export type DocumentService = ReturnType<typeof createDocumentService>;

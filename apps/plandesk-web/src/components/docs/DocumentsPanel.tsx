@@ -50,6 +50,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { applyDocumentSelectionClick } from './document-row-selection.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 
 export type DocumentsPanelProps = {
@@ -410,6 +411,9 @@ export function DocumentsPanel({
     () => new Map(),
   );
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(null);
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
 
   const createFolder = useCreateFolder(projectId);
   const createDocument = useCreateDocument(projectId);
@@ -503,6 +507,27 @@ export function DocumentsPanel({
     .filter((doc) => doc.folder_id === null)
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   const workspaceEmpty = folders.length === 0 && displayDocuments.length === 0;
+
+  // Stable visible order for shift-click ranges (depth-first folders, then Unfiled).
+  const orderedDocumentIds = useMemo(() => {
+    const ids: string[] = [];
+    const walk = (parentId: string | null) => {
+      for (const folder of childFoldersOf(folders, parentId)) {
+        const docs = displayDocuments
+          .filter((doc) => doc.folder_id === folder.id)
+          .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+        for (const doc of docs) {
+          ids.push(doc.id);
+        }
+        walk(folder.id);
+      }
+    };
+    walk(null);
+    for (const doc of unfiledDocuments) {
+      ids.push(doc.id);
+    }
+    return ids;
+  }, [folders, displayDocuments, unfiledDocuments]);
 
   const handleCreateFolder = (name: string) => {
     createFolder.mutate(
@@ -605,35 +630,69 @@ export function DocumentsPanel({
     });
   };
 
-  const moveDocumentToFolder = (docId: string, destination: string | null) => {
-    const source = allDocuments.find((doc) => doc.id === docId);
-    if (source === undefined) {
-      return;
-    }
-    const current = optimisticFolderById.get(docId) ?? source.folder_id;
-    if (current === destination) {
+  const moveDocumentsToFolder = (docIds: string[], destination: string | null) => {
+    const unique = [...new Set(docIds)];
+    const toMove = unique.filter((docId) => {
+      const source = allDocuments.find((doc) => doc.id === docId);
+      if (source === undefined) {
+        return false;
+      }
+      const current = optimisticFolderById.get(docId) ?? source.folder_id;
+      return current !== destination;
+    });
+    if (toMove.length === 0) {
+      setDocToMove(null);
+      setBulkMoveOpen(false);
       return;
     }
     setOptimisticFolderById((prev) => {
       const next = new Map(prev);
-      next.set(docId, destination);
+      for (const docId of toMove) {
+        next.set(docId, destination);
+      }
       return next;
     });
-    patchDocument.mutate(
-      { id: docId, input: { folder_id: destination } },
-      {
-        onSuccess: () => {
-          // Keep the optimistic folder_id until props catch up (see effect above).
-          toast('Document moved');
-          setDocToMove(null);
+    let remaining = toMove.length;
+    let failures = 0;
+    for (const docId of toMove) {
+      patchDocument.mutate(
+        { id: docId, input: { folder_id: destination } },
+        {
+          onSuccess: () => {
+            remaining -= 1;
+            if (remaining === 0) {
+              toast(
+                toMove.length === 1
+                  ? 'Document moved'
+                  : `Moved ${String(toMove.length - failures)} documents`,
+              );
+              setDocToMove(null);
+              setBulkMoveOpen(false);
+              setSelectedIds(new Set());
+              setSelectionAnchorId(null);
+            }
+          },
+          onError: () => {
+            clearOptimisticFolder(docId);
+            failures += 1;
+            remaining -= 1;
+            if (remaining === 0) {
+              toast.error(
+                failures === toMove.length
+                  ? "Couldn't move documents — selection was restored."
+                  : `Moved ${String(toMove.length - failures)}; ${String(failures)} failed and were restored.`,
+              );
+              setDocToMove(null);
+              setBulkMoveOpen(false);
+            }
+          },
         },
-        onError: () => {
-          clearOptimisticFolder(docId);
-          toast.error("Couldn't move document — it was restored.");
-          setDocToMove(null);
-        },
-      },
-    );
+      );
+    }
+  };
+
+  const moveDocumentToFolder = (docId: string, destination: string | null) => {
+    moveDocumentsToFolder([docId], destination);
   };
 
   const handleMoveDocument = (destination: string | null) => {
@@ -648,11 +707,32 @@ export function DocumentsPanel({
     moveDocumentToFolder(docToMove.id, destination);
   };
 
+  const handleBulkMove = (destination: string | null) => {
+    moveDocumentsToFolder([...selectedIds], destination);
+  };
+
+  const onDocumentSelectClick = (docId: string, shiftKey: boolean) => {
+    const result = applyDocumentSelectionClick({
+      selected: selectedIds,
+      anchorId: selectionAnchorId,
+      orderedIds: orderedDocumentIds,
+      clickedId: docId,
+      shiftKey,
+    });
+    setSelectedIds(result.selected);
+    setSelectionAnchorId(result.anchorId);
+  };
+
   const acceptDocumentDrop = (event: DragEvent, destination: string | null) => {
     event.preventDefault();
     setDropTargetKey(null);
     const docId = event.dataTransfer.getData(DOCUMENT_DRAG_MIME);
     if (docId === '') {
+      return;
+    }
+    // Dragging a selected row moves the whole selection.
+    if (selectedIds.has(docId) && selectedIds.size > 1) {
+      moveDocumentsToFolder([...selectedIds], destination);
       return;
     }
     moveDocumentToFolder(docId, destination);
@@ -729,9 +809,26 @@ export function DocumentsPanel({
       onDragEnd={() => {
         setDropTargetKey(null);
       }}
-      className="group flex cursor-grab items-center gap-2 py-1.5 pr-2 transition-colors hover:bg-accent active:cursor-grabbing"
+      className={
+        selectedIds.has(doc.id)
+          ? 'group flex cursor-grab items-center gap-2 bg-accent/60 py-1.5 pr-2 transition-colors active:cursor-grabbing'
+          : 'group flex cursor-grab items-center gap-2 py-1.5 pr-2 transition-colors hover:bg-accent active:cursor-grabbing'
+      }
       style={{ paddingLeft: `${String(12 + depth * 16)}px` }}
     >
+      <input
+        type="checkbox"
+        checked={selectedIds.has(doc.id)}
+        aria-label={`Select ${doc.title}`}
+        className="size-3.5 shrink-0 accent-foreground"
+        onClick={(event) => {
+          event.stopPropagation();
+          onDocumentSelectClick(doc.id, event.shiftKey);
+        }}
+        onChange={() => {
+          // onClick handles the toggle (needs shiftKey); keep controlled input quiet.
+        }}
+      />
       <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
       <Link
         to="/projects/$id/documents/$docId"
@@ -934,6 +1031,38 @@ export function DocumentsPanel({
         </div>
       ) : null}
 
+      {selectedIds.size > 0 ? (
+        <div
+          className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-[13px]"
+          data-testid="selection-bar"
+        >
+          <span className="font-medium">
+            {selectedIds.size} selected
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setBulkMoveOpen(true);
+            }}
+          >
+            Move to folder
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setSelectedIds(new Set());
+              setSelectionAnchorId(null);
+            }}
+          >
+            Clear
+          </Button>
+        </div>
+      ) : null}
+
       {workspaceEmpty ? (
         <p className="rounded-lg border border-dashed py-8 text-center text-[13px] text-muted-foreground">
           No documents yet. Create one to start a spec, design, or investigation.
@@ -1117,6 +1246,16 @@ export function DocumentsPanel({
         currentId={docToMove?.folder_id ?? null}
         busy={patchDocument.isPending}
         onSubmit={handleMoveDocument}
+      />
+
+      <MoveDialog
+        open={bulkMoveOpen}
+        onOpenChange={setBulkMoveOpen}
+        title={`Move ${String(selectedIds.size)} documents`}
+        targets={folders}
+        currentId={null}
+        busy={patchDocument.isPending}
+        onSubmit={handleBulkMove}
       />
 
       <ConfirmDialog

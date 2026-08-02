@@ -118,6 +118,7 @@ import {
   createCopyScreenHandler,
   createUpdateDocumentHandler,
   createUpdateFolderHandler,
+  createMoveDocumentsHandler,
   createUpdatePrototypeHandler,
   createUpdateGoalHandler,
   createUpdateNoteHandler,
@@ -141,6 +142,7 @@ const MCP_TOOLS = [
   'list_documents',
   'create_folder',
   'update_folder',
+  'move_documents',
   'create_prototype',
   'list_prototypes',
   'get_prototype',
@@ -669,6 +671,14 @@ async function runMcpForeignSweep(
         createUpdateFolderHandler(s.folderService)({
           folder_id: target.folder.id,
           name: 'escaped',
+        }),
+    ],
+    [
+      'move_documents',
+      () =>
+        createMoveDocumentsHandler(s.documentService)({
+          document_ids: [target.document.id],
+          folder_id: target.folder.id,
         }),
     ],
     [

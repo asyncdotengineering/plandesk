@@ -196,6 +196,20 @@ export const updateFolderInputSchema = z.object({
     ),
 });
 
+export const moveDocumentsInputSchema = z.object({
+  document_ids: z
+    .array(z.string().uuid())
+    .min(1)
+    .describe('Documents to move. Each id is attempted independently (not atomic).'),
+  folder_id: z
+    .string()
+    .uuid()
+    .nullable()
+    .describe(
+      'Destination folder, or null for Unfiled. Per-item results: missing/foreign/invalid ids appear in `failed` without rolling back successful moves.',
+    ),
+});
+
 export const createNoteInputSchema = z.object({
   project_id: z.string().uuid(),
   title: z.string().min(1),
@@ -730,6 +744,7 @@ export const v1ToolNames = [
   'list_documents',
   'create_folder',
   'update_folder',
+  'move_documents',
   'create_prototype',
   'list_prototypes',
   'get_prototype',
@@ -793,6 +808,7 @@ export const v1ToolSchemas = {
   list_documents: listDocumentsInputSchema,
   create_folder: createFolderInputSchema,
   update_folder: updateFolderInputSchema,
+  move_documents: moveDocumentsInputSchema,
   create_prototype: createPrototypeInputSchema,
   list_prototypes: listPrototypesInputSchema,
   get_prototype: getPrototypeInputSchema,

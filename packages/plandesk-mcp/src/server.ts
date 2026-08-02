@@ -18,6 +18,7 @@ import { createDeleteEdgeHandler } from './tools/delete-edge.js';
 import { createCreateShareLinkHandler } from './tools/create-share-link.js';
 import { createCreateFolderHandler } from './tools/create-folder.js';
 import { createUpdateFolderHandler } from './tools/update-folder.js';
+import { createMoveDocumentsHandler } from './tools/move-documents.js';
 import { createCreatePrototypeHandler } from './tools/create-prototype.js';
 import { createListPrototypesHandler } from './tools/list-prototypes.js';
 import { createGetPrototypeHandler } from './tools/get-prototype.js';
@@ -78,6 +79,7 @@ import {
   updatePrototypeInputSchema,
   createShareLinkInputSchema,
   updateFolderInputSchema,
+  moveDocumentsInputSchema,
   createProjectInputSchema,
   updateProjectInputSchema,
   createTaskInputSchema,
@@ -274,6 +276,17 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       inputSchema: updateFolderInputSchema.shape,
     },
     createUpdateFolderHandler(services.folderService),
+  );
+
+  server.registerTool(
+    'move_documents',
+    {
+      title: 'Move Documents',
+      description:
+        'Move many documents into a folder in one call (or to Unfiled when folder_id is null). Not atomic: each document_id is attempted independently and the result lists `moved` ids plus per-item `failed` entries — a missing, foreign, or invalid id does not roll back the rest.',
+      inputSchema: moveDocumentsInputSchema.shape,
+    },
+    createMoveDocumentsHandler(services.documentService),
   );
 
   server.registerTool(

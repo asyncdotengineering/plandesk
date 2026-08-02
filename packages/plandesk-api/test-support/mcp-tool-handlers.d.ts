@@ -132,6 +132,7 @@ export declare function createMoveScreenHandler(dep?: unknown, dep2?: unknown): 
 export declare function createCopyScreenHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateDocumentHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateFolderHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createMoveDocumentsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdatePrototypeHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateGoalHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateNoteHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
