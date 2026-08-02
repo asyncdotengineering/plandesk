@@ -116,6 +116,7 @@ export const goals = sqliteTable('goals', {
     .notNull()
     .references(() => projects.id),
   objective: text('objective').notNull(),
+  name: text('name'),
   status: text('status', { enum: goalStatuses }).notNull().default('active'),
   verificationSurface: text('verification_surface'),
   constraints: text('constraints'),
@@ -130,7 +131,7 @@ export const goals = sqliteTable('goals', {
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
-});
+}, (table) => [uniqueIndex('goals_project_id_name_unique').on(table.projectId, table.name)]);
 
 export const tasks = sqliteTable('tasks', {
   id: text('id').primaryKey(),

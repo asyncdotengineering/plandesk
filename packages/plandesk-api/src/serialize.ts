@@ -149,6 +149,7 @@ export function serializeGoal(goal: Goal) {
   return {
     id: goal.id,
     project_id: goal.projectId,
+    name: goal.name,
     objective: goal.objective,
     status: goal.status,
     verification_surface: goal.verificationSurface,

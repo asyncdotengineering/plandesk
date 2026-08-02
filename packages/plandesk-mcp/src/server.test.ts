@@ -1202,14 +1202,15 @@ describe('createMcpApp', () => {
 
       const created = await client.callTool({
         name: 'create_goal',
-        arguments: { project_id: projectId, objective: 'MCP goal' },
+        arguments: { project_id: projectId, name: 'mcp-goal', objective: 'MCP goal' },
       });
       expect(created.isError).not.toBe(true);
       const createdText =
         (created.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
       const createdPayload = JSON.parse(createdText) as {
-        goal: { id: string; objective: string };
+        goal: { id: string; name: string | null; objective: string };
       };
+      expect(createdPayload.goal.name).toBe('mcp-goal');
       expect(createdPayload.goal.objective).toBe('MCP goal');
 
       const listed = await client.callTool({
@@ -1253,14 +1254,18 @@ describe('createMcpApp', () => {
 
       const updated = await client.callTool({
         name: 'update_goal',
-        arguments: { goal_id: createdPayload.goal.id, objective: 'Renamed objective' },
+        arguments: {
+          goal_id: createdPayload.goal.id,
+          name: 'renamed-mcp-goal',
+          objective: 'Renamed objective',
+        },
       });
       expect(updated.isError).not.toBe(true);
       const updatedText =
         (updated.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
-      expect((JSON.parse(updatedText) as { goal: { objective: string } }).goal.objective).toBe(
-        'Renamed objective',
-      );
+      expect(
+        (JSON.parse(updatedText) as { goal: { name: string | null; objective: string } }).goal,
+      ).toMatchObject({ name: 'renamed-mcp-goal', objective: 'Renamed objective' });
       const refetched = await client.callTool({
         name: 'get_goal',
         arguments: { goal_id: createdPayload.goal.id },
@@ -1268,8 +1273,9 @@ describe('createMcpApp', () => {
       const refetchedText =
         (refetched.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
       const refetchedPayload = JSON.parse(refetchedText) as {
-        goal: { objective: string; cycle_tasks: Array<{ id: string }> };
+        goal: { name: string | null; objective: string; cycle_tasks: Array<{ id: string }> };
       };
+      expect(refetchedPayload.goal.name).toBe('renamed-mcp-goal');
       expect(refetchedPayload.goal.objective).toBe('Renamed objective');
       // Editing does not detach the goal's cycle-tasks.
       expect(refetchedPayload.goal.cycle_tasks.map((row) => row.id)).toEqual([task.id]);
@@ -1912,8 +1918,8 @@ describe('createMcpApp', () => {
     await withMcpServer(async ({ baseUrl, projectId, services }) => {
       const client = await connectClient(baseUrl);
       try {
-        const goalA = await services.goalService.create(projectId, { objective: 'Goal A' });
-        const goalB = await services.goalService.create(projectId, { objective: 'Goal B' });
+        const goalA = await services.goalService.create(projectId, { objective: 'Goal A', name: 'goal-a' });
+        const goalB = await services.goalService.create(projectId, { objective: 'Goal B', name: 'goal-b' });
         if (!goalA || !goalB) {
           throw new Error('expected goals');
         }
@@ -1932,6 +1938,16 @@ describe('createMcpApp', () => {
         ) as { next: { reason: string; next_task: { id: string } | null } };
         expect(scopedPayload.next.reason).toBe('ok');
         expect(scopedPayload.next.next_task?.id).toBe(taskA?.id);
+
+        const named = await client.callTool({
+          name: 'get_next_task',
+          arguments: { project_id: projectId, goal: 'goal-a' },
+        });
+        const namedPayload = JSON.parse(
+          (named.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { next: { reason: string; next_task: { id: string } | null } };
+        expect(namedPayload.next.reason).toBe('ok');
+        expect(namedPayload.next.next_task?.id).toBe(taskA?.id);
 
         // No goal_id, but two active goals: no dead-end — an actionable task
         // from the union of active goals comes back instead of erroring.

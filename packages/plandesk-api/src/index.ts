@@ -121,6 +121,7 @@ export {
 } from './services/goals.js';
 export type { TaskService } from './services/tasks.js';
 export { InvalidGoalReferenceError, InvalidCommitRefsError } from './services/tasks.js';
+export { DuplicateGoalNameError } from './services/goals.js';
 export type { TagService } from './services/tags.js';
 export type { ViewService } from './services/views.js';
 export type { CanvasService } from './services/canvas.js';

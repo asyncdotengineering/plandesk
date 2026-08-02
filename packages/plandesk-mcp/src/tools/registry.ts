@@ -553,6 +553,7 @@ const verificationEvidenceSchema = z.discriminatedUnion('kind', [
 
 export const createGoalInputSchema = z.object({
   project_id: z.string().uuid(),
+  name: z.string().min(1).nullable().optional(),
   objective: z.string().min(1),
   verification_surface: z
     .string()
@@ -576,6 +577,7 @@ export const createGoalInputSchema = z.object({
 
 export const updateGoalInputSchema = z.object({
   goal_id: z.string().uuid(),
+  name: z.string().min(1).nullable().optional(),
   objective: z.string().min(1).optional(),
   verification_surface: z
     .string()
@@ -619,6 +621,7 @@ export const getNextTaskInputSchema = z.object({
     .describe(
       'Scope the frontier to a specific goal. When omitted, uses the project sole active goal.',
     ),
+  goal: z.string().min(1).optional().describe('Project-scoped goal name; use this instead of goal_id.'),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
   verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });

@@ -3,6 +3,7 @@ import { InvalidGoalStatusError, isGoalStatus } from '@plandesk/db';
 import {
   GoalCompletionBlockedError,
   GoalVerificationRequiredError,
+  DuplicateGoalNameError,
   InvalidGoalTransitionError,
   InvalidVerificationSurfaceError,
   type GoalService,
@@ -11,6 +12,7 @@ import {
 
 type CreateGoalBody = {
   objective?: string;
+  name?: string | null;
   verification_surface?: string | null;
   constraints?: string | null;
   boundaries?: string | null;
@@ -22,6 +24,7 @@ type CreateGoalBody = {
 
 type UpdateGoalBody = {
   objective?: string;
+  name?: string | null;
   verification_surface?: string | null;
   constraints?: string | null;
   boundaries?: string | null;
@@ -36,6 +39,7 @@ type CompleteGoalBody = {
 
 function mapGoalInput(body: CreateGoalBody | UpdateGoalBody) {
   return {
+    ...(body.name !== undefined ? { name: body.name } : {}),
     ...(body.objective !== undefined ? { objective: body.objective } : {}),
     ...(body.verification_surface !== undefined
       ? { verificationSurface: body.verification_surface }
@@ -53,6 +57,9 @@ function handleGoalError(c: Context, error: unknown) {
     return c.json({ error: 'invalid_argument' }, 400);
   }
   if (error instanceof InvalidVerificationSurfaceError) {
+    return c.json({ error: 'invalid_argument' }, 400);
+  }
+  if (error instanceof DuplicateGoalNameError) {
     return c.json({ error: 'invalid_argument' }, 400);
   }
   if (error instanceof GoalVerificationRequiredError) {

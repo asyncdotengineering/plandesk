@@ -30,6 +30,13 @@ export class InvalidGoalTransitionError extends Error {
   }
 }
 
+export class DuplicateGoalNameError extends Error {
+  constructor(name: string) {
+    super(`Goal name already exists in this project: ${name}`);
+    this.name = 'DuplicateGoalNameError';
+  }
+}
+
 export class GoalCompletionBlockedError extends Error {
   incompleteTaskIds: string[];
 
@@ -98,6 +105,7 @@ export type LastVerificationRecord = {
 
 export type CreateGoalInput = {
   objective: string;
+  name?: string | null;
   verificationSurface?: string | null;
   constraints?: string | null;
   boundaries?: string | null;
@@ -109,6 +117,7 @@ export type CreateGoalInput = {
 
 export type UpdateGoalInput = {
   objective?: string;
+  name?: string | null;
   verificationSurface?: string | null;
   constraints?: string | null;
   boundaries?: string | null;
@@ -295,7 +304,6 @@ export function createGoalService(deps: GoalServiceDeps) {
         throw new InvalidGoalStatusError(input.status);
       }
       validateVerificationSurfaceInput(input.verificationSurface);
-
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -305,10 +313,20 @@ export function createGoalService(deps: GoalServiceDeps) {
         throw error;
       }
 
+      if (input.name !== undefined && input.name !== null) {
+        const duplicate = (await listGoals(db, projectId)).some(
+          (goal) => goal.name === input.name,
+        );
+        if (duplicate) {
+          throw new DuplicateGoalNameError(input.name);
+        }
+      }
+
       const goal = await withTransaction(db, async (tx) =>
         createGoal(tx, {
           projectId,
           objective: input.objective,
+          name: input.name,
           status: input.status,
           verificationSurface: input.verificationSurface,
           constraints: input.constraints,
@@ -369,6 +387,14 @@ export function createGoalService(deps: GoalServiceDeps) {
         throw error;
       }
       validateVerificationSurfaceInput(input.verificationSurface);
+      if (input.name !== undefined && input.name !== null) {
+        const duplicate = (await listGoals(db, existing.projectId)).some(
+          (goal) => goal.id !== goalId && goal.name === input.name,
+        );
+        if (duplicate) {
+          throw new DuplicateGoalNameError(input.name);
+        }
+      }
 
       const goal = await withTransaction(db, async (tx) => updateGoal(tx, goalId, input));
       if (!goal) {

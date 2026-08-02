@@ -4,12 +4,15 @@ import { toolNotFound, toolSuccess, type ToolResult } from './result.js';
 export function createGetNextTaskHandler(
   taskService: TaskService,
 ): (
-  args: { project_id: string; goal_id?: string; tags?: string[]; verbose?: boolean },
+  args: { project_id: string; goal_id?: string; goal?: string; tags?: string[]; verbose?: boolean },
 ) => Promise<ToolResult> {
   return async (args) => {
-    const filter: { goalId?: string; tags?: string[] } = {};
+    const filter: { goalId?: string; goalName?: string; tags?: string[] } = {};
     if (args.goal_id !== undefined) {
       filter.goalId = args.goal_id;
+    }
+    if (args.goal !== undefined) {
+      filter.goalName = args.goal;
     }
     if (args.tags !== undefined) {
       filter.tags = args.tags;

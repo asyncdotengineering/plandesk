@@ -58,6 +58,7 @@ export function canonicalizeExportForComparison(exported: PlandeskExport): Canon
       compareBy(
         a,
         b,
+        (g) => g.name ?? '',
         (g) => g.objective,
         (g) => g.id,
       ),
@@ -167,6 +168,7 @@ export function canonicalizeExportForComparison(exported: PlandeskExport): Canon
 export type PortableExportSnapshot = {
   project: PlandeskExport['project'];
   goals: Array<{
+    name: string | null;
     objective: string;
     status: string;
     verification_surface: string | null;
@@ -306,6 +308,7 @@ export function toPortableExportSnapshot(exported: PlandeskExport): PortableExpo
     goals: [...exported.goals]
       .sort((a, b) => a.objective.localeCompare(b.objective))
       .map((goal) => ({
+        name: goal.name ?? null,
         objective: goal.objective,
         status: goal.status,
         verification_surface: goal.verification_surface,
@@ -479,7 +482,11 @@ export function assertGoldenExportFieldCoverage(exported: PlandeskExport): void 
       `golden project.overview_document_id mismatch: ${String(exported.project.overview_document_id)}`,
     );
   }
-  if (exported.goals.length !== 1 || exported.goals[0]?.objective !== 'DISTINCT-goal-objective') {
+  if (
+    exported.goals.length !== 1 ||
+    exported.goals[0]?.name !== 'DISTINCT-goal-name' ||
+    exported.goals[0].objective !== 'DISTINCT-goal-objective'
+  ) {
     throw new Error('golden goals mismatch');
   }
   const task = exported.tasks.find((row) => row.label === 'DISTINCT-task-label');

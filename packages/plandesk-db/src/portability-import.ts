@@ -313,6 +313,7 @@ export function emitGoalsImport(ctx: ImportContext): void {
       ctx.root.insert(goals).values({
         id: remapId(ctx.goalIdMap, goal.id) ?? goal.id,
         projectId: ctx.projectId,
+        name: goal.name ?? null,
         objective: goal.objective,
         status: goal.status,
         verificationSurface: goal.verification_surface,

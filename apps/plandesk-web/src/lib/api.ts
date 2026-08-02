@@ -1028,6 +1028,7 @@ export type SerializedLastVerification = {
 export type SerializedGoal = {
   id: string;
   project_id: string;
+  name: string | null;
   objective: string;
   status: GoalStatus;
   verification_surface: string | null;
@@ -1046,6 +1047,7 @@ export type SerializedGoalDetail = SerializedGoal & {
 };
 
 export type CreateGoalInput = {
+  name?: string | null;
   objective: string;
   verification_surface?: string | null;
   constraints?: string | null;
@@ -1056,6 +1058,7 @@ export type CreateGoalInput = {
 };
 
 export type PatchGoalInput = {
+  name?: string | null;
   objective?: string;
   verification_surface?: string | null;
   constraints?: string | null;

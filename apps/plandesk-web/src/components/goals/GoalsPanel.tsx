@@ -27,6 +27,7 @@ export function GoalsPanel({ projectId }: GoalsPanelProps) {
   const createGoal = useCreateGoal(projectId);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [newGoalOpen, setNewGoalOpen] = useState(false);
+  const [newName, setNewName] = useState('');
   const [newObjective, setNewObjective] = useState('');
   const [newSurface, setNewSurface] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
@@ -41,6 +42,7 @@ export function GoalsPanel({ projectId }: GoalsPanelProps) {
       return;
     }
     setFormError(null);
+    const name = newName.trim();
     let verification_surface: string | null = null;
     const surfaceRaw = newSurface.trim();
     if (surfaceRaw !== '') {
@@ -53,9 +55,14 @@ export function GoalsPanel({ projectId }: GoalsPanelProps) {
       }
     }
     createGoal.mutate(
-      { objective, ...(verification_surface !== null ? { verification_surface } : {}) },
+      {
+        objective,
+        ...(name !== '' ? { name } : {}),
+        ...(verification_surface !== null ? { verification_surface } : {}),
+      },
       {
         onSuccess: (goal) => {
+          setNewName('');
           setNewObjective('');
           setNewSurface('');
           setNewGoalOpen(false);
@@ -127,6 +134,19 @@ export function GoalsPanel({ projectId }: GoalsPanelProps) {
             }}
           >
             <div className="space-y-1.5">
+              <Label htmlFor="new-goal-name" className="text-xs text-muted-foreground">
+                Short name (optional)
+              </Label>
+              <Input
+                id="new-goal-name"
+                value={newName}
+                placeholder="e.g. orpc-rewrite"
+                onChange={(event) => {
+                  setNewName(event.target.value);
+                }}
+              />
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="new-goal-objective" className="text-xs text-muted-foreground">
                 Objective
               </Label>
@@ -196,7 +216,12 @@ export function GoalsPanel({ projectId }: GoalsPanelProps) {
                       : 'border-border hover:bg-muted/50',
                   )}
                 >
-                  <p className="mb-2 text-sm font-semibold leading-snug">{goal.objective}</p>
+                  <p className="mb-1 text-sm font-semibold leading-snug">
+                    {goal.name ?? goal.objective}
+                  </p>
+                  {goal.name !== null ? (
+                    <p className="mb-2 text-xs leading-snug text-muted-foreground">{goal.objective}</p>
+                  ) : null}
                   <div className="flex flex-wrap items-center gap-2">
                     <GoalStatusBadge status={goal.status} />
                     <AcceptanceIndicator verification={goal.last_verification} />

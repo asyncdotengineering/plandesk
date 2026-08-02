@@ -75,6 +75,7 @@ export async function seedDeterministicFullyPopulatedProject(db: Db): Promise<st
   const goal = await createGoal(db, {
     id: ids.goal,
     projectId: project.id,
+    name: 'DISTINCT-goal-name',
     objective: 'DISTINCT-goal-objective',
     status: 'paused',
     verificationSurface: 'DISTINCT-verification-surface',

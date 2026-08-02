@@ -54,6 +54,7 @@ type PortableSnapshot = {
     canvas_layout: string | null;
   };
   goals: Array<{
+    name: string | null;
     objective: string;
     status: string;
     verification_surface: string | null;
@@ -195,6 +196,7 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
     goals: [...exported.goals]
       .sort((a, b) => a.objective.localeCompare(b.objective))
       .map((goal) => ({
+        name: goal.name ?? null,
         objective: goal.objective,
         status: goal.status,
         verification_surface: goal.verification_surface,
@@ -367,6 +369,7 @@ async function buildFullyPopulatedProject(db: Db): Promise<string> {
 
   const goal = await createGoal(db, {
     projectId: project.id,
+    name: 'DISTINCT-goal-name',
     objective: 'DISTINCT-goal-objective',
     status: 'paused',
     verificationSurface: 'DISTINCT-verification-surface',
@@ -661,6 +664,7 @@ describe('portability export behavioural coverage', () => {
 
     it('goals columns round-trip', () => {
       expect(exported.goals[0]).toMatchObject({
+        name: 'DISTINCT-goal-name',
         objective: 'DISTINCT-goal-objective',
         status: 'paused',
         verification_surface: 'DISTINCT-verification-surface',

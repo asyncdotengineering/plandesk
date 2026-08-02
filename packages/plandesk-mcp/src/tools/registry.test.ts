@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addCommentInputSchema,
+  createGoalInputSchema,
   createProjectInputSchema,
   createTaskInputSchema,
   getNextTaskInputSchema,
@@ -16,6 +17,7 @@ import {
   scaffoldProjectFromPlanInputSchema,
   triageSubmissionInputSchema,
   updateProjectInputSchema,
+  updateGoalInputSchema,
   updateTaskInputSchema,
   v1ToolNames,
   v1ToolSchemas,
@@ -217,6 +219,22 @@ describe('tool registry tag schemas', () => {
     expect(
       listTasksInputSchema.safeParse({ project_id: PROJECT_ID, lane: 'approve', severity: 'low' })
         .success,
+    ).toBe(true);
+  });
+
+  it('accepts optional goal names and project-scoped next-task goal references', () => {
+    expect(
+      createGoalInputSchema.safeParse({
+        project_id: PROJECT_ID,
+        name: 'orpc-rewrite',
+        objective: 'Rewrite the RPC layer',
+      }).success,
+    ).toBe(true);
+    expect(updateGoalInputSchema.safeParse({ goal_id: TASK_ID, name: 'renamed' }).success).toBe(
+      true,
+    );
+    expect(
+      getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID, goal: 'orpc-rewrite' }).success,
     ).toBe(true);
   });
 

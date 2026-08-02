@@ -536,7 +536,7 @@ export function createTaskService(deps: TaskServiceDeps) {
     // prerequisite completion is still evaluated against all tasks in the project.
     async nextActionable(
       projectId: string,
-      filter: { goalId?: string; tags?: string[]; verbose?: boolean } = {},
+      filter: { goalId?: string; goalName?: string; tags?: string[]; verbose?: boolean } = {},
     ): Promise<NextActionableResult | undefined> {
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
@@ -548,7 +548,15 @@ export function createTaskService(deps: TaskServiceDeps) {
       }
 
       let goalIds: Set<string>;
-      if (filter.goalId === undefined) {
+      if (filter.goalName !== undefined) {
+        const namedGoal = (await listGoals(db, projectId)).find(
+          (goal) => goal.name === filter.goalName,
+        );
+        if (!namedGoal) {
+          return undefined;
+        }
+        goalIds = new Set([namedGoal.id]);
+      } else if (filter.goalId === undefined) {
         const active = (await listGoals(db, projectId)).filter((goal) => goal.status === 'active');
         if (active.length === 0) {
           return { next_task: null, reason: 'no_active_goal', blocked: [] };

@@ -12,6 +12,7 @@
   "goals": [
     {
       "id": "00000000-0000-4000-8000-00000000f002",
+      "name": "DISTINCT-goal-name",
       "objective": "DISTINCT-goal-objective",
       "status": "paused",
       "verification_surface": "DISTINCT-verification-surface",

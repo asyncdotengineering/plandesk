@@ -69,6 +69,8 @@ export type PlandeskExportProject = {
 
 export type PlandeskExportGoal = {
   id: string;
+  // Always written on export; optional for exports written before goal names existed.
+  name?: string | null;
   objective: string;
   status: GoalStatus;
   verification_surface: string | null;

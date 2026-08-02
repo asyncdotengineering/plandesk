@@ -1,0 +1,34 @@
+{
+  "status": "blocked",
+  "claims": [
+    {
+      "command": "pnpm --filter @plandesk/db test",
+      "exit_code": 0
+    },
+    {
+      "command": "pnpm --filter @plandesk/api exec vitest run src/services/goals.test.ts src/services/tasks.test.ts",
+      "exit_code": 0
+    },
+    {
+      "command": "pnpm --filter @plandesk/mcp test",
+      "exit_code": 0
+    },
+    {
+      "command": "pnpm --filter plandesk-web test",
+      "exit_code": 0
+    },
+    {
+      "command": "pnpm build",
+      "exit_code": 0
+    },
+    {
+      "command": "pnpm validate",
+      "exit_code": 0
+    },
+    {
+      "command": "pnpm exec turbo run test --force",
+      "exit_code": 1
+    }
+  ],
+  "question": "The mandatory root forced test remains blocked by the pre-existing API failure in packages/plandesk-api/src/services/artifacts.revisions.test.ts:143 (expected v1,v2,v3 but received v0,v2,v3). Should that unrelated retention failure be fixed before this task can be marked done?"
+}

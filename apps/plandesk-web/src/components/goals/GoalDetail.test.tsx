@@ -14,6 +14,7 @@ const projectId = 'proj-1';
 const humanSignOffGoal: SerializedGoalDetail = {
   id: 'goal-hso',
   project_id: projectId,
+  name: 'approval',
   objective: 'Get approval',
   status: 'active',
   verification_surface: JSON.stringify({ kind: 'human_sign_off' }),
@@ -79,6 +80,9 @@ describe('GoalDetail', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     renderGoalDetail(humanSignOffGoal);
+
+    expect(screen.getByRole('heading', { name: 'approval' })).toBeTruthy();
+    expect(screen.getByText('Get approval')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /Sign off & complete/i }));
 

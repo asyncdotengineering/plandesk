@@ -546,7 +546,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     'create_goal',
     {
       title: 'Create Goal',
-      description: 'Create a goal for a project with an objective and optional contract fields',
+      description: 'Create a goal for a project with an optional short unique name, objective, and contract fields',
       inputSchema: createGoalInputSchema.shape,
     },
     createCreateGoalHandler(services.goalService),
@@ -579,7 +579,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Update Goal',
       description:
-        "Edit an existing goal's objective or contract fields (verification_surface, constraints, boundaries, iteration_policy, stop_condition, budget). Does not detach the goal's cycle-tasks. Omit a field to leave it unchanged.",
+        "Edit an existing goal's name, objective, or contract fields (verification_surface, constraints, boundaries, iteration_policy, stop_condition, budget). Does not detach the goal's cycle-tasks. Omit a field to leave it unchanged.",
       inputSchema: updateGoalInputSchema.shape,
     },
     createUpdateGoalHandler(services.goalService),
@@ -621,7 +621,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Get Next Task',
       description:
-        "Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id). When goal_id is omitted: with one active goal, scopes to it; with multiple active goals, considers the union of every active goal's tasks instead of dead-ending — returns no_active_goal only when zero goals are active. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.",
+        "Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id or project-scoped goal name). When both are omitted: with one active goal, scopes to it; with multiple active goals, considers the union of every active goal's tasks instead of dead-ending — returns no_active_goal only when zero goals are active. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.",
       inputSchema: getNextTaskInputSchema.shape,
       annotations: { readOnlyHint: true },
     },

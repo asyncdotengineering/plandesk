@@ -12,6 +12,7 @@ import {
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import {
   createGoalService,
+  DuplicateGoalNameError,
   evaluateEvidence,
   GoalCompletionBlockedError,
   GoalVerificationRequiredError,
@@ -114,6 +115,7 @@ describe('goalService', () => {
 
     const goal = await service.create(projectId, {
       objective: 'Ship goals',
+      name: 'ship-goals',
       verificationSurface: gateSurface,
       constraints: 'backend only',
     });
@@ -121,6 +123,7 @@ describe('goalService', () => {
     expect(goal).toMatchObject({
       project_id: projectId,
       objective: 'Ship goals',
+      name: 'ship-goals',
       status: 'active',
       verification_surface: gateSurface,
       constraints: 'backend only',
@@ -129,6 +132,24 @@ describe('goalService', () => {
     if (!goal) {
       throw new Error('expected created goal');
     }
+  });
+
+  it('returns and updates a project-scoped short name', async () => {
+    const service = createService();
+    const goal = await service.create(projectId, { objective: 'First objective', name: 'first' });
+    expect(goal?.name).toBe('first');
+
+    const updated = await service.update(goal?.id ?? '', { name: 'renamed' });
+    expect(updated?.name).toBe('renamed');
+    expect((await service.listByProject(projectId))?.[0]?.name).toBe('renamed');
+  });
+
+  it('rejects duplicate short names within one project', async () => {
+    const service = createService();
+    await service.create(projectId, { objective: 'First', name: 'shared' });
+    await expect(service.create(projectId, { objective: 'Second', name: 'shared' })).rejects.toThrow(
+      DuplicateGoalNameError,
+    );
   });
 
   it('rejects invalid verification_surface on create and update', async () => {
