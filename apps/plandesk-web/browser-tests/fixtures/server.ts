@@ -62,6 +62,8 @@ export type HarnessServer = {
     revision_id: string;
     prototype_id: string | null;
   }>;
+  /** Mint a guest share link for a prototype; returns its token and portal url. */
+  sharePrototype: (prototypeId: string) => Promise<{ token: string; url: string }>;
   patchArtifact: (
     id: string,
     body: Record<string, unknown>,
@@ -290,6 +292,19 @@ export async function startHarnessServer(): Promise<HarnessServer> {
       });
     };
 
+    /** Mint a guest share link for a prototype and return its token. */
+    const sharePrototype = async (prototypeId: string) => {
+      const share = await postJson<{ url: string }>(
+        `${baseUrl}/api/v1/prototypes/${prototypeId}/share`,
+        { expires: '24h' },
+      );
+      const token = share.url.split('/p/')[1];
+      if (token === undefined || token.length === 0) {
+        throw new Error(`share url carried no token: ${share.url}`);
+      }
+      return { token, url: `${baseUrl}/p/${token}` };
+    };
+
     const patchArtifact = async (id: string, body: Record<string, unknown>) => {
       return patchJson<{
         id: string;
@@ -344,6 +359,7 @@ export async function startHarnessServer(): Promise<HarnessServer> {
       seedHtmlArtifact,
       seedPrototype,
       seedPrototypeScreen,
+      sharePrototype,
       patchArtifact,
       getPrototype,
       listArtifactComments,

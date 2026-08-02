@@ -1,108 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
-import { JoinGate } from '../components/portal/JoinGate.js';
-import { PortalPage } from '../components/portal/PortalPage.js';
-import { PortalWorkspacePage } from '../components/portal/PortalWorkspacePage.js';
-import {
-  PortalNotReadyError,
-  PortalUnauthorizedError,
-  clearPortalSession,
-  fetchClientView,
-  loadPortalSession,
-  savePortalSession,
-} from '../lib/portal.js';
+import { Outlet, createFileRoute } from '@tanstack/react-router';
 
-function PortalRoutePage() {
-  const { shareToken } = Route.useParams();
-  const [session, setSession] = useState<string | null>(() => loadPortalSession(shareToken));
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['portal', shareToken, session],
-    queryFn: () => {
-      if (session === null) {
-        throw new Error('Portal session is required');
-      }
-      return fetchClientView(shareToken, session);
-    },
-    enabled: session !== null,
-    retry: false,
-  });
-
-  const sessionInvalid = error instanceof PortalUnauthorizedError;
-
-  useEffect(() => {
-    if (sessionInvalid) {
-      clearPortalSession(shareToken);
-      setSession(null);
-    }
-  }, [sessionInvalid, shareToken]);
-
-  if (!session || sessionInvalid) {
-    return (
-      <JoinGate
-        shareToken={shareToken}
-        onJoined={(token) => {
-          savePortalSession(shareToken, token);
-          setSession(token);
-        }}
-      />
-    );
-  }
-
-  if (isLoading) {
-    return <p className="px-5 py-8 text-sm text-muted-foreground">Loading shared project…</p>;
-  }
-
-  if (error instanceof PortalNotReadyError) {
-    return (
-      <section role="status" className="mx-auto max-w-lg px-5 py-8">
-        <h1 className="mb-2 text-xl font-semibold">Not published yet</h1>
-        <p className="text-sm text-muted-foreground">{error.message}</p>
-      </section>
-    );
-  }
-
-  if (error) {
-    return (
-      <p role="alert" className="px-5 py-8 text-sm text-destructive">
-        Failed to load shared project: {error instanceof Error ? error.message : 'Unknown error'}
-      </p>
-    );
-  }
-
-  if (data === undefined) {
-    return <p className="px-5 py-8 text-sm text-muted-foreground">Shared project not found.</p>;
-  }
-
-  if ('kind' in data) {
-    return (
-      <PortalWorkspacePage
-        view={data}
-        shareToken={shareToken}
-        sessionToken={session}
-        onUnauthorized={() => {
-          clearPortalSession(shareToken);
-          setSession(null);
-        }}
-      />
-    );
-  }
-
-  // Project-shaped client view (no workspace kind discriminator).
-  return (
-    <PortalPage
-      view={data}
-      shareToken={shareToken}
-      sessionToken={session}
-      onUnauthorized={() => {
-        clearPortalSession(shareToken);
-        setSession(null);
-      }}
-    />
-  );
-}
-
+// Layout only. The landing page lives in `p.$shareToken.index.tsx`.
+//
+// This route is the parent of every nested portal route (`/prototypes`,
+// `/prototypes/$prototypeId`, …). A parent whose component renders page
+// content instead of an `Outlet` never renders its children, so the nested
+// routes silently displayed this landing page instead of their own — correct
+// URL, no error, wrong content. Keep this component an `Outlet`.
+//
+// Each child gates itself through `PortalShareGate`, which owns the guest
+// session and the join flow, so no share state needs to live here.
 export const Route = createFileRoute('/p/$shareToken')({
-  component: PortalRoutePage,
+  component: Outlet,
 });
