@@ -411,7 +411,7 @@ export function deleteTask(id: string): Promise<void> {
 }
 
 /** Target kinds that carry content history (authored fields only). */
-export type RevisionTargetType = 'task' | 'document';
+export type RevisionTargetType = 'task' | 'document' | 'artifact';
 
 /** Metadata-only list row — no snapshot (panel opens cheaply). */
 export type SerializedRevisionMeta = {

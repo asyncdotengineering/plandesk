@@ -42,7 +42,7 @@ export type AgentRunStatus = (typeof agentRunStatuses)[number];
 export const commentTargetTypes = ['document', 'task', 'note', 'submission', 'artifact'] as const;
 export type CommentTargetType = (typeof commentTargetTypes)[number];
 
-export const revisionTargetTypes = ['task', 'document'] as const;
+export const revisionTargetTypes = ['task', 'document', 'artifact'] as const;
 export type RevisionTargetType = (typeof revisionTargetTypes)[number];
 
 /**
@@ -359,6 +359,31 @@ export const shares = sqliteTable('shares', {
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
 });
+
+/**
+ * Short-lived frame credentials for Moment B (opaque-origin subresources) and
+ * portal-guest Moment A. Not shares — never listed with create_share_link.
+ * Scoped to prototype ids within one project; random token stored hashed.
+ */
+export const renderTokens = sqliteTable(
+  'render_tokens',
+  {
+    id: text('id').primaryKey(),
+    orgId: text('org_id').notNull(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    tokenHash: text('token_hash').notNull(),
+    /** JSON string array of prototype ids this credential covers. */
+    prototypeIds: text('prototype_ids').notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    revokedAt: integer('revoked_at', { mode: 'timestamp_ms' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  },
+  (table) => [uniqueIndex('render_tokens_token_hash_unique').on(table.tokenHash)],
+);
 
 /** Portal guest after named join — scoped to one share/project, no org membership. */
 export const guestSessions = sqliteTable(

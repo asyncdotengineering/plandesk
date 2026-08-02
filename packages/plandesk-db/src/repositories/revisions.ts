@@ -101,6 +101,29 @@ export async function listRevisionsByTarget(
     .all();
 }
 
+/** Newest revision id for a target, or undefined when none exist. */
+export async function getLatestRevisionId(
+  db: DbClient,
+  projectId: string,
+  targetType: RevisionTargetType,
+  targetId: string,
+): Promise<string | undefined> {
+  const row = await db
+    .select({ id: revisions.id })
+    .from(revisions)
+    .where(
+      and(
+        eq(revisions.projectId, projectId),
+        eq(revisions.targetType, targetType),
+        eq(revisions.targetId, targetId),
+      ),
+    )
+    .orderBy(desc(revisions.createdAt), desc(revisions.id))
+    .limit(1)
+    .get();
+  return row?.id;
+}
+
 /**
  * Keep the newest `cap` revisions for one target; delete older ones.
  * Call inside the same transaction as the insert that may have exceeded the cap.

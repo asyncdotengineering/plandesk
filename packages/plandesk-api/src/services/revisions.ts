@@ -1,4 +1,5 @@
 import {
+  getArtifact,
   getDocument,
   getRevision as dbGetRevision,
   getTask,
@@ -9,6 +10,7 @@ import {
   type RevisionTargetType,
 } from '@plandesk/db';
 import {
+  ARTIFACT_VERSIONED_FIELDS,
   DOCUMENT_VERSIONED_FIELDS,
   TASK_VERSIONED_FIELDS,
   versionedFieldSnapshot,
@@ -18,12 +20,14 @@ import {
   revisionFieldToWire,
   serializeRevision,
   serializeRevisionMeta,
+  type SerializedArtifact,
   type SerializedDocument,
   type SerializedRevision,
   type SerializedRevisionMeta,
 } from '../serialize.js';
 import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
+import type { ArtifactService, UpdateArtifactInput } from './artifacts.js';
 import type { DocumentService, UpdateDocumentInput } from './documents.js';
 import type { TaskService, UpdateTaskInput } from './tasks.js';
 
@@ -31,10 +35,14 @@ export type RevisionServiceDeps = OrgScopedDeps & {
   db: Db;
   taskService: TaskService;
   documentService: DocumentService;
+  artifactService: ArtifactService;
 };
 
 /** Live entity returned by restore — same shape as a normal GET. */
-export type RestoredEntity = NonNullable<Awaited<ReturnType<TaskService['update']>>> | SerializedDocument;
+export type RestoredEntity =
+  | NonNullable<Awaited<ReturnType<TaskService['update']>>>
+  | SerializedDocument
+  | SerializedArtifact;
 
 export class InvalidRevisionQueryError extends Error {
   constructor(message: string) {
@@ -84,6 +92,21 @@ function documentUpdateFromSnapshot(snapshot: Record<string, unknown>): UpdateDo
   return input;
 }
 
+/** Only versioned artifact fields — never prototype/x/y. */
+function artifactUpdateFromSnapshot(snapshot: Record<string, unknown>): UpdateArtifactInput {
+  const input: UpdateArtifactInput = {};
+  if (typeof snapshot.title === 'string') {
+    input.title = snapshot.title;
+  }
+  if (typeof snapshot.content === 'string') {
+    input.content = snapshot.content;
+  }
+  if (snapshot.kind === 'markdown' || snapshot.kind === 'html') {
+    input.kind = snapshot.kind;
+  }
+  return input;
+}
+
 async function loadCurrentSnapshot(
   db: Db,
   targetType: RevisionTargetType,
@@ -96,15 +119,22 @@ async function loadCurrentSnapshot(
     }
     return versionedFieldSnapshot(task, TASK_VERSIONED_FIELDS);
   }
-  const document = await getDocument(db, targetId);
-  if (!document) {
+  if (targetType === 'document') {
+    const document = await getDocument(db, targetId);
+    if (!document) {
+      return undefined;
+    }
+    return versionedFieldSnapshot(document, DOCUMENT_VERSIONED_FIELDS);
+  }
+  const artifact = await getArtifact(db, targetId);
+  if (!artifact) {
     return undefined;
   }
-  return versionedFieldSnapshot(document, DOCUMENT_VERSIONED_FIELDS);
+  return versionedFieldSnapshot(artifact, ARTIFACT_VERSIONED_FIELDS);
 }
 
 export function createRevisionService(deps: RevisionServiceDeps) {
-  const { db, taskService, documentService } = deps;
+  const { db, taskService, documentService, artifactService } = deps;
 
   return {
     async list(
@@ -113,7 +143,7 @@ export function createRevisionService(deps: RevisionServiceDeps) {
       targetId: string,
     ): Promise<SerializedRevisionMeta[] | undefined> {
       if (!isRevisionTargetType(targetTypeRaw)) {
-        throw new InvalidRevisionQueryError('target_type must be task or document');
+        throw new InvalidRevisionQueryError('target_type must be task, document, or artifact');
       }
       if (targetId.trim() === '') {
         throw new InvalidRevisionQueryError('target_id is required');
@@ -171,7 +201,11 @@ export function createRevisionService(deps: RevisionServiceDeps) {
       if (revision.targetType === 'task') {
         return taskService.update(revision.targetId, taskUpdateFromSnapshot(snapshot));
       }
-      return documentService.update(revision.targetId, documentUpdateFromSnapshot(snapshot));
+      if (revision.targetType === 'document') {
+        return documentService.update(revision.targetId, documentUpdateFromSnapshot(snapshot));
+      }
+      // artifact — goes through update so screen scan / prototype_links re-run
+      return artifactService.update(revision.targetId, artifactUpdateFromSnapshot(snapshot));
     },
 
     async diff(id: string, against: string): Promise<FieldDiff[] | undefined> {

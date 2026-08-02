@@ -1,5 +1,13 @@
 import { Hono } from 'hono';
+import type { Db } from '@plandesk/db';
+import { runWithAuthContext } from '../auth-context.js';
+import { orgRoleToPermissionSet } from '../permissions.js';
 import type { FileService } from '../services/files.js';
+import {
+  fileAuthorizedByCredential,
+  verifyFrameCredential,
+} from '../services/frame-credential.js';
+import type { StorageAdapter } from '../storage/adapter.js';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -19,7 +27,34 @@ function sanitizeFilenameForHeader(filename: string): string {
     .replace(/"/g, '\\"');
 }
 
-export function createFilesRouter(fileService: FileService): Hono {
+function fileResponseHeaders(
+  mime: string,
+  filename: string,
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    'X-Content-Type-Options': 'nosniff',
+  };
+
+  // Only image/* is safe to render inline; every other mime (including
+  // text/html) is forced to download so a user-uploaded file can never
+  // execute as active content in the browser.
+  if (mime.startsWith('image/')) {
+    headers['Content-Type'] = mime;
+  } else {
+    headers['Content-Type'] = 'application/octet-stream';
+    headers['Content-Disposition'] =
+      `attachment; filename="${sanitizeFilenameForHeader(filename)}"`;
+  }
+  return headers;
+}
+
+export type FilesRouterDeps = {
+  db: Db;
+  storage: StorageAdapter;
+};
+
+export function createFilesRouter(fileService: FileService, deps: FilesRouterDeps): Hono {
+  const { db, storage } = deps;
   const router = new Hono();
 
   router.post('/projects/:id/files', async (c) => {
@@ -54,8 +89,50 @@ export function createFilesRouter(fileService: FileService): Hono {
     return c.json(file, 201);
   });
 
+  /**
+   * Serve a file. Authenticated org members use the session path; opaque-origin
+   * frames and portal guests pass `?token=` (share or render). One verification
+   * point — verifyFrameCredential. Cross-project / cross-org ids 404.
+   */
   router.get('/files/:id', async (c) => {
-    const resolved = await fileService.get(c.req.param('id'));
+    const fileId = c.req.param('id');
+    const rawToken = c.req.query('token');
+
+    if (typeof rawToken === 'string' && rawToken.trim() !== '') {
+      const credential = await verifyFrameCredential(db, rawToken);
+      if (!credential) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+      const authorized = await fileAuthorizedByCredential(db, credential, fileId);
+      if (!authorized) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+      // Local/S3/R2 adapters resolve via getFileInOrg, which needs AuthContext.
+      // Token path skipped org middleware — bind a read-only loopback context
+      // scoped to the credential's org so storage cannot cross tenants.
+      const resolved = await runWithAuthContext(
+        {
+          kind: 'loopback',
+          orgId: credential.orgId,
+          role: 'owner',
+          permission: orgRoleToPermissionSet('owner'),
+        },
+        () => storage.resolve(fileId),
+      );
+      if (!resolved) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+      if ('redirectUrl' in resolved) {
+        return c.redirect(resolved.redirectUrl, 302);
+      }
+      return c.body(
+        new Uint8Array(resolved.bytes),
+        200,
+        fileResponseHeaders(resolved.mime, resolved.filename),
+      );
+    }
+
+    const resolved = await fileService.get(fileId);
     if (!resolved) {
       return c.json({ error: 'not_found' }, 404);
     }
@@ -64,22 +141,11 @@ export function createFilesRouter(fileService: FileService): Hono {
       return c.redirect(resolved.redirectUrl, 302);
     }
 
-    const headers: Record<string, string> = {
-      'X-Content-Type-Options': 'nosniff',
-    };
-
-    // Only image/* is safe to render inline; every other mime (including
-    // text/html) is forced to download so a user-uploaded file can never
-    // execute as active content in the browser.
-    if (resolved.mime.startsWith('image/')) {
-      headers['Content-Type'] = resolved.mime;
-    } else {
-      headers['Content-Type'] = 'application/octet-stream';
-      headers['Content-Disposition'] =
-        `attachment; filename="${sanitizeFilenameForHeader(resolved.filename)}"`;
-    }
-
-    return c.body(new Uint8Array(resolved.bytes), 200, headers);
+    return c.body(
+      new Uint8Array(resolved.bytes),
+      200,
+      fileResponseHeaders(resolved.mime, resolved.filename),
+    );
   });
 
   return router;

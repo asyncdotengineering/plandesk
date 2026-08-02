@@ -2,10 +2,12 @@ import {
   createArtifact as dbCreateArtifact,
   createEdge,
   getArtifact as dbGetArtifact,
+  getLatestRevisionId,
   getPrototypeByProjectAndId,
   listArtifactsByProject as dbListArtifactsByProject,
   updateArtifact as dbUpdateArtifact,
   withTransaction,
+  type Artifact,
   type ArtifactKind,
   type Db,
 } from '@plandesk/db';
@@ -15,8 +17,15 @@ import {
   type SerializedArtifact,
   type SerializedArtifactSummary,
 } from '../serialize.js';
-import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { serializeActor } from '../write-actor.js';
+import { assertPermission, resolveOrgId, resolveWriteActor, type OrgScopedDeps } from './org-scope.js';
 import { findFlowDocumentForPrototype } from './prototypes.js';
+import {
+  ARTIFACT_VERSIONED_FIELDS,
+  captureRevision,
+  changedVersionedFields,
+  versionedFieldSnapshot,
+} from './revision-capture.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 import {
   applyScreenContentScan,
@@ -31,6 +40,7 @@ export { ExternalReferenceError, UnknownLibraryError };
 
 export type ArtifactServiceDeps = OrgScopedDeps & {
   db: Db;
+  maxRevisions?: number | null;
 };
 
 export type CreateArtifactInput = {
@@ -87,6 +97,12 @@ async function resolvePrototypeForWrite(
     throw new InvalidArtifactError("prototype_id requires kind 'html'");
   }
   return prototypeId;
+}
+
+async function resolveRevisionId(db: Db, artifact: Artifact): Promise<string> {
+  const latest = await getLatestRevisionId(db, artifact.projectId, 'artifact', artifact.id);
+  // Inferred: until the first versioned write, key remounts on updated_at.
+  return latest ?? artifact.updatedAt.toISOString();
 }
 
 export function createArtifactService(deps: ArtifactServiceDeps) {
@@ -160,7 +176,7 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
         return created;
       });
 
-      return serializeArtifact(artifact);
+      return serializeArtifact(artifact, await resolveRevisionId(db, artifact));
     },
 
     async get(id: string): Promise<SerializedArtifact | undefined> {
@@ -176,7 +192,7 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
         }
         throw error;
       }
-      return serializeArtifact(artifact);
+      return serializeArtifact(artifact, await resolveRevisionId(db, artifact));
     },
 
     async update(id: string, input: UpdateArtifactInput): Promise<SerializedArtifact | undefined> {
@@ -216,6 +232,17 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
         assertScreenContentAllowed(nextContent);
       }
 
+      const versionedInput: Record<string, unknown> = {
+        ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.kind !== undefined ? { kind: input.kind } : {}),
+        ...(input.content !== undefined ? { content: input.content } : {}),
+      };
+      const versionedChanges = changedVersionedFields(
+        existing,
+        versionedInput,
+        ARTIFACT_VERSIONED_FIELDS,
+      );
+
       const artifact = await withTransaction(db, async (tx) => {
         const updated = await dbUpdateArtifact(tx, id, {
           ...(input.title !== undefined ? { title: input.title } : {}),
@@ -225,6 +252,22 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
         });
         if (!updated) {
           return undefined;
+        }
+
+        if (versionedChanges.length > 0) {
+          const author = serializeActor(resolveWriteActor(deps));
+          await captureRevision(
+            tx,
+            {
+              projectId: existing.projectId,
+              targetType: 'artifact',
+              targetId: id,
+              snapshot: JSON.stringify(versionedFieldSnapshot(existing, ARTIFACT_VERSIONED_FIELDS)),
+              changedFields: JSON.stringify(versionedChanges),
+              author,
+            },
+            deps.maxRevisions ?? null,
+          );
         }
 
         if (updated.prototypeId) {
@@ -269,7 +312,7 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
         return undefined;
       }
 
-      return serializeArtifact(artifact);
+      return serializeArtifact(artifact, await resolveRevisionId(db, artifact));
     },
   };
 }

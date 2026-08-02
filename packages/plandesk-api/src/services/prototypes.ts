@@ -4,6 +4,7 @@ import {
   createFolder,
   createPrototype as dbCreatePrototype,
   getDocument,
+  getLatestRevisionId,
   getPrototype as dbGetPrototype,
   listArtifactsByPrototype as dbListArtifactsByPrototype,
   listEdgesByEndpoint,
@@ -160,7 +161,15 @@ export function createPrototypeService(deps: PrototypeServiceDeps) {
         }
         throw error;
       }
-      const screens = (await dbListArtifactsByPrototype(db, prototype.id)).map(serializeArtifact);
+      const screenRows = await dbListArtifactsByPrototype(db, prototype.id);
+      const screens = await Promise.all(
+        screenRows.map(async (row) => {
+          const revisionId =
+            (await getLatestRevisionId(db, row.projectId, 'artifact', row.id)) ??
+            row.updatedAt.toISOString();
+          return serializeArtifact(row, revisionId);
+        }),
+      );
       const screenIds = new Set(screens.map((s) => s.id));
       const links = (await listPrototypeLinksByProject(db, prototype.projectId))
         .filter((link) => screenIds.has(link.fromArtifactId))

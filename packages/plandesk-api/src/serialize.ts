@@ -268,6 +268,8 @@ export type SerializedArtifact = {
   prototype_id: string | null;
   x: number | null;
   y: number | null;
+  /** Newest revision id when history exists; otherwise updated_at ISO (cache-bust / anchor key). */
+  revision_id: string;
   created_at: string;
   updated_at: string;
 };
@@ -279,7 +281,10 @@ export type SerializedArtifactSummary = {
   updated_at: string;
 };
 
-export function serializeArtifact(artifact: Artifact): SerializedArtifact {
+export function serializeArtifact(
+  artifact: Artifact,
+  revisionId: string,
+): SerializedArtifact {
   return {
     id: artifact.id,
     project_id: artifact.projectId,
@@ -289,6 +294,7 @@ export function serializeArtifact(artifact: Artifact): SerializedArtifact {
     prototype_id: artifact.prototypeId,
     x: artifact.x,
     y: artifact.y,
+    revision_id: revisionId,
     created_at: artifact.createdAt.toISOString(),
     updated_at: artifact.updatedAt.toISOString(),
   };

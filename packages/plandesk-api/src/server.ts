@@ -95,6 +95,7 @@ export function createApp(deps: AppDeps): Hono {
     artifactService,
     shareService,
     revisionService,
+    storage,
   } = services;
 
   const app = new Hono();
@@ -150,9 +151,9 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createViewsRouter(viewService));
   app.route('/api/v1', createCanvasRouter(canvasService));
   app.route('/api/v1', createDocumentsRouter(documentService));
-  app.route('/api/v1', createFilesRouter(fileService));
+  app.route('/api/v1', createFilesRouter(fileService, { db: deps.db, storage }));
   app.route('/api/v1', createLibrariesRouter());
-  app.route('/api/v1', createArtifactsRouter(artifactService));
+  app.route('/api/v1', createArtifactsRouter(artifactService, { db: deps.db }));
   app.route('/api/v1', createFoldersRouter(folderService));
   app.route('/api/v1', createPrototypesRouter(prototypeService));
   app.route('/api/v1', createNotesRouter(noteService));

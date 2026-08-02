@@ -57,6 +57,7 @@ export type Services = {
   fileService: FileService;
   artifactService: ArtifactService;
   revisionService: RevisionService;
+  storage: StorageAdapter;
 };
 
 export function createServices(deps: ServicesDeps): Services {
@@ -85,11 +86,12 @@ export function createServices(deps: ServicesDeps): Services {
   const shareService = createShareService(scoped);
   const syncService = createSyncService({ ...scoped, taskService });
   const fileService = createFileService({ ...scoped, storage });
-  const artifactService = createArtifactService(scoped);
+  const artifactService = createArtifactService(versioned);
   const revisionService = createRevisionService({
     ...scoped,
     taskService,
     documentService,
+    artifactService,
   });
 
   return {
@@ -111,5 +113,6 @@ export function createServices(deps: ServicesDeps): Services {
     fileService,
     artifactService,
     revisionService,
+    storage,
   };
 }

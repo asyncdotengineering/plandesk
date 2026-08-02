@@ -30,6 +30,7 @@ const RETENTION_COPY =
 
 const TASK_VERSIONED_FIELDS = ['label', 'description'] as const;
 const DOCUMENT_VERSIONED_FIELDS = ['title', 'body', 'status_line'] as const;
+const ARTIFACT_VERSIONED_FIELDS = ['title', 'content', 'kind'] as const;
 
 export function formatRevisionAuthor(author: string): string {
   if (author === 'system') {
@@ -72,10 +73,18 @@ function fieldLabel(field: string): string {
   return field;
 }
 
+function versionedFieldsFor(targetType: RevisionTargetType): readonly string[] {
+  if (targetType === 'task') {
+    return TASK_VERSIONED_FIELDS;
+  }
+  if (targetType === 'document') {
+    return DOCUMENT_VERSIONED_FIELDS;
+  }
+  return ARTIFACT_VERSIONED_FIELDS;
+}
+
 function versionedFieldsPhrase(targetType: RevisionTargetType): string {
-  const labels = (
-    targetType === 'task' ? TASK_VERSIONED_FIELDS : DOCUMENT_VERSIONED_FIELDS
-  ).map(fieldLabel);
+  const labels = versionedFieldsFor(targetType).map(fieldLabel);
   if (labels.length <= 1) {
     return labels.join('');
   }
@@ -91,6 +100,9 @@ function restoreConfirmDescription(targetType: RevisionTargetType): string {
   const fields = versionedFieldsPhrase(targetType);
   if (targetType === 'task') {
     return `Restore this version from content history? This will replace the current ${fields}. Status, position, and assignment will not change.`;
+  }
+  if (targetType === 'artifact') {
+    return `Restore this version from content history? This will replace the current ${fields}. Prototype placement will not change.`;
   }
   return `Restore this version from content history? This will replace the current ${fields}. Folder and links will not change.`;
 }
@@ -258,10 +270,7 @@ export function ContentHistoryPanel({
   }, [open, primaryId, compareId, revisions]);
 
   const versionedFieldList = useMemo(
-    () =>
-      targetType === 'task'
-        ? ([...TASK_VERSIONED_FIELDS] as string[])
-        : ([...DOCUMENT_VERSIONED_FIELDS] as string[]),
+    () => [...versionedFieldsFor(targetType)] as string[],
     [targetType],
   );
 
@@ -295,9 +304,11 @@ export function ContentHistoryPanel({
       setListEpoch((value) => value + 1);
       if (targetType === 'task') {
         void queryClient.invalidateQueries({ queryKey: queryKeys.tasksRoot(projectId) });
-      } else {
+      } else if (targetType === 'document') {
         void queryClient.invalidateQueries({ queryKey: queryKeys.document(targetId) });
         void queryClient.invalidateQueries({ queryKey: queryKeys.documents(projectId) });
+      } else {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.artifacts(projectId) });
       }
       onRestored?.(entity);
       toast.success('Content restored');

@@ -350,8 +350,16 @@ export function isPublicAuthPath(path: string): boolean {
 const PUBLIC_SHARE_PATH =
   /^\/api\/v1\/share\/[^/]+(\.md|\/meta|\/join)$/;
 
+/** Render + file routes that may carry a frame credential as ?token=. */
+const FRAME_CREDENTIAL_PATH =
+  /^\/api\/v1\/(artifacts\/[^/]+\/render|files\/[^/]+)$/;
+
 export function isPublicShareReadPath(path: string): boolean {
   return PUBLIC_SHARE_PATH.test(path);
+}
+
+export function isFrameCredentialPath(path: string): boolean {
+  return FRAME_CREDENTIAL_PATH.test(path);
 }
 
 /**
@@ -392,6 +400,18 @@ export function createOrgAuthMiddleware(options: OrgAuthOptions): MiddlewareHand
 
   return async (c, next) => {
     if (isPublicAuthPath(c.req.path) || isPublicShareReadPath(c.req.path)) {
+      await next();
+      return;
+    }
+
+    // Frame credential on the query string: pass through without org auth.
+    // The route verifies share-or-render token itself (one verification point).
+    const frameToken = c.req.query('token');
+    if (
+      isFrameCredentialPath(c.req.path) &&
+      typeof frameToken === 'string' &&
+      frameToken.trim() !== ''
+    ) {
       await next();
       return;
     }
@@ -521,6 +541,16 @@ export function createAuthMiddleware(password: string): MiddlewareHandler {
 
     // Method probe and better-auth sign-in must stay reachable without Basic.
     if (isPublicAuthPath(c.req.path) || isPublicShareReadPath(c.req.path)) {
+      await next();
+      return;
+    }
+
+    const frameToken = c.req.query('token');
+    if (
+      isFrameCredentialPath(c.req.path) &&
+      typeof frameToken === 'string' &&
+      frameToken.trim() !== ''
+    ) {
       await next();
       return;
     }

@@ -8,6 +8,7 @@ import {
 
 export const TASK_VERSIONED_FIELDS = ['label', 'description'] as const;
 export const DOCUMENT_VERSIONED_FIELDS = ['title', 'body', 'statusLine'] as const;
+export const ARTIFACT_VERSIONED_FIELDS = ['title', 'content', 'kind'] as const;
 
 export type MaxRevisionsEnv = {
   PLANDESK_MAX_REVISIONS?: string;
