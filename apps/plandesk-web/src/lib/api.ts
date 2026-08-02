@@ -10,12 +10,14 @@ import {
   taskStatuses,
   taskPriorities,
   taskPriorityOrder,
+  linkEntityTypes,
   type TaskStatus,
   type TaskPriority,
+  type LinkEntityType,
 } from '@plandesk/db/vocabulary';
 
-export { taskStatuses, taskPriorities, taskPriorityOrder };
-export type { TaskStatus, TaskPriority };
+export { taskStatuses, taskPriorities, taskPriorityOrder, linkEntityTypes };
+export type { TaskStatus, TaskPriority, LinkEntityType };
 export type { SavedViewConfig };
 
 export const edgeLabels = [
@@ -40,9 +42,6 @@ export const documentEdgeLabels = [
 ] as const;
 export type DocumentEdgeLabel = (typeof documentEdgeLabels)[number];
 export const DEFAULT_DOCUMENT_EDGE_LABEL: DocumentEdgeLabel = 'documents';
-
-export const linkEntityTypes = ['task', 'document'] as const;
-export type LinkEntityType = (typeof linkEntityTypes)[number];
 
 export type TaskStatusSummary = Record<TaskStatus, number>;
 
@@ -270,6 +269,24 @@ export type SerializedNote = {
   project_id: string;
   title: string;
   body: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Summary row from GET /projects/:id/artifacts — enough for the link picker. */
+export type SerializedArtifactSummary = {
+  id: string;
+  title: string;
+  kind: 'markdown' | 'html';
+  updated_at: string;
+};
+
+export type SerializedPrototype = {
+  id: string;
+  project_id: string;
+  name: string;
+  viewport_width: number;
+  viewport_height: number;
   created_at: string;
   updated_at: string;
 };
@@ -620,6 +637,14 @@ export function deleteFolder(id: string): Promise<void> {
 
 export function listNotes(projectId: string): Promise<SerializedNote[]> {
   return request(`/projects/${projectId}/notes`);
+}
+
+export function listArtifacts(projectId: string): Promise<SerializedArtifactSummary[]> {
+  return request(`/projects/${projectId}/artifacts`);
+}
+
+export function listPrototypes(projectId: string): Promise<SerializedPrototype[]> {
+  return request(`/projects/${projectId}/prototypes`);
 }
 
 export function createNote(projectId: string, input: CreateNoteInput): Promise<SerializedNote> {

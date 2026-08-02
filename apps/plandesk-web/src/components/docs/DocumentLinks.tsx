@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { FileTextIcon, LinkIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -7,11 +7,20 @@ import {
   documentEdgeLabels,
   type DocumentEdgeLabel,
   type LinkEntityType,
+  type SerializedArtifactSummary,
   type SerializedDocument,
   type SerializedEntityLink,
+  type SerializedPrototype,
   type SerializedTask,
 } from '../../lib/api.js';
-import { useCreateEdge, useDeleteEdge, useDocuments, useTasks } from '../../lib/queries.js';
+import {
+  useArtifacts,
+  useCreateEdge,
+  useDeleteEdge,
+  useDocuments,
+  usePrototypes,
+  useTasks,
+} from '../../lib/queries.js';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -48,17 +57,34 @@ type DocumentLinksProps = {
 function groupLinks(entries: SerializedEntityLink[]): {
   tasks: SerializedEntityLink[];
   documents: SerializedEntityLink[];
+  artifacts: SerializedEntityLink[];
+  prototypes: SerializedEntityLink[];
 } {
   const tasks: SerializedEntityLink[] = [];
   const documents: SerializedEntityLink[] = [];
+  const artifacts: SerializedEntityLink[] = [];
+  const prototypes: SerializedEntityLink[] = [];
   for (const entry of entries) {
-    if (entry.type === 'task') {
-      tasks.push(entry);
-    } else {
-      documents.push(entry);
+    switch (entry.type) {
+      case 'task':
+        tasks.push(entry);
+        break;
+      case 'document':
+        documents.push(entry);
+        break;
+      case 'artifact':
+        artifacts.push(entry);
+        break;
+      case 'prototype':
+        prototypes.push(entry);
+        break;
+      default: {
+        const _exhaustive: never = entry.type;
+        void _exhaustive;
+      }
     }
   }
-  return { tasks, documents };
+  return { tasks, documents, artifacts, prototypes };
 }
 
 function LinkEntryRow({
@@ -73,28 +99,40 @@ function LinkEntryRow({
   busy?: boolean;
 }) {
   const label = entry.label !== null && entry.label !== '' ? entry.label : null;
+  let titleNode: ReactNode;
+  if (entry.type === 'task') {
+    titleNode = (
+      <Link
+        to="/projects/$id/board"
+        params={{ id: projectId }}
+        search={{ task: entry.id }}
+        className="min-w-0 flex-1 truncate text-[13px] font-medium hover:underline"
+        title={`Open task: ${entry.title}`}
+      >
+        {entry.title}
+      </Link>
+    );
+  } else if (entry.type === 'document') {
+    titleNode = (
+      <Link
+        to="/projects/$id/documents/$docId"
+        params={{ id: projectId, docId: entry.id }}
+        className="inline-flex min-w-0 flex-1 items-center gap-1.5 truncate text-[13px] font-medium hover:underline"
+      >
+        <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate">{entry.title}</span>
+      </Link>
+    );
+  } else {
+    titleNode = (
+      <span className="min-w-0 flex-1 truncate text-[13px] font-medium" title={entry.title}>
+        {entry.title}
+      </span>
+    );
+  }
   return (
     <li className="group flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent">
-      {entry.type === 'task' ? (
-        <Link
-          to="/projects/$id/board"
-          params={{ id: projectId }}
-          search={{ task: entry.id }}
-          className="min-w-0 flex-1 truncate text-[13px] font-medium hover:underline"
-          title={`Open task: ${entry.title}`}
-        >
-          {entry.title}
-        </Link>
-      ) : (
-        <Link
-          to="/projects/$id/documents/$docId"
-          params={{ id: projectId, docId: entry.id }}
-          className="inline-flex min-w-0 flex-1 items-center gap-1.5 truncate text-[13px] font-medium hover:underline"
-        >
-          <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{entry.title}</span>
-        </Link>
-      )}
+      {titleNode}
       <span className="shrink-0 rounded-full border bg-muted/50 px-1.5 py-0.5 text-[10.5px] uppercase tracking-wide text-muted-foreground">
         {entry.type}
       </span>
@@ -168,6 +206,8 @@ type LinkPickerProps = {
   existingLinkKeys: Set<string>;
   tasks: SerializedTask[];
   documents: Array<{ id: string; title: string }>;
+  artifacts: SerializedArtifactSummary[];
+  prototypes: SerializedPrototype[];
   onCreate: (input: {
     to_type: LinkEntityType;
     to_id: string;
@@ -183,6 +223,8 @@ function LinkPickerDialog({
   existingLinkKeys,
   tasks,
   documents,
+  artifacts,
+  prototypes,
   onCreate,
   busy,
 }: LinkPickerProps) {
@@ -207,13 +249,45 @@ function LinkPickerDialog({
         .slice(0, 12)
         .map((task) => ({ id: task.id, title: task.label }));
     }
-    return documents
-      .filter((doc) => doc.id !== documentId && !existingLinkKeys.has(`document:${doc.id}`))
-      .filter((doc) => (q === '' ? true : doc.title.toLowerCase().includes(q)))
-      .slice(0, 12);
-  }, [targetType, tasks, documents, documentId, existingLinkKeys, query]);
+    if (targetType === 'document') {
+      return documents
+        .filter((doc) => doc.id !== documentId && !existingLinkKeys.has(`document:${doc.id}`))
+        .filter((doc) => (q === '' ? true : doc.title.toLowerCase().includes(q)))
+        .slice(0, 12);
+    }
+    if (targetType === 'artifact') {
+      return artifacts
+        .filter((artifact) => !existingLinkKeys.has(`artifact:${artifact.id}`))
+        .filter((artifact) => (q === '' ? true : artifact.title.toLowerCase().includes(q)))
+        .slice(0, 12)
+        .map((artifact) => ({ id: artifact.id, title: artifact.title }));
+    }
+    return prototypes
+      .filter((prototype) => !existingLinkKeys.has(`prototype:${prototype.id}`))
+      .filter((prototype) => (q === '' ? true : prototype.name.toLowerCase().includes(q)))
+      .slice(0, 12)
+      .map((prototype) => ({ id: prototype.id, title: prototype.name }));
+  }, [targetType, tasks, documents, artifacts, prototypes, documentId, existingLinkKeys, query]);
 
   const selected = filtered.find((item) => item.id === selectedId) ?? null;
+
+  const searchPlaceholder =
+    targetType === 'task'
+      ? 'Filter tasks…'
+      : targetType === 'document'
+        ? 'Filter documents…'
+        : targetType === 'artifact'
+          ? 'Filter artifacts…'
+          : 'Filter prototypes…';
+
+  const emptyLabel =
+    targetType === 'task'
+      ? 'tasks'
+      : targetType === 'document'
+        ? 'documents'
+        : targetType === 'artifact'
+          ? 'artifacts'
+          : 'prototypes';
 
   return (
     <Dialog
@@ -246,6 +320,8 @@ function LinkPickerDialog({
               <SelectContent>
                 <SelectItem value="task">Task</SelectItem>
                 <SelectItem value="document">Document</SelectItem>
+                <SelectItem value="artifact">Artifact</SelectItem>
+                <SelectItem value="prototype">Prototype</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -256,7 +332,7 @@ function LinkPickerDialog({
             <Input
               id="link-search"
               value={query}
-              placeholder={targetType === 'task' ? 'Filter tasks…' : 'Filter documents…'}
+              placeholder={searchPlaceholder}
               onChange={(event) => {
                 setQuery(event.target.value);
               }}
@@ -265,7 +341,7 @@ function LinkPickerDialog({
           <div className="max-h-48 space-y-0.5 overflow-y-auto rounded-md border p-1">
             {filtered.length === 0 ? (
               <p className="px-2 py-3 text-center text-[12.5px] text-muted-foreground">
-                No matching {targetType === 'task' ? 'tasks' : 'documents'}.
+                No matching {emptyLabel}.
               </p>
             ) : (
               filtered.map((item) => {
@@ -347,6 +423,8 @@ export function DocumentLinks({ projectId, document, editable = true }: Document
   const deleteEdge = useDeleteEdge(projectId);
   const { data: tasks } = useTasks(projectId);
   const { data: allDocuments } = useDocuments(projectId);
+  const { data: artifacts } = useArtifacts(projectId);
+  const { data: prototypes } = usePrototypes(projectId);
 
   const docOptions = useMemo(
     () =>
@@ -367,8 +445,18 @@ export function DocumentLinks({ projectId, document, editable = true }: Document
 
   const outgoing = groupLinks(document.links);
   const incoming = groupLinks(document.backlinks);
-  const hasOutgoing = outgoing.tasks.length + outgoing.documents.length > 0;
-  const hasIncoming = incoming.tasks.length + incoming.documents.length > 0;
+  const hasOutgoing =
+    outgoing.tasks.length +
+      outgoing.documents.length +
+      outgoing.artifacts.length +
+      outgoing.prototypes.length >
+    0;
+  const hasIncoming =
+    incoming.tasks.length +
+      incoming.documents.length +
+      incoming.artifacts.length +
+      incoming.prototypes.length >
+    0;
 
   const handleCreate = (input: {
     to_type: LinkEntityType;
@@ -449,6 +537,20 @@ export function DocumentLinks({ projectId, document, editable = true }: Document
               busy={deleteEdge.isPending}
               onRemove={editable ? handleRemove : undefined}
             />
+            <LinkGroup
+              title="Artifacts"
+              entries={outgoing.artifacts}
+              projectId={projectId}
+              busy={deleteEdge.isPending}
+              onRemove={editable ? handleRemove : undefined}
+            />
+            <LinkGroup
+              title="Prototypes"
+              entries={outgoing.prototypes}
+              projectId={projectId}
+              busy={deleteEdge.isPending}
+              onRemove={editable ? handleRemove : undefined}
+            />
           </div>
         )}
       </div>
@@ -463,6 +565,8 @@ export function DocumentLinks({ projectId, document, editable = true }: Document
           <div className="space-y-3">
             <LinkGroup title="Tasks" entries={incoming.tasks} projectId={projectId} />
             <LinkGroup title="Documents" entries={incoming.documents} projectId={projectId} />
+            <LinkGroup title="Artifacts" entries={incoming.artifacts} projectId={projectId} />
+            <LinkGroup title="Prototypes" entries={incoming.prototypes} projectId={projectId} />
           </div>
         )}
       </div>
@@ -476,6 +580,8 @@ export function DocumentLinks({ projectId, document, editable = true }: Document
           existingLinkKeys={existingLinkKeys}
           tasks={tasks ?? []}
           documents={docOptions}
+          artifacts={artifacts ?? []}
+          prototypes={prototypes ?? []}
           onCreate={handleCreate}
           busy={createEdge.isPending}
         />

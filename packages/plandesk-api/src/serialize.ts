@@ -7,6 +7,7 @@ import type {
   Edge,
   Folder,
   Goal,
+  LinkEntityType,
   Note,
   Project,
   Prototype,
@@ -188,7 +189,7 @@ export function serializeTask(task: Task, tags?: Tag[], waitingOn?: string[]) {
 
 /** One graph neighbour of a document (or a task, via the backlinks read path). */
 export type SerializedEntityLink = {
-  type: 'task' | 'document';
+  type: LinkEntityType;
   id: string;
   /** Task label or document title of the other endpoint. */
   title: string;

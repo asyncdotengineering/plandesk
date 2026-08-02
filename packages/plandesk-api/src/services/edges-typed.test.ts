@@ -3,6 +3,8 @@ import {
   createDb,
   createDocument,
   createEdge,
+  createArtifact,
+  createPrototype,
   createProjectInDefaultOrg as createProject,
   getEdge,
   listEdges,
@@ -316,5 +318,182 @@ describe('typed edge service', () => {
 
     expect(await getEdge(db, docEdge.id)).toBeDefined();
     expect(await listEdges(db, projectAId)).toHaveLength(1);
+  });
+
+  it('creates prototype→task and artifact→document edges that round-trip via listEdges', async () => {
+    const task = await createTask(db, { projectId: projectAId, label: 'Realise me' });
+    const doc = await createDocument(db, { projectId: projectAId, title: 'Spec' });
+    const prototype = await createPrototype(db, {
+      projectId: projectAId,
+      name: 'Checkout',
+      viewportWidth: 390,
+      viewportHeight: 844,
+    });
+    const artifact = await createArtifact(db, {
+      projectId: projectAId,
+      title: 'Screen A',
+      kind: 'html',
+      content: '<html></html>',
+    });
+
+    const protoEdge = await service().createEdge(projectAId, {
+      fromType: 'prototype',
+      fromId: prototype.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'supports',
+    });
+    const artifactEdge = await service().createEdge(projectAId, {
+      fromType: 'artifact',
+      fromId: artifact.id,
+      toType: 'document',
+      toId: doc.id,
+      label: 'documents',
+    });
+    expect(protoEdge).toBeDefined();
+    expect(artifactEdge).toBeDefined();
+    if (!protoEdge || !artifactEdge) {
+      throw new Error('expected edges');
+    }
+    expect(protoEdge).toMatchObject({
+      from_type: 'prototype',
+      from_id: prototype.id,
+      to_type: 'task',
+      to_id: task.id,
+    });
+    expect(artifactEdge).toMatchObject({
+      from_type: 'artifact',
+      from_id: artifact.id,
+      to_type: 'document',
+      to_id: doc.id,
+    });
+
+    const listed = await service().listEdges(projectAId);
+    expect(listed).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: protoEdge.id, from_type: 'prototype' }),
+        expect.objectContaining({ id: artifactEdge.id, from_type: 'artifact' }),
+      ]),
+    );
+
+    // Canvas nodes are tasks only — these edges must not appear as dangling.
+    const canvas = await service().get(projectAId);
+    expect(canvas?.edges.find((edge) => edge.id === protoEdge.id)).toBeUndefined();
+    expect(canvas?.edges.find((edge) => edge.id === artifactEdge.id)).toBeUndefined();
+  });
+
+  it('refuses a cross-project prototype or artifact endpoint', async () => {
+    const taskA = await createTask(db, { projectId: projectAId, label: 'A' });
+    const docA = await createDocument(db, { projectId: projectAId, title: 'A doc' });
+    const prototypeB = await createPrototype(db, {
+      projectId: projectBId,
+      name: 'Foreign',
+      viewportWidth: 390,
+      viewportHeight: 844,
+    });
+    const artifactB = await createArtifact(db, {
+      projectId: projectBId,
+      title: 'Foreign screen',
+      kind: 'html',
+      content: '<html></html>',
+    });
+
+    await expect(
+      service().createEdge(projectAId, {
+        fromType: 'prototype',
+        fromId: prototypeB.id,
+        toType: 'task',
+        toId: taskA.id,
+      }),
+    ).rejects.toThrow(InvalidCanvasError);
+
+    await expect(
+      service().createEdge(projectAId, {
+        fromType: 'artifact',
+        fromId: artifactB.id,
+        toType: 'document',
+        toId: docA.id,
+      }),
+    ).rejects.toThrow(InvalidCanvasError);
+
+    expect(await listEdges(db, projectAId)).toHaveLength(0);
+  });
+
+  // The `to` side is the branch nobody thinks about, so it gets its own case
+  // rather than riding on code symmetry with the `from` side above.
+  it('refuses a cross-project prototype or artifact endpoint on the to side', async () => {
+    const taskA = await createTask(db, { projectId: projectAId, label: 'A' });
+    const docA = await createDocument(db, { projectId: projectAId, title: 'A doc' });
+    const prototypeB = await createPrototype(db, {
+      projectId: projectBId,
+      name: 'Foreign',
+      viewportWidth: 390,
+      viewportHeight: 844,
+    });
+    const artifactB = await createArtifact(db, {
+      projectId: projectBId,
+      title: 'Foreign screen',
+      kind: 'html',
+      content: '<html></html>',
+    });
+
+    await expect(
+      service().createEdge(projectAId, {
+        fromType: 'task',
+        fromId: taskA.id,
+        toType: 'prototype',
+        toId: prototypeB.id,
+      }),
+    ).rejects.toThrow(InvalidCanvasError);
+
+    await expect(
+      service().createEdge(projectAId, {
+        fromType: 'document',
+        fromId: docA.id,
+        toType: 'artifact',
+        toId: artifactB.id,
+      }),
+    ).rejects.toThrow(InvalidCanvasError);
+
+    expect(await listEdges(db, projectAId)).toHaveLength(0);
+  });
+
+  it('putLayout does not delete prototype or artifact edges', async () => {
+    const task = await createTask(db, { projectId: projectAId, label: 'T', x: 1, y: 1 });
+    const doc = await createDocument(db, { projectId: projectAId, title: 'D' });
+    const prototype = await createPrototype(db, {
+      projectId: projectAId,
+      name: 'Flow',
+      viewportWidth: 390,
+      viewportHeight: 844,
+    });
+    const artifact = await createArtifact(db, {
+      projectId: projectAId,
+      title: 'Screen',
+      kind: 'html',
+      content: '<html></html>',
+    });
+    const protoEdge = await createEdge(db, {
+      projectId: projectAId,
+      fromType: 'prototype',
+      fromId: prototype.id,
+      toType: 'task',
+      toId: task.id,
+    });
+    const artifactEdge = await createEdge(db, {
+      projectId: projectAId,
+      fromType: 'artifact',
+      fromId: artifact.id,
+      toType: 'document',
+      toId: doc.id,
+    });
+
+    await service().putLayout(projectAId, {
+      nodes: [{ id: task.id, x: 3, y: 3 }],
+      edges: [],
+    });
+
+    expect(await getEdge(db, protoEdge.id)).toBeDefined();
+    expect(await getEdge(db, artifactEdge.id)).toBeDefined();
   });
 });

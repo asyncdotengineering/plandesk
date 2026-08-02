@@ -79,4 +79,71 @@ describe('prototypes file-backed export/import round-trip', () => {
     expect(reExported.artifacts.find((a) => a.title === 'Home')?.y).toBe(80);
     expect(reExported.artifacts.find((a) => a.title === 'Report')?.prototype_id ?? null).toBeNull();
   });
+
+  it('round-trips prototype→task and artifact→document edges', async () => {
+    const { createEdge, createDocument, listEdges } = await import('./index.js');
+    const { createTaskWithDefaultGoal: createTask } = await import('./testing.js');
+
+    const sourceDir = mkdtempSync(join(tmpdir(), 'plandesk-proto-edge-src-'));
+    const targetDir = mkdtempSync(join(tmpdir(), 'plandesk-proto-edge-dst-'));
+    dirs.push(sourceDir, targetDir);
+
+    const sourceDb = await createDb(join(sourceDir, 'source.db'));
+    await migrate(sourceDb);
+    const project = await createProject(sourceDb, { name: 'Edge Round Trip' });
+    const task = await createTask(sourceDb, { projectId: project.id, label: 'Build checkout' });
+    const doc = await createDocument(sourceDb, { projectId: project.id, title: 'Screen spec' });
+    const proto = await createPrototype(sourceDb, {
+      projectId: project.id,
+      name: 'Checkout',
+      viewportWidth: 390,
+      viewportHeight: 844,
+    });
+    const screen = await createArtifact(sourceDb, {
+      projectId: project.id,
+      title: 'Home',
+      kind: 'html',
+      content: '<html></html>',
+      prototypeId: proto.id,
+    });
+    await createEdge(sourceDb, {
+      projectId: project.id,
+      fromType: 'prototype',
+      fromId: proto.id,
+      toType: 'task',
+      toId: task.id,
+      label: 'supports',
+    });
+    await createEdge(sourceDb, {
+      projectId: project.id,
+      fromType: 'artifact',
+      fromId: screen.id,
+      toType: 'document',
+      toId: doc.id,
+      label: 'documents',
+    });
+
+    const exported = await exportProject(sourceDb, project.id);
+    expect(exported).toBeDefined();
+    if (!exported) {
+      return;
+    }
+    expect(
+      exported.edges.some((edge) => edge.from_type === 'prototype' && edge.to_type === 'task'),
+    ).toBe(true);
+    expect(
+      exported.edges.some((edge) => edge.from_type === 'artifact' && edge.to_type === 'document'),
+    ).toBe(true);
+
+    const targetDb = await createDb(join(targetDir, 'target.db'));
+    await migrate(targetDb);
+    const { projectId: importedId } = await importProject(targetDb, exported);
+    const importedEdges = await listEdges(targetDb, importedId);
+    expect(
+      importedEdges.some((edge) => edge.fromType === 'prototype' && edge.toType === 'task'),
+    ).toBe(true);
+    expect(
+      importedEdges.some((edge) => edge.fromType === 'artifact' && edge.toType === 'document'),
+    ).toBe(true);
+  });
 });

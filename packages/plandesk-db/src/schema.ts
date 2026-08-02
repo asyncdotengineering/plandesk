@@ -20,13 +20,21 @@ export {
   taskPriorities,
   taskPriorityOrder,
   goalStatuses,
+  linkEntityTypes,
   type TaskStatus,
   type TaskKind,
   type TaskPriority,
   type GoalStatus,
+  type LinkEntityType,
 } from './vocabulary.js';
 
-import { taskStatuses, taskKinds, taskPriorities, goalStatuses } from './vocabulary.js';
+import {
+  taskStatuses,
+  taskKinds,
+  taskPriorities,
+  goalStatuses,
+  linkEntityTypes,
+} from './vocabulary.js';
 
 export const agentRunStatuses = ['running', 'completed', 'failed'] as const;
 export type AgentRunStatus = (typeof agentRunStatuses)[number];
@@ -36,10 +44,6 @@ export type CommentTargetType = (typeof commentTargetTypes)[number];
 
 export const revisionTargetTypes = ['task', 'document'] as const;
 export type RevisionTargetType = (typeof revisionTargetTypes)[number];
-
-/** Polymorphic edge endpoint kinds. Note/artifact are reachable later; no caller yet. */
-export const linkEntityTypes = ['task', 'document'] as const;
-export type LinkEntityType = (typeof linkEntityTypes)[number];
 
 /**
  * Edge relationship labels (vocabulary only — column stays free text).

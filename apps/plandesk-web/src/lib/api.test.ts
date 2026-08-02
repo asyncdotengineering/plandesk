@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SAVED_VIEW_CONFIG_VERSION } from '@plandesk/db/saved-view-config';
+import { linkEntityTypes as vocabularyLinkEntityTypes } from '@plandesk/db/vocabulary';
 import {
   createProject,
   createTask,
@@ -12,7 +13,10 @@ import {
   exportProjectView,
   getDocument,
   getProject,
+  linkEntityTypes,
+  listArtifacts,
   listProjects,
+  listPrototypes,
   listTasks,
   patchDocument,
   patchProject,
@@ -100,6 +104,35 @@ function mockFetch(response: unknown, init?: { ok?: boolean; status?: number }) 
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe('linkEntityTypes single definition', () => {
+  it('re-exports the vocabulary binding — not a local copy', () => {
+    expect(linkEntityTypes).toBe(vocabularyLinkEntityTypes);
+    expect(linkEntityTypes).toEqual(['task', 'document', 'artifact', 'prototype']);
+  });
+
+  it('lists artifacts and prototypes for the link picker', async () => {
+    mockFetch([{ id: 'art-1', title: 'Screen', kind: 'html', updated_at: '2026-08-02T00:00:00.000Z' }]);
+    await expect(listArtifacts('proj-1')).resolves.toEqual([
+      { id: 'art-1', title: 'Screen', kind: 'html', updated_at: '2026-08-02T00:00:00.000Z' },
+    ]);
+    expectFetchCall('/api/v1/projects/proj-1/artifacts');
+
+    mockFetch([
+      {
+        id: 'proto-1',
+        project_id: 'proj-1',
+        name: 'Checkout',
+        viewport_width: 390,
+        viewport_height: 844,
+        created_at: '2026-08-02T00:00:00.000Z',
+        updated_at: '2026-08-02T00:00:00.000Z',
+      },
+    ]);
+    await expect(listPrototypes('proj-1')).resolves.toMatchObject([{ id: 'proto-1', name: 'Checkout' }]);
+    expectFetchCall('/api/v1/projects/proj-1/prototypes');
+  });
 });
 
 function expectFetchCall(path: string, init?: Partial<RequestInit>) {

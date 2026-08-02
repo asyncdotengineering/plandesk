@@ -74,4 +74,20 @@ describe('DocumentLinks task links', () => {
     const link = await waitFor(() => screen.getByRole('link', { name: /Related spec/ }));
     expect(link.getAttribute('href') ?? '').toContain(`/projects/${projectId}/documents/doc-2`);
   });
+
+  it('renders artifact and prototype link titles without inventing routes', async () => {
+    renderLinks(
+      makeDocument([
+        makeLink('artifact', 'art-1', 'Screen A'),
+        makeLink('prototype', 'proto-1', 'Checkout flow'),
+      ]),
+    );
+
+    expect(await waitFor(() => screen.getByText('Screen A'))).toBeTruthy();
+    expect(screen.getByText('Checkout flow')).toBeTruthy();
+    expect(screen.getByText('artifact')).toBeTruthy();
+    expect(screen.getByText('prototype')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /Screen A/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Checkout flow/ })).toBeNull();
+  });
 });

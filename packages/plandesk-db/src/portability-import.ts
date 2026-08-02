@@ -24,6 +24,7 @@ import {
   taskTags,
   tasks,
   views,
+  linkEntityTypes,
   type LinkEntityType,
 } from './schema.js';
 import { parseSavedViewConfig, stringifySavedViewConfig } from './saved-view-config.js';
@@ -98,7 +99,10 @@ export function commitRefsForImport(value: string[] | null | undefined): string 
 }
 
 export function toLinkEntityType(value: string | null | undefined): LinkEntityType | null {
-  return value === 'task' || value === 'document' ? value : null;
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return (linkEntityTypes as readonly string[]).includes(value) ? (value as LinkEntityType) : null;
 }
 
 export function legacyDocumentPrimaryTaskId(document: PlandeskExportDocument): string | null {
@@ -113,12 +117,20 @@ export function remapEndpointId(
   id: string | null | undefined,
   taskIdMap: Map<string, string>,
   documentIdMap: Map<string, string>,
+  artifactIdMap: Map<string, string>,
+  prototypeIdMap: Map<string, string>,
 ): string | null | undefined {
   if (type === undefined || type === null || id === undefined || id === null) {
     return undefined;
   }
   if (type === 'document') {
     return remapId(documentIdMap, id);
+  }
+  if (type === 'artifact') {
+    return remapId(artifactIdMap, id);
+  }
+  if (type === 'prototype') {
+    return remapId(prototypeIdMap, id);
   }
   return remapId(taskIdMap, id);
 }
@@ -382,11 +394,23 @@ export function emitEdgesImport(ctx: ImportContext): void {
       edge.to_type ?? (edge.to_task_id === null || edge.to_task_id === undefined ? null : 'task'),
     );
     const fromId =
-      remapEndpointId(edge.from_type, edge.from_id, ctx.taskIdMap, ctx.documentIdMap) ??
-      remapId(ctx.taskIdMap, edge.from_task_id ?? null);
+      remapEndpointId(
+        edge.from_type,
+        edge.from_id,
+        ctx.taskIdMap,
+        ctx.documentIdMap,
+        ctx.artifactIdMap,
+        ctx.prototypeIdMap,
+      ) ?? remapId(ctx.taskIdMap, edge.from_task_id ?? null);
     const toId =
-      remapEndpointId(edge.to_type, edge.to_id, ctx.taskIdMap, ctx.documentIdMap) ??
-      remapId(ctx.taskIdMap, edge.to_task_id ?? null);
+      remapEndpointId(
+        edge.to_type,
+        edge.to_id,
+        ctx.taskIdMap,
+        ctx.documentIdMap,
+        ctx.artifactIdMap,
+        ctx.prototypeIdMap,
+      ) ?? remapId(ctx.taskIdMap, edge.to_task_id ?? null);
     if (fromType === null || toType === null || fromId === null || toId === null) {
       continue;
     }

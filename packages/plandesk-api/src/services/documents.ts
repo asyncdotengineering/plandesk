@@ -7,9 +7,11 @@ import {
   deleteDocument as dbDeleteDocument,
   detachDocumentChildren,
   clearOverviewDocumentRefs,
+  getArtifact,
   getDocument as dbGetDocument,
   getDocumentByTask as dbGetDocumentByTask,
   getFolderByProjectAndId,
+  getPrototype,
   getTask,
   isSqliteBusy,
   retryOnSqliteBusy,
@@ -118,18 +120,40 @@ async function resolveEndpointTitle(
   type: LinkEntityType,
   id: string,
 ): Promise<string | undefined> {
-  if (type === 'task') {
-    const task = await getTask(db, id);
-    if (!task || task.projectId !== projectId) {
-      return undefined;
+  switch (type) {
+    case 'task': {
+      const task = await getTask(db, id);
+      if (!task || task.projectId !== projectId) {
+        return undefined;
+      }
+      return task.label;
     }
-    return task.label;
+    case 'document': {
+      const document = await dbGetDocument(db, id);
+      if (!document || document.projectId !== projectId) {
+        return undefined;
+      }
+      return document.title;
+    }
+    case 'artifact': {
+      const artifact = await getArtifact(db, id);
+      if (!artifact || artifact.projectId !== projectId) {
+        return undefined;
+      }
+      return artifact.title;
+    }
+    case 'prototype': {
+      const prototype = await getPrototype(db, id);
+      if (!prototype || prototype.projectId !== projectId) {
+        return undefined;
+      }
+      return prototype.name;
+    }
+    default: {
+      const _exhaustive: never = type;
+      return _exhaustive;
+    }
   }
-  const document = await dbGetDocument(db, id);
-  if (!document || document.projectId !== projectId) {
-    return undefined;
-  }
-  return document.title;
 }
 
 function edgeFromType(edge: Edge): LinkEntityType {

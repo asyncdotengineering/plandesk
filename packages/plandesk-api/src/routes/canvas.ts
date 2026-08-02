@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { LinkEntityType } from '@plandesk/db';
 import { InvalidCanvasError, type CanvasService } from '../services/canvas.js';
 
 export function createCanvasRouter(canvasService: CanvasService): Hono {
@@ -88,9 +89,9 @@ export function createCanvasRouter(canvasService: CanvasService): Hono {
 
     try {
       const edge = await canvasService.createEdge(c.req.param('id'), {
-        ...(body.from_type !== undefined ? { fromType: body.from_type as 'task' | 'document' } : {}),
+        ...(body.from_type !== undefined ? { fromType: body.from_type as LinkEntityType } : {}),
         ...(body.from_id !== undefined ? { fromId: body.from_id } : {}),
-        ...(body.to_type !== undefined ? { toType: body.to_type as 'task' | 'document' } : {}),
+        ...(body.to_type !== undefined ? { toType: body.to_type as LinkEntityType } : {}),
         ...(body.to_id !== undefined ? { toId: body.to_id } : {}),
         ...(body.from_task_id !== undefined ? { fromTaskId: body.from_task_id } : {}),
         ...(body.to_task_id !== undefined ? { toTaskId: body.to_task_id } : {}),

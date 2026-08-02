@@ -5,11 +5,13 @@ import {
   resolveGoalForNewWork,
   deleteEdge as dbDeleteEdge,
   deleteEdgeByEndpoints,
+  getArtifact,
   getDocument,
   getEdge,
   getEdgeByEndpoints,
   getEdgeByProjectAndId,
   getProject,
+  getPrototype,
   getTask,
   linkEntityTypes,
   listEdges as dbListEdges,
@@ -94,11 +96,31 @@ function serializeLayout(projectLayout: string | null): unknown {
   return parseLayout(projectLayout);
 }
 
-function isTaskGraphEdge(edge: {
-  fromType: LinkEntityType;
-  toType: LinkEntityType;
-}): boolean {
-  return edge.fromType === 'task' && edge.toType === 'task';
+/**
+ * Edges that belong on the canvas payload: task↔task, or any edge with an
+ * artifact/prototype endpoint — but only when both endpoints exist as nodes.
+ * `buildCanvas` currently emits task nodes only; requiring presence prevents
+ * dangling React Flow edges for endpoints with no node yet.
+ */
+function isCanvasGraphEdge(
+  edge: {
+    fromType: LinkEntityType;
+    toType: LinkEntityType;
+    fromId: string;
+    toId: string;
+  },
+  nodeIds: Set<string>,
+): boolean {
+  const involvesArtifactOrPrototype =
+    edge.fromType === 'artifact' ||
+    edge.fromType === 'prototype' ||
+    edge.toType === 'artifact' ||
+    edge.toType === 'prototype';
+  const isTaskTask = edge.fromType === 'task' && edge.toType === 'task';
+  if (!isTaskTask && !involvesArtifactOrPrototype) {
+    return false;
+  }
+  return nodeIds.has(edge.fromId) && nodeIds.has(edge.toId);
 }
 
 function assertLinkEntityType(value: string, side: 'from' | 'to'): asserts value is LinkEntityType {
@@ -118,16 +140,39 @@ async function resolveEndpointInProject(
   id: string,
   side: 'from' | 'to',
 ): Promise<void> {
-  if (type === 'task') {
-    const task = await getTask(db, id);
-    if (!task || task.projectId !== projectId) {
-      throw new InvalidCanvasError(`Edge ${side} task not found in project`);
+  switch (type) {
+    case 'task': {
+      const task = await getTask(db, id);
+      if (!task || task.projectId !== projectId) {
+        throw new InvalidCanvasError(`Edge ${side} task not found in project`);
+      }
+      return;
     }
-    return;
-  }
-  const document = await getDocument(db, id);
-  if (!document || document.projectId !== projectId) {
-    throw new InvalidCanvasError(`Edge ${side} document not found in project`);
+    case 'document': {
+      const document = await getDocument(db, id);
+      if (!document || document.projectId !== projectId) {
+        throw new InvalidCanvasError(`Edge ${side} document not found in project`);
+      }
+      return;
+    }
+    case 'artifact': {
+      const artifact = await getArtifact(db, id);
+      if (!artifact || artifact.projectId !== projectId) {
+        throw new InvalidCanvasError(`Edge ${side} artifact not found in project`);
+      }
+      return;
+    }
+    case 'prototype': {
+      const prototype = await getPrototype(db, id);
+      if (!prototype || prototype.projectId !== projectId) {
+        throw new InvalidCanvasError(`Edge ${side} prototype not found in project`);
+      }
+      return;
+    }
+    default: {
+      const _exhaustive: never = type;
+      throw new InvalidCanvasError(`Unhandled edge ${side} entity type: ${String(_exhaustive)}`);
+    }
   }
 }
 
@@ -165,7 +210,10 @@ export function createCanvasService(deps: CanvasServiceDeps) {
 
   async function buildCanvas(projectId: string, project: Project) {
     const tasks = await listTasks(db, projectId);
-    const edgeRows = (await dbListEdges(db, projectId)).filter(isTaskGraphEdge);
+    const nodeIds = new Set(tasks.map((task) => task.id));
+    const edgeRows = (await dbListEdges(db, projectId)).filter((edge) =>
+      isCanvasGraphEdge(edge, nodeIds),
+    );
 
     return {
       nodes: tasks.map((task) => serializeTask(task)),
@@ -288,9 +336,12 @@ export function createCanvasService(deps: CanvasServiceDeps) {
           }
         }
 
-        // Only reconcile the task graph. Polymorphic (document) edges are owned
-        // by the typed link service and must survive a canvas layout put.
-        const existingEdges = (await dbListEdges(tx, projectId)).filter(isTaskGraphEdge);
+        // Only reconcile edges whose endpoints are canvas nodes. Polymorphic
+        // edges (document, and artifact/prototype until those are nodes) are
+        // owned by the typed link service and must survive a canvas layout put.
+        const existingEdges = (await dbListEdges(tx, projectId)).filter((edge) =>
+          isCanvasGraphEdge(edge, taskIds),
+        );
         const payloadEdgeIds = new Set(
           payload.edges.map((edge) => edge.id).filter((id): id is string => id !== undefined),
         );

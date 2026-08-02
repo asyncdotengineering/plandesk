@@ -5,7 +5,7 @@ import { ensureHtmlBody } from '../markdown.js';
 import { createTestApp, parseJson } from '../test-helpers.js';
 
 type EntityLink = {
-  type: 'task' | 'document';
+  type: 'task' | 'document' | 'artifact' | 'prototype';
   id: string;
   title: string;
   label: string | null;

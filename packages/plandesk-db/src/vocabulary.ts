@@ -32,3 +32,7 @@ export const taskPriorityOrder: Record<TaskPriority, number> = {
 
 export const goalStatuses = ['active', 'paused', 'complete', 'blocked'] as const;
 export type GoalStatus = (typeof goalStatuses)[number];
+
+/** Polymorphic edge endpoint kinds for authored links. */
+export const linkEntityTypes = ['task', 'document', 'artifact', 'prototype'] as const;
+export type LinkEntityType = (typeof linkEntityTypes)[number];

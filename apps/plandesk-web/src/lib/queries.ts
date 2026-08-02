@@ -38,6 +38,8 @@ import {
   listFolders,
   listGoals,
   listNotes,
+  listArtifacts,
+  listPrototypes,
   listProjects,
   listSubmissions,
   listTags,
@@ -98,6 +100,8 @@ export const queryKeys = {
   documents: (projectId: string) => ['projects', projectId, 'documents'] as const,
   document: (id: string) => ['documents', id] as const,
   folders: (projectId: string) => ['projects', projectId, 'folders'] as const,
+  artifacts: (projectId: string) => ['projects', projectId, 'artifacts'] as const,
+  prototypes: (projectId: string) => ['projects', projectId, 'prototypes'] as const,
   notes: (projectId: string) => ['projects', projectId, 'notes'] as const,
   note: (id: string) => ['notes', id] as const,
   comments: (targetType: CommentTargetType, targetId: string) =>
@@ -277,6 +281,22 @@ export function useDocuments(projectId: string) {
   return useQuery({
     queryKey: queryKeys.documents(projectId),
     queryFn: () => listDocuments(projectId),
+    ...liveQueryOptions,
+  });
+}
+
+export function useArtifacts(projectId: string) {
+  return useQuery({
+    queryKey: queryKeys.artifacts(projectId),
+    queryFn: () => listArtifacts(projectId),
+    ...liveQueryOptions,
+  });
+}
+
+export function usePrototypes(projectId: string) {
+  return useQuery({
+    queryKey: queryKeys.prototypes(projectId),
+    queryFn: () => listPrototypes(projectId),
     ...liveQueryOptions,
   });
 }
