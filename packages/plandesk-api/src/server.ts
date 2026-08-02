@@ -19,6 +19,7 @@ import { createCommentsRouter } from './routes/comments.js';
 import { createDocumentsRouter } from './routes/documents.js';
 import { createArtifactsRouter } from './routes/artifacts.js';
 import { createFilesRouter } from './routes/files.js';
+import { createLibrariesRouter } from './routes/libraries.js';
 import { createFoldersRouter } from './routes/folders.js';
 import { createPrototypesRouter } from './routes/prototypes.js';
 import { createNotesRouter } from './routes/notes.js';
@@ -74,8 +75,7 @@ export function createApp(deps: AppDeps): Hono {
         })
       : undefined);
 
-  const services =
-    deps.services ?? createServices({ db: deps.db, auth: betterAuthInstance });
+  const services = deps.services ?? createServices({ db: deps.db, auth: betterAuthInstance });
   const {
     projectService,
     goalService,
@@ -143,10 +143,7 @@ export function createApp(deps: AppDeps): Hono {
       baseURL: deps.betterAuth?.baseURL,
     }),
   );
-  app.route(
-    '/api/v1',
-    createProjectsRouter(projectService, taskService, projectExportService),
-  );
+  app.route('/api/v1', createProjectsRouter(projectService, taskService, projectExportService));
   app.route('/api/v1', createGoalsRouter(goalService));
   app.route('/api/v1', createTasksRouter(taskService));
   app.route('/api/v1', createTagsRouter(tagService));
@@ -154,6 +151,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createCanvasRouter(canvasService));
   app.route('/api/v1', createDocumentsRouter(documentService));
   app.route('/api/v1', createFilesRouter(fileService));
+  app.route('/api/v1', createLibrariesRouter());
   app.route('/api/v1', createArtifactsRouter(artifactService));
   app.route('/api/v1', createFoldersRouter(folderService));
   app.route('/api/v1', createPrototypesRouter(prototypeService));
