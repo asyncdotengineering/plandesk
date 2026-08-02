@@ -1208,10 +1208,12 @@ describe('createMcpApp', () => {
       const createdText =
         (created.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
       const createdPayload = JSON.parse(createdText) as {
-        goal: { id: string; name: string | null; objective: string };
+        goal: { id: string; name: string | null; objective: string; verification_surface: string | null };
+        warnings: string[];
       };
       expect(createdPayload.goal.name).toBe('mcp-goal');
       expect(createdPayload.goal.objective).toBe('MCP goal');
+      expect(createdPayload.warnings).toEqual(['verification_surface is null']);
 
       const listed = await client.callTool({
         name: 'list_goals',
@@ -1264,8 +1266,16 @@ describe('createMcpApp', () => {
       const updatedText =
         (updated.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
       expect(
-        (JSON.parse(updatedText) as { goal: { name: string | null; objective: string } }).goal,
+        (
+          JSON.parse(updatedText) as {
+            goal: { name: string | null; objective: string; verification_surface: string | null };
+            warnings: string[];
+          }
+        ).goal,
       ).toMatchObject({ name: 'renamed-mcp-goal', objective: 'Renamed objective' });
+      expect((JSON.parse(updatedText) as { warnings: string[] }).warnings).toEqual([
+        'verification_surface is null',
+      ]);
       const refetched = await client.callTool({
         name: 'get_goal',
         arguments: { goal_id: createdPayload.goal.id },
@@ -1324,6 +1334,16 @@ describe('createMcpApp', () => {
         const payload = JSON.parse(text) as { error: string; message?: string };
         expect(payload.error).toBe('invalid_argument');
         expect(payload.message).toMatch(/verification_surface must include a kind/);
+
+        const listed = await client.callTool({
+          name: 'list_goals',
+          arguments: { project_id: projectId },
+        });
+        const listedText = (listed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+        const listedPayload = JSON.parse(listedText) as {
+          goals: Array<{ objective: string }>;
+        };
+        expect(listedPayload.goals.some((goal) => goal.objective === 'Bad surface')).toBe(false);
       } finally {
         await client.close();
       }

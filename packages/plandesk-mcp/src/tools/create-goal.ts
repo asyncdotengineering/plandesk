@@ -1,6 +1,11 @@
 import { InvalidGoalStatusError, type GoalStatus } from '@plandesk/db';
 import { DuplicateGoalNameError, InvalidVerificationSurfaceError, type GoalService } from '@plandesk/api';
-import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
+import {
+  toolInvalidArgument,
+  toolNotFound,
+  toolSuccessPayload,
+  type ToolResult,
+} from './result.js';
 
 export function createCreateGoalHandler(
   goalService: GoalService,
@@ -34,7 +39,10 @@ export function createCreateGoalHandler(
       if (!goal) {
         return toolNotFound();
       }
-      return toolSuccess('goal', goal);
+      return toolSuccessPayload({
+        goal,
+        warnings: goal.verification_surface === null ? ['verification_surface is null'] : [],
+      });
     } catch (error) {
       if (
         error instanceof InvalidGoalStatusError ||

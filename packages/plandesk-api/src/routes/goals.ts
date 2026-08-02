@@ -52,6 +52,15 @@ function mapGoalInput(body: CreateGoalBody | UpdateGoalBody) {
   };
 }
 
+type GoalWrite = NonNullable<Awaited<ReturnType<GoalService['create']>>>;
+
+function goalWriteResponse(goal: GoalWrite) {
+  return {
+    ...goal,
+    warnings: goal.verification_surface === null ? ['verification_surface is null'] : [],
+  };
+}
+
 function handleGoalError(c: Context, error: unknown) {
   if (error instanceof InvalidGoalStatusError || error instanceof InvalidGoalTransitionError) {
     return c.json({ error: 'invalid_argument' }, 400);
@@ -104,7 +113,7 @@ export function createGoalsRouter(goalService: GoalService): Hono {
       if (!goal) {
         return c.json({ error: 'not_found' }, 404);
       }
-      return c.json(goal, 201);
+      return c.json(goalWriteResponse(goal), 201);
     } catch (error) {
       return handleGoalError(c, error);
     }
@@ -137,7 +146,7 @@ export function createGoalsRouter(goalService: GoalService): Hono {
       if (!goal) {
         return c.json({ error: 'not_found' }, 404);
       }
-      return c.json(goal);
+      return c.json(goalWriteResponse(goal));
     } catch (error) {
       return handleGoalError(c, error);
     }
