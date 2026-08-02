@@ -276,14 +276,52 @@ export type SerializedArtifactSummary = {
   updated_at: string;
 };
 
+/** Full artifact from GET /artifacts/:id or nested under a prototype. */
+export type SerializedArtifact = {
+  id: string;
+  project_id: string;
+  title: string;
+  kind: 'markdown' | 'html';
+  content: string;
+  prototype_id: string | null;
+  x: number | null;
+  y: number | null;
+  revision_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type SerializedPrototype = {
   id: string;
   project_id: string;
   name: string;
   viewport_width: number;
   viewport_height: number;
+  folder_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type SerializedPrototypeLink = {
+  id: string;
+  project_id: string;
+  from_artifact_id: string;
+  to_artifact_id: string | null;
+  raw_target: string;
+};
+
+export type SerializedPrototypeWithScreens = SerializedPrototype & {
+  screens: SerializedArtifact[];
+  links: SerializedPrototypeLink[];
+};
+
+export type PatchArtifactInput = {
+  title?: string;
+  kind?: 'markdown' | 'html';
+  content?: string;
+  prototype_id?: string | null;
+  x?: number | null;
+  y?: number | null;
 };
 
 export type CreateNoteInput = {
@@ -642,6 +680,18 @@ export function listArtifacts(projectId: string): Promise<SerializedArtifactSumm
 
 export function listPrototypes(projectId: string): Promise<SerializedPrototype[]> {
   return request(`/projects/${projectId}/prototypes`);
+}
+
+export function getPrototype(id: string): Promise<SerializedPrototypeWithScreens> {
+  return request(`/prototypes/${id}`);
+}
+
+export function getArtifact(id: string): Promise<SerializedArtifact> {
+  return request(`/artifacts/${id}`);
+}
+
+export function patchArtifact(id: string, input: PatchArtifactInput): Promise<SerializedArtifact> {
+  return request(`/artifacts/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
 }
 
 export function createNote(projectId: string, input: CreateNoteInput): Promise<SerializedNote> {

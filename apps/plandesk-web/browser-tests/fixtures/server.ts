@@ -44,6 +44,52 @@ export type HarnessServer = {
   markdownContent: string;
   /** Create an additional HTML artifact and return its id. */
   seedHtmlArtifact: (title: string, content: string) => Promise<string>;
+  /** Create a prototype in the harness project. */
+  seedPrototype: (
+    name: string,
+    viewportWidth?: number,
+    viewportHeight?: number,
+  ) => Promise<{ id: string; viewport_width: number; viewport_height: number }>;
+  /** Create an HTML screen on a prototype (no x/y — system lays out). */
+  seedPrototypeScreen: (
+    prototypeId: string,
+    title: string,
+    content: string,
+  ) => Promise<{
+    id: string;
+    x: number | null;
+    y: number | null;
+    revision_id: string;
+    prototype_id: string | null;
+  }>;
+  patchArtifact: (
+    id: string,
+    body: Record<string, unknown>,
+  ) => Promise<{
+    id: string;
+    x: number | null;
+    y: number | null;
+    revision_id: string;
+    content: string;
+  }>;
+  getPrototype: (id: string) => Promise<{
+    id: string;
+    viewport_width: number;
+    viewport_height: number;
+    screens: Array<{
+      id: string;
+      title: string;
+      x: number | null;
+      y: number | null;
+      revision_id: string;
+    }>;
+    links: Array<{
+      id: string;
+      from_artifact_id: string;
+      to_artifact_id: string | null;
+      raw_target: string;
+    }>;
+  }>;
   stop: () => Promise<void>;
 };
 
@@ -110,6 +156,26 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   });
   if (!response.ok) {
     throw new Error(`POST ${url} → ${String(response.status)}`);
+  }
+  return (await response.json()) as T;
+}
+
+async function patchJson<T>(url: string, body: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`PATCH ${url} → ${String(response.status)}`);
+  }
+  return (await response.json()) as T;
+}
+
+async function getJson<T>(url: string): Promise<T> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`GET ${url} → ${String(response.status)}`);
   }
   return (await response.json()) as T;
 }
@@ -190,6 +256,63 @@ export async function startHarnessServer(): Promise<HarnessServer> {
       return created.id;
     };
 
+    const seedPrototype = async (name: string, viewportWidth = 390, viewportHeight = 844) => {
+      return postJson<{ id: string; viewport_width: number; viewport_height: number }>(
+        `${baseUrl}/api/v1/projects/${project.id}/prototypes`,
+        {
+          name,
+          viewport_width: viewportWidth,
+          viewport_height: viewportHeight,
+        },
+      );
+    };
+
+    const seedPrototypeScreen = async (prototypeId: string, title: string, content: string) => {
+      return postJson<{
+        id: string;
+        x: number | null;
+        y: number | null;
+        revision_id: string;
+        prototype_id: string | null;
+      }>(`${baseUrl}/api/v1/projects/${project.id}/artifacts`, {
+        title,
+        kind: 'html',
+        content,
+        prototype_id: prototypeId,
+      });
+    };
+
+    const patchArtifact = async (id: string, body: Record<string, unknown>) => {
+      return patchJson<{
+        id: string;
+        x: number | null;
+        y: number | null;
+        revision_id: string;
+        content: string;
+      }>(`${baseUrl}/api/v1/artifacts/${id}`, body);
+    };
+
+    const getPrototype = async (id: string) => {
+      return getJson<{
+        id: string;
+        viewport_width: number;
+        viewport_height: number;
+        screens: Array<{
+          id: string;
+          title: string;
+          x: number | null;
+          y: number | null;
+          revision_id: string;
+        }>;
+        links: Array<{
+          id: string;
+          from_artifact_id: string;
+          to_artifact_id: string | null;
+          raw_target: string;
+        }>;
+      }>(`${baseUrl}/api/v1/prototypes/${id}`);
+    };
+
     return {
       baseUrl,
       projectId: project.id,
@@ -198,6 +321,10 @@ export async function startHarnessServer(): Promise<HarnessServer> {
       htmlContent: htmlArtifact.content,
       markdownContent: markdownArtifact.content,
       seedHtmlArtifact,
+      seedPrototype,
+      seedPrototypeScreen,
+      patchArtifact,
+      getPrototype,
       stop,
     };
   } catch (error) {

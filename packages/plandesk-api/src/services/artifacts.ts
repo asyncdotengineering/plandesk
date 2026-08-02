@@ -18,8 +18,14 @@ import {
   type SerializedArtifactSummary,
 } from '../serialize.js';
 import { serializeActor } from '../write-actor.js';
-import { assertPermission, resolveOrgId, resolveWriteActor, type OrgScopedDeps } from './org-scope.js';
+import {
+  assertPermission,
+  resolveOrgId,
+  resolveWriteActor,
+  type OrgScopedDeps,
+} from './org-scope.js';
 import { findFlowDocumentForPrototype } from './prototypes.js';
+import { ensurePrototypeLayout } from './prototype-layout.js';
 import {
   ARTIFACT_VERSIONED_FIELDS,
   captureRevision,
@@ -56,6 +62,8 @@ export type UpdateArtifactInput = {
   kind?: ArtifactKind;
   content?: string;
   prototypeId?: string | null;
+  x?: number | null;
+  y?: number | null;
 };
 
 export class InvalidArtifactError extends Error {
@@ -171,6 +179,10 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
               label: 'documents',
             });
           }
+          // System-owned layout: agents never send coordinates.
+          await ensurePrototypeLayout(tx, prototypeId);
+          const laidOut = await dbGetArtifact(tx, created.id);
+          return laidOut ?? created;
         }
 
         return created;
@@ -249,6 +261,8 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
           ...(input.kind !== undefined ? { kind: input.kind } : {}),
           ...(input.content !== undefined ? { content: input.content } : {}),
           ...(input.prototypeId !== undefined ? { prototypeId: input.prototypeId } : {}),
+          ...(input.x !== undefined ? { x: input.x } : {}),
+          ...(input.y !== undefined ? { y: input.y } : {}),
         });
         if (!updated) {
           return undefined;
@@ -294,6 +308,8 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
                 label: 'documents',
               });
             }
+            await ensurePrototypeLayout(tx, updated.prototypeId);
+            return (await dbGetArtifact(tx, updated.id)) ?? updated;
           }
         } else {
           if (existing.prototypeId !== null) {

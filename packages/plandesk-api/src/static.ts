@@ -6,15 +6,17 @@ import type { Hono } from 'hono';
 
 // Resolve the built web SPA across install layouts:
 //   1. PLANDESK_WEB_DIST env override
-//   2. bundled `web/` next to this package (published npm package ships it here)
-//   3. monorepo dev path (apps/plandesk-web/dist)
-// First candidate that contains index.html wins; otherwise the dev path.
+//   2. monorepo dev path (apps/plandesk-web/dist) — prefer over bundled web/
+//      so a stale packages/plandesk-api/web from an old prepack cannot shadow
+//      a freshly built SPA during local serve / browser harness runs
+//   3. bundled `web/` next to this package (published npm package ships it here)
+// First candidate that contains index.html wins; otherwise the last candidate.
 function resolveDefaultDistPath(): string {
   const here = dirname(fileURLToPath(import.meta.url)); // .../@plandesk/api/dist
   const candidates = [
     process.env.PLANDESK_WEB_DIST,
-    join(here, '../web'), // bundled in the published package
     join(here, '../../../apps/plandesk-web/dist'), // monorepo dev
+    join(here, '../web'), // bundled in the published package
   ].filter((p): p is string => typeof p === 'string' && p.length > 0);
   return (
     candidates.find((p) => existsSync(join(p, 'index.html'))) ??

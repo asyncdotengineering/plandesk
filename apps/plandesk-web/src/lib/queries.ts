@@ -40,6 +40,8 @@ import {
   listNotes,
   listArtifacts,
   listPrototypes,
+  getPrototype,
+  patchArtifact,
   listProjects,
   listSubmissions,
   listTags,
@@ -79,6 +81,7 @@ import {
   type PatchGoalInput,
   type PatchFolderInput,
   type PatchNoteInput,
+  type PatchArtifactInput,
   type PatchProjectInput,
   type PatchTagInput,
   type PatchTaskInput,
@@ -102,6 +105,7 @@ export const queryKeys = {
   folders: (projectId: string) => ['projects', projectId, 'folders'] as const,
   artifacts: (projectId: string) => ['projects', projectId, 'artifacts'] as const,
   prototypes: (projectId: string) => ['projects', projectId, 'prototypes'] as const,
+  prototype: (id: string) => ['prototypes', id] as const,
   notes: (projectId: string) => ['projects', projectId, 'notes'] as const,
   note: (id: string) => ['notes', id] as const,
   comments: (targetType: CommentTargetType, targetId: string) =>
@@ -301,6 +305,34 @@ export function usePrototypes(projectId: string) {
   });
 }
 
+export function usePrototype(id: string) {
+  return useQuery({
+    queryKey: queryKeys.prototype(id),
+    queryFn: () => getPrototype(id),
+    ...liveQueryOptions,
+  });
+}
+
+export function usePatchArtifact(prototypeId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: PatchArtifactInput }) =>
+      patchArtifact(id, input),
+    onSuccess: (artifact) => {
+      if (prototypeId !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.prototype(prototypeId) });
+      } else if (artifact.prototype_id !== null) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.prototype(artifact.prototype_id),
+        });
+      }
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.artifacts(artifact.project_id),
+      });
+    },
+  });
+}
+
 export function useCreateDocument(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -486,10 +518,7 @@ export function useDeleteComment(target: CommentTarget) {
   });
 }
 
-function invalidateEdgeQueries(
-  queryClient: ReturnType<typeof useQueryClient>,
-  projectId: string,
-) {
+function invalidateEdgeQueries(queryClient: ReturnType<typeof useQueryClient>, projectId: string) {
   void queryClient.invalidateQueries({ queryKey: queryKeys.canvas(projectId) });
   void queryClient.invalidateQueries({ queryKey: queryKeys.documents(projectId) });
   // Document detail payloads carry derived links/backlinks; any edge change

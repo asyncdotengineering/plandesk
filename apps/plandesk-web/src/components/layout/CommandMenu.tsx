@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from '@tanstack/react-router';
 import {
+  AppWindowIcon,
   CircleDotIcon,
   FileTextIcon,
   FolderKanbanIcon,
@@ -59,6 +60,7 @@ export const NAV_ITEMS = [
   { label: 'List', to: '/projects/$id/list' as const, icon: ListIcon },
   { label: 'Flow', to: '/projects/$id/flow' as const, icon: GitBranchIcon },
   { label: 'Goals', to: '/projects/$id/goals' as const, icon: TargetIcon },
+  { label: 'Prototypes', to: '/projects/$id/prototypes' as const, icon: AppWindowIcon },
   { label: 'Documents', to: '/projects/$id/documents' as const, icon: FileTextIcon },
   { label: 'Notes', to: '/projects/$id/notes' as const, icon: StickyNoteIcon },
   { label: 'Inbox', to: '/projects/$id/inbox' as const, icon: InboxIcon },

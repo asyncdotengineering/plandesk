@@ -13,6 +13,7 @@ const VIEW_LABELS: Record<string, string> = {
   list: 'List',
   flow: 'Flow',
   goals: 'Goals',
+  prototypes: 'Prototypes',
   notes: 'Notes',
   inbox: 'Inbox',
   documents: 'Documents',

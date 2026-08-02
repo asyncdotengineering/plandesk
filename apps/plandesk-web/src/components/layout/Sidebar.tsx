@@ -66,6 +66,16 @@ const PLAN_NAV: NavEntry[] = [
       </svg>
     ),
   },
+  {
+    label: 'Prototypes',
+    to: '/projects/$id/prototypes' as const,
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+        <rect x="4" y="3" width="16" height="18" rx="2" />
+        <path d="M8 7h8M8 11h8M8 15h5" />
+      </svg>
+    ),
+  },
 ];
 
 const WORKSPACE_NAV: NavEntry[] = [

@@ -1,6 +1,5 @@
 import dagre, { type EdgeLabel, type GraphLabel, type NodeLabel } from '@dagrejs/dagre';
 import type { Edge, Node } from '@xyflow/react';
-import type { LabeledEdgeData, TaskNodeData } from './canvas-map.js';
 
 // Fallbacks for nodes that haven't been measured yet (node.measured is set
 // by React Flow after first render).
@@ -9,13 +8,52 @@ const DEFAULT_NODE_HEIGHT = 120;
 const GRID_GAP_X = 40;
 const GRID_GAP_Y = 40;
 
-const widthOf = (node: Node<TaskNodeData>) => node.measured?.width ?? DEFAULT_NODE_WIDTH;
-const heightOf = (node: Node<TaskNodeData>) => node.measured?.height ?? DEFAULT_NODE_HEIGHT;
+function widthOf(node: {
+  width?: number | null;
+  style?: { width?: string | number };
+  measured?: { width?: number };
+}): number {
+  if (typeof node.width === 'number' && Number.isFinite(node.width)) {
+    return node.width;
+  }
+  const styleWidth = node.style?.width;
+  if (typeof styleWidth === 'number' && Number.isFinite(styleWidth)) {
+    return styleWidth;
+  }
+  if (typeof styleWidth === 'string') {
+    const parsed = Number.parseFloat(styleWidth);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return node.measured?.width ?? DEFAULT_NODE_WIDTH;
+}
 
-export function layoutNodes(
-  nodes: Node<TaskNodeData>[],
-  edges: Edge<LabeledEdgeData>[],
-): Node<TaskNodeData>[] {
+function heightOf(node: {
+  height?: number | null;
+  style?: { height?: string | number };
+  measured?: { height?: number };
+}): number {
+  if (typeof node.height === 'number' && Number.isFinite(node.height)) {
+    return node.height;
+  }
+  const styleHeight = node.style?.height;
+  if (typeof styleHeight === 'number' && Number.isFinite(styleHeight)) {
+    return styleHeight;
+  }
+  if (typeof styleHeight === 'string') {
+    const parsed = Number.parseFloat(styleHeight);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return node.measured?.height ?? DEFAULT_NODE_HEIGHT;
+}
+
+export function layoutNodes<
+  NodeData extends Record<string, unknown> = Record<string, unknown>,
+  EdgeData extends Record<string, unknown> = Record<string, unknown>,
+>(nodes: Node<NodeData>[], edges: Edge<EdgeData>[]): Node<NodeData>[] {
   // Split by connectivity: dagre ranks the dependency graph, but edgeless nodes
   // have no rank, so dagre lines them all up in one long horizontal strip that
   // conveys no structure and is hard to scan. Lay the connected graph out with

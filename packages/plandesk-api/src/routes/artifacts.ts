@@ -38,6 +38,8 @@ type UpdateArtifactBody = {
   kind?: (typeof artifactKinds)[number];
   content?: string;
   prototype_id?: string | null;
+  x?: number | null;
+  y?: number | null;
 };
 
 type MintRenderTokenBody = {
@@ -260,6 +262,12 @@ export function createArtifactsRouter(
     if (body.kind !== undefined && !isValidKind(body.kind)) {
       return c.json({ error: 'invalid_argument' }, 400);
     }
+    if (body.x !== undefined && body.x !== null && !Number.isFinite(body.x)) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    if (body.y !== undefined && body.y !== null && !Number.isFinite(body.y)) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
 
     try {
       const artifact = await artifactService.update(c.req.param('id'), {
@@ -267,6 +275,8 @@ export function createArtifactsRouter(
         ...(body.kind !== undefined ? { kind: body.kind } : {}),
         ...(body.content !== undefined ? { content: body.content } : {}),
         ...(body.prototype_id !== undefined ? { prototypeId: body.prototype_id } : {}),
+        ...(body.x !== undefined ? { x: body.x } : {}),
+        ...(body.y !== undefined ? { y: body.y } : {}),
       });
 
       if (!artifact) {
