@@ -18,11 +18,32 @@ failing the dispatch.
 | The task is… | Worker |
 | --- | --- |
 | Implementation — write, fix, refactor, add tests | the default IC (see below) |
-| Review, audit, security pass | a **different model family** than the one that wrote the code |
+| Review, audit, security pass | **`pi` (`zai`/`glm-5.2`)** — see below |
 | Mechanical and well-specified — rename, codemod, boilerplate | the cheapest worker that probes |
 | Taste-sensitive — user-facing copy, layout, API ergonomics | the strongest worker available |
 | Long-context — repo-wide survey, large migration | a worker with the largest context window |
 | Non-code — planning, documentation, analysis | any worker; prefer one with strong prose |
+
+## The default reviewer is `pi` on `zai`/`glm-5.2`
+
+Decided 2026-08-02. Every `full`-lane review and every adversarial pass goes to
+`pi` unless its probe fails; `codex` is no longer the default reviewer and is a
+fallback only.
+
+Two reasons, and the second is the load-bearing one:
+
+- **1M context.** A review that must read a 48-file diff, the migration SQL, the
+  author's notes and the board task in one pass is exactly the shape that gets
+  truncated and produces a confident verdict on half the evidence.
+- **It is the only family we can *prove* is not the author's.** The default IC is
+  `cursor`, which runs `--model auto` and routes per turn, so on any given
+  dispatch nobody can say which family wrote the code. GLM is not in Cursor's
+  routing pool, so `pi` satisfies the cross-family rule below *by construction*
+  rather than by assumption. With `codex` the check was an assumption, and an
+  unverifiable one.
+
+If `pi`'s probe fails, fall through to `codex`, then `claude-glm`. Never fall
+through to the worker that authored the diff.
 
 ## The two rules that matter more than the table
 

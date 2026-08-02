@@ -6,8 +6,10 @@ command: codex exec --model gpt-5.6-luna -c model_reasoning_effort="high" --dang
 
 # codex
 
-Adversarial review and live-smoke worker — prefer it as the reviewer
-when the act worker is a Claude-family run. The three bypass flags are
+Adversarial review and live-smoke worker. **No longer the default reviewer** —
+that is `pi` on `zai`/`glm-5.2` as of 2026-08-02; see
+[../routing.md](../routing.md) for why. Use `codex` as the review fallback when
+`pi`'s probe fails, or when a task explicitly names it. The three bypass flags are
 mandatory in every mode: a sandboxed codex cannot bind sockets, reach the
 network, run the suite, or write its result claims. Never substitute
 `--sandbox read-only`/`workspace-write` (only for genuinely untrusted

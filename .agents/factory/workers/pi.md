@@ -6,8 +6,18 @@ command: pi -p --provider zai --model glm-5.2 --approve --thinking medium @{prom
 
 # pi
 
-Implementation worker. Delivers the brief via pi's `@file` attachment
-syntax — not stdin. Pick the provider/model per task:
+Implementation worker **and the default reviewer** (decided 2026-08-02 — see
+[../routing.md](../routing.md)). Every `full`-lane and adversarial review comes
+here first; `codex` is the fallback if this probe fails.
+
+Reviewing needs no flag change: the same `command` above serves both, because a
+review brief is just a brief. Two things to keep in mind when it is reviewing —
+raise `--thinking` to `high` for an adversarial pass, and remember its 1M
+context is the reason it was chosen, so give it the whole diff rather than a
+summary.
+
+Delivers the brief via pi's `@file` attachment syntax — not stdin. Pick the
+provider/model per task:
 
 - `zai`/`glm-5.2` (DEFAULT — ZhipuAI direct API, 1M ctx) — general
   implementation. Requires `ZAI_API_KEY`.
