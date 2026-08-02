@@ -185,6 +185,17 @@ export function serializeTask(task: Task, tags?: Tag[], waitingOn?: string[]) {
   };
 }
 
+export type SerializedTask = ReturnType<typeof serializeTask>;
+export type SerializedTaskSummary = Pick<SerializedTask, 'id' | 'label' | 'status'>;
+
+export function serializeTaskSummary(task: Task): SerializedTaskSummary {
+  return {
+    id: task.id,
+    label: task.label,
+    status: task.status,
+  };
+}
+
 /** One graph neighbour of a document (or a task, via the backlinks read path). */
 export type SerializedEntityLink = {
   type: LinkEntityType;

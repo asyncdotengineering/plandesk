@@ -47,8 +47,8 @@ const COMMIT_REFS_DESCRIPTION =
 const TAGS_FILTER_DESCRIPTION =
   'Optional tag-name filter with OR semantics: a task matches if it carries ANY of the given tags.';
 
-const COMPACT_DESCRIPTION =
-  'When true, omits large body/description fields and returns only id + summary metadata — use this for a cheap board-reconciliation sweep. Defaults to false (full body included), for backward compatibility.';
+const VERBOSE_DESCRIPTION =
+  'When true, includes large body/description fields. Defaults to false so list reads are cheap and bounded.';
 
 const TASK_DESCRIPTION_GUIDANCE =
   "Non-trivial tasks need build-contract depth (see .plandesk/skill.md's Task creation conventions): Problem, Action Items, Interfaces (concrete signatures/types/API/CLI this task touches, named exactly), Pseudocode (control flow for anything non-obvious), Validation contract (the test/command/observable outcome that proves it done), and References. No internal RFC/PRD/ticket references embedded in the text — the task must be executable without re-reading a parent doc.";
@@ -168,7 +168,7 @@ export const listDocumentsInputSchema = z.object({
     .uuid()
     .optional()
     .describe('Only list documents inside this folder. Omit for the full folder tree.'),
-  compact: z.boolean().optional().describe(COMPACT_DESCRIPTION),
+  verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
 export const createFolderInputSchema = z.object({
@@ -212,6 +212,7 @@ export const getNoteInputSchema = z.object({
 
 export const listNotesInputSchema = z.object({
   project_id: z.string().uuid(),
+  verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
 export const createShareLinkInputSchema = z.object({
@@ -588,6 +589,7 @@ export const updateGoalInputSchema = z.object({
 
 export const getGoalInputSchema = z.object({
   goal_id: z.string().uuid(),
+  verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
 export const listGoalsInputSchema = z.object({
@@ -612,6 +614,7 @@ export const getNextTaskInputSchema = z.object({
       'Scope the frontier to a specific goal. When omitted, uses the project sole active goal.',
     ),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
+  verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
 export const claimTaskInputSchema = z.object({
@@ -632,7 +635,7 @@ export const listTasksInputSchema = z.object({
   kind: z.enum(taskKinds).optional(),
   priority: z.enum(taskPriorities).optional(),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
-  compact: z.boolean().optional().describe(COMPACT_DESCRIPTION),
+  verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
 export const listTagsInputSchema = z.object({

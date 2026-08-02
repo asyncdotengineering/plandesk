@@ -597,37 +597,37 @@ describe('createMcpApp', () => {
     });
   });
 
-  it('list_tasks(compact) omits description; full mode is unchanged (#28)', async () => {
+  it('list_tasks omits description by default and includes it with verbose (#28)', async () => {
     await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const client = await connectClient(baseUrl);
       try {
         await createTask(db, { projectId, label: 'With body', description: 'a long spec body' });
 
-        const full = await client.callTool({
+        const summary = await client.callTool({
           name: 'list_tasks',
           arguments: { project_id: projectId },
         });
-        const fullPayload = JSON.parse(
-          (full.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
-        ) as { tasks: Array<{ description: string | null; label: string }> };
-        expect(fullPayload.tasks[0]?.description).toBe('a long spec body');
-
-        const compact = await client.callTool({
-          name: 'list_tasks',
-          arguments: { project_id: projectId, compact: true },
-        });
-        const compactPayload = JSON.parse(
-          (compact.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        const summaryPayload = JSON.parse(
+          (summary.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
         ) as { tasks: Array<Record<string, unknown>> };
-        expect(compactPayload.tasks[0]?.label).toBe('With body');
-        expect(compactPayload.tasks[0]).not.toHaveProperty('description');
+        expect(summaryPayload.tasks[0]?.label).toBe('With body');
+        expect(summaryPayload.tasks[0]).not.toHaveProperty('description');
+
+        const verbose = await client.callTool({
+          name: 'list_tasks',
+          arguments: { project_id: projectId, verbose: true },
+        });
+        const verbosePayload = JSON.parse(
+          (verbose.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { tasks: Array<{ description: string | null }> };
+        expect(verbosePayload.tasks[0]?.description).toBe('a long spec body');
       } finally {
         await client.close();
       }
     });
   });
 
-  it('list_documents(compact) omits body in both flat and tree shapes; full mode is unchanged (#28)', async () => {
+  it('list_documents omits body by default in both shapes and includes it with verbose (#28)', async () => {
     await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const client = await connectClient(baseUrl);
       try {
@@ -648,42 +648,41 @@ describe('createMcpApp', () => {
         });
         await createDocument(db, { projectId, title: 'At root', body: '<p>root body</p>' });
 
-        const fullTree = await client.callTool({
+        const summaryTree = await client.callTool({
           name: 'list_documents',
           arguments: { project_id: projectId },
         });
-        const fullTreePayload = JSON.parse(
-          (fullTree.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
-        ) as {
-          documents: Array<{ body: string | null }>;
-          folders: Array<{ documents: Array<{ body: string | null }> }>;
-        };
-        expect(fullTreePayload.documents[0]?.body).toBe('<p>root body</p>');
-        expect(fullTreePayload.folders[0]?.documents[0]?.body).toBe('<p>secret body</p>');
-
-        const compactTree = await client.callTool({
-          name: 'list_documents',
-          arguments: { project_id: projectId, compact: true },
-        });
-        const compactTreePayload = JSON.parse(
-          (compactTree.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        const summaryTreePayload = JSON.parse(
+          (summaryTree.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
         ) as {
           documents: Array<Record<string, unknown>>;
           folders: Array<{ documents: Array<Record<string, unknown>> }>;
         };
-        expect(compactTreePayload.documents[0]?.title).toBe('At root');
-        expect(compactTreePayload.documents[0]).not.toHaveProperty('body');
-        expect(compactTreePayload.folders[0]?.documents[0]).not.toHaveProperty('body');
+        expect(summaryTreePayload.documents[0]).not.toHaveProperty('body');
+        expect(summaryTreePayload.folders[0]?.documents[0]).not.toHaveProperty('body');
 
-        const compactFlat = await client.callTool({
+        const verboseTree = await client.callTool({
           name: 'list_documents',
-          arguments: { project_id: projectId, folder_id: folderId, compact: true },
+          arguments: { project_id: projectId, verbose: true },
         });
-        const compactFlatPayload = JSON.parse(
-          (compactFlat.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        const verboseTreePayload = JSON.parse(
+          (verboseTree.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as {
+          documents: Array<{ body: string | null }>;
+          folders: Array<{ documents: Array<{ body: string | null }> }>;
+        };
+        expect(verboseTreePayload.documents[0]?.body).toBe('<p>root body</p>');
+        expect(verboseTreePayload.folders[0]?.documents[0]?.body).toBe('<p>secret body</p>');
+
+        const summaryFlat = await client.callTool({
+          name: 'list_documents',
+          arguments: { project_id: projectId, folder_id: folderId },
+        });
+        const summaryFlatPayload = JSON.parse(
+          (summaryFlat.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
         ) as { documents: Array<Record<string, unknown>> };
-        expect(compactFlatPayload.documents[0]?.title).toBe('In folder');
-        expect(compactFlatPayload.documents[0]).not.toHaveProperty('body');
+        expect(summaryFlatPayload.documents[0]?.title).toBe('In folder');
+        expect(summaryFlatPayload.documents[0]).not.toHaveProperty('body');
       } finally {
         await client.close();
       }
@@ -739,6 +738,20 @@ describe('createMcpApp', () => {
       const listText = listContent[0]?.type === 'text' ? (listContent[0].text ?? '{}') : '{}';
       const listPayload = JSON.parse(listText) as { notes: Array<{ id: string }> };
       expect(listPayload.notes.some((n) => n.id === noteId)).toBe(true);
+
+      const summaryPayload = JSON.parse(listText) as {
+        notes: Array<Record<string, unknown>>;
+      };
+      expect(summaryPayload.notes[0]).not.toHaveProperty('body');
+      const verboseListed = await client.callTool({
+        name: 'list_notes',
+        arguments: { project_id: projectId, verbose: true },
+      });
+      const verboseListText =
+        (verboseListed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+      expect((JSON.parse(verboseListText) as { notes: Array<{ body: string | null }> }).notes[0]?.body).toContain(
+        '<h2>',
+      );
 
       const got = await client.callTool({ name: 'get_note', arguments: { note_id: noteId } });
       const gotContent = got.content as Array<{ type: string; text?: string }>;
@@ -1215,9 +1228,21 @@ describe('createMcpApp', () => {
       const fetchedText =
         (fetched.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
       const fetchedPayload = JSON.parse(fetchedText) as {
-        goal: { cycle_tasks: Array<{ id: string }> };
+        goal: { cycle_tasks: Array<Record<string, unknown> & { id: string }> };
       };
       expect(fetchedPayload.goal.cycle_tasks.map((row) => row.id)).toEqual([task.id]);
+      expect(fetchedPayload.goal.cycle_tasks[0]).not.toHaveProperty('description');
+
+      const verboseFetched = await client.callTool({
+        name: 'get_goal',
+        arguments: { goal_id: createdPayload.goal.id, verbose: true },
+      });
+      const verboseFetchedText =
+        (verboseFetched.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+      const verboseFetchedPayload = JSON.parse(verboseFetchedText) as {
+        goal: { cycle_tasks: Array<{ description: string | null }> };
+      };
+      expect(verboseFetchedPayload.goal.cycle_tasks[0]?.description).toBeNull();
 
       const updated = await client.callTool({
         name: 'update_goal',
@@ -1798,7 +1823,12 @@ describe('createMcpApp', () => {
 
   it('get_next_task returns actionable task and blocked context', async () => {
     await withMcpServer(async ({ baseUrl, projectId, db }) => {
-      const actionable = await createTask(db, { projectId, label: 'Actionable', status: 'todo' });
+      const actionable = await createTask(db, {
+        projectId,
+        label: 'Actionable',
+        status: 'todo',
+        description: 'action body',
+      });
       const prerequisite = await createTask(db, {
         projectId,
         label: 'Prerequisite',
@@ -1824,8 +1854,11 @@ describe('createMcpApp', () => {
       const payload = JSON.parse(text) as {
         next: {
           reason: string;
-          next_task: { id: string; label: string } | null;
-          blocked: Array<{ task: { id: string }; waiting_on: Array<{ id: string }> }>;
+          next_task: (Record<string, unknown> & { id: string; label: string }) | null;
+          blocked: Array<{
+            task: Record<string, unknown> & { id: string };
+            waiting_on: Array<Record<string, unknown> & { id: string }>;
+          }>;
         };
       };
       expect(payload.next.reason).toBe('ok');
@@ -1833,6 +1866,24 @@ describe('createMcpApp', () => {
       expect(payload.next.blocked).toHaveLength(1);
       expect(payload.next.blocked[0]?.task.id).toBe(blocked.id);
       expect(payload.next.blocked[0]?.waiting_on.map((task) => task.id)).toEqual([prerequisite.id]);
+      expect(payload.next.next_task).toHaveProperty('description', 'action body');
+      expect(payload.next.blocked[0]?.task).not.toHaveProperty('description');
+      expect(payload.next.blocked[0]?.waiting_on[0]).toEqual({
+        id: prerequisite.id,
+        label: 'Prerequisite',
+        status: 'todo',
+      });
+      const descriptionsByTask = new Map<string, number>();
+      const responseTasks = [
+        ...(payload.next.next_task ? [payload.next.next_task] : []),
+        ...payload.next.blocked.flatMap(({ task, waiting_on }) => [task, ...waiting_on]),
+      ];
+      for (const task of responseTasks) {
+        if (Object.prototype.hasOwnProperty.call(task, 'description')) {
+          descriptionsByTask.set(task.id, (descriptionsByTask.get(task.id) ?? 0) + 1);
+        }
+      }
+      expect([...descriptionsByTask.values()].every((count) => count <= 1)).toBe(true);
 
       await client.close();
     });

@@ -39,7 +39,13 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from '@plandesk/db';
-import { serializeTask, type PaginationParams } from '../serialize.js';
+import {
+  serializeTask,
+  serializeTaskSummary,
+  type PaginationParams,
+  type SerializedTask,
+  type SerializedTaskSummary,
+} from '../serialize.js';
 import { serializeActor } from '../write-actor.js';
 import { assertPermission, resolveOrgId, resolveWriteActor, type OrgScopedDeps } from './org-scope.js';
 import {
@@ -50,8 +56,6 @@ import {
 } from './revision-capture.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 import { normalizeTagName } from './tags.js';
-
-type SerializedTask = ReturnType<typeof serializeTask>;
 
 export class InvalidGoalReferenceError extends Error {
   constructor(goalId: string) {
@@ -70,7 +74,7 @@ export type NextActionableReason =
 export type NextActionableResult = {
   next_task: SerializedTask | null;
   reason: NextActionableReason;
-  blocked: Array<{ task: SerializedTask; waiting_on: SerializedTask[] }>;
+  blocked: Array<{ task: SerializedTaskSummary; waiting_on: SerializedTaskSummary[] }>;
 };
 
 export type ClaimTaskResult =
@@ -496,7 +500,7 @@ export function createTaskService(deps: TaskServiceDeps) {
     // prerequisite completion is still evaluated against all tasks in the project.
     async nextActionable(
       projectId: string,
-      filter: { goalId?: string; tags?: string[] } = {},
+      filter: { goalId?: string; tags?: string[]; verbose?: boolean } = {},
     ): Promise<NextActionableResult | undefined> {
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
@@ -536,6 +540,9 @@ export function createTaskService(deps: TaskServiceDeps) {
           ? await taskIdsWithAnyTagName(db, projectId, filter.tags.map(normalizeTagName))
           : undefined;
       const serialize = (task: Task) => serializeTask(task, tagsByTask.get(task.id) ?? []);
+      const serializeBlocked = filter.verbose
+        ? serialize
+        : (task: Task): SerializedTaskSummary => serializeTaskSummary(task);
       const prerequisites = buildPrerequisiteMap(edges);
 
       if (tasks.length === 0) {
@@ -563,11 +570,11 @@ export function createTaskService(deps: TaskServiceDeps) {
           }
         } else {
           blocked.push({
-            task: serialize(task),
+            task: serializeBlocked(task),
             waiting_on: waitingIds
               .map((id) => taskById.get(id))
               .filter((row): row is Task => row !== undefined)
-              .map(serialize),
+              .map(serializeTaskSummary),
           });
         }
       }

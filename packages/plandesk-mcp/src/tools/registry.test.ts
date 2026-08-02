@@ -4,6 +4,9 @@ import {
   createProjectInputSchema,
   createTaskInputSchema,
   getNextTaskInputSchema,
+  getGoalInputSchema,
+  listDocumentsInputSchema,
+  listNotesInputSchema,
   getRevisionInputSchema,
   listCommentsInputSchema,
   listRevisionsInputSchema,
@@ -198,6 +201,22 @@ describe('tool registry tag schemas', () => {
     expect(
       createTaskInputSchema.safeParse({ project_id: PROJECT_ID, label: 'T', tags: [''] }).success,
     ).toBe(false);
+  });
+
+  it('uses one verbose projection control across MCP read tools', () => {
+    expect(listTasksInputSchema.safeParse({ project_id: PROJECT_ID, verbose: true }).success).toBe(
+      true,
+    );
+    expect(
+      listDocumentsInputSchema.safeParse({ project_id: PROJECT_ID, verbose: true }).success,
+    ).toBe(true);
+    expect(listNotesInputSchema.safeParse({ project_id: PROJECT_ID, verbose: true }).success).toBe(
+      true,
+    );
+    expect(getGoalInputSchema.safeParse({ goal_id: TASK_ID, verbose: true }).success).toBe(true);
+    expect(getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID, verbose: true }).success).toBe(
+      true,
+    );
   });
 
   it('update_task accepts tags including [] to clear the set', () => {

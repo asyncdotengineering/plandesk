@@ -10,7 +10,7 @@ export function createListTasksHandler(
   kind?: TaskKind;
   priority?: TaskPriority;
   tags?: string[];
-  compact?: boolean;
+  verbose?: boolean;
 }) => Promise<ToolResult> {
   return async (args) => {
     const tasks = await taskService.listByProject(args.project_id, {
@@ -22,7 +22,7 @@ export function createListTasksHandler(
     if (tasks === undefined) {
       return toolNotFound();
     }
-    if (!args.compact) {
+    if (args.verbose) {
       return toolSuccess('tasks', tasks);
     }
     return toolSuccess(

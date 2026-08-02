@@ -1,0 +1,11 @@
+{
+  "status": "blocked",
+  "claims": [
+    { "command": "pnpm build", "exit_code": 0 },
+    { "command": "pnpm --filter @plandesk/api test", "exit_code": 0 },
+    { "command": "pnpm --filter @plandesk/mcp test", "exit_code": 0 },
+    { "command": "pnpm exec turbo run test --force", "exit_code": 1 },
+    { "command": "pnpm validate", "exit_code": 0 }
+  ],
+  "question": "The full forced test gate fails in the web-owned src/routes-board.test.tsx because it cannot find /Couldn't load this board/i. Please resolve that unrelated web-stream failure before accepting task 1 as done."
+}
