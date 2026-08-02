@@ -83,6 +83,21 @@ export type NextActionableResult = {
   blocked: Array<{ task: SerializedTaskSummary; waiting_on: SerializedTaskSummary[] }>;
 };
 
+export type TaskGraphNode = {
+  id: string;
+  label: string;
+  status: TaskStatus;
+  depth: number;
+  prerequisites: string[];
+};
+
+export type TaskGraphResult = {
+  nodes: TaskGraphNode[];
+  roots: string[];
+  cycles: string[][];
+  actionable_if_released: string[];
+};
+
 export type ClaimTaskResult =
   | { claimed: true; task: SerializedTask }
   | { claimed: false; reason: 'taken_or_not_actionable' };
@@ -140,6 +155,122 @@ export function unfinishedPrerequisiteIds(
     }
   }
   return unfinished;
+}
+
+function canonicalCycle(cycle: string[]): string[] {
+  let best = cycle;
+  for (let offset = 1; offset < cycle.length; offset += 1) {
+    const rotated = [...cycle.slice(offset), ...cycle.slice(0, offset)];
+    if (rotated.join('\u0000') < best.join('\u0000')) {
+      best = rotated;
+    }
+  }
+  return best;
+}
+
+function findCycles(prerequisites: Map<string, string[]>, nodeIds: string[]): string[][] {
+  const state = new Map<string, 'unvisited' | 'visiting' | 'visited'>();
+  const stack: string[] = [];
+  const cycles = new Map<string, string[]>();
+
+  const visit = (id: string): void => {
+    const currentState = state.get(id) ?? 'unvisited';
+    if (currentState === 'visited') {
+      return;
+    }
+    if (currentState === 'visiting') {
+      const start = stack.indexOf(id);
+      if (start >= 0) {
+        const cycle = canonicalCycle(stack.slice(start));
+        cycles.set(cycle.join('\u0000'), cycle);
+      }
+      return;
+    }
+
+    state.set(id, 'visiting');
+    stack.push(id);
+    for (const prerequisite of prerequisites.get(id) ?? []) {
+      visit(prerequisite);
+    }
+    stack.pop();
+    state.set(id, 'visited');
+  };
+
+  for (const id of nodeIds) {
+    visit(id);
+  }
+  return [...cycles.values()].sort((a, b) => a.join('\u0000').localeCompare(b.join('\u0000')));
+}
+
+export function buildTaskGraph(
+  tasks: Task[],
+  edges: Edge[],
+  statusById: Map<string, TaskStatus> = new Map(tasks.map((task) => [task.id, task.status])),
+): TaskGraphResult {
+  const nodeIds = tasks.map((task) => task.id);
+  const nodeIdSet = new Set(nodeIds);
+  const derivedPrerequisites = buildPrerequisiteMap(edges);
+  const prerequisites = new Map<string, string[]>(
+    tasks.map((task) => [
+      task.id,
+      [...(derivedPrerequisites.get(task.id) ?? [])].filter((id) => nodeIdSet.has(id)),
+    ]),
+  );
+  const dependents = new Map<string, string[]>();
+  const indegree = new Map<string, number>();
+  for (const id of nodeIds) {
+    const taskPrerequisites = prerequisites.get(id) ?? [];
+    indegree.set(id, taskPrerequisites.length);
+    for (const prerequisite of taskPrerequisites) {
+      const dependentIds = dependents.get(prerequisite) ?? [];
+      dependentIds.push(id);
+      dependents.set(prerequisite, dependentIds);
+    }
+  }
+
+  const depths = new Map<string, number>();
+  const queue = nodeIds.filter((id) => indegree.get(id) === 0);
+  for (const id of queue) {
+    depths.set(id, 0);
+  }
+  for (let index = 0; index < queue.length; index += 1) {
+    const prerequisite = queue[index];
+    if (prerequisite === undefined) {
+      continue;
+    }
+    for (const dependent of dependents.get(prerequisite) ?? []) {
+      depths.set(dependent, Math.max(depths.get(dependent) ?? 0, (depths.get(prerequisite) ?? 0) + 1));
+      const remaining = (indegree.get(dependent) ?? 0) - 1;
+      indegree.set(dependent, remaining);
+      if (remaining === 0) {
+        queue.push(dependent);
+      }
+    }
+  }
+
+  const cycles = findCycles(prerequisites, nodeIds);
+  const nodes = tasks.map((task) => ({
+    id: task.id,
+    label: task.label,
+    status: task.status,
+    depth: depths.get(task.id) ?? 0,
+    prerequisites: prerequisites.get(task.id) ?? [],
+  }));
+  const roots = nodes.filter((node) => node.prerequisites.length === 0).map((node) => node.id);
+  const actionableIfReleased = tasks
+    .filter(
+      (task) =>
+        (task.status === 'todo' || task.status === 'scope') &&
+        unfinishedPrerequisiteIds(task.id, derivedPrerequisites, statusById).length === 0,
+    )
+    .map((task) => task.id);
+
+  return {
+    nodes,
+    roots,
+    cycles,
+    actionable_if_released: actionableIfReleased,
+  };
 }
 
 export type TaskServiceDeps = OrgScopedDeps & {
@@ -628,6 +759,29 @@ export function createTaskService(deps: TaskServiceDeps) {
       }
 
       return { next_task: nextTask, reason: 'ok', blocked };
+    },
+
+    async getTaskGraph(projectId: string, goalId?: string): Promise<TaskGraphResult | undefined> {
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+
+      const goals = await listGoals(db, projectId);
+      if (goalId !== undefined && !goals.some((goal) => goal.id === goalId)) {
+        return undefined;
+      }
+
+      const tasks = (await listTasks(db, projectId)).sort(
+        (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+      );
+      const graphTasks = goalId === undefined ? tasks : tasks.filter((task) => task.goalId === goalId);
+      const statusById = new Map(tasks.map((task) => [task.id, task.status]));
+      return buildTaskGraph(graphTasks, await listEdges(db, projectId), statusById);
     },
   };
 }

@@ -196,7 +196,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(58);
+      expect(names).toHaveLength(59);
       await client.close();
     });
   });
@@ -1983,6 +1983,59 @@ describe('createMcpApp', () => {
       });
       expect(result.isError).toBe(true);
       await client.close();
+    });
+  });
+
+  it('get_task_graph returns the goal dependency read model', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db, services }) => {
+      const goal = await services.goalService.create(projectId, { objective: 'Graph goal' });
+      if (!goal) {
+        throw new Error('expected graph goal');
+      }
+      const root = await createTask(db, {
+        projectId,
+        goalId: goal.id,
+        label: 'Graph root',
+        status: 'scope',
+      });
+      const leaf = await createTask(db, {
+        projectId,
+        goalId: goal.id,
+        label: 'Graph leaf',
+        status: 'scope',
+      });
+      await createEdge(db, {
+        projectId,
+        fromTaskId: leaf.id,
+        toTaskId: root.id,
+        label: 'depends_on',
+      });
+
+      const client = await connectClient(baseUrl);
+      try {
+        const result = await client.callTool({
+          name: 'get_task_graph',
+          arguments: { project_id: projectId, goal_id: goal.id },
+        });
+        expect(result.isError).not.toBe(true);
+        const payload = JSON.parse(
+          (result.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as {
+          nodes: Array<{ id: string; depth: number; prerequisites: string[] }>;
+          roots: string[];
+          cycles: string[][];
+          actionable_if_released: string[];
+        };
+        expect(payload.nodes).toEqual([
+          { id: root.id, label: 'Graph root', status: 'scope', depth: 0, prerequisites: [] },
+          { id: leaf.id, label: 'Graph leaf', status: 'scope', depth: 1, prerequisites: [root.id] },
+        ]);
+        expect(payload.roots).toEqual([root.id]);
+        expect(payload.cycles).toEqual([]);
+        expect(payload.actionable_if_released).toEqual([root.id]);
+      } finally {
+        await client.close();
+      }
     });
   });
 

@@ -302,6 +302,51 @@ describe('taskService', () => {
     ).toBeUndefined();
   });
 
+  it('serves a goal task graph with depth, roots, cycles, and release actionability', async () => {
+    const service = createService();
+    const goal = await createGoal(db, { projectId, objective: 'Graph' });
+    const root = await createTask(db, { projectId, goalId: goal.id, label: 'Root', status: 'scope' });
+    const middle = await createTask(db, {
+      projectId,
+      goalId: goal.id,
+      label: 'Middle',
+      status: 'scope',
+    });
+    const leaf = await createTask(db, { projectId, goalId: goal.id, label: 'Leaf', status: 'scope' });
+    await createEdge(db, {
+      projectId,
+      fromTaskId: middle.id,
+      toTaskId: root.id,
+      label: 'depends_on',
+    });
+    await createEdge(db, {
+      projectId,
+      fromTaskId: middle.id,
+      toTaskId: leaf.id,
+      label: 'blocks',
+    });
+
+    const graph = await service.getTaskGraph(projectId, goal.id);
+    expect(graph?.nodes).toEqual([
+      expect.objectContaining({ id: root.id, depth: 0, prerequisites: [] }),
+      expect.objectContaining({ id: middle.id, depth: 1, prerequisites: [root.id] }),
+      expect.objectContaining({ id: leaf.id, depth: 2, prerequisites: [middle.id] }),
+    ]);
+    expect(graph?.roots).toEqual([root.id]);
+    expect(graph?.cycles).toEqual([]);
+    expect(graph?.actionable_if_released).toEqual([root.id]);
+
+    await createEdge(db, {
+      projectId,
+      fromTaskId: root.id,
+      toTaskId: leaf.id,
+      label: 'depends_on',
+    });
+    const cyclic = await service.getTaskGraph(projectId, goal.id);
+    expect(cyclic?.cycles).toHaveLength(1);
+    expect(new Set(cyclic?.cycles[0])).toEqual(new Set([root.id, leaf.id, middle.id]));
+  });
+
   it('updates a task successfully', async () => {
     const service = createTaskService({ db, orgId });
     const created = await createTask(db, { projectId, label: 'Emit', status: 'todo' });

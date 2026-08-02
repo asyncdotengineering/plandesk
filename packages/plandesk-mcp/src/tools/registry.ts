@@ -626,6 +626,11 @@ export const getNextTaskInputSchema = z.object({
   verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
+export const getTaskGraphInputSchema = z.object({
+  project_id: z.string().uuid(),
+  goal_id: z.string().uuid().optional().describe('Scope the graph to one goal. Omit for the whole project.'),
+});
+
 export const claimTaskInputSchema = z.object({
   task_id: z.string().uuid(),
   agent_ref: z
@@ -773,6 +778,7 @@ export const v1ToolNames = [
   'resume_goal',
   'complete_goal',
   'get_next_task',
+  'get_task_graph',
   'claim_task',
   'get_task',
   'list_tasks',
@@ -836,6 +842,7 @@ export const v1ToolSchemas = {
   resume_goal: goalLifecycleInputSchema,
   complete_goal: completeGoalInputSchema,
   get_next_task: getNextTaskInputSchema,
+  get_task_graph: getTaskGraphInputSchema,
   claim_task: claimTaskInputSchema,
   get_task: getTaskInputSchema,
   list_tasks: listTasksInputSchema,

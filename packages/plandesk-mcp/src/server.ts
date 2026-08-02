@@ -41,6 +41,7 @@ import {
 } from './tools/goal-lifecycle.js';
 import { createClaimTaskHandler } from './tools/claim-task.js';
 import { createGetNextTaskHandler } from './tools/get-next-task.js';
+import { createGetTaskGraphHandler } from './tools/get-task-graph.js';
 import { createGetProjectHandler } from './tools/get-project.js';
 import { createGetTaskHandler } from './tools/get-task.js';
 import { createListTasksHandler } from './tools/list-tasks.js';
@@ -102,6 +103,7 @@ import {
   completeGoalInputSchema,
   goalLifecycleInputSchema,
   getNextTaskInputSchema,
+  getTaskGraphInputSchema,
   getProjectInputSchema,
   listCommentsInputSchema,
   listArtifactCommentsInputSchema,
@@ -637,6 +639,18 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       inputSchema: claimTaskInputSchema.shape,
     },
     createClaimTaskHandler(services.taskService),
+  );
+
+  server.registerTool(
+    'get_task_graph',
+    {
+      title: 'Get Task Graph',
+      description:
+        'Return the task dependency graph with prerequisite fan-in, depth, roots, detected cycles, and the tasks actionable if every scope task were released. Optionally scope to one goal.',
+      inputSchema: getTaskGraphInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createGetTaskGraphHandler(services.taskService),
   );
 
   server.registerTool(

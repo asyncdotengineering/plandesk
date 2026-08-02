@@ -86,6 +86,7 @@ import {
   createGetDocumentHandler,
   createGetGoalHandler,
   createGetNextTaskHandler,
+  createGetTaskGraphHandler,
   createGetNoteHandler,
   createGetPrototypeHandler,
   createGetProjectHandler,
@@ -173,6 +174,7 @@ const MCP_TOOLS = [
   'complete_goal',
   'get_next_task',
   'claim_task',
+  'get_task_graph',
   'get_task',
   'list_tasks',
   'list_tags',
@@ -849,6 +851,14 @@ async function runMcpForeignSweep(
       'get_next_task',
       () =>
         createGetNextTaskHandler(s.taskService)({
+          project_id: target.project.id,
+          goal_id: target.activeGoal.id,
+        }),
+    ],
+    [
+      'get_task_graph',
+      () =>
+        createGetTaskGraphHandler(s.taskService)({
           project_id: target.project.id,
           goal_id: target.activeGoal.id,
         }),
