@@ -1,8 +1,9 @@
 # Browser harness — prototype frame contract
 
 Real-browser (Chromium / Playwright) checks for behaviour jsdom cannot observe:
-sandbox enforcement, CSP, opaque-origin frames, and later shim/postMessage
-contracts. This suite is **not** part of `vitest run` / `pnpm test`.
+sandbox enforcement, CSP headers on the render endpoint, opaque-origin frames,
+and later shim/postMessage contracts. This suite is **not** part of
+`vitest run` / `pnpm test`.
 
 ## Run
 
@@ -20,33 +21,43 @@ same binary `scripts/validate.sh` uses.
 
 ## Layout
 
-| path                 | role                                                                                      |
-| -------------------- | ----------------------------------------------------------------------------------------- |
-| `fixtures/server.ts` | ephemeral `plandesk serve`, health poll, seed project + html/markdown artifacts, teardown |
-| `fixtures/frame.ts`  | parent page that frames HTML with `sandbox="allow-scripts"` (mirrors `sandboxForTarget`)  |
-| `smoke.spec.ts`      | discriminative smoke: framed script `postMessage`s; fails if `allow-scripts` is removed   |
+| path                 | role                                                                                          |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| `fixtures/server.ts` | ephemeral `plandesk serve`, health poll, seed project + html/markdown artifacts, teardown     |
+| `fixtures/frame.ts`  | `mountHtmlArtifactFrame` — frames a **served** render URL with `sandbox="allow-scripts"`      |
+| `smoke.spec.ts`      | discriminative smoke: framed script `postMessage`s; fails if `allow-scripts` is removed       |
+| `csp.spec.ts`        | header-borne CSP: direct unframed nav, one assertion per escape vector, meta-removal, own-nav |
+
+## Mounting
+
+Screens are mounted by URL:
+
+```
+${baseUrl}/api/v1/artifacts/:id/render
+```
+
+Do **not** use `srcdoc` — it cannot prove header-borne CSP (`connect-src 'none'`,
+the CSP `sandbox` directive). `mountHtmlArtifactFrame` is the single mounting
+primitive; smoke and CSP specs both use it (or the same iframe.src pattern).
 
 ## Adding one assertion per requirement
 
 Each Design §10 REQ should become **one** focused spec (or one `test()` inside a
 describe), not a second harness. Pattern:
 
-1. Reuse `startHarnessServer` (or extend the seed) so the artifact under test is
-   real API content, not a hand-rolled express app.
-2. Frame it the way the product will (`fixtures/frame.ts`, or the shim once it
-   exists) — assert against the **contract** (REQ text / CSP / sandbox flags),
-   not against incidental markup you just wrote.
+1. Reuse `startHarnessServer` (or `seedHtmlArtifact`) so the artifact under test
+   is real API content, not a hand-rolled express app.
+2. Frame it via `mountHtmlArtifactFrame` / `artifactRenderUrl` — assert against
+   the **contract** (REQ text / CSP / sandbox flags), not incidental markup.
 3. Prefer an observation the browser can falsify (message received, fetch
-   failed, script did not run) over string checks. String CSP checks already
-   live in `packages/plandesk-cli/src/preview.test.ts`; do not duplicate them
-   here.
+   failed, script did not run) over string checks. String CSP checks also live
+   in `@plandesk/api` (`html-artifact.test.ts`) and the CLI preview tests.
 4. Bound every wait. Absence of an event must fail the test, not hang CI.
 
 ### Consuming tasks (extend this harness; do not invent another)
 
 - **Build the prototype frame shim** — modes, selection, navigation, wheel, highlight
 - **Add Arrange, Interact and Comment modes** — canvas chrome and pointer routing
-- **Serve screens from a render endpoint** — origin-parameterised CSP on the serve path
 
-Those tasks own the shim, canvas modes, and render route. This package only
-owns the runner and the fixture lifecycle they plug into.
+Those tasks own the shim and canvas modes. The render route is in place; this
+package owns the runner and the fixture lifecycle they plug into.

@@ -145,6 +145,12 @@ export { InvalidFolderError } from './services/folders.js';
 export { InvalidPrototypeError } from './services/prototypes.js';
 export { InvalidNoteError } from './services/notes.js';
 export { InvalidArtifactError } from './services/artifacts.js';
+export {
+  HTML_ARTIFACT_SHIM_STUB,
+  htmlArtifactCsp,
+  resolveRenderOrigin,
+  wrapHtmlArtifactForRender,
+} from './html-artifact.js';
 export { InvalidTagError } from './services/tags.js';
 export { InvalidViewError } from './services/views.js';
 export { InvalidCommentError } from './services/comments.js';
@@ -152,10 +158,7 @@ export { InvalidCanvasError } from './services/canvas.js';
 export { InvalidAgentRunError } from './services/agent-runs.js';
 export { InvalidScaffoldError, InvalidOverviewDocumentError } from './services/projects.js';
 export { InvalidShareError, type ShareService } from './services/share.js';
-export {
-  InvalidRevisionQueryError,
-  type RevisionService,
-} from './services/revisions.js';
+export { InvalidRevisionQueryError, type RevisionService } from './services/revisions.js';
 export {
   InvalidTriageError,
   InvalidTriageInputError,

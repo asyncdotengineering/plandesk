@@ -1,5 +1,10 @@
 import { Hono } from 'hono';
 import { artifactKinds } from '@plandesk/db';
+import {
+  htmlArtifactCsp,
+  resolveRenderOrigin,
+  wrapHtmlArtifactForRender,
+} from '../html-artifact.js';
 import { InvalidArtifactError, type ArtifactService } from '../services/artifacts.js';
 
 type CreateArtifactBody = {
@@ -67,6 +72,29 @@ export function createArtifactsRouter(artifactService: ArtifactService): Hono {
       return c.json({ error: 'not_found' }, 404);
     }
     return c.json(artifact);
+  });
+
+  /**
+   * Serve a screen as executable HTML with an origin-parameterised CSP.
+   * Org isolation: `artifactService.get` refuses cross-org ids (404) — org A
+   * cannot render org B's screen by guessing its id. `?v=` is accepted as a
+   * cache-buster only; it does not change the body.
+   */
+  router.get('/artifacts/:id/render', async (c) => {
+    const artifact = await artifactService.get(c.req.param('id'));
+    if (!artifact || artifact.kind !== 'html') {
+      return c.json({ error: 'not_found' }, 404);
+    }
+
+    const origin = resolveRenderOrigin(c.req.url);
+    const csp = htmlArtifactCsp(origin);
+    const body = wrapHtmlArtifactForRender(artifact.content, csp);
+
+    c.header('Content-Security-Policy', csp);
+    c.header('X-Content-Type-Options', 'nosniff');
+    c.header('Referrer-Policy', 'no-referrer');
+    c.header('Cache-Control', 'no-cache');
+    return c.html(body);
   });
 
   router.patch('/artifacts/:id', async (c) => {

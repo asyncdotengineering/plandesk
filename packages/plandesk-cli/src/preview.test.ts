@@ -9,6 +9,7 @@ import {
   MARKDOWN_ARTIFACT_CSP,
   annotationRequestHeaders,
   computeSelector,
+  htmlArtifactCsp,
   previewBackendBanner,
   renderChrome,
   renderHtmlArtifact,
@@ -63,7 +64,12 @@ describe('preview helpers', () => {
     const html = join(dir, 'b.HTML');
     writeFileSync(md, '# A');
     writeFileSync(html, '<h1>B</h1>');
-    const targets = resolvePreviewTargets([md, html, join(dir, 'missing.md'), join(dir, 'note.txt')]);
+    const targets = resolvePreviewTargets([
+      md,
+      html,
+      join(dir, 'missing.md'),
+      join(dir, 'note.txt'),
+    ]);
     expect(targets).toHaveLength(2);
     expect(targets[0]).toMatchObject({
       index: 0,
@@ -161,6 +167,20 @@ describe('preview helpers', () => {
   it('prepends the html CSP meta when there is no head', () => {
     const out = renderHtmlArtifact('<h1>bare</h1>');
     expect(out.startsWith('<meta http-equiv="Content-Security-Policy"')).toBe(true);
+  });
+
+  it('keeps HTML_ARTIFACT_CSP as a thin wrapper over htmlArtifactCsp', () => {
+    expect(HTML_ARTIFACT_CSP).toBe(htmlArtifactCsp('http://127.0.0.1'));
+    expect(HTML_ARTIFACT_CSP.startsWith('sandbox allow-scripts;')).toBe(true);
+    expect(HTML_ARTIFACT_CSP).toContain('img-src data: blob: http://127.0.0.1');
+    expect(HTML_ARTIFACT_CSP).toContain("script-src 'unsafe-inline' http://127.0.0.1");
+  });
+
+  it('renderHtmlArtifact accepts an origin-parameterised CSP override', () => {
+    const csp = htmlArtifactCsp('https://boards.example');
+    const out = renderHtmlArtifact('<h1>x</h1>', csp);
+    expect(out).toContain(csp);
+    expect(out).not.toContain(HTML_ARTIFACT_CSP);
   });
 
   it('uses distinct secure sandboxes for markdown and html frames', () => {

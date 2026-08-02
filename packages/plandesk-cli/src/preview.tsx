@@ -9,6 +9,7 @@ import { html, raw as unsafeRaw } from 'hono/html';
 import { marked } from 'marked';
 import markedShiki from 'marked-shiki';
 import { codeToHtml } from 'shiki';
+import { htmlArtifactCsp } from '@plandesk/api';
 import {
   addAnnotation,
   listAnnotations,
@@ -21,6 +22,8 @@ import {
   normalizeServerUrl,
   resolvePlandeskBinding,
 } from './connect-artifacts.js';
+
+export { htmlArtifactCsp };
 
 const require = createRequire(import.meta.url);
 let mermaidBundle: string | undefined;
@@ -38,8 +41,7 @@ marked.use(
       if (lang === 'mermaid') {
         const esc = code.replace(
           /[&<>]/g,
-          (character) =>
-            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[character as '&' | '<' | '>'],
+          (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[character as '&' | '<' | '>'],
         );
         return `<pre class="mermaid">${esc}</pre>`;
       }
@@ -52,10 +54,7 @@ marked.use(
       } catch {
         return `<pre><code>${code.replace(
           /[&<>]/g,
-          (character) =>
-            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[
-              character as '&' | '<' | '>'
-            ],
+          (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[character as '&' | '<' | '>'],
         )}</code></pre>`;
       }
     },
@@ -95,15 +94,16 @@ export function computeSelector(bodyText: string, exact: string, start: number):
 }
 
 /**
- * Strict, network-dead policy for a rendered HTML artifact. Mirrors the Claude
- * artifact model: no external requests (`connect-src 'none'`), inline styles
- * and scripts only, images limited to inline data. Applied both as a response
- * header and (by the caller) an in-document meta tag.
+ * Thin constant wrapper around `htmlArtifactCsp` for the local CLI previewer
+ * (loopback, no request URL at module load). Call sites that have a request
+ * should prefer `htmlArtifactCsp(new URL(c.req.url).origin)` instead.
+ *
+ * Names an explicit origin rather than `'self'` so the policy survives a proxy
+ * or CDN in front of the API; a browser spike showed `'self'` *does* match in
+ * opaque-origin framed docs when the policy arrived as a header — the old
+ * "matches nothing" rationale is stale.
  */
-export const HTML_ARTIFACT_CSP =
-  "default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; " +
-  "script-src 'unsafe-inline'; font-src data:; connect-src 'none'; " +
-  "base-uri 'none'; form-action 'none'";
+export const HTML_ARTIFACT_CSP = htmlArtifactCsp('http://127.0.0.1');
 
 /**
  * Markdown is rendered to static HTML and framed WITHOUT `allow-scripts`, so any
@@ -305,12 +305,15 @@ function contentTypeForPath(path: string): string {
 }
 
 /** Read an HTML artifact and inject a meta CSP that survives JS tampering. */
-export function renderHtmlArtifact(raw: string): string {
+export function renderHtmlArtifact(raw: string, csp: string = HTML_ARTIFACT_CSP): string {
   // Hono's raw() returns a branded string object whose serializer preserves the CSP verbatim.
+  //
+  // Keep the template on ONE line. It is a template literal, so a multi-line
+  // reformat puts newlines and indentation *inside the emitted tag* — which
+  // broke `renderHtmlArtifact('<h1>bare</h1>').startsWith('<meta http-equiv=')`.
+  // prettier-ignore
   // eslint-disable-next-line @typescript-eslint/no-base-to-string
-  const meta = html`<meta http-equiv="Content-Security-Policy" content="${unsafeRaw(
-    HTML_ARTIFACT_CSP,
-  )}">`.toString();
+  const meta = html`<meta http-equiv="Content-Security-Policy" content="${unsafeRaw(csp)}" />`.toString();
   if (/<head[\s>]/i.test(raw)) {
     return raw.replace(/<head([^>]*)>/i, `<head$1>${meta}`);
   }
@@ -596,10 +599,7 @@ export function renderChrome(targets: PreviewTarget[]): string {
       <body>
         <div class="tabs">
           {targets.map((target, index) => (
-            <button
-              class={`tab${index === 0 ? ' active' : ''}`}
-              data-idx={String(target.index)}
-            >
+            <button class={`tab${index === 0 ? ' active' : ''}`} data-idx={String(target.index)}>
               {target.name}
             </button>
           ))}
@@ -810,8 +810,9 @@ export function runPreview(options: RunPreviewOptions): number {
     }
     const artifact = readFileSync(target.path, 'utf8');
     if (target.kind === 'html') {
-      c.header('Content-Security-Policy', HTML_ARTIFACT_CSP);
-      return c.html(renderHtmlArtifact(artifact));
+      const csp = htmlArtifactCsp(new URL(c.req.url).origin);
+      c.header('Content-Security-Policy', csp);
+      return c.html(renderHtmlArtifact(artifact, csp));
     }
     c.header('Content-Security-Policy', MARKDOWN_ARTIFACT_CSP);
     return c.html(await renderMarkdownArtifact(artifact));

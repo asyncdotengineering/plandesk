@@ -12,22 +12,38 @@ import type { Page } from '@playwright/test';
  */
 export const HTML_FRAME_SANDBOX = 'allow-scripts';
 
+export type MountHtmlArtifactFrameOptions = {
+  /** Absolute render URL (`…/api/v1/artifacts/:id/render`). */
+  renderUrl: string;
+  sandbox?: string;
+};
+
 /**
- * Mounts an HTML artifact in a parent page framed exactly like the previewer
- * chrome: sandbox value from HTML_FRAME_SANDBOX, content via srcdoc.
+ * Mounts a served HTML screen in a parent page the way the product will:
+ * `sandbox` from HTML_FRAME_SANDBOX and `src` pointing at the render endpoint.
  *
  * Prefer installing the message listener in the same evaluate that appends the
  * iframe (see smoke.spec.ts) so setContent cannot wipe the handler.
  */
-export async function mountHtmlArtifactFrame(page: Page, htmlContent: string): Promise<void> {
+export async function mountHtmlArtifactFrame(
+  page: Page,
+  options: MountHtmlArtifactFrameOptions,
+): Promise<void> {
+  const sandbox = options.sandbox ?? HTML_FRAME_SANDBOX;
   await page.evaluate(
-    ({ html, sandbox }) => {
+    ({ renderUrl, sandbox: sandboxValue }) => {
       const iframe = document.createElement('iframe');
       iframe.id = 'harness-proto-frame';
-      iframe.setAttribute('sandbox', sandbox);
-      iframe.srcdoc = html;
+      iframe.setAttribute('sandbox', sandboxValue);
+      iframe.src = renderUrl;
       document.body.appendChild(iframe);
     },
-    { html: htmlContent, sandbox: HTML_FRAME_SANDBOX },
+    { renderUrl: options.renderUrl, sandbox },
   );
+}
+
+/** Build the product render URL for a seeded HTML artifact. */
+export function artifactRenderUrl(baseUrl: string, artifactId: string, revision?: string): string {
+  const url = `${baseUrl.replace(/\/$/, '')}/api/v1/artifacts/${artifactId}/render`;
+  return revision === undefined ? url : `${url}?v=${encodeURIComponent(revision)}`;
 }

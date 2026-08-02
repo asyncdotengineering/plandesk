@@ -8,12 +8,6 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const PLANDESK = join(REPO_ROOT, 'packages/plandesk-cli/bin/plandesk');
 
-/** Matches HTML_ARTIFACT_CSP in packages/plandesk-cli/src/preview.tsx */
-export const HTML_ARTIFACT_CSP =
-  "default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; " +
-  "script-src 'unsafe-inline'; font-src data:; connect-src 'none'; " +
-  "base-uri 'none'; form-action 'none'";
-
 /** Distinctive payload the smoke test waits for from the framed HTML artifact. */
 export const SMOKE_MESSAGE = {
   source: 'plandesk-browser-harness',
@@ -21,11 +15,14 @@ export const SMOKE_MESSAGE = {
   ok: true,
 } as const;
 
+/**
+ * Seeded HTML content for the smoke screen. CSP + shim are prepended by
+ * GET /artifacts/:id/render — do not embed them here.
+ */
 export const SMOKE_HTML_CONTENT = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="${HTML_ARTIFACT_CSP}" />
 </head>
 <body>
 <p id="probe">harness-smoke</p>
@@ -45,6 +42,8 @@ export type HarnessServer = {
   markdownArtifactId: string;
   htmlContent: string;
   markdownContent: string;
+  /** Create an additional HTML artifact and return its id. */
+  seedHtmlArtifact: (title: string, content: string) => Promise<string>;
   stop: () => Promise<void>;
 };
 
@@ -183,6 +182,14 @@ export async function startHarnessServer(): Promise<HarnessServer> {
       },
     );
 
+    const seedHtmlArtifact = async (title: string, content: string): Promise<string> => {
+      const created = await postJson<{ id: string }>(
+        `${baseUrl}/api/v1/projects/${project.id}/artifacts`,
+        { title, kind: 'html', content },
+      );
+      return created.id;
+    };
+
     return {
       baseUrl,
       projectId: project.id,
@@ -190,6 +197,7 @@ export async function startHarnessServer(): Promise<HarnessServer> {
       markdownArtifactId: markdownArtifact.id,
       htmlContent: htmlArtifact.content,
       markdownContent: markdownArtifact.content,
+      seedHtmlArtifact,
       stop,
     };
   } catch (error) {
