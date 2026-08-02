@@ -310,9 +310,33 @@ export type SerializedPrototypeLink = {
   raw_target: string;
 };
 
+export type SerializedPrototypeBoundaryLink = {
+  direction: 'exit' | 'arrive';
+  link_id: string;
+  local_artifact_id: string;
+  foreign_artifact_id: string;
+  foreign_title: string;
+  foreign_prototype_id: string;
+  foreign_prototype_name: string;
+  raw_target: string;
+};
+
+export type FlowCoverage = {
+  parseable: boolean;
+  parse_error: string | null;
+  planned: string[];
+  built: string[];
+  missing: string[];
+  unplanned: string[];
+  states_unverified: { screen: string; states: string[] }[];
+  unplanned_note: string | null;
+};
+
 export type SerializedPrototypeWithScreens = SerializedPrototype & {
   screens: SerializedArtifact[];
   links: SerializedPrototypeLink[];
+  boundary_links: SerializedPrototypeBoundaryLink[];
+  coverage: FlowCoverage;
 };
 
 export type PatchArtifactInput = {
@@ -349,7 +373,8 @@ export type SerializedComment = {
 export type CommentTargetType = 'document' | 'task' | 'note' | 'submission' | 'artifact';
 export type CommentTarget =
   | { type: 'document' | 'task' | 'note' | 'submission'; id: string }
-  | { type: 'artifact'; id: string; projectId: string };
+  | { type: 'artifact'; id: string; projectId: string }
+  | { type: 'portal-artifact'; id: string; shareToken: string; sessionToken: string };
 
 export type CreateCommentInput = {
   body: string;
@@ -361,6 +386,9 @@ export type PatchCommentInput = { body?: string; resolved?: boolean };
 function commentCollectionPath(target: CommentTarget): string {
   if (target.type === 'artifact') {
     return `/projects/${target.projectId}/artifact-comments`;
+  }
+  if (target.type === 'portal-artifact') {
+    return `/share/${encodeURIComponent(target.shareToken)}/artifact-comments`;
   }
   return `/${target.type}s/${target.id}/comments`;
 }
@@ -523,16 +551,37 @@ export type ShareLinkResult = {
   expires_at: string | null;
 };
 
-export function createTaskShare(id: string, expires: ShareTtl): Promise<ShareLinkResult> {
-  return request(`/tasks/${id}/share`, { method: 'POST', body: JSON.stringify({ expires }) });
+export function createTaskShare(
+  id: string,
+  expires: ShareTtl,
+  submit = false,
+): Promise<ShareLinkResult> {
+  return request(`/tasks/${id}/share`, {
+    method: 'POST',
+    body: JSON.stringify({ expires, submit }),
+  });
 }
 
-export function createDocumentShare(id: string, expires: ShareTtl): Promise<ShareLinkResult> {
-  return request(`/documents/${id}/share`, { method: 'POST', body: JSON.stringify({ expires }) });
+export function createDocumentShare(
+  id: string,
+  expires: ShareTtl,
+  submit = false,
+): Promise<ShareLinkResult> {
+  return request(`/documents/${id}/share`, {
+    method: 'POST',
+    body: JSON.stringify({ expires, submit }),
+  });
 }
 
-export function createPrototypeShare(id: string, expires: ShareTtl): Promise<ShareLinkResult> {
-  return request(`/prototypes/${id}/share`, { method: 'POST', body: JSON.stringify({ expires }) });
+export function createPrototypeShare(
+  id: string,
+  expires: ShareTtl,
+  submit = false,
+): Promise<ShareLinkResult> {
+  return request(`/prototypes/${id}/share`, {
+    method: 'POST',
+    body: JSON.stringify({ expires, submit }),
+  });
 }
 
 export type WorkspaceShareInput = {
@@ -704,6 +753,20 @@ export function patchArtifact(id: string, input: PatchArtifactInput): Promise<Se
   return request(`/artifacts/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
 }
 
+export function moveScreen(id: string, prototypeId: string): Promise<SerializedArtifact> {
+  return request(`/artifacts/${id}/move`, {
+    method: 'POST',
+    body: JSON.stringify({ prototype_id: prototypeId }),
+  });
+}
+
+export function copyScreen(id: string, prototypeId: string): Promise<SerializedArtifact> {
+  return request(`/artifacts/${id}/copy`, {
+    method: 'POST',
+    body: JSON.stringify({ prototype_id: prototypeId }),
+  });
+}
+
 export function createNote(projectId: string, input: CreateNoteInput): Promise<SerializedNote> {
   return request(`/projects/${projectId}/notes`, {
     method: 'POST',
@@ -731,10 +794,16 @@ export function listComments(
   if (opts?.includeResolved === true) {
     params.set('include_resolved', 'true');
   }
-  if (target.type === 'artifact') {
+  if (target.type === 'artifact' || target.type === 'portal-artifact') {
     params.set('artifact_id', target.id);
   }
   const query = params.toString();
+  if (target.type === 'portal-artifact') {
+    return requestPortalArtifactComments(
+      `${commentCollectionPath(target)}${query ? `?${query}` : ''}`,
+      target.sessionToken,
+    );
+  }
   return request(`${commentCollectionPath(target)}${query ? `?${query}` : ''}`);
 }
 
@@ -742,11 +811,37 @@ export function createComment(
   target: CommentTarget,
   input: CreateCommentInput,
 ): Promise<SerializedComment> {
-  const body = target.type === 'artifact' ? { artifact_id: target.id, ...input } : input;
+  const body =
+    target.type === 'artifact' || target.type === 'portal-artifact'
+      ? { artifact_id: target.id, ...input }
+      : input;
+  if (target.type === 'portal-artifact') {
+    return requestPortalArtifactComments(commentCollectionPath(target), target.sessionToken, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
   return request(commentCollectionPath(target), {
     method: 'POST',
     body: JSON.stringify(body),
   });
+}
+
+async function requestPortalArtifactComments<T>(
+  path: string,
+  sessionToken: string,
+  init?: RequestInit,
+): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set('Authorization', `Bearer ${sessionToken}`);
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const response = await fetch(`${BASE}${path}`, { ...init, headers });
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text());
+  }
+  return response.json() as Promise<T>;
 }
 
 export function patchComment(id: string, input: PatchCommentInput): Promise<SerializedComment> {

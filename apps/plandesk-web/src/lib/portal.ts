@@ -35,6 +35,7 @@ export type ClientViewPrototype = {
     content: string;
     x: number | null;
     y: number | null;
+    revision_id: string;
   }>;
   links: Array<{
     id: string;
@@ -190,6 +191,7 @@ function normalizePortalResponse(raw: PortalViewResponse): AnyClientView {
     tasks: projectView.tasks,
     edges: projectView.edges,
     documents: projectView.documents,
+    prototypes: projectView.prototypes,
     progress: projectView.progress,
     share: {
       audience_name: audienceName,
@@ -349,4 +351,64 @@ export async function listMySubmissions(
   }
 
   return (await response.json()) as PortalSubmission[];
+}
+
+export type PortalSerializedComment = {
+  id: string;
+  body: string;
+  passage: string | null;
+  anchor: string | null;
+  resolved: boolean;
+  created_at: string;
+};
+
+export async function listPortalArtifactComments(
+  shareToken: string,
+  sessionToken: string,
+  artifactId: string,
+): Promise<PortalSerializedComment[]> {
+  const response = await fetch(
+    `${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/artifact-comments?artifact_id=${encodeURIComponent(artifactId)}`,
+    { headers: { Authorization: `Bearer ${sessionToken}` } },
+  );
+  if (response.status === 401) {
+    throw new PortalUnauthorizedError();
+  }
+  if (!response.ok) {
+    throw new Error(`Portal error ${String(response.status)}: ${await response.text()}`);
+  }
+  return (await response.json()) as PortalSerializedComment[];
+}
+
+export async function createPortalArtifactComment(
+  shareToken: string,
+  sessionToken: string,
+  input: {
+    artifact_id: string;
+    body: string;
+    passage?: string | null;
+    anchor?: string | null;
+  },
+): Promise<PortalSerializedComment> {
+  const response = await fetch(
+    `${API_BASE}/api/v1/share/${encodeURIComponent(shareToken)}/artifact-comments`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify(input),
+    },
+  );
+  if (response.status === 401) {
+    throw new PortalUnauthorizedError();
+  }
+  if (response.status === 403) {
+    throw new PortalSubmitForbiddenError();
+  }
+  if (!response.ok) {
+    throw new Error(`Portal error ${String(response.status)}: ${await response.text()}`);
+  }
+  return (await response.json()) as PortalSerializedComment;
 }

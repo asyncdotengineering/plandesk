@@ -3,6 +3,7 @@ import {
   createEdge,
   createFolder,
   createPrototype as dbCreatePrototype,
+  getArtifact,
   getDocument,
   getLatestRevisionId,
   getPrototype as dbGetPrototype,
@@ -21,10 +22,15 @@ import {
   serializePrototype,
   serializePrototypeLink,
   type SerializedPrototype,
+  type SerializedPrototypeBoundaryLink,
   type SerializedPrototypeWithScreens,
 } from '../serialize.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
-import { flowDocumentTitle, seededFlowDocumentBody } from './prototype-flow.js';
+import {
+  computeFlowCoverage,
+  flowDocumentTitle,
+  seededFlowDocumentBody,
+} from './prototype-flow.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 
 export type PrototypeServiceDeps = OrgScopedDeps & {
@@ -171,10 +177,70 @@ export function createPrototypeService(deps: PrototypeServiceDeps) {
         }),
       );
       const screenIds = new Set(screens.map((s) => s.id));
-      const links = (await listPrototypeLinksByProject(db, prototype.projectId))
+      const allLinks = await listPrototypeLinksByProject(db, prototype.projectId);
+      const links = allLinks
         .filter((link) => screenIds.has(link.fromArtifactId))
         .map(serializePrototypeLink);
-      return { ...serializePrototype(prototype), screens, links };
+
+      const boundary_links: SerializedPrototypeBoundaryLink[] = [];
+      const prototypeNameById = new Map<string, string>();
+      for (const p of await dbListPrototypes(db, prototype.projectId)) {
+        prototypeNameById.set(p.id, p.name);
+      }
+
+      for (const link of allLinks) {
+        if (link.toArtifactId === null) {
+          continue;
+        }
+        const fromLocal = screenIds.has(link.fromArtifactId);
+        const toLocal = screenIds.has(link.toArtifactId);
+        if (fromLocal === toLocal) {
+          continue;
+        }
+
+        if (fromLocal) {
+          const foreign = await getArtifact(db, link.toArtifactId);
+          if (!foreign?.prototypeId) {
+            continue;
+          }
+          boundary_links.push({
+            direction: 'exit',
+            link_id: link.id,
+            local_artifact_id: link.fromArtifactId,
+            foreign_artifact_id: foreign.id,
+            foreign_title: foreign.title,
+            foreign_prototype_id: foreign.prototypeId,
+            foreign_prototype_name: prototypeNameById.get(foreign.prototypeId) ?? 'Unknown',
+            raw_target: link.rawTarget,
+          });
+        } else if (toLocal) {
+          const foreign = await getArtifact(db, link.fromArtifactId);
+          if (!foreign?.prototypeId) {
+            continue;
+          }
+          boundary_links.push({
+            direction: 'arrive',
+            link_id: link.id,
+            local_artifact_id: link.toArtifactId,
+            foreign_artifact_id: foreign.id,
+            foreign_title: foreign.title,
+            foreign_prototype_id: foreign.prototypeId,
+            foreign_prototype_name: prototypeNameById.get(foreign.prototypeId) ?? 'Unknown',
+            raw_target: link.rawTarget,
+          });
+        }
+      }
+
+      return {
+        ...serializePrototype(prototype),
+        screens,
+        links,
+        boundary_links,
+        coverage: computeFlowCoverage(
+          (await findFlowDocumentForPrototype(db, prototype.projectId, prototype.id))?.body,
+          screens.map((s) => s.title),
+        ),
+      };
     },
 
     async update(

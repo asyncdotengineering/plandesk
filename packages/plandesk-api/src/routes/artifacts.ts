@@ -42,6 +42,10 @@ type UpdateArtifactBody = {
   y?: number | null;
 };
 
+type MoveCopyBody = {
+  prototype_id?: string;
+};
+
 type MintRenderTokenBody = {
   prototype_ids?: unknown;
 };
@@ -200,6 +204,52 @@ export function createArtifactsRouter(
       return c.json({ error: 'not_found' }, 404);
     }
     return c.json(artifact);
+  });
+
+  router.post('/artifacts/:id/move', async (c) => {
+    const body = await c.req.json<MoveCopyBody>();
+    if (typeof body.prototype_id !== 'string' || body.prototype_id.trim() === '') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    try {
+      const artifact = await artifactService.move(c.req.param('id'), body.prototype_id);
+      if (!artifact) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+      return c.json(artifact);
+    } catch (error) {
+      const scan = screenScanErrorResponse(c, error);
+      if (scan) {
+        return scan;
+      }
+      if (error instanceof InvalidArtifactError) {
+        return c.json({ error: 'invalid_argument' }, 400);
+      }
+      throw error;
+    }
+  });
+
+  router.post('/artifacts/:id/copy', async (c) => {
+    const body = await c.req.json<MoveCopyBody>();
+    if (typeof body.prototype_id !== 'string' || body.prototype_id.trim() === '') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    try {
+      const artifact = await artifactService.copy(c.req.param('id'), body.prototype_id);
+      if (!artifact) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+      return c.json(artifact, 201);
+    } catch (error) {
+      const scan = screenScanErrorResponse(c, error);
+      if (scan) {
+        return scan;
+      }
+      if (error instanceof InvalidArtifactError) {
+        return c.json({ error: 'invalid_argument' }, 400);
+      }
+      throw error;
+    }
   });
 
   /**

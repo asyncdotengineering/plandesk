@@ -33,7 +33,9 @@ describe('tool registry tag schemas', () => {
     expect(v1ToolNames).toContain('list_prototypes');
     expect(v1ToolNames).toContain('get_prototype');
     expect(v1ToolNames).toContain('update_prototype');
-    expect(v1ToolNames).toHaveLength(56);
+    expect(v1ToolNames).toContain('move_screen');
+    expect(v1ToolNames).toContain('copy_screen');
+    expect(v1ToolNames).toHaveLength(58);
     for (const name of v1ToolNames) {
       expect(v1ToolSchemas[name]).toBeDefined();
     }
@@ -102,9 +104,9 @@ describe('tool registry tag schemas', () => {
     expect(
       createProjectInputSchema.safeParse({ name: 'P', repo_url: 'file:///tmp/x' }).success,
     ).toBe(false);
-    expect(
-      createProjectInputSchema.safeParse({ name: 'P', folder_path: '/etc' }).success,
-    ).toBe(false);
+    expect(createProjectInputSchema.safeParse({ name: 'P', folder_path: '/etc' }).success).toBe(
+      false,
+    );
     expect(
       createProjectInputSchema.safeParse({ name: 'P', folder_path: '../../other' }).success,
     ).toBe(false);
@@ -148,12 +150,12 @@ describe('tool registry tag schemas', () => {
     expect(
       createProjectInputSchema.safeParse({ name: 'P', folder_path: 'C:relative\\path' }).success,
     ).toBe(false);
-    expect(
-      createProjectInputSchema.safeParse({ name: 'P', folder_path: 'C:\\abs' }).success,
-    ).toBe(false);
-    expect(
-      createProjectInputSchema.safeParse({ name: 'P', folder_path: 'c:..' }).success,
-    ).toBe(false);
+    expect(createProjectInputSchema.safeParse({ name: 'P', folder_path: 'C:\\abs' }).success).toBe(
+      false,
+    );
+    expect(createProjectInputSchema.safeParse({ name: 'P', folder_path: 'c:..' }).success).toBe(
+      false,
+    );
     expect(
       createProjectInputSchema.safeParse({ name: 'P', folder_path: 'packages/plandesk-api' })
         .success,
@@ -221,9 +223,9 @@ describe('tool registry tag schemas', () => {
       updateTaskInputSchema.safeParse({ task_id: TASK_ID, commit_refs: ['abc12'] }).success,
     ).toBe(false);
     const fifty = Array.from({ length: 50 }, (_, i) => i.toString(16).padStart(7, '0'));
-    expect(
-      updateTaskInputSchema.safeParse({ task_id: TASK_ID, commit_refs: fifty }).success,
-    ).toBe(true);
+    expect(updateTaskInputSchema.safeParse({ task_id: TASK_ID, commit_refs: fifty }).success).toBe(
+      true,
+    );
     expect(
       updateTaskInputSchema.safeParse({
         task_id: TASK_ID,
@@ -271,9 +273,7 @@ describe('tool registry tag schemas', () => {
   it('MCP surface has list_views and no create/update/delete view tools', () => {
     expect(v1ToolNames).toContain('list_views');
     const names: readonly string[] = v1ToolNames;
-    const mutatingViewTools = names.filter((name) =>
-      /^(create|update|delete)_views?$/.test(name),
-    );
+    const mutatingViewTools = names.filter((name) => /^(create|update|delete)_views?$/.test(name));
     expect(mutatingViewTools).toEqual([]);
   });
 
@@ -306,9 +306,9 @@ describe('tool registry tag schemas', () => {
     expect(createTaskInputSchema.shape.description.description).toMatch(/pseudocode/i);
     expect(createTaskInputSchema.shape.description.description).toMatch(/validation contract/i);
     expect(updateTaskInputSchema.shape.description.description).toMatch(/interfaces/i);
-    expect(scaffoldProjectFromPlanInputSchema.shape.tasks.element.shape.description.description).toMatch(
-      /interfaces/i,
-    );
+    expect(
+      scaffoldProjectFromPlanInputSchema.shape.tasks.element.shape.description.description,
+    ).toMatch(/interfaces/i);
   });
 
   it('add_comment requires target_type and target_id', () => {

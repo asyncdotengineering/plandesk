@@ -42,6 +42,8 @@ import {
   listPrototypes,
   getPrototype,
   patchArtifact,
+  moveScreen,
+  copyScreen,
   listProjects,
   listSubmissions,
   listTags,
@@ -307,10 +309,11 @@ export function usePrototypes(projectId: string) {
   });
 }
 
-export function usePrototype(id: string) {
+export function usePrototype(id: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.prototype(id),
     queryFn: () => getPrototype(id),
+    enabled: (options?.enabled ?? true) && id !== '',
     ...liveQueryOptions,
   });
 }
@@ -330,6 +333,44 @@ export function usePatchArtifact(prototypeId?: string) {
       }
       void queryClient.invalidateQueries({
         queryKey: queryKeys.artifacts(artifact.project_id),
+      });
+    },
+  });
+}
+
+export function useMoveScreen(sourcePrototypeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, prototypeId }: { id: string; prototypeId: string }) =>
+      moveScreen(id, prototypeId),
+    onSuccess: (artifact) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.prototype(sourcePrototypeId) });
+      if (artifact.prototype_id !== null) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.prototype(artifact.prototype_id),
+        });
+      }
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.prototypes(artifact.project_id),
+      });
+    },
+  });
+}
+
+export function useCopyScreen(sourcePrototypeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, prototypeId }: { id: string; prototypeId: string }) =>
+      copyScreen(id, prototypeId),
+    onSuccess: (artifact) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.prototype(sourcePrototypeId) });
+      if (artifact.prototype_id !== null) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.prototype(artifact.prototype_id),
+        });
+      }
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.prototypes(artifact.project_id),
       });
     },
   });
@@ -484,7 +525,10 @@ export function useDeleteNote() {
 export function useComments(target: CommentTarget) {
   const projectId = target.type === 'artifact' ? target.projectId : undefined;
   return useQuery({
-    queryKey: queryKeys.comments(target.type, target.id, projectId),
+    queryKey:
+      target.type === 'portal-artifact'
+        ? (['portal-artifact-comments', target.shareToken, target.id] as const)
+        : queryKeys.comments(target.type, target.id, projectId),
     queryFn: () => listComments(target, { includeResolved: true }),
     ...liveQueryOptions,
   });
@@ -493,12 +537,14 @@ export function useComments(target: CommentTarget) {
 export function useCreateComment(target: CommentTarget) {
   const queryClient = useQueryClient();
   const projectId = target.type === 'artifact' ? target.projectId : undefined;
+  const queryKey =
+    target.type === 'portal-artifact'
+      ? (['portal-artifact-comments', target.shareToken, target.id] as const)
+      : queryKeys.comments(target.type, target.id, projectId);
   return useMutation({
     mutationFn: (input: CreateCommentInput) => createComment(target, input),
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.comments(target.type, target.id, projectId),
-      });
+      void queryClient.invalidateQueries({ queryKey });
     },
   });
 }
@@ -506,13 +552,15 @@ export function useCreateComment(target: CommentTarget) {
 export function usePatchComment(target: CommentTarget) {
   const queryClient = useQueryClient();
   const projectId = target.type === 'artifact' ? target.projectId : undefined;
+  const queryKey =
+    target.type === 'portal-artifact'
+      ? (['portal-artifact-comments', target.shareToken, target.id] as const)
+      : queryKeys.comments(target.type, target.id, projectId);
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: PatchCommentInput }) =>
       patchComment(id, input),
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.comments(target.type, target.id, projectId),
-      });
+      void queryClient.invalidateQueries({ queryKey });
     },
   });
 }
@@ -520,12 +568,14 @@ export function usePatchComment(target: CommentTarget) {
 export function useDeleteComment(target: CommentTarget) {
   const queryClient = useQueryClient();
   const projectId = target.type === 'artifact' ? target.projectId : undefined;
+  const queryKey =
+    target.type === 'portal-artifact'
+      ? (['portal-artifact-comments', target.shareToken, target.id] as const)
+      : queryKeys.comments(target.type, target.id, projectId);
   return useMutation({
     mutationFn: (id: string) => deleteComment(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.comments(target.type, target.id, projectId),
-      });
+      void queryClient.invalidateQueries({ queryKey });
     },
   });
 }

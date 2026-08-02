@@ -31,6 +31,7 @@ type ShareResource = { kind: 'task' | 'document'; id: string } | { kind: 'protot
 export function ShareButton({ resource }: { resource: ShareResource }) {
   const [open, setOpen] = useState(false);
   const [ttl, setTtl] = useState<ShareTtl>('24h');
+  const [allowSubmit, setAllowSubmit] = useState(false);
   const [result, setResult] = useState<ShareLinkResult | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
           ? await createTaskShare(resource.id, ttl)
           : resource.kind === 'document'
             ? await createDocumentShare(resource.id, ttl)
-            : await createPrototypeShare(resource.id, ttl);
+            : await createPrototypeShare(resource.id, ttl, allowSubmit);
       setResult(res);
     } catch {
       setCreateError("Couldn't create the share link. Please try again.");
@@ -104,34 +105,48 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
         </DialogHeader>
 
         {result === null ? (
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <span className="mb-1 block text-xs text-muted-foreground">Expires</span>
-              <Select
-                value={ttl}
-                onValueChange={(value) => {
-                  setTtl(value as ShareTtl);
+          <div>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <span className="mb-1 block text-xs text-muted-foreground">Expires</span>
+                <Select
+                  value={ttl}
+                  onValueChange={(value) => {
+                    setTtl(value as ShareTtl);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="24h">In 24 hours</SelectItem>
+                    <SelectItem value="7d">In 7 days</SelectItem>
+                    <SelectItem value="never">Never</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="button"
+                onClick={() => {
+                  void create();
                 }}
+                disabled={creating}
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="24h">In 24 hours</SelectItem>
-                  <SelectItem value="7d">In 7 days</SelectItem>
-                  <SelectItem value="never">Never</SelectItem>
-                </SelectContent>
-              </Select>
+                {creating ? 'Creating…' : 'Create link'}
+              </Button>
             </div>
-            <Button
-              type="button"
-              onClick={() => {
-                void create();
-              }}
-              disabled={creating}
-            >
-              {creating ? 'Creating…' : 'Create link'}
-            </Button>
+            {resource.kind === 'prototype' ? (
+              <label className="mt-3 flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={allowSubmit}
+                  onChange={(event) => {
+                    setAllowSubmit(event.target.checked);
+                  }}
+                />
+                Allow guests to leave anchored comments
+              </label>
+            ) : null}
           </div>
         ) : null}
 

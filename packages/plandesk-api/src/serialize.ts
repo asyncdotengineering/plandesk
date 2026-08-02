@@ -281,10 +281,7 @@ export type SerializedArtifactSummary = {
   updated_at: string;
 };
 
-export function serializeArtifact(
-  artifact: Artifact,
-  revisionId: string,
-): SerializedArtifact {
+export function serializeArtifact(artifact: Artifact, revisionId: string): SerializedArtifact {
   return {
     id: artifact.id,
     project_id: artifact.projectId,
@@ -333,9 +330,34 @@ export function serializePrototype(prototype: Prototype): SerializedPrototype {
   };
 }
 
+export type SerializedPrototypeBoundaryLink = {
+  direction: 'exit' | 'arrive';
+  link_id: string;
+  local_artifact_id: string;
+  foreign_artifact_id: string;
+  foreign_title: string;
+  foreign_prototype_id: string;
+  foreign_prototype_name: string;
+  raw_target: string;
+};
+
 export type SerializedPrototypeWithScreens = SerializedPrototype & {
   screens: SerializedArtifact[];
   links: SerializedPrototypeLink[];
+  /** Cross-prototype derived links — rendered as boundary markers on both canvases. */
+  boundary_links: SerializedPrototypeBoundaryLink[];
+  coverage: FlowCoverage;
+};
+
+export type FlowCoverage = {
+  parseable: boolean;
+  parse_error: string | null;
+  planned: string[];
+  built: string[];
+  missing: string[];
+  unplanned: string[];
+  states_unverified: { screen: string; states: string[] }[];
+  unplanned_note: string | null;
 };
 
 export type SerializedPrototypeLink = {

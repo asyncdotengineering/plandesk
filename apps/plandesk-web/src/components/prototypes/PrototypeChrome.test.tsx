@@ -67,4 +67,60 @@ describe('PrototypeChrome', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Interact' }));
     expect(chrome?.getAttribute('data-canvas-mode')).toBe('interact');
   });
+
+  it('shows named missing screens on the coverage line', () => {
+    render(
+      <ScreenDiagnosticsProvider>
+        <ScreenCommentsProvider>
+          <FrameRegistryProvider>
+            <CanvasModeProvider>
+              <PrototypeChrome
+                prototypeId="proto-1"
+                name="Checkout"
+                coverage={{
+                  parseable: true,
+                  parse_error: null,
+                  planned: ['A', 'B', 'C'],
+                  built: ['A', 'B'],
+                  missing: ['C'],
+                  unplanned: [],
+                  states_unverified: [],
+                  unplanned_note: null,
+                }}
+              />
+            </CanvasModeProvider>
+          </FrameRegistryProvider>
+        </ScreenCommentsProvider>
+      </ScreenDiagnosticsProvider>,
+    );
+    expect(screen.getByText(/missing C/)).toBeTruthy();
+  });
+
+  it('says unparseable when the flow document has no screens table', () => {
+    render(
+      <ScreenDiagnosticsProvider>
+        <ScreenCommentsProvider>
+          <FrameRegistryProvider>
+            <CanvasModeProvider>
+              <PrototypeChrome
+                prototypeId="proto-1"
+                name="Checkout"
+                coverage={{
+                  parseable: false,
+                  parse_error: 'no screens table found',
+                  planned: [],
+                  built: [],
+                  missing: [],
+                  unplanned: [],
+                  states_unverified: [],
+                  unplanned_note: null,
+                }}
+              />
+            </CanvasModeProvider>
+          </FrameRegistryProvider>
+        </ScreenCommentsProvider>
+      </ScreenDiagnosticsProvider>,
+    );
+    expect(screen.getByText(/unparseable/i)).toBeTruthy();
+  });
 });

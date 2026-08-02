@@ -36,6 +36,8 @@ type CommentsPanelProps = {
   attachAnchor?: string | null;
   onAnchorConsumed?: () => void;
   embedded?: boolean;
+  /** Portal guests can add feedback but cannot resolve or delete shared comments. */
+  canManage?: boolean;
 };
 
 function formatDate(iso: string): string {
@@ -53,6 +55,7 @@ type CommentItemProps = {
   onDeleteRequest: () => void;
   isResolving: boolean;
   isDeleting: boolean;
+  canManage: boolean;
 };
 
 function CommentItem({
@@ -61,6 +64,7 @@ function CommentItem({
   onDeleteRequest,
   isResolving,
   isDeleting,
+  canManage,
 }: CommentItemProps) {
   return (
     <div
@@ -89,27 +93,29 @@ function CommentItem({
             {formatDate(comment.created_at)}
             {comment.resolved ? ' · Resolved' : ''}
           </span>
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              disabled={isResolving || isDeleting}
-              onClick={onResolve}
-            >
-              {isResolving ? '…' : comment.resolved ? 'Reopen' : 'Resolve'}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label="Delete comment"
-              disabled={isResolving || isDeleting}
-              onClick={onDeleteRequest}
-            >
-              <Trash2Icon />
-            </Button>
-          </div>
+          {canManage ? (
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                disabled={isResolving || isDeleting}
+                onClick={onResolve}
+              >
+                {isResolving ? '…' : comment.resolved ? 'Reopen' : 'Resolve'}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Delete comment"
+                disabled={isResolving || isDeleting}
+                onClick={onDeleteRequest}
+              >
+                <Trash2Icon />
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -123,6 +129,7 @@ export function CommentsPanel({
   attachAnchor = null,
   onAnchorConsumed,
   embedded = false,
+  canManage = true,
 }: CommentsPanelProps) {
   const { data: comments, isLoading, error } = useComments(target);
   const createComment = useCreateComment(target);
@@ -338,6 +345,7 @@ export function CommentsPanel({
                 }}
                 isResolving={patchComment.isPending && pendingActionId === comment.id}
                 isDeleting={deleteComment.isPending && pendingActionId === comment.id}
+                canManage={canManage}
               />
             ))}
           </div>
@@ -371,6 +379,7 @@ export function CommentsPanel({
                     }}
                     isResolving={patchComment.isPending && pendingActionId === comment.id}
                     isDeleting={deleteComment.isPending && pendingActionId === comment.id}
+                    canManage={canManage}
                   />
                 ))
               : null}

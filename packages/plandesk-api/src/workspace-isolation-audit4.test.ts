@@ -114,6 +114,8 @@ import {
   createSyncPullHandler,
   createTriageSubmissionHandler,
   createUpdateArtifactHandler,
+  createMoveScreenHandler,
+  createCopyScreenHandler,
   createUpdateDocumentHandler,
   createUpdateFolderHandler,
   createUpdatePrototypeHandler,
@@ -150,6 +152,8 @@ const MCP_TOOLS = [
   'create_artifact',
   'get_artifact',
   'update_artifact',
+  'move_screen',
+  'copy_screen',
   'list_artifacts',
   'create_edge',
   'list_edges',
@@ -241,11 +245,7 @@ type McpResult = {
   isError?: boolean;
 };
 
-async function seedOwner(
-  auth: BetterAuthInstance,
-  orgId: string,
-  label: string,
-): Promise<string> {
+async function seedOwner(auth: BetterAuthInstance, orgId: string, label: string): Promise<string> {
   const adapter = (await auth.$context).adapter;
   const now = new Date();
   await adapter.create({
@@ -271,7 +271,11 @@ async function seedOwner(
   return user.id;
 }
 
-async function seedForeignResources(db: Db, project: Project, label: string): Promise<ForeignResources> {
+async function seedForeignResources(
+  db: Db,
+  project: Project,
+  label: string,
+): Promise<ForeignResources> {
   const task = await createTask(db, { projectId: project.id, label: `${label} task secret` });
   const task2 = await createTask(db, { projectId: project.id, label: `${label} task two secret` });
   const edge = await createEdge(db, {
@@ -300,7 +304,9 @@ async function seedForeignResources(db: Db, project: Project, label: string): Pr
   const artifact = await createArtifact(db, {
     projectId: project.id,
     title: `${label} artifact secret`,
-    content: `${label} artifact body secret`,
+    kind: 'html',
+    content: `<p>${label} artifact body secret</p>`,
+    prototypeId: prototype.id,
   });
   await createTag(db, { projectId: project.id, name: `${label}-secret-tag` });
   const activeGoal = await createGoal(db, {
@@ -318,8 +324,14 @@ async function seedForeignResources(db: Db, project: Project, label: string): Pr
     objective: `${label} completable goal secret`,
     status: 'active',
   });
-  const progressRun = await createAgentRun(db, { projectId: project.id, label: `${label} progress run` });
-  const completeRun = await createAgentRun(db, { projectId: project.id, label: `${label} complete run` });
+  const progressRun = await createAgentRun(db, {
+    projectId: project.id,
+    label: `${label} progress run`,
+  });
+  const completeRun = await createAgentRun(db, {
+    projectId: project.id,
+    label: `${label} complete run`,
+  });
   const comment = await createComment(db, {
     projectId: project.id,
     targetType: 'task',
@@ -343,7 +355,10 @@ async function seedForeignResources(db: Db, project: Project, label: string): Pr
     projectId: project.id,
     targetType: 'task',
     targetId: task.id,
-    snapshot: JSON.stringify({ label: `${label} task secret`, description: `${label} prior body secret` }),
+    snapshot: JSON.stringify({
+      label: `${label} task secret`,
+      description: `${label} prior body secret`,
+    }),
     changedFields: JSON.stringify(['description']),
     author: `human:${label}-author`,
   });
@@ -561,7 +576,9 @@ async function runMcpForeignSweep(
   );
   const listed = (toolPayload(listProjects) as { projects: Array<{ id: string }> }).projects;
   expect(listed.map((project) => project.id).sort()).toEqual(expectedVisibleProjectIds.sort());
-  expect(JSON.stringify(listProjects)).not.toContain(target.project.description ?? 'foreign secret');
+  expect(JSON.stringify(listProjects)).not.toContain(
+    target.project.description ?? 'foreign secret',
+  );
 
   const createProjectResult = await runWithAuthContext(context, () =>
     createCreateProjectHandler(s.projectService)({ name: 'MCP safely scoped project' }),
@@ -581,9 +598,8 @@ async function runMcpForeignSweep(
     }),
   );
   expect(scaffoldNewResult.isError).not.toBe(true);
-  const scaffold = (
-    toolPayload(scaffoldNewResult) as { scaffold: { project: { id: string } } }
-  ).scaffold;
+  const scaffold = (toolPayload(scaffoldNewResult) as { scaffold: { project: { id: string } } })
+    .scaffold;
   const scaffoldProject = await getProject(f.db, scaffold.project.id);
   expect(scaffoldProject?.orgId).toBe(f.orgId);
   if (context.kind === 'apikey' && context.workspaceId !== undefined) {
@@ -591,7 +607,10 @@ async function runMcpForeignSweep(
   }
 
   const deniedCalls: Array<[string, () => Promise<McpResult>]> = [
-    ['get_project', () => createGetProjectHandler(s.projectService)({ project_id: target.project.id })],
+    [
+      'get_project',
+      () => createGetProjectHandler(s.projectService)({ project_id: target.project.id }),
+    ],
     [
       'update_project',
       () =>
@@ -646,7 +665,11 @@ async function runMcpForeignSweep(
     ],
     [
       'update_folder',
-      () => createUpdateFolderHandler(s.folderService)({ folder_id: target.folder.id, name: 'escaped' }),
+      () =>
+        createUpdateFolderHandler(s.folderService)({
+          folder_id: target.folder.id,
+          name: 'escaped',
+        }),
     ],
     [
       'create_prototype',
@@ -677,7 +700,10 @@ async function runMcpForeignSweep(
     [
       'create_note',
       () =>
-        createCreateNoteHandler(s.noteService)({ project_id: target.project.id, title: 'escaped note' }),
+        createCreateNoteHandler(s.noteService)({
+          project_id: target.project.id,
+          title: 'escaped note',
+        }),
     ],
     [
       'update_note',
@@ -707,6 +733,22 @@ async function runMcpForeignSweep(
         }),
     ],
     [
+      'move_screen',
+      () =>
+        createMoveScreenHandler(s.artifactService)({
+          artifact_id: target.artifact.id,
+          prototype_id: target.prototype.id,
+        }),
+    ],
+    [
+      'copy_screen',
+      () =>
+        createCopyScreenHandler(s.artifactService)({
+          artifact_id: target.artifact.id,
+          prototype_id: target.prototype.id,
+        }),
+    ],
+    [
       'list_artifacts',
       () => createListArtifactsHandler(s.artifactService)({ project_id: target.project.id }),
     ],
@@ -719,7 +761,10 @@ async function runMcpForeignSweep(
           to_task_id: target.task2.id,
         }),
     ],
-    ['list_edges', () => createListEdgesHandler(s.canvasService)({ project_id: target.project.id })],
+    [
+      'list_edges',
+      () => createListEdgesHandler(s.canvasService)({ project_id: target.project.id }),
+    ],
     ['delete_edge', () => createDeleteEdgeHandler(s.canvasService)({ edge_id: target.edge.id })],
     [
       'attach_file',
@@ -734,7 +779,10 @@ async function runMcpForeignSweep(
     [
       'create_share_link',
       () =>
-        createCreateShareLinkHandler(s.shareService, () => TEST_BASE_URL)({
+        createCreateShareLinkHandler(
+          s.shareService,
+          () => TEST_BASE_URL,
+        )({
           task_id: target.task.id,
         }),
     ],
@@ -782,10 +830,17 @@ async function runMcpForeignSweep(
     ['list_goals', () => createListGoalsHandler(s.goalService)({ project_id: target.project.id })],
     [
       'update_goal',
-      () => createUpdateGoalHandler(s.goalService)({ goal_id: target.activeGoal.id, objective: 'escaped' }),
+      () =>
+        createUpdateGoalHandler(s.goalService)({
+          goal_id: target.activeGoal.id,
+          objective: 'escaped',
+        }),
     ],
     ['pause_goal', () => createPauseGoalHandler(s.goalService)({ goal_id: target.activeGoal.id })],
-    ['resume_goal', () => createResumeGoalHandler(s.goalService)({ goal_id: target.pausedGoal.id })],
+    [
+      'resume_goal',
+      () => createResumeGoalHandler(s.goalService)({ goal_id: target.pausedGoal.id }),
+    ],
     [
       'complete_goal',
       () => createCompleteGoalHandler(s.goalService)({ goal_id: target.completableGoal.id }),
@@ -800,7 +855,8 @@ async function runMcpForeignSweep(
     ],
     [
       'claim_task',
-      () => createClaimTaskHandler(s.taskService)({ task_id: target.task.id, agent_ref: 'attacker' }),
+      () =>
+        createClaimTaskHandler(s.taskService)({ task_id: target.task.id, agent_ref: 'attacker' }),
     ],
     ['get_task', () => createGetTaskHandler(s.taskService)({ task_id: target.task.id })],
     ['list_tasks', () => createListTasksHandler(s.taskService)({ project_id: target.project.id })],
@@ -934,12 +990,7 @@ describe('workspace-tier adversarial audit round 4', () => {
 
   it('full MCP sweep: an org-A owner key gets errors and causes no mutation in org B', async () => {
     const f = await fixture();
-    await runMcpForeignSweep(
-      f,
-      ownerContext(f),
-      f.foreignOtherOrg,
-      [f.projectA.id, f.projectB.id],
-    );
+    await runMcpForeignSweep(f, ownerContext(f), f.foreignOtherOrg, [f.projectA.id, f.projectB.id]);
   });
 
   it('foreign-id write references are rejected while the local parent remains unchanged', async () => {
@@ -1086,8 +1137,12 @@ describe('workspace-tier adversarial audit round 4', () => {
     const workspaceGuest = await join(f.app, workspaceShare.token, 'Workspace guest');
 
     const swapped = await Promise.all([
-      f.app.request(`/api/v1/share/${workspaceShare.token}/view`, { headers: bearer(projectGuest) }),
-      f.app.request(`/api/v1/share/${projectShare.token}/view`, { headers: bearer(workspaceGuest) }),
+      f.app.request(`/api/v1/share/${workspaceShare.token}/view`, {
+        headers: bearer(projectGuest),
+      }),
+      f.app.request(`/api/v1/share/${projectShare.token}/view`, {
+        headers: bearer(workspaceGuest),
+      }),
       f.app.request(`/api/v1/share/${workspaceShare.token}/submissions`, {
         method: 'POST',
         headers: jsonHeaders(projectGuest),
@@ -1170,9 +1225,11 @@ describe('workspace-tier adversarial audit round 4', () => {
       workspaceToProjectMeta.text(),
       foreignMeta.text(),
     ]);
-    expect([projectToWorkspaceMeta.status, workspaceToProjectMeta.status, foreignMeta.status]).toEqual([
-      200, 200, 200,
-    ]);
+    expect([
+      projectToWorkspaceMeta.status,
+      workspaceToProjectMeta.status,
+      foreignMeta.status,
+    ]).toEqual([200, 200, 200]);
     expect(metaBodies.every((body) => !body.includes('confidential metadata'))).toBe(true);
 
     const foreignJoin = await f.app.request(`/api/v1/share/${inviteOnlyOther.token}/join`, {
@@ -1180,25 +1237,28 @@ describe('workspace-tier adversarial audit round 4', () => {
       headers: jsonHeaders(projectGuest),
       body: JSON.stringify({ name: 'Project guest', email: 'wrong@example.com' }),
     });
-    const projectToWorkspaceJoin = await f.app.request(`/api/v1/share/${workspaceShare.token}/join`, {
-      method: 'POST',
-      headers: jsonHeaders(projectGuest),
-      body: JSON.stringify({ name: 'New workspace guest' }),
-    });
+    const projectToWorkspaceJoin = await f.app.request(
+      `/api/v1/share/${workspaceShare.token}/join`,
+      {
+        method: 'POST',
+        headers: jsonHeaders(projectGuest),
+        body: JSON.stringify({ name: 'New workspace guest' }),
+      },
+    );
     const workspaceToProjectJoin = await f.app.request(`/api/v1/share/${projectShare.token}/join`, {
       method: 'POST',
       headers: jsonHeaders(workspaceGuest),
       body: JSON.stringify({ name: 'New project guest' }),
     });
-    expect([foreignJoin.status, projectToWorkspaceJoin.status, workspaceToProjectJoin.status]).toEqual([
-      403, 200, 200,
-    ]);
-    const newWorkspaceGuest = (
-      await parseJson<{ session_token: string }>(projectToWorkspaceJoin)
-    ).session_token;
-    const newProjectGuest = (
-      await parseJson<{ session_token: string }>(workspaceToProjectJoin)
-    ).session_token;
+    expect([
+      foreignJoin.status,
+      projectToWorkspaceJoin.status,
+      workspaceToProjectJoin.status,
+    ]).toEqual([403, 200, 200]);
+    const newWorkspaceGuest = (await parseJson<{ session_token: string }>(projectToWorkspaceJoin))
+      .session_token;
+    const newProjectGuest = (await parseJson<{ session_token: string }>(workspaceToProjectJoin))
+      .session_token;
     const remintedCrossChecks = await Promise.all([
       f.app.request(`/api/v1/share/${projectShare.token}/view`, {
         headers: bearer(newWorkspaceGuest),
@@ -1215,21 +1275,41 @@ describe('workspace-tier adversarial audit round 4', () => {
     const crossOrgReads = await Promise.all([
       f.app.request(`/api/v1/projects/${f.otherProject.id}`, { headers: bearer(f.ownerKey) }),
       f.app.request(`/api/v1/projects/${f.otherProject.id}/tasks`, { headers: bearer(f.ownerKey) }),
-      f.app.request(`/api/v1/projects/${f.otherProject.id}/documents`, { headers: bearer(f.ownerKey) }),
+      f.app.request(`/api/v1/projects/${f.otherProject.id}/documents`, {
+        headers: bearer(f.ownerKey),
+      }),
       f.app.request(`/api/v1/projects/${f.otherProject.id}/notes`, { headers: bearer(f.ownerKey) }),
       f.app.request(`/api/v1/projects/${f.otherProject.id}/goals`, { headers: bearer(f.ownerKey) }),
-      f.app.request(`/api/v1/projects/${f.otherProject.id}/folders`, { headers: bearer(f.ownerKey) }),
+      f.app.request(`/api/v1/projects/${f.otherProject.id}/folders`, {
+        headers: bearer(f.ownerKey),
+      }),
       f.app.request(`/api/v1/projects/${f.otherProject.id}/tags`, { headers: bearer(f.ownerKey) }),
-      f.app.request(`/api/v1/projects/${f.otherProject.id}/artifacts`, { headers: bearer(f.ownerKey) }),
-      f.app.request(`/api/v1/projects/${f.otherProject.id}/agent-runs`, { headers: bearer(f.ownerKey) }),
-      f.app.request(`/api/v1/projects/${f.otherProject.id}/submissions`, { headers: bearer(f.ownerKey) }),
-      f.app.request(`/api/v1/projects/${f.otherProject.id}/canvas`, { headers: bearer(f.ownerKey) }),
+      f.app.request(`/api/v1/projects/${f.otherProject.id}/artifacts`, {
+        headers: bearer(f.ownerKey),
+      }),
+      f.app.request(`/api/v1/projects/${f.otherProject.id}/agent-runs`, {
+        headers: bearer(f.ownerKey),
+      }),
+      f.app.request(`/api/v1/projects/${f.otherProject.id}/submissions`, {
+        headers: bearer(f.ownerKey),
+      }),
+      f.app.request(`/api/v1/projects/${f.otherProject.id}/canvas`, {
+        headers: bearer(f.ownerKey),
+      }),
       f.app.request(`/api/v1/tasks/${f.foreignOtherOrg.task.id}`, { headers: bearer(f.ownerKey) }),
-      f.app.request(`/api/v1/documents/${f.foreignOtherOrg.document.id}`, { headers: bearer(f.ownerKey) }),
+      f.app.request(`/api/v1/documents/${f.foreignOtherOrg.document.id}`, {
+        headers: bearer(f.ownerKey),
+      }),
       f.app.request(`/api/v1/notes/${f.foreignOtherOrg.note.id}`, { headers: bearer(f.ownerKey) }),
-      f.app.request(`/api/v1/folders/${f.foreignOtherOrg.folder.id}`, { headers: bearer(f.ownerKey) }),
-      f.app.request(`/api/v1/artifacts/${f.foreignOtherOrg.artifact.id}`, { headers: bearer(f.ownerKey) }),
-      f.app.request(`/api/v1/goals/${f.foreignOtherOrg.activeGoal.id}`, { headers: bearer(f.ownerKey) }),
+      f.app.request(`/api/v1/folders/${f.foreignOtherOrg.folder.id}`, {
+        headers: bearer(f.ownerKey),
+      }),
+      f.app.request(`/api/v1/artifacts/${f.foreignOtherOrg.artifact.id}`, {
+        headers: bearer(f.ownerKey),
+      }),
+      f.app.request(`/api/v1/goals/${f.foreignOtherOrg.activeGoal.id}`, {
+        headers: bearer(f.ownerKey),
+      }),
     ]);
     expect(crossOrgReads.every((response) => response.status === 404)).toBe(true);
 

@@ -21,7 +21,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
   // (the UI "Share" action; the same links the create_share_link MCP tool produces).
   const createShareHandler = (kind: 'task' | 'document' | 'prototype') => async (c: Context) => {
     const id = c.req.param('id') ?? '';
-    const body = (await c.req.json().catch(() => ({}))) as { expires?: unknown };
+    const body = (await c.req.json().catch(() => ({}))) as { expires?: unknown; submit?: unknown };
     if (
       body.expires !== undefined &&
       body.expires !== '24h' &&
@@ -30,11 +30,18 @@ export function createSharesRouter(shareService: ShareService): Hono {
     ) {
       return c.json({ error: 'invalid_expires' }, 400);
     }
+    if (body.submit !== undefined && typeof body.submit !== 'boolean') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
     const origin = new URL(c.req.url).origin;
     const resource: ShareResourceRef =
       kind === 'prototype' ? { kind: 'prototype', ids: [id] } : { kind, id };
     const result = await shareService.createResourceShare(
-      { resource, expiresAt: resolveExpiresAt(body.expires) },
+      {
+        resource,
+        expiresAt: resolveExpiresAt(body.expires),
+        permissions: { read: true, submit: body.submit === true },
+      },
       origin,
     );
     if (!result) {
@@ -221,6 +228,62 @@ export function createSharesRouter(shareService: ShareService): Hono {
       return c.json({ error: 'unauthorized' }, 401);
     }
     return c.json(result.submissions);
+  });
+
+  router.post('/share/:token/artifact-comments', async (c) => {
+    const token = c.req.param('token');
+    let body: {
+      artifact_id?: string;
+      body?: string;
+      passage?: string | null;
+      anchor?: string | null;
+    };
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: 'invalid_json' }, 400);
+    }
+    if (typeof body.artifact_id !== 'string' || typeof body.body !== 'string') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+
+    const result = await shareService.createGuestArtifactComment(token, {
+      artifactId: body.artifact_id,
+      body: body.body,
+      passage: body.passage,
+      anchor: body.anchor,
+    });
+    if (result.status === 'unauthorized') {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+    if (result.status === 'not_found') {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    if (result.status === 'submit_not_permitted') {
+      return c.json({ error: 'submit_not_permitted' }, 403);
+    }
+    if (result.status === 'invalid_argument') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    return c.json(result.comment, 201);
+  });
+
+  router.get('/share/:token/artifact-comments', async (c) => {
+    const artifactId = c.req.query('artifact_id');
+    if (artifactId === undefined) {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    const result = await shareService.listGuestArtifactComments(c.req.param('token'), artifactId);
+    if (result.status === 'unauthorized') {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+    if (result.status === 'not_found') {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    if (result.status === 'invalid_argument') {
+      return c.json({ error: 'invalid_argument' }, 400);
+    }
+    return c.json(result.comments);
   });
 
   return router;

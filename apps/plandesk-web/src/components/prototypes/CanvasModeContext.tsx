@@ -21,9 +21,15 @@ const CanvasModeContext = createContext<CanvasModeContextValue | null>(null);
  * Owns the canvas gesture mode and posts `plandesk:mode` into every live frame
  * whenever the mode changes — without remounting frames.
  */
-export function CanvasModeProvider({ children }: { children: ReactNode }) {
+export function CanvasModeProvider({
+  children,
+  initialMode = DEFAULT_CANVAS_MODE,
+}: {
+  children: ReactNode;
+  initialMode?: CanvasMode;
+}) {
   const { registry } = useFrameRegistry();
-  const [mode, setModeState] = useState<CanvasMode>(DEFAULT_CANVAS_MODE);
+  const [mode, setModeState] = useState<CanvasMode>(initialMode);
 
   const setMode = useCallback(
     (next: CanvasMode) => {

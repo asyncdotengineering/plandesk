@@ -55,6 +55,18 @@ const base: SerializedPrototypeWithScreens = {
       raw_target: 'plandesk://artifact/Missing',
     },
   ],
+  boundary_links: [],
+  coverage: {
+    parseable: true,
+    parse_error: null,
+    planned: [],
+    built: ['Home', 'Pay'],
+    missing: [],
+    unplanned: ['Home', 'Pay'],
+    states_unverified: [],
+    unplanned_note:
+      'Built screens absent from the flow document are information, not errors — update the flow document.',
+  },
 };
 
 describe('prototypeToFlow', () => {
@@ -76,5 +88,41 @@ describe('prototypeToFlow', () => {
       'plandesk://artifact/Missing',
     ]);
     expect(nodes.find((n) => n.id === 'b')?.data.brokenLinks).toEqual([]);
+  });
+
+  it('renders cross-prototype links as boundary markers on both sides of the edge', () => {
+    const firstScreen = base.screens[0];
+    expect(firstScreen).toBeDefined();
+    if (firstScreen === undefined) return;
+    const withBoundary: SerializedPrototypeWithScreens = {
+      ...base,
+      screens: [firstScreen],
+      links: [
+        {
+          id: 'l-cross',
+          project_id: 'proj-1',
+          from_artifact_id: 'a',
+          to_artifact_id: 'foreign-b',
+          raw_target: 'plandesk://artifact/Pay',
+        },
+      ],
+      boundary_links: [
+        {
+          direction: 'exit',
+          link_id: 'l-cross',
+          local_artifact_id: 'a',
+          foreign_artifact_id: 'foreign-b',
+          foreign_title: 'Pay',
+          foreign_prototype_id: 'proto-2',
+          foreign_prototype_name: 'Checkout',
+          raw_target: 'plandesk://artifact/Pay',
+        },
+      ],
+    };
+    const { nodes, edges } = prototypeToFlow(withBoundary);
+    expect(nodes.some((n) => n.type === 'boundaryMarker')).toBe(true);
+    expect(
+      edges.some((e) => typeof e.label === 'string' && e.label.includes('exits to Checkout')),
+    ).toBe(true);
   });
 });

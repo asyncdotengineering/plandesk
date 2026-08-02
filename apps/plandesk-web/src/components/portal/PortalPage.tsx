@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { capabilitiesFromShare } from '../../lib/capabilities.js';
@@ -152,11 +153,26 @@ export function PortalPage({
 
       {(view.prototypes?.length ?? 0) > 0 ? (
         <section className="mb-6" aria-label="Prototypes">
-          <h2 className="mb-3 text-sm font-semibold">Prototypes</h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Prototypes</h2>
+            <Link
+              to="/p/$shareToken/prototypes"
+              params={{ shareToken }}
+              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+            >
+              Open all
+            </Link>
+          </div>
           <div className="grid gap-5">
             {view.prototypes?.map((prototype) => (
               <div key={prototype.id} data-prototype-id={prototype.id}>
-                <h3 className="mb-1 text-sm font-semibold">{prototype.name}</h3>
+                <Link
+                  to="/p/$shareToken/prototypes/$prototypeId"
+                  params={{ shareToken, prototypeId: prototype.id }}
+                  className="mb-1 text-sm font-semibold underline-offset-2 hover:underline"
+                >
+                  {prototype.name}
+                </Link>
                 <p className="mb-3 text-xs text-muted-foreground">
                   {prototype.viewport_width}×{prototype.viewport_height} ·{' '}
                   {prototype.screens.length} screen{prototype.screens.length === 1 ? '' : 's'}
@@ -168,15 +184,6 @@ export function PortalPage({
                     </li>
                   ))}
                 </ul>
-                {prototype.links.length > 0 ? (
-                  <ul className="mt-3 m-0 list-none space-y-1 p-0 text-xs text-muted-foreground">
-                    {prototype.links.map((link) => (
-                      <li key={link.id}>
-                        {link.raw_target} → {link.to_artifact_id ?? 'unresolved'}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
               </div>
             ))}
           </div>

@@ -9,18 +9,12 @@ import {
   type Db,
   type OrgRole,
 } from '@plandesk/db';
-import {
-  applyAgentKeyPermissionCeiling,
-  verifyBetterAuthApiKey,
-} from './agent-keys.js';
+import { applyAgentKeyPermissionCeiling, verifyBetterAuthApiKey } from './agent-keys.js';
 import { runWithAuthContext, tryGetAuthContext, type AuthContext } from './auth-context.js';
 import type { BetterAuthInstance } from './better-auth.js';
 import { userRefFromGithubAccountId, listMemberWorkspaceIds } from './identity.js';
 import { resolveDefaultOrganization } from './organizations.js';
-import {
-  hasAnyWritePermission,
-  orgRoleToPermissionSet,
-} from './permissions.js';
+import { hasAnyWritePermission, orgRoleToPermissionSet } from './permissions.js';
 import { readGuestSessionCookie } from './session.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './services/scope.js';
 
@@ -142,7 +136,9 @@ async function resolveBetterAuthSessionContext(
     return 'unauthorized';
   }
   if (active.organizationId !== activeOrganizationId) {
-    await (await auth.$context).internalAdapter.updateSession(session.session.token, {
+    await (
+      await auth.$context
+    ).internalAdapter.updateSession(session.session.token, {
       activeOrganizationId: active.organizationId,
     });
   }
@@ -206,8 +202,7 @@ export function readApiKeyMetadata(metadata: unknown): {
   const m = metadata as ApiKeyMetadata;
   return {
     orgId: typeof m.orgId === 'string' && m.orgId.length > 0 ? m.orgId : undefined,
-    projectId:
-      typeof m.projectId === 'string' && m.projectId.length > 0 ? m.projectId : undefined,
+    projectId: typeof m.projectId === 'string' && m.projectId.length > 0 ? m.projectId : undefined,
     workspaceId: typeof m.teamId === 'string' && m.teamId.length > 0 ? m.teamId : undefined,
     kind: m.kind === 'owner' ? 'owner' : 'agent',
   };
@@ -259,11 +254,7 @@ async function resolveBetterAuthApiKeyContext(
   }
 
   const liveRole = await resolveBetterAuthLiveRole(auth, userId, orgId);
-  const permission = applyAgentKeyPermissionCeiling(
-    verified.permissions,
-    liveRole,
-    kind,
-  );
+  const permission = applyAgentKeyPermissionCeiling(verified.permissions, liveRole, kind);
 
   return {
     kind: 'apikey',
@@ -312,11 +303,7 @@ async function attachAgentRunIdFromHeader(
  * probe the sign-in UI reads, and better-auth's own sign-in surface at /api/auth/*
  * (chicken-and-egg: cannot require a token to obtain one).
  */
-const PUBLIC_AUTH_PATHS = new Set([
-  '/api/v1/auth/methods',
-  '/api/v1/health',
-  '/api/auth/*',
-]);
+const PUBLIC_AUTH_PATHS = new Set(['/api/v1/auth/methods', '/api/v1/health', '/api/auth/*']);
 
 /** Invitation accept: invitee may have a session but zero org memberships yet. */
 const INVITATION_ACCEPT_PATH = /^\/api\/v1\/invitations\/[^/]+\/accept$/;
@@ -347,12 +334,10 @@ export function isPublicAuthPath(path: string): boolean {
  * requires a guest session issued by join. Share *creation* lives under
  * /tasks/:id/share and /documents/:id/share (org-gated).
  */
-const PUBLIC_SHARE_PATH =
-  /^\/api\/v1\/share\/[^/]+(\.md|\/meta|\/join)$/;
+const PUBLIC_SHARE_PATH = /^\/api\/v1\/share\/[^/]+(\.md|\/meta|\/join)$/;
 
 /** Render + file routes that may carry a frame credential as ?token=. */
-const FRAME_CREDENTIAL_PATH =
-  /^\/api\/v1\/(artifacts\/[^/]+\/render|files\/[^/]+)$/;
+const FRAME_CREDENTIAL_PATH = /^\/api\/v1\/(artifacts\/[^/]+\/render|files\/[^/]+)$/;
 
 export function isPublicShareReadPath(path: string): boolean {
   return PUBLIC_SHARE_PATH.test(path);
@@ -363,10 +348,10 @@ export function isFrameCredentialPath(path: string): boolean {
 }
 
 /**
- * Guest-gated portal surfaces: view + submissions (list/submit).
+ * Guest-gated portal surfaces: view, submissions, and artifact comments.
  * Never fall through to loopback/org auth — that would re-open the pre-join bypass.
  */
-const SHARE_GUEST_PATH = /^\/api\/v1\/share\/([^/]+)\/(view|submissions)$/;
+const SHARE_GUEST_PATH = /^\/api\/v1\/share\/([^/]+)\/(view|submissions|artifact-comments)$/;
 
 export function isShareGuestViewPath(path: string): boolean {
   return SHARE_GUEST_PATH.test(path);
@@ -576,8 +561,8 @@ export function createAuthMiddleware(password: string): MiddlewareHandler {
  * Reject pure read-only callers (empty permission set) on write HTTP methods.
  * Resource:action checks are enforced in services via requirePermission.
  */
-/** Guest may POST only moderated submissions for their share (BA6b). */
-const SHARE_GUEST_SUBMIT_PATH = /^\/api\/v1\/share\/[^/]+\/submissions$/;
+/** Guest may POST only moderated submissions or artifact comments for their share. */
+const SHARE_GUEST_SUBMIT_PATH = /^\/api\/v1\/share\/[^/]+\/(submissions|artifact-comments)$/;
 
 export function createWriteGuardMiddleware(): MiddlewareHandler {
   return async (c, next) => {

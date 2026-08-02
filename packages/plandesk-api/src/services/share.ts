@@ -1,8 +1,10 @@
 import {
   countRecentSubmissionsByParticipant,
+  createComment,
   createGuestSession,
   createGuestSubmission,
   createShare as dbCreateShare,
+  getArtifact,
   getDocument,
   getGuestSessionById,
   getProject,
@@ -12,6 +14,7 @@ import {
   getTask,
   hashShareToken,
   listDocumentsLinkedToTask,
+  listCommentsByTargetInProject,
   listShares as dbListShares,
   listSubmissionsByShareAndParticipant,
   parseSharePermissions,
@@ -25,6 +28,7 @@ import {
 import { getAuthContext, tryGetAuthContext } from '../auth-context.js';
 import type { BetterAuthInstance } from '../better-auth.js';
 import { getTeamInOrg } from '../identity.js';
+import { serializeComment, type SerializedComment } from '../serialize.js';
 import {
   buildClientView,
   buildWorkspaceClientView,
@@ -124,6 +128,8 @@ export type CreateResourceShareInput = {
   resource: ShareResourceRef;
   // undefined -> default 24h; null -> never expires.
   expiresAt?: Date | null;
+  /** Resource links are read-only by default; prototype links may opt into feedback. */
+  permissions?: SharePermissions;
 };
 
 export type ResourceShareResult = {
@@ -187,6 +193,26 @@ export type ListMySubmissionsResult =
   | { status: 'ok'; submissions: GuestSubmission[] }
   | { status: 'unauthorized' };
 
+export type GuestArtifactCommentInput = {
+  artifactId: string;
+  body: string;
+  passage?: string | null;
+  anchor?: string | null;
+};
+
+export type GuestArtifactCommentResult =
+  | { status: 'ok'; comment: SerializedComment }
+  | { status: 'unauthorized' }
+  | { status: 'not_found' }
+  | { status: 'submit_not_permitted' }
+  | { status: 'invalid_argument' };
+
+export type ListGuestArtifactCommentsResult =
+  | { status: 'ok'; comments: SerializedComment[] }
+  | { status: 'unauthorized' }
+  | { status: 'not_found' }
+  | { status: 'invalid_argument' };
+
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -233,6 +259,52 @@ function shareMatchesGuest(
     return auth.workspaceId === share.workspaceId;
   }
   return share.projectId === auth.projectId;
+}
+
+async function resolveGuestArtifact(
+  db: Db,
+  token: string,
+  artifactId: string,
+): Promise<
+  | { status: 'unauthorized' }
+  | { status: 'not_found' }
+  | { status: 'ok'; share: Share; artifact: Awaited<ReturnType<typeof getArtifact>> & {} }
+> {
+  const auth = getAuthContext();
+  if (auth.kind !== 'guest') {
+    return { status: 'unauthorized' };
+  }
+
+  const share = await getShareByTokenHashRaw(db, hashShareToken(token));
+  if (!share || !isShareLive(share) || !shareMatchesGuest(share, auth)) {
+    return { status: 'unauthorized' };
+  }
+
+  const artifact = await getArtifact(db, artifactId);
+  if (artifact === undefined) {
+    return { status: 'not_found' };
+  }
+
+  if (share.projectId !== null) {
+    if (artifact.projectId !== share.projectId) {
+      return { status: 'not_found' };
+    }
+  } else {
+    const project = await getProject(db, artifact.projectId);
+    if (project === undefined || project.workspaceId !== share.workspaceId) {
+      return { status: 'not_found' };
+    }
+  }
+
+  const policy = parseSharePolicy(share);
+  if (
+    artifact.prototypeId === null ||
+    !(policy.prototypeIds ?? []).includes(artifact.prototypeId)
+  ) {
+    return { status: 'not_found' };
+  }
+
+  return { status: 'ok', share, artifact };
 }
 
 // The rich-text editor stores document/comment bodies as HTML; this is a
@@ -646,7 +718,7 @@ export function createShareService(deps: ShareServiceDeps) {
         projectId,
         audienceName,
         mode: 'public',
-        permissions: DEFAULT_PERMISSIONS,
+        permissions: input.permissions ?? DEFAULT_PERMISSIONS,
         policy,
         expiresAt,
       });
@@ -895,6 +967,55 @@ export function createShareService(deps: ShareServiceDeps) {
           created_at: row.createdAt.toISOString(),
         })),
       };
+    },
+
+    async createGuestArtifactComment(
+      token: string,
+      input: GuestArtifactCommentInput,
+    ): Promise<GuestArtifactCommentResult> {
+      if (input.artifactId.trim() === '' || input.body.trim() === '') {
+        return { status: 'invalid_argument' };
+      }
+
+      const resolved = await resolveGuestArtifact(db, token, input.artifactId);
+      if (resolved.status !== 'ok') {
+        return resolved;
+      }
+      if (!parseSharePermissions(resolved.share).submit) {
+        return { status: 'submit_not_permitted' };
+      }
+
+      const comment = await createComment(db, {
+        projectId: resolved.artifact.projectId,
+        targetType: 'artifact',
+        targetId: resolved.artifact.id,
+        body: input.body,
+        passage: input.passage,
+        anchor: input.anchor,
+      });
+      return { status: 'ok', comment: serializeComment(comment) };
+    },
+
+    async listGuestArtifactComments(
+      token: string,
+      artifactId: string,
+    ): Promise<ListGuestArtifactCommentsResult> {
+      if (artifactId.trim() === '') {
+        return { status: 'invalid_argument' };
+      }
+      const resolved = await resolveGuestArtifact(db, token, artifactId);
+      if (resolved.status !== 'ok') {
+        return resolved;
+      }
+
+      const comments = await listCommentsByTargetInProject(
+        db,
+        'artifact',
+        resolved.artifact.id,
+        resolved.artifact.projectId,
+        { includeResolved: true },
+      );
+      return { status: 'ok', comments: comments.map(serializeComment) };
     },
   };
 }

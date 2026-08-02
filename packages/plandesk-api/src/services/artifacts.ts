@@ -1,10 +1,12 @@
 import {
   createArtifact as dbCreateArtifact,
   createEdge,
+  deleteEdgeByEndpoints,
   getArtifact as dbGetArtifact,
   getLatestRevisionId,
   getPrototypeByProjectAndId,
   listArtifactsByProject as dbListArtifactsByProject,
+  listEdgesByEndpoint,
   updateArtifact as dbUpdateArtifact,
   withTransaction,
   type Artifact,
@@ -327,6 +329,158 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
       if (!artifact) {
         return undefined;
       }
+
+      return serializeArtifact(artifact, await resolveRevisionId(db, artifact));
+    },
+
+    /**
+     * Move a screen to another prototype in the same project. Keeps artifact
+     * id and comments. Does not rewrite markup — re-runs the write-time scan
+     * so prototype_links match title resolution in the destination.
+     */
+    async move(id: string, prototypeId: string): Promise<SerializedArtifact | undefined> {
+      assertPermission(deps, 'document', 'update');
+      const existing = await dbGetArtifact(db, id);
+      if (!existing) {
+        return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+
+      if (existing.prototypeId === null || existing.kind !== 'html') {
+        throw new InvalidArtifactError('move requires an html screen attached to a prototype');
+      }
+      if (existing.prototypeId === prototypeId) {
+        return serializeArtifact(existing, await resolveRevisionId(db, existing));
+      }
+
+      await resolvePrototypeForWrite(db, existing.projectId, prototypeId, 'html');
+      assertScreenContentAllowed(existing.content);
+
+      const sourcePrototypeId = existing.prototypeId;
+
+      const artifact = await withTransaction(db, async (tx) => {
+        const updated = await dbUpdateArtifact(tx, id, { prototypeId });
+        if (!updated || !updated.prototypeId) {
+          return undefined;
+        }
+
+        await applyScreenContentScan(tx, {
+          projectId: updated.projectId,
+          artifactId: updated.id,
+          prototypeId: updated.prototypeId,
+          content: updated.content,
+        });
+
+        // Drop prior flow-document edge; attach to the destination's.
+        const oldEdges = await listEdgesByEndpoint(tx, updated.projectId, 'artifact', updated.id);
+        for (const edge of oldEdges) {
+          if (
+            edge.fromType === 'artifact' &&
+            edge.fromId === updated.id &&
+            edge.toType === 'document'
+          ) {
+            await deleteEdgeByEndpoints(tx, updated.projectId, {
+              fromType: edge.fromType,
+              fromId: edge.fromId,
+              toType: edge.toType,
+              toId: edge.toId,
+            });
+          }
+        }
+        const flowDoc = await findFlowDocumentForPrototype(
+          tx,
+          updated.projectId,
+          updated.prototypeId,
+        );
+        if (flowDoc) {
+          await createEdge(tx, {
+            projectId: updated.projectId,
+            fromType: 'artifact',
+            fromId: updated.id,
+            toType: 'document',
+            toId: flowDoc.id,
+            label: 'documents',
+          });
+        }
+
+        await ensurePrototypeLayout(tx, updated.prototypeId);
+        if (sourcePrototypeId) {
+          await ensurePrototypeLayout(tx, sourcePrototypeId);
+        }
+        return (await dbGetArtifact(tx, updated.id)) ?? updated;
+      });
+
+      if (!artifact) {
+        return undefined;
+      }
+      return serializeArtifact(artifact, await resolveRevisionId(db, artifact));
+    },
+
+    /**
+     * Copy a screen into another prototype. New artifact id, same content,
+     * comments do not travel. Links resolve by title in the destination —
+     * a missing title dangles (null to_artifact_id), never throws.
+     */
+    async copy(id: string, prototypeId: string): Promise<SerializedArtifact | undefined> {
+      assertPermission(deps, 'document', 'create');
+      const existing = await dbGetArtifact(db, id);
+      if (!existing) {
+        return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+
+      if (existing.prototypeId === null || existing.kind !== 'html') {
+        throw new InvalidArtifactError('copy requires an html screen attached to a prototype');
+      }
+
+      await resolvePrototypeForWrite(db, existing.projectId, prototypeId, 'html');
+      assertScreenContentAllowed(existing.content);
+
+      const artifact = await withTransaction(db, async (tx) => {
+        const created = await dbCreateArtifact(tx, {
+          projectId: existing.projectId,
+          title: existing.title,
+          kind: 'html',
+          content: existing.content,
+          prototypeId,
+        });
+
+        await applyScreenContentScan(tx, {
+          projectId: created.projectId,
+          artifactId: created.id,
+          prototypeId,
+          content: created.content,
+        });
+
+        const flowDoc = await findFlowDocumentForPrototype(tx, created.projectId, prototypeId);
+        if (flowDoc) {
+          await createEdge(tx, {
+            projectId: created.projectId,
+            fromType: 'artifact',
+            fromId: created.id,
+            toType: 'document',
+            toId: flowDoc.id,
+            label: 'documents',
+          });
+        }
+
+        await ensurePrototypeLayout(tx, prototypeId);
+        return (await dbGetArtifact(tx, created.id)) ?? created;
+      });
 
       return serializeArtifact(artifact, await resolveRevisionId(db, artifact));
     },

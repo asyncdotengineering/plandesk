@@ -40,11 +40,17 @@ describe('plandesk-prototype skill', () => {
   });
 });
 
-describe('PLANDESK_SKILL_TEMPLATE prototypes pointer', () => {
-  it('points at plandesk-prototype without embedding the full docs section', () => {
+describe('PLANDESK_SKILL_TEMPLATE prototypes section', () => {
+  it('documents the three plandesk:// schemes and points at the authoring skill', () => {
     expect(PLANDESK_SKILL_TEMPLATE).toMatch(/## Prototypes/);
+    expect(PLANDESK_SKILL_TEMPLATE).toContain('plandesk://artifact/');
+    expect(PLANDESK_SKILL_TEMPLATE).toContain('plandesk://file/');
+    expect(PLANDESK_SKILL_TEMPLATE).toContain('plandesk://lib/');
+    expect(PLANDESK_SKILL_TEMPLATE).toContain('move_screen');
+    expect(PLANDESK_SKILL_TEMPLATE).toContain('copy_screen');
+    expect(PLANDESK_SKILL_TEMPLATE).toContain('plandesk push-artifact');
     expect(PLANDESK_SKILL_TEMPLATE).toContain('.claude/skills/plandesk-prototype/SKILL.md');
-    // Full authoring docs belong in the skill, not duplicated here (5fa5c091).
-    expect(PLANDESK_SKILL_TEMPLATE).not.toMatch(/## Forbidden/);
+    // Authoring Forbidden list stays in the skill, not duplicated here.
+    expect(PLANDESK_SKILL_TEMPLATE).not.toMatch(/## 5\. Forbidden/);
   });
 });

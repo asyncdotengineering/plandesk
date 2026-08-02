@@ -1,12 +1,24 @@
 import { ShareButton } from '@/components/share/ShareButton';
+import type { FlowCoverage } from '@/lib/api.js';
 import { CANVAS_MODES, modeLabel, type CanvasMode } from './canvas-mode.js';
 import { useCanvasMode } from './CanvasModeContext.js';
 
 /**
- * Prototype canvas chrome: name, mode selector (always visible), share.
- * Mode lives here so a person can always see which gesture layer is active.
+ * Prototype canvas chrome: name, coverage line, mode selector, share.
  */
-export function PrototypeChrome({ prototypeId, name }: { prototypeId: string; name: string }) {
+export function PrototypeChrome({
+  prototypeId,
+  name,
+  coverage,
+  readOnly = false,
+  modes = CANVAS_MODES,
+}: {
+  prototypeId: string;
+  name: string;
+  coverage?: FlowCoverage;
+  readOnly?: boolean;
+  modes?: readonly CanvasMode[];
+}) {
   const { mode, setMode } = useCanvasMode();
 
   return (
@@ -15,21 +27,53 @@ export function PrototypeChrome({ prototypeId, name }: { prototypeId: string; na
       data-canvas-mode={mode}
       className="flex items-center justify-between gap-3 border-b border-border px-4 py-2"
     >
-      <div className="flex min-w-0 items-center gap-3">
-        <h1 className="truncate text-sm font-semibold tracking-tight">{name}</h1>
-        <div
-          role="radiogroup"
-          aria-label="Canvas mode"
-          data-mode-selector
-          className="flex shrink-0 overflow-hidden rounded-md border border-border"
-        >
-          {CANVAS_MODES.map((option) => (
-            <ModeButton key={option} mode={option} selected={mode === option} onSelect={setMode} />
-          ))}
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex min-w-0 items-center gap-3">
+          <h1 className="truncate text-sm font-semibold tracking-tight">{name}</h1>
+          <div
+            role="radiogroup"
+            aria-label="Canvas mode"
+            data-mode-selector
+            className="flex shrink-0 overflow-hidden rounded-md border border-border"
+          >
+            {modes.map((option) => (
+              <ModeButton
+                key={option}
+                mode={option}
+                selected={mode === option}
+                onSelect={setMode}
+              />
+            ))}
+          </div>
         </div>
+        {coverage !== undefined ? <CoverageLine coverage={coverage} /> : null}
       </div>
-      <ShareButton resource={{ kind: 'prototype', id: prototypeId }} />
+      {readOnly ? null : <ShareButton resource={{ kind: 'prototype', id: prototypeId }} />}
     </header>
+  );
+}
+
+function CoverageLine({ coverage }: { coverage: FlowCoverage }) {
+  if (!coverage.parseable) {
+    return (
+      <p data-coverage-line data-coverage-parseable="false" className="text-[11px] text-amber-700">
+        Flow coverage: unparseable — {coverage.parse_error ?? 'unknown'}
+      </p>
+    );
+  }
+  const missing =
+    coverage.missing.length > 0 ? `missing ${coverage.missing.join(', ')}` : 'none missing';
+  const unplanned =
+    coverage.unplanned.length > 0 ? ` · unplanned ${coverage.unplanned.join(', ')}` : '';
+  return (
+    <p
+      data-coverage-line
+      data-coverage-parseable="true"
+      className="text-[11px] text-muted-foreground"
+    >
+      Coverage: {coverage.built.length}/{coverage.planned.length} planned · {missing}
+      {unplanned}
+    </p>
   );
 }
 

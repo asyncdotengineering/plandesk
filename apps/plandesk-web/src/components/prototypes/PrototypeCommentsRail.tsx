@@ -11,10 +11,14 @@ import { passageFromSelector } from './screen-comments.js';
 export function PrototypeCommentsRail({
   projectId,
   defaultArtifactId,
+  commentTargetForArtifact,
+  canManage = true,
 }: {
   projectId: string;
   /** Focused / selected screen — falls back when no pending draft. */
   defaultArtifactId: string | null;
+  commentTargetForArtifact?: (artifactId: string) => CommentTarget;
+  canManage?: boolean;
 }) {
   const pending = usePendingAnchor();
   const store = useScreenCommentsStore();
@@ -25,8 +29,10 @@ export function PrototypeCommentsRail({
     if (artifactId === null) {
       return null;
     }
-    return { type: 'artifact', id: artifactId, projectId };
-  }, [artifactId, projectId]);
+    return (
+      commentTargetForArtifact?.(artifactId) ?? { type: 'artifact', id: artifactId, projectId }
+    );
+  }, [artifactId, commentTargetForArtifact, projectId]);
 
   const attachPassage = pending !== null ? (passageFromSelector(pending.selector) ?? null) : null;
   const attachAnchor = pending !== null ? JSON.stringify(pending.selector) : null;
@@ -55,6 +61,7 @@ export function PrototypeCommentsRail({
         attachAnchor={attachAnchor}
         onPassageConsumed={attachPassage !== null ? clearPending : undefined}
         onAnchorConsumed={attachPassage === null ? clearPending : undefined}
+        canManage={canManage}
       />
     </div>
   );

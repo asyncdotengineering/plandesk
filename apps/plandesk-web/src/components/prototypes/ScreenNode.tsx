@@ -4,6 +4,7 @@ import { useCanvasMode } from './CanvasModeContext.js';
 import { useRegisterFrame } from './FrameRegistryContext.js';
 import { useScreenCommentsStore } from './ScreenCommentsContext.js';
 import { useScreenDiagnostics, useScreenDiagnosticsStore } from './ScreenDiagnosticsContext.js';
+import { ScreenMoveCopyMenu } from './ScreenMoveCopyMenu.js';
 
 export type ScreenNodeData = {
   artifactId: string;
@@ -12,12 +13,20 @@ export type ScreenNodeData = {
   width: number;
   height: number;
   projectId: string;
+  prototypeId: string;
+  /** Share or render token for portal guests / Moment B — appended as ?token=. */
+  frameToken?: string;
   /** Raw targets of links with a null to_artifact_id — rendered as broken stubs. */
   brokenLinks: string[];
+  /** Hide move/copy chrome (portal read-only). */
+  readOnly?: boolean;
   [key: string]: unknown;
 };
 
-function artifactRenderSrc(artifactId: string, revisionId: string): string {
+function artifactRenderSrc(artifactId: string, revisionId: string, frameToken?: string): string {
+  if (frameToken !== undefined && frameToken !== '') {
+    return `/api/v1/artifacts/${artifactId}/render?token=${encodeURIComponent(frameToken)}&v=${encodeURIComponent(revisionId)}`;
+  }
   return `/api/v1/artifacts/${artifactId}/render?v=${encodeURIComponent(revisionId)}`;
 }
 
@@ -119,6 +128,13 @@ export function ScreenNode({ data }: NodeProps<Node<ScreenNodeData>>) {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 truncate border-b border-border/60 bg-card/90 px-2 py-1 text-[11px] font-medium">
         {data.title}
       </div>
+      {mode === 'arrange' && data.readOnly !== true ? (
+        <ScreenMoveCopyMenu
+          artifactId={data.artifactId}
+          projectId={data.projectId}
+          currentPrototypeId={data.prototypeId}
+        />
+      ) : null}
       {diagnostics.length > 0 ? (
         <div className="absolute right-2 top-8 z-20" data-screen-diagnostics>
           <button
@@ -181,7 +197,7 @@ export function ScreenNode({ data }: NodeProps<Node<ScreenNodeData>>) {
             ref={bindIframe}
             title={data.title}
             sandbox="allow-scripts"
-            src={artifactRenderSrc(data.artifactId, data.revisionId)}
+            src={artifactRenderSrc(data.artifactId, data.revisionId, data.frameToken)}
             className={
               frameLive
                 ? 'h-full w-full border-0 bg-white'

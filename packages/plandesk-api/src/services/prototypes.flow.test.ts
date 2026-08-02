@@ -9,6 +9,7 @@ import {
   listEdgesByEndpoint,
   listFolders,
   migrate,
+  updateDocument,
   type Db,
 } from '@plandesk/db';
 import { createArtifactService } from './artifacts.js';
@@ -183,5 +184,65 @@ describe('prototype folder + flow document', () => {
     expect(kept?.title).toBe('Keep me');
     expect(kept?.folderId).toBe(existingFolder.id);
     expect(kept?.body).toBe('stay');
+  });
+
+  it('get_prototype reports named missing screens and unparseable flow docs', async () => {
+    const proto = await prototypes().create(projectId, {
+      name: 'Cover',
+      viewportWidth: 390,
+      viewportHeight: 844,
+    });
+    expect(proto).toBeDefined();
+    if (!proto) {
+      return;
+    }
+
+    const flow = await listDocuments(db, projectId).then((docs) =>
+      docs.find((d) => d.folderId === proto.folder_id),
+    );
+    expect(flow).toBeDefined();
+    if (!flow) {
+      return;
+    }
+
+    await updateDocument(db, flow.id, {
+      body: [
+        '| Screen | Purpose | States it must show |',
+        '| --- | --- | --- |',
+        '| One | a | default |',
+        '| Two | b | default |',
+        '| Three | c | default |',
+        '| Four | d | default |',
+      ].join('\n'),
+    });
+
+    await artifacts().create(projectId, {
+      title: 'One',
+      kind: 'html',
+      content: '<p>1</p>',
+      prototypeId: proto.id,
+    });
+    await artifacts().create(projectId, {
+      title: 'Two',
+      kind: 'html',
+      content: '<p>2</p>',
+      prototypeId: proto.id,
+    });
+    await artifacts().create(projectId, {
+      title: 'Three',
+      kind: 'html',
+      content: '<p>3</p>',
+      prototypeId: proto.id,
+    });
+
+    const got = await prototypes().get(proto.id);
+    expect(got?.coverage.parseable).toBe(true);
+    expect(got?.coverage.missing).toEqual(['Four']);
+
+    await updateDocument(db, flow.id, { body: '# no table at all' });
+    const unparseable = await prototypes().get(proto.id);
+    expect(unparseable?.coverage.parseable).toBe(false);
+    expect(unparseable?.coverage.parse_error).toMatch(/no screens table/i);
+    expect(unparseable?.coverage.missing).toEqual([]);
   });
 });

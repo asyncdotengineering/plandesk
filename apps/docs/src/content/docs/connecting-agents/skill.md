@@ -227,12 +227,49 @@ kept in the workspace (not a file on disk).
 
 ## Prototypes
 
-Click-through HTML prototype flows (screens on a prototype canvas). Authoring
-conventions — flow-first, mandatory unhappy paths, `plandesk://` links,
-curated libraries, sandbox constraints — live in
-`.claude/skills/plandesk-prototype/SKILL.md` (and its `references/`). Read
-that skill when building or revising a prototype; keep this file as the
-pointer, not a second copy of the rules.
+A **prototype** is a named flow of **screens** with one declared viewport.
+A project may have many prototypes. A screen is an `html` artifact with a
+`prototype_id` — that nullable column is the line between a report and a
+screen.
+
+### Create
+
+1. `create_prototype(project_id, name, viewport_width, viewport_height)` —
+   also creates a folder and a flow document edged to the prototype.
+2. `create_artifact(…, kind: 'html', prototype_id)` to add a screen.
+   **Never send `x`/`y`** — the system lays screens out from the link graph.
+3. Prefer `plandesk push-artifact <file.html> [--prototype <name>]` over
+   inline `content` — inline content means re-emitting the whole document
+   on every revision. Preview locally with `plandesk <file.html>` first.
+4. Move or copy a screen between prototypes in the same project with
+   `move_screen` / `copy_screen` (or the canvas Move / Copy control).
+   Copy produces a **new** artifact; comments do not travel.
+
+### `plandesk://` scheme
+
+| Form | Resolution |
+| --- | --- |
+| `plandesk://artifact/<uuid>` | Pin to exactly this screen |
+| `plandesk://artifact/<title>` | Case-insensitive; **this prototype first, then project-wide**. Zero or multiple matches → visibly broken (`to_artifact_id: null`) |
+| `plandesk://file/<uuid>` | An attached project file (images). Never inline base64 |
+| `plandesk://lib/<name>@<version>` | Curated library from the manifest (mermaid, Chart.js). Outside the manifest is refused at write |
+
+Title resolution is what makes a copied flow wire itself to its own screens
+without rewriting markup. A link built by JavaScript at runtime still
+navigates but draws no line on the canvas.
+
+### Network is dead
+
+External scripts, stylesheets, fonts, and `fetch` are **blocked**, not
+degraded — a screen that reaches for a CDN renders broken. Everything is
+inline, an attached `plandesk://file/`, or a curated `plandesk://lib/`.
+
+### Authoring skill
+
+Flow-first conventions, mandatory unhappy paths, and the full authoring
+loop live in `.claude/skills/plandesk-prototype/SKILL.md` (and its
+`references/`). Read that skill when building or revising a prototype;
+this section is the scheme and surface, not a second copy of those rules.
 
 ## Agent runs
 1. Start a run at the beginning of any multi-step Plan Desk operation.

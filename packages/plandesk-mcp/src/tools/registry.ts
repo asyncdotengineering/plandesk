@@ -280,6 +280,16 @@ export const getArtifactInputSchema = z.object({
   artifact_id: z.string().uuid(),
 });
 
+export const moveScreenInputSchema = z.object({
+  artifact_id: z.string().uuid(),
+  prototype_id: z.string().uuid().describe('Destination prototype in the same project.'),
+});
+
+export const copyScreenInputSchema = z.object({
+  artifact_id: z.string().uuid(),
+  prototype_id: z.string().uuid().describe('Destination prototype in the same project.'),
+});
+
 export const updateArtifactInputSchema = z.object({
   artifact_id: z.string().uuid(),
   title: z.string().min(1).optional(),
@@ -733,6 +743,8 @@ export const v1ToolNames = [
   'create_artifact',
   'get_artifact',
   'update_artifact',
+  'move_screen',
+  'copy_screen',
   'list_artifacts',
   'create_share_link',
   'start_agent_run',
@@ -794,6 +806,8 @@ export const v1ToolSchemas = {
   create_artifact: createArtifactInputSchema,
   get_artifact: getArtifactInputSchema,
   update_artifact: updateArtifactInputSchema,
+  move_screen: moveScreenInputSchema,
+  copy_screen: copyScreenInputSchema,
   list_artifacts: listArtifactsInputSchema,
   create_share_link: createShareLinkInputSchema,
   start_agent_run: startAgentRunInputSchema,

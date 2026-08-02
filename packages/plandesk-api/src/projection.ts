@@ -50,6 +50,8 @@ export type ClientViewPrototype = {
     content: string;
     x: number | null;
     y: number | null;
+    /** Latest content revision when present, otherwise updated_at (frame cache key). */
+    revision_id: string;
   }>;
   links: ClientViewPrototypeLink[];
 };
@@ -172,6 +174,7 @@ export async function buildClientView(
         content: screen.content,
         x: screen.x,
         y: screen.y,
+        revision_id: screen.updatedAt.toISOString(),
       }));
       const screenIds = new Set(screens.map((s) => s.id));
       const links = projectLinks

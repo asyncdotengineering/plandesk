@@ -61,11 +61,17 @@ export type McpToolResult = {
 
 export type McpToolHandler = (args?: Record<string, unknown>) => Promise<McpToolResult>;
 
-export declare function createAddArtifactCommentHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createAddArtifactCommentHandler(
+  dep?: unknown,
+  dep2?: unknown,
+): McpToolHandler;
 export declare function createAddCommentHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createAttachFileHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createClaimTaskHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createCompleteAgentRunHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createCompleteAgentRunHandler(
+  dep?: unknown,
+  dep2?: unknown,
+): McpToolHandler;
 export declare function createCompleteGoalHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createCreateArtifactHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createCreateDocumentHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
@@ -86,7 +92,10 @@ export declare function createGetNoteHandler(dep?: unknown, dep2?: unknown): Mcp
 export declare function createGetPrototypeHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createGetProjectHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createGetTaskHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createListArtifactCommentsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createListArtifactCommentsHandler(
+  dep?: unknown,
+  dep2?: unknown,
+): McpToolHandler;
 export declare function createListArtifactsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListCommentsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListDocumentsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
@@ -102,14 +111,25 @@ export declare function createListRevisionsHandler(dep?: unknown, dep2?: unknown
 export declare function createGetRevisionHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListTasksHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createPauseGoalHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createRecordAgentProgressHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createRecordAgentProgressHandler(
+  dep?: unknown,
+  dep2?: unknown,
+): McpToolHandler;
 export declare function createResolveCommentHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createResumeGoalHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createScaffoldProjectFromPlanHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createScaffoldProjectFromPlanHandler(
+  dep?: unknown,
+  dep2?: unknown,
+): McpToolHandler;
 export declare function createStartAgentRunHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createSyncPullHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createTriageSubmissionHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createTriageSubmissionHandler(
+  dep?: unknown,
+  dep2?: unknown,
+): McpToolHandler;
 export declare function createUpdateArtifactHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createMoveScreenHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createCopyScreenHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateDocumentHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateFolderHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdatePrototypeHandler(dep?: unknown, dep2?: unknown): McpToolHandler;

@@ -21,7 +21,12 @@ import { ConfirmDialog } from '@/components/docs/ConfirmDialog.js';
 import { layoutNodes } from '@/components/canvas/layout.js';
 import { getArtifact } from '@/lib/api.js';
 import { usePatchArtifact, usePrototype, usePrototypes } from '@/lib/queries.js';
-import type { SerializedPrototypeLink, SerializedPrototypeWithScreens } from '@/lib/api.js';
+import type {
+  CommentTarget,
+  SerializedPrototypeBoundaryLink,
+  SerializedPrototypeLink,
+  SerializedPrototypeWithScreens,
+} from '@/lib/api.js';
 import { CanvasModeProvider, useCanvasMode } from './CanvasModeContext.js';
 import { CommentPinsLayer } from './CommentPins.js';
 import { FrameRegistryProvider, useFrameRegistry } from './FrameRegistryContext.js';
@@ -31,8 +36,10 @@ import { PrototypeCommentsRail } from './PrototypeCommentsRail.js';
 import { ScreenCommentsProvider } from './ScreenCommentsContext.js';
 import { ScreenDiagnosticsProvider, useDiagnosticsSnapshot } from './ScreenDiagnosticsContext.js';
 import { ScreenNode, type ScreenNodeData } from './ScreenNode.js';
+import { BoundaryMarkerNode, type BoundaryMarkerData } from './BoundaryMarkerNode.js';
+import type { CanvasMode } from './canvas-mode.js';
 
-const nodeTypes = { screenFrame: ScreenNode };
+const nodeTypes = { screenFrame: ScreenNode, boundaryMarker: BoundaryMarkerNode };
 
 function brokenTargetsFor(artifactId: string, links: SerializedPrototypeLink[]): string[] {
   return links
@@ -40,12 +47,20 @@ function brokenTargetsFor(artifactId: string, links: SerializedPrototypeLink[]):
     .map((link) => link.raw_target);
 }
 
-export function prototypeToFlow(prototype: SerializedPrototypeWithScreens): {
-  nodes: Node<ScreenNodeData>[];
+function boundaryNodeId(link: SerializedPrototypeBoundaryLink): string {
+  return `boundary:${link.direction}:${link.link_id}`;
+}
+
+export function prototypeToFlow(
+  prototype: SerializedPrototypeWithScreens,
+  options: { frameToken?: string; readOnly?: boolean } = {},
+): {
+  nodes: Node<ScreenNodeData | BoundaryMarkerData>[];
   edges: Edge[];
 } {
   const { viewport_width: width, viewport_height: height, project_id: projectId } = prototype;
-  const nodes: Node<ScreenNodeData>[] = prototype.screens.map((screen) => ({
+  const screenIds = new Set(prototype.screens.map((s) => s.id));
+  const nodes: Node<ScreenNodeData | BoundaryMarkerData>[] = prototype.screens.map((screen) => ({
     id: screen.id,
     type: 'screenFrame',
     position: { x: screen.x ?? 0, y: screen.y ?? 0 },
@@ -59,6 +74,9 @@ export function prototypeToFlow(prototype: SerializedPrototypeWithScreens): {
       width,
       height,
       projectId,
+      prototypeId: prototype.id,
+      ...(options.frameToken !== undefined ? { frameToken: options.frameToken } : {}),
+      ...(options.readOnly === true ? { readOnly: true } : {}),
       brokenLinks: brokenTargetsFor(screen.id, prototype.links),
     },
   }));
@@ -68,12 +86,56 @@ export function prototypeToFlow(prototype: SerializedPrototypeWithScreens): {
     if (link.to_artifact_id === null) {
       continue;
     }
+    if (!screenIds.has(link.to_artifact_id)) {
+      // Cross-boundary exit is drawn via boundary_links, not a dangling RF edge.
+      continue;
+    }
     edges.push({
       id: link.id,
       source: link.from_artifact_id,
       target: link.to_artifact_id,
       type: 'default',
     });
+  }
+
+  for (const boundary of prototype.boundary_links) {
+    const markerId = boundaryNodeId(boundary);
+    const local = prototype.screens.find((s) => s.id === boundary.local_artifact_id);
+    const localX = local?.x ?? 0;
+    const localY = local?.y ?? 0;
+    const offsetX = boundary.direction === 'exit' ? width + 48 : -220;
+    nodes.push({
+      id: markerId,
+      type: 'boundaryMarker',
+      position: { x: localX + offsetX, y: localY + height / 2 - 28 },
+      draggable: false,
+      selectable: true,
+      data: {
+        direction: boundary.direction,
+        foreignTitle: boundary.foreign_title,
+        foreignPrototypeId: boundary.foreign_prototype_id,
+        foreignPrototypeName: boundary.foreign_prototype_name,
+        foreignArtifactId: boundary.foreign_artifact_id,
+        projectId,
+      },
+    });
+    if (boundary.direction === 'exit') {
+      edges.push({
+        id: `boundary-edge:${boundary.link_id}`,
+        source: boundary.local_artifact_id,
+        target: markerId,
+        type: 'default',
+        label: `exits to ${boundary.foreign_prototype_name}`,
+      });
+    } else {
+      edges.push({
+        id: `boundary-edge:${boundary.link_id}`,
+        source: markerId,
+        target: boundary.local_artifact_id,
+        type: 'default',
+        label: `arrives from ${boundary.foreign_prototype_name}`,
+      });
+    }
   }
 
   return { nodes, edges };
@@ -156,13 +218,35 @@ function RelayoutPanel({ onRelayout }: { onRelayout: () => void }) {
   );
 }
 
-function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
-  const { data: prototype, isLoading, error } = usePrototype(prototypeId);
+type PrototypeCanvasOptions = {
+  prototype?: SerializedPrototypeWithScreens;
+  readOnly?: boolean;
+  guestModes?: readonly CanvasMode[];
+  frameToken?: string;
+  commentTargetForArtifact?: (artifactId: string) => CommentTarget;
+};
+
+function PrototypeCanvasInner({
+  prototypeId,
+  prototype: suppliedPrototype,
+  readOnly = false,
+  guestModes,
+  frameToken,
+  commentTargetForArtifact,
+}: { prototypeId: string } & PrototypeCanvasOptions) {
+  const {
+    data: fetchedPrototype,
+    isLoading,
+    error,
+  } = usePrototype(prototypeId, { enabled: suppliedPrototype === undefined });
+  const prototype = suppliedPrototype ?? fetchedPrototype;
   const patchArtifact = usePatchArtifact(prototypeId);
   const { acceptedCount, lastAccepted, setNavigateHandler } = useFrameRegistry();
   const { mode } = useCanvasMode();
   const diagnosticsSnapshot = useDiagnosticsSnapshot();
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<ScreenNodeData>>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<ScreenNodeData | BoundaryMarkerData>>(
+    [],
+  );
   const [edges, setEdges, onEdgesChange] = useEdgesState([] as Edge[]);
   const { setCenter, getNode } = useReactFlow();
   const navigate = useNavigate();
@@ -173,10 +257,10 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
     if (prototype === undefined) {
       return;
     }
-    const mapped = prototypeToFlow(prototype);
+    const mapped = prototypeToFlow(prototype, { frameToken, readOnly });
     setNodes(mapped.nodes);
     setEdges(mapped.edges);
-  }, [prototype, setNodes, setEdges]);
+  }, [prototype, frameToken, readOnly, setNodes, setEdges]);
 
   useEffect(() => {
     if (prototype === undefined) {
@@ -193,7 +277,7 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
         );
 
         // Destination may live on another prototype (move) — look it up.
-        if (outcome.kind === 'go') {
+        if (outcome.kind === 'go' && !readOnly) {
           const targetId = outcome.artifactId;
           const destProto = outcome.prototypeId;
           const onThisCanvas = prototype.screens.some((s) => s.id === targetId);
@@ -252,7 +336,7 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
     return () => {
       setNavigateHandler(null);
     };
-  }, [prototype, setNavigateHandler, setCenter, getNode, navigate]);
+  }, [prototype, readOnly, setNavigateHandler, setCenter, getNode, navigate]);
 
   const handleRelayout = useCallback(() => {
     setNodes((current) => {
@@ -277,10 +361,10 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
     [patchArtifact],
   );
 
-  if (isLoading) {
+  if (suppliedPrototype === undefined && isLoading) {
     return <p className="p-4 text-sm text-muted-foreground">Loading prototype…</p>;
   }
-  if (error) {
+  if (suppliedPrototype === undefined && error) {
     return (
       <p role="alert" className="p-4 text-sm text-destructive">
         Failed to load prototype: {error.message}
@@ -294,6 +378,9 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
   const diagnosticTotal = Object.values(diagnosticsSnapshot).reduce(
     (n, list) => n + list.length,
     0,
+  );
+  const screenNodes = nodes.filter(
+    (node): node is Node<ScreenNodeData> => node.type === 'screenFrame',
   );
 
   return (
@@ -309,7 +396,13 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
       data-diagnostic-total={diagnosticTotal}
       data-runtime-diagnostics={JSON.stringify(diagnosticsSnapshot)}
     >
-      <PrototypeChrome prototypeId={prototype.id} name={prototype.name} />
+      <PrototypeChrome
+        prototypeId={prototype.id}
+        name={prototype.name}
+        coverage={prototype.coverage}
+        readOnly={readOnly}
+        {...(guestModes !== undefined ? { modes: guestModes } : {})}
+      />
       <div className="flex min-h-0 flex-1">
         <div className="relative min-h-0 min-w-0 flex-1">
           <ReactFlow
@@ -317,7 +410,7 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
-            onNodeDragStop={handleNodeDragStop}
+            {...(!readOnly ? { onNodeDragStop: handleNodeDragStop } : {})}
             nodeTypes={nodeTypes}
             onlyRenderVisibleElements
             minZoom={0.05}
@@ -325,39 +418,51 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
             defaultViewport={{ x: 40, y: 40, zoom: 0.45 }}
             panOnDrag
             panActivationKeyCode="Space"
-            nodesDraggable={mode === 'arrange'}
+            nodesDraggable={!readOnly && mode === 'arrange'}
             elementsSelectable
             proOptions={{ hideAttribution: true }}
           >
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
             <MiniMap pannable zoomable className="!bg-card" />
             <ZoomControls />
-            <RelayoutPanel onRelayout={handleRelayout} />
-            <CommentPinsLayer
-              projectId={prototype.project_id}
-              screens={nodes.map((n) => ({
-                artifactId: n.data.artifactId,
-                position: n.position,
-                revisionId: n.data.revisionId,
-              }))}
-            />
+            {!readOnly ? <RelayoutPanel onRelayout={handleRelayout} /> : null}
+            {guestModes?.includes('comment') !== false ? (
+              <CommentPinsLayer
+                projectId={prototype.project_id}
+                screens={screenNodes.map((n) => ({
+                  artifactId: n.data.artifactId,
+                  position: n.position,
+                  revisionId: n.data.revisionId,
+                }))}
+              />
+            ) : null}
           </ReactFlow>
         </div>
-        <PrototypeCommentsRail
-          projectId={prototype.project_id}
-          defaultArtifactId={nodes[0]?.data.artifactId ?? null}
-        />
+        {guestModes?.includes('comment') !== false ? (
+          <PrototypeCommentsRail
+            projectId={prototype.project_id}
+            defaultArtifactId={screenNodes[0]?.data.artifactId ?? null}
+            commentTargetForArtifact={commentTargetForArtifact}
+            canManage={!readOnly}
+          />
+        ) : null}
       </div>
     </div>
   );
 }
 
-function PrototypeProviders({ children }: { children: ReactNode }) {
+function PrototypeProviders({
+  children,
+  initialMode,
+}: {
+  children: ReactNode;
+  initialMode?: CanvasMode;
+}) {
   return (
     <ScreenDiagnosticsProvider>
       <ScreenCommentsProvider>
         <FrameRegistryProvider>
-          <CanvasModeProvider>
+          <CanvasModeProvider initialMode={initialMode}>
             <ReactFlowProvider>{children}</ReactFlowProvider>
           </CanvasModeProvider>
         </FrameRegistryProvider>
@@ -366,10 +471,25 @@ function PrototypeProviders({ children }: { children: ReactNode }) {
   );
 }
 
-export function PrototypeCanvas({ prototypeId }: { prototypeId: string }) {
+export function PrototypeCanvas({
+  prototypeId,
+  prototype,
+  readOnly,
+  guestModes,
+  frameToken,
+  commentTargetForArtifact,
+}: { prototypeId: string } & PrototypeCanvasOptions) {
+  const initialMode = guestModes?.[0];
   return (
-    <PrototypeProviders>
-      <PrototypeCanvasInner prototypeId={prototypeId} />
+    <PrototypeProviders initialMode={initialMode}>
+      <PrototypeCanvasInner
+        prototypeId={prototypeId}
+        prototype={prototype}
+        readOnly={readOnly}
+        guestModes={guestModes}
+        frameToken={frameToken}
+        commentTargetForArtifact={commentTargetForArtifact}
+      />
     </PrototypeProviders>
   );
 }

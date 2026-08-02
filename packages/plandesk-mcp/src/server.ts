@@ -8,6 +8,7 @@ import { createAttachFileHandler } from './tools/attach-file.js';
 import { createCreateArtifactHandler } from './tools/create-artifact.js';
 import { createGetArtifactHandler } from './tools/get-artifact.js';
 import { createUpdateArtifactHandler } from './tools/update-artifact.js';
+import { createMoveScreenHandler, createCopyScreenHandler } from './tools/move-copy-screen.js';
 import { createListArtifactsHandler } from './tools/list-artifacts.js';
 import { createCompleteAgentRunHandler } from './tools/complete-agent-run.js';
 import { createCreateDocumentHandler } from './tools/create-document.js';
@@ -62,6 +63,8 @@ import {
   createArtifactInputSchema,
   getArtifactInputSchema,
   updateArtifactInputSchema,
+  moveScreenInputSchema,
+  copyScreenInputSchema,
   listArtifactsInputSchema,
   completeAgentRunInputSchema,
   createDocumentInputSchema,
@@ -394,6 +397,28 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       inputSchema: updateArtifactInputSchema.shape,
     },
     createUpdateArtifactHandler(services.artifactService, filePathDeps),
+  );
+
+  server.registerTool(
+    'move_screen',
+    {
+      title: 'Move Screen',
+      description:
+        'Move an html screen to another prototype in the same project. Keeps the artifact id and comments; re-resolves derived links in the destination. Does not rewrite markup.',
+      inputSchema: moveScreenInputSchema.shape,
+    },
+    createMoveScreenHandler(services.artifactService),
+  );
+
+  server.registerTool(
+    'copy_screen',
+    {
+      title: 'Copy Screen',
+      description:
+        'Copy an html screen into another prototype. New artifact id, same content, comments do not travel. Title links resolve in the destination prototype.',
+      inputSchema: copyScreenInputSchema.shape,
+    },
+    createCopyScreenHandler(services.artifactService),
   );
 
   server.registerTool(
