@@ -15,6 +15,7 @@ import {
   type DbClient,
   type GoalStatus,
 } from '@plandesk/db';
+import { randomUUID } from 'node:crypto';
 import { serializeGoal, serializeTask } from '../serialize.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
@@ -27,6 +28,13 @@ export class InvalidGoalTransitionError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidGoalTransitionError';
+  }
+}
+
+export class DuplicateGoalNameError extends Error {
+  constructor(name: string) {
+    super(`Goal name already exists in this project: ${name}`);
+    this.name = 'DuplicateGoalNameError';
   }
 }
 
@@ -57,12 +65,24 @@ export class GoalVerificationRequiredError extends Error {
   }
 }
 
+export class InvalidChecklistEvidenceError extends Error {
+  unmatched: string[];
+  unmet: string[];
+
+  constructor(unmatched: string[], unmet: string[]) {
+    super('Checklist evidence did not match the declared acceptance criteria');
+    this.name = 'InvalidChecklistEvidenceError';
+    this.unmatched = unmatched;
+    this.unmet = unmet;
+  }
+}
+
 export type VerificationSurfaceKind = 'gate_command' | 'acceptance_checklist' | 'human_sign_off';
 
 export type GateCommandSurface = { kind: 'gate_command'; command: string };
 export type AcceptanceChecklistSurface = {
   kind: 'acceptance_checklist';
-  items: Array<{ criterion: string }>;
+  items: Array<{ id: string; criterion: string }>;
 };
 export type HumanSignOffSurface = { kind: 'human_sign_off' };
 export type VerificationSurface =
@@ -98,6 +118,7 @@ export type LastVerificationRecord = {
 
 export type CreateGoalInput = {
   objective: string;
+  name?: string | null;
   verificationSurface?: string | null;
   constraints?: string | null;
   boundaries?: string | null;
@@ -109,6 +130,7 @@ export type CreateGoalInput = {
 
 export type UpdateGoalInput = {
   objective?: string;
+  name?: string | null;
   verificationSurface?: string | null;
   constraints?: string | null;
   boundaries?: string | null;
@@ -125,10 +147,12 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-export function parseVerificationSurface(raw: string | null): VerificationSurface | null {
-  if (raw === null) {
-    return null;
-  }
+type ParsedVerificationSurface =
+  | GateCommandSurface
+  | { kind: 'acceptance_checklist'; items: Array<{ id?: string; criterion: string }> }
+  | HumanSignOffSurface;
+
+function parseRawVerificationSurface(raw: string): ParsedVerificationSurface {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -150,14 +174,22 @@ export function parseVerificationSurface(raw: string | null): VerificationSurfac
       if (!Array.isArray(parsed.items) || parsed.items.length === 0) {
         throw new InvalidVerificationSurfaceError('acceptance_checklist requires non-empty items');
       }
-      const items: Array<{ criterion: string }> = [];
+      const items: Array<{ id?: string; criterion: string }> = [];
       for (const item of parsed.items) {
         if (!isRecord(item) || !isNonEmptyString(item.criterion)) {
           throw new InvalidVerificationSurfaceError(
             'acceptance_checklist items require a criterion',
           );
         }
-        items.push({ criterion: item.criterion });
+        if (item.id !== undefined && !isNonEmptyString(item.id)) {
+          throw new InvalidVerificationSurfaceError(
+            'acceptance_checklist item ids must be non-empty strings',
+          );
+        }
+        items.push({
+          ...(item.id !== undefined ? { id: item.id } : {}),
+          criterion: item.criterion,
+        });
       }
       return { kind: 'acceptance_checklist', items };
     }
@@ -170,49 +202,102 @@ export function parseVerificationSurface(raw: string | null): VerificationSurfac
   }
 }
 
+export function parseVerificationSurface(raw: string | null): VerificationSurface | null {
+  if (raw === null) {
+    return null;
+  }
+  const parsed = parseRawVerificationSurface(raw);
+  if (parsed.kind === 'acceptance_checklist') {
+    return {
+      kind: parsed.kind,
+      items: parsed.items.map((item) => ({
+        id: item.id ?? randomUUID(),
+        criterion: item.criterion,
+      })),
+    };
+  }
+  return parsed;
+}
+
+function normalizeVerificationSurface(
+  raw: string | null | undefined,
+  existingRaw?: string | null,
+): string | null | undefined {
+  if (raw === undefined || raw === null) {
+    return raw;
+  }
+
+  const incoming = parseRawVerificationSurface(raw);
+  if (incoming.kind !== 'acceptance_checklist') {
+    return JSON.stringify(incoming);
+  }
+
+  const existing = existingRaw ? parseVerificationSurface(existingRaw) : null;
+  const existingItems = existing?.kind === 'acceptance_checklist' ? existing.items : [];
+  const usedIds = new Set<string>();
+  const items = incoming.items.map((item) => {
+    const byId = item.id ? existingItems.find((candidate) => candidate.id === item.id) : undefined;
+    const byCriterion = existingItems.find(
+      (candidate) => !usedIds.has(candidate.id) && candidate.criterion === item.criterion,
+    );
+    const id = byId?.id ?? byCriterion?.id ?? randomUUID();
+    usedIds.add(id);
+    return { id, criterion: item.criterion };
+  });
+  return JSON.stringify({ kind: incoming.kind, items });
+}
+
 export function evaluateEvidence(
   surface: VerificationSurface,
   evidence: VerificationEvidence,
-): { green: boolean; detail?: string } {
+): { green: boolean; detail?: string; unmatched: string[]; unmet: string[] } {
   if (surface.kind !== evidence.kind) {
-    return { green: false, detail: `Expected evidence kind ${surface.kind}` };
+    return { green: false, detail: `Expected evidence kind ${surface.kind}`, unmatched: [], unmet: [] };
   }
 
   if (surface.kind === 'gate_command' && evidence.kind === 'gate_command') {
     if (evidence.exit_code === 0) {
-      return { green: true };
+      return { green: true, unmatched: [], unmet: [] };
     }
     const detail =
       evidence.detail ??
       `exit_code ${String(evidence.exit_code)}${evidence.command ? ` for \`${evidence.command}\`` : ''}`;
-    return { green: false, detail };
+    return { green: false, detail, unmatched: [], unmet: [] };
   }
 
   if (surface.kind === 'acceptance_checklist' && evidence.kind === 'acceptance_checklist') {
-    const missing = surface.items
-      .map((item) => item.criterion)
-      .filter((criterion) => !evidence.checked.includes(criterion));
-    if (missing.length === 0) {
-      return { green: true };
+    const matched = new Set<string>();
+    const unmatched = evidence.checked.filter((entry) => {
+      const item = surface.items.find(
+        (candidate) => candidate.id === entry || candidate.criterion === entry,
+      );
+      if (!item) {
+        return true;
+      }
+      matched.add(item.id);
+      return false;
+    });
+    const unmet = surface.items
+      .filter((item) => !matched.has(item.id))
+      .map((item) => item.criterion);
+    if (unmatched.length === 0 && unmet.length === 0) {
+      return { green: true, unmatched, unmet };
     }
-    return { green: false, detail: `Missing criteria: ${missing.join(', ')}` };
+    const detail = [
+      ...(unmatched.length > 0 ? [`Unmatched evidence: ${unmatched.join(', ')}`] : []),
+      ...(unmet.length > 0 ? [`Missing criteria: ${unmet.join(', ')}`] : []),
+    ].join('; ');
+    return { green: false, detail, unmatched, unmet };
   }
 
   if (surface.kind === 'human_sign_off' && evidence.kind === 'human_sign_off') {
     if (isNonEmptyString(evidence.approved_by)) {
-      return { green: true };
+      return { green: true, unmatched: [], unmet: [] };
     }
-    return { green: false, detail: 'approved_by is required' };
+    return { green: false, detail: 'approved_by is required', unmatched: [], unmet: [] };
   }
 
-  return { green: false, detail: `Expected evidence kind ${surface.kind}` };
-}
-
-function validateVerificationSurfaceInput(raw: string | null | undefined): void {
-  if (raw === undefined) {
-    return;
-  }
-  parseVerificationSurface(raw);
+  return { green: false, detail: `Expected evidence kind ${surface.kind}`, unmatched: [], unmet: [] };
 }
 
 function acceptanceBlockMarker(goalId: string): string {
@@ -294,8 +379,7 @@ export function createGoalService(deps: GoalServiceDeps) {
       if (input.status !== undefined && !isGoalStatus(input.status)) {
         throw new InvalidGoalStatusError(input.status);
       }
-      validateVerificationSurfaceInput(input.verificationSurface);
-
+      const verificationSurface = normalizeVerificationSurface(input.verificationSurface);
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -305,12 +389,22 @@ export function createGoalService(deps: GoalServiceDeps) {
         throw error;
       }
 
+      if (input.name !== undefined && input.name !== null) {
+        const duplicate = (await listGoals(db, projectId)).some(
+          (goal) => goal.name === input.name,
+        );
+        if (duplicate) {
+          throw new DuplicateGoalNameError(input.name);
+        }
+      }
+
       const goal = await withTransaction(db, async (tx) =>
         createGoal(tx, {
           projectId,
           objective: input.objective,
+          name: input.name,
           status: input.status,
-          verificationSurface: input.verificationSurface,
+          verificationSurface,
           constraints: input.constraints,
           boundaries: input.boundaries,
           iterationPolicy: input.iterationPolicy,
@@ -368,9 +462,24 @@ export function createGoalService(deps: GoalServiceDeps) {
         }
         throw error;
       }
-      validateVerificationSurfaceInput(input.verificationSurface);
+      const verificationSurface = normalizeVerificationSurface(
+        input.verificationSurface,
+        existing.verificationSurface,
+      );
+      if (input.name !== undefined && input.name !== null) {
+        const duplicate = (await listGoals(db, existing.projectId)).some(
+          (goal) => goal.id !== goalId && goal.name === input.name,
+        );
+        if (duplicate) {
+          throw new DuplicateGoalNameError(input.name);
+        }
+      }
 
-      const goal = await withTransaction(db, async (tx) => updateGoal(tx, goalId, input));
+      const updateInput =
+        input.verificationSurface === undefined
+          ? input
+          : { ...input, verificationSurface };
+      const goal = await withTransaction(db, async (tx) => updateGoal(tx, goalId, updateInput));
       if (!goal) {
         return undefined;
       }
@@ -479,6 +588,9 @@ export function createGoalService(deps: GoalServiceDeps) {
       }
 
       const evaluation = evaluateEvidence(surface, evidence);
+      if (evaluation.unmatched.length > 0) {
+        throw new InvalidChecklistEvidenceError(evaluation.unmatched, evaluation.unmet);
+      }
       const lastVerification = recordLastVerification(
         at,
         evaluation.green,

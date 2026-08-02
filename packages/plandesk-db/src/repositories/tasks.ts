@@ -5,12 +5,16 @@ import {
   projects,
   tags,
   taskKinds,
+  taskLanes,
   taskPriorities,
+  taskSeverities,
   taskStatuses,
   taskTags,
   tasks,
   type TaskKind,
+  type TaskLane,
   type TaskPriority,
+  type TaskSeverity,
   type TaskStatus,
 } from '../schema.js';
 
@@ -24,6 +28,8 @@ export type NewTask = {
   kind?: TaskKind;
   /** Null / omit → stored null. */
   priority?: TaskPriority | null;
+  lane?: TaskLane | null;
+  severity?: TaskSeverity | null;
   description?: string | null;
   x?: number;
   y?: number;
@@ -38,6 +44,8 @@ export type TaskUpdate = {
   kind?: TaskKind;
   /** Pass null to clear; omit to leave unchanged. */
   priority?: TaskPriority | null;
+  lane?: TaskLane | null;
+  severity?: TaskSeverity | null;
   description?: string | null;
   x?: number;
   y?: number;
@@ -69,6 +77,20 @@ export class InvalidTaskPriorityError extends Error {
   }
 }
 
+export class InvalidTaskLaneError extends Error {
+  constructor(lane: string) {
+    super(`Invalid task lane: ${lane}`);
+    this.name = 'InvalidTaskLaneError';
+  }
+}
+
+export class InvalidTaskSeverityError extends Error {
+  constructor(severity: string) {
+    super(`Invalid task severity: ${severity}`);
+    this.name = 'InvalidTaskSeverityError';
+  }
+}
+
 export function isTaskStatus(value: string): value is TaskStatus {
   return (taskStatuses as readonly string[]).includes(value);
 }
@@ -79,6 +101,14 @@ export function isTaskKind(value: string): value is TaskKind {
 
 export function isTaskPriority(value: string): value is TaskPriority {
   return (taskPriorities as readonly string[]).includes(value);
+}
+
+export function isTaskLane(value: string): value is TaskLane {
+  return (taskLanes as readonly string[]).includes(value);
+}
+
+export function isTaskSeverity(value: string): value is TaskSeverity {
+  return (taskSeverities as readonly string[]).includes(value);
 }
 
 function assertTaskStatus(status: string): asserts status is TaskStatus {
@@ -99,6 +129,18 @@ function assertTaskPriority(priority: string): asserts priority is TaskPriority 
   }
 }
 
+function assertTaskLane(lane: string): asserts lane is TaskLane {
+  if (!isTaskLane(lane)) {
+    throw new InvalidTaskLaneError(lane);
+  }
+}
+
+function assertTaskSeverity(severity: string): asserts severity is TaskSeverity {
+  if (!isTaskSeverity(severity)) {
+    throw new InvalidTaskSeverityError(severity);
+  }
+}
+
 export async function createTask(db: DbClient, input: NewTask): Promise<Task> {
   const status = input.status ?? 'todo';
   assertTaskStatus(status);
@@ -107,6 +149,14 @@ export async function createTask(db: DbClient, input: NewTask): Promise<Task> {
   const priority = input.priority ?? null;
   if (priority !== null) {
     assertTaskPriority(priority);
+  }
+  const lane = input.lane ?? null;
+  if (lane !== null) {
+    assertTaskLane(lane);
+  }
+  const severity = input.severity ?? null;
+  if (severity !== null) {
+    assertTaskSeverity(severity);
   }
   const now = new Date();
   const id = input.id ?? randomUUID();
@@ -120,6 +170,8 @@ export async function createTask(db: DbClient, input: NewTask): Promise<Task> {
       status,
       kind,
       priority,
+      lane,
+      severity,
       description: input.description ?? null,
       x: input.x ?? 0,
       y: input.y ?? 0,
@@ -145,6 +197,8 @@ export type ListTasksOptions = {
   status?: TaskStatus;
   kind?: TaskKind;
   priority?: TaskPriority;
+  lane?: TaskLane;
+  severity?: TaskSeverity;
   // OR semantics: keep tasks carrying ANY of the given tag names.
   tagNames?: string[];
   limit?: number;
@@ -165,6 +219,12 @@ export async function listTasks(
   }
   if (options?.priority !== undefined) {
     conditions.push(eq(tasks.priority, options.priority));
+  }
+  if (options?.lane !== undefined) {
+    conditions.push(eq(tasks.lane, options.lane));
+  }
+  if (options?.severity !== undefined) {
+    conditions.push(eq(tasks.severity, options.severity));
   }
   if (options?.tagNames !== undefined && options.tagNames.length > 0) {
     conditions.push(
@@ -235,6 +295,12 @@ export async function updateTask(
   }
   if (input.priority !== undefined && input.priority !== null) {
     assertTaskPriority(input.priority);
+  }
+  if (input.lane !== undefined && input.lane !== null) {
+    assertTaskLane(input.lane);
+  }
+  if (input.severity !== undefined && input.severity !== null) {
+    assertTaskSeverity(input.severity);
   }
   const now = new Date();
   const conditions = [eq(tasks.id, id)];

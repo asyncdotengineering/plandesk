@@ -1,12 +1,18 @@
 import { InvalidGoalStatusError, type GoalStatus } from '@plandesk/db';
-import { InvalidVerificationSurfaceError, type GoalService } from '@plandesk/api';
-import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
+import { DuplicateGoalNameError, InvalidVerificationSurfaceError, type GoalService } from '@plandesk/api';
+import {
+  toolInvalidArgument,
+  toolNotFound,
+  toolSuccessPayload,
+  type ToolResult,
+} from './result.js';
 
 export function createCreateGoalHandler(
   goalService: GoalService,
 ): (args: {
   project_id: string;
   objective: string;
+  name?: string | null;
   verification_surface?: string;
   constraints?: string;
   boundaries?: string;
@@ -19,6 +25,7 @@ export function createCreateGoalHandler(
     try {
       const goal = await goalService.create(args.project_id, {
         objective: args.objective,
+        ...(args.name !== undefined ? { name: args.name } : {}),
         ...(args.verification_surface !== undefined
           ? { verificationSurface: args.verification_surface }
           : {}),
@@ -32,9 +39,16 @@ export function createCreateGoalHandler(
       if (!goal) {
         return toolNotFound();
       }
-      return toolSuccess('goal', goal);
+      return toolSuccessPayload({
+        goal,
+        warnings: goal.verification_surface === null ? ['verification_surface is null'] : [],
+      });
     } catch (error) {
-      if (error instanceof InvalidGoalStatusError || error instanceof InvalidVerificationSurfaceError) {
+      if (
+        error instanceof InvalidGoalStatusError ||
+        error instanceof InvalidVerificationSurfaceError ||
+        error instanceof DuplicateGoalNameError
+      ) {
         return toolInvalidArgument(error.message);
       }
       throw error;

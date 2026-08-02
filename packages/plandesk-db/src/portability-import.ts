@@ -313,6 +313,7 @@ export function emitGoalsImport(ctx: ImportContext): void {
       ctx.root.insert(goals).values({
         id: remapId(ctx.goalIdMap, goal.id) ?? goal.id,
         projectId: ctx.projectId,
+        name: goal.name ?? null,
         objective: goal.objective,
         status: goal.status,
         verificationSurface: goal.verification_surface,
@@ -344,6 +345,8 @@ export function emitTasksImport(ctx: ImportContext): void {
         status: task.status,
         kind: task.kind ?? 'build',
         priority: task.priority ?? null,
+        lane: task.lane ?? null,
+        severity: task.severity ?? null,
         description: task.description,
         x: task.x,
         y: task.y,

@@ -88,6 +88,7 @@ export declare function createGetArtifactHandler(dep?: unknown, dep2?: unknown):
 export declare function createGetDocumentHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createGetGoalHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createGetNextTaskHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createGetTaskGraphHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createGetNoteHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createGetPrototypeHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createGetProjectHandler(dep?: unknown, dep2?: unknown): McpToolHandler;

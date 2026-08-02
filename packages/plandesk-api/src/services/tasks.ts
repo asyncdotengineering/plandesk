@@ -16,9 +16,13 @@ import {
   InvalidTaskStatusError,
   isTaskStatus,
   isTaskKind,
+  isTaskLane,
   InvalidTaskKindError,
+  InvalidTaskLaneError,
   isTaskPriority,
   InvalidTaskPriorityError,
+  isTaskSeverity,
+  InvalidTaskSeverityError,
   listEdges,
   listTagsByTaskForProject,
   listTagsForTask,
@@ -36,10 +40,18 @@ import {
   type Edge,
   type Task,
   type TaskKind,
+  type TaskLane,
   type TaskPriority,
   type TaskStatus,
+  type TaskSeverity,
 } from '@plandesk/db';
-import { serializeTask, type PaginationParams } from '../serialize.js';
+import {
+  serializeTask,
+  serializeTaskSummary,
+  type PaginationParams,
+  type SerializedTask,
+  type SerializedTaskSummary,
+} from '../serialize.js';
 import { serializeActor } from '../write-actor.js';
 import { assertPermission, resolveOrgId, resolveWriteActor, type OrgScopedDeps } from './org-scope.js';
 import {
@@ -50,8 +62,6 @@ import {
 } from './revision-capture.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 import { normalizeTagName } from './tags.js';
-
-type SerializedTask = ReturnType<typeof serializeTask>;
 
 export class InvalidGoalReferenceError extends Error {
   constructor(goalId: string) {
@@ -70,7 +80,22 @@ export type NextActionableReason =
 export type NextActionableResult = {
   next_task: SerializedTask | null;
   reason: NextActionableReason;
-  blocked: Array<{ task: SerializedTask; waiting_on: SerializedTask[] }>;
+  blocked: Array<{ task: SerializedTaskSummary; waiting_on: SerializedTaskSummary[] }>;
+};
+
+export type TaskGraphNode = {
+  id: string;
+  label: string;
+  status: TaskStatus;
+  depth: number;
+  prerequisites: string[];
+};
+
+export type TaskGraphResult = {
+  nodes: TaskGraphNode[];
+  roots: string[];
+  cycles: string[][];
+  actionable_if_released: string[];
 };
 
 export type ClaimTaskResult =
@@ -132,6 +157,122 @@ export function unfinishedPrerequisiteIds(
   return unfinished;
 }
 
+function canonicalCycle(cycle: string[]): string[] {
+  let best = cycle;
+  for (let offset = 1; offset < cycle.length; offset += 1) {
+    const rotated = [...cycle.slice(offset), ...cycle.slice(0, offset)];
+    if (rotated.join('\u0000') < best.join('\u0000')) {
+      best = rotated;
+    }
+  }
+  return best;
+}
+
+function findCycles(prerequisites: Map<string, string[]>, nodeIds: string[]): string[][] {
+  const state = new Map<string, 'unvisited' | 'visiting' | 'visited'>();
+  const stack: string[] = [];
+  const cycles = new Map<string, string[]>();
+
+  const visit = (id: string): void => {
+    const currentState = state.get(id) ?? 'unvisited';
+    if (currentState === 'visited') {
+      return;
+    }
+    if (currentState === 'visiting') {
+      const start = stack.indexOf(id);
+      if (start >= 0) {
+        const cycle = canonicalCycle(stack.slice(start));
+        cycles.set(cycle.join('\u0000'), cycle);
+      }
+      return;
+    }
+
+    state.set(id, 'visiting');
+    stack.push(id);
+    for (const prerequisite of prerequisites.get(id) ?? []) {
+      visit(prerequisite);
+    }
+    stack.pop();
+    state.set(id, 'visited');
+  };
+
+  for (const id of nodeIds) {
+    visit(id);
+  }
+  return [...cycles.values()].sort((a, b) => a.join('\u0000').localeCompare(b.join('\u0000')));
+}
+
+export function buildTaskGraph(
+  tasks: Task[],
+  edges: Edge[],
+  statusById: Map<string, TaskStatus> = new Map(tasks.map((task) => [task.id, task.status])),
+): TaskGraphResult {
+  const nodeIds = tasks.map((task) => task.id);
+  const nodeIdSet = new Set(nodeIds);
+  const derivedPrerequisites = buildPrerequisiteMap(edges);
+  const prerequisites = new Map<string, string[]>(
+    tasks.map((task) => [
+      task.id,
+      [...(derivedPrerequisites.get(task.id) ?? [])].filter((id) => nodeIdSet.has(id)),
+    ]),
+  );
+  const dependents = new Map<string, string[]>();
+  const indegree = new Map<string, number>();
+  for (const id of nodeIds) {
+    const taskPrerequisites = prerequisites.get(id) ?? [];
+    indegree.set(id, taskPrerequisites.length);
+    for (const prerequisite of taskPrerequisites) {
+      const dependentIds = dependents.get(prerequisite) ?? [];
+      dependentIds.push(id);
+      dependents.set(prerequisite, dependentIds);
+    }
+  }
+
+  const depths = new Map<string, number>();
+  const queue = nodeIds.filter((id) => indegree.get(id) === 0);
+  for (const id of queue) {
+    depths.set(id, 0);
+  }
+  for (let index = 0; index < queue.length; index += 1) {
+    const prerequisite = queue[index];
+    if (prerequisite === undefined) {
+      continue;
+    }
+    for (const dependent of dependents.get(prerequisite) ?? []) {
+      depths.set(dependent, Math.max(depths.get(dependent) ?? 0, (depths.get(prerequisite) ?? 0) + 1));
+      const remaining = (indegree.get(dependent) ?? 0) - 1;
+      indegree.set(dependent, remaining);
+      if (remaining === 0) {
+        queue.push(dependent);
+      }
+    }
+  }
+
+  const cycles = findCycles(prerequisites, nodeIds);
+  const nodes = tasks.map((task) => ({
+    id: task.id,
+    label: task.label,
+    status: task.status,
+    depth: depths.get(task.id) ?? 0,
+    prerequisites: prerequisites.get(task.id) ?? [],
+  }));
+  const roots = nodes.filter((node) => node.prerequisites.length === 0).map((node) => node.id);
+  const actionableIfReleased = tasks
+    .filter(
+      (task) =>
+        (task.status === 'todo' || task.status === 'scope') &&
+        unfinishedPrerequisiteIds(task.id, derivedPrerequisites, statusById).length === 0,
+    )
+    .map((task) => task.id);
+
+  return {
+    nodes,
+    roots,
+    cycles,
+    actionable_if_released: actionableIfReleased,
+  };
+}
+
 export type TaskServiceDeps = OrgScopedDeps & {
   db: Db;
   /** Positive keep-count, or null/omit for unlimited. */
@@ -144,6 +285,8 @@ export type CreateTaskInput = {
   kind?: TaskKind;
   /** Null / omit → stored null. */
   priority?: TaskPriority | null;
+  lane?: TaskLane | null;
+  severity?: TaskSeverity | null;
   description?: string | null;
   x?: number;
   y?: number;
@@ -160,6 +303,8 @@ export type UpdateTaskInput = {
   kind?: TaskKind;
   /** Pass null to clear; omit to leave unchanged. */
   priority?: TaskPriority | null;
+  lane?: TaskLane | null;
+  severity?: TaskSeverity | null;
   description?: string | null;
   x?: number;
   y?: number;
@@ -182,6 +327,8 @@ export type ListTasksFilter = {
   status?: string;
   kind?: string;
   priority?: string;
+  lane?: string;
+  severity?: string;
   // OR semantics: keep tasks carrying ANY of the given tag names.
   tags?: string[];
 };
@@ -241,6 +388,12 @@ export function createTaskService(deps: TaskServiceDeps) {
       if (filter.priority !== undefined && !isTaskPriority(filter.priority)) {
         throw new InvalidTaskPriorityError(filter.priority);
       }
+      if (filter.lane !== undefined && !isTaskLane(filter.lane)) {
+        throw new InvalidTaskLaneError(filter.lane);
+      }
+      if (filter.severity !== undefined && !isTaskSeverity(filter.severity)) {
+        throw new InvalidTaskSeverityError(filter.severity);
+      }
 
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
@@ -254,10 +407,14 @@ export function createTaskService(deps: TaskServiceDeps) {
       const statusFilter = filter.status;
       const kindFilter = filter.kind;
       const priorityFilter = filter.priority;
+      const laneFilter = filter.lane;
+      const severityFilter = filter.severity;
       const tasks = await listTasks(db, projectId, {
         ...(statusFilter !== undefined ? { status: statusFilter } : {}),
         ...(kindFilter !== undefined ? { kind: kindFilter } : {}),
         ...(priorityFilter !== undefined ? { priority: priorityFilter } : {}),
+        ...(laneFilter !== undefined ? { lane: laneFilter } : {}),
+        ...(severityFilter !== undefined ? { severity: severityFilter } : {}),
         ...(filter.tags !== undefined ? { tagNames: filter.tags.map(normalizeTagName) } : {}),
         ...pagination,
       });
@@ -293,6 +450,12 @@ export function createTaskService(deps: TaskServiceDeps) {
       if (input.priority !== undefined && input.priority !== null && !isTaskPriority(input.priority)) {
         throw new InvalidTaskPriorityError(input.priority);
       }
+      if (input.lane !== undefined && input.lane !== null && !isTaskLane(input.lane)) {
+        throw new InvalidTaskLaneError(input.lane);
+      }
+      if (input.severity !== undefined && input.severity !== null && !isTaskSeverity(input.severity)) {
+        throw new InvalidTaskSeverityError(input.severity);
+      }
 
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
@@ -319,6 +482,8 @@ export function createTaskService(deps: TaskServiceDeps) {
           status: input.status,
           kind: input.kind,
           priority: input.priority,
+          lane: input.lane,
+          severity: input.severity,
           description: input.description,
           x: input.x,
           y: input.y,
@@ -344,6 +509,12 @@ export function createTaskService(deps: TaskServiceDeps) {
       }
       if (input.priority !== undefined && input.priority !== null && !isTaskPriority(input.priority)) {
         throw new InvalidTaskPriorityError(input.priority);
+      }
+      if (input.lane !== undefined && input.lane !== null && !isTaskLane(input.lane)) {
+        throw new InvalidTaskLaneError(input.lane);
+      }
+      if (input.severity !== undefined && input.severity !== null && !isTaskSeverity(input.severity)) {
+        throw new InvalidTaskSeverityError(input.severity);
       }
 
       const existing = await getTask(db, id);
@@ -496,7 +667,7 @@ export function createTaskService(deps: TaskServiceDeps) {
     // prerequisite completion is still evaluated against all tasks in the project.
     async nextActionable(
       projectId: string,
-      filter: { goalId?: string; tags?: string[] } = {},
+      filter: { goalId?: string; goalName?: string; tags?: string[]; verbose?: boolean } = {},
     ): Promise<NextActionableResult | undefined> {
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
@@ -508,7 +679,15 @@ export function createTaskService(deps: TaskServiceDeps) {
       }
 
       let goalIds: Set<string>;
-      if (filter.goalId === undefined) {
+      if (filter.goalName !== undefined) {
+        const namedGoal = (await listGoals(db, projectId)).find(
+          (goal) => goal.name === filter.goalName,
+        );
+        if (!namedGoal) {
+          return undefined;
+        }
+        goalIds = new Set([namedGoal.id]);
+      } else if (filter.goalId === undefined) {
         const active = (await listGoals(db, projectId)).filter((goal) => goal.status === 'active');
         if (active.length === 0) {
           return { next_task: null, reason: 'no_active_goal', blocked: [] };
@@ -536,6 +715,9 @@ export function createTaskService(deps: TaskServiceDeps) {
           ? await taskIdsWithAnyTagName(db, projectId, filter.tags.map(normalizeTagName))
           : undefined;
       const serialize = (task: Task) => serializeTask(task, tagsByTask.get(task.id) ?? []);
+      const serializeBlocked = filter.verbose
+        ? serialize
+        : (task: Task): SerializedTaskSummary => serializeTaskSummary(task);
       const prerequisites = buildPrerequisiteMap(edges);
 
       if (tasks.length === 0) {
@@ -563,11 +745,11 @@ export function createTaskService(deps: TaskServiceDeps) {
           }
         } else {
           blocked.push({
-            task: serialize(task),
+            task: serializeBlocked(task),
             waiting_on: waitingIds
               .map((id) => taskById.get(id))
               .filter((row): row is Task => row !== undefined)
-              .map(serialize),
+              .map(serializeTaskSummary),
           });
         }
       }
@@ -577,6 +759,29 @@ export function createTaskService(deps: TaskServiceDeps) {
       }
 
       return { next_task: nextTask, reason: 'ok', blocked };
+    },
+
+    async getTaskGraph(projectId: string, goalId?: string): Promise<TaskGraphResult | undefined> {
+      try {
+        await assertProjectInOrg(db, projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+
+      const goals = await listGoals(db, projectId);
+      if (goalId !== undefined && !goals.some((goal) => goal.id === goalId)) {
+        return undefined;
+      }
+
+      const tasks = (await listTasks(db, projectId)).sort(
+        (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+      );
+      const graphTasks = goalId === undefined ? tasks : tasks.filter((task) => task.goalId === goalId);
+      const statusById = new Map(tasks.map((task) => [task.id, task.status]));
+      return buildTaskGraph(graphTasks, await listEdges(db, projectId), statusById);
     },
   };
 }

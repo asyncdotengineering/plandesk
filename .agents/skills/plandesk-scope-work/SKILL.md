@@ -49,7 +49,7 @@ single coherent initiative rather than a list of unrelated asks, treat it as
   Location", so the label alone says what done looks like.
 - **Assign a lane by blast radius** (`auto` / `approve` / `full`, from
   [lanes.md](../../factory/lanes.md)) and a severity (`low` / `medium` / `high`),
-  both as tags — tasks have no dedicated field for either yet.
+  using the task's typed fields.
 - **Record provenance** on everything created or merged (see below).
 
 ## Mode `signal` — a pile of items
@@ -232,7 +232,6 @@ should choose whether that happens before or after they look at it.
   initiative. Split the input and run both modes rather than forcing one.
 - `list_tasks(project_id)` without a status filter is what makes dedup work;
   filtering to `scope` hides the duplicate that is already `done`.
-- Severity and lane are tags, not fields. Reading them back means reading tags.
 
 ## References
 

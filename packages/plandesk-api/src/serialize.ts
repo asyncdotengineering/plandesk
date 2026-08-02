@@ -149,6 +149,7 @@ export function serializeGoal(goal: Goal) {
   return {
     id: goal.id,
     project_id: goal.projectId,
+    name: goal.name,
     objective: goal.objective,
     status: goal.status,
     verification_surface: goal.verificationSurface,
@@ -172,6 +173,8 @@ export function serializeTask(task: Task, tags?: Tag[], waitingOn?: string[]) {
     status: task.status,
     kind: task.kind,
     priority: task.priority,
+    lane: task.lane,
+    severity: task.severity,
     description: task.description,
     x: task.x,
     y: task.y,
@@ -182,6 +185,17 @@ export function serializeTask(task: Task, tags?: Tag[], waitingOn?: string[]) {
     updated_at: task.updatedAt.toISOString(),
     ...(tags !== undefined ? { tags: tags.map(serializeTag) } : {}),
     ...(waitingOn !== undefined ? { blocked: waitingOn.length > 0, waiting_on: waitingOn } : {}),
+  };
+}
+
+export type SerializedTask = ReturnType<typeof serializeTask>;
+export type SerializedTaskSummary = Pick<SerializedTask, 'id' | 'label' | 'status'>;
+
+export function serializeTaskSummary(task: Task): SerializedTaskSummary {
+  return {
+    id: task.id,
+    label: task.label,
+    status: task.status,
   };
 }
 
@@ -457,14 +471,14 @@ export function serializeFolder(folder: Folder): SerializedFolder {
   };
 }
 
-export type SerializedFolderTree = SerializedFolder & {
+export type SerializedFolderTree = Pick<SerializedFolder, 'id' | 'name' | 'parent_folder_id'> & {
   folders: SerializedFolderTree[];
-  documents: SerializedDocumentTree[];
+  doc_count: number;
 };
 
 export type SerializedDocumentFolderTree = {
   folders: SerializedFolderTree[];
-  documents: SerializedDocumentTree[];
+  documents: SerializedDocument[];
 };
 
 export function buildFolderTree(
@@ -473,7 +487,14 @@ export function buildFolderTree(
 ): SerializedDocumentFolderTree {
   const folderNodes = new Map<string, SerializedFolderTree>();
   for (const folder of folders) {
-    folderNodes.set(folder.id, { ...serializeFolder(folder), folders: [], documents: [] });
+    const serialized = serializeFolder(folder);
+    folderNodes.set(folder.id, {
+      id: serialized.id,
+      name: serialized.name,
+      parent_folder_id: serialized.parent_folder_id,
+      folders: [],
+      doc_count: 0,
+    });
   }
 
   const rootFolders: SerializedFolderTree[] = [];
@@ -509,13 +530,13 @@ export function buildFolderTree(
     }
     const node = folderNodes.get(folderId);
     if (node) {
-      node.documents = buildDocumentTree(group);
+      node.doc_count = group.length;
     }
   }
 
   return {
     folders: rootFolders,
-    documents: buildDocumentTree(documentsByFolder.get(null) ?? []),
+    documents: documents.map((document) => serializeDocument(document)),
   };
 }
 

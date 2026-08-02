@@ -220,6 +220,7 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
     read: listGoals,
     serialize: (goal: Goal): PlandeskExportGoal => ({
       id: goal.id,
+      name: goal.name,
       objective: goal.objective,
       status: goal.status,
       verification_surface: goal.verificationSurface,
@@ -236,6 +237,7 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
     portability: {
       drizzleTable: goals,
       roundTrippedColumns: [
+        'name',
         'objective',
         'status',
         'verification_surface',
@@ -266,6 +268,8 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
         status: task.status,
         kind: task.kind,
         priority: task.priority,
+        lane: task.lane,
+        severity: task.severity,
         description: task.description,
         x: task.x,
         y: task.y,
@@ -287,6 +291,8 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
         'status',
         'kind',
         'priority',
+        'lane',
+        'severity',
         'description',
         'x',
         'y',

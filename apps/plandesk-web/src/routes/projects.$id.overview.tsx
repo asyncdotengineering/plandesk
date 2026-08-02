@@ -327,7 +327,14 @@ function ProjectOverviewPage() {
                     className="flex items-center gap-2.5 rounded-lg border px-3 py-2 transition-colors hover:bg-accent"
                   >
                     <AcceptanceIndicator verification={goal.last_verification} />
-                    <span className="min-w-0 flex-1 truncate text-[13.5px]">{goal.objective}</span>
+                    <span className="min-w-0 flex-1 truncate text-[13.5px]">
+                      <span className="block truncate">{goal.name ?? goal.objective}</span>
+                      {goal.name !== null ? (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {goal.objective}
+                        </span>
+                      ) : null}
+                    </span>
                     <GoalStatusBadge status={goal.status} />
                   </Link>
                 </li>

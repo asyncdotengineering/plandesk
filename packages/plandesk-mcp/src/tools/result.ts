@@ -33,3 +33,12 @@ export function toolInvalidArgument(message?: string): ToolResult {
     isError: true,
   };
 }
+
+export function toolInvalidArgumentPayload(payload: Record<string, unknown>): ToolResult {
+  const result = { error: 'invalid_argument', ...payload };
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+    structuredContent: result,
+    isError: true,
+  };
+}

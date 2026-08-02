@@ -162,7 +162,10 @@ export function GoalDetail({ projectId, goal }: GoalDetailProps) {
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <h2 className="text-xl font-semibold leading-snug tracking-tight">{goal.objective}</h2>
+        <h2 className="text-xl font-semibold leading-snug tracking-tight">
+          {goal.name ?? goal.objective}
+        </h2>
+        {goal.name !== null ? <p className="text-sm text-muted-foreground">{goal.objective}</p> : null}
         <GoalStatusBadge status={goal.status} />
       </div>
 

@@ -54,6 +54,7 @@ type PortableSnapshot = {
     canvas_layout: string | null;
   };
   goals: Array<{
+    name: string | null;
     objective: string;
     status: string;
     verification_surface: string | null;
@@ -69,6 +70,8 @@ type PortableSnapshot = {
     status: string;
     kind: string | undefined;
     priority: string | null | undefined;
+    lane: string | null | undefined;
+    severity: string | null | undefined;
     description: string | null;
     x: number;
     y: number;
@@ -193,6 +196,7 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
     goals: [...exported.goals]
       .sort((a, b) => a.objective.localeCompare(b.objective))
       .map((goal) => ({
+        name: goal.name ?? null,
         objective: goal.objective,
         status: goal.status,
         verification_surface: goal.verification_surface,
@@ -210,6 +214,8 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
         status: task.status,
         kind: task.kind,
         priority: task.priority,
+        lane: task.lane,
+        severity: task.severity,
         description: task.description,
         x: task.x,
         y: task.y,
@@ -363,6 +369,7 @@ async function buildFullyPopulatedProject(db: Db): Promise<string> {
 
   const goal = await createGoal(db, {
     projectId: project.id,
+    name: 'DISTINCT-goal-name',
     objective: 'DISTINCT-goal-objective',
     status: 'paused',
     verificationSurface: 'DISTINCT-verification-surface',
@@ -657,6 +664,7 @@ describe('portability export behavioural coverage', () => {
 
     it('goals columns round-trip', () => {
       expect(exported.goals[0]).toMatchObject({
+        name: 'DISTINCT-goal-name',
         objective: 'DISTINCT-goal-objective',
         status: 'paused',
         verification_surface: 'DISTINCT-verification-surface',

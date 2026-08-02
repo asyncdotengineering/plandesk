@@ -37,6 +37,17 @@ describe('goals repository', () => {
     expect(fetched?.objective).toBe('Ship goals');
   });
 
+  it('round-trips nullable names and enforces uniqueness within a project', async () => {
+    const named = await createGoal(db, { projectId, name: 'ship-auth', objective: 'Ship auth' });
+    expect(named.name).toBe('ship-auth');
+    expect((await getGoal(db, named.id))?.name).toBe('ship-auth');
+    const unnamed = await createGoal(db, { projectId, objective: 'No handle' });
+    expect(unnamed.name).toBeNull();
+    await expect(
+      createGoal(db, { projectId, name: 'ship-auth', objective: 'Duplicate' }),
+    ).rejects.toThrow();
+  });
+
   it('lists goals for a project ordered by creation', async () => {
     const first = await createGoal(db, {
       projectId,

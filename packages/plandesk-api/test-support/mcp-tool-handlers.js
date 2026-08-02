@@ -23,6 +23,7 @@ export { createGetArtifactHandler } from '../../plandesk-mcp/src/tools/get-artif
 export { createGetDocumentHandler } from '../../plandesk-mcp/src/tools/get-document.js';
 export { createGetGoalHandler } from '../../plandesk-mcp/src/tools/get-goal.js';
 export { createGetNextTaskHandler } from '../../plandesk-mcp/src/tools/get-next-task.js';
+export { createGetTaskGraphHandler } from '../../plandesk-mcp/src/tools/get-task-graph.js';
 export { createGetNoteHandler } from '../../plandesk-mcp/src/tools/get-note.js';
 export { createGetPrototypeHandler } from '../../plandesk-mcp/src/tools/get-prototype.js';
 export { createGetProjectHandler } from '../../plandesk-mcp/src/tools/get-project.js';

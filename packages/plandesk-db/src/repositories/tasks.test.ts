@@ -8,7 +8,9 @@ import {
   claimTask,
   getTask,
   InvalidTaskKindError,
+  InvalidTaskLaneError,
   InvalidTaskPriorityError,
+  InvalidTaskSeverityError,
   InvalidTaskStatusError,
   listTasks,
   updateTask,
@@ -124,6 +126,42 @@ describe('tasks repository', () => {
     const task = await createTask(db, { projectId, label: 'Task', priority: 'low' });
     await expect(updateTask(db, task.id, { priority: 'critical' as 'low' })).rejects.toThrow(
       InvalidTaskPriorityError,
+    );
+  });
+
+  it('creates, updates, reads, and filters typed lane and severity fields', async () => {
+    const created = await createTask(db, {
+      projectId,
+      label: 'Typed task',
+      lane: 'approve',
+      severity: 'high',
+    });
+    expect(created.lane).toBe('approve');
+    expect(created.severity).toBe('high');
+    expect((await getTask(db, created.id))?.lane).toBe('approve');
+    expect((await getTask(db, created.id))?.severity).toBe('high');
+
+    const updated = await updateTask(db, created.id, { lane: 'full', severity: 'medium' });
+    expect(updated?.lane).toBe('full');
+    expect(updated?.severity).toBe('medium');
+    expect(await listTasks(db, projectId, { lane: 'full', severity: 'medium' })).toEqual([
+      expect.objectContaining({ id: created.id, lane: 'full', severity: 'medium' }),
+    ]);
+  });
+
+  it('rejects invalid lane and severity values on create and update', async () => {
+    await expect(
+      createTask(db, { projectId, label: 'Bad lane', lane: 'manual' as 'auto' }),
+    ).rejects.toThrow(InvalidTaskLaneError);
+    await expect(
+      createTask(db, { projectId, label: 'Bad severity', severity: 'critical' as 'high' }),
+    ).rejects.toThrow(InvalidTaskSeverityError);
+    const task = await createTask(db, { projectId, label: 'Task' });
+    await expect(updateTask(db, task.id, { lane: 'manual' as 'auto' })).rejects.toThrow(
+      InvalidTaskLaneError,
+    );
+    await expect(updateTask(db, task.id, { severity: 'critical' as 'high' })).rejects.toThrow(
+      InvalidTaskSeverityError,
     );
   });
 

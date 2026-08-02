@@ -74,6 +74,7 @@ function makeGoal(id: string, objective: string): SerializedGoal {
   return {
     id,
     project_id: projectId,
+    name: null,
     objective,
     status: 'active',
     verification_surface: null,

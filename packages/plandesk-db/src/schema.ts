@@ -18,12 +18,16 @@ export {
   taskStatuses,
   taskKinds,
   taskPriorities,
+  taskLanes,
+  taskSeverities,
   taskPriorityOrder,
   goalStatuses,
   linkEntityTypes,
   type TaskStatus,
   type TaskKind,
   type TaskPriority,
+  type TaskLane,
+  type TaskSeverity,
   type GoalStatus,
   type LinkEntityType,
 } from './vocabulary.js';
@@ -32,6 +36,8 @@ import {
   taskStatuses,
   taskKinds,
   taskPriorities,
+  taskLanes,
+  taskSeverities,
   goalStatuses,
   linkEntityTypes,
 } from './vocabulary.js';
@@ -110,6 +116,7 @@ export const goals = sqliteTable('goals', {
     .notNull()
     .references(() => projects.id),
   objective: text('objective').notNull(),
+  name: text('name'),
   status: text('status', { enum: goalStatuses }).notNull().default('active'),
   verificationSurface: text('verification_surface'),
   constraints: text('constraints'),
@@ -124,7 +131,7 @@ export const goals = sqliteTable('goals', {
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
-});
+}, (table) => [uniqueIndex('goals_project_id_name_unique').on(table.projectId, table.name)]);
 
 export const tasks = sqliteTable('tasks', {
   id: text('id').primaryKey(),
@@ -139,6 +146,8 @@ export const tasks = sqliteTable('tasks', {
   kind: text('kind', { enum: taskKinds }).notNull().default('build'),
   // Nullable — absence is null, never a sentinel like 'none'.
   priority: text('priority', { enum: taskPriorities }),
+  lane: text('lane', { enum: taskLanes }),
+  severity: text('severity', { enum: taskSeverities }),
   description: text('description'),
   x: real('x').notNull().default(0),
   y: real('y').notNull().default(0),

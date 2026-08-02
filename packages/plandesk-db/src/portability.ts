@@ -20,7 +20,9 @@ import {
   type CommentTargetType,
   type GoalStatus,
   type TaskKind,
+  type TaskLane,
   type TaskPriority,
+  type TaskSeverity,
   type TaskStatus,
 } from './schema.js';
 import type { SavedViewConfig } from './saved-view-config.js';
@@ -67,6 +69,8 @@ export type PlandeskExportProject = {
 
 export type PlandeskExportGoal = {
   id: string;
+  // Always written on export; optional for exports written before goal names existed.
+  name?: string | null;
   objective: string;
   status: GoalStatus;
   verification_surface: string | null;
@@ -88,6 +92,9 @@ export type PlandeskExportTask = {
   kind?: TaskKind;
   // Always written on export; optional on import for exports written before priority existed.
   priority?: TaskPriority | null;
+  // Always written on export; optional on import for exports written before typed lanes/severity.
+  lane?: TaskLane | null;
+  severity?: TaskSeverity | null;
   description: string | null;
   x: number;
   y: number;

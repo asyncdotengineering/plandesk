@@ -8,7 +8,9 @@ import {
   MAX_COMMIT_REFS,
   shareSubmissionStatuses,
   taskKinds,
+  taskLanes,
   taskPriorities,
+  taskSeverities,
   taskStatuses,
 } from '@plandesk/db';
 
@@ -47,8 +49,8 @@ const COMMIT_REFS_DESCRIPTION =
 const TAGS_FILTER_DESCRIPTION =
   'Optional tag-name filter with OR semantics: a task matches if it carries ANY of the given tags.';
 
-const COMPACT_DESCRIPTION =
-  'When true, omits large body/description fields and returns only id + summary metadata — use this for a cheap board-reconciliation sweep. Defaults to false (full body included), for backward compatibility.';
+const VERBOSE_DESCRIPTION =
+  'When true, includes large body/description fields. Defaults to false so list reads are cheap and bounded.';
 
 const TASK_DESCRIPTION_GUIDANCE =
   "Non-trivial tasks need build-contract depth (see .plandesk/skill.md's Task creation conventions): Problem, Action Items, Interfaces (concrete signatures/types/API/CLI this task touches, named exactly), Pseudocode (control flow for anything non-obvious), Validation contract (the test/command/observable outcome that proves it done), and References. No internal RFC/PRD/ticket references embedded in the text — the task must be executable without re-reading a parent doc.";
@@ -84,6 +86,8 @@ export const createTaskInputSchema = z.object({
   status: z.enum(taskStatuses).optional(),
   kind: z.enum(taskKinds).optional(),
   priority: z.enum(taskPriorities).nullable().optional(),
+  lane: z.enum(taskLanes).nullable().optional(),
+  severity: z.enum(taskSeverities).nullable().optional(),
   description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
   x: z.number().optional(),
   y: z.number().optional(),
@@ -103,6 +107,8 @@ export const updateTaskInputSchema = z.object({
   status: z.enum(taskStatuses).optional(),
   kind: z.enum(taskKinds).optional(),
   priority: z.enum(taskPriorities).nullable().optional(),
+  lane: z.enum(taskLanes).nullable().optional(),
+  severity: z.enum(taskSeverities).nullable().optional(),
   label: z.string().optional(),
   description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
   x: z.number().optional(),
@@ -170,7 +176,7 @@ export const listDocumentsInputSchema = z.object({
     .uuid()
     .optional()
     .describe('Only list documents inside this folder. Omit for the full folder tree.'),
-  compact: z.boolean().optional().describe(COMPACT_DESCRIPTION),
+  verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
 export const createFolderInputSchema = z.object({
@@ -240,6 +246,7 @@ export const getNoteInputSchema = z.object({
 
 export const listNotesInputSchema = z.object({
   project_id: z.string().uuid(),
+  verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
 export const createShareLinkInputSchema = z.object({
@@ -574,6 +581,7 @@ const verificationEvidenceSchema = z.discriminatedUnion('kind', [
 
 export const createGoalInputSchema = z.object({
   project_id: z.string().uuid(),
+  name: z.string().min(1).nullable().optional(),
   objective: z.string().min(1),
   verification_surface: z
     .string()
@@ -581,10 +589,10 @@ export const createGoalInputSchema = z.object({
     .describe(
       'JSON verification surface. A `kind` field is REQUIRED; use exactly one of: ' +
         '{"kind":"gate_command","command":"pnpm test"} | ' +
-        '{"kind":"acceptance_checklist","items":[{"criterion":"..."}]} | ' +
+        '{"kind":"acceptance_checklist","items":[{"criterion":"..."}]} (the server returns stable item ids) | ' +
         '{"kind":"human_sign_off"}. ' +
         'complete_goal later takes matching evidence: {"kind":"gate_command","exit_code":0} | ' +
-        '{"kind":"acceptance_checklist","checked":["..."]} | ' +
+        '{"kind":"acceptance_checklist","checked":["item id or exact criterion"]} | ' +
         '{"kind":"human_sign_off","approved_by":"..."}. Omit for no surface.',
     ),
   constraints: z.string().optional(),
@@ -597,6 +605,7 @@ export const createGoalInputSchema = z.object({
 
 export const updateGoalInputSchema = z.object({
   goal_id: z.string().uuid(),
+  name: z.string().min(1).nullable().optional(),
   objective: z.string().min(1).optional(),
   verification_surface: z
     .string()
@@ -604,7 +613,7 @@ export const updateGoalInputSchema = z.object({
     .describe(
       'JSON verification surface. A `kind` field is REQUIRED; use exactly one of: ' +
         '{"kind":"gate_command","command":"pnpm test"} | ' +
-        '{"kind":"acceptance_checklist","items":[{"criterion":"..."}]} | ' +
+        '{"kind":"acceptance_checklist","items":[{"criterion":"..."}]} (the server returns stable item ids) | ' +
         '{"kind":"human_sign_off"}. Omit to leave unchanged.',
     ),
   constraints: z.string().optional(),
@@ -616,6 +625,7 @@ export const updateGoalInputSchema = z.object({
 
 export const getGoalInputSchema = z.object({
   goal_id: z.string().uuid(),
+  verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
 export const listGoalsInputSchema = z.object({
@@ -639,7 +649,14 @@ export const getNextTaskInputSchema = z.object({
     .describe(
       'Scope the frontier to a specific goal. When omitted, uses the project sole active goal.',
     ),
+  goal: z.string().min(1).optional().describe('Project-scoped goal name; use this instead of goal_id.'),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
+  verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
+});
+
+export const getTaskGraphInputSchema = z.object({
+  project_id: z.string().uuid(),
+  goal_id: z.string().uuid().optional().describe('Scope the graph to one goal. Omit for the whole project.'),
 });
 
 export const claimTaskInputSchema = z.object({
@@ -659,8 +676,10 @@ export const listTasksInputSchema = z.object({
   status: z.enum(taskStatuses).optional(),
   kind: z.enum(taskKinds).optional(),
   priority: z.enum(taskPriorities).optional(),
+  lane: z.enum(taskLanes).optional(),
+  severity: z.enum(taskSeverities).optional(),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
-  compact: z.boolean().optional().describe(COMPACT_DESCRIPTION),
+  verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
 export const listTagsInputSchema = z.object({
@@ -789,6 +808,7 @@ export const v1ToolNames = [
   'resume_goal',
   'complete_goal',
   'get_next_task',
+  'get_task_graph',
   'claim_task',
   'get_task',
   'list_tasks',
@@ -854,6 +874,7 @@ export const v1ToolSchemas = {
   resume_goal: goalLifecycleInputSchema,
   complete_goal: completeGoalInputSchema,
   get_next_task: getNextTaskInputSchema,
+  get_task_graph: getTaskGraphInputSchema,
   claim_task: claimTaskInputSchema,
   get_task: getTaskInputSchema,
   list_tasks: listTasksInputSchema,

@@ -3,6 +3,8 @@ import { InvalidGoalStatusError, isGoalStatus } from '@plandesk/db';
 import {
   GoalCompletionBlockedError,
   GoalVerificationRequiredError,
+  InvalidChecklistEvidenceError,
+  DuplicateGoalNameError,
   InvalidGoalTransitionError,
   InvalidVerificationSurfaceError,
   type GoalService,
@@ -11,6 +13,7 @@ import {
 
 type CreateGoalBody = {
   objective?: string;
+  name?: string | null;
   verification_surface?: string | null;
   constraints?: string | null;
   boundaries?: string | null;
@@ -22,6 +25,7 @@ type CreateGoalBody = {
 
 type UpdateGoalBody = {
   objective?: string;
+  name?: string | null;
   verification_surface?: string | null;
   constraints?: string | null;
   boundaries?: string | null;
@@ -36,6 +40,7 @@ type CompleteGoalBody = {
 
 function mapGoalInput(body: CreateGoalBody | UpdateGoalBody) {
   return {
+    ...(body.name !== undefined ? { name: body.name } : {}),
     ...(body.objective !== undefined ? { objective: body.objective } : {}),
     ...(body.verification_surface !== undefined
       ? { verificationSurface: body.verification_surface }
@@ -48,11 +53,23 @@ function mapGoalInput(body: CreateGoalBody | UpdateGoalBody) {
   };
 }
 
+type GoalWrite = NonNullable<Awaited<ReturnType<GoalService['create']>>>;
+
+function goalWriteResponse(goal: GoalWrite) {
+  return {
+    ...goal,
+    warnings: goal.verification_surface === null ? ['verification_surface is null'] : [],
+  };
+}
+
 function handleGoalError(c: Context, error: unknown) {
   if (error instanceof InvalidGoalStatusError || error instanceof InvalidGoalTransitionError) {
     return c.json({ error: 'invalid_argument' }, 400);
   }
   if (error instanceof InvalidVerificationSurfaceError) {
+    return c.json({ error: 'invalid_argument' }, 400);
+  }
+  if (error instanceof DuplicateGoalNameError) {
     return c.json({ error: 'invalid_argument' }, 400);
   }
   if (error instanceof GoalVerificationRequiredError) {
@@ -69,6 +86,16 @@ function handleGoalError(c: Context, error: unknown) {
       {
         error: 'blocked_by_incomplete_tasks',
         incomplete_task_ids: error.incompleteTaskIds,
+      },
+      400,
+    );
+  }
+  if (error instanceof InvalidChecklistEvidenceError) {
+    return c.json(
+      {
+        error: 'invalid_argument',
+        unmatched: error.unmatched,
+        unmet: error.unmet,
       },
       400,
     );
@@ -97,7 +124,7 @@ export function createGoalsRouter(goalService: GoalService): Hono {
       if (!goal) {
         return c.json({ error: 'not_found' }, 404);
       }
-      return c.json(goal, 201);
+      return c.json(goalWriteResponse(goal), 201);
     } catch (error) {
       return handleGoalError(c, error);
     }
@@ -130,7 +157,7 @@ export function createGoalsRouter(goalService: GoalService): Hono {
       if (!goal) {
         return c.json({ error: 'not_found' }, 404);
       }
-      return c.json(goal);
+      return c.json(goalWriteResponse(goal));
     } catch (error) {
       return handleGoalError(c, error);
     }

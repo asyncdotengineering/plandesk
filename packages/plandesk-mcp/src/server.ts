@@ -43,6 +43,7 @@ import {
 } from './tools/goal-lifecycle.js';
 import { createClaimTaskHandler } from './tools/claim-task.js';
 import { createGetNextTaskHandler } from './tools/get-next-task.js';
+import { createGetTaskGraphHandler } from './tools/get-task-graph.js';
 import { createGetProjectHandler } from './tools/get-project.js';
 import { createGetTaskHandler } from './tools/get-task.js';
 import { createListTasksHandler } from './tools/list-tasks.js';
@@ -106,6 +107,7 @@ import {
   completeGoalInputSchema,
   goalLifecycleInputSchema,
   getNextTaskInputSchema,
+  getTaskGraphInputSchema,
   getProjectInputSchema,
   listCommentsInputSchema,
   listArtifactCommentsInputSchema,
@@ -186,7 +188,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Create Task',
       description:
-        'Create a canvas node and task row. Optional `tags` sets the task tags by name; tags that do not exist yet in the project are auto-created.',
+        'Create a canvas node and task row. `lane` and `severity` are typed execution fields; optional `tags` sets task tags by name, auto-creating missing project tags.',
       inputSchema: createTaskInputSchema.shape,
     },
     createCreateTaskHandler(services.taskService),
@@ -197,7 +199,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Update Task',
       description:
-        'Update task status, label, description, position, goal, tags, or commit_refs. `goal_id` reassigns the task to a different goal in the same project, preserving its edges, comments, and documents. `tags` REPLACES the full tag set (auto-creating tags by name that do not exist yet; [] clears all tags); omit it to leave tags unchanged. `commit_refs` REPLACES the full array of hex SHAs (case-insensitive, stored lowercase; max 50; pass null to clear); omit to leave unchanged.',
+        'Update task status, label, description, position, goal, typed lane/severity fields, tags, or commit_refs. `goal_id` reassigns the task to a different goal in the same project, preserving its edges, comments, and documents. `tags` REPLACES the full tag set (auto-creating tags by name that do not exist yet; [] clears all tags); omit it to leave tags unchanged. `commit_refs` REPLACES the full array of hex SHAs (case-insensitive, stored lowercase; max 50; pass null to clear); omit to leave unchanged.',
       inputSchema: updateTaskInputSchema.shape,
     },
     createUpdateTaskHandler(services.taskService),
@@ -251,7 +253,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'List Documents',
       description:
-        'List documents for a project as a folder tree (folders with nested documents, plus root documents). Pass folder_id to list only the documents inside one folder. Pass compact: true to omit body and return only summary fields — use this to avoid overflowing token limits on large boards.',
+        'List documents for a project with every document in the top-level documents array. The recursive folders array contains metadata-only nodes with id, name, parent_folder_id, doc_count, and nested folders; it never embeds document bodies. Pass folder_id to return only that folder’s documents. Returns summary fields by default; pass verbose: true to include bodies.',
       inputSchema: listDocumentsInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
@@ -572,7 +574,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     'create_goal',
     {
       title: 'Create Goal',
-      description: 'Create a goal for a project with an objective and optional contract fields',
+      description: 'Create a goal for a project with an optional short unique name, objective, and contract fields',
       inputSchema: createGoalInputSchema.shape,
     },
     createCreateGoalHandler(services.goalService),
@@ -605,7 +607,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Update Goal',
       description:
-        "Edit an existing goal's objective or contract fields (verification_surface, constraints, boundaries, iteration_policy, stop_condition, budget). Does not detach the goal's cycle-tasks. Omit a field to leave it unchanged.",
+        "Edit an existing goal's name, objective, or contract fields (verification_surface, constraints, boundaries, iteration_policy, stop_condition, budget). Does not detach the goal's cycle-tasks. Omit a field to leave it unchanged.",
       inputSchema: updateGoalInputSchema.shape,
     },
     createUpdateGoalHandler(services.goalService),
@@ -647,7 +649,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Get Next Task',
       description:
-        "Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id). When goal_id is omitted: with one active goal, scopes to it; with multiple active goals, considers the union of every active goal's tasks instead of dead-ending — returns no_active_goal only when zero goals are active. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.",
+        "Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id or project-scoped goal name). When both are omitted: with one active goal, scopes to it; with multiple active goals, considers the union of every active goal's tasks instead of dead-ending — returns no_active_goal only when zero goals are active. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.",
       inputSchema: getNextTaskInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
@@ -666,6 +668,18 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
   );
 
   server.registerTool(
+    'get_task_graph',
+    {
+      title: 'Get Task Graph',
+      description:
+        'Return the task dependency graph with prerequisite fan-in, depth, roots, detected cycles, and the tasks actionable if every scope task were released. Optionally scope to one goal.',
+      inputSchema: getTaskGraphInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createGetTaskGraphHandler(services.taskService),
+  );
+
+  server.registerTool(
     'get_task',
     {
       title: 'Get Task',
@@ -681,7 +695,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'List Tasks',
       description:
-        'List all tasks for a project, optionally filtered by status and/or tags. The `tags` filter uses OR semantics: a task matches if it carries ANY of the given tag names. Use this to reconcile the board against reality. Pass compact: true to omit description and return only summary fields — use this to avoid overflowing token limits on large boards.',
+        'List all tasks for a project, optionally filtered by status, typed lane/severity, and/or tags. The `tags` filter uses OR semantics: a task matches if it carries ANY of the given tag names. Use this to reconcile the board against reality. Returns summary fields by default; pass verbose: true to include descriptions.',
       inputSchema: listTasksInputSchema.shape,
       annotations: { readOnlyHint: true },
     },

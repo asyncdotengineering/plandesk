@@ -8,6 +8,7 @@ export type Goal = typeof goals.$inferSelect;
 export type NewGoal = {
   projectId: string;
   objective: string;
+  name?: string | null;
   status?: GoalStatus;
   verificationSurface?: string | null;
   constraints?: string | null;
@@ -21,6 +22,7 @@ export type NewGoal = {
 
 export type GoalUpdate = {
   objective?: string;
+  name?: string | null;
   status?: GoalStatus;
   verificationSurface?: string | null;
   constraints?: string | null;
@@ -67,6 +69,7 @@ export async function createGoal(db: DbClient, input: NewGoal): Promise<Goal> {
       id,
       projectId: input.projectId,
       objective: input.objective,
+      name: input.name ?? null,
       status,
       verificationSurface: input.verificationSurface ?? null,
       constraints: input.constraints ?? null,

@@ -12,6 +12,7 @@ import {
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import {
   createGoalService,
+  DuplicateGoalNameError,
   evaluateEvidence,
   GoalCompletionBlockedError,
   GoalVerificationRequiredError,
@@ -114,6 +115,7 @@ describe('goalService', () => {
 
     const goal = await service.create(projectId, {
       objective: 'Ship goals',
+      name: 'ship-goals',
       verificationSurface: gateSurface,
       constraints: 'backend only',
     });
@@ -121,6 +123,7 @@ describe('goalService', () => {
     expect(goal).toMatchObject({
       project_id: projectId,
       objective: 'Ship goals',
+      name: 'ship-goals',
       status: 'active',
       verification_surface: gateSurface,
       constraints: 'backend only',
@@ -129,6 +132,24 @@ describe('goalService', () => {
     if (!goal) {
       throw new Error('expected created goal');
     }
+  });
+
+  it('returns and updates a project-scoped short name', async () => {
+    const service = createService();
+    const goal = await service.create(projectId, { objective: 'First objective', name: 'first' });
+    expect(goal?.name).toBe('first');
+
+    const updated = await service.update(goal?.id ?? '', { name: 'renamed' });
+    expect(updated?.name).toBe('renamed');
+    expect((await service.listByProject(projectId))?.[0]?.name).toBe('renamed');
+  });
+
+  it('rejects duplicate short names within one project', async () => {
+    const service = createService();
+    await service.create(projectId, { objective: 'First', name: 'shared' });
+    await expect(service.create(projectId, { objective: 'Second', name: 'shared' })).rejects.toThrow(
+      DuplicateGoalNameError,
+    );
   });
 
   it('rejects invalid verification_surface on create and update', async () => {
@@ -339,6 +360,75 @@ describe('goalService', () => {
       checked: ['Tests pass', 'Lint clean'],
     });
     expect(full?.status).toBe('complete');
+  });
+
+  it('assigns stable checklist ids, preserves them across wording edits, and accepts ids as evidence', async () => {
+    const service = createService();
+    const goal = await service.create(projectId, {
+      objective: 'Stable checklist',
+      verificationSurface: JSON.stringify({
+        kind: 'acceptance_checklist',
+        items: [{ criterion: 'Tests pass' }, { criterion: 'Lint clean' }],
+      }),
+    });
+    if (!goal) {
+      throw new Error('expected created goal');
+    }
+    const createdSurface = JSON.parse(goal.verification_surface ?? '{}') as {
+      items: Array<{ id: string; criterion: string }>;
+    };
+    expect(createdSurface.items.every((item) => item.id.length > 0)).toBe(true);
+
+    const firstId = createdSurface.items[0]?.id;
+    const secondId = createdSurface.items[1]?.id;
+    if (!firstId || !secondId) {
+      throw new Error('expected checklist ids');
+    }
+    const updated = await service.update(goal.id, {
+      verificationSurface: JSON.stringify({
+        kind: 'acceptance_checklist',
+        items: [
+          { id: firstId, criterion: 'All tests pass' },
+          { id: secondId, criterion: 'Lint clean' },
+        ],
+      }),
+    });
+    const updatedSurface = JSON.parse(updated?.verification_surface ?? '{}') as {
+      items: Array<{ id: string; criterion: string }>;
+    };
+    expect(updatedSurface.items).toEqual([
+      { id: firstId, criterion: 'All tests pass' },
+      { id: secondId, criterion: 'Lint clean' },
+    ]);
+
+    await createTask(db, { projectId, goalId: goal.id, label: 'Done child', status: 'done' });
+    const completed = await service.complete(goal.id, {
+      kind: 'acceptance_checklist',
+      checked: [firstId, secondId],
+    });
+    expect(completed?.status).toBe('complete');
+  });
+
+  it('reports unmatched and unmet checklist evidence entries', async () => {
+    const service = createService();
+    const goal = await service.create(projectId, {
+      objective: 'Explain checklist mismatch',
+      verificationSurface: checklistSurface,
+    });
+    if (!goal) {
+      throw new Error('expected created goal');
+    }
+    await createTask(db, { projectId, goalId: goal.id, label: 'Done child', status: 'done' });
+
+    await expect(
+      service.complete(goal.id, {
+        kind: 'acceptance_checklist',
+        checked: ['unknown-id'],
+      }),
+    ).rejects.toMatchObject({
+      unmatched: ['unknown-id'],
+      unmet: ['Tests pass', 'Lint clean'],
+    });
   });
 
   it('human_sign_off with approved_by completes', async () => {

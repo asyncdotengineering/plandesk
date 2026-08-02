@@ -29,9 +29,114 @@ describe('goals routes', () => {
     });
 
     expect(res.status).toBe(201);
-    const body = await parseJson<{ objective: string; verification_surface: string }>(res);
+    const body = await parseJson<{
+      objective: string;
+      verification_surface: string;
+      warnings: string[];
+    }>(res);
     expect(body.objective).toBe('Ship S2');
     expect(body.verification_surface).toContain('gate_command');
+    expect(body.warnings).toEqual([]);
+  });
+
+  it('checklist completion reports unknown evidence and returns stable item ids', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Checklist route' });
+    const surface = {
+      kind: 'acceptance_checklist',
+      items: [{ criterion: 'Tests pass' }, { criterion: 'Lint clean' }],
+    };
+
+    const createRes = await app.request(`/api/v1/projects/${project.id}/goals`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ objective: 'Checklist route goal', verification_surface: JSON.stringify(surface) }),
+    });
+    expect(createRes.status).toBe(201);
+    const created = await parseJson<{ id: string; verification_surface: string }>(createRes);
+    const createdSurface = JSON.parse(created.verification_surface) as {
+      items: Array<{ id: string; criterion: string }>;
+    };
+    expect(createdSurface.items.map((item) => item.id)).toEqual([
+      expect.any(String),
+      expect.any(String),
+    ]);
+
+    await createTask(db, { projectId: project.id, goalId: created.id, label: 'Done', status: 'done' });
+    const completeRes = await app.request(`/api/v1/goals/${created.id}/complete`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ evidence: { kind: 'acceptance_checklist', checked: ['unknown-id'] } }),
+    });
+    expect(completeRes.status).toBe(400);
+    expect(await parseJson(completeRes)).toEqual({
+      error: 'invalid_argument',
+      unmatched: ['unknown-id'],
+      unmet: ['Tests pass', 'Lint clean'],
+    });
+  });
+
+  it('goal writes return stored contract fields and warn for a null verification surface', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Warnings' });
+
+    const createRes = await app.request(`/api/v1/projects/${project.id}/goals`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        objective: 'Unverified goal',
+        constraints: 'backend only',
+        boundaries: 'no migrations',
+        iteration_policy: 'one pass',
+        stop_condition: 'green',
+        budget: '2h',
+      }),
+    });
+    expect(createRes.status).toBe(201);
+    const created = await parseJson<{
+      id: string;
+      objective: string;
+      verification_surface: string | null;
+      constraints: string | null;
+      boundaries: string | null;
+      iteration_policy: string | null;
+      stop_condition: string | null;
+      budget: string | null;
+      warnings: string[];
+    }>(createRes);
+    expect(created).toMatchObject({
+      objective: 'Unverified goal',
+      verification_surface: null,
+      constraints: 'backend only',
+      boundaries: 'no migrations',
+      iteration_policy: 'one pass',
+      stop_condition: 'green',
+      budget: '2h',
+    });
+    expect(created.warnings).toEqual(['verification_surface is null']);
+
+    const getRes = await app.request(`/api/v1/goals/${created.id}`);
+    const fetched = await parseJson<typeof created>(getRes);
+    expect(fetched).toMatchObject({
+      id: created.id,
+      objective: created.objective,
+      verification_surface: created.verification_surface,
+      constraints: created.constraints,
+      boundaries: created.boundaries,
+      iteration_policy: created.iteration_policy,
+      stop_condition: created.stop_condition,
+      budget: created.budget,
+    });
+
+    const badRes = await app.request(`/api/v1/projects/${project.id}/goals`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ objective: 'Rejected', verification_surface: '{bad json' }),
+    });
+    expect(badRes.status).toBe(400);
+    const goalsRes = await app.request(`/api/v1/projects/${project.id}/goals`);
+    const goals = await parseJson<Array<{ objective: string }>>(goalsRes);
+    expect(goals.some((goal) => goal.objective === 'Rejected')).toBe(false);
   });
 
   it('GET /projects/:id/goals lists goals and 404s missing project', async () => {
@@ -75,8 +180,9 @@ describe('goals routes', () => {
     });
 
     expect(res.status).toBe(200);
-    const body = await parseJson<{ objective: string; budget: string }>(res);
+    const body = await parseJson<{ objective: string; budget: string; warnings: string[] }>(res);
     expect(body).toMatchObject({ objective: 'After', budget: '1d' });
+    expect(body.warnings).toEqual(['verification_surface is null']);
   });
 
   it('lifecycle routes enforce transition guards and completion blocking', async () => {

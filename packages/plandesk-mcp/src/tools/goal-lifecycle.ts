@@ -1,12 +1,19 @@
 import {
   GoalCompletionBlockedError,
   GoalVerificationRequiredError,
+  InvalidChecklistEvidenceError,
   InvalidGoalTransitionError,
   InvalidVerificationSurfaceError,
   type GoalService,
   type VerificationEvidence,
 } from '@plandesk/api';
-import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
+import {
+  toolInvalidArgument,
+  toolInvalidArgumentPayload,
+  toolNotFound,
+  toolSuccess,
+  type ToolResult,
+} from './result.js';
 
 async function handleLifecycle(
   goalService: GoalService,
@@ -37,6 +44,9 @@ async function handleLifecycle(
     }
     if (error instanceof GoalCompletionBlockedError) {
       return toolInvalidArgument('blocked_by_incomplete_tasks');
+    }
+    if (error instanceof InvalidChecklistEvidenceError) {
+      return toolInvalidArgumentPayload({ unmatched: error.unmatched, unmet: error.unmet });
     }
     throw error;
   }

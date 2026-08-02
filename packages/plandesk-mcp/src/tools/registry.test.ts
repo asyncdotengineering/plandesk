@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   addCommentInputSchema,
+  createGoalInputSchema,
   createProjectInputSchema,
   createTaskInputSchema,
   getNextTaskInputSchema,
+  getGoalInputSchema,
+  listDocumentsInputSchema,
+  listNotesInputSchema,
   getRevisionInputSchema,
   listCommentsInputSchema,
   listRevisionsInputSchema,
@@ -13,6 +17,7 @@ import {
   scaffoldProjectFromPlanInputSchema,
   triageSubmissionInputSchema,
   updateProjectInputSchema,
+  updateGoalInputSchema,
   updateTaskInputSchema,
   v1ToolNames,
   v1ToolSchemas,
@@ -28,6 +33,7 @@ describe('tool registry tag schemas', () => {
     expect(v1ToolNames).toContain('list_revisions');
     expect(v1ToolNames).toContain('get_revision');
     expect(v1ToolNames).toContain('claim_task');
+    expect(v1ToolNames).toContain('get_task_graph');
     expect(v1ToolNames).toContain('update_project');
     expect(v1ToolNames).toContain('create_prototype');
     expect(v1ToolNames).toContain('list_prototypes');
@@ -35,7 +41,7 @@ describe('tool registry tag schemas', () => {
     expect(v1ToolNames).toContain('update_prototype');
     expect(v1ToolNames).toContain('move_screen');
     expect(v1ToolNames).toContain('copy_screen');
-    expect(v1ToolNames).toHaveLength(60);
+    expect(v1ToolNames).toHaveLength(61);
     for (const name of v1ToolNames) {
       expect(v1ToolSchemas[name]).toBeDefined();
     }
@@ -198,6 +204,55 @@ describe('tool registry tag schemas', () => {
     expect(
       createTaskInputSchema.safeParse({ project_id: PROJECT_ID, label: 'T', tags: [''] }).success,
     ).toBe(false);
+  });
+
+  it('accepts only the typed lane and severity vocabularies', () => {
+    expect(
+      createTaskInputSchema.safeParse({ project_id: PROJECT_ID, label: 'T', lane: 'auto', severity: 'high' })
+        .success,
+    ).toBe(true);
+    expect(
+      createTaskInputSchema.safeParse({ project_id: PROJECT_ID, label: 'T', lane: 'manual' }).success,
+    ).toBe(false);
+    expect(
+      updateTaskInputSchema.safeParse({ task_id: TASK_ID, severity: 'critical' }).success,
+    ).toBe(false);
+    expect(
+      listTasksInputSchema.safeParse({ project_id: PROJECT_ID, lane: 'approve', severity: 'low' })
+        .success,
+    ).toBe(true);
+  });
+
+  it('accepts optional goal names and project-scoped next-task goal references', () => {
+    expect(
+      createGoalInputSchema.safeParse({
+        project_id: PROJECT_ID,
+        name: 'orpc-rewrite',
+        objective: 'Rewrite the RPC layer',
+      }).success,
+    ).toBe(true);
+    expect(updateGoalInputSchema.safeParse({ goal_id: TASK_ID, name: 'renamed' }).success).toBe(
+      true,
+    );
+    expect(
+      getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID, goal: 'orpc-rewrite' }).success,
+    ).toBe(true);
+  });
+
+  it('uses one verbose projection control across MCP read tools', () => {
+    expect(listTasksInputSchema.safeParse({ project_id: PROJECT_ID, verbose: true }).success).toBe(
+      true,
+    );
+    expect(
+      listDocumentsInputSchema.safeParse({ project_id: PROJECT_ID, verbose: true }).success,
+    ).toBe(true);
+    expect(listNotesInputSchema.safeParse({ project_id: PROJECT_ID, verbose: true }).success).toBe(
+      true,
+    );
+    expect(getGoalInputSchema.safeParse({ goal_id: TASK_ID, verbose: true }).success).toBe(true);
+    expect(getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID, verbose: true }).success).toBe(
+      true,
+    );
   });
 
   it('update_task accepts tags including [] to clear the set', () => {

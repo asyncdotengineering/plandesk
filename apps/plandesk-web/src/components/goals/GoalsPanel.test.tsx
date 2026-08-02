@@ -9,6 +9,7 @@ const projectId = 'proj-1';
 const goalActive = {
   id: 'goal-1',
   project_id: projectId,
+  name: 'goals-ui',
   objective: 'Ship goals UI',
   status: 'active' as const,
   verification_surface: null,
@@ -25,6 +26,7 @@ const goalActive = {
 const goalFailed = {
   ...goalActive,
   id: 'goal-2',
+  name: 'gate-checks',
   objective: 'Run gate checks',
   verification_surface: JSON.stringify({ kind: 'gate_command', command: 'pnpm test' }),
   last_verification: {
@@ -94,6 +96,7 @@ describe('GoalsPanel', () => {
     renderGoalsPanel();
 
     await waitFor(() => {
+      expect(screen.getByText('goals-ui')).toBeTruthy();
       expect(screen.getByText('Ship goals UI')).toBeTruthy();
       expect(screen.getByText('Run gate checks')).toBeTruthy();
     });

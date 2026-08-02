@@ -98,8 +98,12 @@ export class InvalidDocumentError extends Error {
 
 /**
  * Folder tree node with a live document count. `doc_count` is the number of
- * documents whose `folder_id` equals this folder (direct only — not recursive).
- * Attached in `listFolderTree`, not in `serialize.buildFolderTree`.
+ * documents whose `folder_id` equals this folder (direct only — not recursive),
+ * and comes from `serialize.buildFolderTree`.
+ *
+ * Folders carry metadata and counts only. Every document in the project lives in
+ * the flat `documents` collection below, so there is exactly one place to
+ * enumerate them and `folder_id` is safe to filter on.
  */
 export type FolderTreeNode = Omit<SerializedDocumentFolderTree['folders'][number], 'folders'> & {
   doc_count: number;
@@ -108,7 +112,7 @@ export type FolderTreeNode = Omit<SerializedDocumentFolderTree['folders'][number
 
 export type DocumentFolderTree = {
   folders: FolderTreeNode[];
-  documents: SerializedDocumentTree[];
+  documents: SerializedDocument[];
 };
 
 async function assertParentInProject(db: Db, projectId: string, parentId: string): Promise<void> {
@@ -323,28 +327,21 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         }
         throw error;
       }
-      // Folder tree uses buildFolderTree → serializeDocument without options.
-      // Re-hydrate after the structural build so every document carries links.
-      // doc_count is attached here (not in serialize.buildFolderTree) — direct
-      // documents only; sub-folder docs are counted on their own node.
+      // Build the folder metadata and flat document collection, then hydrate links.
+      // buildFolderTree serializes documents without options, so re-hydrate after
+      // the structural build to give every document its links and backlinks.
+      // `doc_count` comes from buildFolderTree — direct documents only; documents
+      // in a sub-folder are counted on that sub-folder's own node.
       const folders = await dbListFolders(db, projectId);
       const documents = await dbListDocuments(db, projectId);
       const tree = buildFolderTree(folders, documents);
       const edges = await dbListEdges(db, projectId);
 
-      async function hydrateTree(nodes: SerializedDocumentTree[]): Promise<SerializedDocumentTree[]> {
-        const out: SerializedDocumentTree[] = [];
-        for (const node of nodes) {
-          const row = documents.find((d) => d.id === node.id);
-          if (!row) {
-            out.push(node);
-            continue;
-          }
-          const { links, backlinks } = await linksForDocument(db, projectId, row.id, edges);
-          out.push({
-            ...serializeDocument(row, { links, backlinks }),
-            children: await hydrateTree(node.children),
-          });
+      async function hydrateDocuments(): Promise<SerializedDocument[]> {
+        const out: SerializedDocument[] = [];
+        for (const document of documents) {
+          const { links, backlinks } = await linksForDocument(db, projectId, document.id, edges);
+          out.push(serializeDocument(document, { links, backlinks }));
         }
         return out;
       }
@@ -354,12 +351,11 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       ): Promise<FolderTreeNode[]> {
         const out: FolderTreeNode[] = [];
         for (const folder of folderNodes) {
-          const doc_count = documents.filter((doc) => doc.folderId === folder.id).length;
+          // The spread carries doc_count from buildFolderTree; recomputing it here
+          // would be a second definition of the same rule, free to disagree.
           out.push({
             ...folder,
-            doc_count,
             folders: await hydrateFolders(folder.folders),
-            documents: await hydrateTree(folder.documents),
           });
         }
         return out;
@@ -367,14 +363,14 @@ export function createDocumentService(deps: DocumentServiceDeps) {
 
       return {
         folders: await hydrateFolders(tree.folders),
-        documents: await hydrateTree(tree.documents),
+        documents: await hydrateDocuments(),
       };
     },
 
     async listByFolder(
       projectId: string,
       folderId: string,
-    ): Promise<SerializedDocumentTree[] | undefined> {
+    ): Promise<SerializedDocument[] | undefined> {
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -386,30 +382,15 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       if (!(await getFolderByProjectAndId(db, projectId, folderId))) {
         return undefined;
       }
-      // Reuse listTree shape for a folder-filtered set.
+      // Folder filtering returns the same flat document shape as project listing.
       const documents = await dbListDocuments(db, projectId, { folderId });
       const edges = await dbListEdges(db, projectId);
-      const nodes = new Map<string, SerializedDocumentTree>();
+      const hydrated: SerializedDocument[] = [];
       for (const document of documents) {
         const { links, backlinks } = await linksForDocument(db, projectId, document.id, edges);
-        nodes.set(document.id, {
-          ...serializeDocument(document, { links, backlinks }),
-          children: [],
-        });
+        hydrated.push(serializeDocument(document, { links, backlinks }));
       }
-      const roots: SerializedDocumentTree[] = [];
-      for (const document of documents) {
-        const node = nodes.get(document.id);
-        if (!node) {
-          continue;
-        }
-        if (document.parentId === null || !nodes.has(document.parentId)) {
-          roots.push(node);
-          continue;
-        }
-        nodes.get(document.parentId)?.children.push(node);
-      }
-      return roots;
+      return hydrated;
     },
 
     async create(

@@ -272,7 +272,7 @@ describe('documentService', () => {
     );
   });
 
-  it('listFolderTree nests folders with their documents', async () => {
+  it('listFolderTree returns every document flat and folders as metadata-only recursion', async () => {
     const service = createService();
     const parent = await createFolder(db, { projectId, name: 'Parent' });
     const child = await createFolder(db, { projectId, name: 'Child', parentFolderId: parent.id });
@@ -282,14 +282,20 @@ describe('documentService', () => {
 
     const tree = await service.listFolderTree(projectId);
     expect(tree).toBeDefined();
-    expect(tree?.documents.map((doc) => doc.title)).toEqual(['Root doc']);
+    expect(tree?.documents.map((doc) => doc.title)).toEqual(['Root doc', 'Parent doc', 'Child doc']);
     expect(tree?.folders).toHaveLength(1);
     const parentNode = tree?.folders[0];
     expect(parentNode?.name).toBe('Parent');
-    expect(parentNode?.documents.map((doc) => doc.title)).toEqual(['Parent doc']);
+    expect(parentNode?.doc_count).toBe(1);
+    expect(parentNode).not.toHaveProperty('documents');
     expect(parentNode?.folders).toHaveLength(1);
     expect(parentNode?.folders[0]?.name).toBe('Child');
-    expect(parentNode?.folders[0]?.documents.map((doc) => doc.title)).toEqual(['Child doc']);
+    expect(parentNode?.folders[0]?.doc_count).toBe(1);
+    expect(parentNode?.folders[0]).not.toHaveProperty('documents');
+    expect(tree?.documents.find((doc) => doc.folder_id === parentNode?.id)?.title).toBe('Parent doc');
+    expect(tree?.documents.find((doc) => doc.folder_id === parentNode?.folders[0]?.id)?.title).toBe(
+      'Child doc',
+    );
   });
 
   it('listFolderTree attaches direct-only doc_count on each folder node', async () => {
@@ -319,7 +325,17 @@ describe('documentService', () => {
     expect(result.failed).toEqual([{ document_id: missingId, error: 'Document not found' }]);
 
     const tree = await service.listFolderTree(projectId);
-    expect(tree?.folders[0]?.documents.map((doc) => doc.title).sort()).toEqual(['A', 'B']);
+    // Folders are metadata-only; every document is in the flat collection, so
+    // filtering it by folder_id is the one way to enumerate a folder's contents.
+    expect(
+      tree?.documents
+        .filter((doc) => doc.folder_id === folder.id)
+        .map((doc) => doc.title)
+        .sort(),
+    ).toEqual(['A', 'B']);
+    // doc_count must agree with the flat collection — it is derived in exactly
+    // one place (serialize.buildFolderTree) and this pins them together.
+    expect(tree?.folders[0]?.doc_count).toBe(2);
   });
 
   it('moveMany with folder_id null files documents under Unfiled', async () => {

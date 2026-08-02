@@ -701,6 +701,82 @@ describe('migrate', () => {
     expect(plainStillNull.rows).toEqual([{ priority: null }]);
   });
 
+  it('0017 backfills unambiguous lane and severity tags and reports conflicts', async () => {
+    const files = readdirSync(drizzleDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    const idx = files.indexOf('0017_robust_old_lace.sql');
+    expect(idx).toBeGreaterThan(0);
+    const preamble = files.slice(0, idx);
+    const target = files[idx];
+    if (target === undefined) {
+      throw new Error(`no migration file at index ${String(idx)}`);
+    }
+
+    const db = await createDb(':memory:');
+    await db.$client.execute('PRAGMA foreign_keys = OFF');
+    for (const f of preamble) {
+      await applyMigrationSqlRaw(db, f);
+    }
+    await db.$client.execute(
+      "INSERT INTO projects (id, org_id, workspace_id, name) VALUES ('p17','o17','w17','P17')",
+    );
+    await db.$client.execute(
+      "INSERT INTO goals (id, project_id, objective, status) VALUES ('g17','p17','Ship','active')",
+    );
+    for (const id of ['t-auto', 't-conflict', 't-sev', 't-sev-conflict']) {
+      await db.$client.execute(
+        `INSERT INTO tasks (id, project_id, goal_id, label, status, kind, priority, description, x, y, created_at, updated_at) VALUES ('${id}','p17','g17','${id}','todo','build',NULL,NULL,0,0,100,100)`,
+      );
+    }
+    const tags: Array<[string, string]> = [
+      ['lane-auto', 'lane:auto'],
+      ['lane-approve', 'lane:approve'],
+      ['lane-full', 'lane:full'],
+      ['sev-high', 'sev:high'],
+      ['severity-high', 'severity:high'],
+      ['sev-low', 'sev:low'],
+    ];
+    for (const [id, name] of tags) {
+      await db.$client.execute(
+        `INSERT INTO tags (id, project_id, name, color, created_at) VALUES ('${id}','p17','${name}',NULL,100)`,
+      );
+    }
+    await db.$client.execute("INSERT INTO task_tags (task_id, tag_id) VALUES ('t-auto','lane-auto')");
+    await db.$client.execute(
+      "INSERT INTO task_tags (task_id, tag_id) VALUES ('t-conflict','lane-approve'), ('t-conflict','lane-full')",
+    );
+    await db.$client.execute("INSERT INTO task_tags (task_id, tag_id) VALUES ('t-sev','sev-high')");
+    await db.$client.execute(
+      "INSERT INTO task_tags (task_id, tag_id) VALUES ('t-sev-conflict','sev-high'), ('t-sev-conflict','sev-low')",
+    );
+
+    await applyMigrationSqlRaw(db, target);
+    await db.$client.execute('PRAGMA foreign_keys = ON');
+    expect(await hasColumn(db, 'tasks', 'lane')).toBe(true);
+    expect(await hasColumn(db, 'tasks', 'severity')).toBe(true);
+    const values = await db.$client.execute(
+      "SELECT id, lane, severity FROM tasks WHERE project_id = 'p17' ORDER BY id",
+    );
+    expect(values.rows).toEqual([
+      { id: 't-auto', lane: 'auto', severity: null },
+      { id: 't-conflict', lane: null, severity: null },
+      { id: 't-sev', lane: null, severity: 'high' },
+      { id: 't-sev-conflict', lane: null, severity: null },
+    ]);
+    const conflicts = await db.$client.execute(
+      "SELECT task_id, field, tag_values FROM task_field_migration_conflicts ORDER BY task_id, field",
+    );
+    expect(conflicts.rows).toEqual([
+      { task_id: 't-conflict', field: 'lane', tag_values: 'approve,full' },
+      { task_id: 't-sev-conflict', field: 'severity', tag_values: 'high,low' },
+    ]);
+    const tagsRemain = await db.$client.execute(
+      "SELECT count(*) AS count FROM task_tags WHERE task_id IN ('t-auto','t-conflict','t-sev','t-sev-conflict')",
+    );
+    expect(tagsRemain.rows).toEqual([{ count: 6 }]);
+  });
+
   // Regression: 0012 only ADDs nullable owner_id and overview_document_id.
   // A project that existed at 0011 must survive with both columns null.
   it('0012 preserves pre-existing projects as null owner and overview', async () => {
