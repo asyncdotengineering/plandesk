@@ -8,6 +8,7 @@ import { createArtifactService, type ArtifactService } from './artifacts.js';
 import { createFileService, type FileService } from './files.js';
 import { createFolderService, type FolderService } from './folders.js';
 import { createNoteService, type NoteService } from './notes.js';
+import { createPrototypeService, type PrototypeService } from './prototypes.js';
 import { createProjectService, type ProjectService } from './projects.js';
 import {
   createProjectExportService,
@@ -47,6 +48,7 @@ export type Services = {
   canvasService: CanvasService;
   documentService: DocumentService;
   folderService: FolderService;
+  prototypeService: PrototypeService;
   noteService: NoteService;
   commentService: CommentService;
   agentRunService: AgentRunService;
@@ -76,6 +78,7 @@ export function createServices(deps: ServicesDeps): Services {
   const canvasService = createCanvasService(scoped);
   const documentService = createDocumentService({ ...versioned, taskService });
   const folderService = createFolderService(scoped);
+  const prototypeService = createPrototypeService(scoped);
   const noteService = createNoteService(scoped);
   const commentService = createCommentService(scoped);
   const agentRunService = createAgentRunService(scoped);
@@ -99,6 +102,7 @@ export function createServices(deps: ServicesDeps): Services {
     canvasService,
     documentService,
     folderService,
+    prototypeService,
     noteService,
     commentService,
     agentRunService,

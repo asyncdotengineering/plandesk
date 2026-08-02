@@ -435,6 +435,7 @@ export async function readLegacyProjectExports(
         tags: [],
         edges,
         folders: [],
+        prototypes: [],
         documents: documentRows.map(mapDocument),
         notes: noteRows.map(mapNote),
         views: [],

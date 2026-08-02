@@ -29,7 +29,11 @@ describe('tool registry tag schemas', () => {
     expect(v1ToolNames).toContain('get_revision');
     expect(v1ToolNames).toContain('claim_task');
     expect(v1ToolNames).toContain('update_project');
-    expect(v1ToolNames).toHaveLength(52);
+    expect(v1ToolNames).toContain('create_prototype');
+    expect(v1ToolNames).toContain('list_prototypes');
+    expect(v1ToolNames).toContain('get_prototype');
+    expect(v1ToolNames).toContain('update_prototype');
+    expect(v1ToolNames).toHaveLength(56);
     for (const name of v1ToolNames) {
       expect(v1ToolSchemas[name]).toBeDefined();
     }

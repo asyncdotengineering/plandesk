@@ -8,6 +8,7 @@ import {
   createTask,
   deleteAgentRun,
   deleteAgentRunEventsByRunId,
+  deleteArtifactsByProjectId,
   deleteCommentsByProjectId,
   deleteRevisionsByProjectId,
   deleteDocumentsByProjectId,
@@ -15,6 +16,7 @@ import {
   deleteNotesByProjectId,
   deleteEdgesByProjectId,
   deleteGoalsByProjectId,
+  deletePrototypesByProjectId,
   deleteShareSubmissionsByProjectId,
   deleteSharesByProjectId,
   deleteTagsByProjectId,
@@ -431,6 +433,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
         await deleteSyncStateByProjectId(tx, id);
         await deleteSyncRemoteByProjectId(tx, id);
         await deleteSharesByProjectId(tx, id);
+        // Artifacts before prototypes: screens hold prototype_id FK.
+        await deleteArtifactsByProjectId(tx, id);
+        await deletePrototypesByProjectId(tx, id);
         await dbDeleteProject(tx, id);
       });
 

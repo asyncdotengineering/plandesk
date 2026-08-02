@@ -24,6 +24,7 @@ import {
   emitGoalsImport,
   emitNotesImport,
   emitProjectImport,
+  emitPrototypesImport,
   emitTagsImport,
   emitTaskTagsImport,
   emitTasksImport,
@@ -34,6 +35,7 @@ import {
   preallocateEdgeIds,
   preallocateFolderIds,
   preallocateGoalIds,
+  preallocatePrototypeIds,
   preallocateTagIds,
   preallocateTaskIds,
   type ImportManifestHandler,
@@ -42,6 +44,8 @@ import { listArtifactsByProject } from './repositories/artifacts.js';
 import { listFilesByProject } from './repositories/files.js';
 import { listFolders } from './repositories/folders.js';
 import { listGoals } from './repositories/goals.js';
+import { listPrototypes } from './repositories/prototypes.js';
+import type { Prototype } from './repositories/prototypes.js';
 import { getProject } from './repositories/projects.js';
 import { listTags, listTagsByTaskForProject } from './repositories/tags.js';
 import { listCommentsByProject } from './repositories/comments.js';
@@ -66,6 +70,7 @@ import {
   goals,
   notes,
   projects,
+  prototypes,
   tags,
   taskTags,
   tasks,
@@ -85,6 +90,7 @@ import type {
   PlandeskExportInput,
   PlandeskExportNote,
   PlandeskExportProject,
+  PlandeskExportPrototype,
   PlandeskExportTag,
   PlandeskExportTask,
   PlandeskExportView,
@@ -154,6 +160,7 @@ type ExportTableManifestEntryShape =
   | RowsManifestEntry<Tag, PlandeskExportTag>
   | RowsManifestEntry<Edge, PlandeskExportEdge>
   | RowsManifestEntry<Folder, PlandeskExportFolder>
+  | RowsManifestEntry<Prototype, PlandeskExportPrototype>
   | RowsManifestEntry<Document, PlandeskExportDocument>
   | RowsManifestEntry<Note, PlandeskExportNote>
   | RowsManifestEntry<View, PlandeskExportView>
@@ -376,6 +383,28 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
       },
     },
   },
+  prototypes: {
+    scope: 'rows',
+    collection: 'prototypes',
+    read: listPrototypes,
+    serialize: (prototype: Prototype): PlandeskExportPrototype => ({
+      id: prototype.id,
+      name: prototype.name,
+      viewport_width: prototype.viewportWidth,
+      viewport_height: prototype.viewportHeight,
+    }),
+    import: { order: 125, preallocateIds: preallocatePrototypeIds, emit: emitPrototypesImport },
+    portability: {
+      drizzleTable: prototypes,
+      roundTrippedColumns: ['name', 'viewport_width', 'viewport_height'],
+      columnExclusions: {
+        id: 'Remapped on import',
+        project_id: 'Implied by nesting under the imported project',
+        created_at: 'Server-assigned on import',
+        updated_at: 'Server-assigned on import',
+      },
+    },
+  },
   documents: {
     scope: 'rows',
     collection: 'documents',
@@ -550,11 +579,14 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
       content: artifact.content,
       created_at: artifact.createdAt.toISOString(),
       updated_at: artifact.updatedAt.toISOString(),
+      prototype_id: artifact.prototypeId,
+      x: artifact.x,
+      y: artifact.y,
     }),
     import: { order: 130, preallocateIds: preallocateArtifactIds, emit: emitArtifactsImport },
     portability: {
       drizzleTable: artifacts,
-      roundTrippedColumns: ['title', 'kind', 'content'],
+      roundTrippedColumns: ['title', 'kind', 'content', 'prototype_id', 'x', 'y'],
       columnExclusions: {
         id: 'Remapped on import',
         project_id: 'Implied by nesting under the imported project',
@@ -699,6 +731,7 @@ async function readProjectScopedRows(
     tags,
     edges,
     folders,
+    prototypes,
     documents,
     notes,
     views,
@@ -712,6 +745,7 @@ async function readProjectScopedRows(
     manifest.tags.read(db, projectId),
     manifest.edges.read(db, projectId),
     manifest.folders.read(db, projectId),
+    manifest.prototypes.read(db, projectId),
     manifest.documents.read(db, projectId),
     manifest.notes.read(db, projectId),
     manifest.views.read(db, projectId),
@@ -726,6 +760,7 @@ async function readProjectScopedRows(
     tags,
     edges,
     folders,
+    prototypes,
     documents,
     notes,
     views,
@@ -765,6 +800,7 @@ function assembleRowCollections(
     tags: (rowReads.tags ?? []).map((row) => manifest.tags.serialize(row)),
     edges: (rowReads.edges ?? []).map((row) => manifest.edges.serialize(row)),
     folders: (rowReads.folders ?? []).map((row) => manifest.folders.serialize(row)),
+    prototypes: (rowReads.prototypes ?? []).map((row) => manifest.prototypes.serialize(row)),
     documents: (rowReads.documents ?? []).map((row) => manifest.documents.serialize(row)),
     notes: (rowReads.notes ?? []).map((row) => manifest.notes.serialize(row)),
     views: (rowReads.views ?? []).map((row) => manifest.views.serialize(row)),

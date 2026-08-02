@@ -4,6 +4,7 @@ import { migrate } from '../migrate.js';
 import { createProjectInDefaultOrg as createProject } from '../testing.js';
 import {
   createArtifact,
+  deleteArtifactsByProjectId,
   getArtifact,
   getArtifactByProjectAndId,
   listArtifactsByProject,
@@ -38,6 +39,9 @@ describe('artifacts repository', () => {
     const created = await createArtifact(db, { projectId, title: 'Empty' });
     expect(created.kind).toBe('markdown');
     expect(created.content).toBe('');
+    expect(created.prototypeId).toBeNull();
+    expect(created.x).toBeNull();
+    expect(created.y).toBeNull();
   });
 
   it('returns undefined for a missing artifact', async () => {
@@ -75,5 +79,40 @@ describe('artifacts repository', () => {
     expect(updated?.content).toBe('v2');
     expect(updated?.kind).toBe('html');
     expect(updated?.updatedAt.getTime()).toBeGreaterThanOrEqual(created.updatedAt.getTime());
+  });
+
+  it('stores nullable prototypeId and coordinates', async () => {
+    const { createPrototype } = await import('./prototypes.js');
+    const { listArtifactsByPrototype } = await import('./artifacts.js');
+    const proto = await createPrototype(db, {
+      projectId,
+      name: 'Flow',
+      viewportWidth: 390,
+      viewportHeight: 844,
+    });
+    const screen = await createArtifact(db, {
+      projectId,
+      title: 'Home',
+      kind: 'html',
+      content: '<html></html>',
+      prototypeId: proto.id,
+      x: 10,
+      y: 20,
+    });
+    expect(screen.prototypeId).toBe(proto.id);
+    expect(screen.x).toBe(10);
+    expect(screen.y).toBe(20);
+    expect(await listArtifactsByPrototype(db, proto.id)).toHaveLength(1);
+  });
+
+  it('deleteArtifactsByProjectId removes every artifact for the project', async () => {
+    await createArtifact(db, { projectId, title: 'One' });
+    await createArtifact(db, { projectId, title: 'Two' });
+    const other = (await createProject(db, { name: 'Other' })).id;
+    const kept = await createArtifact(db, { projectId: other, title: 'Elsewhere' });
+
+    expect(await deleteArtifactsByProjectId(db, projectId)).toBe(2);
+    expect(await listArtifactsByProject(db, projectId)).toHaveLength(0);
+    expect(await getArtifact(db, kept.id)).toBeDefined();
   });
 });

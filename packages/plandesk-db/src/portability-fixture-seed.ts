@@ -11,6 +11,7 @@ import { createFile } from './repositories/files.js';
 import { createFolder } from './repositories/folders.js';
 import { createGoal } from './repositories/goals.js';
 import { createNote } from './repositories/notes.js';
+import { createPrototype } from './repositories/prototypes.js';
 import { updateProject } from './repositories/projects.js';
 import { createTag, setTaskTags } from './repositories/tags.js';
 import { createTask, updateTask } from './repositories/tasks.js';
@@ -39,6 +40,7 @@ export const FIXTURE_EXPORT_IDS = {
   edge: '00000000-0000-4000-8000-00000000f009',
   note: '00000000-0000-4000-8000-00000000f00a',
   artifact: '00000000-0000-4000-8000-00000000f00b',
+  prototype: '00000000-0000-4000-8000-00000000f011',
   docComment: '00000000-0000-4000-8000-00000000f00c',
   artifactComment: '00000000-0000-4000-8000-00000000f00d',
   agentRun: '00000000-0000-4000-8000-00000000f00e',
@@ -185,12 +187,23 @@ export async function seedDeterministicFullyPopulatedProject(db: Db): Promise<st
     position: 3,
   });
 
+  const prototype = await createPrototype(db, {
+    id: ids.prototype,
+    projectId: project.id,
+    name: 'DISTINCT-prototype-name',
+    viewportWidth: 390,
+    viewportHeight: 844,
+  });
+
   const artifact = await createArtifact(db, {
     id: ids.artifact,
     projectId: project.id,
     title: 'DISTINCT-artifact-title',
     kind: 'html',
     content: '<p>DISTINCT-artifact-content</p>',
+    prototypeId: prototype.id,
+    x: 11.5,
+    y: 22.5,
   });
   await db
     .update(artifacts)

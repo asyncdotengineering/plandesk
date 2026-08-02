@@ -598,6 +598,7 @@ describe('export/import portability', () => {
       tags: [],
       edges: [],
       folders: [],
+      prototypes: [],
       documents: [],
       notes: [],
       views: [],

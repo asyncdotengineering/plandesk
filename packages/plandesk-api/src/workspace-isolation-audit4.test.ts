@@ -12,6 +12,7 @@ import {
   createGoal,
   createGuestSubmission,
   createNote,
+  createPrototype,
   createShare,
   createTag,
   createTaskWithDefaultGoal as createTask,
@@ -24,6 +25,7 @@ import {
   getGoal,
   getNote,
   getProject,
+  getPrototype,
   getRevision,
   getSubmission,
   getTask,
@@ -36,6 +38,7 @@ import {
   listFolders,
   listGoals,
   listNotes,
+  listPrototypes,
   listShares,
   listSubmissions,
   listTasks,
@@ -72,6 +75,7 @@ import {
   createCreateDocumentHandler,
   createCreateEdgeHandler,
   createCreateFolderHandler,
+  createCreatePrototypeHandler,
   createCreateGoalHandler,
   createCreateNoteHandler,
   createCreateProjectHandler,
@@ -83,6 +87,7 @@ import {
   createGetGoalHandler,
   createGetNextTaskHandler,
   createGetNoteHandler,
+  createGetPrototypeHandler,
   createGetProjectHandler,
   createGetTaskHandler,
   createListArtifactCommentsHandler,
@@ -92,6 +97,7 @@ import {
   createListEdgesHandler,
   createListGoalsHandler,
   createListNotesHandler,
+  createListPrototypesHandler,
   createListProjectsHandler,
   createListSubmissionsHandler,
   createListTagsHandler,
@@ -110,6 +116,7 @@ import {
   createUpdateArtifactHandler,
   createUpdateDocumentHandler,
   createUpdateFolderHandler,
+  createUpdatePrototypeHandler,
   createUpdateGoalHandler,
   createUpdateNoteHandler,
   createUpdateProjectHandler,
@@ -132,6 +139,10 @@ const MCP_TOOLS = [
   'list_documents',
   'create_folder',
   'update_folder',
+  'create_prototype',
+  'list_prototypes',
+  'get_prototype',
+  'update_prototype',
   'create_note',
   'update_note',
   'get_note',
@@ -191,6 +202,7 @@ type ForeignResources = {
   edge: Awaited<ReturnType<typeof createEdge>>;
   document: Awaited<ReturnType<typeof createDocument>>;
   folder: Awaited<ReturnType<typeof createFolder>>;
+  prototype: Awaited<ReturnType<typeof createPrototype>>;
   note: Awaited<ReturnType<typeof createNote>>;
   artifact: Awaited<ReturnType<typeof createArtifact>>;
   activeGoal: Awaited<ReturnType<typeof createGoal>>;
@@ -274,6 +286,12 @@ async function seedForeignResources(db: Db, project: Project, label: string): Pr
     body: `<p>${label} document body secret</p>`,
   });
   const folder = await createFolder(db, { projectId: project.id, name: `${label} folder secret` });
+  const prototype = await createPrototype(db, {
+    projectId: project.id,
+    name: `${label} prototype secret`,
+    viewportWidth: 390,
+    viewportHeight: 844,
+  });
   const note = await createNote(db, {
     projectId: project.id,
     title: `${label} note secret`,
@@ -336,6 +354,7 @@ async function seedForeignResources(db: Db, project: Project, label: string): Pr
     edge,
     document,
     folder,
+    prototype,
     note,
     artifact,
     activeGoal,
@@ -500,6 +519,7 @@ async function mutationSnapshot(db: Db, target: ForeignResources) {
     edge: await getEdge(db, target.edge.id),
     document: await getDocument(db, target.document.id),
     folder: await getFolder(db, target.folder.id),
+    prototype: await getPrototype(db, target.prototype.id),
     note: await getNote(db, target.note.id),
     artifact: await getArtifact(db, target.artifact.id),
     activeGoal: await getGoal(db, target.activeGoal.id),
@@ -514,6 +534,7 @@ async function mutationSnapshot(db: Db, target: ForeignResources) {
       tasks: (await listTasks(db, target.project.id)).length,
       documents: (await listDocuments(db, target.project.id)).length,
       folders: (await listFolders(db, target.project.id)).length,
+      prototypes: (await listPrototypes(db, target.project.id)).length,
       notes: (await listNotes(db, target.project.id)).length,
       artifacts: (await listArtifactsByProject(db, target.project.id)).length,
       goals: (await listGoals(db, target.project.id)).length,
@@ -626,6 +647,32 @@ async function runMcpForeignSweep(
     [
       'update_folder',
       () => createUpdateFolderHandler(s.folderService)({ folder_id: target.folder.id, name: 'escaped' }),
+    ],
+    [
+      'create_prototype',
+      () =>
+        createCreatePrototypeHandler(s.prototypeService)({
+          project_id: target.project.id,
+          name: 'escaped prototype',
+          viewport_width: 390,
+          viewport_height: 844,
+        }),
+    ],
+    [
+      'list_prototypes',
+      () => createListPrototypesHandler(s.prototypeService)({ project_id: target.project.id }),
+    ],
+    [
+      'get_prototype',
+      () => createGetPrototypeHandler(s.prototypeService)({ prototype_id: target.prototype.id }),
+    ],
+    [
+      'update_prototype',
+      () =>
+        createUpdatePrototypeHandler(s.prototypeService)({
+          prototype_id: target.prototype.id,
+          name: 'escaped',
+        }),
     ],
     [
       'create_note',
@@ -963,6 +1010,13 @@ describe('workspace-tier adversarial audit round 4', () => {
         createUpdateFolderHandler(f.services.folderService)({
           folder_id: folderA.id,
           parent_folder_id: f.foreignB.folder.id,
+        }),
+        createCreateArtifactHandler(f.services.artifactService)({
+          project_id: f.projectA.id,
+          title: 'foreign prototype ref',
+          content: '<html></html>',
+          kind: 'html',
+          prototype_id: f.foreignB.prototype.id,
         }),
         createCreateEdgeHandler(f.services.canvasService)({
           project_id: f.projectA.id,

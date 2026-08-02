@@ -409,6 +409,26 @@ export const syncState = sqliteTable('sync_state', {
 export const artifactKinds = ['markdown', 'html'] as const;
 export type ArtifactKind = (typeof artifactKinds)[number];
 
+/**
+ * Named flow of screens with a declared viewport. Flat (no nesting).
+ * folderId lands in a later task — do not add it here.
+ */
+export const prototypes = sqliteTable('prototypes', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id')
+    .notNull()
+    .references(() => projects.id),
+  name: text('name').notNull(),
+  viewportWidth: real('viewport_width').notNull(),
+  viewportHeight: real('viewport_height').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+    .notNull()
+    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+});
+
 export const artifacts = sqliteTable('artifacts', {
   id: text('id').primaryKey(),
   projectId: text('project_id')
@@ -417,6 +437,11 @@ export const artifacts = sqliteTable('artifacts', {
   title: text('title').notNull(),
   kind: text('kind', { enum: artifactKinds }).notNull().default('markdown'),
   content: text('content').notNull().default(''),
+  // Nullable: reports/RFCs have no prototype. Set ⇒ this is a screen ⇒ kind must be html.
+  prototypeId: text('prototype_id').references(() => prototypes.id),
+  // Position within the prototype's plane; system-owned (canvas layout), not agent-writable.
+  x: real('x'),
+  y: real('y'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),

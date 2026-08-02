@@ -12,6 +12,7 @@ import type {
   PlandeskExportFolder,
   PlandeskExportGoal,
   PlandeskExportNote,
+  PlandeskExportPrototype,
   PlandeskExportTag,
   PlandeskExportTask,
 } from './portability.js';
@@ -42,6 +43,10 @@ type _EdgeGuard = RowSerializerGuard<
 type _FolderGuard = RowSerializerGuard<
   ReturnType<typeof PLANDESK_EXPORT_TABLE_MANIFEST.folders.serialize>,
   PlandeskExportFolder
+>;
+type _PrototypeGuard = RowSerializerGuard<
+  ReturnType<typeof PLANDESK_EXPORT_TABLE_MANIFEST.prototypes.serialize>,
+  PlandeskExportPrototype
 >;
 type _DocumentGuard = RowSerializerGuard<
   ReturnType<typeof PLANDESK_EXPORT_TABLE_MANIFEST.documents.serialize>,
@@ -77,6 +82,7 @@ const _taskGuard: _TaskGuard = true;
 const _tagGuard: _TagGuard = true;
 const _edgeGuard: _EdgeGuard = true;
 const _folderGuard: _FolderGuard = true;
+const _prototypeGuard: _PrototypeGuard = true;
 const _documentGuard: _DocumentGuard = true;
 const _noteGuard: _NoteGuard = true;
 const _commentGuard: _CommentGuard = true;
@@ -89,6 +95,7 @@ void _taskGuard;
 void _tagGuard;
 void _edgeGuard;
 void _folderGuard;
+void _prototypeGuard;
 void _documentGuard;
 void _noteGuard;
 void _commentGuard;

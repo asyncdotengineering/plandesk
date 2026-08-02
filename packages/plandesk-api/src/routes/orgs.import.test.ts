@@ -431,6 +431,7 @@ describe('importProject orgId option', () => {
       tags: [],
       edges: [],
       folders: [],
+      prototypes: [],
       documents: [],
       notes: [],
       views: [],

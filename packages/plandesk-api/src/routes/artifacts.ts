@@ -6,12 +6,14 @@ type CreateArtifactBody = {
   title?: string;
   kind?: (typeof artifactKinds)[number];
   content?: string;
+  prototype_id?: string | null;
 };
 
 type UpdateArtifactBody = {
   title?: string;
   kind?: (typeof artifactKinds)[number];
   content?: string;
+  prototype_id?: string | null;
 };
 
 function isValidKind(kind: string): kind is (typeof artifactKinds)[number] {
@@ -43,6 +45,7 @@ export function createArtifactsRouter(artifactService: ArtifactService): Hono {
         title: body.title,
         kind: body.kind,
         content: body.content,
+        ...(body.prototype_id !== undefined ? { prototypeId: body.prototype_id } : {}),
       });
 
       if (!artifact) {
@@ -77,6 +80,7 @@ export function createArtifactsRouter(artifactService: ArtifactService): Hono {
         ...(body.title !== undefined ? { title: body.title } : {}),
         ...(body.kind !== undefined ? { kind: body.kind } : {}),
         ...(body.content !== undefined ? { content: body.content } : {}),
+        ...(body.prototype_id !== undefined ? { prototypeId: body.prototype_id } : {}),
       });
 
       if (!artifact) {

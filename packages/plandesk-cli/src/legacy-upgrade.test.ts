@@ -17,6 +17,7 @@ import { runInit } from './init.js';
 import {
   formatLegacyUpgradeSummary,
   legacyBackupPath,
+  readLegacyProjectExports,
   resolveLegacySourcePath,
   runLegacyUpgrade,
   toIsoTimestamp,
@@ -258,6 +259,28 @@ describe('legacy-upgrade helpers', () => {
 
   it('resolves --from explicitly', () => {
     expect(resolveLegacySourcePath('/explicit/path.db')).toBe('/explicit/path.db');
+  });
+
+  it('upgrades a pre-prototypes legacy export with an empty prototypes collection', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'plandesk-legacy-protos-'));
+    try {
+      const oldPath = join(dir, 'old-workspace.db');
+      await createOldSchemaFixture(oldPath);
+      const db = await createDb(oldPath);
+      try {
+        const exports = await readLegacyProjectExports(db.$client);
+        expect(exports).toHaveLength(1);
+        const payload = exports[0]?.export;
+        expect(payload).toBeDefined();
+        // Key must be present as [] — not missing, not undefined.
+        expect(Object.prototype.hasOwnProperty.call(payload, 'prototypes')).toBe(true);
+        expect(payload?.prototypes).toEqual([]);
+      } finally {
+        db.$client.close();
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

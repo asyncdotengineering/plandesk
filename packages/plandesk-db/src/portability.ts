@@ -134,6 +134,13 @@ export type PlandeskExportFolder = {
   parent_folder_id: string | null;
 };
 
+export type PlandeskExportPrototype = {
+  id: string;
+  name: string;
+  viewport_width: number;
+  viewport_height: number;
+};
+
 export type PlandeskExportDocument = {
   id: string;
   title: string;
@@ -185,6 +192,10 @@ export type PlandeskExportArtifact = {
   content: string;
   created_at?: string;
   updated_at?: string;
+  // Optional for backward compatibility with exports written before prototypes existed.
+  prototype_id?: string | null;
+  x?: number | null;
+  y?: number | null;
 };
 
 export type PlandeskExportFile = {
@@ -221,6 +232,7 @@ export type PlandeskExport = {
   tags: PlandeskExportTag[];
   edges: PlandeskExportEdge[];
   folders: PlandeskExportFolder[];
+  prototypes: PlandeskExportPrototype[];
   documents: PlandeskExportDocument[];
   notes: PlandeskExportNote[];
   views: PlandeskExportView[];
@@ -277,6 +289,8 @@ export type PlandeskExportInput = {
   edges: PlandeskExportEdge[];
   // Optional for backward compatibility with exports written before folders existed.
   folders?: PlandeskExportFolder[];
+  // Optional for backward compatibility with exports written before prototypes existed.
+  prototypes?: PlandeskExportPrototype[];
   documents: PlandeskExportDocument[];
   // Optional for backward compatibility with exports written before notes existed.
   notes?: PlandeskExportNote[];

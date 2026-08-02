@@ -10,6 +10,9 @@ export type NewArtifact = {
   title: string;
   kind?: ArtifactKind;
   content?: string;
+  prototypeId?: string | null;
+  x?: number | null;
+  y?: number | null;
   id?: string;
 };
 
@@ -17,6 +20,9 @@ export type ArtifactUpdate = {
   title?: string;
   kind?: ArtifactKind;
   content?: string;
+  prototypeId?: string | null;
+  x?: number | null;
+  y?: number | null;
 };
 
 export async function createArtifact(db: DbClient, input: NewArtifact): Promise<Artifact> {
@@ -30,6 +36,9 @@ export async function createArtifact(db: DbClient, input: NewArtifact): Promise<
       title: input.title,
       kind: input.kind ?? 'markdown',
       content: input.content ?? '',
+      prototypeId: input.prototypeId ?? null,
+      x: input.x ?? null,
+      y: input.y ?? null,
       createdAt: now,
       updatedAt: now,
     })
@@ -48,6 +57,13 @@ export async function getArtifact(db: DbClient, id: string): Promise<Artifact | 
 
 export async function listArtifactsByProject(db: DbClient, projectId: string): Promise<Artifact[]> {
   return db.select().from(artifacts).where(eq(artifacts.projectId, projectId)).all();
+}
+
+export async function listArtifactsByPrototype(
+  db: DbClient,
+  prototypeId: string,
+): Promise<Artifact[]> {
+  return db.select().from(artifacts).where(eq(artifacts.prototypeId, prototypeId)).all();
 }
 
 export async function getArtifactByProjectAndId(
@@ -78,4 +94,9 @@ export async function updateArtifact(
     .returning()
     .all();
   return rows[0];
+}
+
+export async function deleteArtifactsByProjectId(db: DbClient, projectId: string): Promise<number> {
+  const result = await db.delete(artifacts).where(eq(artifacts.projectId, projectId)).run();
+  return result.rowsAffected;
 }

@@ -20,6 +20,10 @@ import { createDeleteEdgeHandler } from './tools/delete-edge.js';
 import { createCreateShareLinkHandler } from './tools/create-share-link.js';
 import { createCreateFolderHandler } from './tools/create-folder.js';
 import { createUpdateFolderHandler } from './tools/update-folder.js';
+import { createCreatePrototypeHandler } from './tools/create-prototype.js';
+import { createListPrototypesHandler } from './tools/list-prototypes.js';
+import { createGetPrototypeHandler } from './tools/get-prototype.js';
+import { createUpdatePrototypeHandler } from './tools/update-prototype.js';
 import { createCreateProjectHandler } from './tools/create-project.js';
 import { createUpdateProjectHandler } from './tools/update-project.js';
 import { createCreateTaskHandler } from './tools/create-task.js';
@@ -68,6 +72,10 @@ import {
   listEdgesInputSchema,
   deleteEdgeInputSchema,
   createFolderInputSchema,
+  createPrototypeInputSchema,
+  listPrototypesInputSchema,
+  getPrototypeInputSchema,
+  updatePrototypeInputSchema,
   createShareLinkInputSchema,
   updateFolderInputSchema,
   createProjectInputSchema,
@@ -266,6 +274,51 @@ function createMcpServer(services: Services, origin: string): McpServer {
   );
 
   server.registerTool(
+    'create_prototype',
+    {
+      title: 'Create Prototype',
+      description:
+        'Create a named prototype flow with a declared viewport. Viewport presets (guidance, not an enum): 390×844 phone, 1024×768 tablet, 1440×900 desktop — free values are allowed. Screens are HTML artifacts attached via create_artifact with prototype_id.',
+      inputSchema: createPrototypeInputSchema.shape,
+    },
+    createCreatePrototypeHandler(services.prototypeService),
+  );
+
+  server.registerTool(
+    'list_prototypes',
+    {
+      title: 'List Prototypes',
+      description: 'List prototypes for a project (id, name, viewport, timestamps).',
+      inputSchema: listPrototypesInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createListPrototypesHandler(services.prototypeService),
+  );
+
+  server.registerTool(
+    'get_prototype',
+    {
+      title: 'Get Prototype',
+      description:
+        'Get a prototype by id, including its screens (HTML artifacts with that prototype_id).',
+      inputSchema: getPrototypeInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createGetPrototypeHandler(services.prototypeService),
+  );
+
+  server.registerTool(
+    'update_prototype',
+    {
+      title: 'Update Prototype',
+      description:
+        'Rename a prototype or change its viewport. Viewport presets (guidance): 390×844 phone, 1024×768 tablet, 1440×900 desktop.',
+      inputSchema: updatePrototypeInputSchema.shape,
+    },
+    createUpdatePrototypeHandler(services.prototypeService),
+  );
+
+  server.registerTool(
     'create_note',
     {
       title: 'Create Note',
@@ -314,7 +367,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Create Artifact',
       description:
-        'Create an agent-produced deliverable (report, RFC, HTML diagram) stored in the workspace. Humans can annotate it via the CLI previewer; the returned artifact_id is exactly the id used by list_artifact_comments and add_artifact_comment, closing the annotate→read→revise loop.',
+        "Create an agent-produced deliverable (report, RFC, HTML diagram) stored in the workspace. Pass optional prototype_id (same project) with kind 'html' to attach it as a screen — markdown screens are refused. Do not send x/y; layout is system-owned. Humans can annotate via the CLI previewer; the returned artifact_id is exactly the id used by list_artifact_comments and add_artifact_comment.",
       inputSchema: createArtifactInputSchema.shape,
     },
     createCreateArtifactHandler(services.artifactService),

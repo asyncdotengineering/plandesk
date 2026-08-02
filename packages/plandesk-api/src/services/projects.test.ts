@@ -3,23 +3,29 @@ import {
   DEFAULT_ORG_ID,
   createAgentRun,
   createAgentRunEvent,
+  createArtifact,
   createDb,
   createDocument,
   createComment,
   createEdge,
   createGoal,
   createProjectInDefaultOrg as createProject,
+  createPrototype,
+  getArtifact,
   getDocument,
   getComment,
   getOrCreateDefaultGoal,
   AmbiguousActiveGoalsError,
   getProject,
+  getPrototype,
   getTask,
   insertRevision,
   listAgentRuns,
+  listArtifactsByProject,
   listCommentsByProject,
   listDocuments,
   listEdges,
+  listPrototypes,
   listRevisionsByTarget,
   listTasks,
   migrate,
@@ -264,6 +270,33 @@ describe('projectService', () => {
     expect(await getComment(db, comment.id)).toBeUndefined();
     expect(await listRevisionsByTarget(db, project.id, 'task', task.id)).toHaveLength(0);
     expect(edge).toBeDefined();
+  });
+
+  it('deletes a project that owns a prototype and HTML screen', async () => {
+    const service = await createService();
+    const project = await createProject(db, { name: 'With prototype' });
+    const proto = await createPrototype(db, {
+      projectId: project.id,
+      name: 'Checkout',
+      viewportWidth: 390,
+      viewportHeight: 844,
+    });
+    const screen = await createArtifact(db, {
+      projectId: project.id,
+      title: 'Home',
+      kind: 'html',
+      content: '<html></html>',
+      prototypeId: proto.id,
+      x: 40,
+      y: 80,
+    });
+
+    expect(await service.delete(project.id)).toBe(true);
+    expect(await getProject(db, project.id)).toBeUndefined();
+    expect(await getPrototype(db, proto.id)).toBeUndefined();
+    expect(await getArtifact(db, screen.id)).toBeUndefined();
+    expect(await listPrototypes(db, project.id)).toHaveLength(0);
+    expect(await listArtifactsByProject(db, project.id)).toHaveLength(0);
   });
 
   it('returns false when deleting a missing project', async () => {

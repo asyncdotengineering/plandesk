@@ -9,6 +9,7 @@ import type {
   Goal,
   Note,
   Project,
+  Prototype,
   Revision,
   SavedViewConfig,
   Tag,
@@ -265,6 +266,9 @@ export type SerializedArtifact = {
   title: string;
   kind: Artifact['kind'];
   content: string;
+  prototype_id: string | null;
+  x: number | null;
+  y: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -283,6 +287,9 @@ export function serializeArtifact(artifact: Artifact): SerializedArtifact {
     title: artifact.title,
     kind: artifact.kind,
     content: artifact.content,
+    prototype_id: artifact.prototypeId,
+    x: artifact.x,
+    y: artifact.y,
     created_at: artifact.createdAt.toISOString(),
     updated_at: artifact.updatedAt.toISOString(),
   };
@@ -296,6 +303,32 @@ export function serializeArtifactSummary(artifact: Artifact): SerializedArtifact
     updated_at: artifact.updatedAt.toISOString(),
   };
 }
+
+export type SerializedPrototype = {
+  id: string;
+  project_id: string;
+  name: string;
+  viewport_width: number;
+  viewport_height: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export function serializePrototype(prototype: Prototype): SerializedPrototype {
+  return {
+    id: prototype.id,
+    project_id: prototype.projectId,
+    name: prototype.name,
+    viewport_width: prototype.viewportWidth,
+    viewport_height: prototype.viewportHeight,
+    created_at: prototype.createdAt.toISOString(),
+    updated_at: prototype.updatedAt.toISOString(),
+  };
+}
+
+export type SerializedPrototypeWithScreens = SerializedPrototype & {
+  screens: SerializedArtifact[];
+};
 
 export type SerializedComment = {
   id: string;

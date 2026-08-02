@@ -10,6 +10,7 @@ export function createUpdateArtifactHandler(
   title?: string;
   content?: string;
   kind?: ArtifactKind;
+  prototype_id?: string | null;
 }) => Promise<ToolResult> {
   return async (args) => {
     try {
@@ -17,6 +18,7 @@ export function createUpdateArtifactHandler(
         ...(args.title !== undefined ? { title: args.title } : {}),
         ...(args.content !== undefined ? { content: args.content } : {}),
         ...(args.kind !== undefined ? { kind: args.kind } : {}),
+        ...(args.prototype_id !== undefined ? { prototypeId: args.prototype_id } : {}),
       });
       if (!artifact) {
         return toolNotFound();

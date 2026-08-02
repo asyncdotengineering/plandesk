@@ -126,6 +126,7 @@ export type { ViewService } from './services/views.js';
 export type { CanvasService } from './services/canvas.js';
 export type { DocumentService } from './services/documents.js';
 export type { FolderService } from './services/folders.js';
+export type { PrototypeService } from './services/prototypes.js';
 export type { NoteService } from './services/notes.js';
 export type { FileService } from './services/files.js';
 export type { ArtifactService } from './services/artifacts.js';
@@ -141,6 +142,7 @@ export {
 } from './markdown.js';
 export { InvalidDocumentError } from './services/documents.js';
 export { InvalidFolderError } from './services/folders.js';
+export { InvalidPrototypeError } from './services/prototypes.js';
 export { InvalidNoteError } from './services/notes.js';
 export { InvalidArtifactError } from './services/artifacts.js';
 export { InvalidTagError } from './services/tags.js';

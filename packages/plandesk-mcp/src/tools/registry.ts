@@ -224,11 +224,43 @@ export const createShareLinkInputSchema = z.object({
 const ARTIFACT_CONTENT_DESCRIPTION =
   'Artifact body. Markdown or HTML depending on kind — a report, RFC, or diagram a human can review with the CLI previewer.';
 
+const PROTOTYPE_VIEWPORT_DESCRIPTION =
+  'Viewport size in CSS pixels. Presets (guidance, not an enum): 390×844 phone, 1024×768 tablet, 1440×900 desktop. Free values are allowed.';
+
+export const createPrototypeInputSchema = z.object({
+  project_id: z.string().uuid(),
+  name: z.string().min(1),
+  viewport_width: z.number().positive().describe(PROTOTYPE_VIEWPORT_DESCRIPTION),
+  viewport_height: z.number().positive().describe(PROTOTYPE_VIEWPORT_DESCRIPTION),
+});
+
+export const listPrototypesInputSchema = z.object({
+  project_id: z.string().uuid(),
+});
+
+export const getPrototypeInputSchema = z.object({
+  prototype_id: z.string().uuid(),
+});
+
+export const updatePrototypeInputSchema = z.object({
+  prototype_id: z.string().uuid(),
+  name: z.string().min(1).optional(),
+  viewport_width: z.number().positive().optional().describe(PROTOTYPE_VIEWPORT_DESCRIPTION),
+  viewport_height: z.number().positive().optional().describe(PROTOTYPE_VIEWPORT_DESCRIPTION),
+});
+
 export const createArtifactInputSchema = z.object({
   project_id: z.string().uuid(),
   title: z.string().min(1),
   content: z.string().describe(ARTIFACT_CONTENT_DESCRIPTION),
   kind: z.enum(artifactKinds).optional().describe('Defaults to markdown.'),
+  prototype_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      "Attach this artifact as a screen on a prototype. Requires kind 'html'. Must belong to the same project.",
+    ),
 });
 
 export const getArtifactInputSchema = z.object({
@@ -240,6 +272,14 @@ export const updateArtifactInputSchema = z.object({
   title: z.string().min(1).optional(),
   content: z.string().optional().describe(ARTIFACT_CONTENT_DESCRIPTION),
   kind: z.enum(artifactKinds).optional(),
+  prototype_id: z
+    .string()
+    .uuid()
+    .nullable()
+    .optional()
+    .describe(
+      "Set or clear the parent prototype. Requires kind 'html' when set. Must belong to the same project. Do not send x/y — layout is system-owned.",
+    ),
 });
 
 export const listArtifactsInputSchema = z.object({
@@ -632,6 +672,10 @@ export const v1ToolNames = [
   'list_documents',
   'create_folder',
   'update_folder',
+  'create_prototype',
+  'list_prototypes',
+  'get_prototype',
+  'update_prototype',
   'create_note',
   'update_note',
   'get_note',
@@ -689,6 +733,10 @@ export const v1ToolSchemas = {
   list_documents: listDocumentsInputSchema,
   create_folder: createFolderInputSchema,
   update_folder: updateFolderInputSchema,
+  create_prototype: createPrototypeInputSchema,
+  list_prototypes: listPrototypesInputSchema,
+  get_prototype: getPrototypeInputSchema,
+  update_prototype: updatePrototypeInputSchema,
   create_note: createNoteInputSchema,
   update_note: updateNoteInputSchema,
   get_note: getNoteInputSchema,

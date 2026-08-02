@@ -17,6 +17,7 @@ export type CanonicalExportSnapshot = {
   tags: PlandeskExport['tags'];
   edges: PlandeskExport['edges'];
   folders: PlandeskExport['folders'];
+  prototypes: PlandeskExport['prototypes'];
   documents: PlandeskExport['documents'];
   notes: PlandeskExport['notes'];
   views: PlandeskExport['views'];
@@ -65,6 +66,9 @@ export function canonicalizeExportForComparison(exported: PlandeskExport): Canon
       ),
     ),
     folders: [...exported.folders].sort((a, b) => compareBy(a, b, (f) => f.name, (f) => f.id)),
+    prototypes: [...exported.prototypes].sort((a, b) =>
+      compareBy(a, b, (p) => p.name, (p) => p.id),
+    ),
     documents: [...exported.documents].sort((a, b) => compareBy(a, b, (d) => d.title, (d) => d.id)),
     notes: [...exported.notes].sort((a, b) => compareBy(a, b, (n) => n.title, (n) => n.id)),
     views: [...exported.views].sort((a, b) => compareBy(a, b, (v) => v.name, (v) => v.id)),
@@ -116,6 +120,7 @@ export type PortableExportSnapshot = {
     style: string | null;
   }>;
   folders: Array<{ name: string; parent_name: string | null }>;
+  prototypes: Array<{ name: string; viewport_width: number; viewport_height: number }>;
   documents: Array<{
     title: string;
     body: string | null;
@@ -150,7 +155,14 @@ export type PortableExportSnapshot = {
     external_url: string | null;
     created_at: string;
   }>;
-  artifacts: Array<{ title: string; kind: string; content: string }>;
+  artifacts: Array<{
+    title: string;
+    kind: string;
+    content: string;
+    prototype_name: string | null;
+    x: number | null;
+    y: number | null;
+  }>;
 };
 
 function entityKey(
@@ -180,6 +192,9 @@ export function toPortableExportSnapshot(exported: PlandeskExport): PortableExpo
   const goalObjectiveById = new Map(exported.goals.map((goal) => [goal.id, goal.objective]));
   const documentTitleById = new Map(exported.documents.map((doc) => [doc.id, doc.title]));
   const folderNameById = new Map(exported.folders.map((folder) => [folder.id, folder.name]));
+  const prototypeNameById = new Map(
+    exported.prototypes.map((prototype) => [prototype.id, prototype.name]),
+  );
   const tagNameById = new Map(exported.tags.map((tag) => [tag.id, tag.name]));
   const artifactTitleById = new Map(
     exported.artifacts.map((artifact) => [artifact.id, artifact.title]),
@@ -263,6 +278,13 @@ export function toPortableExportSnapshot(exported: PlandeskExport): PortableExpo
             ? null
             : (folderNameById.get(folder.parent_folder_id) ?? folder.parent_folder_id),
       })),
+    prototypes: [...exported.prototypes]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((prototype) => ({
+        name: prototype.name,
+        viewport_width: prototype.viewport_width,
+        viewport_height: prototype.viewport_height,
+      })),
     documents: [...exported.documents]
       .sort((a, b) => a.title.localeCompare(b.title))
       .map((document) => ({
@@ -329,6 +351,12 @@ export function toPortableExportSnapshot(exported: PlandeskExport): PortableExpo
         title: artifact.title,
         kind: artifact.kind,
         content: artifact.content,
+        prototype_name:
+          artifact.prototype_id === null || artifact.prototype_id === undefined
+            ? null
+            : (prototypeNameById.get(artifact.prototype_id) ?? artifact.prototype_id),
+        x: artifact.x ?? null,
+        y: artifact.y ?? null,
       })),
   };
 }
@@ -373,5 +401,24 @@ export function assertGoldenExportFieldCoverage(exported: PlandeskExport): void 
     view.config.group.length !== 2
   ) {
     throw new Error('golden views mismatch');
+  }
+  const prototype = exported.prototypes[0];
+  if (
+    exported.prototypes.length !== 1 ||
+    prototype === undefined ||
+    prototype.name !== 'DISTINCT-prototype-name' ||
+    prototype.viewport_width !== 390 ||
+    prototype.viewport_height !== 844
+  ) {
+    throw new Error('golden prototypes mismatch');
+  }
+  const artifact = exported.artifacts[0];
+  if (
+    artifact === undefined ||
+    artifact.prototype_id !== FIXTURE_EXPORT_IDS.prototype ||
+    artifact.x !== 11.5 ||
+    artifact.y !== 22.5
+  ) {
+    throw new Error('golden artifact prototype fields mismatch');
   }
 }

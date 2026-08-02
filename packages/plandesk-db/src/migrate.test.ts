@@ -41,6 +41,7 @@ const EXPECTED_TABLES = [
   'sync_remotes',
   'files',
   'artifacts',
+  'prototypes',
   '__drizzle_migrations',
 ] as const;
 
@@ -749,6 +750,91 @@ describe('migrate', () => {
         owner_id: null,
         overview_document_id: null,
       },
+    ]);
+  });
+
+  // 0013 is additive: CREATE TABLE prototypes + three nullable columns on artifacts.
+  // Prove up → down → up against rows that already exist, with referencing rows present.
+  it('0013 up → down → up preserves artifacts and re-applies cleanly', async () => {
+    const files = readdirSync(drizzleDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    const idx = files.indexOf('0013_flimsy_sharon_ventura.sql');
+    expect(idx).toBeGreaterThan(0);
+    const preamble = files.slice(0, idx);
+    const target = files[idx];
+    if (target === undefined) {
+      throw new Error(`no migration file at index ${String(idx)}`);
+    }
+
+    const db = await createDb(':memory:');
+    await db.$client.execute('PRAGMA foreign_keys = OFF');
+    for (const f of preamble) {
+      await applyMigrationSqlRaw(db, f);
+    }
+
+    await db.$client.execute(
+      "INSERT INTO projects (id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at, repo_url, folder_path) VALUES ('p1','o1','w1','Pre-0013',NULL,NULL,100,200,NULL,NULL)",
+    );
+    await db.$client.execute(
+      "INSERT INTO artifacts (id, project_id, title, kind, content, created_at, updated_at) VALUES ('a1','p1','Report','markdown','# hi',100,200)",
+    );
+
+    expect(await hasColumn(db, 'artifacts', 'prototype_id')).toBe(false);
+    expect((await listTables(db)).includes('prototypes')).toBe(false);
+
+    // UP
+    await applyMigrationSqlRaw(db, target);
+    await db.$client.execute('PRAGMA foreign_keys = ON');
+    expect(await hasColumn(db, 'artifacts', 'prototype_id')).toBe(true);
+    expect(await hasColumn(db, 'artifacts', 'x')).toBe(true);
+    expect(await hasColumn(db, 'artifacts', 'y')).toBe(true);
+    expect((await listTables(db)).includes('prototypes')).toBe(true);
+
+    await db.$client.execute(
+      "INSERT INTO prototypes (id, project_id, name, viewport_width, viewport_height, created_at, updated_at) VALUES ('proto1','p1','Flow',390,844,100,200)",
+    );
+    await db.$client.execute(
+      "UPDATE artifacts SET prototype_id = 'proto1', x = 12.5, y = 34.5, kind = 'html' WHERE id = 'a1'",
+    );
+
+    const mid = await db.$client.execute(
+      "SELECT id, title, kind, prototype_id, x, y FROM artifacts WHERE id = 'a1'",
+    );
+    expect(mid.rows).toEqual([
+      { id: 'a1', title: 'Report', kind: 'html', prototype_id: 'proto1', x: 12.5, y: 34.5 },
+    ]);
+
+    // DOWN — clear FKs, drop columns, drop table (additive reverse)
+    await db.$client.execute('PRAGMA foreign_keys = OFF');
+    await db.$client.execute(
+      'UPDATE artifacts SET prototype_id = NULL, x = NULL, y = NULL',
+    );
+    await db.$client.execute('ALTER TABLE artifacts DROP COLUMN prototype_id');
+    await db.$client.execute('ALTER TABLE artifacts DROP COLUMN x');
+    await db.$client.execute('ALTER TABLE artifacts DROP COLUMN y');
+    await db.$client.execute('DROP TABLE prototypes');
+
+    expect(await hasColumn(db, 'artifacts', 'prototype_id')).toBe(false);
+    expect((await listTables(db)).includes('prototypes')).toBe(false);
+    const afterDown = await db.$client.execute(
+      "SELECT id, title, kind FROM artifacts WHERE id = 'a1'",
+    );
+    expect(afterDown.rows).toEqual([{ id: 'a1', title: 'Report', kind: 'html' }]);
+
+    // UP again
+    await applyMigrationSqlRaw(db, target);
+    await db.$client.execute('PRAGMA foreign_keys = ON');
+    const fkCheck = await db.$client.execute('PRAGMA foreign_key_check');
+    expect(fkCheck.rows).toHaveLength(0);
+    expect(await hasColumn(db, 'artifacts', 'prototype_id')).toBe(true);
+    expect((await listTables(db)).includes('prototypes')).toBe(true);
+
+    const afterUp = await db.$client.execute(
+      "SELECT id, title, kind, prototype_id, x, y FROM artifacts WHERE id = 'a1'",
+    );
+    expect(afterUp.rows).toEqual([
+      { id: 'a1', title: 'Report', kind: 'html', prototype_id: null, x: null, y: null },
     ]);
   });
 });

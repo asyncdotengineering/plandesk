@@ -17,6 +17,7 @@ import { createFile } from './repositories/files.js';
 import { createFolder } from './repositories/folders.js';
 import { createGoal } from './repositories/goals.js';
 import { createNote } from './repositories/notes.js';
+import { createPrototype } from './repositories/prototypes.js';
 import { updateProject } from './repositories/projects.js';
 import { createTag, setTaskTags } from './repositories/tags.js';
 import { createTask, listTasks, updateTask } from './repositories/tasks.js';
@@ -122,7 +123,15 @@ type PortableSnapshot = {
     external_url: string | null;
     created_at: string;
   }>;
-  artifacts: Array<{ title: string; kind: string; content: string }>;
+  artifacts: Array<{
+    title: string;
+    kind: string;
+    content: string;
+    prototype_name: string | null;
+    x: number | null;
+    y: number | null;
+  }>;
+  prototypes: Array<{ name: string; viewport_width: number; viewport_height: number }>;
 };
 
 function entityKey(
@@ -152,6 +161,9 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
   const goalObjectiveById = new Map(exported.goals.map((goal) => [goal.id, goal.objective]));
   const documentTitleById = new Map(exported.documents.map((doc) => [doc.id, doc.title]));
   const folderNameById = new Map(exported.folders.map((folder) => [folder.id, folder.name]));
+  const prototypeNameById = new Map(
+    exported.prototypes.map((prototype) => [prototype.id, prototype.name]),
+  );
   const tagNameById = new Map(exported.tags.map((tag) => [tag.id, tag.name]));
   const artifactTitleById = new Map(
     exported.artifacts.map((artifact) => [artifact.id, artifact.title]),
@@ -241,6 +253,13 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
             ? null
             : (folderNameById.get(folder.parent_folder_id) ?? folder.parent_folder_id),
       })),
+    prototypes: [...exported.prototypes]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((prototype) => ({
+        name: prototype.name,
+        viewport_width: prototype.viewport_width,
+        viewport_height: prototype.viewport_height,
+      })),
     documents: [...exported.documents]
       .sort((a, b) => a.title.localeCompare(b.title))
       .map((document) => ({
@@ -307,6 +326,12 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
         title: artifact.title,
         kind: artifact.kind,
         content: artifact.content,
+        prototype_name:
+          artifact.prototype_id === null || artifact.prototype_id === undefined
+            ? null
+            : (prototypeNameById.get(artifact.prototype_id) ?? artifact.prototype_id),
+        x: artifact.x ?? null,
+        y: artifact.y ?? null,
       })),
   };
 }
@@ -416,11 +441,21 @@ async function buildFullyPopulatedProject(db: Db): Promise<string> {
     position: 3,
   });
 
+  const prototype = await createPrototype(db, {
+    projectId: project.id,
+    name: 'DISTINCT-prototype-name',
+    viewportWidth: 390,
+    viewportHeight: 844,
+  });
+
   const artifact = await createArtifact(db, {
     projectId: project.id,
     title: 'DISTINCT-artifact-title',
     kind: 'html',
     content: '<p>DISTINCT-artifact-content</p>',
+    prototypeId: prototype.id,
+    x: 11.5,
+    y: 22.5,
   });
 
   await createComment(db, {
@@ -757,8 +792,20 @@ describe('portability export behavioural coverage', () => {
         title: 'DISTINCT-artifact-title',
         kind: 'html',
         content: '<p>DISTINCT-artifact-content</p>',
+        x: 11.5,
+        y: 22.5,
       });
+      expect(exported.artifacts[0]?.prototype_id).toBeTruthy();
       expect(targetSnapshot.artifacts).toEqual(sourceSnapshot.artifacts);
+    });
+
+    it('prototypes columns round-trip', () => {
+      expect(exported.prototypes[0]).toMatchObject({
+        name: 'DISTINCT-prototype-name',
+        viewport_width: 390,
+        viewport_height: 844,
+      });
+      expect(targetSnapshot.prototypes).toEqual(sourceSnapshot.prototypes);
     });
   });
 

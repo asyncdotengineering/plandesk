@@ -8,6 +8,9 @@ type ArtifactResponse = {
   title: string;
   kind: string;
   content: string;
+  prototype_id: string | null;
+  x: number | null;
+  y: number | null;
   created_at: string;
   updated_at: string;
 };

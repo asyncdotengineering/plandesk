@@ -20,6 +20,7 @@ import { createDocumentsRouter } from './routes/documents.js';
 import { createArtifactsRouter } from './routes/artifacts.js';
 import { createFilesRouter } from './routes/files.js';
 import { createFoldersRouter } from './routes/folders.js';
+import { createPrototypesRouter } from './routes/prototypes.js';
 import { createNotesRouter } from './routes/notes.js';
 import { createSharesRouter } from './routes/shares.js';
 import { createAgentRunsRouter } from './routes/agent-runs.js';
@@ -85,6 +86,7 @@ export function createApp(deps: AppDeps): Hono {
     canvasService,
     documentService,
     folderService,
+    prototypeService,
     noteService,
     commentService,
     agentRunService,
@@ -154,6 +156,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createFilesRouter(fileService));
   app.route('/api/v1', createArtifactsRouter(artifactService));
   app.route('/api/v1', createFoldersRouter(folderService));
+  app.route('/api/v1', createPrototypesRouter(prototypeService));
   app.route('/api/v1', createNotesRouter(noteService));
   app.route('/api/v1', createSharesRouter(shareService));
   app.route('/api/v1', createCommentsRouter(commentService));

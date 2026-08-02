@@ -16,6 +16,7 @@ export * from './repositories/folders.js';
 export * from './repositories/notes.js';
 export * from './repositories/files.js';
 export * from './repositories/artifacts.js';
+export * from './repositories/prototypes.js';
 export * from './repositories/comments.js';
 export * from './repositories/revisions.js';
 export * from './repositories/shares.js';

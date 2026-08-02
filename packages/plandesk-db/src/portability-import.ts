@@ -19,6 +19,7 @@ import {
   goals,
   notes,
   projects,
+  prototypes,
   tags,
   taskTags,
   tasks,
@@ -44,6 +45,7 @@ export type ImportContext = {
   tagIdMap: Map<string, string>;
   edgeIdMap: Map<string, string>;
   folderIdMap: Map<string, string>;
+  prototypeIdMap: Map<string, string>;
   documentIdMap: Map<string, string>;
   artifactIdMap: Map<string, string>;
   agentRunIdMap: Map<string, string>;
@@ -202,6 +204,12 @@ export function preallocateEdgeIds(ctx: ImportContext): void {
 export function preallocateFolderIds(ctx: ImportContext): void {
   for (const folder of ctx.data.folders ?? []) {
     ctx.folderIdMap.set(folder.id, randomUUID());
+  }
+}
+
+export function preallocatePrototypeIds(ctx: ImportContext): void {
+  for (const prototype of ctx.data.prototypes ?? []) {
+    ctx.prototypeIdMap.set(prototype.id, randomUUID());
   }
 }
 
@@ -414,6 +422,22 @@ export function emitFoldersImport(ctx: ImportContext): void {
   }
 }
 
+export function emitPrototypesImport(ctx: ImportContext): void {
+  for (const prototype of ctx.data.prototypes ?? []) {
+    ctx.statements.push(
+      ctx.root.insert(prototypes).values({
+        id: remapId(ctx.prototypeIdMap, prototype.id) ?? prototype.id,
+        projectId: ctx.projectId,
+        name: prototype.name,
+        viewportWidth: prototype.viewport_width,
+        viewportHeight: prototype.viewport_height,
+        createdAt: ctx.now,
+        updatedAt: ctx.now,
+      }),
+    );
+  }
+}
+
 export function emitDocumentsImport(ctx: ImportContext): void {
   for (const document of sortDocumentsForImport(ctx.data.documents)) {
     ctx.statements.push(
@@ -601,6 +625,9 @@ export function emitArtifactsImport(ctx: ImportContext): void {
         title: artifact.title,
         kind: artifact.kind,
         content: artifact.content,
+        prototypeId: remapId(ctx.prototypeIdMap, artifact.prototype_id ?? null),
+        x: artifact.x ?? null,
+        y: artifact.y ?? null,
         createdAt: ctx.now,
         updatedAt: ctx.now,
       }),
@@ -642,6 +669,7 @@ export async function runImportFromManifest(
     tagIdMap: new Map(),
     edgeIdMap: new Map(),
     folderIdMap: new Map(),
+    prototypeIdMap: new Map(),
     documentIdMap: new Map(),
     artifactIdMap: new Map(),
     agentRunIdMap: new Map(),
