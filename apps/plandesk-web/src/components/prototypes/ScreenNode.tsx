@@ -1,6 +1,8 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCanvasMode } from './CanvasModeContext.js';
 import { useRegisterFrame } from './FrameRegistryContext.js';
+import { useScreenDiagnostics, useScreenDiagnosticsStore } from './ScreenDiagnosticsContext.js';
 
 export type ScreenNodeData = {
   artifactId: string;
@@ -22,12 +24,21 @@ function artifactRenderSrc(artifactId: string, revisionId: string): string {
  * Prototype screen node: fixed to the prototype viewport size. Mounts a
  * sandboxed iframe only while intersecting the canvas viewport; otherwise a
  * title poster. Never allow-same-origin.
+ *
+ * Pointer routing is mode-owned: Arrange makes the frame inert so the node
+ * drags from the body; Interact/Comment put nodrag/nopan on the frame wrapper.
+ * The title strip stays pointer-events-none so Arrange drag still works there.
  */
 export function ScreenNode({ data }: NodeProps<Node<ScreenNodeData>>) {
   const setIframeRef = useRegisterFrame(data.artifactId);
+  const { mode } = useCanvasMode();
+  const diagnostics = useScreenDiagnostics(data.artifactId);
+  const diagnosticsStore = useScreenDiagnosticsStore();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const iframeElRef = useRef<HTMLIFrameElement | null>(null);
   const [inView, setInView] = useState(false);
-  const modePostedRef = useRef(false);
+  const [badgeOpen, setBadgeOpen] = useState(false);
+  const prevRevisionRef = useRef(data.revisionId);
 
   useEffect(() => {
     const el = wrapperRef.current;
@@ -47,23 +58,47 @@ export function ScreenNode({ data }: NodeProps<Node<ScreenNodeData>>) {
     };
   }, []);
 
-  const bindIframe = (node: HTMLIFrameElement | null) => {
-    setIframeRef(node);
+  // Clear diagnostics when the revision (frame src key) changes — remount.
+  useEffect(() => {
+    if (prevRevisionRef.current !== data.revisionId) {
+      diagnosticsStore.clear(data.artifactId);
+      prevRevisionRef.current = data.revisionId;
+      setBadgeOpen(false);
+    }
+  }, [data.revisionId, data.artifactId, diagnosticsStore]);
+
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+
+  // Post the shell's mode into the frame whenever mode changes — without
+  // remounting (src stays keyed on revision only).
+  useEffect(() => {
+    const node = iframeElRef.current;
     if (node === null) {
-      modePostedRef.current = false;
       return;
     }
-    // Post interact mode on every fresh mount (default until parent posts).
-    if (!modePostedRef.current) {
+    node.contentWindow?.postMessage({ kind: 'plandesk:mode', mode }, '*');
+  }, [mode, inView, data.revisionId]);
+
+  const bindIframe = useCallback(
+    (node: HTMLIFrameElement | null) => {
+      setIframeRef(node);
+      iframeElRef.current = node;
+      if (node === null) {
+        return;
+      }
       const post = () => {
-        node.contentWindow?.postMessage({ kind: 'plandesk:mode', mode: 'interact' }, '*');
-        modePostedRef.current = true;
+        node.contentWindow?.postMessage({ kind: 'plandesk:mode', mode: modeRef.current }, '*');
       };
-      // contentWindow is ready after load; also try immediately for cached docs.
       node.addEventListener('load', post, { once: true });
       post();
-    }
-  };
+    },
+    [setIframeRef],
+  );
+
+  const frameLive = mode !== 'arrange';
+  const blocked = diagnostics.filter((d) => d.kind === 'blocked');
+  const errors = diagnostics.filter((d) => d.kind === 'error');
 
   return (
     <div
@@ -71,13 +106,59 @@ export function ScreenNode({ data }: NodeProps<Node<ScreenNodeData>>) {
       data-screen-node
       data-artifact-id={data.artifactId}
       data-revision-id={data.revisionId}
+      data-canvas-mode={mode}
+      data-diagnostic-count={diagnostics.length}
       className="relative overflow-hidden rounded-md border border-border bg-card shadow-sm"
       style={{ width: data.width, height: data.height }}
     >
       <Handle type="target" position={Position.Top} className="!bg-[var(--border-strong)]" />
+      {/* Title stays inert so Arrange drag falls through to the node wrapper. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 truncate border-b border-border/60 bg-card/90 px-2 py-1 text-[11px] font-medium">
         {data.title}
       </div>
+      {diagnostics.length > 0 ? (
+        <div className="absolute right-2 top-8 z-20" data-screen-diagnostics>
+          <button
+            type="button"
+            data-diagnostic-badge
+            className="nodrag nopan rounded-full border border-amber-600/50 bg-amber-500/90 px-2 py-0.5 text-[10px] font-semibold text-amber-950 shadow-sm"
+            onClick={() => {
+              setBadgeOpen((open) => !open);
+            }}
+          >
+            {diagnostics.length} issue{diagnostics.length === 1 ? '' : 's'}
+          </button>
+          {badgeOpen ? (
+            <ul
+              data-diagnostic-list
+              className="nodrag nopan mt-1 max-w-[280px] space-y-1 rounded border border-border bg-card p-2 text-[10px] shadow-md"
+            >
+              {blocked.map((d, i) => (
+                <li
+                  key={`blocked-${String(i)}-${d.blockedUri}`}
+                  data-diagnostic-kind="blocked"
+                  className="rounded border border-amber-600/30 bg-amber-500/10 px-1.5 py-1 text-amber-950 dark:text-amber-100"
+                >
+                  <span className="font-semibold">Blocked reference</span>
+                  <span className="block text-muted-foreground">
+                    Runtime CSP (not the write-time scan) — {d.directive}: {d.blockedUri}
+                  </span>
+                </li>
+              ))}
+              {errors.map((d, i) => (
+                <li
+                  key={`error-${String(i)}-${d.message}`}
+                  data-diagnostic-kind="error"
+                  className="rounded border border-destructive/30 bg-destructive/10 px-1.5 py-1 text-destructive"
+                >
+                  <span className="font-semibold">Script error</span>
+                  <span className="block">{d.message}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
       {data.brokenLinks.length > 0 ? (
         <div
           data-broken-links
@@ -88,15 +169,24 @@ export function ScreenNode({ data }: NodeProps<Node<ScreenNodeData>>) {
         </div>
       ) : null}
       {inView ? (
-        <div className="nowheel h-full w-full pt-6">
+        <div
+          className={
+            frameLive ? 'nowheel nodrag nopan h-full w-full pt-6' : 'nowheel h-full w-full pt-6'
+          }
+        >
           <iframe
             ref={bindIframe}
             title={data.title}
             sandbox="allow-scripts"
             src={artifactRenderSrc(data.artifactId, data.revisionId)}
-            className="h-full w-full border-0 bg-white"
+            className={
+              frameLive
+                ? 'h-full w-full border-0 bg-white'
+                : 'pointer-events-none h-full w-full border-0 bg-white'
+            }
             data-screen-frame
             data-artifact-id={data.artifactId}
+            data-pointer-events={frameLive ? 'auto' : 'none'}
           />
         </div>
       ) : (

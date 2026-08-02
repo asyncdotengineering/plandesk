@@ -12,6 +12,10 @@ export type FrameRegistry = {
   /** Returns the artifact id when the source is registered; otherwise undefined. */
   resolve: (source: MessageEventSource | null) => string | undefined;
   size: () => number;
+  /** Post a message into every registered frame (mode sync — must not remount). */
+  broadcast: (data: unknown) => void;
+  /** Iframe for a given artifact, if currently mounted. */
+  iframeFor: (artifactId: string) => HTMLIFrameElement | undefined;
 };
 
 export function createFrameRegistry(): FrameRegistry {
@@ -37,6 +41,19 @@ export function createFrameRegistry(): FrameRegistry {
     },
     size() {
       return frames.size;
+    },
+    broadcast(data) {
+      for (const iframe of frames.keys()) {
+        iframe.contentWindow?.postMessage(data, '*');
+      }
+    },
+    iframeFor(artifactId) {
+      for (const [iframe, id] of frames) {
+        if (id === artifactId) {
+          return iframe;
+        }
+      }
+      return undefined;
     },
   };
 }

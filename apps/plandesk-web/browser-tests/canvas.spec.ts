@@ -204,3 +204,259 @@ test('updating content remounts the frame within one poll interval', async ({ pa
     new RegExp(`v=${encodeURIComponent(updated.revision_id)}`),
   );
 });
+
+test('Arrange is default and body drag moves the node; Interact blocks drag', async ({ page }) => {
+  const proto = await server.seedPrototype('Modes drag', 390, 844);
+  const screen = await server.seedPrototypeScreen(
+    proto.id,
+    'DragMe',
+    `<!doctype html><html><body>
+      <p id="label">drag body</p>
+      <button id="hit">hit</button>
+      <script>parent.postMessage({ kind: 'plandesk:ready', label: 'drag' }, '*');</script>
+    </body></html>`,
+  );
+
+  await openPrototypeCanvas(page, proto.id);
+  const canvas = page.locator('[data-prototype-canvas]');
+  await expect(canvas).toHaveAttribute('data-canvas-mode', 'arrange');
+  await expect(page.locator('[data-mode-selector]')).toBeVisible();
+
+  const frame = page.locator(`[data-screen-frame][data-artifact-id="${screen.id}"]`);
+  await expect(frame).toBeVisible({ timeout: 10_000 });
+  await expect(frame).toHaveAttribute('data-pointer-events', 'none');
+
+  const node = page.locator(`[data-screen-node][data-artifact-id="${screen.id}"]`);
+  const before = await node.boundingBox();
+  if (before === null) {
+    throw new Error('node box missing');
+  }
+  // Drag from the screen body (below the title strip), not the ~15px title.
+  await page.mouse.move(before.x + before.width / 2, before.y + before.height * 0.55);
+  await page.mouse.down();
+  await page.mouse.move(before.x + before.width / 2 + 140, before.y + before.height * 0.55 + 90, {
+    steps: 12,
+  });
+  await page.mouse.up();
+
+  const afterArrange = await node.boundingBox();
+  if (afterArrange === null) {
+    throw new Error('node box missing after arrange drag');
+  }
+  const moved = Math.abs(afterArrange.x - before.x) + Math.abs(afterArrange.y - before.y);
+  expect(moved).toBeGreaterThan(50);
+
+  await page.locator('[data-mode="interact"]').click();
+  await expect(canvas).toHaveAttribute('data-canvas-mode', 'interact');
+  await expect(frame).toHaveAttribute('data-pointer-events', 'auto');
+
+  const mid = await node.boundingBox();
+  if (mid === null) {
+    throw new Error('node box missing before interact drag');
+  }
+  await page.mouse.move(mid.x + mid.width / 2, mid.y + mid.height * 0.55);
+  await page.mouse.down();
+  await page.mouse.move(mid.x + mid.width / 2 + 140, mid.y + mid.height * 0.55 + 90, {
+    steps: 12,
+  });
+  await page.mouse.up();
+
+  const afterInteract = await node.boundingBox();
+  if (afterInteract === null) {
+    throw new Error('node box missing after interact drag');
+  }
+  const interactMoved = Math.abs(afterInteract.x - mid.x) + Math.abs(afterInteract.y - mid.y);
+  expect(interactMoved).toBeLessThan(20);
+
+  // Click reaches the frame in Interact (button receives the click).
+  const hit = page
+    .frameLocator(`[data-screen-frame][data-artifact-id="${screen.id}"]`)
+    .locator('#hit');
+  await hit.click();
+});
+
+test('mode switch does not remount the frame (ready posts once)', async ({ page }) => {
+  const proto = await server.seedPrototype('Mode remount', 390, 844);
+  await server.seedPrototypeScreen(proto.id, 'Once', READY_HTML('once'));
+
+  const readyLabels: string[] = [];
+  await page.exposeFunction('__harnessPushReadyMode', (label: string) => {
+    readyLabels.push(label);
+  });
+  await page.addInitScript(() => {
+    window.addEventListener('message', (event) => {
+      const data = event.data as { kind?: string; label?: string };
+      if (data?.kind === 'plandesk:ready' && typeof data.label === 'string') {
+        void (
+          window as unknown as { __harnessPushReadyMode: (l: string) => void }
+        ).__harnessPushReadyMode(data.label);
+      }
+    });
+  });
+
+  await openPrototypeCanvas(page, proto.id);
+  await expect
+    .poll(() => readyLabels.filter((l) => l === 'once').length, { timeout: 8_000 })
+    .toBe(1);
+
+  await page.locator('[data-mode="interact"]').click();
+  await page.locator('[data-mode="comment"]').click();
+  await page.locator('[data-mode="arrange"]').click();
+  await page.waitForTimeout(400);
+
+  expect(readyLabels.filter((l) => l === 'once')).toHaveLength(1);
+});
+
+test('Interact navigates on plandesk:// click without writing links', async ({ page }) => {
+  const proto = await server.seedPrototype('Nav click', 390, 844);
+  // Seed destination first so write-time resolution finds it.
+  const pay = await server.seedPrototypeScreen(
+    proto.id,
+    'Pay',
+    `<!doctype html><html><body><p id="pay">Pay screen</p>
+      <script>parent.postMessage({ kind: 'plandesk:ready', label: 'pay' }, '*');</script>
+    </body></html>`,
+  );
+  const home = await server.seedPrototypeScreen(
+    proto.id,
+    'Home',
+    `<!doctype html><html><body>
+      <a id="go" href="plandesk://artifact/Pay">Pay</a>
+      <script>parent.postMessage({ kind: 'plandesk:ready', label: 'home' }, '*');</script>
+    </body></html>`,
+  );
+
+  const before = await server.getPrototype(proto.id);
+  expect(before.links.some((l) => l.to_artifact_id === pay.id)).toBe(true);
+  const linkCountBefore = before.links.length;
+
+  await openPrototypeCanvas(page, proto.id);
+  await expect(page.locator(`[data-screen-frame][data-artifact-id="${home.id}"]`)).toBeVisible({
+    timeout: 10_000,
+  });
+
+  await page.locator('[data-mode="interact"]').click();
+  await page
+    .frameLocator(`[data-screen-frame][data-artifact-id="${home.id}"]`)
+    .locator('#go')
+    .click();
+
+  await expect
+    .poll(
+      async () => {
+        return page
+          .locator('.react-flow__node.selected [data-screen-node]')
+          .getAttribute('data-artifact-id');
+      },
+      { timeout: 8_000 },
+    )
+    .toBe(pay.id);
+
+  const after = await server.getPrototype(proto.id);
+  expect(after.links).toHaveLength(linkCountBefore);
+  expect(after.links.map((l) => l.id).sort()).toEqual(before.links.map((l) => l.id).sort());
+});
+
+test('broken link click toasts and does not navigate', async ({ page }) => {
+  const proto = await server.seedPrototype('Broken nav', 390, 844);
+  const start = await server.seedPrototypeScreen(
+    proto.id,
+    'Start',
+    `<!doctype html><html><body>
+      <a id="go" href="plandesk://artifact/DoesNotExist">go</a>
+      <script>parent.postMessage({ kind: 'plandesk:ready', label: 'start' }, '*');</script>
+    </body></html>`,
+  );
+
+  await openPrototypeCanvas(page, proto.id);
+  await expect(page.locator(`[data-screen-frame][data-artifact-id="${start.id}"]`)).toBeVisible({
+    timeout: 10_000,
+  });
+  await page.locator('[data-mode="interact"]').click();
+
+  await page
+    .frameLocator(`[data-screen-frame][data-artifact-id="${start.id}"]`)
+    .locator('#go')
+    .click();
+
+  await expect(page.getByText(/Unresolved link|DoesNotExist/i).first()).toBeVisible({
+    timeout: 5_000,
+  });
+  await expect(page.locator('.react-flow__node.selected')).toHaveCount(0);
+});
+
+test('runtime CSP block and script error surface on the node', async ({ page }) => {
+  const proto = await server.seedPrototype('Diagnostics', 390, 844);
+  const blocked = await server.seedPrototypeScreen(
+    proto.id,
+    'Blocked',
+    `<!doctype html><html><body>
+      <p>probe</p>
+      <script>
+        parent.postMessage({ kind: 'plandesk:ready', label: 'blocked' }, '*');
+        setTimeout(function () {
+          var s = document.createElement('script');
+          s.src = 'https://unpkg.com/x';
+          document.body.appendChild(s);
+        }, 0);
+      </script>
+    </body></html>`,
+  );
+  const broken = await server.seedPrototypeScreen(
+    proto.id,
+    'Throws',
+    `<!doctype html><html><body>
+      <p>boom</p>
+      <script>
+        parent.postMessage({ kind: 'plandesk:ready', label: 'throws' }, '*');
+        setTimeout(function () { throw new Error('canvas-diag-boom'); }, 10);
+      </script>
+    </body></html>`,
+  );
+  // Keep Throws in view: place it next to Blocked.
+  await server.patchArtifact(broken.id, { x: 500, y: 0 });
+
+  await openPrototypeCanvas(page, proto.id);
+  await expect(page.locator(`[data-screen-frame][data-artifact-id="${blocked.id}"]`)).toBeVisible({
+    timeout: 10_000,
+  });
+
+  const blockedNode = page.locator(`[data-screen-node][data-artifact-id="${blocked.id}"]`);
+  await expect
+    .poll(async () => blockedNode.getAttribute('data-diagnostic-count'), { timeout: 10_000 })
+    .not.toBe('0');
+
+  await blockedNode.locator('[data-diagnostic-badge]').click();
+  const blockedItem = blockedNode.locator('[data-diagnostic-kind="blocked"]').first();
+  await expect(blockedItem).toBeVisible();
+  await expect(blockedItem).toContainText(/script-src/i);
+  await expect(blockedItem).toContainText(/unpkg\.com/);
+  await expect(blockedItem).toContainText(/Runtime CSP/);
+
+  const throwsNode = page.locator(`[data-screen-node][data-artifact-id="${broken.id}"]`);
+  await expect
+    .poll(async () => throwsNode.getAttribute('data-diagnostic-count'), { timeout: 10_000 })
+    .not.toBe('0');
+  await throwsNode.locator('[data-diagnostic-badge]').click();
+  const errorItem = throwsNode.locator('[data-diagnostic-kind="error"]').first();
+  await expect(errorItem).toBeVisible();
+  await expect(errorItem).toContainText(/canvas-diag-boom/);
+});
+
+test('screen with no problems shows no diagnostic badge', async ({ page }) => {
+  const proto = await server.seedPrototype('Clean diag', 390, 844);
+  const screen = await server.seedPrototypeScreen(proto.id, 'Clean', READY_HTML('clean'));
+
+  await openPrototypeCanvas(page, proto.id);
+  await expect(page.locator(`[data-screen-frame][data-artifact-id="${screen.id}"]`)).toBeVisible({
+    timeout: 10_000,
+  });
+  await page.waitForTimeout(500);
+  await expect(
+    page.locator(`[data-screen-node][data-artifact-id="${screen.id}"] [data-diagnostic-badge]`),
+  ).toHaveCount(0);
+  await expect(page.locator(`[data-screen-node][data-artifact-id="${screen.id}"]`)).toHaveAttribute(
+    'data-diagnostic-count',
+    '0',
+  );
+});

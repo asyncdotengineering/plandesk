@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Background,
   BackgroundVariant,
+  MiniMap,
   Panel,
   ReactFlow,
+  ReactFlowProvider,
   useEdgesState,
   useNodesState,
   useReactFlow,
@@ -11,15 +13,20 @@ import {
   type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { LayoutDashboard, Maximize, Minus, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/docs/ConfirmDialog.js';
 import { layoutNodes } from '@/components/canvas/layout.js';
+import { getArtifact } from '@/lib/api.js';
 import { usePatchArtifact, usePrototype, usePrototypes } from '@/lib/queries.js';
 import type { SerializedPrototypeLink, SerializedPrototypeWithScreens } from '@/lib/api.js';
+import { CanvasModeProvider, useCanvasMode } from './CanvasModeContext.js';
 import { FrameRegistryProvider, useFrameRegistry } from './FrameRegistryContext.js';
+import { resolveNavigate } from './navigate-target.js';
 import { PrototypeChrome } from './PrototypeChrome.js';
+import { ScreenDiagnosticsProvider, useDiagnosticsSnapshot } from './ScreenDiagnosticsContext.js';
 import { ScreenNode, type ScreenNodeData } from './ScreenNode.js';
 
 const nodeTypes = { screenFrame: ScreenNode };
@@ -149,9 +156,15 @@ function RelayoutPanel({ onRelayout }: { onRelayout: () => void }) {
 function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
   const { data: prototype, isLoading, error } = usePrototype(prototypeId);
   const patchArtifact = usePatchArtifact(prototypeId);
-  const { acceptedCount, lastAccepted } = useFrameRegistry();
+  const { acceptedCount, lastAccepted, setNavigateHandler } = useFrameRegistry();
+  const { mode } = useCanvasMode();
+  const diagnosticsSnapshot = useDiagnosticsSnapshot();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<ScreenNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([] as Edge[]);
+  const { setCenter, getNode } = useReactFlow();
+  const navigate = useNavigate();
+  const setNodesRef = useRef(setNodes);
+  setNodesRef.current = setNodes;
 
   useEffect(() => {
     if (prototype === undefined) {
@@ -161,6 +174,82 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
     setNodes(mapped.nodes);
     setEdges(mapped.edges);
   }, [prototype, setNodes, setEdges]);
+
+  useEffect(() => {
+    if (prototype === undefined) {
+      return;
+    }
+    const handler = (sourceArtifactId: string, rawTarget: string) => {
+      void (async () => {
+        let outcome = resolveNavigate(
+          sourceArtifactId,
+          rawTarget,
+          prototype.links,
+          prototype.screens,
+          prototype.id,
+        );
+
+        // Destination may live on another prototype (move) — look it up.
+        if (outcome.kind === 'go') {
+          const targetId = outcome.artifactId;
+          const destProto = outcome.prototypeId;
+          const onThisCanvas = prototype.screens.some((s) => s.id === targetId);
+          if (!onThisCanvas || destProto === null) {
+            try {
+              const art = await getArtifact(targetId);
+              outcome = {
+                kind: 'go',
+                artifactId: art.id,
+                prototypeId: art.prototype_id,
+              };
+            } catch {
+              toast(`No screen matches ${rawTarget}`);
+              return;
+            }
+          }
+        }
+
+        if (outcome.kind === 'broken' || outcome.kind === 'unresolved') {
+          toast(outcome.reason);
+          return;
+        }
+
+        const { artifactId, prototypeId: destPrototypeId } = outcome;
+
+        if (destPrototypeId !== null && destPrototypeId !== prototype.id) {
+          void navigate({
+            to: '/projects/$id/prototypes/$prototypeId',
+            params: {
+              id: prototype.project_id,
+              prototypeId: destPrototypeId,
+            },
+            replace: true,
+          });
+          return;
+        }
+
+        const node = getNode(artifactId);
+        if (node === undefined) {
+          toast('Screen is not on this canvas');
+          return;
+        }
+        const width = typeof node.width === 'number' ? node.width : prototype.viewport_width;
+        const height = typeof node.height === 'number' ? node.height : prototype.viewport_height;
+        void setCenter(node.position.x + width / 2, node.position.y + height / 2, {
+          zoom: 0.6,
+          duration: 400,
+        });
+        setNodesRef.current((current) =>
+          current.map((n) => ({ ...n, selected: n.id === artifactId })),
+        );
+      })();
+    };
+
+    setNavigateHandler(handler);
+    return () => {
+      setNavigateHandler(null);
+    };
+  }, [prototype, setNavigateHandler, setCenter, getNode, navigate]);
 
   const handleRelayout = useCallback(() => {
     setNodes((current) => {
@@ -199,15 +288,23 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
     return <p className="p-4 text-sm">Prototype not found.</p>;
   }
 
+  const diagnosticTotal = Object.values(diagnosticsSnapshot).reduce(
+    (n, list) => n + list.length,
+    0,
+  );
+
   return (
     <div
       className="flex h-full min-h-0 flex-col"
       data-prototype-canvas
       data-prototype-id={prototypeId}
+      data-canvas-mode={mode}
       data-accepted-frame-messages={acceptedCount}
       data-last-accepted-artifact={lastAccepted?.artifactId ?? ''}
       data-viewport-width={prototype.viewport_width}
       data-viewport-height={prototype.viewport_height}
+      data-diagnostic-total={diagnosticTotal}
+      data-runtime-diagnostics={JSON.stringify(diagnosticsSnapshot)}
     >
       <PrototypeChrome prototypeId={prototype.id} name={prototype.name} />
       <div className="min-h-0 flex-1">
@@ -222,9 +319,14 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
           minZoom={0.05}
           maxZoom={2}
           defaultViewport={{ x: 40, y: 40, zoom: 0.45 }}
+          panOnDrag
+          panActivationKeyCode="Space"
+          nodesDraggable={mode === 'arrange'}
+          elementsSelectable
           proOptions={{ hideAttribution: true }}
         >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+          <MiniMap pannable zoomable className="!bg-card" />
           <ZoomControls />
           <RelayoutPanel onRelayout={handleRelayout} />
         </ReactFlow>
@@ -233,11 +335,23 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
   );
 }
 
+function PrototypeProviders({ children }: { children: ReactNode }) {
+  return (
+    <ScreenDiagnosticsProvider>
+      <FrameRegistryProvider>
+        <CanvasModeProvider>
+          <ReactFlowProvider>{children}</ReactFlowProvider>
+        </CanvasModeProvider>
+      </FrameRegistryProvider>
+    </ScreenDiagnosticsProvider>
+  );
+}
+
 export function PrototypeCanvas({ prototypeId }: { prototypeId: string }) {
   return (
-    <FrameRegistryProvider>
+    <PrototypeProviders>
       <PrototypeCanvasInner prototypeId={prototypeId} />
-    </FrameRegistryProvider>
+    </PrototypeProviders>
   );
 }
 
