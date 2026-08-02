@@ -1,7 +1,7 @@
 ---
 type: worker
 probe: command -v cursor-agent
-command: cursor-agent -p --force --trust --model composer-2.5 --sandbox disabled --approve-mcps < {prompt_file}
+command: cursor-agent -p --force --trust --model composer-2.5 --sandbox disabled --approve-mcps --workspace {repo_path} --output-format text < {prompt_file}
 ---
 
 # cursor
@@ -28,6 +28,9 @@ another model, dispatch the worker built for it rather than re-pointing Cursor:
 Routing lives in [../routing.md](../routing.md).
 
 Dispatch rule: run `probe` first — if it fails, this worker does not exist on
-this machine; pick another file in this directory. Substitute {prompt_file}
-with the brief path and run `command` verbatim. The result contract is
-defined in [../protocol.md](../protocol.md).
+this machine; pick another file in this directory. Then substitute the
+placeholders — `{prompt_file}` with the brief path, `{repo_path}` with the
+absolute repo or worktree path — and dispatch per
+[../protocol.md](../protocol.md), which appends the log redirect and
+backgrounds the run. Change the flags here, never in a brief. The result
+contract is defined in the same file.

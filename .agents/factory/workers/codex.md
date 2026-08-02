@@ -1,7 +1,7 @@
 ---
 type: worker
 probe: command -v codex
-command: codex exec --model gpt-5.6-luna -c model_reasoning_effort="high" --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust --skip-git-repo-check < {prompt_file}
+command: codex exec -C {repo_path} --model gpt-5.6-luna -c model_reasoning_effort="high" --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust --skip-git-repo-check "$(cat {prompt_file})" < /dev/null
 ---
 
 # codex
@@ -22,6 +22,9 @@ interactively. Change it in this file, not in a brief — a model chosen per
 dispatch is a model nobody can audit afterwards.
 
 Dispatch rule: run `probe` first — if it fails, this worker does not exist on
-this machine; pick another file in this directory. Substitute {prompt_file}
-with the brief path and run `command` verbatim. The result contract is
-defined in [../protocol.md](../protocol.md).
+this machine; pick another file in this directory. Then substitute the
+placeholders — `{prompt_file}` with the brief path, `{repo_path}` with the
+absolute repo or worktree path — and dispatch per
+[../protocol.md](../protocol.md), which appends the log redirect and
+backgrounds the run. Change the flags here, never in a brief. The result
+contract is defined in the same file.

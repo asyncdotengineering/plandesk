@@ -35,7 +35,8 @@ outcome. Three ways it is invalid, all treated as a failed dispatch:
 
 1. Pick a worker file from [workers/](workers/) whose `probe` exits 0 on this
    machine. Never assume a worker exists; never invoke flags from memory —
-   only the file's `command` template, with `{prompt_file}` substituted.
+   only the file's `command` template, with `{prompt_file}` and `{repo_path}`
+   substituted.
    Which worker suits which task is data: [routing.md](routing.md).
 2. Write the brief to `runs/brief-<task>.md`. It carries five things:
 
@@ -85,6 +86,21 @@ common cause of a run that produces code but no verifiable result.
   command. A worker's stdout is evidence: it is where a refusal, a missing
   credential, or an "unknown model id" appears. Without the redirect that
   evidence is lost and a failed dispatch looks identical to a silent one.
+
+  **The redirect is the engine's job, not the worker file's.** A `command:`
+  template carries the invocation and its flags; it cannot carry the redirect
+  because the log filename is per-task and the file has no way to know it. So
+  the contract is: substitute the placeholders, append the redirect, then run.
+  A worker file is authoritative about *flags*, never about *plumbing* — do not
+  read "run `command` verbatim" as forbidding the redirect, and do not move the
+  redirect into the worker files to satisfy the word.
+
+- **Background through the harness, never with `&`.** Dispatch with the
+  harness's own background mechanism (`run_in_background`). Appending `&` or
+  wrapping in `nohup … &` orphan-detaches the process: the wrapper exits
+  immediately, the harness fires a completion notification for a worker that has
+  not started, and the real leaf keeps writing to a tree nobody is watching. The
+  false "completed" is worse than no signal, because the engine acts on it.
 - **Working directory is explicit.** State the absolute repo path in the brief,
   and pass the worker's own cwd flag when its CLI has one. "From the repo root"
   is not a location — it is an assumption that breaks the moment a dispatch runs
@@ -108,6 +124,40 @@ common cause of a run that produces code but no verifiable result.
   that is stuck, so it kills good work at an arbitrary boundary — and a real
   build is exactly the kind that runs long. If the harness clamps the value you
   pass, the effective limit is not even the one you chose.
+
+### Watching a live dispatch
+
+Backgrounding without watching is how a dead worker passes for a busy one.
+**Silence reads as "still running"**, so arm a monitor at dispatch time — in the
+same step, not as a thing to remember afterwards.
+
+The monitor watches the *result file*, because that is the completion signal
+(the harness notification fires on wrapper exit and can precede or outlive the
+real work). It must emit a line for **every** terminal state, not just success:
+
+```bash
+while true; do
+  if [ -f runs/result-<task>.json ]; then echo "DONE <task>"; break; fi
+  if ! kill -0 $LEAF_PID 2>/dev/null; then
+    echo "EXIT <task> without result — log $(wc -c < runs/worker-<task>.log)B"; break
+  fi
+  sleep 60
+done
+```
+
+Three rules that make it useful rather than decorative:
+
+- **Cover the crash branch.** A monitor that greps only for the success marker
+  is silent through a crash, a hang, and a usage-limit exit — and that silence
+  is indistinguishable from progress. If the worker died right now, the monitor
+  must say so.
+- **A result file that appears is not automatically a pass.** Read its `status`;
+  `blocked` is a terminal state that needs the engine, not a failure to ignore.
+- **Watch the leaf, not the wrapper** — same reason as stall detection below.
+
+For a run of several dispatches, add a periodic checkpoint line (results seen,
+files changed per tree) so a long run surfaces on a cadence instead of going
+dark until the end.
 
 ### When a dispatch is killed
 

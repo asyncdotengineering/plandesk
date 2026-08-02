@@ -262,10 +262,25 @@ describe('buildFactoryArtifacts', () => {
 describe('worker files', () => {
   const dispatchRuleFooter = [
     'Dispatch rule: run `probe` first — if it fails, this worker does not exist on',
-    'this machine; pick another file in this directory. Substitute {prompt_file}',
-    'with the brief path and run `command` verbatim. The result contract is',
-    'defined in [../protocol.md](../protocol.md).',
+    'this machine; pick another file in this directory. Then substitute the',
+    'placeholders — `{prompt_file}` with the brief path, `{repo_path}` with the',
+    'absolute repo or worktree path — and dispatch per',
+    '[../protocol.md](../protocol.md), which appends the log redirect and',
+    'backgrounds the run. Change the flags here, never in a brief. The result',
+    'contract is defined in the same file.',
   ].join('\n');
+
+  /** Workers whose CLI takes the prompt as an argument block on an idle stdin. */
+  const STDIN_GUARD_REQUIRED = ['grok', 'pi', 'codex'];
+  /** Workers whose stdin IS the prompt — a guard here feeds them an empty prompt. */
+  const STDIN_IS_PROMPT = ['claude', 'opencode'];
+  /** Workers whose CLI has its own working-directory flag. */
+  const REPO_PATH_REQUIRED = ['cursor', 'grok', 'codex', 'opencode'];
+
+  function commandLine(repo: string, name: string): string {
+    const content = readFileSync(join(repo, `.agents/factory/workers/${name}.md`), 'utf8');
+    return content.split('\n').find((l) => l.startsWith('command:')) ?? '';
+  }
 
   it('every worker declares a probe and a {prompt_file} command template', () => {
     const repo = makeTempDir('plandesk-factory-');
@@ -284,6 +299,25 @@ describe('worker files', () => {
     for (const name of WORKER_NAMES) {
       const content = readFileSync(join(repo, `.agents/factory/workers/${name}.md`), 'utf8');
       expect(content, name).toContain(dispatchRuleFooter);
+    }
+  });
+
+  it('guards stdin so an argument-prompt worker cannot block on an idle terminal', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    runFactoryInit({ repoDir: repo });
+    for (const name of STDIN_GUARD_REQUIRED) {
+      expect(commandLine(repo, name), name).toContain('< /dev/null');
+    }
+    for (const name of STDIN_IS_PROMPT) {
+      expect(commandLine(repo, name), name).not.toContain('< /dev/null');
+    }
+  });
+
+  it('pins the working directory for every worker whose CLI accepts one', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    runFactoryInit({ repoDir: repo });
+    for (const name of REPO_PATH_REQUIRED) {
+      expect(commandLine(repo, name), name).toContain('{repo_path}');
     }
   });
 

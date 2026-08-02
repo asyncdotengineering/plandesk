@@ -1,7 +1,7 @@
 ---
 type: worker
 probe: command -v pi
-command: pi -p --provider zai --model glm-5.2 --approve --thinking medium @{prompt_file}
+command: pi -p --provider zai --model glm-5.2 --approve --thinking medium @{prompt_file} < /dev/null
 ---
 
 # pi
@@ -37,6 +37,9 @@ mtimes instead — see the stall-detection notes in
 [../protocol.md](../protocol.md).
 
 Dispatch rule: run `probe` first — if it fails, this worker does not exist on
-this machine; pick another file in this directory. Substitute {prompt_file}
-with the brief path and run `command` verbatim. The result contract is
-defined in [../protocol.md](../protocol.md).
+this machine; pick another file in this directory. Then substitute the
+placeholders — `{prompt_file}` with the brief path, `{repo_path}` with the
+absolute repo or worktree path — and dispatch per
+[../protocol.md](../protocol.md), which appends the log redirect and
+backgrounds the run. Change the flags here, never in a brief. The result
+contract is defined in the same file.

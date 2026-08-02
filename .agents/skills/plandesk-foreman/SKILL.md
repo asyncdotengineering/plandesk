@@ -58,6 +58,12 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
    brief to protocol.md's five-section contract — the bar, the result contract,
    the ground, the WBS snapshot, and a live `Context:` link.
 
+   **Arm the monitor in this step, not after it.** Background the worker through
+   the harness — never `&` or `nohup … &`, which orphan-detach and fire a false
+   completion — and start the watch described in protocol.md's *Watching a live
+   dispatch* in the same breath. A dispatch nobody is watching is silent whether
+   it is working, blocked, or dead, and those look identical until you look.
+
    **Never dispatch a `kind: 'decision'` task.** Its resolution is a
    conversation with whoever owns the outcome; a worker given one will answer
    its own question and record a fabrication as a decision. Report it by task
