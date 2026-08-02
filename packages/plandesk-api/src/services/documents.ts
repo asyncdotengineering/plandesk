@@ -96,6 +96,21 @@ export class InvalidDocumentError extends Error {
   }
 }
 
+/**
+ * Folder tree node with a live document count. `doc_count` is the number of
+ * documents whose `folder_id` equals this folder (direct only — not recursive).
+ * Attached in `listFolderTree`, not in `serialize.buildFolderTree`.
+ */
+export type FolderTreeNode = Omit<SerializedDocumentFolderTree['folders'][number], 'folders'> & {
+  doc_count: number;
+  folders: FolderTreeNode[];
+};
+
+export type DocumentFolderTree = {
+  folders: FolderTreeNode[];
+  documents: SerializedDocumentTree[];
+};
+
 async function assertParentInProject(db: Db, projectId: string, parentId: string): Promise<void> {
   const parent = await dbGetDocument(db, parentId);
   if (!parent || parent.projectId !== projectId) {
@@ -254,7 +269,7 @@ async function collectIncomingLinks(
 export function createDocumentService(deps: DocumentServiceDeps) {
   const { db } = deps;
 
-  return {
+  const api = {
     async listTree(
       projectId: string,
       pagination: PaginationParams = {},
@@ -299,7 +314,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       return roots;
     },
 
-    async listFolderTree(projectId: string): Promise<SerializedDocumentFolderTree | undefined> {
+    async listFolderTree(projectId: string): Promise<DocumentFolderTree | undefined> {
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -310,6 +325,8 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       }
       // Folder tree uses buildFolderTree → serializeDocument without options.
       // Re-hydrate after the structural build so every document carries links.
+      // doc_count is attached here (not in serialize.buildFolderTree) — direct
+      // documents only; sub-folder docs are counted on their own node.
       const folders = await dbListFolders(db, projectId);
       const documents = await dbListDocuments(db, projectId);
       const tree = buildFolderTree(folders, documents);
@@ -333,12 +350,14 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       }
 
       async function hydrateFolders(
-        folderNodes: typeof tree.folders,
-      ): Promise<typeof tree.folders> {
-        const out = [];
+        folderNodes: SerializedDocumentFolderTree['folders'],
+      ): Promise<FolderTreeNode[]> {
+        const out: FolderTreeNode[] = [];
         for (const folder of folderNodes) {
+          const doc_count = documents.filter((doc) => doc.folderId === folder.id).length;
           out.push({
             ...folder,
+            doc_count,
             folders: await hydrateFolders(folder.folders),
             documents: await hydrateTree(folder.documents),
           });
@@ -531,6 +550,48 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       }
 
       return serializeDocumentWithLinks(db, document);
+    },
+
+    /**
+     * Move many documents into `folderId` (or Unfiled when null).
+     * Per-item results — not atomic: each id is attempted independently so a
+     * single missing/foreign/invalid id does not roll back the rest.
+     * Cross-tenant ids surface as "not found" for that item (fail closed).
+     */
+    async moveMany(
+      documentIds: string[],
+      folderId: string | null,
+    ): Promise<{
+      moved: string[];
+      failed: Array<{ document_id: string; error: string }>;
+    }> {
+      assertPermission(deps, 'document', 'update');
+      const moved: string[] = [];
+      const failed: Array<{ document_id: string; error: string }> = [];
+      const seen = new Set<string>();
+
+      for (const documentId of documentIds) {
+        if (seen.has(documentId)) {
+          continue;
+        }
+        seen.add(documentId);
+        try {
+          const result = await api.update(documentId, { folderId });
+          if (result === undefined) {
+            failed.push({ document_id: documentId, error: 'Document not found' });
+          } else {
+            moved.push(documentId);
+          }
+        } catch (error) {
+          if (error instanceof InvalidDocumentError) {
+            failed.push({ document_id: documentId, error: error.message });
+          } else {
+            throw error;
+          }
+        }
+      }
+
+      return { moved, failed };
     },
 
     async getByTask(taskId: string): Promise<SerializedDocument | undefined> {
@@ -729,6 +790,8 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       return { created, skipped };
     },
   };
+
+  return api;
 }
 
 export type DocumentService = ReturnType<typeof createDocumentService>;

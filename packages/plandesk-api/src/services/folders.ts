@@ -161,7 +161,10 @@ export function createFolderService(deps: FolderServiceDeps) {
       return serializeFolder(folder);
     },
 
-    async delete(id: string): Promise<boolean> {
+    async delete(
+      id: string,
+      options?: { reparentTo?: string | null },
+    ): Promise<boolean> {
       assertPermission(deps, 'document', 'delete');
       const existing = await dbGetFolder(db, id);
       if (!existing) {
@@ -176,11 +179,26 @@ export function createFolderService(deps: FolderServiceDeps) {
         throw error;
       }
 
-      // Never orphan: children folders and contained documents move to the
-      // deleted folder's parent (or root when the folder was at root).
+      // Default: reparent to the deleted folder's parent (null == Unfiled).
+      // Explicit reparentTo (including null) overrides that choice.
+      let target: string | null;
+      if (options !== undefined && 'reparentTo' in options) {
+        target = options.reparentTo ?? null;
+        if (target === id) {
+          throw new InvalidFolderError('Cannot reparent contents into the folder being deleted');
+        }
+        if (target !== null) {
+          await assertParentInProject(db, existing.projectId, target);
+          await assertNoCycle(db, id, target);
+        }
+      } else {
+        target = existing.parentFolderId;
+      }
+
+      // Never orphan: child folders and contained documents move to target.
       await withTransaction(db, async (tx) => {
-        await reparentChildFolders(tx, id, existing.parentFolderId);
-        await moveDocumentsToFolder(tx, id, existing.parentFolderId);
+        await reparentChildFolders(tx, id, target);
+        await moveDocumentsToFolder(tx, id, target);
         await dbDeleteFolder(tx, id);
       });
 

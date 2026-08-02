@@ -292,6 +292,47 @@ describe('documentService', () => {
     expect(parentNode?.folders[0]?.documents.map((doc) => doc.title)).toEqual(['Child doc']);
   });
 
+  it('listFolderTree attaches direct-only doc_count on each folder node', async () => {
+    const service = createService();
+    const parent = await createFolder(db, { projectId, name: 'Parent' });
+    const child = await createFolder(db, { projectId, name: 'Child', parentFolderId: parent.id });
+    await createDocument(db, { projectId, title: 'Unfiled' });
+    await createDocument(db, { projectId, title: 'Parent A', folderId: parent.id });
+    await createDocument(db, { projectId, title: 'Parent B', folderId: parent.id });
+    await createDocument(db, { projectId, title: 'Child doc', folderId: child.id });
+
+    const tree = await service.listFolderTree(projectId);
+    expect(tree?.folders[0]?.doc_count).toBe(2);
+    // Child's document is not rolled into the parent's count (direct only).
+    expect(tree?.folders[0]?.folders[0]?.doc_count).toBe(1);
+  });
+
+  it('moveMany moves valid ids and reports per-item failures without rolling back others', async () => {
+    const service = createService();
+    const folder = await createFolder(db, { projectId, name: 'Specs' });
+    const a = await createDocument(db, { projectId, title: 'A' });
+    const b = await createDocument(db, { projectId, title: 'B' });
+    const missingId = '00000000-0000-4000-8000-000000009999';
+
+    const result = await service.moveMany([a.id, missingId, b.id], folder.id);
+    expect(result.moved.sort()).toEqual([a.id, b.id].sort());
+    expect(result.failed).toEqual([{ document_id: missingId, error: 'Document not found' }]);
+
+    const tree = await service.listFolderTree(projectId);
+    expect(tree?.folders[0]?.documents.map((doc) => doc.title).sort()).toEqual(['A', 'B']);
+  });
+
+  it('moveMany with folder_id null files documents under Unfiled', async () => {
+    const service = createService();
+    const folder = await createFolder(db, { projectId, name: 'Specs' });
+    const doc = await createDocument(db, { projectId, title: 'Filed', folderId: folder.id });
+
+    const result = await service.moveMany([doc.id], null);
+    expect(result.moved).toEqual([doc.id]);
+    expect(result.failed).toEqual([]);
+    expect((await service.get(doc.id))?.folder_id).toBeNull();
+  });
+
   it('listByFolder returns only documents in the folder', async () => {
     const service = createService();
     const folder = await createFolder(db, { projectId, name: 'Specs' });

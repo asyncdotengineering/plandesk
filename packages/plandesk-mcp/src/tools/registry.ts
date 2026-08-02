@@ -137,7 +137,7 @@ export const createDocumentInputSchema = z.object({
     .string()
     .uuid()
     .optional()
-    .describe('Folder to place the document in. Omit for the project root.'),
+    .describe('Folder to place the document in on create. Omit for Unfiled (project root).'),
 });
 
 export const updateDocumentInputSchema = z.object({
@@ -154,7 +154,9 @@ export const updateDocumentInputSchema = z.object({
     .uuid()
     .nullable()
     .optional()
-    .describe('Move the document into a folder. Pass null to move it back to the project root.'),
+    .describe(
+      'Move the document into a folder (MCP equivalent of dragging onto a folder). Pass null to move it to Unfiled at the project root.',
+    ),
 });
 
 export const getDocumentInputSchema = z.object({
@@ -191,6 +193,32 @@ export const updateFolderInputSchema = z.object({
     .optional()
     .describe(
       'Re-parent the folder. Pass null to move it to the project root. Re-parenting that would create a cycle is rejected.',
+    ),
+});
+
+export const deleteFolderInputSchema = z.object({
+  folder_id: z.string().uuid(),
+  reparent_to: z
+    .string()
+    .uuid()
+    .nullable()
+    .optional()
+    .describe(
+      'Where documents and sub-folders go. Omit to use the deleted folder\'s parent (Unfiled when it was at the project root). Pass null for Unfiled. Pass a folder id to move contents there. Never orphans or deletes contents.',
+    ),
+});
+
+export const moveDocumentsInputSchema = z.object({
+  document_ids: z
+    .array(z.string().uuid())
+    .min(1)
+    .describe('Documents to move. Each id is attempted independently (not atomic).'),
+  folder_id: z
+    .string()
+    .uuid()
+    .nullable()
+    .describe(
+      'Destination folder, or null for Unfiled. Per-item results: missing/foreign/invalid ids appear in `failed` without rolling back successful moves.',
     ),
 });
 
@@ -728,6 +756,8 @@ export const v1ToolNames = [
   'list_documents',
   'create_folder',
   'update_folder',
+  'delete_folder',
+  'move_documents',
   'create_prototype',
   'list_prototypes',
   'get_prototype',
@@ -791,6 +821,8 @@ export const v1ToolSchemas = {
   list_documents: listDocumentsInputSchema,
   create_folder: createFolderInputSchema,
   update_folder: updateFolderInputSchema,
+  delete_folder: deleteFolderInputSchema,
+  move_documents: moveDocumentsInputSchema,
   create_prototype: createPrototypeInputSchema,
   list_prototypes: listPrototypesInputSchema,
   get_prototype: getPrototypeInputSchema,

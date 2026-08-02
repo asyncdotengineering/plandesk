@@ -18,6 +18,8 @@ import { createDeleteEdgeHandler } from './tools/delete-edge.js';
 import { createCreateShareLinkHandler } from './tools/create-share-link.js';
 import { createCreateFolderHandler } from './tools/create-folder.js';
 import { createUpdateFolderHandler } from './tools/update-folder.js';
+import { createDeleteFolderHandler } from './tools/delete-folder.js';
+import { createMoveDocumentsHandler } from './tools/move-documents.js';
 import { createCreatePrototypeHandler } from './tools/create-prototype.js';
 import { createListPrototypesHandler } from './tools/list-prototypes.js';
 import { createGetPrototypeHandler } from './tools/get-prototype.js';
@@ -78,6 +80,8 @@ import {
   updatePrototypeInputSchema,
   createShareLinkInputSchema,
   updateFolderInputSchema,
+  deleteFolderInputSchema,
+  moveDocumentsInputSchema,
   createProjectInputSchema,
   updateProjectInputSchema,
   createTaskInputSchema,
@@ -204,7 +208,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Create Document',
       description:
-        'Create a document with optional links. Pass link_to as a single id or a list of task/document ids to wire document→target edges. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
+        'Create a document with optional links and optional folder_id to file it on create (no follow-up move). Pass link_to as a single id or a list of task/document ids to wire document→target edges. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
       inputSchema: createDocumentInputSchema.shape,
     },
     createCreateDocumentHandler(
@@ -219,7 +223,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Update Document',
       description:
-        'Update document title, body, status line, or links. Pass link_to as a single id or list of task/document ids to add outgoing document→target edges. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
+        'Update document title, body, status line, folder, or links. Pass folder_id to move the document into a folder (the MCP equivalent of dragging a row onto a folder in the UI), or null to file it under Unfiled at the project root. Pass link_to as a single id or list of task/document ids to add outgoing document→target edges. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
       inputSchema: updateDocumentInputSchema.shape,
     },
     createUpdateDocumentHandler(
@@ -259,7 +263,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Create Folder',
       description:
-        'Create a document folder, optionally nested under a parent folder. Folders organize documents; documents reference them via folder_id.',
+        'Create a document folder, optionally nested under a parent folder via parent_folder_id (omit for project root). Folders organize documents; documents reference them via folder_id at create or move time.',
       inputSchema: createFolderInputSchema.shape,
     },
     createCreateFolderHandler(services.folderService),
@@ -274,6 +278,28 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       inputSchema: updateFolderInputSchema.shape,
     },
     createUpdateFolderHandler(services.folderService),
+  );
+
+  server.registerTool(
+    'delete_folder',
+    {
+      title: 'Delete Folder',
+      description:
+        'Delete a folder without orphaning contents. By default documents and sub-folders move to the deleted folder\'s parent (Unfiled when it was at the project root). Pass reparent_to null for Unfiled, or a folder id to move contents there.',
+      inputSchema: deleteFolderInputSchema.shape,
+    },
+    createDeleteFolderHandler(services.folderService),
+  );
+
+  server.registerTool(
+    'move_documents',
+    {
+      title: 'Move Documents',
+      description:
+        'Move many documents into a folder in one call (or to Unfiled when folder_id is null). Not atomic: each document_id is attempted independently and the result lists `moved` ids plus per-item `failed` entries — a missing, foreign, or invalid id does not roll back the rest.',
+      inputSchema: moveDocumentsInputSchema.shape,
+    },
+    createMoveDocumentsHandler(services.documentService),
   );
 
   server.registerTool(
