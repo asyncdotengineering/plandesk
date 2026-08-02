@@ -1350,6 +1350,58 @@ describe('createMcpApp', () => {
     });
   });
 
+  it('goal checklist evidence accepts stable ids and reports unknown entries', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const created = await client.callTool({
+          name: 'create_goal',
+          arguments: {
+            project_id: projectId,
+            objective: 'MCP checklist goal',
+            verification_surface: JSON.stringify({
+              kind: 'acceptance_checklist',
+              items: [{ criterion: 'Tests pass' }, { criterion: 'Lint clean' }],
+            }),
+          },
+        });
+        expect(created.isError).not.toBe(true);
+        const createdPayload = JSON.parse(
+          (created.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { goal: { id: string; verification_surface: string } };
+        const surface = JSON.parse(createdPayload.goal.verification_surface) as {
+          items: Array<{ id: string; criterion: string }>;
+        };
+        expect(surface.items.every((item) => item.id.length > 0)).toBe(true);
+
+        await createTask(db, {
+          projectId,
+          goalId: createdPayload.goal.id,
+          label: 'Done child',
+          status: 'done',
+        });
+        const mismatch = await client.callTool({
+          name: 'complete_goal',
+          arguments: {
+            goal_id: createdPayload.goal.id,
+            evidence: { kind: 'acceptance_checklist', checked: ['unknown-id'] },
+          },
+        });
+        expect(mismatch.isError).toBe(true);
+        const mismatchPayload = JSON.parse(
+          (mismatch.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { error: string; unmatched: string[]; unmet: string[] };
+        expect(mismatchPayload).toEqual({
+          error: 'invalid_argument',
+          unmatched: ['unknown-id'],
+          unmet: ['Tests pass', 'Lint clean'],
+        });
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
   it('sibling tools return invalid_argument naming the offending field/reason (#14)', async () => {
     await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const client = await connectClient(baseUrl);

@@ -362,6 +362,75 @@ describe('goalService', () => {
     expect(full?.status).toBe('complete');
   });
 
+  it('assigns stable checklist ids, preserves them across wording edits, and accepts ids as evidence', async () => {
+    const service = createService();
+    const goal = await service.create(projectId, {
+      objective: 'Stable checklist',
+      verificationSurface: JSON.stringify({
+        kind: 'acceptance_checklist',
+        items: [{ criterion: 'Tests pass' }, { criterion: 'Lint clean' }],
+      }),
+    });
+    if (!goal) {
+      throw new Error('expected created goal');
+    }
+    const createdSurface = JSON.parse(goal.verification_surface ?? '{}') as {
+      items: Array<{ id: string; criterion: string }>;
+    };
+    expect(createdSurface.items.every((item) => item.id.length > 0)).toBe(true);
+
+    const firstId = createdSurface.items[0]?.id;
+    const secondId = createdSurface.items[1]?.id;
+    if (!firstId || !secondId) {
+      throw new Error('expected checklist ids');
+    }
+    const updated = await service.update(goal.id, {
+      verificationSurface: JSON.stringify({
+        kind: 'acceptance_checklist',
+        items: [
+          { id: firstId, criterion: 'All tests pass' },
+          { id: secondId, criterion: 'Lint clean' },
+        ],
+      }),
+    });
+    const updatedSurface = JSON.parse(updated?.verification_surface ?? '{}') as {
+      items: Array<{ id: string; criterion: string }>;
+    };
+    expect(updatedSurface.items).toEqual([
+      { id: firstId, criterion: 'All tests pass' },
+      { id: secondId, criterion: 'Lint clean' },
+    ]);
+
+    await createTask(db, { projectId, goalId: goal.id, label: 'Done child', status: 'done' });
+    const completed = await service.complete(goal.id, {
+      kind: 'acceptance_checklist',
+      checked: [firstId, secondId],
+    });
+    expect(completed?.status).toBe('complete');
+  });
+
+  it('reports unmatched and unmet checklist evidence entries', async () => {
+    const service = createService();
+    const goal = await service.create(projectId, {
+      objective: 'Explain checklist mismatch',
+      verificationSurface: checklistSurface,
+    });
+    if (!goal) {
+      throw new Error('expected created goal');
+    }
+    await createTask(db, { projectId, goalId: goal.id, label: 'Done child', status: 'done' });
+
+    await expect(
+      service.complete(goal.id, {
+        kind: 'acceptance_checklist',
+        checked: ['unknown-id'],
+      }),
+    ).rejects.toMatchObject({
+      unmatched: ['unknown-id'],
+      unmet: ['Tests pass', 'Lint clean'],
+    });
+  });
+
   it('human_sign_off with approved_by completes', async () => {
     const service = createService();
     const surface = JSON.stringify({ kind: 'human_sign_off' });

@@ -561,10 +561,10 @@ export const createGoalInputSchema = z.object({
     .describe(
       'JSON verification surface. A `kind` field is REQUIRED; use exactly one of: ' +
         '{"kind":"gate_command","command":"pnpm test"} | ' +
-        '{"kind":"acceptance_checklist","items":[{"criterion":"..."}]} | ' +
+        '{"kind":"acceptance_checklist","items":[{"criterion":"..."}]} (the server returns stable item ids) | ' +
         '{"kind":"human_sign_off"}. ' +
         'complete_goal later takes matching evidence: {"kind":"gate_command","exit_code":0} | ' +
-        '{"kind":"acceptance_checklist","checked":["..."]} | ' +
+        '{"kind":"acceptance_checklist","checked":["item id or exact criterion"]} | ' +
         '{"kind":"human_sign_off","approved_by":"..."}. Omit for no surface.',
     ),
   constraints: z.string().optional(),
@@ -585,7 +585,7 @@ export const updateGoalInputSchema = z.object({
     .describe(
       'JSON verification surface. A `kind` field is REQUIRED; use exactly one of: ' +
         '{"kind":"gate_command","command":"pnpm test"} | ' +
-        '{"kind":"acceptance_checklist","items":[{"criterion":"..."}]} | ' +
+        '{"kind":"acceptance_checklist","items":[{"criterion":"..."}]} (the server returns stable item ids) | ' +
         '{"kind":"human_sign_off"}. Omit to leave unchanged.',
     ),
   constraints: z.string().optional(),

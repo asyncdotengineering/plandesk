@@ -39,6 +39,43 @@ describe('goals routes', () => {
     expect(body.warnings).toEqual([]);
   });
 
+  it('checklist completion reports unknown evidence and returns stable item ids', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Checklist route' });
+    const surface = {
+      kind: 'acceptance_checklist',
+      items: [{ criterion: 'Tests pass' }, { criterion: 'Lint clean' }],
+    };
+
+    const createRes = await app.request(`/api/v1/projects/${project.id}/goals`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ objective: 'Checklist route goal', verification_surface: JSON.stringify(surface) }),
+    });
+    expect(createRes.status).toBe(201);
+    const created = await parseJson<{ id: string; verification_surface: string }>(createRes);
+    const createdSurface = JSON.parse(created.verification_surface) as {
+      items: Array<{ id: string; criterion: string }>;
+    };
+    expect(createdSurface.items.map((item) => item.id)).toEqual([
+      expect.any(String),
+      expect.any(String),
+    ]);
+
+    await createTask(db, { projectId: project.id, goalId: created.id, label: 'Done', status: 'done' });
+    const completeRes = await app.request(`/api/v1/goals/${created.id}/complete`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ evidence: { kind: 'acceptance_checklist', checked: ['unknown-id'] } }),
+    });
+    expect(completeRes.status).toBe(400);
+    expect(await parseJson(completeRes)).toEqual({
+      error: 'invalid_argument',
+      unmatched: ['unknown-id'],
+      unmet: ['Tests pass', 'Lint clean'],
+    });
+  });
+
   it('goal writes return stored contract fields and warn for a null verification surface', async () => {
     const { app, db } = await createTestApp();
     const project = await createProject(db, { name: 'Warnings' });

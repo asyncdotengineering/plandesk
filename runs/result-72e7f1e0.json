@@ -1,0 +1,8 @@
+{
+  "status": "done",
+  "claims": [
+    { "command": "pnpm build", "exit_code": 0 },
+    { "command": "pnpm exec turbo run test --force", "exit_code": 0 },
+    { "command": "pnpm validate", "exit_code": 0 }
+  ]
+}

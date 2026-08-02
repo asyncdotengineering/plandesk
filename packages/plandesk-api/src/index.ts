@@ -116,6 +116,7 @@ export type { GoalService, VerificationEvidence } from './services/goals.js';
 export {
   GoalCompletionBlockedError,
   GoalVerificationRequiredError,
+  InvalidChecklistEvidenceError,
   InvalidGoalTransitionError,
   InvalidVerificationSurfaceError,
 } from './services/goals.js';

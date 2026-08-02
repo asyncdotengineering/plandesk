@@ -3,6 +3,7 @@ import { InvalidGoalStatusError, isGoalStatus } from '@plandesk/db';
 import {
   GoalCompletionBlockedError,
   GoalVerificationRequiredError,
+  InvalidChecklistEvidenceError,
   DuplicateGoalNameError,
   InvalidGoalTransitionError,
   InvalidVerificationSurfaceError,
@@ -85,6 +86,16 @@ function handleGoalError(c: Context, error: unknown) {
       {
         error: 'blocked_by_incomplete_tasks',
         incomplete_task_ids: error.incompleteTaskIds,
+      },
+      400,
+    );
+  }
+  if (error instanceof InvalidChecklistEvidenceError) {
+    return c.json(
+      {
+        error: 'invalid_argument',
+        unmatched: error.unmatched,
+        unmet: error.unmet,
       },
       400,
     );
