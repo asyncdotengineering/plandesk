@@ -96,6 +96,21 @@ export class InvalidDocumentError extends Error {
   }
 }
 
+/**
+ * Folder tree node with a live document count. `doc_count` is the number of
+ * documents whose `folder_id` equals this folder (direct only — not recursive).
+ * Attached in `listFolderTree`, not in `serialize.buildFolderTree`.
+ */
+export type FolderTreeNode = Omit<SerializedDocumentFolderTree['folders'][number], 'folders'> & {
+  doc_count: number;
+  folders: FolderTreeNode[];
+};
+
+export type DocumentFolderTree = {
+  folders: FolderTreeNode[];
+  documents: SerializedDocumentTree[];
+};
+
 async function assertParentInProject(db: Db, projectId: string, parentId: string): Promise<void> {
   const parent = await dbGetDocument(db, parentId);
   if (!parent || parent.projectId !== projectId) {
@@ -299,7 +314,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       return roots;
     },
 
-    async listFolderTree(projectId: string): Promise<SerializedDocumentFolderTree | undefined> {
+    async listFolderTree(projectId: string): Promise<DocumentFolderTree | undefined> {
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {
@@ -310,6 +325,8 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       }
       // Folder tree uses buildFolderTree → serializeDocument without options.
       // Re-hydrate after the structural build so every document carries links.
+      // doc_count is attached here (not in serialize.buildFolderTree) — direct
+      // documents only; sub-folder docs are counted on their own node.
       const folders = await dbListFolders(db, projectId);
       const documents = await dbListDocuments(db, projectId);
       const tree = buildFolderTree(folders, documents);
@@ -333,12 +350,14 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       }
 
       async function hydrateFolders(
-        folderNodes: typeof tree.folders,
-      ): Promise<typeof tree.folders> {
-        const out = [];
+        folderNodes: SerializedDocumentFolderTree['folders'],
+      ): Promise<FolderTreeNode[]> {
+        const out: FolderTreeNode[] = [];
         for (const folder of folderNodes) {
+          const doc_count = documents.filter((doc) => doc.folderId === folder.id).length;
           out.push({
             ...folder,
+            doc_count,
             folders: await hydrateFolders(folder.folders),
             documents: await hydrateTree(folder.documents),
           });

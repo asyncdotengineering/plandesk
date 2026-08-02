@@ -292,6 +292,21 @@ describe('documentService', () => {
     expect(parentNode?.folders[0]?.documents.map((doc) => doc.title)).toEqual(['Child doc']);
   });
 
+  it('listFolderTree attaches direct-only doc_count on each folder node', async () => {
+    const service = createService();
+    const parent = await createFolder(db, { projectId, name: 'Parent' });
+    const child = await createFolder(db, { projectId, name: 'Child', parentFolderId: parent.id });
+    await createDocument(db, { projectId, title: 'Unfiled' });
+    await createDocument(db, { projectId, title: 'Parent A', folderId: parent.id });
+    await createDocument(db, { projectId, title: 'Parent B', folderId: parent.id });
+    await createDocument(db, { projectId, title: 'Child doc', folderId: child.id });
+
+    const tree = await service.listFolderTree(projectId);
+    expect(tree?.folders[0]?.doc_count).toBe(2);
+    // Child's document is not rolled into the parent's count (direct only).
+    expect(tree?.folders[0]?.folders[0]?.doc_count).toBe(1);
+  });
+
   it('listByFolder returns only documents in the folder', async () => {
     const service = createService();
     const folder = await createFolder(db, { projectId, name: 'Specs' });

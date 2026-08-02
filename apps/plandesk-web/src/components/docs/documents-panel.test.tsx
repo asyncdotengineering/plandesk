@@ -1,13 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedDocumentTree, SerializedFolder } from '../../lib/api.js';
 import {
   DocumentsPanel,
+  UNFILED_FOLDER_KEY,
   childFoldersOf,
+  directDocumentCount,
   flattenDocumentTree,
+  folderExpandStorageKey,
   isDescendantFolder,
+  loadExpandedFolderIds,
+  saveExpandedFolderIds,
 } from './DocumentsPanel.js';
 
 const projectId = 'proj-1';
@@ -77,12 +82,12 @@ function openKebab(accessibleName: string) {
   fireEvent.pointerUp(trigger, { button: 0 });
 }
 
-// TanStack RouterProvider hydrates async; wait for the breadcrumb root before querying.
 function panelReady() {
-  return screen.findByRole('button', { name: 'Documents' });
+  return screen.findByRole('heading', { name: 'Documents' });
 }
 
 beforeEach(() => {
+  localStorage.clear();
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue({
@@ -98,6 +103,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  localStorage.clear();
 });
 
 describe('panel helpers', () => {
@@ -126,67 +132,90 @@ describe('panel helpers', () => {
     expect(isDescendantFolder(folders, 'f3', 'f1')).toBe(true);
     expect(isDescendantFolder(folders, 'f1', 'f3')).toBe(false);
   });
+
+  it('directDocumentCount counts only documents with that folder_id', () => {
+    const docs = flattenDocumentTree([
+      makeDocument('d1', 'A', 'f1'),
+      makeDocument('d2', 'B', 'f1'),
+      makeDocument('d3', 'C', 'f2'),
+      makeDocument('d4', 'D', null),
+    ]);
+    expect(directDocumentCount(docs, 'f1')).toBe(2);
+    expect(directDocumentCount(docs, null)).toBe(1);
+  });
 });
 
-describe('DocumentsPanel', () => {
-  it('shows root folders as cards with a document count and lists ALL documents at the root (flat, including folder docs)', async () => {
+describe('DocumentsPanel folder tree', () => {
+  it('renders each document exactly once — filed under its folder, loose under Unfiled', async () => {
     const folders = [makeFolder('f1', 'Specs', null), makeFolder('f2', 'Archive', 'f1')];
-    const documents = [makeDocument('d1', 'Root doc', null), makeDocument('d2', 'Spec doc', 'f1')];
+    const documents = [
+      makeDocument('d1', 'Root doc', null),
+      makeDocument('d2', 'Spec doc', 'f1'),
+      makeDocument('d3', 'Archive doc', 'f2'),
+    ];
 
     renderPanel(documents, folders);
     await panelReady();
 
-    // Root folder is shown as a card; nested folder is not surfaced at root.
-    expect(screen.getByText('Specs')).toBeTruthy();
-    expect(screen.queryByText('Archive')).toBeNull();
-    // Specs has exactly one document directly inside it.
-    expect(screen.getByText(/1 document/)).toBeTruthy();
-    // The root-level document appears in the list.
-    expect(screen.getAllByText('Root doc').length).toBeGreaterThan(0);
-    // "All documents" is genuinely flat: the document inside the Specs folder
-    // ALSO appears at the root alongside the loose root doc.
-    expect(screen.getAllByText('Spec doc').length).toBeGreaterThan(0);
+    const tree = screen.getByRole('list', { name: 'Folder tree' });
+    expect(within(tree).getByText('Specs')).toBeTruthy();
+    expect(within(tree).getByText('Archive')).toBeTruthy();
+    expect(within(tree).getByText('Unfiled')).toBeTruthy();
+
+    // Spec doc only under Specs — not duplicated at the root / Unfiled.
+    expect(within(tree).getAllByText('Spec doc')).toHaveLength(1);
+    expect(within(tree).getAllByText('Archive doc')).toHaveLength(1);
+    expect(within(tree).getAllByText('Root doc')).toHaveLength(1);
+
+    // Direct counts only (Archive's doc is not rolled into Specs).
+    expect(screen.getByTestId('doc-count-f1').textContent).toBe('1');
+    expect(screen.getByTestId('doc-count-f2').textContent).toBe('1');
+    expect(screen.getByTestId('doc-count-unfiled').textContent).toBe('1');
   });
 
-  it('shows every document at the root even when every doc lives inside a folder', async () => {
-    const folders = [makeFolder('f1', 'Specs', null)];
-    const documents = [makeDocument('d1', 'In-folder doc', 'f1')];
-
-    renderPanel(documents, folders);
-    await panelReady();
-
-    // No loose root docs — but "All documents" still surfaces the folder doc.
-    expect(screen.getAllByText('In-folder doc').length).toBeGreaterThan(0);
-  });
-
-  it('drills into a folder to reveal its documents', async () => {
-    const folders = [makeFolder('f1', 'Specs', null)];
-    const documents = [makeDocument('d1', 'Spec doc', 'f1')];
-
-    renderPanel(documents, folders);
-    await panelReady();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open folder Specs' }));
-
-    // Breadcrumb now shows the folder, and its document is listed.
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Specs' })).toBeTruthy();
-    });
-    expect(screen.getAllByText('Spec doc').length).toBeGreaterThan(0);
-  });
-
-  it('shows an empty state when a drilled-into folder has no documents', async () => {
+  it('shows empty-folder copy when an expanded folder has no children', async () => {
     renderPanel([], [makeFolder('f1', 'Empty one', null)]);
     await panelReady();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open folder Empty one' }));
-    expect(await screen.findByText('This folder is empty.')).toBeTruthy();
+    expect(screen.getByText('This folder is empty.')).toBeTruthy();
   });
 
-  it('renders empty root state with no folders and no documents', async () => {
+  it('renders empty workspace state with no folders and no documents', async () => {
     renderPanel([], []);
     await panelReady();
     expect(screen.getByText(/No documents yet/)).toBeTruthy();
+    expect(screen.queryByRole('list', { name: 'Folder tree' })).toBeNull();
+  });
+
+  it('collapses a folder and persists expand state across remount', async () => {
+    const folders = [makeFolder('f1', 'Specs', null)];
+    const documents = [makeDocument('d1', 'Spec doc', 'f1')];
+
+    const first = renderPanel(documents, folders);
+    await panelReady();
+    const tree = () => screen.getByRole('list', { name: 'Folder tree' });
+    expect(within(tree()).getByText('Spec doc')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse folder Specs' }));
+    expect(within(tree()).queryByText('Spec doc')).toBeNull();
+
+    const stored = loadExpandedFolderIds(projectId);
+    expect(stored?.has('f1')).toBe(false);
+    expect(localStorage.getItem(folderExpandStorageKey(projectId))).toBeTruthy();
+
+    first.unmount();
+    cleanup();
+
+    renderPanel(documents, folders);
+    await panelReady();
+    // Remount restores collapsed Specs — doc stays hidden in the tree until expand.
+    expect(within(tree()).queryByText('Spec doc')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Expand folder Specs' }));
+    expect(within(tree()).getByText('Spec doc')).toBeTruthy();
+  });
+
+  it('saveExpandedFolderIds round-trips through localStorage', () => {
+    saveExpandedFolderIds(projectId, new Set([UNFILED_FOLDER_KEY, 'f1']));
+    expect(loadExpandedFolderIds(projectId)).toEqual(new Set([UNFILED_FOLDER_KEY, 'f1']));
   });
 
   it('creates a root folder via the dialog and POST', async () => {
@@ -210,7 +239,7 @@ describe('DocumentsPanel', () => {
     });
   });
 
-  it('creates a document via the dialog and POST', async () => {
+  it('creates a document via the dialog and POST into Unfiled', async () => {
     renderPanel([], []);
     await panelReady();
 
@@ -265,7 +294,6 @@ describe('DocumentsPanel', () => {
 
     openKebab('Actions for folder Specs');
     fireEvent.click(screen.getByText('Delete'));
-    // The only button named "Delete" is the confirm dialog's action.
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {
