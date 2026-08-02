@@ -12,9 +12,12 @@
  * not apply there.
  */
 
-/** Stub until the real shim (task Build the prototype frame shim) lands. */
-export const HTML_ARTIFACT_SHIM_STUB =
-  "<script>parent.postMessage({kind:'plandesk:ready'},'*');</script>";
+import { HTML_ARTIFACT_SHIM } from './html-frame-shim.js';
+
+/** Injected frame bridge (modes, selection, navigate, wheel, highlight). */
+export { HTML_ARTIFACT_SHIM };
+/** @deprecated Use HTML_ARTIFACT_SHIM — kept so existing imports keep compiling during the rename. */
+export const HTML_ARTIFACT_SHIM_STUB = HTML_ARTIFACT_SHIM;
 
 /**
  * Build the HTML artifact Content-Security-Policy for a named origin.
@@ -74,5 +77,5 @@ function escapeHtmlAttr(value: string): string {
  */
 export function wrapHtmlArtifactForRender(content: string, csp: string): string {
   const meta = `<meta http-equiv="Content-Security-Policy" content="${escapeHtmlAttr(csp)}" />`;
-  return `${meta}${HTML_ARTIFACT_SHIM_STUB}${content}`;
+  return `${meta}${HTML_ARTIFACT_SHIM}${content}`;
 }

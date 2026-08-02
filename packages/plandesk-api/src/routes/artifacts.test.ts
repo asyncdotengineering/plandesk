@@ -5,7 +5,7 @@ import {
   createProject,
   createProjectInDefaultOrg as createProjectDefault,
 } from '@plandesk/db';
-import { HTML_ARTIFACT_SHIM_STUB, htmlArtifactCsp, resolveRenderOrigin } from '../html-artifact.js';
+import { HTML_ARTIFACT_SHIM, htmlArtifactCsp, resolveRenderOrigin } from '../html-artifact.js';
 import { createTestApp, parseJson } from '../test-helpers.js';
 
 type ArtifactResponse = {
@@ -159,8 +159,8 @@ describe('GET /artifacts/:id/render', () => {
       const body = await res.text();
       expect(body.startsWith('<meta http-equiv="Content-Security-Policy"')).toBe(true);
       expect(body).toContain(`content="${expectedCsp}"`);
-      expect(body).toContain(HTML_ARTIFACT_SHIM_STUB);
-      expect(body.indexOf(HTML_ARTIFACT_SHIM_STUB)).toBeLessThan(body.indexOf(content));
+      expect(body).toContain(HTML_ARTIFACT_SHIM);
+      expect(body.indexOf(HTML_ARTIFACT_SHIM)).toBeLessThan(body.indexOf(content));
       expect(body.endsWith(content)).toBe(true);
     } finally {
       if (previous === undefined) {
@@ -260,12 +260,12 @@ describe('GET /artifacts/:id/render', () => {
       const res = await app.request(`/api/v1/artifacts/${id}/render`);
       expect(res.status).toBe(200);
       const body = await res.text();
-      expect(body).toContain(HTML_ARTIFACT_SHIM_STUB);
+      expect(body).toContain(HTML_ARTIFACT_SHIM);
       expect(body.endsWith(content)).toBe(true);
       // Shim is a fixed constant — hostile title bytes only appear after it.
-      const shimAt = body.indexOf(HTML_ARTIFACT_SHIM_STUB);
-      expect(body.slice(shimAt, shimAt + HTML_ARTIFACT_SHIM_STUB.length)).toBe(
-        HTML_ARTIFACT_SHIM_STUB,
+      const shimAt = body.indexOf(HTML_ARTIFACT_SHIM);
+      expect(body.slice(shimAt, shimAt + HTML_ARTIFACT_SHIM.length)).toBe(
+        HTML_ARTIFACT_SHIM,
       );
     }
   });

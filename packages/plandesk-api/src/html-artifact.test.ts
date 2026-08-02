@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  HTML_ARTIFACT_SHIM_STUB,
+  HTML_ARTIFACT_SHIM,
   htmlArtifactCsp,
   resolveRenderOrigin,
   wrapHtmlArtifactForRender,
@@ -48,16 +48,16 @@ describe('wrapHtmlArtifactForRender', () => {
     expect(out.startsWith('<meta http-equiv="Content-Security-Policy"')).toBe(true);
     expect(out).toContain(`content="${csp}"`);
     const afterMeta = out.slice(out.indexOf('/>') + 2);
-    expect(afterMeta.startsWith(HTML_ARTIFACT_SHIM_STUB)).toBe(true);
-    expect(afterMeta.slice(HTML_ARTIFACT_SHIM_STUB.length)).toBe(content);
+    expect(afterMeta.startsWith(HTML_ARTIFACT_SHIM)).toBe(true);
+    expect(afterMeta.slice(HTML_ARTIFACT_SHIM.length)).toBe(content);
   });
 
   it('prepends when content has no </body>', () => {
     const content = '<h1>bare fragment</h1>';
     const out = wrapHtmlArtifactForRender(content, csp);
     expect(out.endsWith(content)).toBe(true);
-    expect(out).toContain(HTML_ARTIFACT_SHIM_STUB);
-    expect(out.indexOf(HTML_ARTIFACT_SHIM_STUB)).toBeLessThan(out.indexOf(content));
+    expect(out).toContain(HTML_ARTIFACT_SHIM);
+    expect(out.indexOf(HTML_ARTIFACT_SHIM)).toBeLessThan(out.indexOf(content));
   });
 
   it('prepends when </body> appears only inside a <script> string', () => {
@@ -66,7 +66,7 @@ describe('wrapHtmlArtifactForRender', () => {
     const out = wrapHtmlArtifactForRender(content, csp);
     // Content bytes after the shim are byte-identical — no mid-content splice.
     expect(out.endsWith(content)).toBe(true);
-    expect(out.indexOf(HTML_ARTIFACT_SHIM_STUB) + HTML_ARTIFACT_SHIM_STUB.length).toBe(
+    expect(out.indexOf(HTML_ARTIFACT_SHIM) + HTML_ARTIFACT_SHIM.length).toBe(
       out.length - content.length,
     );
   });
@@ -75,12 +75,12 @@ describe('wrapHtmlArtifactForRender', () => {
     const content =
       '<!doctype html><html><head><title></script><script>window.__pwned=1</script></title></head><body>x</body></html>';
     const out = wrapHtmlArtifactForRender(content, csp);
-    const shimStart = out.indexOf(HTML_ARTIFACT_SHIM_STUB);
+    const shimStart = out.indexOf(HTML_ARTIFACT_SHIM);
     expect(shimStart).toBeGreaterThan(0);
-    expect(out.slice(shimStart, shimStart + HTML_ARTIFACT_SHIM_STUB.length)).toBe(
-      HTML_ARTIFACT_SHIM_STUB,
+    expect(out.slice(shimStart, shimStart + HTML_ARTIFACT_SHIM.length)).toBe(
+      HTML_ARTIFACT_SHIM,
     );
     // Hostile title remains only in the content region after the constant shim.
-    expect(out.slice(shimStart + HTML_ARTIFACT_SHIM_STUB.length)).toBe(content);
+    expect(out.slice(shimStart + HTML_ARTIFACT_SHIM.length)).toBe(content);
   });
 });

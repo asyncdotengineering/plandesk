@@ -146,11 +146,17 @@ export { InvalidPrototypeError } from './services/prototypes.js';
 export { InvalidNoteError } from './services/notes.js';
 export { InvalidArtifactError } from './services/artifacts.js';
 export {
-  HTML_ARTIFACT_SHIM_STUB,
+  HTML_ARTIFACT_SHIM,
   htmlArtifactCsp,
   resolveRenderOrigin,
   wrapHtmlArtifactForRender,
 } from './html-artifact.js';
+export {
+  buildTextAnchor,
+  offsetsToRange,
+  type AnnotationSelector,
+  type CanvasMode,
+} from './html-frame-shim.js';
 export { InvalidTagError } from './services/tags.js';
 export { InvalidViewError } from './services/views.js';
 export { InvalidCommentError } from './services/comments.js';
