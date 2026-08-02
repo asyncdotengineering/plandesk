@@ -1,0 +1,12 @@
+{
+  "name": "deleted",
+  "text": "Alpha sentence one. Beta sentence two with no remnant of the quote.",
+  "quote": "The unique anchored clause about purple widgets",
+  "context": {
+    "prefix": "one. ",
+    "suffix": ". Beta",
+    "hint": 19
+  },
+  "expect": "orphan",
+  "mustNotAttachTo": "Beta sentence"
+}

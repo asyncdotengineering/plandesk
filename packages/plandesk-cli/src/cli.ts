@@ -20,6 +20,8 @@ import { runServe, resolveServeRuntime } from './serve.js';
 import { resolveServerConfig, ConfigFileError } from './config.js';
 import { runLogin, runLogout, runWhoami } from './login.js';
 import { runPreview } from './preview.js';
+import { AttachError, runAttach } from './attach.js';
+import { PushArtifactError, runPushArtifact } from './push-artifact.js';
 import {
   AdminInviteOwnerError,
   formatAdminInviteOwnerSummary,
@@ -97,7 +99,11 @@ function resolveRepoDir(repoDir?: string): string {
  * Defaults to stdout; `import` prints to stderr instead — its stdout is a
  * single machine-readable project id line that scripts capture directly.
  */
-function printBoard(override?: string, localDb?: boolean, stream: 'stdout' | 'stderr' = 'stdout'): void {
+function printBoard(
+  override?: string,
+  localDb?: boolean,
+  stream: 'stdout' | 'stderr' = 'stdout',
+): void {
   const board = resolveBoard({ override, localDb });
   process[stream].write(`board: ${board.dataDir} (${board.source})\n`);
 }
@@ -206,9 +212,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
       try {
         if (parsed.dbUrl !== undefined && parsed.dbUrl.trim() !== '') {
           const secret =
-            parsed.secret?.trim() ||
-            process.env.PLANDESK_BETTER_AUTH_SECRET?.trim() ||
-            undefined;
+            parsed.secret?.trim() || process.env.PLANDESK_BETTER_AUTH_SECRET?.trim() || undefined;
           if (secret === undefined || secret === '') {
             process.stderr.write(
               'Remote invite-owner requires --secret or PLANDESK_BETTER_AUTH_SECRET (must match the deployed Worker secret).\n',
@@ -282,7 +286,10 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
       try {
         printBoard(parsed.dataDir);
         if (parsed.print) {
-          const preview = await previewLegacyUpgrade({ from: parsed.from, dataDir: parsed.dataDir });
+          const preview = await previewLegacyUpgrade({
+            from: parsed.from,
+            dataDir: parsed.dataDir,
+          });
           process.stdout.write(formatLegacyUpgradePreview(preview));
           return 0;
         }
@@ -602,6 +609,39 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         host: parsed.host,
         open: parsed.open,
       });
+    }
+    case 'attach': {
+      try {
+        const repoDir = resolveRepoDir(parsed.repoDir);
+        const result = await runAttach(parsed.filePath, { repoDir });
+        process.stdout.write(`${result.url}\n`);
+        return 0;
+      } catch (err) {
+        if (err instanceof AttachError) {
+          process.stderr.write(`${err.message}\n`);
+          return 1;
+        }
+        throw err;
+      }
+    }
+    case 'push-artifact': {
+      try {
+        const repoDir = resolveRepoDir(parsed.repoDir);
+        const result = await runPushArtifact(parsed.filePath, {
+          repoDir,
+          prototypeName: parsed.prototypeName,
+          force: parsed.force,
+        });
+        const note = result.forced ? ' (forced overwrite)' : '';
+        process.stdout.write(`${result.created ? 'created' : 'updated'} ${result.url}${note}\n`);
+        return 0;
+      } catch (err) {
+        if (err instanceof PushArtifactError) {
+          process.stderr.write(`${err.message}\n`);
+          return 1;
+        }
+        throw err;
+      }
     }
     case 'unknown':
       process.stderr.write(`Unknown command: ${parsed.name}\n\n${usage()}`);

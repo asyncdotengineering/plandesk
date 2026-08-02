@@ -24,3 +24,4 @@ packages/plandesk-db/vendor/
 # together, or leave both as-is — never let prettier touch only one.
 .agents/
 .plandesk/skill.md
+apps/docs/src/content/docs/connecting-agents/skill.md

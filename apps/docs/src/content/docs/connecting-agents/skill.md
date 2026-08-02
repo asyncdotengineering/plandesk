@@ -225,6 +225,15 @@ kept in the workspace (not a file on disk).
 - `expires` defaults to `24h`; pass `never` only when the link truly needs to
   outlive a session — it stays public to anyone who has it.
 
+## Prototypes
+
+Click-through HTML prototype flows (screens on a prototype canvas). Authoring
+conventions — flow-first, mandatory unhappy paths, `plandesk://` links,
+curated libraries, sandbox constraints — live in
+`.claude/skills/plandesk-prototype/SKILL.md` (and its `references/`). Read
+that skill when building or revising a prototype; keep this file as the
+pointer, not a second copy of the rules.
+
 ## Agent runs
 1. Start a run at the beginning of any multi-step Plan Desk operation.
 2. Record progress after each meaningful unit of work (not every tool call).

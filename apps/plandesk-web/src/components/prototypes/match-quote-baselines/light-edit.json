@@ -1,0 +1,12 @@
+{
+  "name": "light-edit",
+  "text": "Review the cart. Please confirm your shipping address prior to checkout. Then pay.",
+  "quote": "Please confirm your shipping address before checkout.",
+  "context": {
+    "prefix": "cart. ",
+    "suffix": " Then",
+    "hint": 17
+  },
+  "expect": "match",
+  "mustInclude": "shipping address"
+}

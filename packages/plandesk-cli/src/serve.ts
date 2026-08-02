@@ -170,7 +170,7 @@ export async function startServer(
   const services = createServices({ db, auth, ...(storage !== undefined ? { storage } : {}) });
   // Parent createApp resolves better-auth apiKey / session / loopback;
   // MCP requires that context (no independent auth path).
-  const mcpApp = createMcpApp({ services });
+  const mcpApp = createMcpApp({ services, bindHost: host });
   const app = createApp({
     db,
     services,
@@ -203,7 +203,9 @@ export async function startServer(
       startedAt: new Date().toISOString(),
       dataDir,
     });
-    process.stdout.write(`Plan Desk → ${resolveServeOrigin(host, boundPort)}  (db: ${dbDisplay})\n`);
+    process.stdout.write(
+      `Plan Desk → ${resolveServeOrigin(host, boundPort)}  (db: ${dbDisplay})\n`,
+    );
   };
 
   server.once('close', () => {

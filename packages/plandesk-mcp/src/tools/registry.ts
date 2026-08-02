@@ -255,7 +255,17 @@ export const updatePrototypeInputSchema = z.object({
 export const createArtifactInputSchema = z.object({
   project_id: z.string().uuid(),
   title: z.string().min(1),
-  content: z.string().describe(ARTIFACT_CONTENT_DESCRIPTION),
+  content: z
+    .string()
+    .optional()
+    .describe(`${ARTIFACT_CONTENT_DESCRIPTION} Exactly one of content and file_path is required.`),
+  file_path: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      'Absolute or project-relative path to read content from. Loopback servers only — remote servers refuse with a stated error. Mutually exclusive with content.',
+    ),
   kind: z.enum(artifactKinds).optional().describe('Defaults to markdown.'),
   prototype_id: z
     .string()
@@ -273,7 +283,17 @@ export const getArtifactInputSchema = z.object({
 export const updateArtifactInputSchema = z.object({
   artifact_id: z.string().uuid(),
   title: z.string().min(1).optional(),
-  content: z.string().optional().describe(ARTIFACT_CONTENT_DESCRIPTION),
+  content: z
+    .string()
+    .optional()
+    .describe(`${ARTIFACT_CONTENT_DESCRIPTION} Mutually exclusive with file_path.`),
+  file_path: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      'Absolute or project-relative path to read content from. Loopback servers only. Mutually exclusive with content.',
+    ),
   kind: z.enum(artifactKinds).optional(),
   prototype_id: z
     .string()
@@ -291,9 +311,28 @@ export const listArtifactsInputSchema = z.object({
 
 export const attachFileInputSchema = z.object({
   project_id: z.string().uuid(),
-  filename: z.string().min(1),
-  content_base64: z.string().min(1),
-  mime: z.string().min(1).optional().describe('Defaults to image/png.'),
+  filename: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Required with content_base64; defaults from file_path basename when omitted.'),
+  content_base64: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Inline bytes. Exactly one of content_base64 and file_path is required.'),
+  file_path: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      'Absolute or project-relative path to read. Loopback servers only — remote servers refuse with a stated error. Mutually exclusive with content_base64.',
+    ),
+  mime: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Defaults to image/png or a guess from the filename.'),
 });
 
 export const createEdgeInputSchema = z.object({

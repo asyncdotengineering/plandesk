@@ -32,6 +32,9 @@ type CommentsPanelProps = {
   // via onPassageConsumed so the same text can be selected again.
   attachPassage?: string | null;
   onPassageConsumed?: () => void;
+  /** JSON-stringified AnnotationSelector from a canvas Comment-mode gesture. */
+  attachAnchor?: string | null;
+  onAnchorConsumed?: () => void;
   embedded?: boolean;
 };
 
@@ -73,7 +76,9 @@ function CommentItem({
       </Avatar>
       <div className="min-w-0 flex-1">
         {comment.passage !== null ? (
-          <p className="mb-1 text-[12px] italic text-muted-foreground">&ldquo;{comment.passage}&rdquo;</p>
+          <p className="mb-1 text-[12px] italic text-muted-foreground">
+            &ldquo;{comment.passage}&rdquo;
+          </p>
         ) : null}
         <div
           className="comment-body text-[12.5px] leading-relaxed [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[11px] [&_li]:list-disc [&_ol]:my-1 [&_ol]:pl-4 [&_p]:my-0 [&_p+p]:mt-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:my-1 [&_ul]:pl-4"
@@ -115,6 +120,8 @@ export function CommentsPanel({
   target,
   attachPassage = null,
   onPassageConsumed,
+  attachAnchor = null,
+  onAnchorConsumed,
   embedded = false,
 }: CommentsPanelProps) {
   const { data: comments, isLoading, error } = useComments(target);
@@ -127,6 +134,7 @@ export function CommentsPanel({
   const [bodyHtml, setBodyHtml] = useState('');
   const [composerKey, setComposerKey] = useState(0);
   const [attachedPassage, setAttachedPassage] = useState<string | null>(null);
+  const [attachedAnchor, setAttachedAnchor] = useState<string | null>(null);
   const editorRef = useRef<RichTextEditorHandle>(null);
   const [showResolved, setShowResolved] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
@@ -142,6 +150,15 @@ export function CommentsPanel({
     editorRef.current?.focus();
     onPassageConsumed?.();
   }, [attachPassage, onPassageConsumed]);
+
+  useEffect(() => {
+    if (attachAnchor === null) {
+      return;
+    }
+    setAttachedAnchor(attachAnchor);
+    editorRef.current?.focus();
+    onAnchorConsumed?.();
+  }, [attachAnchor, onAnchorConsumed]);
 
   const allComments = comments ?? [];
   const openComments = allComments.filter((c) => !c.resolved);
@@ -162,12 +179,18 @@ export function CommentsPanel({
       return;
     }
     const passage = attachedPassage ?? readSelection();
-    createComment.mutate(passage !== null ? { body: html, passage } : { body: html }, {
+    const input = {
+      body: html,
+      ...(passage !== null ? { passage } : {}),
+      ...(attachedAnchor !== null ? { anchor: attachedAnchor } : {}),
+    };
+    createComment.mutate(input, {
       onSuccess: () => {
         toast('Comment added');
         setBodyHtml('');
         setComposerKey((key) => key + 1);
         setAttachedPassage(null);
+        setAttachedAnchor(null);
       },
     });
   };
@@ -219,13 +242,33 @@ export function CommentsPanel({
       <div className="rounded-lg border bg-muted/30 p-2.5">
         {attachedPassage !== null ? (
           <div className="mb-2 flex items-start gap-1.5 rounded-md border bg-card p-1.5">
-            <p className="flex-1 text-[12px] italic text-muted-foreground">&ldquo;{attachedPassage}&rdquo;</p>
+            <p className="flex-1 text-[12px] italic text-muted-foreground">
+              &ldquo;{attachedPassage}&rdquo;
+            </p>
             <Button
               type="button"
               variant="ghost"
               size="xs"
               onClick={() => {
                 setAttachedPassage(null);
+                setAttachedAnchor(null);
+              }}
+            >
+              Clear
+            </Button>
+          </div>
+        ) : attachedAnchor !== null ? (
+          <div
+            className="mb-2 flex items-start gap-1.5 rounded-md border bg-card p-1.5"
+            data-attached-anchor
+          >
+            <p className="flex-1 text-[12px] text-muted-foreground">Point anchor attached</p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={() => {
+                setAttachedAnchor(null);
               }}
             >
               Clear
@@ -243,12 +286,7 @@ export function CommentsPanel({
           onChange={setBodyHtml}
         />
         <div className="mt-2 flex items-center justify-end gap-1.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleAttachSelection}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={handleAttachSelection}>
             <PaperclipIcon className="size-3.5" /> Attach selection
           </Button>
           <Button
@@ -268,7 +306,9 @@ export function CommentsPanel({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-        {isLoading ? <p className="text-[12.5px] text-muted-foreground">Loading comments…</p> : null}
+        {isLoading ? (
+          <p className="text-[12.5px] text-muted-foreground">Loading comments…</p>
+        ) : null}
         {error !== null ? (
           <p role="alert" className="text-[12.5px] text-destructive">
             Failed to load comments: {error.message}
@@ -314,24 +354,26 @@ export function CommentsPanel({
                 setShowResolved((value) => !value);
               }}
             >
-              {showResolved ? 'Hide resolved' : `Show resolved (${String(resolvedComments.length)})`}
+              {showResolved
+                ? 'Hide resolved'
+                : `Show resolved (${String(resolvedComments.length)})`}
             </Button>
-            {showResolved ? (
-              resolvedComments.map((comment) => (
-                <CommentItem
-                  key={comment.id}
-                  comment={comment}
-                  onResolve={() => {
-                    handleResolve(comment);
-                  }}
-                  onDeleteRequest={() => {
-                    setCommentToDelete(comment);
-                  }}
-                  isResolving={patchComment.isPending && pendingActionId === comment.id}
-                  isDeleting={deleteComment.isPending && pendingActionId === comment.id}
-                />
-              ))
-            ) : null}
+            {showResolved
+              ? resolvedComments.map((comment) => (
+                  <CommentItem
+                    key={comment.id}
+                    comment={comment}
+                    onResolve={() => {
+                      handleResolve(comment);
+                    }}
+                    onDeleteRequest={() => {
+                      setCommentToDelete(comment);
+                    }}
+                    isResolving={patchComment.isPending && pendingActionId === comment.id}
+                    isDeleting={deleteComment.isPending && pendingActionId === comment.id}
+                  />
+                ))
+              : null}
           </div>
         ) : null}
       </div>

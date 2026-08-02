@@ -90,6 +90,14 @@ export type HarnessServer = {
       raw_target: string;
     }>;
   }>;
+  listArtifactComments: (artifactId: string) => Promise<
+    Array<{
+      id: string;
+      body: string;
+      passage: string | null;
+      anchor: string | null;
+    }>
+  >;
   stop: () => Promise<void>;
 };
 
@@ -313,6 +321,19 @@ export async function startHarnessServer(): Promise<HarnessServer> {
       }>(`${baseUrl}/api/v1/prototypes/${id}`);
     };
 
+    const listArtifactComments = async (artifactId: string) => {
+      return getJson<
+        Array<{
+          id: string;
+          body: string;
+          passage: string | null;
+          anchor: string | null;
+        }>
+      >(
+        `${baseUrl}/api/v1/projects/${project.id}/artifact-comments?artifact_id=${encodeURIComponent(artifactId)}&include_resolved=true`,
+      );
+    };
+
     return {
       baseUrl,
       projectId: project.id,
@@ -325,6 +346,7 @@ export async function startHarnessServer(): Promise<HarnessServer> {
       seedPrototypeScreen,
       patchArtifact,
       getPrototype,
+      listArtifactComments,
       stop,
     };
   } catch (error) {

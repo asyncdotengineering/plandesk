@@ -4,16 +4,19 @@ import { requestUrl } from '../../test-utils.js';
 import { CanvasModeProvider } from './CanvasModeContext.js';
 import { FrameRegistryProvider } from './FrameRegistryContext.js';
 import { PrototypeChrome } from './PrototypeChrome';
+import { ScreenCommentsProvider } from './ScreenCommentsContext.js';
 import { ScreenDiagnosticsProvider } from './ScreenDiagnosticsContext.js';
 
 function renderChrome() {
   return render(
     <ScreenDiagnosticsProvider>
-      <FrameRegistryProvider>
-        <CanvasModeProvider>
-          <PrototypeChrome prototypeId="proto-1" name="Checkout" />
-        </CanvasModeProvider>
-      </FrameRegistryProvider>
+      <ScreenCommentsProvider>
+        <FrameRegistryProvider>
+          <CanvasModeProvider>
+            <PrototypeChrome prototypeId="proto-1" name="Checkout" />
+          </CanvasModeProvider>
+        </FrameRegistryProvider>
+      </ScreenCommentsProvider>
     </ScreenDiagnosticsProvider>,
   );
 }

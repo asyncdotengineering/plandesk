@@ -23,9 +23,12 @@ import { getArtifact } from '@/lib/api.js';
 import { usePatchArtifact, usePrototype, usePrototypes } from '@/lib/queries.js';
 import type { SerializedPrototypeLink, SerializedPrototypeWithScreens } from '@/lib/api.js';
 import { CanvasModeProvider, useCanvasMode } from './CanvasModeContext.js';
+import { CommentPinsLayer } from './CommentPins.js';
 import { FrameRegistryProvider, useFrameRegistry } from './FrameRegistryContext.js';
 import { resolveNavigate } from './navigate-target.js';
 import { PrototypeChrome } from './PrototypeChrome.js';
+import { PrototypeCommentsRail } from './PrototypeCommentsRail.js';
+import { ScreenCommentsProvider } from './ScreenCommentsContext.js';
 import { ScreenDiagnosticsProvider, useDiagnosticsSnapshot } from './ScreenDiagnosticsContext.js';
 import { ScreenNode, type ScreenNodeData } from './ScreenNode.js';
 
@@ -307,29 +310,43 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
       data-runtime-diagnostics={JSON.stringify(diagnosticsSnapshot)}
     >
       <PrototypeChrome prototypeId={prototype.id} name={prototype.name} />
-      <div className="min-h-0 flex-1">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onNodeDragStop={handleNodeDragStop}
-          nodeTypes={nodeTypes}
-          onlyRenderVisibleElements
-          minZoom={0.05}
-          maxZoom={2}
-          defaultViewport={{ x: 40, y: 40, zoom: 0.45 }}
-          panOnDrag
-          panActivationKeyCode="Space"
-          nodesDraggable={mode === 'arrange'}
-          elementsSelectable
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
-          <MiniMap pannable zoomable className="!bg-card" />
-          <ZoomControls />
-          <RelayoutPanel onRelayout={handleRelayout} />
-        </ReactFlow>
+      <div className="flex min-h-0 flex-1">
+        <div className="relative min-h-0 min-w-0 flex-1">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onNodeDragStop={handleNodeDragStop}
+            nodeTypes={nodeTypes}
+            onlyRenderVisibleElements
+            minZoom={0.05}
+            maxZoom={2}
+            defaultViewport={{ x: 40, y: 40, zoom: 0.45 }}
+            panOnDrag
+            panActivationKeyCode="Space"
+            nodesDraggable={mode === 'arrange'}
+            elementsSelectable
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+            <MiniMap pannable zoomable className="!bg-card" />
+            <ZoomControls />
+            <RelayoutPanel onRelayout={handleRelayout} />
+            <CommentPinsLayer
+              projectId={prototype.project_id}
+              screens={nodes.map((n) => ({
+                artifactId: n.data.artifactId,
+                position: n.position,
+                revisionId: n.data.revisionId,
+              }))}
+            />
+          </ReactFlow>
+        </div>
+        <PrototypeCommentsRail
+          projectId={prototype.project_id}
+          defaultArtifactId={nodes[0]?.data.artifactId ?? null}
+        />
       </div>
     </div>
   );
@@ -338,11 +355,13 @@ function PrototypeCanvasInner({ prototypeId }: { prototypeId: string }) {
 function PrototypeProviders({ children }: { children: ReactNode }) {
   return (
     <ScreenDiagnosticsProvider>
-      <FrameRegistryProvider>
-        <CanvasModeProvider>
-          <ReactFlowProvider>{children}</ReactFlowProvider>
-        </CanvasModeProvider>
-      </FrameRegistryProvider>
+      <ScreenCommentsProvider>
+        <FrameRegistryProvider>
+          <CanvasModeProvider>
+            <ReactFlowProvider>{children}</ReactFlowProvider>
+          </CanvasModeProvider>
+        </FrameRegistryProvider>
+      </ScreenCommentsProvider>
     </ScreenDiagnosticsProvider>
   );
 }

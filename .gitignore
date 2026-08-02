@@ -41,3 +41,4 @@ plandesk.server.json
 runs/
 .handoff/
 scratchpad/
+.plandesk/artifact-pushes.json

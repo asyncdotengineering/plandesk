@@ -336,22 +336,32 @@ export type PatchNoteInput = {
 
 export type SerializedComment = {
   id: string;
-  document_id: string;
+  document_id: string | null;
   target_type?: string;
   target_id?: string;
   passage: string | null;
+  anchor: string | null;
   body: string;
   resolved: boolean;
   created_at: string;
 };
 
-export type CommentTargetType = 'document' | 'task' | 'note' | 'submission';
-export type CommentTarget = { type: CommentTargetType; id: string };
+export type CommentTargetType = 'document' | 'task' | 'note' | 'submission' | 'artifact';
+export type CommentTarget =
+  | { type: 'document' | 'task' | 'note' | 'submission'; id: string }
+  | { type: 'artifact'; id: string; projectId: string };
 
-export type CreateCommentInput = { body: string; passage?: string | null };
+export type CreateCommentInput = {
+  body: string;
+  passage?: string | null;
+  anchor?: string | null;
+};
 export type PatchCommentInput = { body?: string; resolved?: boolean };
 
 function commentCollectionPath(target: CommentTarget): string {
+  if (target.type === 'artifact') {
+    return `/projects/${target.projectId}/artifact-comments`;
+  }
   return `/${target.type}s/${target.id}/comments`;
 }
 
@@ -721,6 +731,9 @@ export function listComments(
   if (opts?.includeResolved === true) {
     params.set('include_resolved', 'true');
   }
+  if (target.type === 'artifact') {
+    params.set('artifact_id', target.id);
+  }
   const query = params.toString();
   return request(`${commentCollectionPath(target)}${query ? `?${query}` : ''}`);
 }
@@ -729,9 +742,10 @@ export function createComment(
   target: CommentTarget,
   input: CreateCommentInput,
 ): Promise<SerializedComment> {
+  const body = target.type === 'artifact' ? { artifact_id: target.id, ...input } : input;
   return request(commentCollectionPath(target), {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify(body),
   });
 }
 

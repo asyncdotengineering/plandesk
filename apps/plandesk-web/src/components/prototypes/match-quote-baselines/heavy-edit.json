@@ -1,0 +1,12 @@
+{
+  "name": "heavy-edit",
+  "text": "Start here. Completely rewritten copy about billing preferences lives here now. End.",
+  "quote": "The unique purple-widget clause that must not survive a rewrite.",
+  "context": {
+    "prefix": "here. ",
+    "suffix": " End",
+    "hint": 11
+  },
+  "expect": "orphan",
+  "mustNotAttachTo": "billing preferences"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "repeated-quote",
+  "text": "Pay now. Later: Pay now. Done.",
+  "quote": "Pay now",
+  "context": {
+    "prefix": "Later: ",
+    "suffix": ". Done",
+    "hint": 16
+  },
+  "expect": "match",
+  "mustInclude": "Pay now"
+}

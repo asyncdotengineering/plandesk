@@ -1,10 +1,7 @@
 import { Hono } from 'hono';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import {
-  tryGetAuthContext,
-  type Services,
-} from '@plandesk/api';
+import { tryGetAuthContext, type Services } from '@plandesk/api';
 import { createAddCommentHandler } from './tools/add-comment.js';
 import { createAddArtifactCommentHandler } from './tools/add-artifact-comment.js';
 import { createAttachFileHandler } from './tools/attach-file.js';
@@ -126,10 +123,13 @@ import { createUpdateTaskHandler } from './tools/update-task.js';
 
 export type McpAppDeps = {
   services: Services;
+  /** Server bind host — gates `file_path` (loopback only). Defaults to loopback. */
+  bindHost?: string;
 };
 
-function createMcpServer(services: Services, origin: string): McpServer {
+function createMcpServer(services: Services, origin: string, bindHost: string): McpServer {
   const server = new McpServer({ name: 'plandesk', version: '1.0.0' });
+  const filePathDeps = { bindHost };
 
   server.registerTool(
     'list_projects',
@@ -370,7 +370,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
         "Create an agent-produced deliverable (report, RFC, HTML diagram) stored in the workspace. Pass optional prototype_id (same project) with kind 'html' to attach it as a screen — markdown screens are refused. Do not send x/y; layout is system-owned. Humans can annotate via the CLI previewer; the returned artifact_id is exactly the id used by list_artifact_comments and add_artifact_comment.",
       inputSchema: createArtifactInputSchema.shape,
     },
-    createCreateArtifactHandler(services.artifactService),
+    createCreateArtifactHandler(services.artifactService, filePathDeps),
   );
 
   server.registerTool(
@@ -393,7 +393,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
         'Revise a stored artifact (title, content, or kind). Use after reading artifact comments to incorporate human annotations.',
       inputSchema: updateArtifactInputSchema.shape,
     },
-    createUpdateArtifactHandler(services.artifactService),
+    createUpdateArtifactHandler(services.artifactService, filePathDeps),
   );
 
   server.registerTool(
@@ -458,7 +458,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
         'Upload a file (image today) and get back a short URL. Embed the returned `url` in a task, document, or comment body as `![alt](url)` instead of inlining base64 — keeps bodies lean. mime defaults to image/png.',
       inputSchema: attachFileInputSchema.shape,
     },
-    createAttachFileHandler(services.fileService),
+    createAttachFileHandler(services.fileService, filePathDeps),
   );
 
   server.registerTool(
@@ -554,7 +554,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Update Goal',
       description:
-        'Edit an existing goal\'s objective or contract fields (verification_surface, constraints, boundaries, iteration_policy, stop_condition, budget). Does not detach the goal\'s cycle-tasks. Omit a field to leave it unchanged.',
+        "Edit an existing goal's objective or contract fields (verification_surface, constraints, boundaries, iteration_policy, stop_condition, budget). Does not detach the goal's cycle-tasks. Omit a field to leave it unchanged.",
       inputSchema: updateGoalInputSchema.shape,
     },
     createUpdateGoalHandler(services.goalService),
@@ -596,7 +596,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Get Next Task',
       description:
-        'Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id). When goal_id is omitted: with one active goal, scopes to it; with multiple active goals, considers the union of every active goal\'s tasks instead of dead-ending — returns no_active_goal only when zero goals are active. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.',
+        "Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id). When goal_id is omitted: with one active goal, scopes to it; with multiple active goals, considers the union of every active goal's tasks instead of dead-ending — returns no_active_goal only when zero goals are active. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.",
       inputSchema: getNextTaskInputSchema.shape,
       annotations: { readOnlyHint: true },
     },
@@ -795,7 +795,7 @@ export function createMcpApp(deps: McpAppDeps): Hono {
       sessionIdGenerator: undefined,
     });
     const origin = new URL(c.req.url).origin;
-    const server = createMcpServer(deps.services, origin);
+    const server = createMcpServer(deps.services, origin, deps.bindHost ?? '127.0.0.1');
     await server.connect(transport);
     return transport.handleRequest(c.req.raw);
   });

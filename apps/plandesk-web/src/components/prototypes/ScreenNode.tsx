@@ -2,6 +2,7 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCanvasMode } from './CanvasModeContext.js';
 import { useRegisterFrame } from './FrameRegistryContext.js';
+import { useScreenCommentsStore } from './ScreenCommentsContext.js';
 import { useScreenDiagnostics, useScreenDiagnosticsStore } from './ScreenDiagnosticsContext.js';
 
 export type ScreenNodeData = {
@@ -34,6 +35,7 @@ export function ScreenNode({ data }: NodeProps<Node<ScreenNodeData>>) {
   const { mode } = useCanvasMode();
   const diagnostics = useScreenDiagnostics(data.artifactId);
   const diagnosticsStore = useScreenDiagnosticsStore();
+  const commentsStore = useScreenCommentsStore();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const iframeElRef = useRef<HTMLIFrameElement | null>(null);
   const [inView, setInView] = useState(false);
@@ -58,14 +60,15 @@ export function ScreenNode({ data }: NodeProps<Node<ScreenNodeData>>) {
     };
   }, []);
 
-  // Clear diagnostics when the revision (frame src key) changes — remount.
+  // Clear diagnostics + frame text when the revision (frame src key) changes — remount.
   useEffect(() => {
     if (prevRevisionRef.current !== data.revisionId) {
       diagnosticsStore.clear(data.artifactId);
+      commentsStore.clearFrame(data.artifactId);
       prevRevisionRef.current = data.revisionId;
       setBadgeOpen(false);
     }
-  }, [data.revisionId, data.artifactId, diagnosticsStore]);
+  }, [data.revisionId, data.artifactId, diagnosticsStore, commentsStore]);
 
   const modeRef = useRef(mode);
   modeRef.current = mode;

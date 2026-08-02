@@ -108,8 +108,10 @@ export const queryKeys = {
   prototype: (id: string) => ['prototypes', id] as const,
   notes: (projectId: string) => ['projects', projectId, 'notes'] as const,
   note: (id: string) => ['notes', id] as const,
-  comments: (targetType: CommentTargetType, targetId: string) =>
-    [`${targetType}s`, targetId, 'comments'] as const,
+  comments: (targetType: CommentTargetType, targetId: string, projectId?: string) =>
+    projectId !== undefined
+      ? ([`${targetType}s`, targetId, 'comments', projectId] as const)
+      : ([`${targetType}s`, targetId, 'comments'] as const),
   taskDocument: (taskId: string) => ['tasks', taskId, 'document'] as const,
   taskBacklinks: (taskId: string) => ['tasks', taskId, 'backlinks'] as const,
 
@@ -480,8 +482,9 @@ export function useDeleteNote() {
 }
 
 export function useComments(target: CommentTarget) {
+  const projectId = target.type === 'artifact' ? target.projectId : undefined;
   return useQuery({
-    queryKey: queryKeys.comments(target.type, target.id),
+    queryKey: queryKeys.comments(target.type, target.id, projectId),
     queryFn: () => listComments(target, { includeResolved: true }),
     ...liveQueryOptions,
   });
@@ -489,31 +492,40 @@ export function useComments(target: CommentTarget) {
 
 export function useCreateComment(target: CommentTarget) {
   const queryClient = useQueryClient();
+  const projectId = target.type === 'artifact' ? target.projectId : undefined;
   return useMutation({
     mutationFn: (input: CreateCommentInput) => createComment(target, input),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.comments(target.type, target.id) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.comments(target.type, target.id, projectId),
+      });
     },
   });
 }
 
 export function usePatchComment(target: CommentTarget) {
   const queryClient = useQueryClient();
+  const projectId = target.type === 'artifact' ? target.projectId : undefined;
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: PatchCommentInput }) =>
       patchComment(id, input),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.comments(target.type, target.id) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.comments(target.type, target.id, projectId),
+      });
     },
   });
 }
 
 export function useDeleteComment(target: CommentTarget) {
   const queryClient = useQueryClient();
+  const projectId = target.type === 'artifact' ? target.projectId : undefined;
   return useMutation({
     mutationFn: (id: string) => deleteComment(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.comments(target.type, target.id) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.comments(target.type, target.id, projectId),
+      });
     },
   });
 }

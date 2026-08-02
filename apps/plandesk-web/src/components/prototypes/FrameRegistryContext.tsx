@@ -11,6 +11,8 @@ import {
 import { createFrameRegistry, listenFrameMessages, type FrameRegistry } from './frame-registry.js';
 import { parseFrameDiagnostic } from './screen-diagnostics.js';
 import { useScreenDiagnosticsStore } from './ScreenDiagnosticsContext.js';
+import { parseFrameReady, parseFrameSelection, passageFromSelector } from './screen-comments.js';
+import { useScreenCommentsStore } from './ScreenCommentsContext.js';
 
 export type FrameNavigateHandler = (sourceArtifactId: string, rawTarget: string) => void;
 
@@ -27,6 +29,7 @@ const FrameRegistryContext = createContext<FrameRegistryContextValue | null>(nul
 export function FrameRegistryProvider({ children }: { children: ReactNode }) {
   const registry = useMemo(() => createFrameRegistry(), []);
   const diagnostics = useScreenDiagnosticsStore();
+  const comments = useScreenCommentsStore();
   const [acceptedCount, setAcceptedCount] = useState(0);
   const [lastAccepted, setLastAccepted] = useState<{
     artifactId: string;
@@ -47,8 +50,31 @@ export function FrameRegistryProvider({ children }: { children: ReactNode }) {
           diagnostics.push(artifactId, diagnostic);
           return;
         }
+
+        const ready = parseFrameReady(data);
+        if (ready !== null) {
+          comments.setFrameText(artifactId, ready.text);
+          return;
+        }
+
+        const selection = parseFrameSelection(data);
+        if (selection !== null) {
+          // Shim only emits selections in Comment mode; trust that gate.
+          comments.setPending({
+            artifactId,
+            selector: selection.selector,
+            rect: selection.rect,
+            passage: passageFromSelector(selection.selector),
+          });
+          return;
+        }
+
         if (data !== null && typeof data === 'object') {
-          const msg = data as { kind?: string; target?: string };
+          const msg = data as { kind?: string; target?: string; text?: string };
+          if (msg.kind === 'plandesk:resize' && typeof msg.text === 'string') {
+            comments.setFrameText(artifactId, msg.text);
+            return;
+          }
           if (msg.kind === 'plandesk:navigate' && typeof msg.target === 'string') {
             navigateRef.current?.(artifactId, msg.target);
           }
@@ -59,7 +85,7 @@ export function FrameRegistryProvider({ children }: { children: ReactNode }) {
         setLastAccepted({ artifactId, data });
       },
     );
-  }, [registry, diagnostics]);
+  }, [registry, diagnostics, comments]);
 
   const value = useMemo(
     () => ({ registry, acceptedCount, lastAccepted, setNavigateHandler }),

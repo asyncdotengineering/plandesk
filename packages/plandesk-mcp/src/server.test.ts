@@ -3,7 +3,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { getRequestListener } from '@hono/node-server';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { createApp, createServices, createBetterAuth, runBetterAuthMigrations, ensureLocalBetterAuthOrganization } from '@plandesk/api';
+import {
+  createApp,
+  createServices,
+  createBetterAuth,
+  runBetterAuthMigrations,
+  ensureLocalBetterAuthOrganization,
+} from '@plandesk/api';
 import {
   createDb,
   createEdge,
@@ -18,7 +24,12 @@ import {
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { z } from 'zod';
-import { v1ToolNames, getDocumentOutputSchema, listEdgesOutputSchema, createEdgeOutputSchema } from './tools/registry.js';
+import {
+  v1ToolNames,
+  getDocumentOutputSchema,
+  listEdgesOutputSchema,
+  createEdgeOutputSchema,
+} from './tools/registry.js';
 import { createMcpApp } from './server.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
@@ -52,7 +63,13 @@ async function withMcpServer(
   // Auth comes from parent createApp (loopback owner on 127.0.0.1).
   const mcpApp = createMcpApp({ services });
   // Default bindHost is loopback (local zero-token). Invalid bearer → 401.
-  const app = createApp({ db, services, mcp: mcpApp, bindHost: '127.0.0.1', betterAuth: { secret: TEST_SECRET, baseURL: TEST_BASE_URL } });
+  const app = createApp({
+    db,
+    services,
+    mcp: mcpApp,
+    bindHost: '127.0.0.1',
+    betterAuth: { secret: TEST_SECRET, baseURL: TEST_BASE_URL },
+  });
 
   const server = createServer((req, res) => {
     void getRequestListener(app.fetch)(req, res);
@@ -106,7 +123,13 @@ function parseDocumentResult(result: unknown): {
   id: string;
   title: string;
   links?: Array<{ type: string; id: string; title: string; label: string | null; edge_id: string }>;
-  backlinks?: Array<{ type: string; id: string; title: string; label: string | null; edge_id: string }>;
+  backlinks?: Array<{
+    type: string;
+    id: string;
+    title: string;
+    label: string | null;
+    edge_id: string;
+  }>;
 } {
   const content = (result as { content: unknown }).content as Array<{
     type: string;
@@ -118,8 +141,20 @@ function parseDocumentResult(result: unknown): {
       document: {
         id: string;
         title: string;
-        links?: Array<{ type: string; id: string; title: string; label: string | null; edge_id: string }>;
-        backlinks?: Array<{ type: string; id: string; title: string; label: string | null; edge_id: string }>;
+        links?: Array<{
+          type: string;
+          id: string;
+          title: string;
+          label: string | null;
+          edge_id: string;
+        }>;
+        backlinks?: Array<{
+          type: string;
+          id: string;
+          title: string;
+          label: string | null;
+          edge_id: string;
+        }>;
       };
     }
   ).document;
@@ -446,7 +481,6 @@ describe('createMcpApp', () => {
 
   it('create_folder, update_folder, and folder-aware documents work via MCP', async () => {
     await withMcpServer(async ({ baseUrl, projectId }) => {
-
       const client = await connectClient(baseUrl);
 
       const createdFolder = await client.callTool({
@@ -678,7 +712,6 @@ describe('createMcpApp', () => {
 
   it('create_note, list_notes, get_note, and update_note work via MCP', async () => {
     await withMcpServer(async ({ baseUrl, projectId }) => {
-
       const client = await connectClient(baseUrl);
 
       const created = await client.callTool({
@@ -826,8 +859,7 @@ describe('createMcpApp', () => {
       });
       expect(listed.isError).not.toBe(true);
       const listedContent = listed.content as Array<{ type: string; text?: string }>;
-      const listedText =
-        listedContent[0]?.type === 'text' ? (listedContent[0].text ?? '{}') : '{}';
+      const listedText = listedContent[0]?.type === 'text' ? (listedContent[0].text ?? '{}') : '{}';
       const listedPayload = JSON.parse(listedText) as {
         artifacts: Array<{ id: string; title: string }>;
       };
@@ -887,6 +919,115 @@ describe('createMcpApp', () => {
       expect(result.isError).toBe(true);
       await client.close();
     });
+  });
+
+  it('attach_file file_path on loopback reads disk; both/neither and traversal refuse', async () => {
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { createAttachFileHandler } = await import('./tools/attach-file.js');
+    const { FILE_PATH_REMOTE_ERROR } = await import('./tools/file-path.js');
+
+    const root = mkdtempSync(join(tmpdir(), 'pd-attach-'));
+    const outsider = mkdtempSync(join(tmpdir(), 'pd-out-'));
+    try {
+      mkdirSync(join(root, '.plandesk'));
+      const file = join(root, 'shot.png');
+      writeFileSync(file, Buffer.from('png-bytes'));
+
+      await withMcpServer(async ({ baseUrl, projectId, services, app }) => {
+        const client = await connectClient(baseUrl);
+        const ok = await client.callTool({
+          name: 'attach_file',
+          arguments: { project_id: projectId, file_path: file },
+        });
+        expect(ok.isError).not.toBe(true);
+        const text = (ok.content as Array<{ text?: string }>)[0]?.text ?? '{}';
+        const payload = JSON.parse(text) as { file: { url: string } };
+        const getRes = await app.request(payload.file.url);
+        expect(getRes.status).toBe(200);
+        expect(Buffer.from(await getRes.arrayBuffer()).toString()).toBe('png-bytes');
+
+        const both = await client.callTool({
+          name: 'attach_file',
+          arguments: {
+            project_id: projectId,
+            filename: 'x.png',
+            content_base64: 'YQ==',
+            file_path: file,
+          },
+        });
+        expect(both.isError).toBe(true);
+
+        const neither = await client.callTool({
+          name: 'attach_file',
+          arguments: { project_id: projectId },
+        });
+        expect(neither.isError).toBe(true);
+
+        const secret = join(outsider, 'secret.bin');
+        writeFileSync(secret, 'nope');
+        const escape = await client.callTool({
+          name: 'attach_file',
+          arguments: { project_id: projectId, file_path: secret },
+        });
+        expect(escape.isError).toBe(true);
+
+        await client.close();
+
+        // Remote bind: stated error, never a generic 400 — Rule 14 / capability gate.
+        const remoteHandler = createAttachFileHandler(services.fileService, {
+          bindHost: '0.0.0.0',
+        });
+        const remote = await remoteHandler({
+          project_id: projectId,
+          file_path: file,
+        });
+        expect(remote.isError).toBe(true);
+        expect(remote.content[0]?.text ?? '').toContain(FILE_PATH_REMOTE_ERROR);
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(outsider, { recursive: true, force: true });
+    }
+  });
+
+  it('create_artifact file_path stores content without base64 in the screen body', async () => {
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+
+    const root = mkdtempSync(join(tmpdir(), 'pd-art-'));
+    try {
+      mkdirSync(join(root, '.plandesk'));
+      const html = '<!doctype html><html><body><img src="/api/v1/files/abc" alt="x"></body></html>';
+      const file = join(root, 'screen.html');
+      writeFileSync(file, html);
+
+      await withMcpServer(async ({ baseUrl, projectId, app }) => {
+        const client = await connectClient(baseUrl);
+        const created = await client.callTool({
+          name: 'create_artifact',
+          arguments: {
+            project_id: projectId,
+            title: 'Checkout',
+            kind: 'html',
+            file_path: file,
+          },
+        });
+        expect(created.isError).not.toBe(true);
+        const text = (created.content as Array<{ text?: string }>)[0]?.text ?? '{}';
+        const payload = JSON.parse(text) as { artifact: { artifact_id: string; url: string } };
+        const getRes = await app.request(payload.artifact.url);
+        const body = (await getRes.json()) as { content: string };
+        expect(body.content).toBe(html);
+        expect(body.content.includes('base64')).toBe(false);
+        expect(body.content).toContain('/api/v1/files/');
+        await client.close();
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('create_share_link mints a resource-scoped link with a working markdown_url', async () => {
@@ -978,7 +1119,6 @@ describe('createMcpApp', () => {
 
   it('scaffold_project_from_plan creates project atomically via MCP', async () => {
     await withMcpServer(async ({ baseUrl, db }) => {
-
       const client = await connectClient(baseUrl);
       const result = await client.callTool({
         name: 'scaffold_project_from_plan',
@@ -1167,8 +1307,7 @@ describe('createMcpApp', () => {
           },
         });
         expect(badEdge.isError).toBe(true);
-        const edgeText =
-          (badEdge.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
+        const edgeText = (badEdge.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
         const edgeError = JSON.parse(edgeText) as { error?: unknown; message?: unknown };
         expect(edgeError.error).toBe('invalid_argument');
         expect(typeof edgeError.message).toBe('string');
@@ -1660,7 +1799,11 @@ describe('createMcpApp', () => {
   it('get_next_task returns actionable task and blocked context', async () => {
     await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const actionable = await createTask(db, { projectId, label: 'Actionable', status: 'todo' });
-      const prerequisite = await createTask(db, { projectId, label: 'Prerequisite', status: 'todo' });
+      const prerequisite = await createTask(db, {
+        projectId,
+        label: 'Prerequisite',
+        status: 'todo',
+      });
       const blocked = await createTask(db, { projectId, label: 'Blocked', status: 'todo' });
       await createEdge(db, {
         projectId,
@@ -1751,7 +1894,6 @@ describe('createMcpApp', () => {
 
   it('create_task sets tags (auto-created by name), update_task replaces the full set, list_tags lists them', async () => {
     await withMcpServer(async ({ baseUrl, projectId }) => {
-
       const client = await connectClient(baseUrl);
 
       const created = await client.callTool({
@@ -1847,9 +1989,9 @@ describe('createMcpApp', () => {
       });
       const gotContent = got.content as Array<{ type: string; text?: string }>;
       const gotText = gotContent[0]?.type === 'text' ? (gotContent[0].text ?? '{}') : '{}';
-      expect((JSON.parse(gotText) as { task: { commit_refs: string[] } }).task.commit_refs).toEqual([
-        'ffffff0',
-      ]);
+      expect((JSON.parse(gotText) as { task: { commit_refs: string[] } }).task.commit_refs).toEqual(
+        ['ffffff0'],
+      );
 
       const bad = await client.callTool({
         name: 'update_task',
@@ -1866,8 +2008,7 @@ describe('createMcpApp', () => {
       });
       expect(upper.isError).not.toBe(true);
       const upperContent = upper.content as Array<{ type: string; text?: string }>;
-      const upperText =
-        upperContent[0]?.type === 'text' ? (upperContent[0].text ?? '{}') : '{}';
+      const upperText = upperContent[0]?.type === 'text' ? (upperContent[0].text ?? '{}') : '{}';
       expect(
         (JSON.parse(upperText) as { task: { commit_refs: string[] } }).task.commit_refs,
       ).toEqual(['abc1234', 'deadbeef']);
@@ -2116,7 +2257,6 @@ describe('createMcpApp', () => {
 
   it('list_comments, add_comment, and resolve_comment work via MCP', async () => {
     await withMcpServer(async ({ baseUrl, projectId, db }) => {
-
       const doc = await createDocument(db, { projectId, title: 'Review doc' });
       const resolved = await createComment(db, {
         projectId,
@@ -2267,7 +2407,6 @@ describe('createMcpApp', () => {
     });
   });
 
-
   it('add_comment renders a Markdown body as rich-text HTML, like create_document/create_note (#17)', async () => {
     await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const doc = await createDocument(db, { projectId, title: 'Doc' });
@@ -2344,8 +2483,7 @@ describe('createMcpApp', () => {
         arguments: { project_id: projectId, status: 'pending' },
       });
       expect(listed.isError).not.toBe(true);
-      const listText =
-        (listed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+      const listText = (listed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
       const listPayload = JSON.parse(listText) as {
         submissions: Array<{ id: string; title: string }>;
       };
@@ -2406,9 +2544,9 @@ describe('createMcpApp', () => {
           }>;
         };
         expect(listPayload.revisions).toHaveLength(2);
-        expect(new Date(listPayload.revisions[0]?.created_at ?? 0).getTime()).toBeGreaterThanOrEqual(
-          new Date(listPayload.revisions[1]?.created_at ?? 0).getTime(),
-        );
+        expect(
+          new Date(listPayload.revisions[0]?.created_at ?? 0).getTime(),
+        ).toBeGreaterThanOrEqual(new Date(listPayload.revisions[1]?.created_at ?? 0).getTime());
         for (const row of listPayload.revisions) {
           expect(typeof row.id).toBe('string');
           expect(typeof row.author).toBe('string');

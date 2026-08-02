@@ -171,6 +171,8 @@ const RESERVED_COMMANDS = new Set([
   'open',
   'preview',
   'annotate',
+  'attach',
+  'push-artifact',
 ]);
 
 export function hasPreviewExtension(path: string): boolean {
@@ -188,7 +190,14 @@ export type ParsedArgs =
   | { command: 'logout' }
   | { command: 'whoami' }
   | { command: 'init'; dataDir?: string; localDb: boolean }
-  | { command: 'serve'; port?: number; dataDir?: string; host?: string; strictPort: boolean; configPath?: string }
+  | {
+      command: 'serve';
+      port?: number;
+      dataDir?: string;
+      host?: string;
+      strictPort: boolean;
+      configPath?: string;
+    }
   | { command: 'url'; repoDir?: string; lan: boolean }
   | {
       command: 'admin';
@@ -271,11 +280,25 @@ export type ParsedArgs =
       force: boolean;
       prune: boolean;
     }
-  | { command: 'workspace'; subcommand: 'create' | 'list'; repoDir?: string; name?: string; to?: string }
+  | {
+      command: 'workspace';
+      subcommand: 'create' | 'list';
+      repoDir?: string;
+      name?: string;
+      to?: string;
+    }
   | { command: 'context'; repoDir?: string }
   | { command: 'progress-checkpoint'; message?: string; repoDir?: string }
   | { command: 'status' }
   | { command: 'preview'; paths: string[]; port?: number; host?: string; open: boolean }
+  | { command: 'attach'; filePath: string; repoDir?: string }
+  | {
+      command: 'push-artifact';
+      filePath: string;
+      prototypeName?: string;
+      force: boolean;
+      repoDir?: string;
+    }
   | { command: 'help'; full: boolean; topic?: string }
   | { command: 'onboard' }
   | { command: 'version' }
@@ -403,6 +426,28 @@ export function parseArgs(argv: string[]): ParsedArgs {
     };
   }
 
+  if (command === 'attach') {
+    const filePath = positional[1];
+    if (filePath === undefined || filePath.trim() === '') {
+      return { command: 'unknown', name: 'attach (missing <file>)' };
+    }
+    return { command: 'attach', filePath, repoDir: flagString(flags, 'repo') };
+  }
+
+  if (command === 'push-artifact') {
+    const filePath = positional[1];
+    if (filePath === undefined || filePath.trim() === '') {
+      return { command: 'unknown', name: 'push-artifact (missing <file>)' };
+    }
+    return {
+      command: 'push-artifact',
+      filePath,
+      prototypeName: flagString(flags, 'prototype'),
+      force: flags['force'] === true,
+      repoDir: flagString(flags, 'repo'),
+    };
+  }
+
   // Bare-file sugar: `plandesk report.md` / `plandesk *.md`. Only when the first
   // positional is not a reserved subcommand and resolves to a previewable file,
   // so a file named like a subcommand can never be shadowed silently.
@@ -485,7 +530,12 @@ export function parseArgs(argv: string[]): ParsedArgs {
       command: 'legacy-upgrade',
       from: flagString(flags, 'from'),
       dataDir,
-      intoWorkspace: typeof intoWorkspaceRaw === 'string' ? intoWorkspaceRaw : intoWorkspaceRaw === true ? true : undefined,
+      intoWorkspace:
+        typeof intoWorkspaceRaw === 'string'
+          ? intoWorkspaceRaw
+          : intoWorkspaceRaw === true
+            ? true
+            : undefined,
       print: flags['print'] === true,
     };
   }

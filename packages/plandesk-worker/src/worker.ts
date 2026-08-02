@@ -162,10 +162,12 @@ function getBetterAuth(
 }
 
 function isApiOrMcpPath(pathname: string): boolean {
-  return pathname === '/api' ||
+  return (
+    pathname === '/api' ||
     pathname.startsWith('/api/') ||
     pathname === '/mcp' ||
-    pathname.startsWith('/mcp/');
+    pathname.startsWith('/mcp/')
+  );
 }
 
 /**
@@ -187,7 +189,7 @@ export function composeWorkerApp(deps: {
   return createApp({
     db: deps.db,
     services: deps.services,
-    mcp: createMcpApp({ services: deps.services }),
+    mcp: createMcpApp({ services: deps.services, bindHost: '0.0.0.0' }),
     authPassword: deps.authPassword,
     // Non-loopback: hosted path requires a token or a session (no default-org trust).
     bindHost: '0.0.0.0',
@@ -220,7 +222,11 @@ export default {
     // Storage is optional: prefer R2 binding, then S3 creds, else unavailable
     // (file uploads/artifacts off — no crash). Mirrors `plandesk serve`.
     const storage = resolveWorkerStorage(env, db);
-    const services = createServices({ db, auth: authInstance, ...(storage !== undefined ? { storage } : {}) });
+    const services = createServices({
+      db,
+      auth: authInstance,
+      ...(storage !== undefined ? { storage } : {}),
+    });
     const app = composeWorkerApp({
       db,
       services,
