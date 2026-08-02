@@ -206,7 +206,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Create Document',
       description:
-        'Create a document with optional links. Pass link_to as a single id or a list of task/document ids to wire document→target edges. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
+        'Create a document with optional links and optional folder_id to file it on create (no follow-up move). Pass link_to as a single id or a list of task/document ids to wire document→target edges. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
       inputSchema: createDocumentInputSchema.shape,
     },
     createCreateDocumentHandler(
@@ -261,7 +261,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Create Folder',
       description:
-        'Create a document folder, optionally nested under a parent folder. Folders organize documents; documents reference them via folder_id.',
+        'Create a document folder, optionally nested under a parent folder via parent_folder_id (omit for project root). Folders organize documents; documents reference them via folder_id at create or move time.',
       inputSchema: createFolderInputSchema.shape,
     },
     createCreateFolderHandler(services.folderService),

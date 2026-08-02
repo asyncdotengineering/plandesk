@@ -240,14 +240,15 @@ describe('DocumentsPanel folder tree', () => {
     });
   });
 
-  it('creates a document via the dialog and POST into Unfiled', async () => {
-    renderPanel([], []);
+  it('creates a document via the dialog into a chosen folder in one POST', async () => {
+    renderPanel([], [makeFolder('f1', 'Specs', null)]);
     await panelReady();
 
     fireEvent.click(screen.getByRole('button', { name: 'New document' }));
     fireEvent.change(await screen.findByLabelText('Title'), {
       target: { value: 'Design: caching' },
     });
+    fireEvent.change(screen.getByLabelText('Folder'), { target: { value: 'f1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create document' }));
 
     await waitFor(() => {
@@ -257,7 +258,7 @@ describe('DocumentsPanel folder tree', () => {
       const rawBody = postCall?.[1]?.body;
       const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<string, unknown>;
       expect(body.title).toBe('Design: caching');
-      expect(body.folder_id).toBeNull();
+      expect(body.folder_id).toBe('f1');
     });
   });
 

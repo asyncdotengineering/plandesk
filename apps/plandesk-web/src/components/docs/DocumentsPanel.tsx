@@ -51,6 +51,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { applyDocumentSelectionClick } from './document-row-selection.js';
+import { FolderPicker } from './FolderPicker.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 
 export type DocumentsPanelProps = {
@@ -237,7 +238,6 @@ function TextDialog({
 const ROOT_VALUE = '__root__';
 
 // Move-target picker (folder → different parent, or document → different folder).
-// Native <select> stays keyboard-accessible; the searchable picker lands in a later slice.
 function MoveDialog({
   open,
   onOpenChange,
@@ -255,13 +255,13 @@ function MoveDialog({
   busy?: boolean;
   onSubmit: (folderId: string | null) => void;
 }) {
-  const [choice, setChoice] = useState<string>(currentId ?? ROOT_VALUE);
+  const [choice, setChoice] = useState<string | null>(currentId);
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         if (next) {
-          setChoice(currentId ?? ROOT_VALUE);
+          setChoice(currentId);
         }
         onOpenChange(next);
       }}
@@ -270,26 +270,11 @@ function MoveDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-1.5">
-          <Label htmlFor="move-destination" className="text-xs text-muted-foreground">
-            Destination
-          </Label>
-          <select
-            id="move-destination"
-            value={choice}
-            onChange={(event) => {
-              setChoice(event.target.value);
-            }}
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          >
-            <option value={ROOT_VALUE}>Unfiled (no folder)</option>
-            {targets.map((folder) => (
-              <option key={folder.id} value={folder.id}>
-                {folder.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <FolderPicker
+          folders={targets}
+          value={choice}
+          onChange={setChoice}
+        />
         <DialogFooter>
           <Button
             type="button"
@@ -304,7 +289,7 @@ function MoveDialog({
             type="button"
             disabled={busy}
             onClick={() => {
-              onSubmit(choice === ROOT_VALUE ? null : choice);
+              onSubmit(choice);
             }}
           >
             Move
@@ -402,6 +387,8 @@ export function DocumentsPanel({
   const [docToDelete, setDocToDelete] = useState<FlatDocument | null>(null);
   const [newDocTitle, setNewDocTitle] = useState('');
   const [newDocTask, setNewDocTask] = useState<string>(ROOT_VALUE);
+  const [newDocFolderId, setNewDocFolderId] = useState<string | null>(null);
+  const [newFolderParentId, setNewFolderParentId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
     const stored = loadExpandedFolderIds(projectId);
     return stored ?? defaultExpandedIds(folders);
@@ -531,11 +518,12 @@ export function DocumentsPanel({
 
   const handleCreateFolder = (name: string) => {
     createFolder.mutate(
-      { name, parent_folder_id: null },
+      { name, parent_folder_id: newFolderParentId },
       {
         onSuccess: () => {
           toast('Folder created');
           setNewFolderOpen(false);
+          setNewFolderParentId(null);
         },
       },
     );
@@ -550,7 +538,7 @@ export function DocumentsPanel({
     createDocument.mutate(
       {
         title,
-        folder_id: null,
+        folder_id: newDocFolderId,
       },
       {
         onSuccess: (created) => {
@@ -559,6 +547,7 @@ export function DocumentsPanel({
             setNewDocOpen(false);
             setNewDocTitle('');
             setNewDocTask(ROOT_VALUE);
+            setNewDocFolderId(null);
           };
           if (taskId === null) {
             finish();
@@ -580,6 +569,7 @@ export function DocumentsPanel({
                 setNewDocOpen(false);
                 setNewDocTitle('');
                 setNewDocTask(ROOT_VALUE);
+                setNewDocFolderId(null);
               },
             },
           );
@@ -1116,16 +1106,66 @@ export function DocumentsPanel({
         </ul>
       )}
 
-      <TextDialog
+      <Dialog
         open={newFolderOpen}
-        onOpenChange={setNewFolderOpen}
-        title="New folder"
-        label="Folder name"
-        placeholder="e.g. Design specs"
-        confirmLabel="Create folder"
-        busy={createFolder.isPending}
-        onSubmit={handleCreateFolder}
-      />
+        onOpenChange={(next) => {
+          setNewFolderOpen(next);
+          if (!next) {
+            setNewFolderParentId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New folder</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const form = event.currentTarget;
+              const input = form.elements.namedItem('folder-name') as HTMLInputElement;
+              const name = input.value.trim();
+              if (name !== '') {
+                handleCreateFolder(name);
+              }
+            }}
+            className="space-y-3"
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="folder-name" className="text-xs text-muted-foreground">
+                Folder name
+              </Label>
+              <Input
+                id="folder-name"
+                name="folder-name"
+                autoFocus
+                placeholder="e.g. Design specs"
+              />
+            </div>
+            <FolderPicker
+              id="new-folder-parent"
+              label="Parent folder"
+              folders={folders}
+              value={newFolderParentId}
+              onChange={setNewFolderParentId}
+            />
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setNewFolderOpen(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createFolder.isPending}>
+                Create folder
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={newDocOpen}
@@ -1134,6 +1174,7 @@ export function DocumentsPanel({
           if (!next) {
             setNewDocTitle('');
             setNewDocTask(ROOT_VALUE);
+            setNewDocFolderId(null);
           }
         }}
       >
@@ -1162,6 +1203,13 @@ export function DocumentsPanel({
                 }}
               />
             </div>
+            <FolderPicker
+              id="new-doc-folder"
+              label="Folder"
+              folders={folders}
+              value={newDocFolderId}
+              onChange={setNewDocFolderId}
+            />
             {tasks.length > 0 ? (
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Link to a task (optional)</Label>

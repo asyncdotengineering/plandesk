@@ -137,7 +137,7 @@ export const createDocumentInputSchema = z.object({
     .string()
     .uuid()
     .optional()
-    .describe('Folder to place the document in. Omit for the project root.'),
+    .describe('Folder to place the document in on create. Omit for Unfiled (project root).'),
 });
 
 export const updateDocumentInputSchema = z.object({
