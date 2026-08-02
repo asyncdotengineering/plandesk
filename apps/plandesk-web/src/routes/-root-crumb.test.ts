@@ -20,10 +20,23 @@ describe('detailFromPath', () => {
     });
   });
 
+  it('names the open prototype', () => {
+    // Prototypes shipped after this function and were never registered with
+    // it, so a prototype page read "… › Prototypes" with the open flow
+    // appearing nowhere — the same bug this suite was written for, one view
+    // later.
+    expect(detailFromPath('/projects/proj-1/prototypes/proto-7')).toEqual({
+      kind: 'prototypes',
+      recordId: 'proto-7',
+    });
+  });
+
   it('returns null on the list itself, so the view stays the leaf', () => {
     expect(detailFromPath('/projects/proj-1/documents')).toBeNull();
     expect(detailFromPath('/projects/proj-1/documents/')).toBeNull();
     expect(detailFromPath('/projects/proj-1/notes')).toBeNull();
+    expect(detailFromPath('/projects/proj-1/prototypes')).toBeNull();
+    expect(detailFromPath('/projects/proj-1/prototypes/')).toBeNull();
   });
 
   it('ignores views that have no detail page', () => {

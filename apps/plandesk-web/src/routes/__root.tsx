@@ -5,7 +5,7 @@ import { CommandMenu, CommandMenuProvider } from '../components/layout/CommandMe
 import { Sidebar } from '../components/layout/Sidebar.js';
 import { Toaster } from '@/components/ui/sonner';
 import { useActiveWorkspace } from '../lib/auth.js';
-import { useDocument, useNote, useProject } from '../lib/queries.js';
+import { useDocument, useNote, useProject, usePrototype } from '../lib/queries.js';
 
 const VIEW_LABELS: Record<string, string> = {
   overview: 'Overview',
@@ -28,14 +28,30 @@ const VIEW_LABELS: Record<string, string> = {
  * nowhere. The detail pages compensated with a lone back arrow, which loses the
  * path above it.
  */
-export function detailFromPath(pathname: string): { kind: 'documents' | 'notes'; recordId: string } | null {
+/**
+ * Project views that have a detail page under them, so the trail can name the
+ * open record rather than stopping at the list you navigated away from.
+ *
+ * Add a kind here and the switches below stop compiling until each one handles
+ * it. That is deliberate: `prototypes` shipped without being registered here
+ * and its detail page silently read "… › Prototypes", reproducing the exact
+ * bug this function was written to fix.
+ */
+const DETAIL_KINDS = ['documents', 'notes', 'prototypes'] as const;
+type DetailKind = (typeof DETAIL_KINDS)[number];
+
+function isDetailKind(value: string): value is DetailKind {
+  return (DETAIL_KINDS as readonly string[]).includes(value);
+}
+
+export function detailFromPath(pathname: string): { kind: DetailKind; recordId: string } | null {
   const segments = pathname.split('/').filter((segment) => segment.length > 0);
   if (segments[0] !== 'projects' || segments.length < 4) {
     return null;
   }
   const kind = segments[2];
   const recordId = segments[3];
-  if (recordId === undefined || (kind !== 'documents' && kind !== 'notes')) {
+  if (recordId === undefined || kind === undefined || !isDetailKind(kind)) {
     return null;
   }
   return { kind, recordId };
@@ -100,6 +116,56 @@ function NoteCrumb({ recordId }: { recordId: string }) {
   return <LeafCrumb title={data?.title} />;
 }
 
+function PrototypeCrumb({ recordId }: { recordId: string }) {
+  const { data } = usePrototype(recordId);
+  return <LeafCrumb title={data?.name} />;
+}
+
+/** The view crumb becomes the way back once a record is open below it. */
+function ViewBackLink({ id, kind, label }: { id: string; kind: DetailKind; label: string }) {
+  switch (kind) {
+    case 'documents':
+      return (
+        <Link to="/projects/$id/documents" params={{ id }}>
+          {label}
+        </Link>
+      );
+    case 'notes':
+      return (
+        <Link to="/projects/$id/notes" params={{ id }}>
+          {label}
+        </Link>
+      );
+    case 'prototypes':
+      return (
+        <Link to="/projects/$id/prototypes" params={{ id }}>
+          {label}
+        </Link>
+      );
+    default: {
+      // Annotation, never `as never` — an assertion compiles regardless and
+      // would let a new kind slip through exactly as prototypes did.
+      const exhaustive: never = kind;
+      return exhaustive;
+    }
+  }
+}
+
+function DetailCrumb({ kind, recordId }: { kind: DetailKind; recordId: string }) {
+  switch (kind) {
+    case 'documents':
+      return <DocumentCrumb recordId={recordId} />;
+    case 'notes':
+      return <NoteCrumb recordId={recordId} />;
+    case 'prototypes':
+      return <PrototypeCrumb recordId={recordId} />;
+    default: {
+      const exhaustive: never = kind;
+      return exhaustive;
+    }
+  }
+}
+
 function ProjectCrumb({
   id,
   viewLabel,
@@ -107,7 +173,7 @@ function ProjectCrumb({
 }: {
   id: string;
   viewLabel: string | null;
-  detail: { kind: 'documents' | 'notes'; recordId: string } | null;
+  detail: { kind: DetailKind; recordId: string } | null;
 }) {
   const { data: project } = useProject(id);
   const name = project?.name ?? '…';
@@ -127,21 +193,13 @@ function ProjectCrumb({
           {/* With a record open the view is no longer the leaf — make it the way back. */}
           {detail === null ? (
             <b>{viewLabel}</b>
-          ) : detail.kind === 'documents' ? (
-            <Link to="/projects/$id/documents" params={{ id }}>
-              {viewLabel}
-            </Link>
           ) : (
-            <Link to="/projects/$id/notes" params={{ id }}>
-              {viewLabel}
-            </Link>
+            <ViewBackLink id={id} kind={detail.kind} label={viewLabel} />
           )}
         </>
       ) : null}
-      {detail === null ? null : detail.kind === 'documents' ? (
-        <DocumentCrumb recordId={detail.recordId} />
-      ) : (
-        <NoteCrumb recordId={detail.recordId} />
+      {detail === null ? null : (
+        <DetailCrumb kind={detail.kind} recordId={detail.recordId} />
       )}
     </>
   );
