@@ -1,9 +1,11 @@
 import {
   createArtifact as dbCreateArtifact,
+  createEdge,
   getArtifact as dbGetArtifact,
   getPrototypeByProjectAndId,
   listArtifactsByProject as dbListArtifactsByProject,
   updateArtifact as dbUpdateArtifact,
+  withTransaction,
   type ArtifactKind,
   type Db,
 } from '@plandesk/db';
@@ -14,7 +16,18 @@ import {
   type SerializedArtifactSummary,
 } from '../serialize.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
+import { findFlowDocumentForPrototype } from './prototypes.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
+import {
+  applyScreenContentScan,
+  assertScreenContentAllowed,
+  clearScreenLinks,
+  ExternalReferenceError,
+  reResolveNullTargets,
+  UnknownLibraryError,
+} from './screen-scan.js';
+
+export { ExternalReferenceError, UnknownLibraryError };
 
 export type ArtifactServiceDeps = OrgScopedDeps & {
   db: Db;
@@ -110,12 +123,41 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
       const kind = input.kind ?? 'markdown';
       const prototypeId = await resolvePrototypeForWrite(db, projectId, input.prototypeId, kind);
 
-      const artifact = await dbCreateArtifact(db, {
-        projectId,
-        title: input.title,
-        kind,
-        content: input.content,
-        ...(prototypeId !== undefined ? { prototypeId } : {}),
+      // Refuse before insert so a rejected screen never lands in storage.
+      if (typeof prototypeId === 'string') {
+        assertScreenContentAllowed(input.content ?? '');
+      }
+
+      const artifact = await withTransaction(db, async (tx) => {
+        const created = await dbCreateArtifact(tx, {
+          projectId,
+          title: input.title,
+          kind,
+          content: input.content,
+          ...(prototypeId !== undefined ? { prototypeId } : {}),
+        });
+
+        if (typeof prototypeId === 'string') {
+          await applyScreenContentScan(tx, {
+            projectId,
+            artifactId: created.id,
+            prototypeId,
+            content: created.content,
+          });
+          const flowDoc = await findFlowDocumentForPrototype(tx, projectId, prototypeId);
+          if (flowDoc) {
+            await createEdge(tx, {
+              projectId,
+              fromType: 'artifact',
+              fromId: created.id,
+              toType: 'document',
+              toId: flowDoc.id,
+              label: 'documents',
+            });
+          }
+        }
+
+        return created;
       });
 
       return serializeArtifact(artifact);
@@ -167,12 +209,62 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
         // clearing is fine for any kind
       }
 
-      const artifact = await dbUpdateArtifact(db, id, {
-        ...(input.title !== undefined ? { title: input.title } : {}),
-        ...(input.kind !== undefined ? { kind: input.kind } : {}),
-        ...(input.content !== undefined ? { content: input.content } : {}),
-        ...(input.prototypeId !== undefined ? { prototypeId: input.prototypeId } : {}),
+      const nextContent = input.content !== undefined ? input.content : existing.content;
+
+      // Refuse before write when the post-update artifact is a screen.
+      if (nextPrototypeId !== null) {
+        assertScreenContentAllowed(nextContent);
+      }
+
+      const artifact = await withTransaction(db, async (tx) => {
+        const updated = await dbUpdateArtifact(tx, id, {
+          ...(input.title !== undefined ? { title: input.title } : {}),
+          ...(input.kind !== undefined ? { kind: input.kind } : {}),
+          ...(input.content !== undefined ? { content: input.content } : {}),
+          ...(input.prototypeId !== undefined ? { prototypeId: input.prototypeId } : {}),
+        });
+        if (!updated) {
+          return undefined;
+        }
+
+        if (updated.prototypeId) {
+          await applyScreenContentScan(tx, {
+            projectId: updated.projectId,
+            artifactId: updated.id,
+            prototypeId: updated.prototypeId,
+            content: updated.content,
+          });
+          // Newly attached to a prototype: link to its flow document.
+          if (existing.prototypeId !== updated.prototypeId) {
+            const flowDoc = await findFlowDocumentForPrototype(
+              tx,
+              updated.projectId,
+              updated.prototypeId,
+            );
+            if (flowDoc) {
+              await createEdge(tx, {
+                projectId: updated.projectId,
+                fromType: 'artifact',
+                fromId: updated.id,
+                toType: 'document',
+                toId: flowDoc.id,
+                label: 'documents',
+              });
+            }
+          }
+        } else {
+          if (existing.prototypeId !== null) {
+            await clearScreenLinks(tx, updated.id);
+          }
+          // A title change on any artifact can resolve a previously-null title link.
+          if (input.title !== undefined) {
+            await reResolveNullTargets(tx, updated.projectId);
+          }
+        }
+
+        return updated;
       });
+
       if (!artifact) {
         return undefined;
       }

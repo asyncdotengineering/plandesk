@@ -12,27 +12,32 @@ export function createCreateShareLinkHandler(
 ): (args: {
   task_id?: string;
   document_id?: string;
+  prototype_id?: string;
   expires?: '24h' | '7d' | 'never';
 }) => Promise<ToolResult> {
   return async (args) => {
-    const hasTask = args.task_id !== undefined;
-    const hasDocument = args.document_id !== undefined;
-    if (hasTask === hasDocument) {
-      return toolInvalidArgument('Exactly one of task_id or document_id is required');
+    const targets = [
+      args.task_id !== undefined,
+      args.document_id !== undefined,
+      args.prototype_id !== undefined,
+    ].filter(Boolean).length;
+    if (targets !== 1) {
+      return toolInvalidArgument(
+        'Exactly one of task_id, document_id, or prototype_id is required',
+      );
     }
 
     const expires = args.expires ?? '24h';
     const expiresAt = expires === 'never' ? null : new Date(Date.now() + EXPIRES_MS[expires]);
 
-    const result = await shareService.createResourceShare(
-      {
-        resource: hasTask
-          ? { kind: 'task', id: args.task_id as string }
-          : { kind: 'document', id: args.document_id as string },
-        expiresAt,
-      },
-      getOrigin(),
-    );
+    const resource =
+      args.task_id !== undefined
+        ? { kind: 'task' as const, id: args.task_id }
+        : args.document_id !== undefined
+          ? { kind: 'document' as const, id: args.document_id }
+          : { kind: 'prototype' as const, ids: [args.prototype_id as string] };
+
+    const result = await shareService.createResourceShare({ resource, expiresAt }, getOrigin());
 
     if (!result) {
       return toolNotFound();

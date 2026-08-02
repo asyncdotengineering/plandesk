@@ -929,7 +929,7 @@ describe('createMcpApp', () => {
     });
   });
 
-  it('create_share_link requires exactly one of task_id/document_id', async () => {
+  it('create_share_link requires exactly one of task_id/document_id/prototype_id', async () => {
     await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const task = await createTask(db, { projectId, label: 'Either' });
       const doc = await createDocument(db, { projectId, title: 'Either doc' });
@@ -944,6 +944,34 @@ describe('createMcpApp', () => {
       });
       expect(both.isError).toBe(true);
 
+      await client.close();
+    });
+  });
+
+  it('create_share_link mints a prototype-scoped link', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, services }) => {
+      const proto = await services.prototypeService.create(projectId, {
+        name: 'Checkout',
+        viewportWidth: 390,
+        viewportHeight: 844,
+      });
+      expect(proto).toBeDefined();
+      if (!proto) {
+        return;
+      }
+      const client = await connectClient(baseUrl);
+      const result = await client.callTool({
+        name: 'create_share_link',
+        arguments: { prototype_id: proto.id, expires: 'never' },
+      });
+      expect(result.isError).not.toBe(true);
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const text = content[0]?.type === 'text' ? (content[0].text ?? '{}') : '{}';
+      const payload = JSON.parse(text) as {
+        share: { url: string; markdown_url: string; expires_at: string | null };
+      };
+      expect(payload.share.url).toMatch(new RegExp(`^${baseUrl}/p/`));
+      expect(payload.share.expires_at).toBeNull();
       await client.close();
     });
   });

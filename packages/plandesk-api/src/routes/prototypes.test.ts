@@ -110,4 +110,41 @@ describe('prototypes routes', () => {
     expect(cross.status).toBe(400);
     expect(await parseJson<{ error: string }>(cross)).toEqual({ error: 'invalid_argument' });
   });
+
+  it('refuses external references at write with 422 naming every offender', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Scan' });
+    const protoRes = await app.request(`/api/v1/projects/${project.id}/prototypes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Flow', viewport_width: 390, viewport_height: 844 }),
+    });
+    const proto = await parseJson<PrototypeResponse>(protoRes);
+
+    const res = await app.request(`/api/v1/projects/${project.id}/artifacts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Bad',
+        kind: 'html',
+        content: `
+          <script src="https://unpkg.com/x"></script>
+          <link href="https://cdn.example/a.css" rel="stylesheet">
+          <img src="//images.example/y.png">
+        `,
+        prototype_id: proto.id,
+      }),
+    });
+    expect(res.status).toBe(422);
+    const body = await parseJson<{ error: string; refs: Array<{ url: string }> }>(res);
+    expect(body.error).toBe('external_reference');
+    expect(body.refs).toHaveLength(3);
+    expect(body.refs.map((r) => r.url)).toEqual(
+      expect.arrayContaining([
+        'https://unpkg.com/x',
+        'https://cdn.example/a.css',
+        '//images.example/y.png',
+      ]),
+    );
+  });
 });

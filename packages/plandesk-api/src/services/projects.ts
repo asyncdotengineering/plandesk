@@ -9,6 +9,7 @@ import {
   deleteAgentRun,
   deleteAgentRunEventsByRunId,
   deleteArtifactsByProjectId,
+  deletePrototypeLinksByProjectId,
   deleteCommentsByProjectId,
   deleteRevisionsByProjectId,
   deleteDocumentsByProjectId,
@@ -63,11 +64,7 @@ import {
 import { tryGetAuthContext } from '../auth-context.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { PermissionDeniedError } from '../permissions.js';
-import {
-  assertProjectInOrg,
-  ProjectNotInOrgError,
-  WorkspaceNotFoundError,
-} from './scope.js';
+import { assertProjectInOrg, ProjectNotInOrgError, WorkspaceNotFoundError } from './scope.js';
 
 type SerializedProject = ReturnType<typeof serializeProject>;
 type SerializedTask = ReturnType<typeof serializeTask>;
@@ -422,6 +419,10 @@ export function createProjectService(deps: ProjectServiceDeps) {
         await deleteCommentsByProjectId(tx, id);
         await deleteRevisionsByProjectId(tx, id);
         await deleteDocumentsByProjectId(tx, id);
+        // Links/artifacts/prototypes before folders: prototypes.folder_id FK.
+        await deletePrototypeLinksByProjectId(tx, id);
+        await deleteArtifactsByProjectId(tx, id);
+        await deletePrototypesByProjectId(tx, id);
         await clearFolderParentRefsByProject(tx, id);
         await deleteFoldersByProjectId(tx, id);
         await deleteNotesByProjectId(tx, id);
@@ -433,9 +434,6 @@ export function createProjectService(deps: ProjectServiceDeps) {
         await deleteSyncStateByProjectId(tx, id);
         await deleteSyncRemoteByProjectId(tx, id);
         await deleteSharesByProjectId(tx, id);
-        // Artifacts before prototypes: screens hold prototype_id FK.
-        await deleteArtifactsByProjectId(tx, id);
-        await deletePrototypesByProjectId(tx, id);
         await dbDeleteProject(tx, id);
       });
 
@@ -578,12 +576,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
           if (document.body === null) {
             continue;
           }
-          const prepared = prepareDocumentBody(
-            document.body,
-            projectId,
-            documentRows,
-            document.id,
-          );
+          const prepared = prepareDocumentBody(document.body, projectId, documentRows, document.id);
           if (prepared.body !== document.body) {
             const updated = await updateDocument(tx, document.id, { body: prepared.body });
             if (updated !== undefined) {

@@ -34,12 +34,7 @@ export type EdgeLabel = (typeof edgeLabels)[number];
 export const DEFAULT_EDGE_LABEL: EdgeLabel = 'depends_on';
 
 /** Labels preferred when the edge source is a document. */
-export const documentEdgeLabels = [
-  'documents',
-  'references',
-  'supersedes',
-  'extends',
-] as const;
+export const documentEdgeLabels = ['documents', 'references', 'supersedes', 'extends'] as const;
 export type DocumentEdgeLabel = (typeof documentEdgeLabels)[number];
 export const DEFAULT_DOCUMENT_EDGE_LABEL: DocumentEdgeLabel = 'documents';
 
@@ -468,9 +463,7 @@ export function diffRevision(id: string, against: string): Promise<RevisionField
 }
 
 /** Restore versioned fields through the ordinary update path; returns the live entity. */
-export function restoreRevision(
-  id: string,
-): Promise<SerializedTask | SerializedDocument> {
+export function restoreRevision(id: string): Promise<SerializedTask | SerializedDocument> {
   return request(`/revisions/${id}/restore`, { method: 'POST' });
 }
 
@@ -488,6 +481,10 @@ export function createTaskShare(id: string, expires: ShareTtl): Promise<ShareLin
 
 export function createDocumentShare(id: string, expires: ShareTtl): Promise<ShareLinkResult> {
   return request(`/documents/${id}/share`, { method: 'POST', body: JSON.stringify({ expires }) });
+}
+
+export function createPrototypeShare(id: string, expires: ShareTtl): Promise<ShareLinkResult> {
+  return request(`/prototypes/${id}/share`, { method: 'POST', body: JSON.stringify({ expires }) });
 }
 
 export type WorkspaceShareInput = {

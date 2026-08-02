@@ -14,12 +14,34 @@ export type ClientView = {
   tasks: ClientViewTask[];
   edges: Array<{ id: string; from: string; to: string; label: string | null }>;
   documents: Array<{ id: string; title: string; body_html: string | null; updated_at: string }>;
+  prototypes?: ClientViewPrototype[];
   progress: Record<string, number>;
   share: {
     audience_name: string;
     permissions: { read: boolean; submit: boolean };
     expires_at: string | null;
   };
+};
+
+export type ClientViewPrototype = {
+  id: string;
+  name: string;
+  viewport_width: number;
+  viewport_height: number;
+  screens: Array<{
+    id: string;
+    title: string;
+    kind: string;
+    content: string;
+    x: number | null;
+    y: number | null;
+  }>;
+  links: Array<{
+    id: string;
+    from_artifact_id: string;
+    to_artifact_id: string | null;
+    raw_target: string;
+  }>;
 };
 
 export type WorkspaceClientView = {

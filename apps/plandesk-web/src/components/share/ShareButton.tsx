@@ -20,12 +20,13 @@ import {
 } from '@/components/ui/select';
 import {
   createDocumentShare,
+  createPrototypeShare,
   createTaskShare,
   type ShareLinkResult,
   type ShareTtl,
 } from '@/lib/api';
 
-type ShareResource = { kind: 'task' | 'document'; id: string };
+type ShareResource = { kind: 'task' | 'document'; id: string } | { kind: 'prototype'; id: string };
 
 export function ShareButton({ resource }: { resource: ShareResource }) {
   const [open, setOpen] = useState(false);
@@ -48,7 +49,9 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
       const res =
         resource.kind === 'task'
           ? await createTaskShare(resource.id, ttl)
-          : await createDocumentShare(resource.id, ttl);
+          : resource.kind === 'document'
+            ? await createDocumentShare(resource.id, ttl)
+            : await createPrototypeShare(resource.id, ttl);
       setResult(res);
     } catch {
       setCreateError("Couldn't create the share link. Please try again.");
@@ -74,6 +77,13 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
     }
   };
 
+  const description =
+    resource.kind === 'prototype'
+      ? 'Create a public, read-only link that lets a client open this prototype canvas and click through its screens.'
+      : resource.kind === 'task'
+        ? 'Create a public, read-only link that renders this task as agent-ready Markdown — with its linked documents and images inlined.'
+        : 'Create a public, read-only link that renders this document as agent-ready Markdown.';
+
   return (
     <Dialog
       open={open}
@@ -90,11 +100,7 @@ export function ShareButton({ resource }: { resource: ShareResource }) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Share {resource.kind}</DialogTitle>
-          <DialogDescription>
-            Create a public, read-only link that renders this {resource.kind} as agent-ready
-            Markdown
-            {resource.kind === 'task' ? ' — with its linked documents and images inlined.' : '.'}
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         {result === null ? (

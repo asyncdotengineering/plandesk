@@ -131,7 +131,12 @@ type PortableSnapshot = {
     x: number | null;
     y: number | null;
   }>;
-  prototypes: Array<{ name: string; viewport_width: number; viewport_height: number }>;
+  prototypes: Array<{
+    name: string;
+    viewport_width: number;
+    viewport_height: number;
+    folder_name: string | null;
+  }>;
 };
 
 function entityKey(
@@ -259,6 +264,10 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
         name: prototype.name,
         viewport_width: prototype.viewport_width,
         viewport_height: prototype.viewport_height,
+        folder_name:
+          prototype.folder_id === null || prototype.folder_id === undefined
+            ? null
+            : (folderNameById.get(prototype.folder_id) ?? prototype.folder_id),
       })),
     documents: [...exported.documents]
       .sort((a, b) => a.title.localeCompare(b.title))
@@ -705,9 +714,9 @@ describe('portability export behavioural coverage', () => {
     it('folders columns round-trip', () => {
       expect(exported.folders).toHaveLength(2);
       expect(targetSnapshot.folders).toEqual(sourceSnapshot.folders);
-      expect(targetSnapshot.folders.find((f) => f.name === 'DISTINCT-child-folder')?.parent_name).toBe(
-        'DISTINCT-parent-folder',
-      );
+      expect(
+        targetSnapshot.folders.find((f) => f.name === 'DISTINCT-child-folder')?.parent_name,
+      ).toBe('DISTINCT-parent-folder');
     });
 
     it('documents columns round-trip', () => {
@@ -763,7 +772,9 @@ describe('portability export behavioural coverage', () => {
           started_at: run.started_at,
           completed_at: run.completed_at,
         }));
-      expect(withoutEvents(targetSnapshot.agent_runs)).toEqual(withoutEvents(sourceSnapshot.agent_runs));
+      expect(withoutEvents(targetSnapshot.agent_runs)).toEqual(
+        withoutEvents(sourceSnapshot.agent_runs),
+      );
     });
 
     it('agent_run_events columns round-trip', () => {
@@ -779,9 +790,9 @@ describe('portability export behavioural coverage', () => {
     it('files columns round-trip', () => {
       expect(exported.files).toHaveLength(2);
       expect(targetSnapshot.files).toEqual(sourceSnapshot.files);
-      expect(targetSnapshot.files.find((f) => f.filename === 'DISTINCT-blob-file.bin')?.bytes_base64).toBe(
-        Buffer.from('DISTINCT-file-bytes-content', 'utf8').toString('base64'),
-      );
+      expect(
+        targetSnapshot.files.find((f) => f.filename === 'DISTINCT-blob-file.bin')?.bytes_base64,
+      ).toBe(Buffer.from('DISTINCT-file-bytes-content', 'utf8').toString('base64'));
       expect(
         targetSnapshot.files.find((f) => f.filename === 'DISTINCT-external-file.pdf')?.external_url,
       ).toBe('https://cdn.example.com/DISTINCT-external-file.pdf');

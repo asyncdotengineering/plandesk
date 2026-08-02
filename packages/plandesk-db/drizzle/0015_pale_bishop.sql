@@ -1,0 +1,1 @@
+ALTER TABLE `prototypes` ADD `folder_id` text REFERENCES folders(id);

@@ -13,6 +13,8 @@ export type SharePermissions = {
 export type SharePolicy = {
   tasks: 'all' | string[];
   documentIds: string[];
+  /** Prototype canvases exposed by this share. Absent on legacy rows → []. */
+  prototypeIds?: string[];
   fields: { assignee?: boolean; description?: boolean };
 };
 
@@ -42,7 +44,10 @@ export function generateShareToken(): string {
   return `plandesk_share_${randomBytes(32).toString('base64url')}`;
 }
 
-export async function createShare(db: DbClient, input: CreateShareInput): Promise<CreateShareResult> {
+export async function createShare(
+  db: DbClient,
+  input: CreateShareInput,
+): Promise<CreateShareResult> {
   const id = randomUUID();
   const token = generateShareToken();
   const tokenHash = hashShareToken(token);
@@ -130,5 +135,9 @@ export function parseSharePermissions(share: Share): SharePermissions {
 }
 
 export function parseSharePolicy(share: Share): SharePolicy {
-  return JSON.parse(share.policy) as SharePolicy;
+  const raw = JSON.parse(share.policy) as SharePolicy;
+  return {
+    ...raw,
+    prototypeIds: raw.prototypeIds ?? [],
+  };
 }

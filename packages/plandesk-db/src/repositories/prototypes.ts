@@ -10,6 +10,7 @@ export type NewPrototype = {
   name: string;
   viewportWidth: number;
   viewportHeight: number;
+  folderId?: string | null;
   id?: string;
 };
 
@@ -17,6 +18,7 @@ export type PrototypeUpdate = {
   name?: string;
   viewportWidth?: number;
   viewportHeight?: number;
+  folderId?: string | null;
 };
 
 export async function createPrototype(db: DbClient, input: NewPrototype): Promise<Prototype> {
@@ -30,6 +32,7 @@ export async function createPrototype(db: DbClient, input: NewPrototype): Promis
       name: input.name,
       viewportWidth: input.viewportWidth,
       viewportHeight: input.viewportHeight,
+      folderId: input.folderId ?? null,
       createdAt: now,
       updatedAt: now,
     })

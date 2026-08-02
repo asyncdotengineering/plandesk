@@ -55,6 +55,7 @@ describe('prototypeService', () => {
     expect(got?.screens).toHaveLength(1);
     expect(got?.screens[0]?.title).toBe('Cart');
     expect(got?.screens[0]?.prototype_id).toBe(created.id);
+    expect(got?.links).toEqual([]);
   });
 
   it('updates name and viewport', async () => {

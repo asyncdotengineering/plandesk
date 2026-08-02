@@ -6,6 +6,7 @@ import {
   getDocument,
   getGuestSessionById,
   getProject,
+  getPrototype,
   getShare as dbGetShare,
   getShareByTokenHashRaw,
   getTask,
@@ -63,7 +64,7 @@ export type SerializedShare = {
   created_at: string;
 };
 
-const DEFAULT_POLICY: SharePolicy = { tasks: 'all', documentIds: [], fields: {} };
+const DEFAULT_POLICY: SharePolicy = { tasks: 'all', documentIds: [], prototypeIds: [], fields: {} };
 const DEFAULT_PERMISSIONS: SharePermissions = { read: true, submit: false };
 
 function requireProjectId(share: Pick<Share, 'id' | 'projectId'>): string {
@@ -116,7 +117,8 @@ const RESOURCE_SHARE_DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type ShareResourceRef =
   | { kind: 'task'; id: string }
-  | { kind: 'document'; id: string };
+  | { kind: 'document'; id: string }
+  | { kind: 'prototype'; ids: string[] };
 
 export type CreateResourceShareInput = {
   resource: ShareResourceRef;
@@ -296,11 +298,15 @@ function htmlToMarkdown(html: string, origin: string, images: string[]): string 
     /<(em|i)\b[^>]*>([\s\S]*?)<\/\1>/gi,
     (_m, _tag: string, inner: string) => `*${stripTags(inner)}*`,
   );
-  out = out.replace(/<code\b[^>]*>([\s\S]*?)<\/code>/gi, (_m, inner: string) => `\`${stripTags(inner)}\``);
+  out = out.replace(
+    /<code\b[^>]*>([\s\S]*?)<\/code>/gi,
+    (_m, inner: string) => `\`${stripTags(inner)}\``,
+  );
 
   out = out.replace(
     /<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi,
-    (_m, level: string, inner: string) => `\n${'#'.repeat(Number(level))} ${stripTags(inner).trim()}\n`,
+    (_m, level: string, inner: string) =>
+      `\n${'#'.repeat(Number(level))} ${stripTags(inner).trim()}\n`,
   );
 
   out = out.replace(/<blockquote\b[^>]*>([\s\S]*?)<\/blockquote>/gi, (_m, inner: string) => {
@@ -354,7 +360,8 @@ function buildShareMarkdown(view: ClientView, policy: SharePolicy, origin: strin
   const images: string[] = [];
   const sections: string[] = [AGENT_PREAMBLE, ''];
 
-  const soleTaskId = Array.isArray(policy.tasks) && policy.tasks.length === 1 ? policy.tasks[0] : undefined;
+  const soleTaskId =
+    Array.isArray(policy.tasks) && policy.tasks.length === 1 ? policy.tasks[0] : undefined;
   const task = soleTaskId !== undefined ? view.tasks.find((t) => t.id === soleTaskId) : undefined;
 
   if (task) {
@@ -370,6 +377,25 @@ function buildShareMarkdown(view: ClientView, policy: SharePolicy, origin: strin
     const doc = view.documents[0];
     sections.push(`# ${doc.title}`, '');
     sections.push(htmlToMarkdown(doc.body_html ?? '', origin, images), '');
+  } else if (view.prototypes[0]) {
+    for (const prototype of view.prototypes) {
+      sections.push(`# Prototype: ${prototype.name}`, '');
+      sections.push(
+        `Viewport: ${String(prototype.viewport_width)}×${String(prototype.viewport_height)}`,
+        '',
+      );
+      for (const screen of prototype.screens) {
+        sections.push(`## Screen: ${screen.title}`, '');
+        sections.push('```html', screen.content, '```', '');
+      }
+      if (prototype.links.length > 0) {
+        sections.push('## Derived links', '');
+        for (const link of prototype.links) {
+          sections.push(`- ${link.raw_target} → ${link.to_artifact_id ?? '(unresolved)'}`);
+        }
+        sections.push('');
+      }
+    }
   }
 
   const uniqueImages = [...new Set(images)];
@@ -378,7 +404,10 @@ function buildShareMarkdown(view: ClientView, policy: SharePolicy, origin: strin
     sections.push(...uniqueImages.map((url) => `- ${url}`));
   }
 
-  return `${sections.join('\n').replace(/\n{3,}/g, '\n\n').trim()}\n`;
+  return `${sections
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()}\n`;
 }
 
 export function createShareService(deps: ShareServiceDeps) {
@@ -544,23 +573,57 @@ export function createShareService(deps: ShareServiceDeps) {
         projectId = task.projectId;
         // Document→task edges, project-scoped so the share audience cannot
         // widen past this project.
-        const linkedDocumentIds = (
-          await listDocumentsLinkedToTask(db, projectId, task.id)
-        ).map((doc) => doc.id);
+        const linkedDocumentIds = (await listDocumentsLinkedToTask(db, projectId, task.id)).map(
+          (doc) => doc.id,
+        );
         policy = {
           tasks: [task.id],
           documentIds: linkedDocumentIds,
+          prototypeIds: [],
           fields: { description: true, assignee: true },
         };
         audienceName = `Agent link: ${task.label}`;
-      } else {
+      } else if (input.resource.kind === 'document') {
         const document = await getDocument(db, input.resource.id);
         if (!document) {
           return undefined;
         }
         projectId = document.projectId;
-        policy = { tasks: [], documentIds: [document.id], fields: {} };
+        policy = { tasks: [], documentIds: [document.id], prototypeIds: [], fields: {} };
         audienceName = `Agent link: ${document.title}`;
+      } else {
+        // Inferred: one share may name several prototypes (canvas as the unit).
+        const ids = [...new Set(input.resource.ids.filter((id) => id.trim() !== ''))];
+        if (ids.length === 0) {
+          return undefined;
+        }
+        const prototypes = [];
+        for (const id of ids) {
+          const prototype = await getPrototype(db, id);
+          if (!prototype) {
+            return undefined;
+          }
+          prototypes.push(prototype);
+        }
+        const first = prototypes[0];
+        if (!first) {
+          return undefined;
+        }
+        // All prototypes in one share must belong to the same project.
+        if (prototypes.some((p) => p.projectId !== first.projectId)) {
+          return undefined;
+        }
+        projectId = first.projectId;
+        policy = {
+          tasks: [],
+          documentIds: [],
+          prototypeIds: prototypes.map((p) => p.id),
+          fields: {},
+        };
+        audienceName =
+          prototypes.length === 1
+            ? `Prototype: ${first.name}`
+            : `Prototypes: ${prototypes.map((p) => p.name).join(', ')}`;
       }
 
       // Cross-org chokepoint: the resolved resource's project must be in the
@@ -680,9 +743,7 @@ export function createShareService(deps: ShareServiceDeps) {
     // failure shape collapses to undefined → uniform 404. Guest context has no
     // orgId; the projection reads only the share's scope (one project OR one
     // workspace's project set).
-    async getClientView(
-      token: string,
-    ): Promise<ClientView | WorkspaceClientView | undefined> {
+    async getClientView(token: string): Promise<ClientView | WorkspaceClientView | undefined> {
       const auth = getAuthContext();
       if (auth.kind !== 'guest') {
         return undefined;

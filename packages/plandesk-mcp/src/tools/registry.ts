@@ -112,7 +112,9 @@ export const updateTaskInputSchema = z.object({
     .string()
     .uuid()
     .optional()
-    .describe('Reassign the task to a different goal in the same project. Omit to leave it unchanged.'),
+    .describe(
+      'Reassign the task to a different goal in the same project. Omit to leave it unchanged.',
+    ),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_SET_DESCRIPTION),
   commit_refs: z
     .array(z.string().refine(isValidCommitRef, { message: 'invalid commit_ref' }))
@@ -215,6 +217,7 @@ export const listNotesInputSchema = z.object({
 export const createShareLinkInputSchema = z.object({
   task_id: z.string().uuid().optional(),
   document_id: z.string().uuid().optional(),
+  prototype_id: z.string().uuid().optional(),
   expires: z
     .enum(['24h', '7d', 'never'])
     .optional()
@@ -302,7 +305,9 @@ export const createEdgeInputSchema = z.object({
     .string()
     .uuid()
     .optional()
-    .describe('Id of the from endpoint (task or document). Required with from_type for typed edges.'),
+    .describe(
+      'Id of the from endpoint (task or document). Required with from_type for typed edges.',
+    ),
   to_type: LINK_ENTITY_TYPE.optional().describe(
     "Entity type of the edge's to endpoint: 'task' or 'document'. Required with to_id for typed edges.",
   ),
@@ -409,7 +414,9 @@ export const scaffoldProjectFromPlanInputSchema = z.object({
     .string()
     .min(1)
     .optional()
-    .describe('Name for a NEW project. Required when `project_id` is omitted; ignored when it is set.'),
+    .describe(
+      'Name for a NEW project. Required when `project_id` is omitted; ignored when it is set.',
+    ),
   description: z.string().optional(),
   goal_id: z
     .string()

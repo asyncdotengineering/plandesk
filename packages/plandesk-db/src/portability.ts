@@ -139,6 +139,7 @@ export type PlandeskExportPrototype = {
   name: string;
   viewport_width: number;
   viewport_height: number;
+  folder_id?: string | null;
 };
 
 export type PlandeskExportDocument = {

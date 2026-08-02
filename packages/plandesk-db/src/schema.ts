@@ -415,7 +415,7 @@ export type ArtifactKind = (typeof artifactKinds)[number];
 
 /**
  * Named flow of screens with a declared viewport. Flat (no nesting).
- * folderId lands in a later task — do not add it here.
+ * folderId is set on create with the prototype's flow-document folder.
  */
 export const prototypes = sqliteTable('prototypes', {
   id: text('id').primaryKey(),
@@ -425,6 +425,7 @@ export const prototypes = sqliteTable('prototypes', {
   name: text('name').notNull(),
   viewportWidth: real('viewport_width').notNull(),
   viewportHeight: real('viewport_height').notNull(),
+  folderId: text('folder_id').references(() => folders.id),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
@@ -452,6 +453,22 @@ export const artifacts = sqliteTable('artifacts', {
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+});
+
+/**
+ * Derived navigation links from screen markup. Recomputed on every content
+ * write; never user-editable. toArtifactId null ⇒ unresolved or ambiguous.
+ */
+export const prototypeLinks = sqliteTable('prototype_links', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id')
+    .notNull()
+    .references(() => projects.id),
+  fromArtifactId: text('from_artifact_id')
+    .notNull()
+    .references(() => artifacts.id),
+  toArtifactId: text('to_artifact_id').references(() => artifacts.id),
+  rawTarget: text('raw_target').notNull(),
 });
 
 export const files = sqliteTable(

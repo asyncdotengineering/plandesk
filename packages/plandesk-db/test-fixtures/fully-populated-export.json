@@ -85,7 +85,8 @@
       "id": "00000000-0000-4000-8000-00000000f011",
       "name": "DISTINCT-prototype-name",
       "viewport_width": 390,
-      "viewport_height": 844
+      "viewport_height": 844,
+      "folder_id": null
     }
   ],
   "documents": [

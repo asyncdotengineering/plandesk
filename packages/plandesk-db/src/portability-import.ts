@@ -135,7 +135,9 @@ export function remapEndpointId(
   return remapId(taskIdMap, id);
 }
 
-export function sortDocumentsForImport(documents: PlandeskExportDocument[]): PlandeskExportDocument[] {
+export function sortDocumentsForImport(
+  documents: PlandeskExportDocument[],
+): PlandeskExportDocument[] {
   const remaining = [...documents];
   const sorted: PlandeskExportDocument[] = [];
   const created = new Set<string>();
@@ -330,7 +332,8 @@ export function emitGoalsImport(ctx: ImportContext): void {
 export function emitTasksImport(ctx: ImportContext): void {
   for (const task of ctx.data.tasks) {
     const goalId =
-      (task.goal_id !== undefined ? ctx.goalIdMap.get(task.goal_id) : undefined) ?? ctx.defaultGoalId;
+      (task.goal_id !== undefined ? ctx.goalIdMap.get(task.goal_id) : undefined) ??
+      ctx.defaultGoalId;
     const commitRefsColumn = commitRefsForImport(task.commit_refs);
     ctx.statements.push(
       ctx.root.insert(tasks).values({
@@ -388,7 +391,8 @@ export function emitTaskTagsImport(ctx: ImportContext): void {
 export function emitEdgesImport(ctx: ImportContext): void {
   for (const edge of ctx.data.edges) {
     const fromType = toLinkEntityType(
-      edge.from_type ?? (edge.from_task_id === null || edge.from_task_id === undefined ? null : 'task'),
+      edge.from_type ??
+        (edge.from_task_id === null || edge.from_task_id === undefined ? null : 'task'),
     );
     const toType = toLinkEntityType(
       edge.to_type ?? (edge.to_task_id === null || edge.to_task_id === undefined ? null : 'task'),
@@ -455,6 +459,7 @@ export function emitPrototypesImport(ctx: ImportContext): void {
         name: prototype.name,
         viewportWidth: prototype.viewport_width,
         viewportHeight: prototype.viewport_height,
+        folderId: remapId(ctx.folderIdMap, prototype.folder_id ?? null),
         createdAt: ctx.now,
         updatedAt: ctx.now,
       }),

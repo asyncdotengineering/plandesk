@@ -169,7 +169,10 @@ type ExportTableManifestEntryShape =
   | RowsManifestEntry<Awaited<ReturnType<typeof listFilesByProject>>[number], PlandeskExportFile>
   | RowsManifestEntry<Artifact, PlandeskExportArtifact>
   | AssociationManifestEntry<Awaited<ReturnType<typeof listTagsByTaskForProject>>>
-  | NestedPerParentManifestEntry<AgentRun, Map<string, Awaited<ReturnType<typeof listAgentRunEvents>>>>;
+  | NestedPerParentManifestEntry<
+      AgentRun,
+      Map<string, Awaited<ReturnType<typeof listAgentRunEvents>>>
+    >;
 
 /**
  * Single registration point for portable export reads, serializers, and import
@@ -354,7 +357,15 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
     import: { order: 60, preallocateIds: preallocateEdgeIds, emit: emitEdgesImport },
     portability: {
       drizzleTable: edges,
-      roundTrippedColumns: ['from_type', 'from_id', 'to_type', 'to_id', 'label', 'arrow_direction', 'style'],
+      roundTrippedColumns: [
+        'from_type',
+        'from_id',
+        'to_type',
+        'to_id',
+        'label',
+        'arrow_direction',
+        'style',
+      ],
       columnExclusions: {
         id: 'Remapped on import',
         project_id: 'Implied by nesting under the imported project',
@@ -392,11 +403,12 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
       name: prototype.name,
       viewport_width: prototype.viewportWidth,
       viewport_height: prototype.viewportHeight,
+      folder_id: prototype.folderId,
     }),
     import: { order: 125, preallocateIds: preallocatePrototypeIds, emit: emitPrototypesImport },
     portability: {
       drizzleTable: prototypes,
-      roundTrippedColumns: ['name', 'viewport_width', 'viewport_height'],
+      roundTrippedColumns: ['name', 'viewport_width', 'viewport_height', 'folder_id'],
       columnExclusions: {
         id: 'Remapped on import',
         project_id: 'Implied by nesting under the imported project',
@@ -489,7 +501,15 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
     import: { order: 100, emit: emitCommentsImport },
     portability: {
       drizzleTable: comments,
-      roundTrippedColumns: ['target_type', 'target_id', 'passage', 'anchor', 'body', 'resolved', 'created_at'],
+      roundTrippedColumns: [
+        'target_type',
+        'target_id',
+        'passage',
+        'anchor',
+        'body',
+        'resolved',
+        'created_at',
+      ],
       columnExclusions: {
         id: 'Remapped on import',
         project_id: 'Implied by nesting under the imported project',
@@ -562,7 +582,15 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
     import: { order: 120, emit: emitFilesImport },
     portability: {
       drizzleTable: files,
-      roundTrippedColumns: ['id', 'filename', 'mime', 'size', 'bytes', 'external_url', 'created_at'],
+      roundTrippedColumns: [
+        'id',
+        'filename',
+        'mime',
+        'size',
+        'bytes',
+        'external_url',
+        'created_at',
+      ],
       columnExclusions: {
         project_id: 'Implied by nesting under the imported project',
       },
@@ -599,8 +627,7 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
 
 export type PlandeskExportTable = keyof typeof PLANDESK_EXPORT_TABLE_MANIFEST;
 
-export type ExportTableManifestEntry =
-  (typeof PLANDESK_EXPORT_TABLE_MANIFEST)[PlandeskExportTable];
+export type ExportTableManifestEntry = (typeof PLANDESK_EXPORT_TABLE_MANIFEST)[PlandeskExportTable];
 
 /** Tables that nested_per_parent entries attach to — derived from manifest parentTable fields. */
 export type PlandeskExportParentTable = {
@@ -652,12 +679,11 @@ const REQUIRED_EXPORT_COLLECTIONS = new Set<PlandeskExportCollectionKey>(
 type MappedExportCollection =
   (typeof PLANDESK_EXPORT_TABLE_COLLECTIONS_INTERNAL)[PlandeskExportTable];
 
-type AssertExportCollectionsCovered =
-  PlandeskExportCollectionKey extends MappedExportCollection
-    ? MappedExportCollection extends PlandeskExportCollectionKey
-      ? true
-      : never
-    : never;
+type AssertExportCollectionsCovered = PlandeskExportCollectionKey extends MappedExportCollection
+  ? MappedExportCollection extends PlandeskExportCollectionKey
+    ? true
+    : never
+  : never;
 
 const _assertExportCollectionsCovered: AssertExportCollectionsCovered = true;
 void _assertExportCollectionsCovered;
@@ -720,10 +746,7 @@ function createExportAux(): ExportAux {
   };
 }
 
-async function readProjectScopedRows(
-  db: DbClient,
-  projectId: string,
-): Promise<ExportRowReads> {
+async function readProjectScopedRows(db: DbClient, projectId: string): Promise<ExportRowReads> {
   const manifest = PLANDESK_EXPORT_TABLE_MANIFEST;
   const [
     goals,

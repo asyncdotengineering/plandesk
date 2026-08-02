@@ -181,9 +181,7 @@ export function serializeTask(task: Task, tags?: Tag[], waitingOn?: string[]) {
     created_at: task.createdAt.toISOString(),
     updated_at: task.updatedAt.toISOString(),
     ...(tags !== undefined ? { tags: tags.map(serializeTag) } : {}),
-    ...(waitingOn !== undefined
-      ? { blocked: waitingOn.length > 0, waiting_on: waitingOn }
-      : {}),
+    ...(waitingOn !== undefined ? { blocked: waitingOn.length > 0, waiting_on: waitingOn } : {}),
   };
 }
 
@@ -311,6 +309,7 @@ export type SerializedPrototype = {
   name: string;
   viewport_width: number;
   viewport_height: number;
+  folder_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -322,6 +321,7 @@ export function serializePrototype(prototype: Prototype): SerializedPrototype {
     name: prototype.name,
     viewport_width: prototype.viewportWidth,
     viewport_height: prototype.viewportHeight,
+    folder_id: prototype.folderId,
     created_at: prototype.createdAt.toISOString(),
     updated_at: prototype.updatedAt.toISOString(),
   };
@@ -329,7 +329,32 @@ export function serializePrototype(prototype: Prototype): SerializedPrototype {
 
 export type SerializedPrototypeWithScreens = SerializedPrototype & {
   screens: SerializedArtifact[];
+  links: SerializedPrototypeLink[];
 };
+
+export type SerializedPrototypeLink = {
+  id: string;
+  project_id: string;
+  from_artifact_id: string;
+  to_artifact_id: string | null;
+  raw_target: string;
+};
+
+export function serializePrototypeLink(link: {
+  id: string;
+  projectId: string;
+  fromArtifactId: string;
+  toArtifactId: string | null;
+  rawTarget: string;
+}): SerializedPrototypeLink {
+  return {
+    id: link.id,
+    project_id: link.projectId,
+    from_artifact_id: link.fromArtifactId,
+    to_artifact_id: link.toArtifactId,
+    raw_target: link.rawTarget,
+  };
+}
 
 export type SerializedComment = {
   id: string;

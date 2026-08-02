@@ -1,8 +1,11 @@
 import {
   getProject,
+  listArtifactsByPrototype,
   listDocuments,
   listEdges,
   listProjectsByWorkspace,
+  listPrototypeLinksByProject,
+  listPrototypes,
   listTasks,
   parseSharePermissions,
   parseSharePolicy,
@@ -13,6 +16,7 @@ import {
 export type SharePolicy = {
   tasks: 'all' | string[];
   documentIds: string[];
+  prototypeIds?: string[];
   fields: { assignee?: boolean; description?: boolean };
 };
 
@@ -27,11 +31,35 @@ export type ClientViewTask = {
   assignee?: string | null;
 };
 
+export type ClientViewPrototypeLink = {
+  id: string;
+  from_artifact_id: string;
+  to_artifact_id: string | null;
+  raw_target: string;
+};
+
+export type ClientViewPrototype = {
+  id: string;
+  name: string;
+  viewport_width: number;
+  viewport_height: number;
+  screens: Array<{
+    id: string;
+    title: string;
+    kind: string;
+    content: string;
+    x: number | null;
+    y: number | null;
+  }>;
+  links: ClientViewPrototypeLink[];
+};
+
 export type ClientView = {
   project: { id: string; name: string; description: string | null; updated_at: string };
   tasks: ClientViewTask[];
   edges: Array<{ id: string; from: string; to: string; label: string | null }>;
   documents: Array<{ id: string; title: string; body_html: string | null; updated_at: string }>;
+  prototypes: ClientViewPrototype[];
   progress: Record<string, number>;
   share: {
     audience_name: string;
@@ -128,6 +156,43 @@ export async function buildClientView(
       updated_at: doc.updatedAt.toISOString(),
     }));
 
+  const prototypeIdSet = new Set(policy.prototypeIds ?? []);
+  const sharedPrototypes: ClientViewPrototype[] = [];
+  if (prototypeIdSet.size > 0) {
+    const projectPrototypes = await listPrototypes(db, projectId);
+    const projectLinks = await listPrototypeLinksByProject(db, projectId);
+    for (const prototype of projectPrototypes) {
+      if (!prototypeIdSet.has(prototype.id)) {
+        continue;
+      }
+      const screens = (await listArtifactsByPrototype(db, prototype.id)).map((screen) => ({
+        id: screen.id,
+        title: screen.title,
+        kind: screen.kind,
+        content: screen.content,
+        x: screen.x,
+        y: screen.y,
+      }));
+      const screenIds = new Set(screens.map((s) => s.id));
+      const links = projectLinks
+        .filter((link) => screenIds.has(link.fromArtifactId))
+        .map((link) => ({
+          id: link.id,
+          from_artifact_id: link.fromArtifactId,
+          to_artifact_id: link.toArtifactId,
+          raw_target: link.rawTarget,
+        }));
+      sharedPrototypes.push({
+        id: prototype.id,
+        name: prototype.name,
+        viewport_width: prototype.viewportWidth,
+        viewport_height: prototype.viewportHeight,
+        screens,
+        links,
+      });
+    }
+  }
+
   return {
     project: {
       id: project.id,
@@ -138,6 +203,7 @@ export async function buildClientView(
     tasks: sharedTasks,
     edges: sharedEdges,
     documents: sharedDocuments,
+    prototypes: sharedPrototypes,
     progress: buildProgress(sharedTasks),
     share: {
       audience_name: share.audienceName,

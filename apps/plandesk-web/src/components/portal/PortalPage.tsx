@@ -32,7 +32,13 @@ function progressChipStyle(status: string): { backgroundColor: string; color: st
   return { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' };
 }
 
-export function PortalPage({ view, shareToken, sessionToken, projectId, onUnauthorized }: PortalPageProps) {
+export function PortalPage({
+  view,
+  shareToken,
+  sessionToken,
+  projectId,
+  onUnauthorized,
+}: PortalPageProps) {
   const queryClient = useQueryClient();
   const caps = capabilitiesFromShare(view.share.permissions);
   const canSubmit = caps.includes('submit');
@@ -59,7 +65,9 @@ export function PortalPage({ view, shareToken, sessionToken, projectId, onUnauth
         </div>
         <p className="text-sm text-muted-foreground">Shared with {view.share.audience_name}</p>
         {view.project.description ? (
-          <p className="mt-3 text-sm leading-relaxed text-foreground/80">{view.project.description}</p>
+          <p className="mt-3 text-sm leading-relaxed text-foreground/80">
+            {view.project.description}
+          </p>
         ) : null}
       </header>
 
@@ -83,10 +91,12 @@ export function PortalPage({ view, shareToken, sessionToken, projectId, onUnauth
         </section>
       ) : null}
 
-      <section className="mb-6" aria-label="Board">
-        <h2 className="mb-3 text-sm font-semibold">Board</h2>
-        <PortalBoard tasks={view.tasks} />
-      </section>
+      {view.tasks.length > 0 ? (
+        <section className="mb-6" aria-label="Board">
+          <h2 className="mb-3 text-sm font-semibold">Board</h2>
+          <PortalBoard tasks={view.tasks} />
+        </section>
+      ) : null}
 
       {view.edges.length > 0 ? (
         <section className="mb-6" aria-label="Dependencies">
@@ -134,6 +144,39 @@ export function PortalPage({ view, shareToken, sessionToken, projectId, onUnauth
                 ) : (
                   <p className="m-0 text-sm italic text-muted-foreground">No content</p>
                 )}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {(view.prototypes?.length ?? 0) > 0 ? (
+        <section className="mb-6" aria-label="Prototypes">
+          <h2 className="mb-3 text-sm font-semibold">Prototypes</h2>
+          <div className="grid gap-5">
+            {view.prototypes?.map((prototype) => (
+              <div key={prototype.id} data-prototype-id={prototype.id}>
+                <h3 className="mb-1 text-sm font-semibold">{prototype.name}</h3>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  {prototype.viewport_width}×{prototype.viewport_height} ·{' '}
+                  {prototype.screens.length} screen{prototype.screens.length === 1 ? '' : 's'}
+                </p>
+                <ul className="m-0 grid list-none gap-2 p-0">
+                  {prototype.screens.map((screen) => (
+                    <li key={screen.id}>
+                      <Card className="px-3 py-2 text-sm shadow-sm">{screen.title}</Card>
+                    </li>
+                  ))}
+                </ul>
+                {prototype.links.length > 0 ? (
+                  <ul className="mt-3 m-0 list-none space-y-1 p-0 text-xs text-muted-foreground">
+                    {prototype.links.map((link) => (
+                      <li key={link.id}>
+                        {link.raw_target} → {link.to_artifact_id ?? 'unresolved'}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
             ))}
           </div>

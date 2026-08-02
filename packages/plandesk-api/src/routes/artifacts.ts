@@ -5,7 +5,12 @@ import {
   resolveRenderOrigin,
   wrapHtmlArtifactForRender,
 } from '../html-artifact.js';
-import { InvalidArtifactError, type ArtifactService } from '../services/artifacts.js';
+import {
+  ExternalReferenceError,
+  InvalidArtifactError,
+  UnknownLibraryError,
+  type ArtifactService,
+} from '../services/artifacts.js';
 
 type CreateArtifactBody = {
   title?: string;
@@ -23,6 +28,19 @@ type UpdateArtifactBody = {
 
 function isValidKind(kind: string): kind is (typeof artifactKinds)[number] {
   return (artifactKinds as readonly string[]).includes(kind);
+}
+
+function screenScanErrorResponse(
+  c: { json: (body: unknown, status: 422) => Response },
+  error: unknown,
+): Response | null {
+  if (error instanceof ExternalReferenceError) {
+    return c.json({ error: 'external_reference', refs: error.refs }, 422);
+  }
+  if (error instanceof UnknownLibraryError) {
+    return c.json({ error: 'unknown_library', refs: error.refs }, 422);
+  }
+  return null;
 }
 
 export function createArtifactsRouter(artifactService: ArtifactService): Hono {
@@ -59,6 +77,10 @@ export function createArtifactsRouter(artifactService: ArtifactService): Hono {
 
       return c.json(artifact, 201);
     } catch (error) {
+      const scan = screenScanErrorResponse(c, error);
+      if (scan) {
+        return scan;
+      }
       if (error instanceof InvalidArtifactError) {
         return c.json({ error: 'invalid_argument' }, 400);
       }
@@ -117,6 +139,10 @@ export function createArtifactsRouter(artifactService: ArtifactService): Hono {
 
       return c.json(artifact);
     } catch (error) {
+      const scan = screenScanErrorResponse(c, error);
+      if (scan) {
+        return scan;
+      }
       if (error instanceof InvalidArtifactError) {
         return c.json({ error: 'invalid_argument' }, 400);
       }

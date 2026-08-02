@@ -17,9 +17,9 @@ function resolveExpiresAt(expires: unknown): Date | null | undefined {
 export function createSharesRouter(shareService: ShareService): Hono {
   const router = new Hono();
 
-  // Mint a public, read-only Markdown link for one task or document (the UI
-  // "Share" action; the same links the create_share_link MCP tool produces).
-  const createShareHandler = (kind: ShareResourceRef['kind']) => async (c: Context) => {
+  // Mint a public, read-only Markdown link for one task, document, or prototype
+  // (the UI "Share" action; the same links the create_share_link MCP tool produces).
+  const createShareHandler = (kind: 'task' | 'document' | 'prototype') => async (c: Context) => {
     const id = c.req.param('id') ?? '';
     const body = (await c.req.json().catch(() => ({}))) as { expires?: unknown };
     if (
@@ -31,8 +31,10 @@ export function createSharesRouter(shareService: ShareService): Hono {
       return c.json({ error: 'invalid_expires' }, 400);
     }
     const origin = new URL(c.req.url).origin;
+    const resource: ShareResourceRef =
+      kind === 'prototype' ? { kind: 'prototype', ids: [id] } : { kind, id };
     const result = await shareService.createResourceShare(
-      { resource: { kind, id }, expiresAt: resolveExpiresAt(body.expires) },
+      { resource, expiresAt: resolveExpiresAt(body.expires) },
       origin,
     );
     if (!result) {
@@ -46,6 +48,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
 
   router.post('/tasks/:id/share', createShareHandler('task'));
   router.post('/documents/:id/share', createShareHandler('document'));
+  router.post('/prototypes/:id/share', createShareHandler('prototype'));
 
   // Share an entire workspace (all its projects) with a client. Owner-gated in
   // the service via getTeamInOrg (workspace must be in the caller's org).
@@ -165,7 +168,13 @@ export function createSharesRouter(shareService: ShareService): Hono {
   // Guest moderated inbox — same guest session as view (BA6b single-server).
   router.post('/share/:token/submissions', async (c) => {
     const token = c.req.param('token');
-    let body: { title?: string; body?: string; severity?: string; task_ref?: string; project_id?: string };
+    let body: {
+      title?: string;
+      body?: string;
+      severity?: string;
+      task_ref?: string;
+      project_id?: string;
+    };
     try {
       body = await c.req.json<{
         title?: string;

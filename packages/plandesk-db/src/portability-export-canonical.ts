@@ -8,11 +8,13 @@ import { FIXTURE_EXPORT_IDS } from './portability-fixture-seed.js';
  */
 export type CanonicalExportSnapshot = {
   project: PlandeskExport['project'];
-  goals: Array<Omit<PlandeskExport['goals'][number], 'id' | 'created_at' | 'updated_at'> & {
-    id: string;
-    created_at?: string;
-    updated_at?: string;
-  }>;
+  goals: Array<
+    Omit<PlandeskExport['goals'][number], 'id' | 'created_at' | 'updated_at'> & {
+      id: string;
+      created_at?: string;
+      updated_at?: string;
+    }
+  >;
   tasks: PlandeskExport['tasks'];
   tags: PlandeskExport['tags'];
   edges: PlandeskExport['edges'];
@@ -52,9 +54,30 @@ function compareBy<T>(a: T, b: T, ...getters: Array<(row: T) => string>): number
 export function canonicalizeExportForComparison(exported: PlandeskExport): CanonicalExportSnapshot {
   return {
     project: reorderProjectFields(exported.project),
-    goals: [...exported.goals].sort((a, b) => compareBy(a, b, (g) => g.objective, (g) => g.id)),
-    tasks: [...exported.tasks].sort((a, b) => compareBy(a, b, (t) => t.label, (t) => t.id)),
-    tags: [...exported.tags].sort((a, b) => compareBy(a, b, (t) => t.name, (t) => t.id)),
+    goals: [...exported.goals].sort((a, b) =>
+      compareBy(
+        a,
+        b,
+        (g) => g.objective,
+        (g) => g.id,
+      ),
+    ),
+    tasks: [...exported.tasks].sort((a, b) =>
+      compareBy(
+        a,
+        b,
+        (t) => t.label,
+        (t) => t.id,
+      ),
+    ),
+    tags: [...exported.tags].sort((a, b) =>
+      compareBy(
+        a,
+        b,
+        (t) => t.name,
+        (t) => t.id,
+      ),
+    ),
     edges: [...exported.edges].sort((a, b) =>
       compareBy(
         a,
@@ -65,19 +88,78 @@ export function canonicalizeExportForComparison(exported: PlandeskExport): Canon
         (e) => e.id,
       ),
     ),
-    folders: [...exported.folders].sort((a, b) => compareBy(a, b, (f) => f.name, (f) => f.id)),
+    folders: [...exported.folders].sort((a, b) =>
+      compareBy(
+        a,
+        b,
+        (f) => f.name,
+        (f) => f.id,
+      ),
+    ),
     prototypes: [...exported.prototypes].sort((a, b) =>
-      compareBy(a, b, (p) => p.name, (p) => p.id),
+      compareBy(
+        a,
+        b,
+        (p) => p.name,
+        (p) => p.id,
+      ),
     ),
-    documents: [...exported.documents].sort((a, b) => compareBy(a, b, (d) => d.title, (d) => d.id)),
-    notes: [...exported.notes].sort((a, b) => compareBy(a, b, (n) => n.title, (n) => n.id)),
-    views: [...exported.views].sort((a, b) => compareBy(a, b, (v) => v.name, (v) => v.id)),
-    comments: [...exported.comments].sort((a, b) => compareBy(a, b, (c) => c.body, (c) => c.id)),
+    documents: [...exported.documents].sort((a, b) =>
+      compareBy(
+        a,
+        b,
+        (d) => d.title,
+        (d) => d.id,
+      ),
+    ),
+    notes: [...exported.notes].sort((a, b) =>
+      compareBy(
+        a,
+        b,
+        (n) => n.title,
+        (n) => n.id,
+      ),
+    ),
+    views: [...exported.views].sort((a, b) =>
+      compareBy(
+        a,
+        b,
+        (v) => v.name,
+        (v) => v.id,
+      ),
+    ),
+    comments: [...exported.comments].sort((a, b) =>
+      compareBy(
+        a,
+        b,
+        (c) => c.body,
+        (c) => c.id,
+      ),
+    ),
     agent_runs: [...exported.agent_runs].sort((a, b) =>
-      compareBy(a, b, (r) => r.label ?? '', (r) => r.id),
+      compareBy(
+        a,
+        b,
+        (r) => r.label ?? '',
+        (r) => r.id,
+      ),
     ),
-    files: [...exported.files].sort((a, b) => compareBy(a, b, (f) => f.filename, (f) => f.id)),
-    artifacts: [...exported.artifacts].sort((a, b) => compareBy(a, b, (a) => a.title, (a) => a.id)),
+    files: [...exported.files].sort((a, b) =>
+      compareBy(
+        a,
+        b,
+        (f) => f.filename,
+        (f) => f.id,
+      ),
+    ),
+    artifacts: [...exported.artifacts].sort((a, b) =>
+      compareBy(
+        a,
+        b,
+        (a) => a.title,
+        (a) => a.id,
+      ),
+    ),
   };
 }
 
@@ -120,7 +202,12 @@ export type PortableExportSnapshot = {
     style: string | null;
   }>;
   folders: Array<{ name: string; parent_name: string | null }>;
-  prototypes: Array<{ name: string; viewport_width: number; viewport_height: number }>;
+  prototypes: Array<{
+    name: string;
+    viewport_width: number;
+    viewport_height: number;
+    folder_name: string | null;
+  }>;
   documents: Array<{
     title: string;
     body: string | null;
@@ -129,7 +216,11 @@ export type PortableExportSnapshot = {
     folder_name: string | null;
   }>;
   notes: Array<{ title: string; body: string | null }>;
-  views: Array<{ name: string; config: PlandeskExport['views'][number]['config']; position: number }>;
+  views: Array<{
+    name: string;
+    config: PlandeskExport['views'][number]['config'];
+    position: number;
+  }>;
   comments: Array<{
     target_type: string;
     target_key: string;
@@ -284,6 +375,10 @@ export function toPortableExportSnapshot(exported: PlandeskExport): PortableExpo
         name: prototype.name,
         viewport_width: prototype.viewport_width,
         viewport_height: prototype.viewport_height,
+        folder_name:
+          prototype.folder_id === null || prototype.folder_id === undefined
+            ? null
+            : (folderNameById.get(prototype.folder_id) ?? prototype.folder_id),
       })),
     documents: [...exported.documents]
       .sort((a, b) => a.title.localeCompare(b.title))
@@ -384,7 +479,12 @@ export function assertGoldenExportFieldCoverage(exported: PlandeskExport): void 
     throw new Error('golden goals mismatch');
   }
   const task = exported.tasks.find((row) => row.label === 'DISTINCT-task-label');
-  if (!task || task.kind !== 'decision' || task.status !== 'in_progress' || task.priority !== 'urgent') {
+  if (
+    !task ||
+    task.kind !== 'decision' ||
+    task.status !== 'in_progress' ||
+    task.priority !== 'urgent'
+  ) {
     throw new Error('golden task mismatch');
   }
   if (exported.tags.length !== 1 || exported.tags[0]?.name !== 'DISTINCT-tag-name') {

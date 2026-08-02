@@ -466,7 +466,7 @@ function createMcpServer(services: Services, origin: string): McpServer {
     {
       title: 'Create Share Link',
       description:
-        'Mint a public, hash-token share link scoped to a single task or document, with a Markdown URL (`markdown_url`) a worker can `curl` for full context — put "Context: <markdown_url>" in a worker brief instead of pasting. Exactly one of task_id/document_id is required. expires defaults to 24h; never means the link does not expire.',
+        'Mint a public, hash-token share link scoped to a single task, document, or prototype, with a Markdown URL (`markdown_url`) a worker can `curl` for full context — put "Context: <markdown_url>" in a worker brief instead of pasting. Exactly one of task_id/document_id/prototype_id is required. expires defaults to 24h; never means the link does not expire.',
       inputSchema: createShareLinkInputSchema.shape,
     },
     createCreateShareLinkHandler(services.shareService, () => origin),
