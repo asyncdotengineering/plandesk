@@ -51,7 +51,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { applyDocumentSelectionClick } from './document-row-selection.js';
-import { FolderPicker } from './FolderPicker.js';
+import { FolderPicker, folderNestingPath } from './FolderPicker.js';
 import { ConfirmDialog } from './ConfirmDialog.js';
 
 export type DocumentsPanelProps = {
@@ -335,6 +335,35 @@ export const UNFILED_FOLDER_KEY = '__unfiled__';
 /** Drag payload for moving a document onto a folder / Unfiled. */
 export const DOCUMENT_DRAG_MIME = 'application/x-plandesk-document-id';
 
+/** Drag payload for re-parenting a folder onto another folder / root (Unfiled). */
+export const FOLDER_DRAG_MIME = 'application/x-plandesk-folder-id';
+
+const CYCLE_REPARENT_MESSAGE = 'Re-parenting would create a folder cycle';
+
+/** Ancestry from root to folderId (inclusive), for breadcrumbs. */
+export function folderAncestry(
+  folders: SerializedFolder[],
+  folderId: string,
+): SerializedFolder[] {
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const chain: SerializedFolder[] = [];
+  const visited = new Set<string>();
+  let cursor: string | null = folderId;
+  while (cursor !== null) {
+    if (visited.has(cursor)) {
+      break;
+    }
+    visited.add(cursor);
+    const folder = byId.get(cursor);
+    if (folder === undefined) {
+      break;
+    }
+    chain.unshift(folder);
+    cursor = folder.parent_folder_id;
+  }
+  return chain;
+}
+
 export function folderExpandStorageKey(projectId: string): string {
   return `plandesk.docs.expandedFolders.${projectId}`;
 }
@@ -401,6 +430,8 @@ export function DocumentsPanel({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(null);
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
+  /** Folder currently shown in the breadcrumb trail (null = project root). */
+  const [navFolderId, setNavFolderId] = useState<string | null>(null);
 
   const createFolder = useCreateFolder(projectId);
   const createDocument = useCreateDocument(projectId);
@@ -598,12 +629,50 @@ export function DocumentsPanel({
       setFolderToMove(null);
       return;
     }
+    if (
+      destination !== null &&
+      (destination === folderToMove.id ||
+        isDescendantFolder(folders, destination, folderToMove.id))
+    ) {
+      toast.error(CYCLE_REPARENT_MESSAGE);
+      return;
+    }
     patchFolder.mutate(
       { id: folderToMove.id, input: { parent_folder_id: destination } },
       {
         onSuccess: () => {
           toast('Folder moved');
           setFolderToMove(null);
+        },
+        onError: (error) => {
+          const message = error instanceof Error ? error.message : CYCLE_REPARENT_MESSAGE;
+          toast.error(message);
+        },
+      },
+    );
+  };
+
+  const reparentFolder = (folderId: string, destination: string | null) => {
+    const folder = folders.find((entry) => entry.id === folderId);
+    if (folder === undefined || destination === folder.parent_folder_id) {
+      return;
+    }
+    if (
+      destination !== null &&
+      (destination === folderId || isDescendantFolder(folders, destination, folderId))
+    ) {
+      toast.error(CYCLE_REPARENT_MESSAGE);
+      return;
+    }
+    patchFolder.mutate(
+      { id: folderId, input: { parent_folder_id: destination } },
+      {
+        onSuccess: () => {
+          toast('Folder moved');
+        },
+        onError: (error) => {
+          const message = error instanceof Error ? error.message : CYCLE_REPARENT_MESSAGE;
+          toast.error(message);
         },
       },
     );
@@ -716,6 +785,11 @@ export function DocumentsPanel({
   const acceptDocumentDrop = (event: DragEvent, destination: string | null) => {
     event.preventDefault();
     setDropTargetKey(null);
+    const folderId = event.dataTransfer.getData(FOLDER_DRAG_MIME);
+    if (folderId !== '') {
+      reparentFolder(folderId, destination);
+      return;
+    }
     const docId = event.dataTransfer.getData(DOCUMENT_DRAG_MIME);
     if (docId === '') {
       return;
@@ -730,7 +804,8 @@ export function DocumentsPanel({
 
   const folderDropHandlers = (destination: string | null, targetKey: string) => ({
     onDragOver: (event: DragEvent) => {
-      if (![...event.dataTransfer.types].includes(DOCUMENT_DRAG_MIME)) {
+      const types = [...event.dataTransfer.types];
+      if (!types.includes(DOCUMENT_DRAG_MIME) && !types.includes(FOLDER_DRAG_MIME)) {
         return;
       }
       event.preventDefault();
@@ -887,10 +962,20 @@ export function DocumentsPanel({
       <li key={folder.id} className="list-none">
         <div
           data-testid={`folder-drop-${folder.id}`}
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.setData(FOLDER_DRAG_MIME, folder.id);
+            event.dataTransfer.effectAllowed = 'move';
+          }}
+          onDragEnd={() => {
+            setDropTargetKey(null);
+          }}
           className={
             isDropTarget
-              ? 'group flex items-center gap-1 bg-accent py-1.5 pr-2 ring-1 ring-inset ring-ring transition-colors'
-              : 'group flex items-center gap-1 py-1.5 pr-2 transition-colors hover:bg-accent'
+              ? 'group flex cursor-grab items-center gap-1 bg-accent py-1.5 pr-2 ring-1 ring-inset ring-ring transition-colors active:cursor-grabbing'
+              : navFolderId === folder.id
+                ? 'group flex cursor-grab items-center gap-1 bg-muted/50 py-1.5 pr-2 transition-colors hover:bg-accent active:cursor-grabbing'
+                : 'group flex cursor-grab items-center gap-1 py-1.5 pr-2 transition-colors hover:bg-accent active:cursor-grabbing'
           }
           style={{ paddingLeft: `${String(4 + depth * 16)}px` }}
           {...dropHandlers}
@@ -911,11 +996,29 @@ export function DocumentsPanel({
             )}
           </button>
           <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
-          <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">{folder.name}</span>
+          <button
+            type="button"
+            aria-label={`Open folder ${folder.name}`}
+            title={folderNestingPath(folders, folder.id)}
+            onClick={() => {
+              setNavFolderId(folder.id);
+            }}
+            className="min-w-0 flex-1 truncate text-left text-[13.5px] font-medium hover:underline"
+          >
+            {folder.name}
+          </button>
           <span className="shrink-0 text-[11.5px] text-muted-foreground" data-testid={`doc-count-${folder.id}`}>
             {docCount}
           </span>
           <RowKebab label={`Actions for folder ${folder.name}`}>
+            <DropdownMenuItem
+              onSelect={() => {
+                setNewFolderParentId(folder.id);
+                setNewFolderOpen(true);
+              }}
+            >
+              New subfolder
+            </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => {
                 setFolderToRename(folder);
@@ -963,6 +1066,8 @@ export function DocumentsPanel({
   const unfiledCount = directDocumentCount(displayDocuments, null);
   const unfiledDropHandlers = folderDropHandlers(null, UNFILED_FOLDER_KEY);
   const unfiledIsDropTarget = dropTargetKey === UNFILED_FOLDER_KEY;
+  const breadcrumbTrail =
+    navFolderId === null ? [] : folderAncestry(folders, navFolderId);
 
   return (
     <section aria-label="Documents">
@@ -975,6 +1080,7 @@ export function DocumentsPanel({
             size="sm"
             disabled={createFolder.isPending}
             onClick={() => {
+              setNewFolderParentId(null);
               setNewFolderOpen(true);
             }}
           >
@@ -1058,7 +1164,45 @@ export function DocumentsPanel({
           No documents yet. Create one to start a spec, design, or investigation.
         </p>
       ) : (
-        <ul className="rounded-lg border py-1" aria-label="Folder tree">
+        <>
+          <nav
+            aria-label="Folder path"
+            data-testid="folder-breadcrumbs"
+            className="mb-2 flex flex-wrap items-center gap-1 text-[12.5px] text-muted-foreground"
+          >
+            <button
+              type="button"
+              className={
+                navFolderId === null
+                  ? 'font-medium text-foreground'
+                  : 'hover:text-foreground hover:underline'
+              }
+              onClick={() => {
+                setNavFolderId(null);
+              }}
+            >
+              Documents
+            </button>
+            {breadcrumbTrail.map((crumb) => (
+              <span key={crumb.id} className="inline-flex items-center gap-1">
+                <ChevronRightIcon className="size-3 opacity-60" aria-hidden />
+                <button
+                  type="button"
+                  className={
+                    crumb.id === navFolderId
+                      ? 'font-medium text-foreground'
+                      : 'hover:text-foreground hover:underline'
+                  }
+                  onClick={() => {
+                    setNavFolderId(crumb.id);
+                  }}
+                >
+                  {crumb.name}
+                </button>
+              </span>
+            ))}
+          </nav>
+          <ul className="rounded-lg border py-1" aria-label="Folder tree">
           {rootFolders.map((folder) => renderFolderNode(folder, 0))}
           <li className="list-none">
             <div
@@ -1104,6 +1248,7 @@ export function DocumentsPanel({
             ) : null}
           </li>
         </ul>
+        </>
       )}
 
       <Dialog

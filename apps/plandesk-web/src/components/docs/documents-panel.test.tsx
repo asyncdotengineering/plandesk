@@ -3,9 +3,11 @@ import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-r
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedDocumentTree, SerializedFolder } from '../../lib/api.js';
+import { toast } from 'sonner';
 import {
   DocumentsPanel,
   DOCUMENT_DRAG_MIME,
+  FOLDER_DRAG_MIME,
   UNFILED_FOLDER_KEY,
   childFoldersOf,
   directDocumentCount,
@@ -15,6 +17,10 @@ import {
   loadExpandedFolderIds,
   saveExpandedFolderIds,
 } from './DocumentsPanel.js';
+
+vi.mock('sonner', () => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }),
+}));
 
 const projectId = 'proj-1';
 
@@ -471,5 +477,114 @@ describe('DocumentsPanel multi-select', () => {
     expect(screen.getByTestId('selection-bar')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
     expect(screen.queryByTestId('selection-bar')).toBeNull();
+  });
+});
+
+describe('DocumentsPanel nesting, re-nest, breadcrumbs', () => {
+  function makeDataTransfer(initial: Record<string, string> = {}) {
+    const store = { ...initial };
+    return {
+      store,
+      setData: (type: string, value: string) => {
+        store[type] = value;
+      },
+      getData: (type: string) => store[type] ?? '',
+      get types() {
+        return Object.keys(store);
+      },
+      effectAllowed: 'all' as string,
+      dropEffect: 'none' as string,
+    };
+  }
+
+  it('renders nested sub-folders under their parent when expanded', async () => {
+    const folders = [
+      makeFolder('f1', 'Specs', null),
+      makeFolder('f2', 'Archive', 'f1'),
+    ];
+    renderPanel([makeDocument('d1', 'Old', 'f2')], folders);
+    await panelReady();
+
+    const tree = screen.getByRole('list', { name: 'Folder tree' });
+    expect(within(tree).getByText('Specs')).toBeTruthy();
+    expect(within(tree).getByText('Archive')).toBeTruthy();
+    expect(within(tree).getByText('Old')).toBeTruthy();
+  });
+
+  it('New subfolder from a folder kebab presets parent_folder_id on create', async () => {
+    renderPanel([], [makeFolder('f1', 'Specs', null)]);
+    await panelReady();
+
+    openKebab('Actions for folder Specs');
+    fireEvent.click(screen.getByText('New subfolder'));
+    fireEvent.change(await screen.findByLabelText('Folder name'), {
+      target: { value: 'Nested' },
+    });
+    expect(screen.getByLabelText('Parent folder')).toHaveProperty('value', 'f1');
+    fireEvent.click(screen.getByRole('button', { name: 'Create folder' }));
+
+    await waitFor(() => {
+      const postCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'POST');
+      expect(postCall?.[0]).toBe(`/api/v1/projects/${projectId}/folders`);
+      const rawBody = postCall?.[1]?.body;
+      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<string, unknown>;
+      expect(body.name).toBe('Nested');
+      expect(body.parent_folder_id).toBe('f1');
+    });
+  });
+
+  it('dragging a folder onto another PATCHes parent_folder_id', async () => {
+    const folders = [makeFolder('f1', 'Specs', null), makeFolder('f2', 'Loose', null)];
+    renderPanel([], folders);
+    await panelReady();
+
+    const dt = makeDataTransfer();
+    fireEvent.dragStart(screen.getByTestId('folder-drop-f2'), { dataTransfer: dt });
+    expect(dt.store[FOLDER_DRAG_MIME]).toBe('f2');
+    fireEvent.drop(screen.getByTestId('folder-drop-f1'), { dataTransfer: dt });
+
+    await waitFor(() => {
+      const patchCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PATCH');
+      expect(patchCall?.[0]).toBe('/api/v1/folders/f2');
+      expect(patchCall?.[1]?.body).toBe(JSON.stringify({ parent_folder_id: 'f1' }));
+    });
+  });
+
+  it('rejects a cycle-creating folder drop with a named toast and no PATCH', async () => {
+    vi.mocked(toast.error).mockClear();
+    const folders = [
+      makeFolder('f1', 'Specs', null),
+      makeFolder('f2', 'Archive', 'f1'),
+    ];
+    renderPanel([], folders);
+    await panelReady();
+
+    const dt = makeDataTransfer({ [FOLDER_DRAG_MIME]: 'f1' });
+    fireEvent.drop(screen.getByTestId('folder-drop-f2'), { dataTransfer: dt });
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringMatching(/cycle/i),
+      );
+    });
+    expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
+  });
+
+  it('clicking a folder updates breadcrumbs; crumb navigates up', async () => {
+    const folders = [
+      makeFolder('f1', 'Specs', null),
+      makeFolder('f2', 'Archive', 'f1'),
+    ];
+    renderPanel([], folders);
+    await panelReady();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open folder Archive' }));
+    const crumbs = await screen.findByTestId('folder-breadcrumbs');
+    expect(crumbs.textContent).toMatch(/Documents/);
+    expect(crumbs.textContent).toMatch(/Specs/);
+    expect(crumbs.textContent).toMatch(/Archive/);
+
+    fireEvent.click(within(crumbs).getByRole('button', { name: 'Documents' }));
+    expect(screen.getByTestId('folder-breadcrumbs').textContent).toMatch(/^Documents$/);
   });
 });
