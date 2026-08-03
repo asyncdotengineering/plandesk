@@ -83,6 +83,34 @@ export function shapeBounds(shape: AnnotationShape): { x: number; y: number; w: 
   return { x: shape.x, y: shape.y, w: shape.w, h: shape.h };
 }
 
+export function pointInBounds(
+  x: number,
+  y: number,
+  bounds: { x: number; y: number; w: number; h: number },
+): boolean {
+  return (
+    x >= bounds.x && x <= bounds.x + bounds.w && y >= bounds.y && y <= bounds.y + bounds.h
+  );
+}
+
+/** Topmost annotation whose bounds contain the point (last painted wins). */
+export function hitAnnotationAt(
+  shapes: AnnotationShape[],
+  x: number,
+  y: number,
+): AnnotationShape | undefined {
+  for (let index = shapes.length - 1; index >= 0; index -= 1) {
+    const shape = shapes[index];
+    if (shape === undefined) {
+      continue;
+    }
+    if (pointInBounds(x, y, shapeBounds(shape))) {
+      return shape;
+    }
+  }
+  return undefined;
+}
+
 function resolveCssColor(color: string, fallback = '#000000'): string {
   if (typeof document === 'undefined') {
     return fallback;

@@ -6,6 +6,7 @@ import { AnnotatableImage } from './AnnotatableImage.js';
 import {
   arrowEndpoints,
   flattenAnnotations,
+  hitAnnotationAt,
   normalizeRectBounds,
   parseAnnotations,
   serializeAnnotations,
@@ -81,6 +82,47 @@ describe('annotation geometry helpers', () => {
     expect(bounds.y).toBe(24);
     expect(bounds.w).toBeGreaterThan(0);
     expect(bounds.h).toBeGreaterThan(0);
+  });
+
+  it('hitAnnotationAt returns the topmost shape under the pointer', () => {
+    const bottom: AnnotationShape = {
+      id: 'bottom',
+      type: 'rect',
+      x: 0,
+      y: 0,
+      w: 40,
+      h: 40,
+      color: 'var(--primary)',
+    };
+    const top: AnnotationShape = {
+      id: 'top',
+      type: 'rect',
+      x: 10,
+      y: 10,
+      w: 40,
+      h: 40,
+      color: 'var(--destructive)',
+    };
+    expect(hitAnnotationAt([bottom, top], 20, 20)?.id).toBe('top');
+    expect(hitAnnotationAt([bottom, top], 2, 2)?.id).toBe('bottom');
+  });
+
+  it('translating a selected shape updates coordinates without adding a new one', () => {
+    const shape: AnnotationShape = {
+      id: 'move-me',
+      type: 'rect',
+      x: 10,
+      y: 10,
+      w: 30,
+      h: 20,
+      color: 'var(--primary)',
+    };
+    const grabOffset = { x: 5, y: 5 };
+    const moved = [{ ...shape, x: 40 - grabOffset.x, y: 50 - grabOffset.y }];
+    expect(moved).toHaveLength(1);
+    expect(moved[0]?.x).toBe(35);
+    expect(moved[0]?.y).toBe(45);
+    expect(hitAnnotationAt(moved, 40, 50)?.id).toBe('move-me');
   });
 });
 
