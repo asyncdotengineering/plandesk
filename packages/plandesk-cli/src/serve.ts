@@ -10,7 +10,7 @@ import {
   mountStatic,
   runBetterAuthMigrations,
 } from '@plandesk/api';
-import { createDb, migrate } from '@plandesk/db';
+import { assertSchemaCurrent, createDb, migrate } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
 import { resolveServerConfig } from './config.js';
@@ -143,6 +143,7 @@ export async function startServer(
   if (dbUrl === undefined) {
     betterAuthSecret ??= ensureLocalBetterAuthSecret(dataDir);
     await migrate(db);
+    await assertSchemaCurrent(db);
     auth = createBetterAuth({
       client: db.$client,
       secret: betterAuthSecret,
@@ -161,6 +162,7 @@ export async function startServer(
           `Run \`plandesk migrate --db ${dbUrl}\` first.`,
       );
     }
+    await assertSchemaCurrent(db);
   }
 
   const storage =

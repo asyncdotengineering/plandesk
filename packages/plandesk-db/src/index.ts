@@ -14,6 +14,25 @@ export {
 export { isSqliteBusy, retryOnSqliteBusy } from './sqlite-errors.js';
 export { checkpointWalForFileCopy, WalCheckpointError } from './wal-file-copy.js';
 export { migrate } from './migrate.js';
+export {
+  SchemaDriftError,
+  assertSchemaCurrent,
+  formatSchemaDriftMessage,
+  getSchemaMigrationSummary,
+  listAppliedMigrationCreatedAts,
+  listShippedMigrationTags,
+  type SchemaMigrationSummary,
+} from './schema-drift.js';
+export {
+  UnstoredColumnError,
+  assertTableStoresColumns,
+  listTableColumns,
+} from './schema-columns.js';
+export {
+  assertTaskCreateSchema,
+  assertTaskUpdateSchema,
+  taskUpdateColumns,
+} from './task-schema-guards.js';
 export * from './repositories/projects.js';
 export * from './repositories/goals.js';
 export * from './repositories/tasks.js';

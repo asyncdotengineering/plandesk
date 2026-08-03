@@ -96,7 +96,12 @@ describe('better-auth foundation (slice 1/6)', () => {
     for (const app of [withoutBetterAuth, withBetterAuth]) {
       const health = await app.request('/api/v1/health');
       expect(health.status).toBe(200);
-      expect(await health.json()).toEqual({ ok: true });
+      const healthBody = (await health.json()) as {
+        ok: boolean;
+        schema?: { current: boolean; missingTags: string[] };
+      };
+      expect(healthBody).toMatchObject({ ok: true });
+      expect(healthBody.schema).toMatchObject({ current: true, missingTags: [] });
 
       const unknown = await app.request('/api/v1/unknown');
       expect(unknown.status).toBe(404);

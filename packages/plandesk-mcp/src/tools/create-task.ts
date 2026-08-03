@@ -5,6 +5,7 @@ import {
   InvalidTaskPriorityError,
   InvalidTaskStatusError,
   InvalidTaskSeverityError,
+  UnstoredColumnError,
   type TaskKind,
   type TaskLane,
   type TaskPriority,
@@ -58,7 +59,8 @@ export function createCreateTaskHandler(
         error instanceof InvalidTaskLaneError ||
         error instanceof InvalidTaskSeverityError ||
         error instanceof InvalidTagError ||
-        error instanceof InvalidGoalReferenceError
+        error instanceof InvalidGoalReferenceError ||
+        error instanceof UnstoredColumnError
       ) {
         return toolInvalidArgument(error.message);
       }

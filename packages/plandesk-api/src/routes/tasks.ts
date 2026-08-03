@@ -5,6 +5,7 @@ import {
   InvalidTaskPriorityError,
   InvalidTaskLaneError,
   InvalidTaskSeverityError,
+  UnstoredColumnError,
   isTaskStatus,
   isTaskKind,
   isTaskPriority,
@@ -105,7 +106,8 @@ export function createTasksRouter(taskService: TaskService): Hono {
         error instanceof InvalidTaskLaneError ||
         error instanceof InvalidTaskSeverityError ||
         error instanceof InvalidTagError ||
-        error instanceof InvalidCommitRefsError
+        error instanceof InvalidCommitRefsError ||
+        error instanceof UnstoredColumnError
       ) {
         return c.json({ error: 'invalid_argument' }, 400);
       }
