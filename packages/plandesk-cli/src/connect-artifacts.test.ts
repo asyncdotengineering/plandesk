@@ -199,6 +199,48 @@ describe('connect artifacts', () => {
     expect(second.match(new RegExp(SENTINEL_END, 'g'))?.length).toBe(1);
   });
 
+  it('adopts a bare skill include instead of appending a second block', () => {
+    // The live shape: a hand-authored CLAUDE.md carrying the include mid-file
+    // with no markers around it. `insertBlock` keys only on the markers, so
+    // before this was adopted the include appeared twice after one connect.
+    const original = [
+      '# CLAUDE.md',
+      '',
+      'Guidance for this repository.',
+      '',
+      '@.plandesk/skill.md',
+      '',
+      '## Something the repo owns',
+      '',
+      'Tail content.',
+      '',
+    ].join('\n');
+
+    const next = insertSentinelBlock(original);
+
+    expect(next.match(/@\.plandesk\/skill\.md/g)?.length).toBe(1);
+    expect(next.match(new RegExp(SENTINEL_START, 'g'))?.length).toBe(1);
+    expect(next.match(new RegExp(SENTINEL_END, 'g'))?.length).toBe(1);
+
+    // Adopted in place: the include keeps the position its author chose, so the
+    // repo's own sections stay in order around it.
+    expect(next.indexOf('Guidance for this repository.')).toBeLessThan(
+      next.indexOf(SENTINEL_START),
+    );
+    expect(next.indexOf(SENTINEL_END)).toBeLessThan(next.indexOf('## Something the repo owns'));
+    expect(next).toContain('Tail content.');
+
+    // And stable across repeated connects.
+    expect(insertSentinelBlock(next).match(/@\.plandesk\/skill\.md/g)?.length).toBe(1);
+  });
+
+  it('leaves an include already inside the markers alone', () => {
+    const content = `# Repo\n\n${buildSentinelBlock()}\n\nTail\n`;
+    const next = insertSentinelBlock(content);
+    expect(next.match(/@\.plandesk\/skill\.md/g)?.length).toBe(1);
+    expect(next.match(new RegExp(SENTINEL_START, 'g'))?.length).toBe(1);
+  });
+
   it('removes sentinel blocks without touching surrounding content', () => {
     const content = `# Title\n\n${buildSentinelBlock()}\n\nTail content\n`;
     const next = removeSentinelBlock(content);

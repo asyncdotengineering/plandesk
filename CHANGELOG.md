@@ -4,7 +4,19 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
-## [3.0.0] — 2026-08-03
+## [3.0.1] — 2026-08-03
+
+`@plandesk/cli` only. `@plandesk/api`, `@plandesk/db` and `@plandesk/mcp` stay at 3.0.0 — nothing in them changed, and publishing three byte-identical versions to preserve lockstep buys nothing. The published `cli` manifest pins them at 3.0.0 explicitly.
+
+### Fixed
+
+- **`connect` no longer appends a second skill include to a hand-edited `CLAUDE.md`.** `insertBlock` keys only on the `<!-- plandesk:start -->` / `<!-- plandesk:end -->` markers: present means replace, absent means append. An `@.plandesk/skill.md` line that someone typed by hand — or that predates the markers — is invisible to it, so the next `connect` appended a whole second block and the file then carried the include twice.
+
+  Found on a real repo whose `CLAUDE.md` had the include sitting mid-file with no markers, one `connect` away from doubling. Verified by running the real function over that file's actual content: 1 include before, 2 after.
+
+  A bare include outside the markers is now adopted — wrapped in place. In place rather than dropped-and-re-appended, because the include is usually positioned deliberately after a repo's own preamble, and appending would silently move it to the end of the file.
+
+  The factory block already solved the same shape via `adoptLegacyFactorySection`; this brings the skill block in line with it.
 
 Major because three surfaces changed shape in ways a consumer can depend on. Everything else in this release is additive.
 

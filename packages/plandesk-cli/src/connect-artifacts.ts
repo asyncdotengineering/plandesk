@@ -566,21 +566,45 @@ export function insertFactorySentinelBlock(content: string): string {
   );
 }
 
+/**
+ * Adopt a bare `@.plandesk/skill.md` that sits outside the sentinel pair.
+ *
+ * `insertBlock` keys only on the markers: found means replace, absent means
+ * append. An include line someone typed by hand — or that predates the markers —
+ * is therefore invisible to it, so the next `connect` appends a second block and
+ * the file carries the include twice. Observed live on a hand-authored
+ * `CLAUDE.md` whose include sat mid-file with no markers; one `connect` away
+ * from two.
+ *
+ * Wrapping in place rather than dropping the line and letting the block append
+ * keeps the author's chosen position — the include often sits deliberately after
+ * a repo's own preamble, and appending would move it to the end of the file.
+ */
+function adoptLegacySkillInclude(content: string): string {
+  if (content.includes(SENTINEL_START)) {
+    return content;
+  }
+  const lines = content.split('\n');
+  const idx = lines.findIndex((line) => line.trim() === SENTINEL_INCLUDE);
+  if (idx === -1) {
+    return content;
+  }
+  return [
+    ...lines.slice(0, idx),
+    SENTINEL_START,
+    SENTINEL_INCLUDE,
+    SENTINEL_END,
+    ...lines.slice(idx + 1),
+  ].join('\n');
+}
+
 export function insertSentinelBlock(content: string): string {
-  const block = buildSentinelBlock();
-  const startIdx = content.indexOf(SENTINEL_START);
-  const endIdx = content.indexOf(SENTINEL_END);
-  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    const before = content.slice(0, startIdx).replace(/\n+$/, '');
-    const after = content.slice(endIdx + SENTINEL_END.length).replace(/^\n+/, '');
-    const parts = [before, block, after].filter((part) => part.length > 0);
-    return `${parts.join('\n\n')}\n`;
-  }
-  if (content.length === 0) {
-    return `${block}\n`;
-  }
-  const base = content.replace(/\n+$/, '');
-  return `${base}\n\n${block}\n`;
+  return insertBlock(
+    adoptLegacySkillInclude(content),
+    buildSentinelBlock(),
+    SENTINEL_START,
+    SENTINEL_END,
+  );
 }
 
 export function removeSentinelBlock(content: string): string | undefined {
