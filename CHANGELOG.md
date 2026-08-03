@@ -4,6 +4,32 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [3.0.0] — 2026-08-03
+
+Major because three surfaces changed shape in ways a consumer can depend on. Everything else in this release is additive.
+
+### Breaking
+
+- **`get_next_task` resolves one goal instead of unioning all of them.** It previously returned the next actionable task across *every* active goal, which silently interleaved unrelated workstreams — the caller could not tell which goal a returned task belonged to, and a second active goal changed the answer without anything on the board looking different.
+
+  It now resolves a single current goal: the project's `current_goal_id` if set, otherwise the sole active goal. When neither holds it returns `next_task: null` with a `reason` of `no_active_goal` or `ambiguous_goal`, and `ambiguous_goal` carries an `ambiguous_goals` array so the caller can pick.
+
+  **A caller with two active goals that previously received a task now receives `null`.** That is the intended correction — the old answer was arbitrary — but it is a behavior change, not a bug fix, and a loop that treats `null` as "board finished" will stop early. Set `current_goal_id`, or read `reason` before concluding the work is done.
+
+- **MCP read payloads are bounded.** Large list and read responses are capped rather than returned whole. A consumer that assumed a complete list from one call must now respect the bound.
+
+- **`file_path` is restricted to registered project roots.** Paths outside a workspace-registered repo root are refused. A previously-accepted arbitrary path is now an error — this closes a reach across unrelated local projects that the field never intended to grant.
+
+### Added
+
+Prototypes — named flows of HTML screens with a declared viewport, canvas layout derived from the link graph, the `plandesk://` resolution scheme, vendored libraries, and screen move/copy. Content history with revisions, diffing and restore, exposed read-only over MCP. A workspace-scoped title search across API, MCP and the command menu. List view with grouping, multi-level sort, nested filter groups, saved named views, column visibility and CSV/XLSX export. Folder organization — nesting, drag-to-move, bulk move, `delete_folder`, and `move_documents`. Goals gain short names, an `invoke_goal` entry point, and rejection of incomplete contracts. Tasks gain `priority`, typed `lane` and `severity`, a `kind` distinguishing build from decision work, and shipping-commit metadata. Wiki-style `[[Title]]` links resolve into real links and edges.
+
+### Fixed
+
+- **The SPA fallback served a stale `index.html`.** The file was read once at boot, so every deploy served the previous build's HTML until the process restarted — a production failure, not just a dev annoyance. It is now read per request, and asset-looking paths 404 instead of receiving HTML.
+
+- **A stale database is refused instead of silently dropping writes.** A server running against a database behind its own migrations accepted writes and discarded the fields its schema lacked. It now refuses at startup, naming the applied and missing migrations.
+
 ## [2.5.1] — 2026-07-29
 
 ### Fixed
