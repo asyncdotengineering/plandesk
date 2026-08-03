@@ -77,6 +77,13 @@ function renderSwitcher(path = '/projects/project-a/board') {
     path: '/',
     component: () => <p>Workspace landing</p>,
   });
+  // Switching the active workspace lands here, so the test router must be able
+  // to resolve it — otherwise the navigation silently stays put.
+  const projectsRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/projects',
+    component: () => <p>Projects list</p>,
+  });
   const projectRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: '/projects/$id/board',
@@ -88,7 +95,7 @@ function renderSwitcher(path = '/projects/project-a/board') {
     ),
   });
   const router = createRouter({
-    routeTree: rootRoute.addChildren([indexRoute, projectRoute]),
+    routeTree: rootRoute.addChildren([indexRoute, projectsRoute, projectRoute]),
     history: createMemoryHistory({ initialEntries: [path] }),
   });
   const rendered = render(
@@ -161,9 +168,9 @@ describe('Sidebar workspace switcher (REQ-1 / REQ-2)', () => {
     });
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/');
+      expect(router.state.location.pathname).toBe('/projects');
     });
-    expect(screen.getByText('Workspace landing')).toBeTruthy();
+    expect(screen.getByText('Projects list')).toBeTruthy();
     expect(localStorage.getItem('plandesk.activeWorkspaceId')).toBe('ws-2');
   });
 

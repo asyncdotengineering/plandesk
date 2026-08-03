@@ -66,7 +66,9 @@ export function WorkspaceSwitcher() {
       // Land the user in the workspace they just made.
       await setActive.mutateAsync(created.id);
       toast('Workspace created');
-      await navigate({ to: '/' });
+      // /projects, matching enterWorkspace in routes/index.tsx — every path that
+      // changes the active workspace lands in the same place.
+      await navigate({ to: '/projects' });
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         toast.error("You don't have permission to create workspaces.");
@@ -77,7 +79,9 @@ export function WorkspaceSwitcher() {
   function handleSwitch(workspaceId: string) {
     setActive.mutate(workspaceId, {
       onSuccess: () => {
-        void navigate({ to: '/' });
+        // The switch invalidates every org-scoped query; the project list is
+        // what reads the new workspace, so landing on / showed no change.
+        void navigate({ to: '/projects' });
       },
     });
   }

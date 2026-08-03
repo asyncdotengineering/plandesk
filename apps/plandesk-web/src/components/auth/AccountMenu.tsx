@@ -95,7 +95,8 @@ export function AccountMenu() {
                 onSelect={() => {
                   switchWorkspace.mutate(workspace.id, {
                     onSuccess: () => {
-                      void navigate({ to: '/' });
+                      // /projects, matching enterWorkspace and the sidebar switcher.
+                      void navigate({ to: '/projects' });
                     },
                   });
                 }}
