@@ -3,6 +3,8 @@
  * Used by the HTTP route and MCP tool schemas — one policy, both boundaries.
  */
 
+import { isAbsolute } from 'node:path';
+
 const ALLOWED_REPO_SCHEMES = new Set(['http:', 'https:', 'ssh:', 'git:']);
 
 /**
@@ -32,6 +34,21 @@ export function isValidRepoUrl(value: string): boolean {
     return false;
   }
   return ALLOWED_REPO_SCHEMES.has(parsed.protocol);
+}
+
+/**
+ * Absolute repo root recorded by connect/serve for workspace file_path bounds.
+ * Distinct from {@link isValidFolderPath} (monorepo-relative package paths).
+ */
+export function isValidRegisteredRepoRoot(value: string): boolean {
+  if (value === '' || !isAbsolute(value)) {
+    return false;
+  }
+  const normalized = value.replace(/\\/g, '/');
+  if (normalized.split('/').some((segment) => segment === '..')) {
+    return false;
+  }
+  return true;
 }
 
 /**

@@ -101,6 +101,10 @@ export const projects = sqliteTable('projects', {
   repoUrl: text('repo_url'),
   // Path relative to the repo root (e.g. packages/plandesk-api); never absolute.
   folderPath: text('folder_path'),
+  // Nullable pointer to the goal being worked; see get_next_task resolution order.
+  currentGoalId: text('current_goal_id').references((): AnySQLiteColumn => goals.id, {
+    onDelete: 'set null',
+  }),
   canvasLayout: text('canvas_layout'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()

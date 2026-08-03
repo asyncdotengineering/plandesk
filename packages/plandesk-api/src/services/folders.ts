@@ -12,6 +12,10 @@ import {
 import { serializeFolder, type SerializedFolder } from '../serialize.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
+import {
+  FOLDER_REPARENT_CYCLE_MESSAGE,
+  wouldCreateFolderReparentCycle,
+} from './folder-cycle.js';
 
 export type FolderServiceDeps = OrgScopedDeps & {
   db: Db;
@@ -52,17 +56,23 @@ async function assertParentInProject(
 }
 
 async function assertNoCycle(db: Db, folderId: string, newParentFolderId: string): Promise<void> {
-  const visited = new Set<string>();
+  const parentById = new Map<string, string | null>();
   let current: string | null = newParentFolderId;
+  const visited = new Set<string>();
   while (current !== null) {
-    if (current === folderId) {
-      throw new InvalidFolderError('Re-parenting would create a folder cycle');
-    }
     if (visited.has(current)) {
-      return;
+      break;
     }
     visited.add(current);
-    current = (await dbGetFolder(db, current))?.parentFolderId ?? null;
+    if (!parentById.has(current)) {
+      parentById.set(current, (await dbGetFolder(db, current))?.parentFolderId ?? null);
+    }
+    current = parentById.get(current) ?? null;
+  }
+  if (
+    wouldCreateFolderReparentCycle(folderId, newParentFolderId, (id) => parentById.get(id) ?? null)
+  ) {
+    throw new InvalidFolderError(FOLDER_REPARENT_CYCLE_MESSAGE);
   }
 }
 

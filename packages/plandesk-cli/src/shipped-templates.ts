@@ -44,6 +44,8 @@ export const SHIPPED_SKILL_NAMES = [
   'plandesk-plan-writer',
   'plandesk-autonomy',
   'plandesk-timebox',
+  'plandesk-standdown',
+  'plandesk-standup',
   'plandesk-prototype',
 ] as const;
 

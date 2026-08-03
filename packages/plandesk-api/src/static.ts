@@ -25,15 +25,33 @@ function resolveDefaultDistPath(): string {
   );
 }
 
-/** Client routes have no file extension; asset URLs always carry one (not `.html`). */
+// Extension allow-list (not "any dot"): client routes may carry dots in slugs
+// (e.g. /docs/v1.2) without being build-emitted assets. Only known Vite output
+// extensions get a 404 when missing; everything else falls through to the shell.
+const ASSET_EXTENSIONS = new Set([
+  'css',
+  'ico',
+  'jpg',
+  'js',
+  'json',
+  'map',
+  'mjs',
+  'png',
+  'svg',
+  'ttf',
+  'webp',
+  'woff',
+  'woff2',
+]);
+
 function looksLikeAsset(path: string): boolean {
   const lastSegment = path.split('/').pop() ?? '';
   const dotIndex = lastSegment.lastIndexOf('.');
   if (dotIndex <= 0) {
     return false;
   }
-  const ext = lastSegment.slice(dotIndex + 1);
-  return ext.toLowerCase() !== 'html';
+  const ext = lastSegment.slice(dotIndex + 1).toLowerCase();
+  return ASSET_EXTENSIONS.has(ext);
 }
 
 export function mountStatic(app: Hono, distPath: string = resolveDefaultDistPath()): void {

@@ -645,6 +645,7 @@ describe('export/import portability', () => {
     expect(names).toEqual([
       'canvas_layout',
       'created_at',
+      'current_goal_id',
       'description',
       'folder_path',
       'id',

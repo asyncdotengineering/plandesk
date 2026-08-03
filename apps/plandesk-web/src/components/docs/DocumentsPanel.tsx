@@ -18,6 +18,10 @@ import type {
   SerializedTask,
 } from '../../lib/api.js';
 import {
+  FOLDER_REPARENT_CYCLE_MESSAGE,
+  wouldCreateFolderReparentCycle,
+} from '@plandesk/api/folder-cycle';
+import {
   useCreateDocument,
   useCreateEdge,
   useCreateFolder,
@@ -137,20 +141,21 @@ export function isDescendantFolder(
   candidateId: string,
   ancestorId: string,
 ): boolean {
-  const byId = new Map(folders.map((folder) => [folder.id, folder]));
-  const visited = new Set<string>();
-  let current: string | null = candidateId;
-  while (current !== null) {
-    if (current === ancestorId) {
-      return true;
-    }
-    if (visited.has(current)) {
-      return false;
-    }
-    visited.add(current);
-    current = byId.get(current)?.parent_folder_id ?? null;
-  }
-  return false;
+  const parentOf = folderParentLookup(folders);
+  return wouldCreateFolderReparentCycle(ancestorId, candidateId, parentOf);
+}
+
+function folderParentLookup(folders: SerializedFolder[]): (folderId: string) => string | null {
+  const byId = new Map(folders.map((folder) => [folder.id, folder.parent_folder_id]));
+  return (folderId) => byId.get(folderId) ?? null;
+}
+
+function wouldReparentFolderCycle(
+  folders: SerializedFolder[],
+  folderId: string,
+  newParentFolderId: string,
+): boolean {
+  return wouldCreateFolderReparentCycle(folderId, newParentFolderId, folderParentLookup(folders));
 }
 
 // Single-text-field dialog — replaces the banned native prompt() for new folder /
@@ -337,8 +342,6 @@ export const DOCUMENT_DRAG_MIME = 'application/x-plandesk-document-id';
 
 /** Drag payload for re-parenting a folder onto another folder / root (Unfiled). */
 export const FOLDER_DRAG_MIME = 'application/x-plandesk-folder-id';
-
-const CYCLE_REPARENT_MESSAGE = 'Re-parenting would create a folder cycle';
 
 /** Ancestry from root to folderId (inclusive), for breadcrumbs. */
 export function folderAncestry(
@@ -632,9 +635,9 @@ export function DocumentsPanel({
     if (
       destination !== null &&
       (destination === folderToMove.id ||
-        isDescendantFolder(folders, destination, folderToMove.id))
+        wouldReparentFolderCycle(folders, folderToMove.id, destination))
     ) {
-      toast.error(CYCLE_REPARENT_MESSAGE);
+      toast.error(FOLDER_REPARENT_CYCLE_MESSAGE);
       return;
     }
     patchFolder.mutate(
@@ -645,7 +648,7 @@ export function DocumentsPanel({
           setFolderToMove(null);
         },
         onError: (error) => {
-          const message = error instanceof Error ? error.message : CYCLE_REPARENT_MESSAGE;
+          const message = error instanceof Error ? error.message : FOLDER_REPARENT_CYCLE_MESSAGE;
           toast.error(message);
         },
       },
@@ -659,9 +662,9 @@ export function DocumentsPanel({
     }
     if (
       destination !== null &&
-      (destination === folderId || isDescendantFolder(folders, destination, folderId))
+      (destination === folderId || wouldReparentFolderCycle(folders, folderId, destination))
     ) {
-      toast.error(CYCLE_REPARENT_MESSAGE);
+      toast.error(FOLDER_REPARENT_CYCLE_MESSAGE);
       return;
     }
     patchFolder.mutate(
@@ -671,7 +674,7 @@ export function DocumentsPanel({
           toast('Folder moved');
         },
         onError: (error) => {
-          const message = error instanceof Error ? error.message : CYCLE_REPARENT_MESSAGE;
+          const message = error instanceof Error ? error.message : FOLDER_REPARENT_CYCLE_MESSAGE;
           toast.error(message);
         },
       },
@@ -858,7 +861,7 @@ export function DocumentsPanel({
     ? folders.filter(
         (candidate) =>
           candidate.id !== folderToMove.id &&
-          !isDescendantFolder(folders, candidate.id, folderToMove.id),
+          !wouldReparentFolderCycle(folders, folderToMove.id, candidate.id),
       )
     : [];
 

@@ -22,6 +22,7 @@ import {
 } from './connect-artifacts.js';
 import { ensureLocalBetterAuthSecret } from './init.js';
 import { listTables, missingRequiredTables } from './database-schema.js';
+import { backfillRepoFolderPathFromCwd } from './folder-path-backfill.js';
 
 export type ServeOptions = {
   port: number;
@@ -170,6 +171,7 @@ export async function startServer(
       ? createS3Adapter({ db, config: cfg.values.storage })
       : undefined;
   const services = createServices({ db, auth, ...(storage !== undefined ? { storage } : {}) });
+  await backfillRepoFolderPathFromCwd(db);
   // Parent createApp resolves better-auth apiKey / session / loopback;
   // MCP requires that context (no independent auth path).
   const mcpApp = createMcpApp({ services, bindHost: host });

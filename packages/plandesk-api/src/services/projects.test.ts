@@ -36,7 +36,7 @@ import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createBetterAuth, runBetterAuthMigrations } from '../better-auth.js';
 import { createTeamForOrg, ensureLocalBetterAuthOrganization } from '../identity.js';
 import { runWithAuthContext, type AuthContext } from '../auth-context.js';
-import { DEFAULT_AGENT_KEY_PERMISSIONS } from '../agent-keys.js';
+import { DEFAULT_AGENT_KEY_PERMISSIONS, DEFAULT_OWNER_KEY_PERMISSIONS } from '../agent-keys.js';
 import { createProjectService, InvalidScaffoldError, InvalidOverviewDocumentError } from './projects.js';
 import { createTaskService, InvalidGoalReferenceError } from './tasks.js';
 
@@ -702,5 +702,33 @@ describe('projectService', () => {
 
     expect((await getTask(db, result.key_to_id.default as string))?.goalId).toBe(callGoal.id);
     expect((await getTask(db, result.key_to_id.override as string))?.goalId).toBe(taskGoal.id);
+  });
+
+  it('recordRepoRootIfUnset sets null folder_path and refuses conflicting overwrite', async () => {
+    const service = await createService();
+    const project = await createProject(db, { name: 'Repo root' });
+    const root = '/tmp/plandesk-repo-root-test';
+    const context: AuthContext = {
+      kind: 'loopback',
+      orgId,
+      role: 'owner',
+      permission: DEFAULT_OWNER_KEY_PERMISSIONS,
+    };
+
+    const set = await runWithAuthContext(context, () =>
+      service.recordRepoRootIfUnset(project.id, root),
+    );
+    expect(set?.status).toBe('set');
+    expect((await getProject(db, project.id))?.folderPath).toBe(root);
+
+    const unchanged = await runWithAuthContext(context, () =>
+      service.recordRepoRootIfUnset(project.id, root),
+    );
+    expect(unchanged?.status).toBe('unchanged');
+
+    const conflict = await runWithAuthContext(context, () =>
+      service.recordRepoRootIfUnset(project.id, '/tmp/other-root'),
+    );
+    expect(conflict).toEqual({ status: 'conflict', existing: root });
   });
 });

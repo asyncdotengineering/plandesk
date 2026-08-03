@@ -112,7 +112,7 @@ export {
 } from './services/revision-capture.js';
 export { assertProjectInOrg, ProjectNotInOrgError } from './services/scope.js';
 export type { ProjectService } from './services/projects.js';
-export type { GoalService, VerificationEvidence } from './services/goals.js';
+export type { GoalService, VerificationEvidence, InvokeGoalResult } from './services/goals.js';
 export {
   GoalCompletionBlockedError,
   GoalVerificationRequiredError,
@@ -145,6 +145,11 @@ export {
 } from './markdown.js';
 export { InvalidDocumentError } from './services/documents.js';
 export { InvalidFolderError } from './services/folders.js';
+export {
+  FOLDER_REPARENT_CYCLE_MESSAGE,
+  wouldCreateFolderReparentCycle,
+  type FolderParentLookup,
+} from './services/folder-cycle.js';
 export { InvalidPrototypeError } from './services/prototypes.js';
 export { InvalidNoteError } from './services/notes.js';
 export { InvalidArtifactError } from './services/artifacts.js';

@@ -49,6 +49,37 @@ decided three turns ago.
 This is what lets a long run survive compaction — the board-as-memory hooks in
 [hooks](../../factory/hooks/) re-inject exactly this state at the forget-moments.
 
+## Goal loop — enter, work, finish
+
+To work a goal end to end (not just the bare board loop above), use this
+sequence. **`invoke_goal` is the entry point** — it sets `current_goal_id`,
+checks the task graph for cycles, and returns the first frontier `todo`. It does
+**not** release `scope` tasks; that gate stays human-owned (see below).
+
+```
+1. invoke_goal(goal_id)                     # entry — fails no_todo_tasks if tasks are scope-only
+2. start_agent_run(project_id, label)       # optional but recommended for long runs
+3. loop:
+     task = get_next_task(project_id)       # resolves via current_goal_id when goal_id omitted
+     if no actionable todo: break
+     claim_task(task.id, agent_ref)
+     ...work...
+     update_task(task.id, status: "done")
+     record_agent_progress(...)
+4. complete_goal(goal_id, evidence)         # evidence must match verification_surface
+5. complete_agent_run(...)
+```
+
+**`scope` versus `todo`.** Scaffolded and groomed tasks start in `scope`.
+`get_next_task` only returns `todo`. If `invoke_goal` fails with
+`no_todo_tasks`, read `scope_awaiting_release` — those tasks need explicit
+release (`update_task(status: "todo")`) before the frontier opens. Unattended
+runs never self-release; a human instruction to release counts as authorization.
+
+**Multiple active goals.** `invoke_goal` sets `current_goal_id` to this goal and
+warns when other goals stay active. `get_next_task` without `goal_id` then
+resolves here only — you do not need to pause sibling goals first.
+
 ## The bare loop
 
 With no inner skill, this is what runs:

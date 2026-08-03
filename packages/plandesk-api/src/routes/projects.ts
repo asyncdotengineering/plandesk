@@ -12,6 +12,7 @@ import {
   isTaskSeverity,
   isTaskStatus,
   isValidFolderPath,
+  isValidRegisteredRepoRoot,
   isValidRepoUrl,
 } from '@plandesk/db';
 import type { ProjectService } from '../services/projects.js';
@@ -147,7 +148,10 @@ export function createProjectsRouter(
       }
     }
     if (body.folder_path !== undefined && body.folder_path !== null) {
-      if (typeof body.folder_path !== 'string' || !isValidFolderPath(body.folder_path)) {
+      if (
+        typeof body.folder_path !== 'string' ||
+        (!isValidFolderPath(body.folder_path) && !isValidRegisteredRepoRoot(body.folder_path))
+      ) {
         return c.json({ error: 'invalid_argument' }, 400);
       }
     }

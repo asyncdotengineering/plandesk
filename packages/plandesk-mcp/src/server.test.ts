@@ -19,6 +19,7 @@ import {
   listEdges,
   listTasks,
   updateComment,
+  updateProject,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -196,7 +197,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(62);
+      expect(names).toHaveLength(64);
       await client.close();
     });
   });
@@ -635,6 +636,97 @@ describe('createMcpApp', () => {
     });
   });
 
+  it('move_documents works via MCP with bulk move, unfile, and partial failure', async () => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
+      const client = await connectClient(baseUrl);
+
+      const folderRes = await client.callTool({
+        name: 'create_folder',
+        arguments: { project_id: projectId, name: 'Targets' },
+      });
+      const folderId = (
+        JSON.parse(
+          (folderRes.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { folder: { id: string } }
+      ).folder.id;
+
+      const docA = await client.callTool({
+        name: 'create_document',
+        arguments: { project_id: projectId, title: 'Doc A' },
+      });
+      const docB = await client.callTool({
+        name: 'create_document',
+        arguments: { project_id: projectId, title: 'Doc B' },
+      });
+      const docAId = (
+        JSON.parse(
+          (docA.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { document: { id: string } }
+      ).document.id;
+      const docBId = (
+        JSON.parse(
+          (docB.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { document: { id: string } }
+      ).document.id;
+
+      const moved = await client.callTool({
+        name: 'move_documents',
+        arguments: { document_ids: [docAId, docBId], folder_id: folderId },
+      });
+      expect(moved.isError).not.toBe(true);
+      const movedPayload = JSON.parse(
+        (moved.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+      ) as { moved: string[]; failed: Array<{ document_id: string; error: string }> };
+      expect(movedPayload.moved.sort()).toEqual([docAId, docBId].sort());
+      expect(movedPayload.failed).toEqual([]);
+
+      const listInFolder = await client.callTool({
+        name: 'list_documents',
+        arguments: { project_id: projectId, folder_id: folderId },
+      });
+      const inFolder = JSON.parse(
+        (listInFolder.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+      ) as { documents: Array<{ id: string }> };
+      expect(inFolder.documents.map((entry) => entry.id).sort()).toEqual([docAId, docBId].sort());
+
+      const unfiled = await client.callTool({
+        name: 'move_documents',
+        arguments: { document_ids: [docAId, docBId], folder_id: null },
+      });
+      expect(unfiled.isError).not.toBe(true);
+      const unfiledPayload = JSON.parse(
+        (unfiled.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+      ) as { moved: string[]; failed: unknown[] };
+      expect(unfiledPayload.moved.sort()).toEqual([docAId, docBId].sort());
+      expect(unfiledPayload.failed).toEqual([]);
+
+      const getA = await client.callTool({
+        name: 'get_document',
+        arguments: { document_id: docAId },
+      });
+      const docAAfter = JSON.parse(
+        (getA.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+      ) as { document: { folder_id: string | null } };
+      expect(docAAfter.document.folder_id).toBeNull();
+
+      const missingId = '00000000-0000-4000-8000-000000009999';
+      const partial = await client.callTool({
+        name: 'move_documents',
+        arguments: { document_ids: [docAId, missingId, docBId], folder_id: folderId },
+      });
+      expect(partial.isError).not.toBe(true);
+      const partialPayload = JSON.parse(
+        (partial.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+      ) as { moved: string[]; failed: Array<{ document_id: string; error: string }> };
+      expect(partialPayload.moved.sort()).toEqual([docAId, docBId].sort());
+      expect(partialPayload.failed).toEqual([
+        { document_id: missingId, error: 'Document not found' },
+      ]);
+
+      await client.close();
+    });
+  });
+
   it('list_tasks omits description by default and includes it with verbose (#28)', async () => {
     await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const client = await connectClient(baseUrl);
@@ -975,10 +1067,11 @@ describe('createMcpApp', () => {
   });
 
   it('attach_file file_path on loopback reads disk; both/neither and traversal refuse', async () => {
-    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join } = await import('node:path');
     const { createAttachFileHandler } = await import('./tools/attach-file.js');
+    const { createWorkspaceRootsResolver } = await import('./tools/workspace-roots.js');
     const { FILE_PATH_REMOTE_ERROR } = await import('./tools/file-path.js');
 
     const root = mkdtempSync(join(tmpdir(), 'pd-attach-'));
@@ -988,7 +1081,9 @@ describe('createMcpApp', () => {
       const file = join(root, 'shot.png');
       writeFileSync(file, Buffer.from('png-bytes'));
 
-      await withMcpServer(async ({ baseUrl, projectId, services, app }) => {
+      await withMcpServer(async ({ baseUrl, projectId, services, app, db }) => {
+        await updateProject(db, projectId, { folderPath: realpathSync(root) });
+
         const client = await connectClient(baseUrl);
         const ok = await client.callTool({
           name: 'attach_file',
@@ -1031,6 +1126,7 @@ describe('createMcpApp', () => {
         // Remote bind: stated error, never a generic 400 — Rule 14 / capability gate.
         const remoteHandler = createAttachFileHandler(services.fileService, {
           bindHost: '0.0.0.0',
+          workspaceRoots: createWorkspaceRootsResolver(services.projectService),
         });
         const remote = await remoteHandler({
           project_id: projectId,
@@ -1046,7 +1142,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_artifact file_path stores content without base64 in the screen body', async () => {
-    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join } = await import('node:path');
 
@@ -1057,7 +1153,9 @@ describe('createMcpApp', () => {
       const file = join(root, 'screen.html');
       writeFileSync(file, html);
 
-      await withMcpServer(async ({ baseUrl, projectId, app }) => {
+      await withMcpServer(async ({ baseUrl, projectId, app, db }) => {
+        await updateProject(db, projectId, { folderPath: realpathSync(root) });
+
         const client = await connectClient(baseUrl);
         const created = await client.callTool({
           name: 'create_artifact',
@@ -2072,7 +2170,7 @@ describe('createMcpApp', () => {
     });
   });
 
-  it('get_next_task(goal_id) scopes to one goal; omitted with multiple active goals considers all of them (#18)', async () => {
+  it('get_next_task(goal_id) scopes to one goal; omitted resolves current_goal_id', async () => {
     await withMcpServer(async ({ baseUrl, projectId, services }) => {
       const client = await connectClient(baseUrl);
       try {
@@ -2085,7 +2183,7 @@ describe('createMcpApp', () => {
           label: 'A todo',
           goalId: goalA.id,
         });
-        await services.taskService.create(projectId, { label: 'B todo', goalId: goalB.id });
+        const taskB = await services.taskService.create(projectId, { label: 'B todo', goalId: goalB.id });
 
         const scopedToA = await client.callTool({
           name: 'get_next_task',
@@ -2107,17 +2205,76 @@ describe('createMcpApp', () => {
         expect(namedPayload.next.reason).toBe('ok');
         expect(namedPayload.next.next_task?.id).toBe(taskA?.id);
 
-        // No goal_id, but two active goals: no dead-end — an actionable task
-        // from the union of active goals comes back instead of erroring.
         const unscoped = await client.callTool({
           name: 'get_next_task',
           arguments: { project_id: projectId },
         });
         const unscopedPayload = JSON.parse(
           (unscoped.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
-        ) as { next: { reason: string; next_task: { id: string } | null } };
+        ) as { next: { reason: string; next_task: { id: string; goal_id: string } | null } };
         expect(unscopedPayload.next.reason).toBe('ok');
-        expect(unscopedPayload.next.next_task).not.toBeNull();
+        expect(unscopedPayload.next.next_task?.id).toBe(taskB?.id);
+        expect(unscopedPayload.next.next_task?.goal_id).toBe(goalB.id);
+        expect(unscopedPayload.next.next_task?.id).not.toBe(taskA?.id);
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('invoke_goal fails no_todo_tasks for scope-only goals with release hint', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, services }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const goal = await services.goalService.create(projectId, { objective: 'Scoped goal' });
+        if (!goal) {
+          throw new Error('expected goal');
+        }
+        await services.taskService.create(projectId, {
+          label: 'Scoped task',
+          goalId: goal.id,
+          status: 'scope',
+        });
+
+        const response = await client.callTool({
+          name: 'invoke_goal',
+          arguments: { goal_id: goal.id },
+        });
+        expect(response.isError).toBe(true);
+        const payload = JSON.parse(
+          (response.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { reason: string; scope_awaiting_release: number };
+        expect(payload.reason).toBe('no_todo_tasks');
+        expect(payload.scope_awaiting_release).toBe(1);
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('invoke_goal returns first frontier task when todos exist', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, services }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const goal = await services.goalService.create(projectId, { objective: 'Ready' });
+        if (!goal) {
+          throw new Error('expected goal');
+        }
+        const task = await services.taskService.create(projectId, {
+          label: 'Ready task',
+          goalId: goal.id,
+        });
+
+        const response = await client.callTool({
+          name: 'invoke_goal',
+          arguments: { goal_id: goal.id },
+        });
+        expect(response.isError).not.toBe(true);
+        const payload = JSON.parse(
+          (response.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { ok: boolean; first_task: { id: string } | null };
+        expect(payload.ok).toBe(true);
+        expect(payload.first_task?.id).toBe(task?.id);
       } finally {
         await client.close();
       }

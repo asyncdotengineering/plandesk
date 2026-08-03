@@ -56,4 +56,18 @@ describe('mountStatic SPA fallback', () => {
 
     rmSync(distDir, { recursive: true, force: true });
   });
+
+  it('serves the SPA shell for client routes whose final segment contains a dot', async () => {
+    const distDir = mkdtempSync(join(tmpdir(), 'plandesk-static-'));
+    writeFileSync(join(distDir, 'index.html'), '<!doctype html><html><body>SPA</body></html>');
+    const app = new Hono();
+    mountStatic(app, distDir);
+
+    const res = await app.request('/docs/v1.2');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type') ?? '').toContain('text/html');
+    expect(await res.text()).toContain('SPA');
+
+    rmSync(distDir, { recursive: true, force: true });
+  });
 });

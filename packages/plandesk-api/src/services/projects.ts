@@ -39,6 +39,7 @@ import {
   updateDocument,
   updateProject as dbUpdateProject,
   getDocumentByProjectAndId,
+  isValidRegisteredRepoRoot,
   type Db,
   type DbClient,
   type Document,
@@ -254,6 +255,11 @@ function summarizeTasks(tasks: Task[]): TaskStatusSummary {
   return summary;
 }
 
+export type RecordRepoRootResult =
+  | { status: 'set'; project: ReturnType<typeof serializeProject> }
+  | { status: 'unchanged'; project: ReturnType<typeof serializeProject> }
+  | { status: 'conflict'; existing: string };
+
 export function createProjectService(deps: ProjectServiceDeps) {
   const { db } = deps;
 
@@ -350,6 +356,41 @@ export function createProjectService(deps: ProjectServiceDeps) {
     },
 
     /**
+     * Record the absolute repo root for connect/serve. Sets folder_path when null;
+     * leaves a matching path alone; refuses to overwrite a different path.
+     */
+    async recordRepoRootIfUnset(
+      id: string,
+      repoRoot: string,
+    ): Promise<RecordRepoRootResult | undefined> {
+      assertPermission(deps, 'task', 'update');
+      if (!isValidRegisteredRepoRoot(repoRoot)) {
+        throw new Error('repoRoot must be an absolute registered repo path');
+      }
+      const orgId = resolveOrgId(deps);
+      let existing;
+      try {
+        existing = await assertProjectInOrg(db, id, orgId);
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+      if (existing.folderPath === null) {
+        const project = await dbUpdateProject(db, id, { folderPath: repoRoot });
+        if (!project) {
+          return undefined;
+        }
+        return { status: 'set', project: serializeProject(project) };
+      }
+      if (existing.folderPath === repoRoot) {
+        return { status: 'unchanged', project: serializeProject(existing) };
+      }
+      return { status: 'conflict', existing: existing.folderPath };
+    },
+
+    /**
      * Move a project to another workspace (team) in the caller's org.
      *
      * Owner-gated: a workspace/project-scoped agent key must not move projects
@@ -429,6 +470,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
         await deleteTagsByProjectId(tx, id);
         await deleteViewsByProjectId(tx, id);
         await deleteTasksByProjectId(tx, id);
+        await dbUpdateProject(tx, id, { currentGoalId: null });
         await deleteGoalsByProjectId(tx, id);
         await deleteShareSubmissionsByProjectId(tx, id);
         await deleteSyncStateByProjectId(tx, id);

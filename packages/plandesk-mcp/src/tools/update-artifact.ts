@@ -2,15 +2,17 @@ import type { ArtifactService } from '@plandesk/api';
 import { InvalidArtifactError } from '@plandesk/api';
 import type { ArtifactKind } from '@plandesk/db';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
-import { readScopedFileBytes } from './file-path.js';
+import { readScopedFileBytes, emptyWorkspaceRoots } from './file-path.js';
+import type { WorkspaceRootsResolver } from './file-path.js';
 
 export type ArtifactFilePathDeps = {
   bindHost: string;
+  workspaceRoots: WorkspaceRootsResolver;
 };
 
 export function createUpdateArtifactHandler(
   artifactService: ArtifactService,
-  pathDeps: ArtifactFilePathDeps = { bindHost: '127.0.0.1' },
+  pathDeps: ArtifactFilePathDeps = { bindHost: '127.0.0.1', workspaceRoots: emptyWorkspaceRoots },
 ): (args: {
   artifact_id: string;
   title?: string;
@@ -32,7 +34,9 @@ export function createUpdateArtifactHandler(
       if (typeof path !== 'string' || path.length === 0) {
         return toolInvalidArgument('file_path is required');
       }
-      const read = readScopedFileBytes(path, pathDeps.bindHost);
+      const read = await readScopedFileBytes(path, pathDeps.bindHost, {
+        workspaceRoots: pathDeps.workspaceRoots,
+      });
       if (!read.ok) {
         return read.error;
       }

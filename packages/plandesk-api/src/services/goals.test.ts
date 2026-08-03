@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
+  createEdge,
   createGoal,
   createProjectInDefaultOrg as createProject,
   getGoal,
@@ -10,6 +11,7 @@ import {
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
+import { createTaskService } from './tasks.js';
 import {
   createGoalService,
   DuplicateGoalNameError,
@@ -89,7 +91,8 @@ describe('goalService', () => {
   let orgId = '';
 
   function createService() {
-    return createGoalService({ db, orgId });
+    const taskService = createTaskService({ db, orgId });
+    return createGoalService({ db, orgId, taskService });
   }
 
   async function markAllCycleTasksDone(goalId: string) {
@@ -111,7 +114,7 @@ describe('goalService', () => {
   });
 
   it('creates a goal', async () => {
-    const service = createGoalService({ db, orgId });
+    const service = createService();
 
     const goal = await service.create(projectId, {
       objective: 'Ship goals',
@@ -468,5 +471,63 @@ describe('goalService', () => {
     expect(await service.pause('00000000-0000-4000-8000-000000009999')).toBeUndefined();
     expect(await service.resume('00000000-0000-4000-8000-000000009999')).toBeUndefined();
     expect(await service.complete('00000000-0000-4000-8000-000000009999')).toBeUndefined();
+    expect(await service.invoke('00000000-0000-4000-8000-000000009999')).toBeUndefined();
+  });
+
+  it('invoke fails no_todo_tasks when tasks are scope-only', async () => {
+    const service = createService();
+    const goal = await createGoal(db, { projectId, objective: 'Scoped', status: 'active' });
+    await createTask(db, { projectId, goalId: goal.id, label: 'A', status: 'scope' });
+    await createTask(db, { projectId, goalId: goal.id, label: 'B', status: 'scope' });
+
+    const result = await service.invoke(goal.id);
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'no_todo_tasks',
+      scope_awaiting_release: 2,
+    });
+    expect(result?.ok === false && result.message).toContain('release');
+  });
+
+  it('invoke returns first frontier task for an active goal with todos', async () => {
+    const service = createService();
+    const goal = await createGoal(db, { projectId, objective: 'Work', status: 'active' });
+    const first = await createTask(db, { projectId, goalId: goal.id, label: 'First', status: 'todo' });
+    await createTask(db, { projectId, goalId: goal.id, label: 'Second', status: 'todo' });
+
+    const result = await service.invoke(goal.id);
+    expect(result?.ok).toBe(true);
+    if (!result?.ok) {
+      throw new Error('expected invoke success');
+    }
+    expect(result.first_task?.id).toBe(first.id);
+    expect(result.goal.id).toBe(goal.id);
+  });
+
+  it('invoke warns when other active goals remain', async () => {
+    const service = createService();
+    const goalA = await createGoal(db, { projectId, objective: 'A', status: 'active' });
+    const goalB = await createGoal(db, { projectId, objective: 'B', status: 'active' });
+    await createTask(db, { projectId, goalId: goalB.id, label: 'B todo', status: 'todo' });
+
+    const result = await service.invoke(goalB.id);
+    expect(result?.ok).toBe(true);
+    if (!result?.ok) {
+      throw new Error('expected invoke success');
+    }
+    expect(result.warnings.some((w) => w.includes('other active goal'))).toBe(true);
+    expect(goalA.id).not.toBe(goalB.id);
+  });
+
+  it('invoke fails has_cycle when prerequisites cycle', async () => {
+    const service = createService();
+    const goal = await createGoal(db, { projectId, objective: 'Cycle', status: 'active' });
+    const a = await createTask(db, { projectId, goalId: goal.id, label: 'A', status: 'todo' });
+    const b = await createTask(db, { projectId, goalId: goal.id, label: 'B', status: 'todo' });
+    await createEdge(db, { projectId, fromTaskId: a.id, toTaskId: b.id, label: 'depends_on' });
+    await createEdge(db, { projectId, fromTaskId: b.id, toTaskId: a.id, label: 'depends_on' });
+
+    const result = await service.invoke(goal.id);
+    expect(result).toMatchObject({ ok: false, reason: 'has_cycle' });
   });
 });

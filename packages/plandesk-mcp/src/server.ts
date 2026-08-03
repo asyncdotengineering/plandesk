@@ -5,6 +5,7 @@ import { tryGetAuthContext, type Services } from '@plandesk/api';
 import { createAddCommentHandler } from './tools/add-comment.js';
 import { createAddArtifactCommentHandler } from './tools/add-artifact-comment.js';
 import { createAttachFileHandler } from './tools/attach-file.js';
+import { createWorkspaceRootsResolver } from './tools/workspace-roots.js';
 import { createCreateArtifactHandler } from './tools/create-artifact.js';
 import { createGetArtifactHandler } from './tools/get-artifact.js';
 import { createUpdateArtifactHandler } from './tools/update-artifact.js';
@@ -43,6 +44,8 @@ import {
 } from './tools/goal-lifecycle.js';
 import { createClaimTaskHandler } from './tools/claim-task.js';
 import { createGetNextTaskHandler } from './tools/get-next-task.js';
+import { createSetCurrentGoalHandler } from './tools/set-current-goal.js';
+import { createInvokeGoalHandler } from './tools/invoke-goal.js';
 import { createGetTaskGraphHandler } from './tools/get-task-graph.js';
 import { createGetProjectHandler } from './tools/get-project.js';
 import { createGetTaskHandler } from './tools/get-task.js';
@@ -107,6 +110,7 @@ import {
   claimTaskInputSchema,
   completeGoalInputSchema,
   goalLifecycleInputSchema,
+  setCurrentGoalInputSchema,
   getNextTaskInputSchema,
   getTaskGraphInputSchema,
   getProjectInputSchema,
@@ -140,7 +144,8 @@ export type McpAppDeps = {
 
 function createMcpServer(services: Services, origin: string, bindHost: string): McpServer {
   const server = new McpServer({ name: 'plandesk', version: '1.0.0' });
-  const filePathDeps = { bindHost };
+  const workspaceRoots = createWorkspaceRootsResolver(services.projectService);
+  const filePathDeps = { bindHost, workspaceRoots };
 
   server.registerTool(
     'list_projects',
@@ -522,7 +527,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Attach File',
       description:
-        'Upload a file (image today) and get back a short URL. Embed the returned `url` in a task, document, or comment body as `![alt](url)` instead of inlining base64 — keeps bodies lean. mime defaults to image/png.',
+        'Upload a file (image today) and get back a short URL. Embed the returned `url` in a task, document, or comment body as `![alt](url)` instead of inlining base64 — keeps bodies lean. mime defaults to image/png. On loopback, `file_path` reads from disk only when the path resolves under a project repo root registered in this workspace (`folder_path`); otherwise use `content_base64`.',
       inputSchema: attachFileInputSchema.shape,
     },
     createAttachFileHandler(services.fileService, filePathDeps),
@@ -628,6 +633,28 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
   );
 
   server.registerTool(
+    'set_current_goal',
+    {
+      title: 'Set Current Goal',
+      description:
+        'Point the project current_goal_id at this active goal so get_next_task resolves here when goal_id is omitted.',
+      inputSchema: setCurrentGoalInputSchema.shape,
+    },
+    createSetCurrentGoalHandler(services.goalService),
+  );
+
+  server.registerTool(
+    'invoke_goal',
+    {
+      title: 'Invoke Goal',
+      description:
+        'Begin working a goal: sets current_goal_id, checks the task graph for cycles, and returns the first frontier todo. Fails with no_todo_tasks when tasks are still in scope (release scope → todo explicitly — this tool does not self-release). Other active goals remain active; warnings explain how get_next_task resolves.',
+      inputSchema: goalLifecycleInputSchema.shape,
+    },
+    createInvokeGoalHandler(services.goalService),
+  );
+
+  server.registerTool(
     'pause_goal',
     {
       title: 'Pause Goal',
@@ -663,7 +690,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Get Next Task',
       description:
-        "Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id or project-scoped goal name). When both are omitted: with one active goal, scopes to it; with multiple active goals, considers the union of every active goal's tasks instead of dead-ending — returns no_active_goal only when zero goals are active. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.",
+        "Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id or project-scoped goal name). When both are omitted: resolves via current_goal_id, then the sole active goal, then ambiguous_goal — never unions active goals. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.",
       inputSchema: getNextTaskInputSchema.shape,
       annotations: { readOnlyHint: true },
     },

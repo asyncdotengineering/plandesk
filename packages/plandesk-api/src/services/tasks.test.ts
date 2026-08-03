@@ -12,6 +12,7 @@ import {
   getDocument,
   getOrCreateDefaultGoal,
   getTask,
+  setProjectCurrentGoalId,
   insertRevision,
   listRevisionsByTarget,
   InvalidTaskStatusError,
@@ -709,21 +710,53 @@ describe('taskService', () => {
     });
   });
 
-  it('nextActionable considers tasks across all active goals when goal_id is omitted (#18)', async () => {
+  it('nextActionable resolves current_goal_id when multiple goals are active', async () => {
     const service = createService();
-    await createGoal(db, { projectId, objective: 'A', status: 'active' });
+    const goalA = await createGoal(db, { projectId, objective: 'A', status: 'active' });
+    const taskA = await createTask(db, {
+      projectId,
+      goalId: goalA.id,
+      label: 'A todo (older)',
+      status: 'todo',
+    });
     const goalB = await createGoal(db, { projectId, objective: 'B', status: 'active' });
-    const taskB = await createTask(db, { projectId, goalId: goalB.id, label: 'B todo', status: 'todo' });
+    const taskB = await createTask(db, {
+      projectId,
+      goalId: goalB.id,
+      label: 'B todo (current)',
+      status: 'todo',
+    });
 
-    // No dead-end (#18): with >1 active goal and no goal_id, the union of
-    // active goals' tasks is considered instead of erroring.
     const result = await service.nextActionable(projectId);
     expect(result?.reason).toBe('ok');
     expect(result?.next_task?.id).toBe(taskB.id);
     expect(result?.next_task?.goal_id).toBe(goalB.id);
+    expect(result?.next_task?.id).not.toBe(taskA.id);
   });
 
-  it('nextActionable returns no_todo_tasks (not a dead end) when multiple active goals have no ready task', async () => {
+  it('nextActionable returns ambiguous_goal when multiple active goals and no current pointer', async () => {
+    const service = createService();
+    const goalA = await createGoal(db, { projectId, objective: 'A', status: 'active' });
+    const goalB = await createGoal(db, { projectId, objective: 'B', status: 'active' });
+    await setProjectCurrentGoalId(db, projectId, null);
+    await createTask(db, { projectId, goalId: goalA.id, label: 'A todo', status: 'todo' });
+    await createTask(db, { projectId, goalId: goalB.id, label: 'B todo', status: 'todo' });
+
+    const result = await service.nextActionable(projectId);
+    expect(result?.next_task).toBeNull();
+    expect(result?.reason).toBe('ambiguous_goal');
+    expect(result?.blocked).toEqual([]);
+    expect(
+      [...(result?.ambiguous_goals ?? [])].sort((a, b) => a.id.localeCompare(b.id)),
+    ).toEqual(
+      [
+        { id: goalA.id, name: null, objective: 'A' },
+        { id: goalB.id, name: null, objective: 'B' },
+      ].sort((a, b) => a.id.localeCompare(b.id)),
+    );
+  });
+
+  it('nextActionable returns no_todo_tasks for the current goal only when multiple are active', async () => {
     const service = createService();
     const goalA = await createGoal(db, { projectId, objective: 'A', status: 'active' });
     const goalB = await createGoal(db, { projectId, objective: 'B', status: 'active' });

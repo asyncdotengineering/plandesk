@@ -10,7 +10,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getRequestListener } from '@hono/node-server';
 import {
@@ -257,6 +258,11 @@ describe('runConnect', () => {
       const parsed = parseConfigJson(readFileSync(join(repoDir, '.plandesk/config.json'), 'utf8'));
       expect(parsed.version).toBe('plandesk-connect-v1');
       expect((parsed as { projectId: string }).projectId).toBe(projectId);
+
+      const detail = (await fetch(`${baseUrl}/api/v1/projects/${projectId}`).then((r) =>
+        r.json(),
+      )) as { folder_path: string | null };
+      expect(detail.folder_path).toBe(realpathSync(resolve(repoDir)));
     });
   });
 

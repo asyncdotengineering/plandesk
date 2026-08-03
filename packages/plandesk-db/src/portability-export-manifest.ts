@@ -209,6 +209,7 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
         id: 'Remapped on import; export creates a new project',
         org_id: 'Scoped by import options, not the export file',
         workspace_id: 'Scoped by import options, not the export file',
+        current_goal_id: 'Remapped after goals import; set by connect or set_current_goal',
         created_at: 'Server-assigned on import',
         updated_at: 'Server-assigned on import',
       },
