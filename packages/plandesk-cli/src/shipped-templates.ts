@@ -32,11 +32,10 @@ function shippedTemplate(relativePath: string, executable?: boolean): ShippedTem
 /**
  * Skills vendored into a consumer's repo by `plandesk factory init` / `factory sync`.
  *
- * `plandesk-prototype` is deliberately absent and must stay absent. It is a
- * project-local skill for authoring prototypes in THIS repo, kept as a real
- * directory under `.claude/skills/` rather than a symlink into `.agents/skills/`,
- * so the vendoring step never picks it up. Adding it here ships it to every
- * consumer — that is the change to not make.
+ * `plandesk-prototype` ships with the rest: prototypes are a consumer-facing
+ * devtool feature, and the generated `.plandesk/skill.md` points at this skill
+ * for the authoring loop. A consumer that does not receive it follows a
+ * dangling reference.
  */
 export const SHIPPED_SKILL_NAMES = [
   'plandesk-foreman',
@@ -45,17 +44,40 @@ export const SHIPPED_SKILL_NAMES = [
   'plandesk-plan-writer',
   'plandesk-autonomy',
   'plandesk-timebox',
+  'plandesk-prototype',
 ] as const;
 
 export type ShippedSkillName = (typeof SHIPPED_SKILL_NAMES)[number];
 
-/** Relative symlink target from `.claude/skills/<name>/SKILL.md` → canonical skill. */
-export function skillSymlinkTarget(name: string): string {
-  return `../../../.agents/skills/${name}/SKILL.md`;
+/**
+ * Files a skill ships beyond its SKILL.md, relative to the skill directory.
+ *
+ * A skill whose guidance is split across references must ship them too —
+ * otherwise the SKILL.md a consumer receives points at files they do not have.
+ */
+export const SHIPPED_SKILL_EXTRA_FILES: Partial<Record<ShippedSkillName, readonly string[]>> = {
+  'plandesk-prototype': ['references/libraries.md'],
+};
+
+/** Every shipped file of a skill, relative to the skill directory. */
+export function shippedSkillFiles(name: ShippedSkillName): readonly string[] {
+  return ['SKILL.md', ...(SHIPPED_SKILL_EXTRA_FILES[name] ?? [])];
+}
+
+/**
+ * Relative symlink target from `.claude/skills/<name>/<relPath>` → the canonical
+ * file under `.agents/`. Depth is `.claude` + `skills` + `<name>`, plus one more
+ * level for each directory inside `relPath`.
+ */
+export function skillSymlinkTarget(name: string, relPath = 'SKILL.md'): string {
+  const up = '../'.repeat(2 + relPath.split('/').length);
+  return `${up}.agents/skills/${name}/${relPath}`;
 }
 
 export const SHIPPED_TEMPLATES: ShippedTemplate[] = [
-  ...SHIPPED_SKILL_NAMES.map((name) => shippedTemplate(`skills/${name}/SKILL.md`)),
+  ...SHIPPED_SKILL_NAMES.flatMap((name) =>
+    shippedSkillFiles(name).map((rel) => shippedTemplate(`skills/${name}/${rel}`)),
+  ),
   shippedTemplate('factory/hooks/session-start.sh', true),
   shippedTemplate('factory/hooks/checkpoint.sh', true),
   shippedTemplate('factory/hooks/settings.snippet.json'),

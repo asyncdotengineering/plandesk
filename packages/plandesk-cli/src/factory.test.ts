@@ -282,6 +282,21 @@ describe('worker files', () => {
     return content.split('\n').find((l) => l.startsWith('command:')) ?? '';
   }
 
+  it('ships the prototype skill with its reference files, not the SKILL.md alone', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    runFactoryInit({ repoDir: repo });
+    for (const rel of ['SKILL.md', 'references/libraries.md']) {
+      const canonical = join(repo, '.agents/skills/plandesk-prototype', rel);
+      const adapter = join(repo, '.claude/skills/plandesk-prototype', rel);
+      expect(readFileSync(canonical, 'utf8').length, `canonical ${rel}`).toBeGreaterThan(0);
+      // The adapter must resolve to the same bytes, whether it landed as a
+      // symlink or as the copy fallback.
+      expect(readFileSync(adapter, 'utf8'), `adapter ${rel}`).toEqual(
+        readFileSync(canonical, 'utf8'),
+      );
+    }
+  });
+
   it('every worker declares a probe and a {prompt_file} command template', () => {
     const repo = makeTempDir('plandesk-factory-');
     runFactoryInit({ repoDir: repo });

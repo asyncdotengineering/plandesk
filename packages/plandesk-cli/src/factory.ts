@@ -23,6 +23,7 @@ import {
   SHIPPED_SKILL_NAMES,
   SHIPPED_TEMPLATES,
   agentsArtifactPath,
+  shippedSkillFiles,
   skillSymlinkTarget,
 } from './shipped-templates.js';
 import { readTemplate } from './templates.js';
@@ -245,22 +246,26 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
     });
   }
 
-  // .claude/skills/<name>/SKILL.md: symlink to the canonical file under
-  // .agents/skills/ (Claude Code discovers only under .claude/skills/). Same
-  // symlinkTarget + copy-fallback writer as connect. Refresh every run so a
-  // prior plain-file copy is replaced by the link.
+  // .claude/skills/<name>/**: symlink to the canonical files under .agents/skills/
+  // (Claude Code discovers only under .claude/skills/). Same symlinkTarget +
+  // copy-fallback writer as connect. Refresh every run so a prior plain-file copy
+  // is replaced by the link. Covers a skill's reference files as well as its
+  // SKILL.md — shipping the SKILL.md alone leaves its references dangling.
   for (const name of SHIPPED_SKILL_NAMES) {
-    const canonicalPath = agentsArtifactPath(repoDir, `skills/${name}/SKILL.md`);
-    const adapterPath = join(repoDir, '.claude', 'skills', name, 'SKILL.md');
-    const content = existsSync(canonicalPath)
-      ? readFileSync(canonicalPath, 'utf8')
-      : readTemplate(`skills/${name}/SKILL.md`);
-    artifacts.push({
-      path: adapterPath,
-      content,
-      action: lstatSync(adapterPath, { throwIfNoEntry: false }) === undefined ? 'create' : 'update',
-      symlinkTarget: skillSymlinkTarget(name),
-    });
+    for (const rel of shippedSkillFiles(name)) {
+      const canonicalPath = agentsArtifactPath(repoDir, `skills/${name}/${rel}`);
+      const adapterPath = join(repoDir, '.claude', 'skills', name, ...rel.split('/'));
+      const content = existsSync(canonicalPath)
+        ? readFileSync(canonicalPath, 'utf8')
+        : readTemplate(`skills/${name}/${rel}`);
+      artifacts.push({
+        path: adapterPath,
+        content,
+        action:
+          lstatSync(adapterPath, { throwIfNoEntry: false }) === undefined ? 'create' : 'update',
+        symlinkTarget: skillSymlinkTarget(name, rel),
+      });
+    }
   }
 
   // Hooks wiring (F1): merge the SessionStart/Stop/PreCompact block

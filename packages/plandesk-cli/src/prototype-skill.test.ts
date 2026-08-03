@@ -6,8 +6,10 @@ import { buildPrototypeLibrariesMarkdown } from './prototype-libraries-md.js';
 import { PLANDESK_SKILL_TEMPLATE } from './skill-template.js';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
-const PROTOTYPE_SKILL = join(REPO_ROOT, '.claude/skills/plandesk-prototype/SKILL.md');
-const LIBRARIES_MD = join(REPO_ROOT, '.claude/skills/plandesk-prototype/references/libraries.md');
+// The canonical location is .agents/ — that is what gets vendored and shipped.
+// Reading the .claude/ adapter would pass even if the skill were unshipped.
+const PROTOTYPE_SKILL = join(REPO_ROOT, '.agents/skills/plandesk-prototype/SKILL.md');
+const LIBRARIES_MD = join(REPO_ROOT, '.agents/skills/plandesk-prototype/references/libraries.md');
 
 describe('plandesk-prototype skill', () => {
   const skill = readFileSync(PROTOTYPE_SKILL, 'utf8');
