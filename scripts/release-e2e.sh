@@ -63,7 +63,13 @@ chk "templates directory installed" "test -d '$TPL'"
 chk "no dotfiles left for npm to rewrite" \
     "[ \"\$(find '$TPL' -name '.*' -type f | wc -l | tr -d ' ')\" = 0 ]"
 chk "factory policy present" "test -f '$TPL/factory/factory.md'"
-chk "curator skills present" "test -d '$TPL/skills/curator-triage'"
+# Assert that skills survived the install, not that any particular skill did.
+# This previously named `curator-triage`, which 7f2a1ba renamed away on
+# 2026-07-27 — the gate then failed for two days and 2.5.1 shipped through it.
+# A roster is expected to change; npm silently dropping the directory is the
+# failure this section exists to catch, so count what arrived instead.
+chk "skills present" \
+    "[ \"\$(find '$TPL/skills' -name SKILL.md -type f | wc -l | tr -d ' ')\" -gt 0 ]"
 
 # ------------------------------------------------------------------ 2. board
 section "isolated board boots"
