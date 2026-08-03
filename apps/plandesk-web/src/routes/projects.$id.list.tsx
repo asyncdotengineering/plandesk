@@ -1,8 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { TaskList } from '../components/board/TaskList.js';
+import type { ListColumnId } from '../components/board/list-columns.js';
+import type { SortSpec } from '../components/board/task-sort.js';
 import { useProject, useTasks } from '../lib/queries.js';
-import { validateTaskFilterSearch } from '../lib/search.js';
+import {
+  encodeColumnsParam,
+  encodeSortParam,
+  validateTaskFilterSearch,
+} from '../lib/search.js';
 
 function ListSkeleton() {
   return (
@@ -16,7 +23,7 @@ function ListSkeleton() {
 
 function ProjectListPage() {
   const { id } = Route.useParams();
-  const { status, task } = Route.useSearch();
+  const { status, task, sort, columns } = Route.useSearch();
   const navigate = Route.useNavigate();
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(id);
   const {
@@ -25,6 +32,29 @@ function ProjectListPage() {
     error: tasksError,
     refetch,
   } = useTasks(id, status !== undefined ? { status } : {});
+
+  const visibleColumns = useMemo(
+    () => (columns !== undefined ? new Set<ListColumnId>(columns) : undefined),
+    [columns],
+  );
+
+  const updateSearch = (patch: {
+    sort?: SortSpec[];
+    columns?: Set<ListColumnId>;
+  }) => {
+    void navigate({
+      search: (prev) => ({
+        ...prev,
+        ...(patch.sort !== undefined
+          ? { sort: encodeSortParam(patch.sort) }
+          : {}),
+        ...(patch.columns !== undefined
+          ? { columns: encodeColumnsParam(patch.columns) }
+          : {}),
+      }),
+      replace: true,
+    });
+  };
 
   if (projectLoading || tasksLoading) {
     return <ListSkeleton />;
@@ -71,11 +101,19 @@ function ProjectListPage() {
         repoUrl={project.repo_url}
         tasks={tasks ?? []}
         openTaskId={task}
+        sortSpecs={sort}
+        visibleColumns={visibleColumns}
         onOpenTaskIdChange={(taskId) => {
           void navigate({
             search: (prev) => ({ ...prev, task: taskId ?? undefined }),
             replace: true,
           });
+        }}
+        onSortSpecsChange={(specs) => {
+          updateSearch({ sort: specs });
+        }}
+        onVisibleColumnsChange={(next) => {
+          updateSearch({ columns: next });
         }}
       />
     </section>

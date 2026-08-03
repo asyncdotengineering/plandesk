@@ -69,6 +69,10 @@ type TaskListProps = {
   tasks: SerializedTask[];
   openTaskId?: string | undefined;
   onOpenTaskIdChange?: ((taskId: string | null) => void) | undefined;
+  sortSpecs?: SortSpec[];
+  onSortSpecsChange?: (specs: SortSpec[]) => void;
+  visibleColumns?: Set<ListColumnId>;
+  onVisibleColumnsChange?: (columns: Set<ListColumnId>) => void;
 };
 
 function defaultVisibleColumns(): Set<ListColumnId> {
@@ -81,6 +85,10 @@ export function TaskList({
   tasks,
   openTaskId,
   onOpenTaskIdChange,
+  sortSpecs: sortSpecsProp,
+  onSortSpecsChange,
+  visibleColumns: visibleColumnsProp,
+  onVisibleColumnsChange,
 }: TaskListProps) {
   const { data: goals } = useGoals(projectId);
   const { data: projectTags } = useTags(projectId);
@@ -96,14 +104,37 @@ export function TaskList({
     [documents],
   );
 
-  const [visibleColumns, setVisibleColumns] = useState<Set<ListColumnId>>(defaultVisibleColumns);
+  const [visibleColumnsState, setVisibleColumnsState] = useState<Set<ListColumnId>>(defaultVisibleColumns);
   const [filterRoot, setFilterRoot] = useState<FilterNode | null>(null);
-  const [sortSpecs, setSortSpecs] = useState<SortSpec[]>([]);
+  const [sortSpecsState, setSortSpecsState] = useState<SortSpec[]>([]);
   const [groupSpecs, setGroupSpecs] = useState<GroupSpec[]>([]);
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(
     () => loadCollapsedGroupIds(projectId) ?? new Set(),
   );
   const [drawerTaskId, setDrawerTaskId] = useState<string | null>(openTaskId ?? null);
+
+  const visibleColumns =
+    onVisibleColumnsChange !== undefined
+      ? (visibleColumnsProp ?? defaultVisibleColumns())
+      : (visibleColumnsProp ?? visibleColumnsState);
+  const sortSpecs =
+    onSortSpecsChange !== undefined ? (sortSpecsProp ?? []) : (sortSpecsProp ?? sortSpecsState);
+
+  const setVisibleColumns = (next: Set<ListColumnId>) => {
+    if (onVisibleColumnsChange !== undefined) {
+      onVisibleColumnsChange(next);
+    } else {
+      setVisibleColumnsState(next);
+    }
+  };
+
+  const setSortSpecs = (specs: SortSpec[]) => {
+    if (onSortSpecsChange !== undefined) {
+      onSortSpecsChange(specs);
+    } else {
+      setSortSpecsState(specs);
+    }
+  };
 
   const activeGroupSpecs = useMemo(() => toGroupSpecs(groupSpecs), [groupSpecs]);
 
@@ -195,15 +226,13 @@ export function TaskList({
   };
 
   const toggleColumn = (column: ListColumnId, checked: boolean) => {
-    setVisibleColumns((current) => {
-      const next = new Set(current);
-      if (checked) {
-        next.add(column);
-      } else {
-        next.delete(column);
-      }
-      return next;
-    });
+    const next = new Set(visibleColumns);
+    if (checked) {
+      next.add(column);
+    } else {
+      next.delete(column);
+    }
+    setVisibleColumns(next);
   };
 
   const handleChangeStatus = (taskId: string, status: TaskStatus) => {
