@@ -196,7 +196,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(62);
+      expect(names).toHaveLength(63);
       await client.close();
     });
   });
@@ -2163,7 +2163,7 @@ describe('createMcpApp', () => {
     });
   });
 
-  it('get_next_task(goal_id) scopes to one goal; omitted with multiple active goals considers all of them (#18)', async () => {
+  it('get_next_task(goal_id) scopes to one goal; omitted resolves current_goal_id', async () => {
     await withMcpServer(async ({ baseUrl, projectId, services }) => {
       const client = await connectClient(baseUrl);
       try {
@@ -2176,7 +2176,7 @@ describe('createMcpApp', () => {
           label: 'A todo',
           goalId: goalA.id,
         });
-        await services.taskService.create(projectId, { label: 'B todo', goalId: goalB.id });
+        const taskB = await services.taskService.create(projectId, { label: 'B todo', goalId: goalB.id });
 
         const scopedToA = await client.callTool({
           name: 'get_next_task',
@@ -2198,17 +2198,17 @@ describe('createMcpApp', () => {
         expect(namedPayload.next.reason).toBe('ok');
         expect(namedPayload.next.next_task?.id).toBe(taskA?.id);
 
-        // No goal_id, but two active goals: no dead-end — an actionable task
-        // from the union of active goals comes back instead of erroring.
         const unscoped = await client.callTool({
           name: 'get_next_task',
           arguments: { project_id: projectId },
         });
         const unscopedPayload = JSON.parse(
           (unscoped.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
-        ) as { next: { reason: string; next_task: { id: string } | null } };
+        ) as { next: { reason: string; next_task: { id: string; goal_id: string } | null } };
         expect(unscopedPayload.next.reason).toBe('ok');
-        expect(unscopedPayload.next.next_task).not.toBeNull();
+        expect(unscopedPayload.next.next_task?.id).toBe(taskB?.id);
+        expect(unscopedPayload.next.next_task?.goal_id).toBe(goalB.id);
+        expect(unscopedPayload.next.next_task?.id).not.toBe(taskA?.id);
       } finally {
         await client.close();
       }

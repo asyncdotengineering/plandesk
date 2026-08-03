@@ -429,6 +429,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
         await deleteTagsByProjectId(tx, id);
         await deleteViewsByProjectId(tx, id);
         await deleteTasksByProjectId(tx, id);
+        await dbUpdateProject(tx, id, { currentGoalId: null });
         await deleteGoalsByProjectId(tx, id);
         await deleteShareSubmissionsByProjectId(tx, id);
         await deleteSyncStateByProjectId(tx, id);

@@ -21,6 +21,7 @@ export type ProjectUpdate = {
   description?: string | null;
   ownerId?: string | null;
   overviewDocumentId?: string | null;
+  currentGoalId?: string | null;
   repoUrl?: string | null;
   folderPath?: string | null;
   canvasLayout?: string | null;
@@ -141,6 +142,21 @@ export async function updateProject(
       updatedAt: now,
     })
     .where(eq(projects.id, id))
+    .returning()
+    .all();
+  return rows[0];
+}
+
+export async function setProjectCurrentGoalId(
+  db: DbClient,
+  projectId: string,
+  goalId: string | null,
+): Promise<Project | undefined> {
+  const now = new Date();
+  const rows = await db
+    .update(projects)
+    .set({ currentGoalId: goalId, updatedAt: now })
+    .where(eq(projects.id, projectId))
     .returning()
     .all();
   return rows[0];

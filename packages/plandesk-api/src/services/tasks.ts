@@ -13,6 +13,7 @@ import {
   listGoals,
   getTagByName,
   getTask,
+  getProject,
   InvalidTaskStatusError,
   isTaskStatus,
   isTaskKind,
@@ -78,12 +79,20 @@ export type NextActionableReason =
   | 'no_tasks'
   | 'no_todo_tasks'
   | 'all_blocked'
-  | 'no_active_goal';
+  | 'no_active_goal'
+  | 'ambiguous_goal';
+
+export type AmbiguousGoalSummary = {
+  id: string;
+  name: string | null;
+  objective: string;
+};
 
 export type NextActionableResult = {
   next_task: SerializedTask | null;
   reason: NextActionableReason;
   blocked: Array<{ task: SerializedTaskSummary; waiting_on: SerializedTaskSummary[] }>;
+  ambiguous_goals?: AmbiguousGoalSummary[];
 };
 
 export type TaskGraphNode = {
@@ -700,9 +709,29 @@ export function createTaskService(deps: TaskServiceDeps) {
         if (active.length === 0) {
           return { next_task: null, reason: 'no_active_goal', blocked: [] };
         }
-        // #18: no dead-end on ambiguity — consider the union of every active
-        // goal's tasks instead of erroring when goal_id is omitted.
-        goalIds = new Set(active.map((goal) => goal.id));
+        const project = await getProject(db, projectId);
+        const currentGoalId = project?.currentGoalId ?? null;
+        let resolvedGoal = currentGoalId
+          ? active.find((goal) => goal.id === currentGoalId)
+          : undefined;
+        if (resolvedGoal === undefined) {
+          const [soleActive] = active;
+          if (active.length === 1 && soleActive !== undefined) {
+            resolvedGoal = soleActive;
+          } else {
+            return {
+              next_task: null,
+              reason: 'ambiguous_goal',
+              blocked: [],
+              ambiguous_goals: active.map((goal) => ({
+                id: goal.id,
+                name: goal.name,
+                objective: goal.objective,
+              })),
+            };
+          }
+        }
+        goalIds = new Set([resolvedGoal.id]);
       } else {
         if (!(await listGoals(db, projectId)).some((goal) => goal.id === filter.goalId)) {
           return undefined;

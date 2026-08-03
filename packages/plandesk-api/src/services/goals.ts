@@ -8,6 +8,7 @@ import {
   listGoals,
   listTagsByTaskForProject,
   listTasks,
+  setProjectCurrentGoalId,
   updateGoal,
   updateGoalStatus,
   updateTask,
@@ -415,6 +416,35 @@ export function createGoalService(deps: GoalServiceDeps) {
 
 
       return serializeGoal(goal);
+    },
+
+    /** Point the project's current_goal_id at an active goal for get_next_task resolution. */
+    async setCurrent(goalId: string) {
+      assertPermission(deps, 'goal', 'update');
+      const existing = await getGoal(db, goalId);
+      if (!existing) {
+        return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+      if (existing.status !== 'active') {
+        throw new InvalidGoalTransitionError('Only an active goal can be set as current');
+      }
+      const project = await setProjectCurrentGoalId(db, existing.projectId, goalId);
+      if (!project) {
+        return undefined;
+      }
+      return {
+        project_id: existing.projectId,
+        current_goal_id: goalId,
+        goal: serializeGoal(existing),
+      };
     },
 
     async get(goalId: string) {

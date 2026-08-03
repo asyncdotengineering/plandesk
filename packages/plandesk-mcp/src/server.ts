@@ -43,6 +43,7 @@ import {
 } from './tools/goal-lifecycle.js';
 import { createClaimTaskHandler } from './tools/claim-task.js';
 import { createGetNextTaskHandler } from './tools/get-next-task.js';
+import { createSetCurrentGoalHandler } from './tools/set-current-goal.js';
 import { createGetTaskGraphHandler } from './tools/get-task-graph.js';
 import { createGetProjectHandler } from './tools/get-project.js';
 import { createGetTaskHandler } from './tools/get-task.js';
@@ -107,6 +108,7 @@ import {
   claimTaskInputSchema,
   completeGoalInputSchema,
   goalLifecycleInputSchema,
+  setCurrentGoalInputSchema,
   getNextTaskInputSchema,
   getTaskGraphInputSchema,
   getProjectInputSchema,
@@ -625,6 +627,17 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       inputSchema: updateGoalInputSchema.shape,
     },
     createUpdateGoalHandler(services.goalService),
+  );
+
+  server.registerTool(
+    'set_current_goal',
+    {
+      title: 'Set Current Goal',
+      description:
+        'Point the project current_goal_id at this active goal so get_next_task resolves here when goal_id is omitted.',
+      inputSchema: setCurrentGoalInputSchema.shape,
+    },
+    createSetCurrentGoalHandler(services.goalService),
   );
 
   server.registerTool(

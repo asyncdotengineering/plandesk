@@ -41,7 +41,7 @@ describe('tool registry tag schemas', () => {
     expect(v1ToolNames).toContain('update_prototype');
     expect(v1ToolNames).toContain('move_screen');
     expect(v1ToolNames).toContain('copy_screen');
-    expect(v1ToolNames).toHaveLength(62);
+    expect(v1ToolNames).toHaveLength(63);
     for (const name of v1ToolNames) {
       expect(v1ToolSchemas[name]).toBeDefined();
     }

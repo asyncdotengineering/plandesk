@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { asc, eq } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
-import { goalStatuses, goals, type GoalStatus } from '../schema.js';
+import { goalStatuses, goals, projects, type GoalStatus } from '../schema.js';
 
 export type Goal = typeof goals.$inferSelect;
 
@@ -86,6 +86,13 @@ export async function createGoal(db: DbClient, input: NewGoal): Promise<Goal> {
   const row = rows[0];
   if (!row) {
     throw new Error('Failed to create goal');
+  }
+  if (status === 'active') {
+    await db
+      .update(projects)
+      .set({ currentGoalId: id, updatedAt: now })
+      .where(eq(projects.id, input.projectId))
+      .run();
   }
   return row;
 }

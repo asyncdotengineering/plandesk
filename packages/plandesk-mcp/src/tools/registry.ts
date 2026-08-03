@@ -636,6 +636,8 @@ export const goalLifecycleInputSchema = z.object({
   goal_id: z.string().uuid(),
 });
 
+export const setCurrentGoalInputSchema = goalLifecycleInputSchema;
+
 export const completeGoalInputSchema = goalLifecycleInputSchema.extend({
   evidence: verificationEvidenceSchema.optional(),
 });
@@ -647,7 +649,7 @@ export const getNextTaskInputSchema = z.object({
     .uuid()
     .optional()
     .describe(
-      'Scope the frontier to a specific goal. When omitted, uses the project sole active goal.',
+      'Scope the frontier to a specific goal. When omitted, resolves via the project current_goal_id, then the sole active goal, then ambiguous_goal.',
     ),
   goal: z.string().min(1).optional().describe('Project-scoped goal name; use this instead of goal_id.'),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
@@ -814,6 +816,7 @@ export const v1ToolNames = [
   'get_goal',
   'list_goals',
   'update_goal',
+  'set_current_goal',
   'pause_goal',
   'resume_goal',
   'complete_goal',
@@ -881,6 +884,7 @@ export const v1ToolSchemas = {
   get_goal: getGoalInputSchema,
   list_goals: listGoalsInputSchema,
   update_goal: updateGoalInputSchema,
+  set_current_goal: setCurrentGoalInputSchema,
   pause_goal: goalLifecycleInputSchema,
   resume_goal: goalLifecycleInputSchema,
   complete_goal: completeGoalInputSchema,

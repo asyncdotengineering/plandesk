@@ -124,6 +124,7 @@ import {
   createMoveDocumentsHandler,
   createUpdatePrototypeHandler,
   createUpdateGoalHandler,
+  createSetCurrentGoalHandler,
   createUpdateNoteHandler,
   createUpdateProjectHandler,
   createUpdateTaskHandler,
@@ -175,6 +176,7 @@ const MCP_TOOLS = [
   'get_goal',
   'list_goals',
   'update_goal',
+  'set_current_goal',
   'pause_goal',
   'resume_goal',
   'complete_goal',
@@ -867,6 +869,13 @@ async function runMcpForeignSweep(
         createUpdateGoalHandler(s.goalService)({
           goal_id: target.activeGoal.id,
           objective: 'escaped',
+        }),
+    ],
+    [
+      'set_current_goal',
+      () =>
+        createSetCurrentGoalHandler(s.goalService)({
+          goal_id: target.activeGoal.id,
         }),
     ],
     ['pause_goal', () => createPauseGoalHandler(s.goalService)({ goal_id: target.activeGoal.id })],
