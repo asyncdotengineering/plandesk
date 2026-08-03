@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedDocumentTree, SerializedFolder } from '../../lib/api.js';
 import { toast } from 'sonner';
-import { FOLDER_REPARENT_CYCLE_MESSAGE } from '@plandesk/api';
+import { FOLDER_REPARENT_CYCLE_MESSAGE } from '@plandesk/api/folder-cycle';
 import {
   DocumentsPanel,
   DOCUMENT_DRAG_MIME,

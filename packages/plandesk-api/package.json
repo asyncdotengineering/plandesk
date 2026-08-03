@@ -10,6 +10,10 @@
     "./markdown": {
       "types": "./dist/markdown.d.ts",
       "import": "./dist/markdown.js"
+    },
+    "./folder-cycle": {
+      "types": "./dist/services/folder-cycle.d.ts",
+      "import": "./dist/services/folder-cycle.js"
     }
   },
   "files": [

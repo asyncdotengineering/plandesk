@@ -20,7 +20,7 @@ import type {
 import {
   FOLDER_REPARENT_CYCLE_MESSAGE,
   wouldCreateFolderReparentCycle,
-} from '@plandesk/api';
+} from '@plandesk/api/folder-cycle';
 import {
   useCreateDocument,
   useCreateEdge,
