@@ -47,6 +47,7 @@ import {
   runFactoryInit,
   runFactorySync,
 } from './factory.js';
+import { formatFactorySyncAllSummary, runFactorySyncAll } from './factory-sync-all.js';
 import {
   runWorkspaceCreate,
   runWorkspaceList,
@@ -539,6 +540,26 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     case 'factory': {
       try {
         if (parsed.subcommand === 'sync') {
+          if (parsed.all) {
+            if (parsed.repoDir !== undefined) {
+              process.stderr.write(
+                '--all sweeps every registered repo; it cannot be combined with --repo.\n',
+              );
+              return 1;
+            }
+            const sweep = await runFactorySyncAll({
+              write: parsed.write,
+              force: parsed.force,
+              prune: parsed.prune,
+              scan: parsed.scan,
+            });
+            process.stdout.write(formatFactorySyncAllSummary(sweep, { write: parsed.write }));
+            return 0;
+          }
+          if (parsed.scan !== undefined) {
+            process.stderr.write('--scan only applies with --all.\n');
+            return 1;
+          }
           const result = runFactorySync({
             repoDir: resolveRepoDir(parsed.repoDir),
             write: parsed.write,

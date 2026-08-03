@@ -4,6 +4,26 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [3.1.0] — 2026-08-03
+
+`@plandesk/cli` only; api, db and mcp stay at 3.0.0.
+
+### Added
+
+- **`plandesk factory sync --all` sweeps every repo root registered on this board.** Keeping N repos on current policy previously meant running `factory sync` in each one by hand, which does not scale and silently misses whatever the operator forgets. The board already knows the answer: a project's `folder_path` is the repo root it is bound to, so "every registered root" is stored data rather than a filesystem guess.
+
+  The sweep is resilient by construction — a root that has been deleted, or one `runFactorySync` legitimately refuses (Plan Desk's own source tree, a global config dir), is reported as `skipped` and the sweep continues. One bad entry cannot end the run. Per-repo customizations are kept exactly as in a single-repo sync.
+
+- **`--scan <dir>` discovers repos and registers them.** `folder_path` is only written by `connect`, and by `serve` running inside a repo, so a board whose projects were bound before that shipped has an empty registry — and a sweep over it would be a silent no-op. `--scan` walks a directory for `.plandesk/config.json`, registers each root, and leaves the registry correct so later `--all` runs need no scan. Discovery bootstraps the registry; it does not replace it.
+
+  Depth-bounded and skips `node_modules`, `.git`, `dist` and friends: an unbounded walk of a home directory spends most of its time inside dependency trees, and a checkout vendored under one is not a project anyone wants swept.
+
+  Discovery is read-only. Only `--write` records a root — a dry run that quietly mutated the registry would be a dry run in name only, so a bare `--all --scan` previews the repos it *would* register and touch.
+
+  An empty registry reports what to do about it rather than "0 synced".
+
+  Discovered paths are realpath-normalised to match how `folder_path` is stored. Without that the same repo appears under two spellings — every macOS `/tmp` path resolves to `/private/tmp`, and any repo reached through a symlink hits the same thing — and the sweep visits it twice.
+
 ## [3.0.1] — 2026-08-03
 
 `@plandesk/cli` only. `@plandesk/api`, `@plandesk/db` and `@plandesk/mcp` stay at 3.0.0 — nothing in them changed, and publishing three byte-identical versions to preserve lockstep buys nothing. The published `cli` manifest pins them at 3.0.0 explicitly.

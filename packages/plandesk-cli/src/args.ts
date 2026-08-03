@@ -279,6 +279,10 @@ export type ParsedArgs =
       write: boolean;
       force: boolean;
       prune: boolean;
+      /** Sweep every repo root registered on this board instead of one repo. */
+      all: boolean;
+      /** With --all: discover repos under this directory and register each root. */
+      scan?: string;
     }
   | {
       command: 'workspace';
@@ -660,6 +664,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
         write: flags['write'] === true,
         force: flags['force'] === true,
         prune: flags['prune'] === true,
+        all: flags['all'] === true,
+        scan: flagString(flags, 'scan'),
       };
     }
     return { command: 'unknown', name: 'factory' };
@@ -735,6 +741,7 @@ Usage:
   plandesk deploy [target]   # list deploy guides, or print one for your coding agent: plandesk deploy cloudflare | claude
   plandesk factory init [--repo <dir>] [--print] [--force]
   plandesk factory sync [--write] [--force] [--prune] [--repo <dir>]   # update scaffolded policy to the latest shipped version
+  plandesk factory sync --all [--scan <dir>] [--write]   # sweep every repo root registered on this board; --scan discovers and registers new ones
   plandesk workspace create <name> [--to <orgId>]
   plandesk workspace list [--to <orgId>]
   plandesk context --json [--repo <dir>]   # bound project's current task/doc/progress, for session hooks
