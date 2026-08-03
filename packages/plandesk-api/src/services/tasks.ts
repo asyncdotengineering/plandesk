@@ -23,6 +23,9 @@ import {
   InvalidTaskPriorityError,
   isTaskSeverity,
   InvalidTaskSeverityError,
+  assertTaskCreateSchema,
+  assertTaskUpdateSchema,
+  assertTableStoresColumns,
   listEdges,
   listTagsByTaskForProject,
   listTagsForTask,
@@ -473,6 +476,7 @@ export function createTaskService(deps: TaskServiceDeps) {
         throw new InvalidGoalReferenceError(input.goalId);
       }
 
+      await assertTaskCreateSchema(db);
       const { task, tags } = await withTransaction(db, async (tx) => {
         const goalId = input.goalId ?? (await resolveGoalForNewWork(tx, projectId)).id;
         const row = await createTask(tx, {
@@ -550,6 +554,10 @@ export function createTaskService(deps: TaskServiceDeps) {
           : commitRefs === null
             ? null
             : normalizeCommitRefs(commitRefs);
+      await assertTaskUpdateSchema(db, columns);
+      if (commitRefs !== undefined) {
+        await assertTableStoresColumns(db, 'tasks', ['commit_refs']);
+      }
       const result = await withTransaction<
         { task: Task; tags: Awaited<ReturnType<typeof listTagsForTask>> } | undefined
       >(db, async (tx) => {

@@ -6,21 +6,31 @@ import { Hono } from 'hono';
 import { createDb, migrate } from '@plandesk/db';
 import { createApp } from './server.js';
 import { mountStatic } from './static.js';
-import { createTestApp } from './test-helpers.js';
+import { createTestApp, parseJson } from './test-helpers.js';
 
 describe('createApp', () => {
+  type HealthBody = {
+    ok: boolean;
+    dataDir?: string;
+    schema?: { current: boolean; missingTags: string[] };
+  };
+
   it('returns ok from GET /api/v1/health', async () => {
     const { app } = await createTestApp();
     const res = await app.request('/api/v1/health');
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    const body = await parseJson<HealthBody>(res);
+    expect(body).toMatchObject({ ok: true });
+    expect(body.schema).toMatchObject({ current: true, missingTags: [] });
   });
 
   it('includes the resolved dataDir on /api/v1/health when configured (REQ-A3a)', async () => {
     const { app } = await createTestApp({ dataDir: '/tmp/plandesk-board' });
     const res = await app.request('/api/v1/health');
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, dataDir: '/tmp/plandesk-board' });
+    const body = await parseJson<HealthBody>(res);
+    expect(body).toMatchObject({ ok: true, dataDir: '/tmp/plandesk-board' });
+    expect(body.schema).toMatchObject({ current: true, missingTags: [] });
   });
 
   it('returns 404 for unknown API paths', async () => {

@@ -5,6 +5,7 @@ import {
   InvalidTaskPriorityError,
   InvalidTaskStatusError,
   InvalidTaskSeverityError,
+  UnstoredColumnError,
   isTaskKind,
   isTaskLane,
   isTaskPriority,
@@ -300,7 +301,8 @@ export function createProjectsRouter(
         error instanceof InvalidTaskLaneError ||
         error instanceof InvalidTaskSeverityError ||
         error instanceof InvalidTagError ||
-        error instanceof InvalidGoalReferenceError
+        error instanceof InvalidGoalReferenceError ||
+        error instanceof UnstoredColumnError
       ) {
         return c.json({ error: 'invalid_argument' }, 400);
       }

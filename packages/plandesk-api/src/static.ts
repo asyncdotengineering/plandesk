@@ -25,6 +25,17 @@ function resolveDefaultDistPath(): string {
   );
 }
 
+/** Client routes have no file extension; asset URLs always carry one (not `.html`). */
+function looksLikeAsset(path: string): boolean {
+  const lastSegment = path.split('/').pop() ?? '';
+  const dotIndex = lastSegment.lastIndexOf('.');
+  if (dotIndex <= 0) {
+    return false;
+  }
+  const ext = lastSegment.slice(dotIndex + 1);
+  return ext.toLowerCase() !== 'html';
+}
+
 export function mountStatic(app: Hono, distPath: string = resolveDefaultDistPath()): void {
   if (!existsSync(distPath)) {
     return;
@@ -37,13 +48,15 @@ export function mountStatic(app: Hono, distPath: string = resolveDefaultDistPath
   // API's 404. API/MCP paths keep their own not_found handling.
   const indexHtml = join(distPath, 'index.html');
   if (existsSync(indexHtml)) {
-    const html = readFileSync(indexHtml, 'utf8');
     app.get('*', (c) => {
       const path = c.req.path;
       if (path.startsWith('/api') || path.startsWith('/mcp')) {
         return c.notFound();
       }
-      return c.html(html);
+      if (looksLikeAsset(path)) {
+        return c.notFound();
+      }
+      return c.html(readFileSync(indexHtml, 'utf8'));
     });
   }
 }

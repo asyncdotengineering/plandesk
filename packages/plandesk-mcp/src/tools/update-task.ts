@@ -5,6 +5,7 @@ import {
   InvalidTaskPriorityError,
   InvalidTaskStatusError,
   InvalidTaskSeverityError,
+  UnstoredColumnError,
   type TaskKind,
   type TaskLane,
   type TaskPriority,
@@ -61,7 +62,8 @@ export function createUpdateTaskHandler(
         error instanceof InvalidTaskSeverityError ||
         error instanceof InvalidTagError ||
         error instanceof InvalidGoalReferenceError ||
-        error instanceof InvalidCommitRefsError
+        error instanceof InvalidCommitRefsError ||
+        error instanceof UnstoredColumnError
       ) {
         return toolInvalidArgument(error.message);
       }

@@ -650,10 +650,22 @@ describe('startServer', () => {
 
     const res = await fetch(`http://127.0.0.1:${String(port)}/api/v1/health`);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, dataDir });
+    const body = (await res.json()) as {
+      ok: boolean;
+      dataDir?: string;
+      schema?: { current: boolean; missingTags: string[] };
+    };
+    expect(body).toMatchObject({ ok: true, dataDir });
+    expect(body.schema).toMatchObject({ current: true, missingTags: [] });
     const localhostRes = await fetch(`http://localhost:${String(port)}/api/v1/health`);
     expect(localhostRes.status).toBe(200);
-    expect(await localhostRes.json()).toEqual({ ok: true, dataDir });
+    const localhostBody = (await localhostRes.json()) as {
+      ok: boolean;
+      dataDir?: string;
+      schema?: { current: boolean; missingTags: string[] };
+    };
+    expect(localhostBody).toMatchObject({ ok: true, dataDir });
+    expect(localhostBody.schema).toMatchObject({ current: true, missingTags: [] });
 
     const info = readServerInfo(dataDir);
     expect(info?.port).toBe(port);

@@ -128,7 +128,7 @@ export function createApp(deps: AppDeps): Hono {
     throw err;
   });
 
-  app.route('/api/v1', createHealthRouter(deps.dataDir));
+  app.route('/api/v1', createHealthRouter(deps.dataDir, deps.db));
   app.route(
     '/api/v1',
     createAuthRouter({
