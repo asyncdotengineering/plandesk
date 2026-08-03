@@ -19,9 +19,14 @@ can be pointed at the one-liner someone dropped on the board on a Tuesday. This
 can.
 
 **Lane: approve** — grooming rewrites what a task *means*, so the rewrite lands
-as a board diff with a comment recording what was inferred, and a human resolves
-it. It never changes status: the `scope → todo` release stays human-owned (see
-[autonomy](../plandesk-autonomy/SKILL.md)).
+as a board diff with a comment recording what was inferred, and that comment is
+the gate's resolution surface.
+
+It never changes status, and that is a boundary of this skill rather than a
+statement about who may release: a groomer that released its own rewrite would
+be judging readiness against a description it just wrote, which is not a check.
+Who performs the `scope → todo` release is decided after this returns — see
+[lanes.md](../../factory/lanes.md).
 
 ## When to run this
 
@@ -188,8 +193,8 @@ is described — the row stays not-ready until a human confirms it.
 
 ## Boundaries
 
-- Never change status. Grooming makes a task buildable; releasing it is the
-  human's call, and `scope → todo` is where that call is made.
+- Never change status. Grooming makes a task buildable; releasing it is a
+  separate judgement made against the groomed result, not part of producing it.
 - Never dispatch. Handing the groomed task to a worker is
   [foreman](../plandesk-foreman/SKILL.md)'s cycle.
 - Never dedup a batch, and never create more than one task in a run. That is

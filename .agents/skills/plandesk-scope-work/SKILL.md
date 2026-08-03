@@ -20,9 +20,14 @@ Pick by what you were handed: a *pile of items that already exist* is `signal`;
 single coherent initiative rather than a list of unrelated asks, treat it as
 `plan` — the edges matter more than the dedup.
 
-**Lane: approve.** Everything here lands as a proposal a human resolves. The
-`scope → todo` release is that resolution, and it is never yours — see
-[autonomy](../plandesk-autonomy/SKILL.md).
+**Lane: approve.** Everything here lands as a proposal, and the `scope → todo`
+release is the resolution of that proposal — a separate act from making it.
+This skill never performs it: a plan is not evidence that the plan was
+accepted, and an intake that releases its own output has reviewed nothing.
+
+Who may perform that release is decided elsewhere — by default a human, and
+under [autonomy](../plandesk-autonomy/SKILL.md) an agent with its reasoning
+posted first. Either way it is a decision taken *after* this skill returns.
 
 ## Rules both modes share
 
@@ -214,8 +219,9 @@ is a courtesy to the reviewer, not a stored primitive.
 
 ## When you are done
 
-Stop. Assign the lanes, then hand back — humans release `scope → todo` on the
-board. Do not start executing the plan you just scaffolded unless the human
+Stop. Assign the lanes, then hand back — the `scope → todo` release happens
+after this skill returns, by whoever [lanes.md](../../factory/lanes.md) says may
+make it. Do not start executing the plan you just scaffolded unless the human
 asked for that in the same request.
 
 Then offer the next step rather than taking it: if any task landed thinner than
