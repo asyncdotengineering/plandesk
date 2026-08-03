@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { SerializedTag, SerializedTask } from '../../lib/api.js';
 import {
   TAG_COUNT_NOTE,
+  formatAggregate,
   groupCountsExceedTaskTotal,
   groupTasks,
   type AggregateResult,
@@ -202,6 +203,58 @@ describe('groupTasks', () => {
     expect(aggregate(g2, 'count', 'label')).toBe(1);
     expect(aggregate(g2, 'percent_of_parent', 'label')).toBe(25);
     expect(aggregate(g2, 'earliest', 'due_date')).toBe('2026-02-01T00:00:00.000Z');
+  });
+
+  it('reports done/total aggregate on each group', () => {
+    const tasks = [
+      makeTask('g1-todo', { goal_id: 'goal-1', status: 'todo' }),
+      makeTask('g1-done', { goal_id: 'goal-1', status: 'done' }),
+      makeTask('g2-done', { goal_id: 'goal-2', status: 'done' }),
+    ];
+
+    const groups = groupTasks(tasks, [{ field: 'goal_id', direction: 'asc' }], {
+      aggregates: [
+        { field: 'label', op: 'count' },
+        { field: 'status', op: 'done_total' },
+      ],
+    });
+
+    const g1 = groups.find((group) => group.value === 'goal-1');
+    const g2 = groups.find((group) => group.value === 'goal-2');
+    expect(g1).toBeDefined();
+    expect(g2).toBeDefined();
+    if (g1 === undefined || g2 === undefined) {
+      throw new Error('expected goal groups');
+    }
+
+    expect(aggregate(g1, 'count', 'label')).toBe(2);
+    expect(aggregate(g1, 'done_total', 'status')).toBe('1/2');
+    expect(aggregate(g2, 'count', 'label')).toBe(1);
+    expect(aggregate(g2, 'done_total', 'status')).toBe('1/1');
+    const doneTotal = g1.aggregates.find((entry) => entry.op === 'done_total');
+    expect(doneTotal).toBeDefined();
+    if (doneTotal === undefined) {
+      throw new Error('expected done_total aggregate');
+    }
+    expect(formatAggregate(doneTotal)).toBe('1/2 done');
+  });
+
+  it('groups by lane column with tag fallback', () => {
+    const tasks = [
+      makeTask('typed', { lane: 'full' }),
+      makeTask('tagged', { tags: [makeTag('l1', 'lane:auto')] }),
+      makeTask('none', { lane: null }),
+    ];
+
+    const groups = groupTasks(tasks, [{ field: 'lane', direction: 'asc' }]);
+
+    expect(groups.map((group) => group.label)).toEqual(['auto', 'full', 'No lane']);
+    expect(groups.find((group) => group.value === 'full')?.tasks.map((task) => task.id)).toEqual([
+      'typed',
+    ]);
+    expect(groups.find((group) => group.value === 'auto')?.tasks.map((task) => task.id)).toEqual([
+      'tagged',
+    ]);
   });
 
   it('sorts leaf tasks with sortTasks, not a local comparator', () => {

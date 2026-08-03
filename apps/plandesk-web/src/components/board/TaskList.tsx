@@ -56,6 +56,10 @@ import {
   type GroupNode,
   type GroupSpec,
 } from './task-group.js';
+import {
+  loadCollapsedGroupIds,
+  saveCollapsedGroupIds,
+} from './list-group-collapse.js';
 import { sortTasks, type SortSpec } from './task-sort.js';
 import { ViewSwitcher } from './ViewSwitcher.js';
 
@@ -96,7 +100,9 @@ export function TaskList({
   const [filterRoot, setFilterRoot] = useState<FilterNode | null>(null);
   const [sortSpecs, setSortSpecs] = useState<SortSpec[]>([]);
   const [groupSpecs, setGroupSpecs] = useState<GroupSpec[]>([]);
-  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(() => new Set());
+  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(
+    () => loadCollapsedGroupIds(projectId) ?? new Set(),
+  );
   const [drawerTaskId, setDrawerTaskId] = useState<string | null>(openTaskId ?? null);
 
   const activeGroupSpecs = useMemo(() => toGroupSpecs(groupSpecs), [groupSpecs]);
@@ -120,8 +126,7 @@ export function TaskList({
       sort: sortSpecs,
       aggregates: [
         { field: 'label', op: 'count' },
-        { field: 'label', op: 'percent_of_parent' },
-        { field: 'due_date', op: 'earliest' },
+        { field: 'status', op: 'done_total' },
       ],
     });
   }, [filteredTasks, activeGroupSpecs, sortSpecs]);
@@ -134,6 +139,10 @@ export function TaskList({
   useEffect(() => {
     setDrawerTaskId(openTaskId ?? null);
   }, [openTaskId]);
+
+  useEffect(() => {
+    saveCollapsedGroupIds(projectId, collapsedGroupIds);
+  }, [projectId, collapsedGroupIds]);
 
   const openTask = (taskId: string | null) => {
     setDrawerTaskId(taskId);

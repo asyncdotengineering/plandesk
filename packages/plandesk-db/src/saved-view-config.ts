@@ -34,6 +34,8 @@ export const SORTABLE_FIELDS: readonly SortableField[] = [
 export type GroupableField =
   | 'status'
   | 'goal_id'
+  | 'lane'
+  | 'severity'
   | 'assignee'
   | 'priority'
   | 'blocked'
@@ -49,6 +51,8 @@ export type GroupSpecs = [GroupSpec] | [GroupSpec, GroupSpec];
 export const GROUPABLE_FIELDS: readonly GroupableField[] = [
   'status',
   'goal_id',
+  'lane',
+  'severity',
   'assignee',
   'priority',
   'blocked',

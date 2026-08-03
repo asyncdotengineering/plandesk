@@ -77,6 +77,8 @@ export type SerializedTask = {
   label: string;
   status: TaskStatus;
   priority: TaskPriority | null;
+  lane?: string | null;
+  severity?: string | null;
   description: string | null;
   x: number;
   y: number;
