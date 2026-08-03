@@ -20,6 +20,28 @@ export { taskStatuses, taskPriorities, taskPriorityOrder, linkEntityTypes };
 export type { TaskStatus, TaskPriority, LinkEntityType };
 export type { SavedViewConfig };
 
+export type SerializedView = {
+  id: string;
+  project_id: string;
+  name: string;
+  config: SavedViewConfig;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateViewInput = {
+  name: string;
+  config: SavedViewConfig;
+  position?: number;
+};
+
+export type PatchViewInput = {
+  name?: string;
+  config?: SavedViewConfig;
+  position?: number;
+};
+
 export const edgeLabels = [
   'blocks',
   'depends_on',
@@ -77,6 +99,8 @@ export type SerializedTask = {
   label: string;
   status: TaskStatus;
   priority: TaskPriority | null;
+  lane?: string | null;
+  severity?: string | null;
   description: string | null;
   x: number;
   y: number;
@@ -496,6 +520,28 @@ export async function exportProjectView(
   const match = /filename="([^"]+)"/.exec(disposition);
   const filename = match?.[1] ?? `export.${input.format}`;
   return { blob: await response.blob(), filename };
+}
+
+export function listProjectViews(projectId: string): Promise<SerializedView[]> {
+  return request(`/projects/${projectId}/views`);
+}
+
+export function createProjectView(
+  projectId: string,
+  input: CreateViewInput,
+): Promise<SerializedView> {
+  return request(`/projects/${projectId}/views`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function patchView(id: string, input: PatchViewInput): Promise<SerializedView> {
+  return request(`/views/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function deleteView(id: string): Promise<void> {
+  return request(`/views/${id}`, { method: 'DELETE' });
 }
 
 export function createTask(projectId: string, input: CreateTaskInput): Promise<SerializedTask> {

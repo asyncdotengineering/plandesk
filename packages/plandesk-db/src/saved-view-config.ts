@@ -34,6 +34,8 @@ export const SORTABLE_FIELDS: readonly SortableField[] = [
 export type GroupableField =
   | 'status'
   | 'goal_id'
+  | 'lane'
+  | 'severity'
   | 'assignee'
   | 'priority'
   | 'blocked'
@@ -49,6 +51,8 @@ export type GroupSpecs = [GroupSpec] | [GroupSpec, GroupSpec];
 export const GROUPABLE_FIELDS: readonly GroupableField[] = [
   'status',
   'goal_id',
+  'lane',
+  'severity',
   'assignee',
   'priority',
   'blocked',
@@ -227,6 +231,26 @@ function parseFilterNode(value: unknown, depth: number): FilterNode {
     };
   }
   throw new InvalidSavedViewConfigError('filter node.kind must be group or condition');
+}
+
+/** Parse a filter tree from JSON (URL param or API body). Returns null when invalid. */
+export function parseFilterJson(raw: unknown): FilterNode | null {
+  let value: unknown = raw;
+  if (typeof raw === 'string') {
+    if (raw === '') {
+      return null;
+    }
+    try {
+      value = JSON.parse(raw) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  try {
+    return parseFilterNode(value, 0);
+  } catch {
+    return null;
+  }
 }
 
 /**

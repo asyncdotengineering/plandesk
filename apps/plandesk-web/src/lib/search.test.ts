@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { validateTaskFilterSearch } from './search.js';
+import {
+  encodeColumnsParam,
+  encodeFilterParam,
+  encodeSortParam,
+  validateTaskFilterSearch,
+} from './search.js';
 
 describe('validateTaskFilterSearch', () => {
   it('keeps a valid status', () => {
@@ -31,5 +36,69 @@ describe('validateTaskFilterSearch', () => {
 
   it('ignores unrelated params', () => {
     expect(validateTaskFilterSearch({ nope: 'x' })).toEqual({});
+  });
+
+  it('parses multi-level sort from a comma-separated param', () => {
+    expect(validateTaskFilterSearch({ sort: 'status:asc,label:desc' })).toEqual({
+      sort: [
+        { field: 'status', direction: 'asc' },
+        { field: 'label', direction: 'desc' },
+      ],
+    });
+  });
+
+  it('drops invalid sort fields and directions', () => {
+    expect(validateTaskFilterSearch({ sort: 'nope:asc,status:up' })).toEqual({});
+    expect(validateTaskFilterSearch({ sort: 'status:asc,nope:desc' })).toEqual({
+      sort: [{ field: 'status', direction: 'asc' }],
+    });
+  });
+
+  it('parses visible columns from a comma-separated param', () => {
+    expect(validateTaskFilterSearch({ columns: 'label,status,goal' })).toEqual({
+      columns: ['label', 'status', 'goal'],
+    });
+  });
+
+  it('drops unknown column ids', () => {
+    expect(validateTaskFilterSearch({ columns: 'label,nope,status' })).toEqual({
+      columns: ['label', 'status'],
+    });
+  });
+
+  it('round-trips sort and columns through encode helpers', () => {
+    const sort = [
+      { field: 'priority' as const, direction: 'desc' as const },
+      { field: 'due_date' as const, direction: 'asc' as const },
+    ];
+    expect(encodeSortParam(sort)).toBe('priority:desc,due_date:asc');
+    expect(
+      validateTaskFilterSearch({ sort: encodeSortParam(sort), columns: encodeColumnsParam(['label', 'tags']) }),
+    ).toEqual({
+      sort,
+      columns: ['label', 'tags'],
+    });
+  });
+
+  it('parses and round-trips a nested filter JSON param', () => {
+    const filter = {
+      kind: 'group' as const,
+      op: 'and' as const,
+      children: [
+        { kind: 'condition' as const, field: 'lane' as const, operator: 'is' as const, value: 'full' },
+        {
+          kind: 'group' as const,
+          op: 'or' as const,
+          children: [
+            { kind: 'condition' as const, field: 'status' as const, operator: 'is' as const, value: 'todo' },
+            { kind: 'condition' as const, field: 'status' as const, operator: 'is' as const, value: 'scope' },
+          ],
+        },
+      ],
+    };
+    const encoded = encodeFilterParam(filter);
+    expect(encoded).toBeTruthy();
+    expect(validateTaskFilterSearch({ filter: encoded })).toEqual({ filter });
+    expect(validateTaskFilterSearch({ filter: 'not-json' })).toEqual({});
   });
 });

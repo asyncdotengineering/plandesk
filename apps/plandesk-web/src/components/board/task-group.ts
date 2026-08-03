@@ -11,6 +11,7 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from '../../lib/api.js';
+import { laneFromTags } from './board-utils.js';
 import { sortTasks, type SortSpec } from './task-sort.js';
 
 export type { GroupableField, GroupSpec, GroupSpecs };
@@ -20,6 +21,7 @@ export type AggregateOp =
   | 'count'
   | 'count_non_empty'
   | 'percent_of_parent'
+  | 'done_total'
   | 'earliest'
   | 'latest';
 
@@ -62,6 +64,8 @@ export type GroupNode = {
 export const GROUPABLE_FIELD_LABELS: Record<GroupableField, string> = {
   status: 'Status',
   goal_id: 'Goal',
+  lane: 'Lane',
+  severity: 'Severity',
   assignee: 'Assignee',
   priority: 'Priority',
   blocked: 'Blocked',
@@ -82,6 +86,10 @@ function emptyLabel(field: GroupableField): string {
   switch (field) {
     case 'goal_id':
       return 'No goal';
+    case 'lane':
+      return 'No lane';
+    case 'severity':
+      return 'No severity';
     case 'tag':
       return 'No tag';
     case 'status':
@@ -128,6 +136,20 @@ function memberships(task: SerializedTask, field: GroupableField): Membership[] 
         ? [{ key: EMPTY_SENTINEL, value: null }]
         : [{ key: priority, value: priority }];
     }
+    case 'lane': {
+      const lane = task.lane ?? laneFromTags(task.tags) ?? null;
+      if (lane === null || lane === '') {
+        return [{ key: EMPTY_SENTINEL, value: null }];
+      }
+      return [{ key: lane, value: lane }];
+    }
+    case 'severity': {
+      const severity = task.severity ?? null;
+      if (severity === null || severity === '') {
+        return [{ key: EMPTY_SENTINEL, value: null }];
+      }
+      return [{ key: severity, value: severity }];
+    }
     case 'blocked': {
       if (task.blocked === undefined) {
         return [{ key: EMPTY_SENTINEL, value: null }];
@@ -160,6 +182,8 @@ function compareNonEmptyGroupValues(
       // asc: Not blocked (false) before Blocked (true)
       return a === b ? 0 : a === 'false' ? -1 : 1;
     case 'goal_id':
+    case 'lane':
+    case 'severity':
     case 'assignee':
     case 'tag':
       return collator.compare(a, b);
@@ -236,6 +260,14 @@ function computeAggregates(
           field: spec.field,
           op: spec.op,
           value: (tasks.length / parentCount) * 100,
+        };
+      }
+      case 'done_total': {
+        const done = tasks.filter((task) => task.status === 'done').length;
+        return {
+          field: spec.field,
+          op: spec.op,
+          value: `${String(done)}/${String(tasks.length)}`,
         };
       }
       case 'earliest':
@@ -400,6 +432,8 @@ export function formatAggregate(result: AggregateResult): string {
       const n = typeof result.value === 'number' ? result.value : 0;
       return `${n.toFixed(n % 1 === 0 ? 0 : 1)}%`;
     }
+    case 'done_total':
+      return result.value === null ? '0/0 done' : `${String(result.value)} done`;
     case 'earliest':
       return result.value === null ? '—' : `earliest ${String(result.value)}`;
     case 'latest':

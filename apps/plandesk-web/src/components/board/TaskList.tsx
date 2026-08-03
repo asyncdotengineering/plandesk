@@ -22,6 +22,7 @@ import {
   type ExportFormat,
   type PatchTaskInput,
   type SerializedTask,
+  type SerializedView,
   type TaskStatus,
 } from '../../lib/api.js';
 import {
@@ -41,6 +42,7 @@ import {
 } from './list-columns.js';
 import { StatusChip } from './StatusChip.js';
 import { TaskDrawer } from './TaskDrawer.js';
+import { SavedViewsMenu } from './SavedViewsMenu.js';
 import { TaskListFilterMenu } from './TaskListFilterMenu.js';
 import { TaskListGroupMenu, toGroupSpecs } from './TaskListGroupMenu.js';
 import { TaskListSortMenu } from './TaskListSortMenu.js';
@@ -56,6 +58,10 @@ import {
   type GroupNode,
   type GroupSpec,
 } from './task-group.js';
+import {
+  loadCollapsedGroupIds,
+  saveCollapsedGroupIds,
+} from './list-group-collapse.js';
 import { sortTasks, type SortSpec } from './task-sort.js';
 import { ViewSwitcher } from './ViewSwitcher.js';
 
@@ -65,6 +71,21 @@ type TaskListProps = {
   tasks: SerializedTask[];
   openTaskId?: string | undefined;
   onOpenTaskIdChange?: ((taskId: string | null) => void) | undefined;
+  sortSpecs?: SortSpec[];
+  onSortSpecsChange?: (specs: SortSpec[]) => void;
+  visibleColumns?: Set<ListColumnId>;
+  onVisibleColumnsChange?: (columns: Set<ListColumnId>) => void;
+  filterRoot?: FilterNode | null;
+  onFilterRootChange?: (root: FilterNode | null) => void;
+  groupSpecs?: GroupSpec[];
+  onGroupSpecsChange?: (specs: GroupSpec[]) => void;
+  savedViews?: SerializedView[];
+  activeViewId?: string;
+  onSelectSavedView?: (view: SerializedView) => void;
+  onSaveSavedView?: (name: string) => void;
+  onRenameSavedView?: (viewId: string, name: string) => void;
+  onDeleteSavedView?: (viewId: string) => void;
+  isSavingView?: boolean;
 };
 
 function defaultVisibleColumns(): Set<ListColumnId> {
@@ -77,6 +98,21 @@ export function TaskList({
   tasks,
   openTaskId,
   onOpenTaskIdChange,
+  sortSpecs: sortSpecsProp,
+  onSortSpecsChange,
+  visibleColumns: visibleColumnsProp,
+  onVisibleColumnsChange,
+  filterRoot: filterRootProp,
+  onFilterRootChange,
+  groupSpecs: groupSpecsProp,
+  onGroupSpecsChange,
+  savedViews = [],
+  activeViewId,
+  onSelectSavedView,
+  onSaveSavedView,
+  onRenameSavedView,
+  onDeleteSavedView,
+  isSavingView = false,
 }: TaskListProps) {
   const { data: goals } = useGoals(projectId);
   const { data: projectTags } = useTags(projectId);
@@ -92,12 +128,59 @@ export function TaskList({
     [documents],
   );
 
-  const [visibleColumns, setVisibleColumns] = useState<Set<ListColumnId>>(defaultVisibleColumns);
-  const [filterRoot, setFilterRoot] = useState<FilterNode | null>(null);
-  const [sortSpecs, setSortSpecs] = useState<SortSpec[]>([]);
-  const [groupSpecs, setGroupSpecs] = useState<GroupSpec[]>([]);
-  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(() => new Set());
+  const [visibleColumnsState, setVisibleColumnsState] = useState<Set<ListColumnId>>(defaultVisibleColumns);
+  const [filterRootState, setFilterRootState] = useState<FilterNode | null>(null);
+  const [sortSpecsState, setSortSpecsState] = useState<SortSpec[]>([]);
+  const [groupSpecsState, setGroupSpecsState] = useState<GroupSpec[]>([]);
+  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(
+    () => loadCollapsedGroupIds(projectId) ?? new Set(),
+  );
   const [drawerTaskId, setDrawerTaskId] = useState<string | null>(openTaskId ?? null);
+
+  const visibleColumns =
+    onVisibleColumnsChange !== undefined
+      ? (visibleColumnsProp ?? defaultVisibleColumns())
+      : (visibleColumnsProp ?? visibleColumnsState);
+  const sortSpecs =
+    onSortSpecsChange !== undefined ? (sortSpecsProp ?? []) : (sortSpecsProp ?? sortSpecsState);
+  const filterRoot =
+    onFilterRootChange !== undefined
+      ? (filterRootProp ?? null)
+      : (filterRootProp ?? filterRootState);
+  const groupSpecs =
+    onGroupSpecsChange !== undefined ? (groupSpecsProp ?? []) : (groupSpecsProp ?? groupSpecsState);
+
+  const setVisibleColumns = (next: Set<ListColumnId>) => {
+    if (onVisibleColumnsChange !== undefined) {
+      onVisibleColumnsChange(next);
+    } else {
+      setVisibleColumnsState(next);
+    }
+  };
+
+  const setSortSpecs = (specs: SortSpec[]) => {
+    if (onSortSpecsChange !== undefined) {
+      onSortSpecsChange(specs);
+    } else {
+      setSortSpecsState(specs);
+    }
+  };
+
+  const setFilterRoot = (root: FilterNode | null) => {
+    if (onFilterRootChange !== undefined) {
+      onFilterRootChange(root);
+    } else {
+      setFilterRootState(root);
+    }
+  };
+
+  const setGroupSpecs = (specs: GroupSpec[]) => {
+    if (onGroupSpecsChange !== undefined) {
+      onGroupSpecsChange(specs);
+    } else {
+      setGroupSpecsState(specs);
+    }
+  };
 
   const activeGroupSpecs = useMemo(() => toGroupSpecs(groupSpecs), [groupSpecs]);
 
@@ -120,8 +203,7 @@ export function TaskList({
       sort: sortSpecs,
       aggregates: [
         { field: 'label', op: 'count' },
-        { field: 'label', op: 'percent_of_parent' },
-        { field: 'due_date', op: 'earliest' },
+        { field: 'status', op: 'done_total' },
       ],
     });
   }, [filteredTasks, activeGroupSpecs, sortSpecs]);
@@ -134,6 +216,10 @@ export function TaskList({
   useEffect(() => {
     setDrawerTaskId(openTaskId ?? null);
   }, [openTaskId]);
+
+  useEffect(() => {
+    saveCollapsedGroupIds(projectId, collapsedGroupIds);
+  }, [projectId, collapsedGroupIds]);
 
   const openTask = (taskId: string | null) => {
     setDrawerTaskId(taskId);
@@ -186,15 +272,13 @@ export function TaskList({
   };
 
   const toggleColumn = (column: ListColumnId, checked: boolean) => {
-    setVisibleColumns((current) => {
-      const next = new Set(current);
-      if (checked) {
-        next.add(column);
-      } else {
-        next.delete(column);
-      }
-      return next;
-    });
+    const next = new Set(visibleColumns);
+    if (checked) {
+      next.add(column);
+    } else {
+      next.delete(column);
+    }
+    setVisibleColumns(next);
   };
 
   const handleChangeStatus = (taskId: string, status: TaskStatus) => {
@@ -235,6 +319,20 @@ export function TaskList({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ViewSwitcher projectId={projectId} active="list" />
         <div className="flex flex-wrap items-center gap-2">
+          {onSelectSavedView !== undefined &&
+          onSaveSavedView !== undefined &&
+          onRenameSavedView !== undefined &&
+          onDeleteSavedView !== undefined ? (
+            <SavedViewsMenu
+              views={savedViews}
+              activeViewId={activeViewId}
+              onSelect={onSelectSavedView}
+              onSave={onSaveSavedView}
+              onRename={onRenameSavedView}
+              onDelete={onDeleteSavedView}
+              isSaving={isSavingView}
+            />
+          ) : null}
           <TaskListFilterMenu
             root={filterRoot}
             onChange={setFilterRoot}

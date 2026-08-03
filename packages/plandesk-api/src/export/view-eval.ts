@@ -24,6 +24,8 @@ export type ExportTask = {
   label: string;
   status: string;
   priority: string | null;
+  lane?: string | null;
+  severity?: string | null;
   description: string | null;
   assignee: string | null;
   due_date: string | null;
@@ -191,7 +193,7 @@ function applyCondition(
 export function evaluateFilter(task: ExportTask, node: FilterNode): boolean {
   if (node.kind === 'group') {
     if (node.children.length === 0) {
-      return true;
+      return node.op === 'and';
     }
     if (node.op === 'and') {
       return node.children.every((child) => evaluateFilter(task, child));
@@ -307,6 +309,10 @@ function emptyLabel(field: GroupableField): string {
   switch (field) {
     case 'goal_id':
       return 'No goal';
+    case 'lane':
+      return 'No lane';
+    case 'severity':
+      return 'No severity';
     case 'tag':
       return 'No tag';
     case 'status':
@@ -360,6 +366,20 @@ function memberships(task: ExportTask, field: GroupableField): Membership[] {
         ? [{ key: EMPTY_SENTINEL, value: null }]
         : [{ key: priority, value: priority }];
     }
+    case 'lane': {
+      const lane = task.lane ?? laneFromTags(task.tags) ?? null;
+      if (lane === null || lane === '') {
+        return [{ key: EMPTY_SENTINEL, value: null }];
+      }
+      return [{ key: lane, value: lane }];
+    }
+    case 'severity': {
+      const severity = task.severity ?? null;
+      if (severity === null || severity === '') {
+        return [{ key: EMPTY_SENTINEL, value: null }];
+      }
+      return [{ key: severity, value: severity }];
+    }
     case 'blocked': {
       if (task.blocked === undefined) {
         return [{ key: EMPTY_SENTINEL, value: null }];
@@ -393,6 +413,8 @@ function compareNonEmptyGroupValues(
     case 'blocked':
       return a === b ? 0 : a === 'false' ? -1 : 1;
     case 'goal_id':
+    case 'lane':
+    case 'severity':
     case 'assignee':
     case 'tag':
       return collator.compare(a, b);

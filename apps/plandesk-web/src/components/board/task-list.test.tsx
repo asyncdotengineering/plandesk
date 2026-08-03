@@ -170,6 +170,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  localStorage.clear();
   vi.unstubAllGlobals();
 });
 
@@ -437,6 +438,10 @@ describe('TaskList', () => {
     if (alphaParent === undefined) {
       throw new Error('expected Goal Alpha group row');
     }
+    const alphaAggregates = alphaParent.querySelector('[data-group-aggregates]');
+    expect(alphaAggregates?.textContent).toMatch(/2/);
+    expect(alphaAggregates?.textContent).toMatch(/0\/2 done/);
+
     const alphaId = alphaParent.getAttribute('data-group-id');
     if (alphaId === null) {
       throw new Error('expected data-group-id on Goal Alpha group row');
@@ -473,6 +478,58 @@ describe('TaskList', () => {
     await waitFor(() => {
       expect(container.querySelector('[data-task-id="t-a-todo"]')).toBeTruthy();
       expect(container.querySelector('[data-task-id="t-a-scope"]')).toBeTruthy();
+    });
+  });
+
+  it('persists collapsed groups across unmount and remount', async () => {
+    const goals = [makeGoal('goal-a', 'Goal Alpha')];
+    const tasks = [
+      makeTask('t-a-todo', 'Alpha todo', 'todo', { goal_id: 'goal-a' }),
+      makeTask('t-a-scope', 'Alpha scope', 'scope', { goal_id: 'goal-a' }),
+    ];
+
+    const { container, unmount } = await renderTaskListReady(tasks, { goals });
+
+    await waitFor(() => {
+      expect(screen.getByText('Alpha todo')).toBeTruthy();
+    });
+
+    openGroupMenu();
+    fireEvent.click(await screen.findByRole('button', { name: 'Add group level' }));
+    fireEvent.change(screen.getByLabelText('Group field 1'), { target: { value: 'goal_id' } });
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-group-field="goal_id"]')).toBeTruthy();
+    });
+
+    const goalRow = container.querySelector('[data-group-field="goal_id"]');
+    const goalId = goalRow?.getAttribute('data-group-id');
+    if (goalId === null || goalId === undefined) {
+      throw new Error('expected goal group row');
+    }
+
+    fireEvent.click(screen.getByLabelText('Collapse group Goal Alpha'));
+
+    await waitFor(() => {
+      expect(container.querySelector(`[data-group-id="${goalId}"]`)?.getAttribute('data-group-collapsed')).toBe(
+        'true',
+      );
+      expect(container.querySelector('[data-task-id="t-a-todo"]')).toBeNull();
+    });
+
+    unmount();
+    cleanup();
+
+    const remounted = await renderTaskListReady(tasks, { goals });
+    openGroupMenu();
+    fireEvent.click(await screen.findByRole('button', { name: 'Add group level' }));
+    fireEvent.change(screen.getByLabelText('Group field 1'), { target: { value: 'goal_id' } });
+
+    await waitFor(() => {
+      expect(
+        remounted.container.querySelector(`[data-group-id="${goalId}"]`)?.getAttribute('data-group-collapsed'),
+      ).toBe('true');
+      expect(remounted.container.querySelector('[data-task-id="t-a-todo"]')).toBeNull();
     });
   });
 

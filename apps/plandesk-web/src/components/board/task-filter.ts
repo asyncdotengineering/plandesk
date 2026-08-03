@@ -107,7 +107,7 @@ function fieldIsEmpty(task: SerializedTask, field: FilterableField): boolean {
     case 'tags':
       return tagNames(task).length === 0;
     case 'lane':
-      return laneFromTags(task.tags) === undefined;
+      return (task.lane ?? laneFromTags(task.tags)) === undefined;
     case 'due_date':
       return task.due_date === null;
     case 'created_at':
@@ -132,7 +132,7 @@ function textValue(task: SerializedTask, field: FilterableField): string | null 
     case 'assignee':
       return task.assignee;
     case 'lane':
-      return laneFromTags(task.tags) ?? null;
+      return task.lane ?? laneFromTags(task.tags) ?? null;
     case 'goal_id':
       return task.goal_id;
     case 'blocked':
@@ -216,13 +216,14 @@ function applyCondition(
 }
 
 /**
- * Evaluate a filter tree against one task. An empty group matches everything
- * (so a user mid-construction still sees the full list).
+ * Evaluate a filter tree against one task.
+ * Empty AND group: matches everything (mid-construction UX).
+ * Empty OR group: matches nothing (`[].some` is false).
  */
 export function evaluateFilter(task: SerializedTask, node: FilterNode): boolean {
   if (node.kind === 'group') {
     if (node.children.length === 0) {
-      return true;
+      return node.op === 'and';
     }
     if (node.op === 'and') {
       return node.children.every((child) => evaluateFilter(task, child));
