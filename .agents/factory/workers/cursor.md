@@ -6,7 +6,8 @@ command: cursor-agent -p --force --trust --model composer-2.5 --sandbox disabled
 
 # cursor
 
-Alternative implementation worker.
+Alternative implementation worker. stdin IS the prompt — do not add
+`< /dev/null`.
 
 **Model: `composer-2.5`, locked.** Never dispatch Cursor on any other model, and
 never use `--model auto`. Pinned here so every dispatch uses the same one and it

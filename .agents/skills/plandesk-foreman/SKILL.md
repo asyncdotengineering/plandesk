@@ -51,32 +51,55 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
    file of its own — the task descriptions already hold the build contract, so
    do not restate the work anywhere.
 
-5. **Dispatch implementation.** One dispatch per tree, per
+5. **Dispatch implementation — default async.** One dispatch per tree, per
    [protocol.md](../../factory/protocol.md). Pick the worker from
    [routing.md](../../factory/routing.md) unless one was named; a named worker
    wins, and several named workers split the slices across worktrees. Build the
    brief to protocol.md's five-section contract — the bar, the result contract,
    the ground, the WBS snapshot, and a live `Context:` link.
 
-   **Arm the monitor in this step, not after it.** Background the worker through
-   the harness — never `&` or `nohup … &`, which orphan-detach and fire a false
-   completion — and start the watch described in protocol.md's *Watching a live
-   dispatch* in the same breath. A dispatch nobody is watching is silent whether
-   it is working, blocked, or dead, and those look identical until you look.
+   **Fire async unless the slice is trivial.** Background is the default for
+   every real dispatch. Run foreground only when the slice is genuinely
+   small (one obvious edit, expected under a few minutes) and the user asked
+   for inline work. The recipe:
+
+   1. Run the worker's `probe`; substitute `{prompt_file}` and `{repo_path}` in
+      its `command` template — flags come from [workers/](../../factory/workers/),
+      never from memory.
+   2. Append the log redirect the engine owns:
+      `> runs/worker-<task>.log 2>&1` (never put redirects in worker files).
+   3. **Background through the harness** — `run_in_background: true` on the
+      Shell/Bash tool. Never append `&` or wrap in `nohup … &`; that
+      orphan-detaches, the harness fires a false "completed", and the real leaf
+      keeps writing to a tree nobody is watching.
+   4. **Arm the monitor in the same step**, also backgrounded — the watch loop
+      in protocol.md's *Watching a live dispatch*. Do not dispatch and "remember
+      to watch later."
+   5. **Do not poll the harness completion notification.** Wrapper exit is
+      unreliable (orphan shell, transient API blip). The monitor watches
+      `runs/result-<task>.json`; use `Await` on the monitor shell when you are
+      ready to verify, or continue other foreman work while it runs.
+
+   **Stdin is per worker** — getting this wrong backgrounds a hang:
+
+   | delivery | workers | rule |
+   | --- | --- | --- |
+   | prompt via stdin | claude, cursor, opencode | `< {prompt_file}` — **no** `< /dev/null` |
+   | prompt via `@file` or arg | pi, codex, grok | pi: `@{prompt_file}`; codex: `"$(cat …)"`; grok: `--prompt-file` — add `< /dev/null` |
+
+   Mint the live link explicitly: `create_share_link` on the task (or the goal,
+   for a multi-slice run), `expires: 7d`, and put the returned `markdown_url`
+   in the brief as `Context:`. The worker has no MCP access, so this is the
+   only way it reads live board state instead of a copy that goes stale the
+   moment someone edits the task. Derive the WBS snapshot from `list_tasks` +
+   `list_edges` so the worker sees the agreed order and the paths a later item
+   owns; a worker given one node and no map finishes the next one too.
 
    **Never dispatch a `kind: 'decision'` task.** Its resolution is a
    conversation with whoever owns the outcome; a worker given one will answer
    its own question and record a fabrication as a decision. Report it by task
    **label** as awaiting a human and take the next frontier item — a decision
    task blocks only itself; unlike a lane gate it does not stop the run.
-
-   Mint that link explicitly: `create_share_link` on the task (or the goal, for
-   a multi-slice run), `expires: 7d`, and put the returned `markdown_url` in the
-   brief as `Context:`. The worker has no MCP access, so this is the only way it
-   reads live board state instead of a copy that goes stale the moment someone
-   edits the task. Derive the WBS snapshot from `list_tasks` + `list_edges` so
-   the worker sees the agreed order and the paths a later item owns; a worker
-   given one node and no map finishes the next one too.
 
 6. **Stage the moment a worker returns, before reading anything.** Review takes
    minutes and unstaged work is defenceless for all of them; staged work

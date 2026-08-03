@@ -31,21 +31,68 @@ do different jobs: autonomy removes the pause between steps, timebox adds a
 rhythm and a report. Neither grants a permission the wrapped skill didn't
 already have.
 
+## Harness primitives — use what the runtime gives you
+
+Timebox is harness-neutral. Prefer the scheduler and shell tools your runtime
+exposes; fall back to the portable stamp when it does not. **Never poll** — do
+not schedule short wakeups to check on background work the harness already
+notifies on; that is wasted work ([heartbeat.md](../../factory/heartbeat.md)).
+
+| capability | Cursor | Claude Code | Codex | Pi | OpenCode |
+| --- | --- | --- | --- | --- | --- |
+| work-list scratchpad | `TaskCreate` / `TaskList` / `TaskUpdate` | same harness task tools | `runs/tasks-<task>.md` | `TaskCreate` (pi-loop fallback) or pi-tasks | session notes / plugin tasks |
+| background command | Shell `run_in_background` + `Await` | Bash `run_in_background` | background flag if present | `MonitorCreate` (pi-loop) | `/background` (monitor plugin) |
+| one-shot resume | — | `ScheduleWakeup` | — (use external cron) | `schedule_loop_wakeup` / `LoopCreate` (extensions) | `ScheduleWakeup` (opencode-routines) |
+| recurring loop | — | `/loop` + `ScheduleWakeup` | `.codex/automations/*.toml` | `LoopCreate` / `/loop` (pi-loop) | `LoopCreate` / `/loop` (routines plugin) |
+| portable clock | `date +%s` at item boundaries | same | same | same | same |
+
+**Common pattern that works everywhere:**
+
+1. **List on the harness** — `TaskCreate` one task per work item (lead session) or
+   `runs/tasks-<task>.md` (delegated worker). Add a meta task `timebox:state`
+   holding box number, `box_start` epoch, and interval seconds.
+2. **Clock at boundaries** — after each item, read elapsed with `date +%s` against
+   `box_start`. This is the universal fallback and always binds.
+3. **Scheduler when present** — if the runtime exposes `ScheduleWakeup` (or Pi /
+   OpenCode loop tools), use it only to **resume this run across turns** after
+   a checkpoint — not to re-fire an expensive slash command verbatim.
+4. **Background through the harness** — dispatch workers with `run_in_background`
+   (never `&` / `nohup`); wait with the harness completion signal (`Await`, result
+   file, monitor `onDone`). See [protocol.md](../../factory/protocol.md).
+
+**Claude Code specifics.** `ScheduleWakeup` clamps `delaySeconds` to 60–3600.
+Pass a plain continuation prompt ("Continue timebox box 3; pick up item X from
+TaskList"), never a `/`-prefixed slash command — re-firing those duplicates
+expensive work. End the loop with `stop: true` when the list is empty. Foreground
+`sleep` for the full interval is blocked; use the scheduler or keep working and
+check the stamp at item boundaries.
+
+**Codex specifics.** No in-session scheduler in mainline Codex today. Pace with
+`date +%s` inside the session, or stand up `.codex/automations/*.toml` /
+external cron for durable recurring runs outside this skill.
+
+**Pi / OpenCode specifics.** Loop extensions (`pi-loop`, `opencode-routines`)
+are the richest schedulers — prefer fixed-interval `LoopCreate` over self-paced
+re-scheduling when you want a predictable pomodoro cadence. Coalesced delivery
+while busy is correct: the box boundary fires when the in-flight item finishes.
+
 ## Set up the run
 
 1. **Get the work list.** Ask for it if it wasn't given: a list of items, a file
    to work through, or a scope of changes. Write it down as harness tasks
-   (`TaskCreate`) so progress survives your own forgetting. If the user said
-   "clear the board" or named the board explicitly, the list is
-   `get_next_task` — but only then.
-2. **Set the interval.** Default 25 minutes when unspecified. Take what the user
-   says over the default; "work for an hour" means one 60-minute box, not three
-   of twenty.
-3. **Stamp the clock.** There is no timer to install — record the start and read
-   elapsed time at each boundary:
+   (`TaskCreate`) — one per item, plus `timebox:state` (box number, start epoch,
+   interval). If the user said "clear the board" or named the board explicitly,
+   the list is `get_next_task` — but only then.
+2. **Set the interval.** Default 25 minutes when unspecified. Parse user input:
+   `25m`, `1h`, `90 minutes` → seconds once at setup. "Work for an hour" means
+   one 60-minute box, not three of twenty.
+3. **Stamp the clock.**
    ```bash
-   date +%s      # capture at box start; box_end = start + interval_seconds
+   date +%s    # box_start; persist in timebox:state and/or TaskUpdate metadata
    ```
+   If `ScheduleWakeup` / loop tools are available and the run may span multiple
+   turns, also record `box_end = box_start + interval_seconds` so the wakeup
+   prompt knows which box to report.
 4. **Say the plan back** in one line: the interval, the item count, and what
    happens at the first boundary. A run nobody can predict is a run nobody can
    interrupt at a good moment.
@@ -53,24 +100,35 @@ already have.
 ## The cycle
 
 ```
-box_start = date +%s
+box_start = read from timebox:state (or date +%s on first box)
 loop:
-  item = next item on the list
+  item = next pending harness task (skip timebox:state)
   if item is null:
-    stop — the list is done; final report
+    stop — the list is done; final report; ScheduleWakeup stop if armed
   work(item)                       # the wrapped skill's own procedure, in full
   verify(item)                     # its own completion check — exit codes, not claims
+  TaskUpdate(item, completed)      # or mark Done in runs/tasks-*.md
   commit/checkpoint(item)          # leave nothing half-applied
-  if (date +%s) - box_start >= interval:
+  if (date +%s) - box_start >= interval_seconds:
     checkpoint_report()            # see the template below
-    box_start = date +%s           # next box
+    increment box number in timebox:state
+    box_start = date +%s
+    if scheduler available and more items remain:
+      ScheduleWakeup(delaySeconds=min(interval, 3600),
+        prompt="Continue plandesk-timebox; read TaskList; resume next pending item")
   continue loop
 ```
+
+**Inside a box with a background dispatch:** background the worker per
+[protocol.md](../../factory/protocol.md), keep working on what you can in the
+foreground, and `Await` (or watch `runs/result-<task>.json`) for completion —
+do not schedule timer polls for it. The box timer and the worker timer are
+independent; an expiring box still lets the in-flight item finish first.
 
 ## The boundary rule — the timer is a checkpoint, not a kill signal
 
 **When the interval expires mid-item, let the item finish.** Then verify,
-commit, and only then checkpoint.
+commit, mark the harness task complete, and only then checkpoint.
 
 This is the whole design decision, and the reason is concrete: cutting a run
 mid-item strands work in exactly the state that is hardest to recover — a worker
@@ -104,25 +162,26 @@ worthless.
 
 Then continue into the next box without waiting for a reply. The checkpoint is
 a surfacing moment, not a permission request: the human reads it if they are
-there and interrupts if they want to. If the wrapped skill's own lane gate
-requires a human, that stop still binds — see
-[lanes.md](../../factory/lanes.md).
+there and interrupts if they want to. Lane gates still bind — see
+[lanes.md](../../factory/lanes.md) and [autonomy](../plandesk-autonomy/SKILL.md).
 
 ## Breaks
 
-After four boxes, take a longer checkpoint: re-read the work list against what
-actually landed, drop items that are now moot, and say whether the remaining
-list still matches what the user wanted. Long runs drift — the plan made sense
-ninety minutes ago and the fourth box is where that is worth checking.
+After four boxes, take a longer checkpoint: re-read the work list (`TaskList` or
+`runs/tasks-*.md`) against what actually landed, drop items that are now moot,
+and say whether the remaining list still matches what the user wanted. Long runs
+drift — the plan made sense ninety minutes ago and the fourth box is where that
+is worth checking.
 
 This is the agent's version of the pomodoro break. It is not idle time; it is
 the moment the list gets re-derived from reality rather than from memory.
 
 ## When to stop instead of starting another box
 
-- The list is empty. Report and end — do not go looking for adjacent work.
-- Every remaining item is blocked, or gated on a human. Report what is blocking
-  and on whom.
+- The list is empty. Report and end — do not go looking for adjacent work. Disarm
+  any loop / `ScheduleWakeup` with `stop: true` or `LoopDelete`.
+- Every remaining item is blocked, or gated on input you cannot obtain. Report
+  what is blocking and on whom.
 - Two consecutive boxes closed nothing. Something is wrong with the sizing, the
   environment, or the plan; another box will not fix it. Say what you observed
   and stop.
@@ -131,8 +190,12 @@ the moment the list gets re-derived from reality rather than from memory.
 ## Gotchas
 
 - Timeboxing paces work; it does not authorize any. A wrapped skill's lane gates
-  and boundaries bind unchanged — see [autonomy](../plandesk-autonomy/SKILL.md) for what
-  autonomy does and does not grant.
+  and boundaries bind unchanged — see [autonomy](../plandesk-autonomy/SKILL.md).
+- **`date +%s` always works; schedulers are optional.** Do not fail to timebox
+  because `ScheduleWakeup` is absent — the stamp at item boundaries is the
+  portable core.
+- **Never poll background work on a timer.** The harness notifies on completion;
+  heartbeat wakeups are for stall detection only ([heartbeat.md](../../factory/heartbeat.md)).
 - The clock is read at boundaries, so it is only as granular as your items. One
   90-minute item inside a 25-minute box produces one box, not four — that is
   correct behavior, and the checkpoint should name it as a sizing problem.
@@ -147,6 +210,7 @@ the moment the list gets re-derived from reality rather than from memory.
 
 [autonomy](../plandesk-autonomy/SKILL.md) (the posture this most often stacks with);
 [foreman](../plandesk-foreman/SKILL.md) (the usual inner skill);
+[protocol.md](../../factory/protocol.md) (background dispatch + stall detection);
+[heartbeat.md](../../factory/heartbeat.md) (why not to poll);
 [lanes.md](../../factory/lanes.md) (gates a checkpoint never overrides);
-`.agents/factory/heartbeat.md` (the stall-detection companion for a single long
-dispatch, as opposed to pacing a whole run).
+`.agents/factory/hooks/` (board re-anchor after compaction — re-read `TaskList`).

@@ -129,17 +129,32 @@ common cause of a run that produces code but no verifiable result.
 
 Backgrounding without watching is how a dead worker passes for a busy one.
 **Silence reads as "still running"**, so arm a monitor at dispatch time — in the
-same step, not as a thing to remember afterwards.
+same step as the dispatch, also backgrounded — not as a thing to remember
+afterwards.
 
-The monitor watches the *result file*, because that is the completion signal
-(the harness notification fires on wrapper exit and can precede or outlive the
-real work). It must emit a line for **every** terminal state, not just success:
+**Do not poll the harness worker notification.** It fires on wrapper exit and
+is unreliable: an orphan `&` shell, a transient API blip, or a parent that exits
+while the leaf still runs all produce false "completed" signals. Watch the
+result file instead; use `Await` on the monitor shell (Cursor) or continue other
+supervisor work until the monitor emits a terminal line.
+
+The monitor watches `runs/result-<task>.json`, because that is the completion
+signal. It must emit a line for **every** terminal state, not just success:
 
 ```bash
+# Resolve the leaf first — sample the wrapper's CPU and you will read "flat"
+# forever while the child works: ps -eo pid,ppid,time,command | grep <wrapper>
+LEAF_PID=<leaf-pid>
+
 while true; do
-  if [ -f runs/result-<task>.json ]; then echo "DONE <task>"; break; fi
-  if ! kill -0 $LEAF_PID 2>/dev/null; then
-    echo "EXIT <task> without result — log $(wc -c < runs/worker-<task>.log)B"; break
+  if [ -f runs/result-<task>.json ]; then
+    st=$(jq -r '.status // empty' runs/result-<task>.json 2>/dev/null)
+    if [ "$st" = "blocked" ]; then echo "BLOCKED <task>"; else echo "DONE <task> status=${st:-unknown}"; fi
+    break
+  fi
+  if ! kill -0 "$LEAF_PID" 2>/dev/null; then
+    sz=$(wc -c < runs/worker-<task>.log 2>/dev/null || echo 0)
+    echo "EXIT <task> without result — log ${sz}B"; break
   fi
   sleep 60
 done
@@ -155,9 +170,16 @@ Three rules that make it useful rather than decorative:
   `blocked` is a terminal state that needs the engine, not a failure to ignore.
 - **Watch the leaf, not the wrapper** — same reason as stall detection below.
 
+**Stdin delivery by worker** (wrong choice = backgrounded hang):
+
+| delivery | workers | rule |
+| --- | --- | --- |
+| stdin is the prompt | claude, cursor, opencode | `< {prompt_file}` only — never `< /dev/null` |
+| `@file`, arg, or `--prompt-file` | pi, codex, grok | add `< /dev/null` after the command |
+
 For a run of several dispatches, add a periodic checkpoint line (results seen,
 files changed per tree) so a long run surfaces on a cadence instead of going
-dark until the end.
+dark until the end — or stack [plandesk-timebox](../skills/plandesk-timebox/SKILL.md).
 
 ### When a dispatch is killed
 

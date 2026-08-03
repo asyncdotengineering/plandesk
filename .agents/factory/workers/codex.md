@@ -16,6 +16,10 @@ network, run the suite, or write its result claims. Never substitute
 third-party code). Verify flags against your installed version
 (`codex exec --help`).
 
+**`< /dev/null` is mandatory** — `codex exec` otherwise prints "Reading
+additional input from stdin…" and hangs when backgrounded. Prompt is passed as
+`"$(cat {prompt_file})"`, not stdin.
+
 **Model: `gpt-5.6-luna` at `high` reasoning.** Pinned here so every dispatch
 uses the same one and it does not drift with whatever was last selected
 interactively. Change it in this file, not in a brief — a model chosen per

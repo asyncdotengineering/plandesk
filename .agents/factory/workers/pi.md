@@ -16,7 +16,8 @@ raise `--thinking` to `high` for an adversarial pass, and remember its 1M
 context is the reason it was chosen, so give it the whole diff rather than a
 summary.
 
-Delivers the brief via pi's `@file` attachment syntax — not stdin. Pick the
+Delivers the brief via pi's `@file` attachment syntax — not stdin. **`< /dev/null`
+is mandatory** on background fires. Pick the
 provider/model per task:
 
 - `zai`/`glm-5.2` (DEFAULT — ZhipuAI direct API, 1M ctx) — general

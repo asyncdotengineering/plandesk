@@ -6,8 +6,9 @@ command: grok --prompt-file {prompt_file} --model grok-4.5 --always-approve --cw
 
 # grok
 
-Fast implementation worker (default IC). Model ids change between releases —
-run `grok models` and pin what is actually installed; a stale id fails the
+Fast implementation worker (default IC). **`< /dev/null` is mandatory** on
+background fires — otherwise grok blocks on stdin with no output. Model ids
+change between releases — run `grok models` and pin what is actually installed; a stale id fails the
 dispatch immediately with "unknown model id". Never pass `--sandbox` — omitting it grants full IC
 access; `--sandbox` is opt-in to restrict, only for untrusted third-party
 code.
