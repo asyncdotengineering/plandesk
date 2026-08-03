@@ -5,6 +5,7 @@ import { tryGetAuthContext, type Services } from '@plandesk/api';
 import { createAddCommentHandler } from './tools/add-comment.js';
 import { createAddArtifactCommentHandler } from './tools/add-artifact-comment.js';
 import { createAttachFileHandler } from './tools/attach-file.js';
+import { createWorkspaceRootsResolver } from './tools/workspace-roots.js';
 import { createCreateArtifactHandler } from './tools/create-artifact.js';
 import { createGetArtifactHandler } from './tools/get-artifact.js';
 import { createUpdateArtifactHandler } from './tools/update-artifact.js';
@@ -143,7 +144,8 @@ export type McpAppDeps = {
 
 function createMcpServer(services: Services, origin: string, bindHost: string): McpServer {
   const server = new McpServer({ name: 'plandesk', version: '1.0.0' });
-  const filePathDeps = { bindHost };
+  const workspaceRoots = createWorkspaceRootsResolver(services.projectService);
+  const filePathDeps = { bindHost, workspaceRoots };
 
   server.registerTool(
     'list_projects',
@@ -525,7 +527,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Attach File',
       description:
-        'Upload a file (image today) and get back a short URL. Embed the returned `url` in a task, document, or comment body as `![alt](url)` instead of inlining base64 — keeps bodies lean. mime defaults to image/png.',
+        'Upload a file (image today) and get back a short URL. Embed the returned `url` in a task, document, or comment body as `![alt](url)` instead of inlining base64 — keeps bodies lean. mime defaults to image/png. On loopback, `file_path` reads from disk only when the path resolves under a project repo root registered in this workspace (`folder_path`); otherwise use `content_base64`.',
       inputSchema: attachFileInputSchema.shape,
     },
     createAttachFileHandler(services.fileService, filePathDeps),

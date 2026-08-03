@@ -19,6 +19,7 @@ import {
   listEdges,
   listTasks,
   updateComment,
+  updateProject,
   migrate,
   type Db,
 } from '@plandesk/db';
@@ -1066,10 +1067,11 @@ describe('createMcpApp', () => {
   });
 
   it('attach_file file_path on loopback reads disk; both/neither and traversal refuse', async () => {
-    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join } = await import('node:path');
     const { createAttachFileHandler } = await import('./tools/attach-file.js');
+    const { createWorkspaceRootsResolver } = await import('./tools/workspace-roots.js');
     const { FILE_PATH_REMOTE_ERROR } = await import('./tools/file-path.js');
 
     const root = mkdtempSync(join(tmpdir(), 'pd-attach-'));
@@ -1079,7 +1081,9 @@ describe('createMcpApp', () => {
       const file = join(root, 'shot.png');
       writeFileSync(file, Buffer.from('png-bytes'));
 
-      await withMcpServer(async ({ baseUrl, projectId, services, app }) => {
+      await withMcpServer(async ({ baseUrl, projectId, services, app, db }) => {
+        await updateProject(db, projectId, { folderPath: realpathSync(root) });
+
         const client = await connectClient(baseUrl);
         const ok = await client.callTool({
           name: 'attach_file',
@@ -1122,6 +1126,7 @@ describe('createMcpApp', () => {
         // Remote bind: stated error, never a generic 400 — Rule 14 / capability gate.
         const remoteHandler = createAttachFileHandler(services.fileService, {
           bindHost: '0.0.0.0',
+          workspaceRoots: createWorkspaceRootsResolver(services.projectService),
         });
         const remote = await remoteHandler({
           project_id: projectId,
@@ -1137,7 +1142,7 @@ describe('createMcpApp', () => {
   });
 
   it('create_artifact file_path stores content without base64 in the screen body', async () => {
-    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
     const { join } = await import('node:path');
 
@@ -1148,7 +1153,9 @@ describe('createMcpApp', () => {
       const file = join(root, 'screen.html');
       writeFileSync(file, html);
 
-      await withMcpServer(async ({ baseUrl, projectId, app }) => {
+      await withMcpServer(async ({ baseUrl, projectId, app, db }) => {
+        await updateProject(db, projectId, { folderPath: realpathSync(root) });
+
         const client = await connectClient(baseUrl);
         const created = await client.callTool({
           name: 'create_artifact',

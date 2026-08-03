@@ -4,16 +4,19 @@ import {
   filenameFromPath,
   mimeFromFilename,
   readScopedFileBytes,
+  emptyWorkspaceRoots,
+  type WorkspaceRootsResolver,
   xorPresent,
 } from './file-path.js';
 
 export type AttachFilePathDeps = {
   bindHost: string;
+  workspaceRoots: WorkspaceRootsResolver;
 };
 
 export function createAttachFileHandler(
   fileService: FileService,
-  pathDeps: AttachFilePathDeps = { bindHost: '127.0.0.1' },
+  pathDeps: AttachFilePathDeps = { bindHost: '127.0.0.1', workspaceRoots: emptyWorkspaceRoots },
 ): (args: {
   project_id: string;
   filename?: string;
@@ -31,7 +34,9 @@ export function createAttachFileHandler(
     let mime: string;
 
     if (args.file_path !== undefined && args.file_path.length > 0) {
-      const read = readScopedFileBytes(args.file_path, pathDeps.bindHost);
+      const read = await readScopedFileBytes(args.file_path, pathDeps.bindHost, {
+        workspaceRoots: pathDeps.workspaceRoots,
+      });
       if (!read.ok) {
         return read.error;
       }

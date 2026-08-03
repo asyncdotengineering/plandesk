@@ -299,7 +299,7 @@ export const createArtifactInputSchema = z.object({
     .min(1)
     .optional()
     .describe(
-      'Absolute or project-relative path to read content from. Loopback servers only — remote servers refuse with a stated error. Mutually exclusive with content.',
+      'Absolute or project-relative path to read content from. Loopback servers only — remote servers refuse with a stated error. Path must resolve under a project repo root registered in this workspace; otherwise use content. Mutually exclusive with content.',
     ),
   kind: z.enum(artifactKinds).optional().describe('Defaults to markdown.'),
   prototype_id: z
@@ -337,7 +337,7 @@ export const updateArtifactInputSchema = z.object({
     .min(1)
     .optional()
     .describe(
-      'Absolute or project-relative path to read content from. Loopback servers only. Mutually exclusive with content.',
+      'Absolute or project-relative path to read content from. Loopback servers only. Path must resolve under a project repo root registered in this workspace; otherwise use content. Mutually exclusive with content.',
     ),
   kind: z.enum(artifactKinds).optional(),
   prototype_id: z
@@ -371,7 +371,7 @@ export const attachFileInputSchema = z.object({
     .min(1)
     .optional()
     .describe(
-      'Absolute or project-relative path to read. Loopback servers only — remote servers refuse with a stated error. Mutually exclusive with content_base64.',
+      'Absolute or project-relative path to read. Loopback servers only — remote servers refuse with a stated error. Path must resolve under a project repo root registered in this workspace; otherwise use content_base64. Mutually exclusive with content_base64.',
     ),
   mime: z
     .string()

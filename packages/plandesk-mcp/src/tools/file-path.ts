@@ -2,19 +2,25 @@
  * Loopback-only filesystem intake for MCP byte tools.
  *
  * Rule 14: a caller-supplied path is a read primitive. Three gates stop
- * abuse: (1) loopback bind only, (2) path must resolve under the repo that
- * owns `.plandesk/`, (3) the subsequent create still asserts project org scope.
+ * abuse: (1) loopback bind only, (2) path must resolve under a project root
+ * registered in the bound workspace, (3) the subsequent create still asserts
+ * project org scope.
  */
 import { readFileSync, existsSync, statSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, basename, extname } from 'node:path';
 import { isLoopbackBind } from '@plandesk/api';
+import { isValidRegisteredRepoRoot } from '@plandesk/db';
 import { toolInvalidArgument, type ToolResult } from './result.js';
 
 export const FILE_PATH_REMOTE_ERROR =
   'file_path requires a local server; this one is remote — use content_base64';
 
-export const FILE_PATH_REMOTE_ERROR_CONTENT =
-  'file_path requires a local server; this one is remote — use content_base64';
+export const FILE_PATH_OUTSIDE_WORKSPACE_ERROR =
+  'file_path must resolve under a project registered in this workspace; use content_base64';
+
+export type WorkspaceRootsResolver = () => Promise<string[]>;
+
+export const emptyWorkspaceRoots: WorkspaceRootsResolver = () => Promise.resolve([]);
 
 /** Walk up from startDir for a `.plandesk/` directory (same as CLI). */
 export function findPlandeskDir(startDir: string): string | undefined {
@@ -33,33 +39,20 @@ export function findPlandeskDir(startDir: string): string | undefined {
 }
 
 /**
- * Resolve `filePath` to an absolute path under the project root that owns
- * `.plandesk/`. Returns null on escape / missing binding — fail closed.
+ * Resolve `filePath` to an absolute path under one of the workspace's
+ * registered project roots. Returns null on escape / missing binding — fail closed.
  *
- * **Containment is checked on real paths, never lexical ones.** `resolve()`
- * does not follow symlinks, so a link planted inside a project and pointing
- * anywhere on disk used to pass the check and return the target's bytes
- * (`/etc/passwd`, `~/.ssh/id_rsa`). An agent writes files into its repo as a
- * matter of course, so planting that link is not an obstacle for it.
- *
- * The order matters: realpath FIRST, then derive the project root from the
- * real location. Deriving the root from the pre-realpath path would let a link
- * borrow the authority of the directory it merely appears to sit in.
- *
- * The root is still allowed to come from the file's own location rather than
- * `cwd` — a workspace legitimately spans repos, and the server's cwd is not
- * necessarily the project being attached to.
+ * **Containment is checked on real paths, never lexical ones.**
  */
-export function resolveProjectScopedPath(
+export async function resolveProjectScopedPath(
   filePath: string,
+  workspaceRoots: WorkspaceRootsResolver,
   cwd: string = process.cwd(),
-): string | null {
+): Promise<string | null> {
   const absolute = isAbsolute(filePath) ? resolve(filePath) : resolve(cwd, filePath);
 
   let realTarget: string;
   try {
-    // The file need not exist yet; realpath the deepest existing ancestor so a
-    // symlinked *parent* cannot smuggle the target out either.
     realTarget = existsSync(absolute)
       ? realpathSync(absolute)
       : join(realpathSync(dirname(absolute)), basename(absolute));
@@ -67,26 +60,23 @@ export function resolveProjectScopedPath(
     return null;
   }
 
-  // Derive the boundary from where the file REALLY is, not where it claims to be.
-  const fromFile = findPlandeskDir(dirname(realTarget));
-  const fromCwd = findPlandeskDir(cwd);
-  const plandeskDir = fromFile ?? fromCwd;
-  if (plandeskDir === undefined) {
-    return null;
+  const roots = await workspaceRoots();
+  for (const root of roots) {
+    if (!isValidRegisteredRepoRoot(root)) {
+      continue;
+    }
+    let realRoot: string;
+    try {
+      realRoot = realpathSync(root);
+    } catch {
+      continue;
+    }
+    const rel = relative(realRoot, realTarget);
+    if (!rel.startsWith('..') && !isAbsolute(rel)) {
+      return realTarget;
+    }
   }
-
-  let realRoot: string;
-  try {
-    realRoot = realpathSync(dirname(plandeskDir));
-  } catch {
-    return null;
-  }
-
-  const rel = relative(realRoot, realTarget);
-  if (rel.startsWith('..') || isAbsolute(rel)) {
-    return null;
-  }
-  return realTarget;
+  return null;
 }
 
 export function assertLoopbackFilePath(bindHost: string): ToolResult | null {
@@ -96,20 +86,29 @@ export function assertLoopbackFilePath(bindHost: string): ToolResult | null {
   return toolInvalidArgument(FILE_PATH_REMOTE_ERROR);
 }
 
-export function readScopedFileBytes(
+export type ScopedFilePathDeps = {
+  cwd?: string;
+  workspaceRoots: WorkspaceRootsResolver;
+};
+
+export async function readScopedFileBytes(
   filePath: string,
   bindHost: string,
-  cwd?: string,
-): { ok: true; bytes: Buffer; absolutePath: string } | { ok: false; error: ToolResult } {
+  deps: ScopedFilePathDeps,
+): Promise<{ ok: true; bytes: Buffer; absolutePath: string } | { ok: false; error: ToolResult }> {
   const remote = assertLoopbackFilePath(bindHost);
   if (remote !== null) {
     return { ok: false, error: remote };
   }
-  const absolute = resolveProjectScopedPath(filePath, cwd);
+  const absolute = await resolveProjectScopedPath(
+    filePath,
+    deps.workspaceRoots,
+    deps.cwd ?? process.cwd(),
+  );
   if (absolute === null) {
     return {
       ok: false,
-      error: toolInvalidArgument('file_path must resolve inside the project directory'),
+      error: toolInvalidArgument(FILE_PATH_OUTSIDE_WORKSPACE_ERROR),
     };
   }
   if (!existsSync(absolute) || !statSync(absolute).isFile()) {
