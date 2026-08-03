@@ -67,5 +67,6 @@ export { createMoveDocumentsHandler } from '../../plandesk-mcp/src/tools/move-do
 export { createUpdatePrototypeHandler } from '../../plandesk-mcp/src/tools/update-prototype.js';
 export { createUpdateGoalHandler } from '../../plandesk-mcp/src/tools/update-goal.js';
 export { createSetCurrentGoalHandler } from '../../plandesk-mcp/src/tools/set-current-goal.js';
+export { createInvokeGoalHandler } from '../../plandesk-mcp/src/tools/invoke-goal.js';
 export { createUpdateNoteHandler } from '../../plandesk-mcp/src/tools/update-note.js';
 export { createUpdateTaskHandler } from '../../plandesk-mcp/src/tools/update-task.js';

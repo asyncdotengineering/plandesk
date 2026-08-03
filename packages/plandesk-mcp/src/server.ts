@@ -44,6 +44,7 @@ import {
 import { createClaimTaskHandler } from './tools/claim-task.js';
 import { createGetNextTaskHandler } from './tools/get-next-task.js';
 import { createSetCurrentGoalHandler } from './tools/set-current-goal.js';
+import { createInvokeGoalHandler } from './tools/invoke-goal.js';
 import { createGetTaskGraphHandler } from './tools/get-task-graph.js';
 import { createGetProjectHandler } from './tools/get-project.js';
 import { createGetTaskHandler } from './tools/get-task.js';
@@ -641,6 +642,17 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
   );
 
   server.registerTool(
+    'invoke_goal',
+    {
+      title: 'Invoke Goal',
+      description:
+        'Begin working a goal: sets current_goal_id, checks the task graph for cycles, and returns the first frontier todo. Fails with no_todo_tasks when tasks are still in scope (release scope → todo explicitly — this tool does not self-release). Other active goals remain active; warnings explain how get_next_task resolves.',
+      inputSchema: goalLifecycleInputSchema.shape,
+    },
+    createInvokeGoalHandler(services.goalService),
+  );
+
+  server.registerTool(
     'pause_goal',
     {
       title: 'Pause Goal',
@@ -676,7 +688,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Get Next Task',
       description:
-        "Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id or project-scoped goal name). When both are omitted: with one active goal, scopes to it; with multiple active goals, considers the union of every active goal's tasks instead of dead-ending — returns no_active_goal only when zero goals are active. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.",
+        "Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id or project-scoped goal name). When both are omitted: resolves via current_goal_id, then the sole active goal, then ambiguous_goal — never unions active goals. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.",
       inputSchema: getNextTaskInputSchema.shape,
       annotations: { readOnlyHint: true },
     },

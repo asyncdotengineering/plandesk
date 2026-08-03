@@ -69,8 +69,8 @@ export function createServices(deps: ServicesDeps): Services {
   const versioned = { ...scoped, maxRevisions };
   const storage = deps.storage ?? createStorageAdapter({ db: deps.db });
   const projectService = createProjectService(scoped);
-  const goalService = createGoalService(scoped);
   const taskService = createTaskService(versioned);
+  const goalService = createGoalService({ ...scoped, taskService });
   const tagService = createTagService(scoped);
   const viewService = createViewService(scoped);
   const projectExportService = createProjectExportService({

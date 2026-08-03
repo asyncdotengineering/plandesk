@@ -17,13 +17,36 @@ import {
   type GoalStatus,
 } from '@plandesk/db';
 import { randomUUID } from 'node:crypto';
-import { serializeGoal, serializeTask } from '../serialize.js';
+import { serializeGoal, serializeTask, type SerializedTask } from '../serialize.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
+import type { TaskService } from './tasks.js';
 
 export type GoalServiceDeps = OrgScopedDeps & {
   db: Db;
+  taskService: TaskService;
 };
+
+export type InvokeGoalFailureReason =
+  | 'not_active'
+  | 'no_todo_tasks'
+  | 'has_cycle'
+  | 'ambiguous_goal';
+
+export type InvokeGoalResult =
+  | {
+      ok: true;
+      goal: ReturnType<typeof serializeGoal>;
+      first_task: SerializedTask | null;
+      warnings: string[];
+    }
+  | {
+      ok: false;
+      reason: InvokeGoalFailureReason;
+      message: string;
+      scope_awaiting_release?: number;
+      ambiguous_goals?: Array<{ id: string; name: string | null; objective: string }>;
+    };
 
 export class InvalidGoalTransitionError extends Error {
   constructor(message: string) {
@@ -444,6 +467,101 @@ export function createGoalService(deps: GoalServiceDeps) {
         project_id: existing.projectId,
         current_goal_id: goalId,
         goal: serializeGoal(existing),
+      };
+    },
+
+    /**
+     * Begin working a goal: set current_goal_id, verify preconditions, return the first
+     * frontier task. Does not release scope tasks — callers must do that explicitly.
+     */
+    async invoke(goalId: string): Promise<InvokeGoalResult | undefined> {
+      assertPermission(deps, 'goal', 'update');
+      const { taskService } = deps;
+      const existing = await getGoal(db, goalId);
+      if (!existing) {
+        return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, existing.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+      if (existing.status !== 'active') {
+        return {
+          ok: false,
+          reason: 'not_active',
+          message: `Goal is ${existing.status}; only an active goal can be invoked`,
+        };
+      }
+
+      const warnings: string[] = [];
+      const otherActive = (await listGoals(db, existing.projectId)).filter(
+        (goal) => goal.status === 'active' && goal.id !== goalId,
+      );
+      if (otherActive.length > 0) {
+        warnings.push(
+          `${String(otherActive.length)} other active goal(s) remain; current_goal_id now points at this goal, so get_next_task without goal_id resolves here only.`,
+        );
+      }
+
+      const project = await setProjectCurrentGoalId(db, existing.projectId, goalId);
+      if (!project) {
+        return undefined;
+      }
+
+      const graph = await taskService.getTaskGraph(existing.projectId, goalId);
+      if (!graph) {
+        return undefined;
+      }
+      if (graph.cycles.length > 0) {
+        return {
+          ok: false,
+          reason: 'has_cycle',
+          message: `Task graph contains ${String(graph.cycles.length)} prerequisite cycle(s); resolve before invoking`,
+        };
+      }
+
+      const goalTasks = (await listTasks(db, existing.projectId)).filter(
+        (task) => task.goalId === goalId,
+      );
+      const todoCount = goalTasks.filter((task) => task.status === 'todo').length;
+      if (todoCount === 0) {
+        const scopeCount = goalTasks.filter((task) => task.status === 'scope').length;
+        return {
+          ok: false,
+          reason: 'no_todo_tasks',
+          message:
+            scopeCount > 0
+              ? `${String(scopeCount)} task(s) are in scope and need release (scope → todo) before get_next_task can return them. Release explicitly — invoke_goal does not self-release.`
+              : 'No todo tasks on this goal; release scope work or create actionable tasks first',
+          scope_awaiting_release: scopeCount,
+        };
+      }
+
+      const next = await taskService.nextActionable(existing.projectId, { goalId });
+      if (!next) {
+        return undefined;
+      }
+      if (next.reason === 'ambiguous_goal') {
+        return {
+          ok: false,
+          reason: 'ambiguous_goal',
+          message: 'Multiple active goals with no resolvable current pointer',
+          ambiguous_goals: next.ambiguous_goals,
+        };
+      }
+      if (next.reason === 'all_blocked') {
+        warnings.push('Todo tasks exist but all are blocked by prerequisites');
+      }
+
+      return {
+        ok: true,
+        goal: serializeGoal(existing),
+        first_task: next.next_task,
+        warnings,
       };
     },
 

@@ -112,7 +112,7 @@ export {
 } from './services/revision-capture.js';
 export { assertProjectInOrg, ProjectNotInOrgError } from './services/scope.js';
 export type { ProjectService } from './services/projects.js';
-export type { GoalService, VerificationEvidence } from './services/goals.js';
+export type { GoalService, VerificationEvidence, InvokeGoalResult } from './services/goals.js';
 export {
   GoalCompletionBlockedError,
   GoalVerificationRequiredError,

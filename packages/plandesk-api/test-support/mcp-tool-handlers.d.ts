@@ -139,6 +139,7 @@ export declare function createMoveDocumentsHandler(dep?: unknown, dep2?: unknown
 export declare function createUpdatePrototypeHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateGoalHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createSetCurrentGoalHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createInvokeGoalHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateNoteHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateProjectHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateTaskHandler(dep?: unknown, dep2?: unknown): McpToolHandler;

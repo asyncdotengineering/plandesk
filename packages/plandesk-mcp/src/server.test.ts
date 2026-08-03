@@ -196,7 +196,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(63);
+      expect(names).toHaveLength(64);
       await client.close();
     });
   });
@@ -2209,6 +2209,65 @@ describe('createMcpApp', () => {
         expect(unscopedPayload.next.next_task?.id).toBe(taskB?.id);
         expect(unscopedPayload.next.next_task?.goal_id).toBe(goalB.id);
         expect(unscopedPayload.next.next_task?.id).not.toBe(taskA?.id);
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('invoke_goal fails no_todo_tasks for scope-only goals with release hint', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, services }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const goal = await services.goalService.create(projectId, { objective: 'Scoped goal' });
+        if (!goal) {
+          throw new Error('expected goal');
+        }
+        await services.taskService.create(projectId, {
+          label: 'Scoped task',
+          goalId: goal.id,
+          status: 'scope',
+        });
+
+        const response = await client.callTool({
+          name: 'invoke_goal',
+          arguments: { goal_id: goal.id },
+        });
+        expect(response.isError).toBe(true);
+        const payload = JSON.parse(
+          (response.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { reason: string; scope_awaiting_release: number };
+        expect(payload.reason).toBe('no_todo_tasks');
+        expect(payload.scope_awaiting_release).toBe(1);
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('invoke_goal returns first frontier task when todos exist', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, services }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const goal = await services.goalService.create(projectId, { objective: 'Ready' });
+        if (!goal) {
+          throw new Error('expected goal');
+        }
+        const task = await services.taskService.create(projectId, {
+          label: 'Ready task',
+          goalId: goal.id,
+        });
+
+        const response = await client.callTool({
+          name: 'invoke_goal',
+          arguments: { goal_id: goal.id },
+        });
+        expect(response.isError).not.toBe(true);
+        const payload = JSON.parse(
+          (response.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { ok: boolean; first_task: { id: string } | null };
+        expect(payload.ok).toBe(true);
+        expect(payload.first_task?.id).toBe(task?.id);
       } finally {
         await client.close();
       }
