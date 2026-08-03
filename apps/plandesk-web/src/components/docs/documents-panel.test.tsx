@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedDocumentTree, SerializedFolder } from '../../lib/api.js';
 import { toast } from 'sonner';
+import { FOLDER_REPARENT_CYCLE_MESSAGE } from '@plandesk/api';
 import {
   DocumentsPanel,
   DOCUMENT_DRAG_MIME,
@@ -568,9 +569,7 @@ describe('DocumentsPanel nesting, re-nest, breadcrumbs', () => {
     fireEvent.drop(screen.getByTestId('folder-drop-f2'), { dataTransfer: dt });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(
-        expect.stringMatching(/cycle/i),
-      );
+      expect(toast.error).toHaveBeenCalledWith(FOLDER_REPARENT_CYCLE_MESSAGE);
     });
     expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
   });

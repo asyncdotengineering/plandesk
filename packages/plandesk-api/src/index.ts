@@ -145,6 +145,11 @@ export {
 } from './markdown.js';
 export { InvalidDocumentError } from './services/documents.js';
 export { InvalidFolderError } from './services/folders.js';
+export {
+  FOLDER_REPARENT_CYCLE_MESSAGE,
+  wouldCreateFolderReparentCycle,
+  type FolderParentLookup,
+} from './services/folder-cycle.js';
 export { InvalidPrototypeError } from './services/prototypes.js';
 export { InvalidNoteError } from './services/notes.js';
 export { InvalidArtifactError } from './services/artifacts.js';
