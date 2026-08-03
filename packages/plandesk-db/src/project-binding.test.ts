@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isValidFolderPath, isValidRepoUrl } from './project-binding.js';
+import { isValidFolderPath, isValidRegisteredRepoRoot, isValidRepoUrl } from './project-binding.js';
 
 describe('isValidRepoUrl', () => {
   it('accepts http(s), ssh, git, and scp-style remotes', () => {
@@ -59,5 +59,13 @@ describe('isValidFolderPath', () => {
     expect(isValidFolderPath('C:\\abs')).toBe(false);
     expect(isValidFolderPath('c:..')).toBe(false);
     expect(isValidFolderPath('packages/plandesk-api')).toBe(true);
+  });
+});
+
+describe('isValidRegisteredRepoRoot', () => {
+  it('accepts absolute paths and rejects relative monorepo paths', () => {
+    expect(isValidRegisteredRepoRoot('/Users/dev/my-repo')).toBe(true);
+    expect(isValidRegisteredRepoRoot('packages/plandesk-api')).toBe(false);
+    expect(isValidRegisteredRepoRoot('/tmp/../etc')).toBe(false);
   });
 });

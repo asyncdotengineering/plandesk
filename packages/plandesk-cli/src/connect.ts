@@ -34,6 +34,11 @@ import {
 } from './connect-artifacts.js';
 import { DEFAULT_PORT } from './args.js';
 import { readCliConfig } from './config.js';
+import {
+  folderPathSyncWarning,
+  FolderPathSyncError,
+  syncRepoFolderPathViaApi,
+} from './folder-path-sync.js';
 
 export type ProjectSummary = {
   id: string;
@@ -458,6 +463,32 @@ function resolveLocalToken(
   return { token: undefined, created: false };
 }
 
+async function recordConnectedRepoFolderPath(
+  options: ConnectOptions,
+  serverUrl: string,
+  project: ProjectSummary,
+  bearerToken: string | undefined,
+  warnings: string[],
+  useLoopbackOwner: boolean,
+): Promise<string[]> {
+  try {
+    const sync = await syncRepoFolderPathViaApi(
+      serverUrl,
+      project.id,
+      options.repoDir,
+      bearerToken,
+      useLoopbackOwner,
+    );
+    const warning = folderPathSyncWarning(sync);
+    return warning === undefined ? warnings : [...warnings, warning];
+  } catch (error) {
+    if (error instanceof FolderPathSyncError) {
+      throw new ConnectError(error.message);
+    }
+    throw error;
+  }
+}
+
 function buildArtifacts(
   options: ConnectOptions,
   serverUrl: string,
@@ -750,6 +781,14 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
   }
 
   writeArtifacts(artifacts);
+  result.warnings = await recordConnectedRepoFolderPath(
+    options,
+    serverUrl,
+    project,
+    token,
+    result.warnings,
+    true,
+  );
   return result;
 }
 
@@ -868,5 +907,13 @@ async function runHostedConnect(
   }
 
   writeArtifacts(artifacts);
+  result.warnings = await recordConnectedRepoFolderPath(
+    options,
+    serverUrl,
+    project,
+    ownerToken,
+    result.warnings,
+    false,
+  );
   return result;
 }

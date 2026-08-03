@@ -66,7 +66,7 @@ export {
   createTaskWithDefaultGoal,
 } from './testing.js';
 export * from './schema.js';
-export { isValidFolderPath, isValidRepoUrl } from './project-binding.js';
+export { isValidFolderPath, isValidRegisteredRepoRoot, isValidRepoUrl } from './project-binding.js';
 export {
   COMMIT_REF_PATTERN,
   MAX_COMMIT_REFS,
