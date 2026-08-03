@@ -13,6 +13,7 @@ import {
   createGoal,
   createNote,
   createProject,
+  createProjectView,
   createTag,
   createTask,
   deleteWorkspace,
@@ -26,6 +27,7 @@ import {
   deleteProject,
   deleteTag,
   deleteTask,
+  deleteView,
   getCanvas,
   getDocument,
   getNote,
@@ -45,6 +47,7 @@ import {
   moveScreen,
   copyScreen,
   listProjects,
+  listProjectViews,
   listSubmissions,
   listTags,
   listTaskBacklinks,
@@ -62,6 +65,7 @@ import {
   patchProject,
   patchTag,
   patchTask,
+  patchView,
   putCanvas,
   renameWorkspace,
   resumeGoal,
@@ -78,6 +82,7 @@ import {
   type CreateProjectInput,
   type CreateTagInput,
   type CreateTaskInput,
+  type CreateViewInput,
   type PatchCommentInput,
   type PatchDocumentInput,
   type PatchGoalInput,
@@ -87,6 +92,7 @@ import {
   type PatchProjectInput,
   type PatchTagInput,
   type PatchTaskInput,
+  type PatchViewInput,
   type PutCanvasInput,
   type SubmissionStatus,
   type TaskStatus,
@@ -122,6 +128,7 @@ export const queryKeys = {
     ['projects', projectId, 'submissions', status ?? 'pending'] as const,
   goals: (projectId: string) => ['projects', projectId, 'goals'] as const,
   goal: (goalId: string) => ['goals', goalId] as const,
+  views: (projectId: string) => ['projects', projectId, 'views'] as const,
   orgMembers: (orgId: string) => ['orgs', orgId, 'members'] as const,
   workspaceMembers: (teamId: string) => ['workspaces', teamId, 'members'] as const,
 };
@@ -857,6 +864,44 @@ export function useMoveProject() {
     onSuccess: (project) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.projects });
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(project.id) });
+    },
+  });
+}
+
+export function useViews(projectId: string) {
+  return useQuery({
+    queryKey: queryKeys.views(projectId),
+    queryFn: () => listProjectViews(projectId),
+    ...liveQueryOptions,
+  });
+}
+
+export function useCreateView(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateViewInput) => createProjectView(projectId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.views(projectId) });
+    },
+  });
+}
+
+export function usePatchView(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: PatchViewInput }) => patchView(id, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.views(projectId) });
+    },
+  });
+}
+
+export function useDeleteView(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteView(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.views(projectId) });
     },
   });
 }

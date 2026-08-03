@@ -1,8 +1,16 @@
-import { SORTABLE_FIELDS, parseFilterJson, type FilterNode, type SortSpec } from '@plandesk/db/saved-view-config';
+import {
+  GROUPABLE_FIELDS,
+  SORTABLE_FIELDS,
+  parseFilterJson,
+  type FilterNode,
+  type GroupSpec,
+  type SortSpec,
+} from '@plandesk/db/saved-view-config';
 import { taskStatuses, type TaskStatus } from './api.js';
 import { LIST_COLUMNS, type ListColumnId } from '../components/board/list-columns.js';
 
 const SORTABLE_FIELD_SET = new Set<string>(SORTABLE_FIELDS);
+const GROUPABLE_FIELD_SET = new Set<string>(GROUPABLE_FIELDS);
 const LIST_COLUMN_SET = new Set<string>(LIST_COLUMNS);
 
 export type TaskFilterSearch = {
@@ -19,7 +27,38 @@ export type TaskFilterSearch = {
   columns?: ListColumnId[];
   /** Nested filter tree as JSON (list view). */
   filter?: FilterNode;
+  /** Group levels encoded as `field:dir,field:dir` (list view). */
+  group?: GroupSpec[];
+  /** Active saved view id (list view). */
+  view?: string;
 };
+
+function parseGroupParam(value: unknown): GroupSpec[] | undefined {
+  if (typeof value !== 'string' || value === '') {
+    return undefined;
+  }
+  const specs: GroupSpec[] = [];
+  for (const segment of value.split(',')) {
+    const trimmed = segment.trim();
+    if (trimmed === '') {
+      continue;
+    }
+    const colon = trimmed.indexOf(':');
+    if (colon === -1) {
+      continue;
+    }
+    const field = trimmed.slice(0, colon);
+    const direction = trimmed.slice(colon + 1);
+    if (!GROUPABLE_FIELD_SET.has(field)) {
+      continue;
+    }
+    if (direction !== 'asc' && direction !== 'desc') {
+      continue;
+    }
+    specs.push({ field: field as GroupSpec['field'], direction });
+  }
+  return specs.length > 0 ? specs : undefined;
+}
 
 function parseSortParam(value: unknown): SortSpec[] | undefined {
   if (typeof value !== 'string' || value === '') {
@@ -61,6 +100,14 @@ function parseColumnsParam(value: unknown): ListColumnId[] | undefined {
     columns.push(trimmed as ListColumnId);
   }
   return columns.length > 0 ? columns : undefined;
+}
+
+/** Serialize group specs for a list-view search param. Omits when empty. */
+export function encodeGroupParam(specs: GroupSpec[]): string | undefined {
+  if (specs.length === 0) {
+    return undefined;
+  }
+  return specs.map((spec) => `${spec.field}:${spec.direction}`).join(',');
 }
 
 /** Serialize sort specs for a list-view search param. Omits when empty. */
@@ -114,6 +161,16 @@ export function validateTaskFilterSearch(search: Record<string, unknown>): TaskF
   const filter = parseFilterJson(search.filter);
   if (filter !== null) {
     result.filter = filter;
+  }
+
+  const group = parseGroupParam(search.group);
+  if (group !== undefined) {
+    result.group = group;
+  }
+
+  const view = search.view;
+  if (typeof view === 'string' && view !== '') {
+    result.view = view;
   }
 
   return result;

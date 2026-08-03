@@ -2,13 +2,24 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { TaskList } from '../components/board/TaskList.js';
-import type { ListColumnId } from '../components/board/list-columns.js';
+import { buildListViewConfig } from '../components/board/list-view-config.js';
+import { LIST_COLUMNS, type ListColumnId } from '../components/board/list-columns.js';
 import type { FilterNode } from '../components/board/task-filter.js';
+import type { GroupSpec } from '../components/board/task-group.js';
 import type { SortSpec } from '../components/board/task-sort.js';
-import { useProject, useTasks } from '../lib/queries.js';
+import type { SerializedView } from '../lib/api.js';
+import {
+  useCreateView,
+  useDeleteView,
+  usePatchView,
+  useProject,
+  useTasks,
+  useViews,
+} from '../lib/queries.js';
 import {
   encodeColumnsParam,
   encodeFilterParam,
+  encodeGroupParam,
   encodeSortParam,
   validateTaskFilterSearch,
 } from '../lib/search.js';
@@ -23,11 +34,19 @@ function ListSkeleton() {
   );
 }
 
+function defaultVisibleColumns(): Set<ListColumnId> {
+  return new Set(LIST_COLUMNS);
+}
+
 function ProjectListPage() {
   const { id } = Route.useParams();
-  const { status, task, sort, columns, filter } = Route.useSearch();
+  const { status, task, sort, columns, filter, group, view } = Route.useSearch();
   const navigate = Route.useNavigate();
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(id);
+  const { data: savedViews } = useViews(id);
+  const createView = useCreateView(id);
+  const patchView = usePatchView(id);
+  const deleteViewMutation = useDeleteView(id);
   const {
     data: tasks,
     isLoading: tasksLoading,
@@ -36,7 +55,7 @@ function ProjectListPage() {
   } = useTasks(id, status !== undefined ? { status } : {});
 
   const visibleColumns = useMemo(
-    () => (columns !== undefined ? new Set<ListColumnId>(columns) : undefined),
+    () => (columns !== undefined ? new Set<ListColumnId>(columns) : defaultVisibleColumns()),
     [columns],
   );
 
@@ -44,23 +63,46 @@ function ProjectListPage() {
     sort?: SortSpec[];
     columns?: Set<ListColumnId>;
     filter?: FilterNode | null;
+    group?: GroupSpec[];
+    view?: string | undefined;
   }) => {
     void navigate({
       search: (prev) => ({
         ...prev,
-        ...(patch.sort !== undefined
-          ? { sort: encodeSortParam(patch.sort) }
-          : {}),
-        ...(patch.columns !== undefined
-          ? { columns: encodeColumnsParam(patch.columns) }
-          : {}),
-        ...(patch.filter !== undefined
-          ? { filter: encodeFilterParam(patch.filter) }
-          : {}),
+        ...(patch.sort !== undefined ? { sort: encodeSortParam(patch.sort) } : {}),
+        ...(patch.columns !== undefined ? { columns: encodeColumnsParam(patch.columns) } : {}),
+        ...(patch.filter !== undefined ? { filter: encodeFilterParam(patch.filter) } : {}),
+        ...(patch.group !== undefined ? { group: encodeGroupParam(patch.group) } : {}),
+        ...('view' in patch ? { view: patch.view } : {}),
       }),
       replace: true,
     });
   };
+
+  const applySavedView = (saved: SerializedView) => {
+    void navigate({
+      search: (prev) => ({
+        ...prev,
+        status: prev.status,
+        task: undefined,
+        view: saved.id,
+        sort: encodeSortParam(saved.config.sort),
+        filter: encodeFilterParam(saved.config.filter),
+        columns: encodeColumnsParam(saved.config.visibleColumns),
+        group:
+          saved.config.group !== null ? encodeGroupParam([...saved.config.group]) : undefined,
+      }),
+      replace: true,
+    });
+  };
+
+  const currentConfig = () =>
+    buildListViewConfig({
+      filter: filter ?? null,
+      sort: sort ?? [],
+      groupSpecs: group ?? [],
+      visibleColumns,
+    });
 
   if (projectLoading || tasksLoading) {
     return <ListSkeleton />;
@@ -110,6 +152,9 @@ function ProjectListPage() {
         sortSpecs={sort}
         visibleColumns={visibleColumns}
         filterRoot={filter ?? null}
+        groupSpecs={group}
+        savedViews={savedViews ?? []}
+        activeViewId={view}
         onOpenTaskIdChange={(taskId) => {
           void navigate({
             search: (prev) => ({ ...prev, task: taskId ?? undefined }),
@@ -117,14 +162,33 @@ function ProjectListPage() {
           });
         }}
         onSortSpecsChange={(specs) => {
-          updateSearch({ sort: specs });
+          updateSearch({ sort: specs, view: undefined });
         }}
         onVisibleColumnsChange={(next) => {
-          updateSearch({ columns: next });
+          updateSearch({ columns: next, view: undefined });
         }}
         onFilterRootChange={(root) => {
-          updateSearch({ filter: root });
+          updateSearch({ filter: root, view: undefined });
         }}
+        onGroupSpecsChange={(specs) => {
+          updateSearch({ group: specs, view: undefined });
+        }}
+        onSelectSavedView={applySavedView}
+        onSaveSavedView={(name) => {
+          void createView.mutateAsync({ name, config: currentConfig() }).then((created) => {
+            applySavedView(created);
+          });
+        }}
+        onRenameSavedView={(viewId, name) => {
+          patchView.mutate({ id: viewId, input: { name } });
+        }}
+        onDeleteSavedView={(viewId) => {
+          deleteViewMutation.mutate(viewId);
+          if (view === viewId) {
+            updateSearch({ view: undefined });
+          }
+        }}
+        isSavingView={createView.isPending}
       />
     </section>
   );
