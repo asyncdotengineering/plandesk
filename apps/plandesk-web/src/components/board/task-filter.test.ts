@@ -108,6 +108,12 @@ describe('evaluateFilter / filterTasks', () => {
     expect(idsMatching(tasks, nestedEmpty)).toEqual(['a', 'b', 'c']);
   });
 
+  it('empty OR group with no children matches nothing', () => {
+    const tasks = [makeTask('a', { status: 'todo' }), makeTask('b', { status: 'scope' })];
+    const emptyOr: FilterNode = { kind: 'group', op: 'or', children: [] };
+    expect(idsMatching(tasks, emptyOr)).toEqual([]);
+  });
+
   it('nesting three levels deep evaluates correctly', () => {
     // (lane:full AND status:todo) OR (priority:high AND (status:scope OR status:done))
     const tasks = [

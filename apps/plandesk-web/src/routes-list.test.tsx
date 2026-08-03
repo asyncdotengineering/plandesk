@@ -3,6 +3,7 @@ import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/rea
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedTask } from './lib/api.js';
+import { encodeFilterParam } from './lib/search.js';
 import { routeTree } from './routeTree.gen.js';
 
 const projectId = 'proj-1';
@@ -24,7 +25,12 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function makeTask(id: string, label: string, status: SerializedTask['status']): SerializedTask {
+function makeTask(
+  id: string,
+  label: string,
+  status: SerializedTask['status'],
+  overrides: Partial<SerializedTask> = {},
+): SerializedTask {
   return {
     id,
     project_id: projectId,
@@ -41,6 +47,7 @@ function makeTask(id: string, label: string, status: SerializedTask['status']): 
     created_at: '2026-06-07T00:00:00.000Z',
     updated_at: '2026-06-08T00:00:00.000Z',
     tags: [],
+    ...overrides,
   };
 }
 
@@ -102,6 +109,28 @@ function renderListAt(path: string) {
 
 function openSortMenu() {
   fireEvent.click(screen.getByRole('button', { name: 'Sort' }));
+}
+
+function openFilterMenu() {
+  fireEvent.click(screen.getByRole('button', { name: 'Filter' }));
+}
+
+function laneFullTodoOrScopeFilter() {
+  return encodeFilterParam({
+    kind: 'group',
+    op: 'and',
+    children: [
+      { kind: 'condition', field: 'lane', operator: 'is', value: 'full' },
+      {
+        kind: 'group',
+        op: 'or',
+        children: [
+          { kind: 'condition', field: 'status', operator: 'is', value: 'todo' },
+          { kind: 'condition', field: 'status', operator: 'is', value: 'scope' },
+        ],
+      },
+    ],
+  });
 }
 
 function openColumnsMenu() {
@@ -184,6 +213,28 @@ describe('Project list route', () => {
       expect(search.columns).toBeDefined();
       expect(search.columns).not.toContain('assignee');
       expect(document.querySelector('[data-list-column="assignee"]')).toBeNull();
+    });
+  });
+
+  it('restores a nested filter from the URL on load', async () => {
+    stubPointer();
+    const tasks = [
+      makeTask('full-todo', 'Full todo', 'todo', { lane: 'full' }),
+      makeTask('full-scope', 'Full scope', 'scope', { lane: 'full' }),
+      makeTask('full-done', 'Full done', 'done', { lane: 'full' }),
+      makeTask('auto-todo', 'Auto todo', 'todo', { lane: 'auto' }),
+    ];
+    stubListFetch(tasks);
+
+    const filter = laneFullTodoOrScopeFilter();
+    const { router } = renderListAt(`/projects/${projectId}/list?filter=${encodeURIComponent(filter ?? '')}`);
+    await router.load();
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-task-id="full-todo"]')).toBeTruthy();
+      expect(document.querySelector('[data-task-id="full-scope"]')).toBeTruthy();
+      expect(document.querySelector('[data-task-id="full-done"]')).toBeNull();
+      expect(document.querySelector('[data-task-id="auto-todo"]')).toBeNull();
     });
   });
 });

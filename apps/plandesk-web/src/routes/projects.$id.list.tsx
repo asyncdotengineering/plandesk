@@ -3,10 +3,12 @@ import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { TaskList } from '../components/board/TaskList.js';
 import type { ListColumnId } from '../components/board/list-columns.js';
+import type { FilterNode } from '../components/board/task-filter.js';
 import type { SortSpec } from '../components/board/task-sort.js';
 import { useProject, useTasks } from '../lib/queries.js';
 import {
   encodeColumnsParam,
+  encodeFilterParam,
   encodeSortParam,
   validateTaskFilterSearch,
 } from '../lib/search.js';
@@ -23,7 +25,7 @@ function ListSkeleton() {
 
 function ProjectListPage() {
   const { id } = Route.useParams();
-  const { status, task, sort, columns } = Route.useSearch();
+  const { status, task, sort, columns, filter } = Route.useSearch();
   const navigate = Route.useNavigate();
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(id);
   const {
@@ -41,6 +43,7 @@ function ProjectListPage() {
   const updateSearch = (patch: {
     sort?: SortSpec[];
     columns?: Set<ListColumnId>;
+    filter?: FilterNode | null;
   }) => {
     void navigate({
       search: (prev) => ({
@@ -50,6 +53,9 @@ function ProjectListPage() {
           : {}),
         ...(patch.columns !== undefined
           ? { columns: encodeColumnsParam(patch.columns) }
+          : {}),
+        ...(patch.filter !== undefined
+          ? { filter: encodeFilterParam(patch.filter) }
           : {}),
       }),
       replace: true,
@@ -103,6 +109,7 @@ function ProjectListPage() {
         openTaskId={task}
         sortSpecs={sort}
         visibleColumns={visibleColumns}
+        filterRoot={filter ?? null}
         onOpenTaskIdChange={(taskId) => {
           void navigate({
             search: (prev) => ({ ...prev, task: taskId ?? undefined }),
@@ -114,6 +121,9 @@ function ProjectListPage() {
         }}
         onVisibleColumnsChange={(next) => {
           updateSearch({ columns: next });
+        }}
+        onFilterRootChange={(root) => {
+          updateSearch({ filter: root });
         }}
       />
     </section>

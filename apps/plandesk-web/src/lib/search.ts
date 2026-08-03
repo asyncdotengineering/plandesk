@@ -1,4 +1,4 @@
-import { SORTABLE_FIELDS, type SortSpec } from '@plandesk/db/saved-view-config';
+import { SORTABLE_FIELDS, parseFilterJson, type FilterNode, type SortSpec } from '@plandesk/db/saved-view-config';
 import { taskStatuses, type TaskStatus } from './api.js';
 import { LIST_COLUMNS, type ListColumnId } from '../components/board/list-columns.js';
 
@@ -17,6 +17,8 @@ export type TaskFilterSearch = {
   sort?: SortSpec[];
   /** Visible list columns encoded as a comma-separated id list (list view). */
   columns?: ListColumnId[];
+  /** Nested filter tree as JSON (list view). */
+  filter?: FilterNode;
 };
 
 function parseSortParam(value: unknown): SortSpec[] | undefined {
@@ -78,6 +80,14 @@ export function encodeColumnsParam(columns: Iterable<ListColumnId>): string | un
   return ids.join(',');
 }
 
+/** Serialize a filter tree for a list-view search param. Omits when null. */
+export function encodeFilterParam(node: FilterNode | null): string | undefined {
+  if (node === null) {
+    return undefined;
+  }
+  return JSON.stringify(node);
+}
+
 export function validateTaskFilterSearch(search: Record<string, unknown>): TaskFilterSearch {
   const result: TaskFilterSearch = {};
 
@@ -99,6 +109,11 @@ export function validateTaskFilterSearch(search: Record<string, unknown>): TaskF
   const columns = parseColumnsParam(search.columns);
   if (columns !== undefined) {
     result.columns = columns;
+  }
+
+  const filter = parseFilterJson(search.filter);
+  if (filter !== null) {
+    result.filter = filter;
   }
 
   return result;

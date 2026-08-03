@@ -233,6 +233,26 @@ function parseFilterNode(value: unknown, depth: number): FilterNode {
   throw new InvalidSavedViewConfigError('filter node.kind must be group or condition');
 }
 
+/** Parse a filter tree from JSON (URL param or API body). Returns null when invalid. */
+export function parseFilterJson(raw: unknown): FilterNode | null {
+  let value: unknown = raw;
+  if (typeof raw === 'string') {
+    if (raw === '') {
+      return null;
+    }
+    try {
+      value = JSON.parse(raw) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  try {
+    return parseFilterNode(value, 0);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Parse and validate a SavedViewConfig. Rejects malformed shapes — never stores
  * them. Accepts either a parsed object or a JSON string.

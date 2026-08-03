@@ -73,6 +73,8 @@ type TaskListProps = {
   onSortSpecsChange?: (specs: SortSpec[]) => void;
   visibleColumns?: Set<ListColumnId>;
   onVisibleColumnsChange?: (columns: Set<ListColumnId>) => void;
+  filterRoot?: FilterNode | null;
+  onFilterRootChange?: (root: FilterNode | null) => void;
 };
 
 function defaultVisibleColumns(): Set<ListColumnId> {
@@ -89,6 +91,8 @@ export function TaskList({
   onSortSpecsChange,
   visibleColumns: visibleColumnsProp,
   onVisibleColumnsChange,
+  filterRoot: filterRootProp,
+  onFilterRootChange,
 }: TaskListProps) {
   const { data: goals } = useGoals(projectId);
   const { data: projectTags } = useTags(projectId);
@@ -105,7 +109,7 @@ export function TaskList({
   );
 
   const [visibleColumnsState, setVisibleColumnsState] = useState<Set<ListColumnId>>(defaultVisibleColumns);
-  const [filterRoot, setFilterRoot] = useState<FilterNode | null>(null);
+  const [filterRootState, setFilterRootState] = useState<FilterNode | null>(null);
   const [sortSpecsState, setSortSpecsState] = useState<SortSpec[]>([]);
   const [groupSpecs, setGroupSpecs] = useState<GroupSpec[]>([]);
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(
@@ -119,6 +123,10 @@ export function TaskList({
       : (visibleColumnsProp ?? visibleColumnsState);
   const sortSpecs =
     onSortSpecsChange !== undefined ? (sortSpecsProp ?? []) : (sortSpecsProp ?? sortSpecsState);
+  const filterRoot =
+    onFilterRootChange !== undefined
+      ? (filterRootProp ?? null)
+      : (filterRootProp ?? filterRootState);
 
   const setVisibleColumns = (next: Set<ListColumnId>) => {
     if (onVisibleColumnsChange !== undefined) {
@@ -133,6 +141,14 @@ export function TaskList({
       onSortSpecsChange(specs);
     } else {
       setSortSpecsState(specs);
+    }
+  };
+
+  const setFilterRoot = (root: FilterNode | null) => {
+    if (onFilterRootChange !== undefined) {
+      onFilterRootChange(root);
+    } else {
+      setFilterRootState(root);
     }
   };
 

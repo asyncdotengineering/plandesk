@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   encodeColumnsParam,
+  encodeFilterParam,
   encodeSortParam,
   validateTaskFilterSearch,
 } from './search.js';
@@ -77,5 +78,27 @@ describe('validateTaskFilterSearch', () => {
       sort,
       columns: ['label', 'tags'],
     });
+  });
+
+  it('parses and round-trips a nested filter JSON param', () => {
+    const filter = {
+      kind: 'group' as const,
+      op: 'and' as const,
+      children: [
+        { kind: 'condition' as const, field: 'lane' as const, operator: 'is' as const, value: 'full' },
+        {
+          kind: 'group' as const,
+          op: 'or' as const,
+          children: [
+            { kind: 'condition' as const, field: 'status' as const, operator: 'is' as const, value: 'todo' },
+            { kind: 'condition' as const, field: 'status' as const, operator: 'is' as const, value: 'scope' },
+          ],
+        },
+      ],
+    };
+    const encoded = encodeFilterParam(filter);
+    expect(encoded).toBeTruthy();
+    expect(validateTaskFilterSearch({ filter: encoded })).toEqual({ filter });
+    expect(validateTaskFilterSearch({ filter: 'not-json' })).toEqual({});
   });
 });

@@ -193,7 +193,7 @@ function applyCondition(
 export function evaluateFilter(task: ExportTask, node: FilterNode): boolean {
   if (node.kind === 'group') {
     if (node.children.length === 0) {
-      return true;
+      return node.op === 'and';
     }
     if (node.op === 'and') {
       return node.children.every((child) => evaluateFilter(task, child));
