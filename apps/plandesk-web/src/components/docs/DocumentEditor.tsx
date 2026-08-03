@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { PatchDocumentInput, SerializedDocument, SerializedTask } from '../../lib/api.js';
 import { ShareButton } from '@/components/share/ShareButton';
+import { EntityTimestamps } from '../../lib/format-timestamp.js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -119,6 +120,8 @@ export function DocumentEditor({
           ) : null}
         </div>
       </div>
+
+      <EntityTimestamps createdAt={document.created_at} updatedAt={document.updated_at} />
 
       {mode === 'editor' ? (
         <div className="space-y-1.5">

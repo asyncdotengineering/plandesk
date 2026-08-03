@@ -90,6 +90,16 @@ describe('DocumentEditor', () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
+  it('shows created and updated timestamps with ISO dateTime', () => {
+    render(<DocumentEditor document={sampleDocument} mode="reader" onSave={vi.fn()} />);
+
+    const created = screen.getByText(/Created/i);
+    const updated = screen.getByText(/Updated/i);
+    expect(created.getAttribute('dateTime')).toBe(sampleDocument.created_at);
+    expect(updated.getAttribute('dateTime')).toBe(sampleDocument.updated_at);
+    expect(created.getAttribute('title')).toContain('2026');
+  });
+
   it('inserts an uploaded image as a base64 img node in the saved body', async () => {
     const onSave = vi.fn();
 
