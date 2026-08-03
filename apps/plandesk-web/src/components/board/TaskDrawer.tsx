@@ -26,6 +26,7 @@ import { useDocuments } from '../../lib/queries.js';
 import { CommentsPanel } from '../docs/CommentsPanel.js';
 import type { PatchTaskInput, SerializedTag, SerializedTask, TaskStatus } from '../../lib/api.js';
 import { commitUrl } from '../../lib/commit-url.js';
+import { EntityTimestamps } from '../../lib/format-timestamp.js';
 import { laneFromTags, LANE_TAG_PREFIX } from './board-utils.js';
 import { StatusMenu } from './StatusChip.js';
 
@@ -222,8 +223,12 @@ function TaskDrawerBody({
             />
           </>
         ) : (
-          <h2 className="mb-3 text-[15px] font-semibold leading-snug">{task.label}</h2>
+          <h2 className="mb-1 text-[15px] font-semibold leading-snug">{task.label}</h2>
         )}
+
+        <div className="mb-3">
+          <EntityTimestamps createdAt={task.created_at} updatedAt={task.updated_at} />
+        </div>
 
         <dl className="grid grid-cols-[92px_1fr] gap-y-2 py-1 text-[12.5px]">
           <dt className="text-muted-foreground">Status</dt>

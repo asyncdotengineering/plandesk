@@ -40,6 +40,7 @@ export { createListDocumentsHandler } from '../../plandesk-mcp/src/tools/list-do
 export { createListEdgesHandler } from '../../plandesk-mcp/src/tools/list-edges.js';
 export { createListGoalsHandler } from '../../plandesk-mcp/src/tools/list-goals.js';
 export { createListNotesHandler } from '../../plandesk-mcp/src/tools/list-notes.js';
+export { createSearchHandler } from '../../plandesk-mcp/src/tools/search.js';
 export { createListPrototypesHandler } from '../../plandesk-mcp/src/tools/list-prototypes.js';
 export { createListProjectsHandler } from '../../plandesk-mcp/src/tools/list-projects.js';
 export { createListSubmissionsHandler } from '../../plandesk-mcp/src/tools/list-submissions.js';

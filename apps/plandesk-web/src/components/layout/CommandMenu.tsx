@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from '@tanstack/react-router';
 import {
   AppWindowIcon,
+  CheckSquareIcon,
   CircleDotIcon,
   FileTextIcon,
   FolderKanbanIcon,
@@ -30,6 +31,8 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command';
+import { searchWorkspace, type SearchResults } from '../../lib/api.js';
+import { useActiveWorkspace } from '../../lib/auth.js';
 import { useProjects } from '../../lib/queries.js';
 
 type CommandMenuContextValue = {
@@ -71,15 +74,42 @@ export function CommandMenu() {
   const navigate = useNavigate();
   const params = useParams({ strict: false });
   const projectId = params.id;
+  const activeWorkspaceId = useActiveWorkspace()?.id;
   const { data: projects = [] } = useProjects();
+  const [query, setQuery] = useState('');
+  const [contentResults, setContentResults] = useState<SearchResults | null>(null);
 
   const go = useCallback(
     (to: string, navParams?: Record<string, string>) => {
       setOpen(false);
+      setQuery('');
+      setContentResults(null);
       void navigate({ to, params: navParams });
     },
     [navigate, setOpen],
   );
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed === '' || activeWorkspaceId === undefined) {
+      setContentResults(null);
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      void searchWorkspace(trimmed, {
+        workspaceId: activeWorkspaceId,
+        ...(projectId !== undefined ? { projectId } : {}),
+        limit: 20,
+      })
+        .then(setContentResults)
+        .catch(() => {
+          setContentResults({ documents: [], tasks: [], notes: [] });
+        });
+    }, 200);
+    return () => {
+      window.clearTimeout(handle);
+    };
+  }, [activeWorkspaceId, projectId, query]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -94,11 +124,90 @@ export function CommandMenu() {
     };
   }, [setOpen]);
 
+  const hasContentResults =
+    contentResults !== null &&
+    (contentResults.documents.length > 0 ||
+      contentResults.tasks.length > 0 ||
+      contentResults.notes.length > 0);
+
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Search or run a command…" />
+    <CommandDialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) {
+          setQuery('');
+          setContentResults(null);
+        }
+      }}
+    >
+      <CommandInput
+        placeholder="Search or run a command…"
+        value={query}
+        onValueChange={setQuery}
+      />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
+
+        {hasContentResults ? (
+          <>
+            {contentResults.tasks.length > 0 ? (
+              <CommandGroup heading="Tasks">
+                {contentResults.tasks.map((task) => (
+                  <CommandItem
+                    key={task.id}
+                    value={`task ${task.label}`}
+                    onSelect={() => {
+                      go('/projects/$id/board', { id: task.project_id });
+                    }}
+                  >
+                    <CheckSquareIcon />
+                    {task.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
+            {contentResults.documents.length > 0 ? (
+              <CommandGroup heading="Documents">
+                {contentResults.documents.map((document) => (
+                  <CommandItem
+                    key={document.id}
+                    value={`document ${document.title}`}
+                    onSelect={() => {
+                      go('/projects/$id/documents/$docId', {
+                        id: document.project_id,
+                        docId: document.id,
+                      });
+                    }}
+                  >
+                    <FileTextIcon />
+                    {document.title}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
+            {contentResults.notes.length > 0 ? (
+              <CommandGroup heading="Notes">
+                {contentResults.notes.map((note) => (
+                  <CommandItem
+                    key={note.id}
+                    value={`note ${note.title}`}
+                    onSelect={() => {
+                      go('/projects/$id/notes/$noteId', {
+                        id: note.project_id,
+                        noteId: note.id,
+                      });
+                    }}
+                  >
+                    <StickyNoteIcon />
+                    {note.title}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
+            <CommandSeparator />
+          </>
+        ) : null}
 
         {projectId !== undefined ? (
           <CommandGroup heading="Navigate">
@@ -123,7 +232,7 @@ export function CommandMenu() {
           <CommandItem
             value="All projects"
             onSelect={() => {
-              go('/');
+              go('/projects');
             }}
           >
             <FolderKanbanIcon />

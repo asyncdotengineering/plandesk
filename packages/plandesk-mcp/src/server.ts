@@ -58,6 +58,7 @@ import { createListProjectsHandler } from './tools/list-projects.js';
 import { createRecordAgentProgressHandler } from './tools/record-agent-progress.js';
 import { createListSubmissionsHandler } from './tools/list-submissions.js';
 import { createResolveCommentHandler } from './tools/resolve-comment.js';
+import { createSearchHandler } from './tools/search.js';
 import { createScaffoldProjectFromPlanHandler } from './tools/scaffold-project-from-plan.js';
 import { createSyncPullHandler } from './tools/sync-pull.js';
 import { createTriageSubmissionHandler } from './tools/triage-submission.js';
@@ -116,6 +117,7 @@ import {
   listSubmissionsInputSchema,
   recordAgentProgressInputSchema,
   resolveCommentInputSchema,
+  searchInputSchema,
   scaffoldProjectFromPlanInputSchema,
   startAgentRunInputSchema,
   syncPullInputSchema,
@@ -391,6 +393,18 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       annotations: { readOnlyHint: true },
     },
     createListNotesHandler(services.noteService),
+  );
+
+  server.registerTool(
+    'search',
+    {
+      title: 'Search',
+      description:
+        'Search documents, tasks, and notes by title or label within the active workspace (or a single project). Body text is not searched.',
+      inputSchema: searchInputSchema.shape,
+      annotations: { readOnlyHint: true },
+    },
+    createSearchHandler(services.searchService),
   );
 
   server.registerTool(

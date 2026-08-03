@@ -78,6 +78,27 @@ describe('TaskDrawer commit refs', () => {
     expect(link.getAttribute('href')).toBe('https://github.com/org/repo/commit/abc1234def');
   });
 
+  it('shows created and updated timestamps with ISO dateTime', () => {
+    render(
+      <TaskDrawer
+        task={{ ...baseTask }}
+        tagSuggestions={[]}
+        open
+        onOpenChange={() => undefined}
+        onPatch={() => undefined}
+        onChangeStatus={() => undefined}
+        onAddTag={() => undefined}
+        onRemoveTag={() => undefined}
+      />,
+    );
+
+    const created = screen.getByText(/Created/i);
+    const updated = screen.getByText(/Updated/i);
+    expect(created.getAttribute('dateTime')).toBe(baseTask.created_at);
+    expect(updated.getAttribute('dateTime')).toBe(baseTask.updated_at);
+    expect(created.getAttribute('title')).toContain('2026');
+  });
+
   it('renders plain text for an unknown host', () => {
     render(
       <TaskDrawer

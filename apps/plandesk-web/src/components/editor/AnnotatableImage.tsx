@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import {
   ANNOTATION_COLORS,
   flattenAnnotations,
+  hitAnnotationAt,
   parseAnnotations,
   serializeAnnotations,
   type AnnotationShape,
@@ -22,6 +23,7 @@ import {
 import './image-upload.js';
 
 type AnnotationTool = AnnotationShape['type'];
+type DragMode = 'draw' | 'move';
 
 function newShapeId(): string {
   return `ann-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`;
@@ -55,9 +57,12 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
   const [draft, setDraft] = useState<AnnotationShape | null>(null);
   const [textDraft, setTextDraft] = useState<{ x: number; y: number; value: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const dragModeRef = useRef<DragMode | null>(null);
+  const grabOffsetRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (!annotating) {
@@ -114,7 +119,10 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
       setAnnotating(false);
       setDraft(null);
       setTextDraft(null);
+      setSelectedId(null);
       dragStartRef.current = null;
+      dragModeRef.current = null;
+      grabOffsetRef.current = null;
     }
   }, [baseSrc, editor, naturalSize, saving, shapes, updateAttributes]);
 
@@ -125,6 +133,13 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
+        if (selectedId !== null) {
+          setSelectedId(null);
+          dragModeRef.current = null;
+          dragStartRef.current = null;
+          grabOffsetRef.current = null;
+          return;
+        }
         void exitAnnotation();
       }
     };
@@ -132,7 +147,7 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
     return () => {
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [annotating, exitAnnotation]);
+  }, [annotating, exitAnnotation, selectedId]);
 
   const commitText = () => {
     if (textDraft === null) {
@@ -171,8 +186,22 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
     if (tool === 'text') {
       commitText();
       setTextDraft({ x: point.x, y: point.y, value: '' });
+      setSelectedId(null);
       return;
     }
+    const hit = hitAnnotationAt(shapes, point.x, point.y);
+    if (hit !== undefined) {
+      setSelectedId(hit.id);
+      dragModeRef.current = 'move';
+      grabOffsetRef.current = { x: point.x - hit.x, y: point.y - hit.y };
+      dragStartRef.current = point;
+      setDraft(null);
+      svg.setPointerCapture(event.pointerId);
+      return;
+    }
+    setSelectedId(null);
+    dragModeRef.current = 'draw';
+    grabOffsetRef.current = null;
     dragStartRef.current = point;
     setDraft({
       id: newShapeId(),
@@ -197,6 +226,17 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
       return;
     }
     const point = imagePoint(event, svg, naturalSize.w, naturalSize.h);
+    if (dragModeRef.current === 'move' && selectedId !== null && grabOffsetRef.current !== null) {
+      const offset = grabOffsetRef.current;
+      setShapes((current) =>
+        current.map((shape) =>
+          shape.id === selectedId
+            ? { ...shape, x: point.x - offset.x, y: point.y - offset.y }
+            : shape,
+        ),
+      );
+      return;
+    }
     const start = dragStartRef.current;
     if (tool === 'arrow') {
       setDraft({
@@ -242,9 +282,15 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
     }
     setDraft(null);
     dragStartRef.current = null;
+    dragModeRef.current = null;
+    grabOffsetRef.current = null;
   };
 
   const renderShape = (shape: AnnotationShape, key: string) => {
+    const isSelected = shape.id === selectedId;
+    const selectionProps = isSelected
+      ? { strokeDasharray: '4 3', strokeWidth: 4, opacity: 0.95 }
+      : {};
     if (shape.type === 'arrow') {
       const x2 = shape.x + shape.w;
       const y2 = shape.y + shape.h;
@@ -255,7 +301,7 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
       const hx2 = x2 - head * Math.cos(angle + Math.PI / 6);
       const hy2 = y2 - head * Math.sin(angle + Math.PI / 6);
       return (
-        <g key={key}>
+        <g key={key} data-selected={isSelected ? 'true' : undefined}>
           <line
             x1={shape.x}
             y1={shape.y}
@@ -264,6 +310,7 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
             stroke={shape.color}
             strokeWidth={3}
             strokeLinecap="round"
+            {...selectionProps}
           />
           <polygon
             points={[x2, y2, hx1, hy1, hx2, hy2].map((value) => String(value)).join(' ')}
@@ -276,6 +323,7 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
       return (
         <rect
           key={key}
+          data-selected={isSelected ? 'true' : undefined}
           x={shape.x}
           y={shape.y}
           width={shape.w}
@@ -283,6 +331,7 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
           fill="none"
           stroke={shape.color}
           strokeWidth={3}
+          {...selectionProps}
         />
       );
     }
@@ -290,12 +339,16 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
       return (
         <text
           key={key}
+          data-selected={isSelected ? 'true' : undefined}
           x={shape.x}
           y={shape.y + 18}
           fill={shape.color}
           fontSize={18}
           fontWeight={600}
           fontFamily="ui-sans-serif, system-ui, sans-serif"
+          stroke={isSelected ? 'var(--background)' : undefined}
+          strokeWidth={isSelected ? 3 : undefined}
+          paintOrder={isSelected ? 'stroke' : undefined}
         >
           {shape.text}
         </text>
@@ -304,6 +357,7 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
     return (
       <rect
         key={key}
+        data-selected={isSelected ? 'true' : undefined}
         x={shape.x}
         y={shape.y}
         width={shape.w}
@@ -311,7 +365,7 @@ function AnnotatableImageNodeView({ node, updateAttributes, selected, editor }: 
         fill="var(--muted)"
         stroke="var(--border-strong)"
         strokeWidth={2}
-        strokeDasharray="6 4"
+        strokeDasharray={isSelected ? '4 3' : '6 4'}
         opacity={0.85}
       />
     );
