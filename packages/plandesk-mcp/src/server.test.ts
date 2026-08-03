@@ -635,6 +635,97 @@ describe('createMcpApp', () => {
     });
   });
 
+  it('move_documents works via MCP with bulk move, unfile, and partial failure', async () => {
+    await withMcpServer(async ({ baseUrl, projectId }) => {
+      const client = await connectClient(baseUrl);
+
+      const folderRes = await client.callTool({
+        name: 'create_folder',
+        arguments: { project_id: projectId, name: 'Targets' },
+      });
+      const folderId = (
+        JSON.parse(
+          (folderRes.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { folder: { id: string } }
+      ).folder.id;
+
+      const docA = await client.callTool({
+        name: 'create_document',
+        arguments: { project_id: projectId, title: 'Doc A' },
+      });
+      const docB = await client.callTool({
+        name: 'create_document',
+        arguments: { project_id: projectId, title: 'Doc B' },
+      });
+      const docAId = (
+        JSON.parse(
+          (docA.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { document: { id: string } }
+      ).document.id;
+      const docBId = (
+        JSON.parse(
+          (docB.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { document: { id: string } }
+      ).document.id;
+
+      const moved = await client.callTool({
+        name: 'move_documents',
+        arguments: { document_ids: [docAId, docBId], folder_id: folderId },
+      });
+      expect(moved.isError).not.toBe(true);
+      const movedPayload = JSON.parse(
+        (moved.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+      ) as { moved: string[]; failed: Array<{ document_id: string; error: string }> };
+      expect(movedPayload.moved.sort()).toEqual([docAId, docBId].sort());
+      expect(movedPayload.failed).toEqual([]);
+
+      const listInFolder = await client.callTool({
+        name: 'list_documents',
+        arguments: { project_id: projectId, folder_id: folderId },
+      });
+      const inFolder = JSON.parse(
+        (listInFolder.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+      ) as { documents: Array<{ id: string }> };
+      expect(inFolder.documents.map((entry) => entry.id).sort()).toEqual([docAId, docBId].sort());
+
+      const unfiled = await client.callTool({
+        name: 'move_documents',
+        arguments: { document_ids: [docAId, docBId], folder_id: null },
+      });
+      expect(unfiled.isError).not.toBe(true);
+      const unfiledPayload = JSON.parse(
+        (unfiled.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+      ) as { moved: string[]; failed: unknown[] };
+      expect(unfiledPayload.moved.sort()).toEqual([docAId, docBId].sort());
+      expect(unfiledPayload.failed).toEqual([]);
+
+      const getA = await client.callTool({
+        name: 'get_document',
+        arguments: { document_id: docAId },
+      });
+      const docAAfter = JSON.parse(
+        (getA.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+      ) as { document: { folder_id: string | null } };
+      expect(docAAfter.document.folder_id).toBeNull();
+
+      const missingId = '00000000-0000-4000-8000-000000009999';
+      const partial = await client.callTool({
+        name: 'move_documents',
+        arguments: { document_ids: [docAId, missingId, docBId], folder_id: folderId },
+      });
+      expect(partial.isError).not.toBe(true);
+      const partialPayload = JSON.parse(
+        (partial.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+      ) as { moved: string[]; failed: Array<{ document_id: string; error: string }> };
+      expect(partialPayload.moved.sort()).toEqual([docAId, docBId].sort());
+      expect(partialPayload.failed).toEqual([
+        { document_id: missingId, error: 'Document not found' },
+      ]);
+
+      await client.close();
+    });
+  });
+
   it('list_tasks omits description by default and includes it with verbose (#28)', async () => {
     await withMcpServer(async ({ baseUrl, projectId, db }) => {
       const client = await connectClient(baseUrl);
