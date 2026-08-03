@@ -29,6 +29,15 @@ function shippedTemplate(relativePath: string, executable?: boolean): ShippedTem
 // drift, and the scaffolding mechanism (write the file, symlink it) is
 // identical either way. The bare `plandesk` skill is deliberately absent: it is
 // `.plandesk/skill.md`, written by `connect`, not scaffolded by `factory init`.
+/**
+ * Skills vendored into a consumer's repo by `plandesk factory init` / `factory sync`.
+ *
+ * `plandesk-prototype` is deliberately absent and must stay absent. It is a
+ * project-local skill for authoring prototypes in THIS repo, kept as a real
+ * directory under `.claude/skills/` rather than a symlink into `.agents/skills/`,
+ * so the vendoring step never picks it up. Adding it here ships it to every
+ * consumer — that is the change to not make.
+ */
 export const SHIPPED_SKILL_NAMES = [
   'plandesk-foreman',
   'plandesk-scope-work',
