@@ -762,6 +762,16 @@ export const triageSubmissionInputSchema = z.object({
     ),
 });
 
+export const searchInputSchema = z.object({
+  query: z.string().min(1).describe('Title/label substring to match (documents, tasks, notes).'),
+  project_id: z.string().uuid().optional().describe('Limit search to one project.'),
+  workspace_id: z
+    .string()
+    .optional()
+    .describe('Limit search to one workspace (team id). Required for workspace-scoped search.'),
+  limit: z.number().int().positive().max(50).optional(),
+});
+
 export const v1ToolNames = [
   'list_projects',
   'get_project',
@@ -821,6 +831,7 @@ export const v1ToolNames = [
   'list_artifact_comments',
   'add_artifact_comment',
   'resolve_comment',
+  'search',
   'sync_pull',
   'list_submissions',
   'triage_submission',
@@ -887,6 +898,7 @@ export const v1ToolSchemas = {
   list_artifact_comments: listArtifactCommentsInputSchema,
   add_artifact_comment: addArtifactCommentInputSchema,
   resolve_comment: resolveCommentInputSchema,
+  search: searchInputSchema,
   sync_pull: syncPullInputSchema,
   list_submissions: listSubmissionsInputSchema,
   triage_submission: triageSubmissionInputSchema,

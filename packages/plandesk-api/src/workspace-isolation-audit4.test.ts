@@ -98,6 +98,7 @@ import {
   createListEdgesHandler,
   createListGoalsHandler,
   createListNotesHandler,
+  createSearchHandler,
   createListPrototypesHandler,
   createListProjectsHandler,
   createListSubmissionsHandler,
@@ -154,6 +155,7 @@ const MCP_TOOLS = [
   'update_note',
   'get_note',
   'list_notes',
+  'search',
   'create_artifact',
   'get_artifact',
   'update_artifact',
@@ -732,6 +734,16 @@ async function runMcpForeignSweep(
     ],
     ['get_note', () => createGetNoteHandler(s.noteService)({ note_id: target.note.id })],
     ['list_notes', () => createListNotesHandler(s.noteService)({ project_id: target.project.id })],
+    [
+      // A read tool is exactly the shape that leaks: it returns rows rather than
+      // mutating, so a scoping miss is invisible to the mutation snapshot.
+      'search',
+      () =>
+        createSearchHandler(s.searchService)({
+          query: 'secret',
+          project_id: target.project.id,
+        }),
+    ],
     [
       'create_artifact',
       () =>

@@ -103,6 +103,7 @@ export declare function createListDocumentsHandler(dep?: unknown, dep2?: unknown
 export declare function createListEdgesHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListGoalsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListNotesHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createSearchHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListPrototypesHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListProjectsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListSubmissionsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;

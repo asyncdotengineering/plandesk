@@ -29,6 +29,7 @@ import { createGoalsRouter } from './routes/goals.js';
 import { createSubmissionsRouter } from './routes/submissions.js';
 import { createOrgsRouter } from './routes/orgs.js';
 import { createRevisionsRouter } from './routes/revisions.js';
+import { createSearchRouter } from './routes/search.js';
 import { createServices, type Services } from './services/index.js';
 import { ProjectNotInOrgError, WorkspaceNotFoundError } from './services/scope.js';
 import { ReadOnlyTokenError } from './auth-context.js';
@@ -95,6 +96,7 @@ export function createApp(deps: AppDeps): Hono {
     artifactService,
     shareService,
     revisionService,
+    searchService,
     storage,
   } = services;
 
@@ -162,6 +164,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createAgentRunsRouter(agentRunService));
   app.route('/api/v1', createSubmissionsRouter(syncService, projectService));
   app.route('/api/v1', createRevisionsRouter(revisionService));
+  app.route('/api/v1', createSearchRouter(searchService));
 
   // Mount the MCP router BEFORE the static/SPA handler. The MCP transport uses
   // GET /mcp/ for its server->client SSE stream; if the SPA catch-all (app.get('*'))

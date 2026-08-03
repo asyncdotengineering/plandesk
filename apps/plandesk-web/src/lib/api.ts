@@ -425,6 +425,33 @@ export function listProjects(): Promise<SerializedProject[]> {
   return request('/projects');
 }
 
+export type SearchResults = {
+  documents: Array<{ id: string; project_id: string; title: string }>;
+  tasks: Array<{ id: string; project_id: string; label: string }>;
+  notes: Array<{ id: string; project_id: string; title: string }>;
+};
+
+export function searchWorkspace(
+  query: string,
+  opts: { projectId?: string; workspaceId?: string; limit?: number } = {},
+): Promise<SearchResults> {
+  const params = new URLSearchParams({ q: query });
+  if (opts.projectId !== undefined) {
+    params.set('project_id', opts.projectId);
+  }
+  if (opts.workspaceId !== undefined) {
+    params.set('workspace_id', opts.workspaceId);
+  }
+  if (opts.limit !== undefined) {
+    params.set('limit', String(opts.limit));
+  }
+  const headers = new Headers();
+  if (opts.workspaceId !== undefined) {
+    headers.set('x-plandesk-workspace-id', opts.workspaceId);
+  }
+  return request(`/search?${params.toString()}`, { headers });
+}
+
 export function createProject(input: CreateProjectInput): Promise<SerializedProject> {
   return request('/projects', { method: 'POST', body: JSON.stringify(input) });
 }

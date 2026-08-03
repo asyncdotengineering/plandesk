@@ -22,6 +22,7 @@ import { createViewService, type ViewService } from './views.js';
 import { createShareService, type ShareService } from './share.js';
 import { createSyncService, type SyncService } from './sync.js';
 import { createRevisionService, type RevisionService } from './revisions.js';
+import { createSearchService, type SearchService } from './search.js';
 import { maxRevisionsFromEnv } from './revision-capture.js';
 
 export type ServicesDeps = {
@@ -57,6 +58,7 @@ export type Services = {
   fileService: FileService;
   artifactService: ArtifactService;
   revisionService: RevisionService;
+  searchService: SearchService;
   storage: StorageAdapter;
 };
 
@@ -93,6 +95,7 @@ export function createServices(deps: ServicesDeps): Services {
     documentService,
     artifactService,
   });
+  const searchService = createSearchService(scoped);
 
   return {
     projectService,
@@ -113,6 +116,7 @@ export function createServices(deps: ServicesDeps): Services {
     fileService,
     artifactService,
     revisionService,
+    searchService,
     storage,
   };
 }
