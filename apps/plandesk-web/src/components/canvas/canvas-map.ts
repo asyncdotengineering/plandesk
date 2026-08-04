@@ -1,8 +1,8 @@
 import type { Edge, Node } from '@xyflow/react';
 import {
   DEFAULT_EDGE_LABEL,
-  edgeLabels,
-  type EdgeLabel,
+  isTaskEdgeLabel,
+  type TaskEdgeLabel,
   type PutCanvasInput,
   type SerializedDocumentTree,
   type SerializedEdge,
@@ -22,20 +22,23 @@ export type TaskNodeData = {
 };
 
 export type LabeledEdgeData = {
-  label: EdgeLabel;
-  onLabelChange?: (label: EdgeLabel) => void;
+  label: TaskEdgeLabel;
+  onLabelChange?: (label: TaskEdgeLabel) => void;
   [key: string]: unknown;
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function parseEdgeLabel(label: string | null): EdgeLabel {
+/**
+ * Never throws. The label column is free text and the database accepts every
+ * label on any endpoint pair, so an unrecognised value is data the canvas has to
+ * survive — not a contract violation. Throwing here killed the whole Flow route
+ * for one edge; a route that dies on a single unexpected enum value is brittle
+ * by construction.
+ */
+function parseEdgeLabel(label: string | null): TaskEdgeLabel {
   if (label === null) return DEFAULT_EDGE_LABEL;
-  const matched = edgeLabels.find((candidate) => candidate === label);
-  if (matched === undefined) {
-    throw new TypeError(`Unexpected canvas edge label: ${label}`);
-  }
-  return matched;
+  return isTaskEdgeLabel(label) ? label : DEFAULT_EDGE_LABEL;
 }
 
 /**

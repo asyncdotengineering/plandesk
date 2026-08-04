@@ -24,7 +24,7 @@ import '@xyflow/react/dist/style.css';
 import { LayoutDashboard, Maximize, Minus, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { DEFAULT_EDGE_LABEL, type EdgeLabel } from '../../lib/api.js';
+import { DEFAULT_EDGE_LABEL, type TaskEdgeLabel } from '../../lib/api.js';
 import {
   useCanvas,
   useCreateTask,
@@ -213,8 +213,8 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
   // keeps a constant identity (edges don't churn) while calling through to the
   // current logic. Declaring it here — ahead of the effect deps that reference
   // it — avoids a temporal-dead-zone crash on mount.
-  const handleEdgeLabelChangeRef = useRef<(edgeId: string, label: EdgeLabel) => void>(() => {});
-  const stableOnLabelChange = useCallback((edgeId: string, label: EdgeLabel) => {
+  const handleEdgeLabelChangeRef = useRef<(edgeId: string, label: TaskEdgeLabel) => void>(() => {});
+  const stableOnLabelChange = useCallback((edgeId: string, label: TaskEdgeLabel) => {
     handleEdgeLabelChangeRef.current(edgeId, label);
   }, []);
 
@@ -229,7 +229,7 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
         ...edge,
         data: {
           label: edge.data?.label ?? DEFAULT_EDGE_LABEL,
-          onLabelChange: (label: EdgeLabel) => {
+          onLabelChange: (label: TaskEdgeLabel) => {
             stableOnLabelChange(edge.id, label);
           },
         },
@@ -276,7 +276,7 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
   }, [patchTask, deleteTask, projectId, setNodes]);
 
   const handleEdgeLabelChange = useCallback(
-    (edgeId: string, label: EdgeLabel) => {
+    (edgeId: string, label: TaskEdgeLabel) => {
       setEdges((current) => {
         const next = current.map((edge) =>
           edge.id === edgeId ? { ...edge, data: { ...edge.data, label } } : edge,
@@ -301,7 +301,7 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
             type: 'labeled',
             data: {
               label: DEFAULT_EDGE_LABEL,
-              onLabelChange: (label: EdgeLabel) => {
+              onLabelChange: (label: TaskEdgeLabel) => {
                 stableOnLabelChange(edgeId, label);
               },
             },

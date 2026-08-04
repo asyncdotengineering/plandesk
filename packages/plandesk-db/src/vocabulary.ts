@@ -42,3 +42,45 @@ export type GoalStatus = (typeof goalStatuses)[number];
 /** Polymorphic edge endpoint kinds for authored links. */
 export const linkEntityTypes = ['task', 'document', 'artifact', 'prototype'] as const;
 export type LinkEntityType = (typeof linkEntityTypes)[number];
+
+/*
+ * Edge relationship labels. The column stays free text; these are the authored
+ * vocabulary, split by which endpoint pair they describe.
+ *
+ * The split lives here, not in each consumer. It previously did not: the web
+ * app declared the task set and the document set as two local constants while
+ * `schema.ts` declared all twelve, and the canvas validated against the web's
+ * eight and threw on the rest — so a stored task→task edge carrying a document
+ * label killed the whole Flow route. That is the drift this module exists to
+ * prevent, and edge labels were the one vocabulary that never moved in.
+ */
+export const taskEdgeLabels = [
+  'blocks',
+  'depends_on',
+  'unblocks',
+  'feeds',
+  'clarifies',
+  'enables',
+  'supports',
+  'relates',
+] as const;
+export type TaskEdgeLabel = (typeof taskEdgeLabels)[number];
+
+/** Document→task (`documents`) and document→document (the rest). */
+export const documentEdgeLabels = ['documents', 'references', 'supersedes', 'extends'] as const;
+export type DocumentEdgeLabel = (typeof documentEdgeLabels)[number];
+
+/** Every authored label, in vocabulary order. */
+export const edgeLabels = [...taskEdgeLabels, ...documentEdgeLabels] as const;
+export type EdgeLabel = (typeof edgeLabels)[number];
+
+/** Rendered when a stored label is not one a given surface knows how to draw. */
+export const DEFAULT_EDGE_LABEL: TaskEdgeLabel = 'depends_on';
+
+export function isTaskEdgeLabel(label: string): label is TaskEdgeLabel {
+  return (taskEdgeLabels as readonly string[]).includes(label);
+}
+
+export function isDocumentEdgeLabel(label: string): label is DocumentEdgeLabel {
+  return (documentEdgeLabels as readonly string[]).includes(label);
+}

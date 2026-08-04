@@ -6,7 +6,7 @@ import {
   type Edge,
   type EdgeProps,
 } from '@xyflow/react';
-import { edgeLabels, type EdgeLabel } from '../../lib/api.js';
+import { taskEdgeLabels, type TaskEdgeLabel } from '../../lib/api.js';
 import {
   Select,
   SelectContent,
@@ -16,7 +16,9 @@ import {
 } from '@/components/ui/select';
 import type { LabeledEdgeData } from './canvas-map.js';
 
-const edgeLabelFriendly: Record<EdgeLabel, string> = {
+// Canvas edges are task→task only, so this map is keyed on the task half of
+// the vocabulary and stays exhaustive.
+const edgeLabelFriendly: Record<TaskEdgeLabel, string> = {
   blocks: 'blocks',
   depends_on: 'depends on',
   unblocks: 'unblocks',
@@ -70,7 +72,7 @@ export function LabeledEdge({
             <Select
               value={label}
               onValueChange={(value) => {
-                data.onLabelChange?.(value as EdgeLabel);
+                data.onLabelChange?.(value as TaskEdgeLabel);
                 setEditing(false);
               }}
               open
@@ -84,7 +86,7 @@ export function LabeledEdge({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {edgeLabels.map((option) => (
+                {taskEdgeLabels.map((option) => (
                   <SelectItem key={option} value={option} className="text-xs">
                     {edgeLabelFriendly[option]}
                   </SelectItem>

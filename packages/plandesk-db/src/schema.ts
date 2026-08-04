@@ -23,6 +23,12 @@ export {
   taskPriorityOrder,
   goalStatuses,
   linkEntityTypes,
+  taskEdgeLabels,
+  documentEdgeLabels,
+  edgeLabels,
+  DEFAULT_EDGE_LABEL,
+  isTaskEdgeLabel,
+  isDocumentEdgeLabel,
   type TaskStatus,
   type TaskKind,
   type TaskPriority,
@@ -30,6 +36,9 @@ export {
   type TaskSeverity,
   type GoalStatus,
   type LinkEntityType,
+  type TaskEdgeLabel,
+  type DocumentEdgeLabel,
+  type EdgeLabel,
 } from './vocabulary.js';
 
 import {
@@ -51,27 +60,8 @@ export type CommentTargetType = (typeof commentTargetTypes)[number];
 export const revisionTargetTypes = ['task', 'document', 'artifact'] as const;
 export type RevisionTargetType = (typeof revisionTargetTypes)[number];
 
-/**
- * Edge relationship labels (vocabulary only — column stays free text).
- * Task→task: blocks, depends_on, unblocks, feeds, clarifies, enables, supports, relates
- * Document→task: documents
- * Document→document: references, supersedes, extends
- */
-export const edgeLabels = [
-  'blocks',
-  'depends_on',
-  'unblocks',
-  'feeds',
-  'clarifies',
-  'enables',
-  'supports',
-  'relates',
-  'documents',
-  'references',
-  'supersedes',
-  'extends',
-] as const;
-export type EdgeLabel = (typeof edgeLabels)[number];
+// Edge relationship labels now live in ./vocabulary.ts (re-exported above), split
+// into taskEdgeLabels and documentEdgeLabels. The column stays free text.
 
 export const orgRoles = ['owner', 'admin', 'member'] as const;
 export type OrgRole = (typeof orgRoles)[number];

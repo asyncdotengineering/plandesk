@@ -174,9 +174,20 @@ memory rather than a deliverable spec.
 
 ## Edges
 - Connect related tasks and documents with labeled edges keyed on
-  `from_type`/`from_id`/`to_type`/`to_id` (`task` or `document`). Prefer the
-  vocabulary: `blocks`, `depends_on`, `unblocks`, `feeds`, `clarifies`,
-  `enables`, `supports`, `documents`, `references`, `supersedes`, `extends`.
+  `from_type`/`from_id`/`to_type`/`to_id` (`task` or `document`).
+- **The vocabulary is split by endpoint pair. Use the half that matches.**
+
+  | endpoint pair | labels |
+  | --- | --- |
+  | task → task | `blocks`, `depends_on`, `unblocks`, `feeds`, `clarifies`, `enables`, `supports`, `relates` |
+  | document → task | `documents` |
+  | document → document | `references`, `supersedes`, `extends` |
+
+  `references`, `supersedes`, `extends` and `documents` are **document-scoped**.
+  Reaching for one of them to link two tasks is the common mistake: the closest
+  task→task label is almost always `relates` (loose association) or `depends_on`
+  (real sequencing). The label column is free text, so a wrong label is stored
+  without complaint and only shows up as a mislabelled edge on the canvas.
 - When you discover a new dependency while working, add the edge.
 
 ## Executing the plan

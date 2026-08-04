@@ -1,6 +1,7 @@
 import type { Edge, Node } from '@xyflow/react';
 import { describe, expect, it } from 'vitest';
 import type { SerializedDocumentTree, SerializedEdge, SerializedTask } from '../../lib/api.js';
+import { DEFAULT_EDGE_LABEL, documentEdgeLabels, edgeLabels } from '../../lib/api.js';
 import {
   buildLayoutPayload,
   buildTaskDocumentMap,
@@ -73,9 +74,31 @@ describe('canvas-map', () => {
     ]);
   });
 
-  it('rejects API edge labels outside the canvas contract', () => {
-    expect(() => canvasToFlowEdges([{ ...sampleEdge, label: 'unknown' }])).toThrow(
-      'Unexpected canvas edge label: unknown',
+  // Regression: a stored task→task edge carrying one of the four document-scoped
+  // labels used to throw here, which killed the entire Flow route rather than the
+  // one edge. The database accepts all twelve labels on any endpoint pair, so the
+  // renderer must degrade. Reverting the fallback in parseEdgeLabel fails these.
+  it.each(documentEdgeLabels)(
+    'renders a stored task→task edge labelled %s instead of throwing',
+    (label) => {
+      const stored: SerializedEdge = { ...sampleEdge, label };
+      expect(() => canvasToFlowEdges([stored])).not.toThrow();
+      expect(canvasToFlowEdges([stored])[0]?.data?.label).toBe(DEFAULT_EDGE_LABEL);
+    },
+  );
+
+  it('renders every label the database accepts', () => {
+    const stored = edgeLabels.map((label, index) => ({
+      ...sampleEdge,
+      id: `edge-${String(index)}`,
+      label,
+    }));
+    expect(canvasToFlowEdges(stored)).toHaveLength(edgeLabels.length);
+  });
+
+  it('falls back for a label outside the vocabulary entirely', () => {
+    expect(canvasToFlowEdges([{ ...sampleEdge, label: 'unknown' }])[0]?.data?.label).toBe(
+      DEFAULT_EDGE_LABEL,
     );
   });
 

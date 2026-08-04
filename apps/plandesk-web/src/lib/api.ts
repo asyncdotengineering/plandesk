@@ -11,13 +11,33 @@ import {
   taskPriorities,
   taskPriorityOrder,
   linkEntityTypes,
+  taskEdgeLabels,
+  documentEdgeLabels,
+  edgeLabels,
+  DEFAULT_EDGE_LABEL,
+  isTaskEdgeLabel,
+  isDocumentEdgeLabel,
   type TaskStatus,
   type TaskPriority,
   type LinkEntityType,
+  type TaskEdgeLabel,
+  type DocumentEdgeLabel,
+  type EdgeLabel,
 } from '@plandesk/db/vocabulary';
 
-export { taskStatuses, taskPriorities, taskPriorityOrder, linkEntityTypes };
-export type { TaskStatus, TaskPriority, LinkEntityType };
+export {
+  taskStatuses,
+  taskPriorities,
+  taskPriorityOrder,
+  linkEntityTypes,
+  taskEdgeLabels,
+  documentEdgeLabels,
+  edgeLabels,
+  DEFAULT_EDGE_LABEL,
+  isTaskEdgeLabel,
+  isDocumentEdgeLabel,
+};
+export type { TaskStatus, TaskPriority, LinkEntityType, TaskEdgeLabel, DocumentEdgeLabel, EdgeLabel };
 export type { SavedViewConfig };
 
 export type SerializedView = {
@@ -42,22 +62,10 @@ export type PatchViewInput = {
   position?: number;
 };
 
-export const edgeLabels = [
-  'blocks',
-  'depends_on',
-  'unblocks',
-  'feeds',
-  'clarifies',
-  'enables',
-  'supports',
-  'relates',
-] as const;
-export type EdgeLabel = (typeof edgeLabels)[number];
-export const DEFAULT_EDGE_LABEL: EdgeLabel = 'depends_on';
-
-/** Labels preferred when the edge source is a document. */
-export const documentEdgeLabels = ['documents', 'references', 'supersedes', 'extends'] as const;
-export type DocumentEdgeLabel = (typeof documentEdgeLabels)[number];
+// `edgeLabels` is every label the database accepts; `taskEdgeLabels` and
+// `documentEdgeLabels` are the two halves. All three come from the one
+// definition — this module used to declare the halves locally, which is how the
+// canvas came to reject labels the database happily stores.
 export const DEFAULT_DOCUMENT_EDGE_LABEL: DocumentEdgeLabel = 'documents';
 
 export type TaskStatusSummary = Record<TaskStatus, number>;
