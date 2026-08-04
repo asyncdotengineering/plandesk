@@ -138,7 +138,7 @@ export const PREVIEW_EXTENSIONS = ['.md', '.markdown', '.html', '.htm'] as const
  * Reserved subcommand names. A first positional that is none of these AND is an
  * existing previewable file routes to `preview` (so `plandesk *.md` works).
  */
-const RESERVED_COMMANDS = new Set([
+export const RESERVED_COMMANDS = new Set([
   'init',
   'login',
   'logout',
@@ -738,6 +738,8 @@ Usage:
   plandesk push [--project <id>] [--to <orgId>] [--url <server>] [--repo <dir>] [--data-dir <dir>]
   plandesk pull [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>] [--repo <dir>] [--data-dir <dir>]
+  plandesk push-artifact <file.md|file.html> [--prototype <name>] [--force] [--repo <dir>]   # upload a file as an artifact; --prototype files it as a screen of that prototype
+  plandesk attach <file.png> [--repo <dir>]   # upload an image and print its url for embedding in a doc, task or comment
   plandesk deploy [target]   # list deploy guides, or print one for your coding agent: plandesk deploy cloudflare | claude
   plandesk factory init [--repo <dir>] [--print] [--force]
   plandesk factory sync [--write] [--force] [--prune] [--repo <dir>]   # update scaffolded policy to the latest shipped version

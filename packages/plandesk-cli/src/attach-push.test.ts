@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs } from './args.js';
+import { parseArgs, usage, RESERVED_COMMANDS } from './args.js';
 import { PushArtifactError, runPushArtifact } from './push-artifact.js';
 import { AttachError, runAttach } from './attach.js';
 
@@ -90,5 +90,36 @@ describe('push-artifact sentinel helpers', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe('help discoverability', () => {
+  /*
+   * A command that parses but never appears in `plandesk help` is invisible to
+   * anyone who asks the CLI what it can do — including an agent, which is the
+   * only way an agent *can* ask. That produced plandesk#51: `push-artifact`
+   * worked, shipped, and was reported as "not a CLI command" because
+   * `plandesk help --commands` did not list it.
+   *
+   * Exemptions are named individually so adding a command silently is not one.
+   */
+  const NOT_A_LISTED_COMMAND = new Map([
+    ['help', 'is the help'],
+    ['preview', 'bare-file sugar; documented as `plandesk <file.md>`'],
+    ['annotate', 'bare-file sugar; documented as `plandesk <file.md>`'],
+    ['token', 'reserved word so a file named `token` is not previewed; has no handler'],
+    ['ps', 'alias, documented on the `plandesk status` line'],
+  ]);
+
+  it('documents every reserved command in usage()', () => {
+    const text = usage();
+    const undocumented = [...RESERVED_COMMANDS].filter(
+      (name) => !NOT_A_LISTED_COMMAND.has(name) && !text.includes(`plandesk ${name}`),
+    );
+    expect(undocumented).toEqual([]);
+  });
+
+  it('lists push-artifact, the command issue #51 could not find', () => {
+    expect(usage()).toContain('plandesk push-artifact');
   });
 });
