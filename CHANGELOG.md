@@ -4,6 +4,32 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [3.2.0] — 2026-08-04
+
+`@plandesk/api`, `@plandesk/cli`, `@plandesk/db` and `@plandesk/mcp` all move to 3.2.0. The web SPA ships inside `@plandesk/api`, so the Flow fix below only reaches an installed board when that package is republished.
+
+### Fixed
+
+- **One edge label no longer takes down the whole Flow view.** Opening Flow on a project containing a `task→task` edge labelled `references` or `supersedes` rendered "Something went wrong!" and nothing else — no partial render, no indication which edge, and no signal at all unless a human clicked that tab. On one board it had been dead for five days.
+
+  The cause was a single vocabulary with two definitions. `schema.ts` declared twelve labels; the web app declared the task eight and the document four as separate local constants; and the canvas validated against the eight and threw a `TypeError` on anything else. Since the label column is deliberately free text, the database, MCP `create_edge` and `scaffold_project_from_plan` all accepted a document-scoped label on a task edge, and only the renderer objected — fatally.
+
+  `parseEdgeLabel` now degrades to the default label instead of throwing. A route that dies on one unexpected enum value is brittle by construction, and the fix is the fallback, not the enum.
+
+  The three constants now live in `@plandesk/db/vocabulary` — the browser-safe module whose own header already warned about "two definitions that agree today, drift silently". Edge labels were the one vocabulary that had never moved in. Unifying them turned two further silent assumptions into compile errors rather than latent crashes.
+
+  The crash was not untested. A test asserted the throw as intended behaviour; it is replaced by its inverse, and verified by sabotage — reverting the fallback fails six of the ten canvas tests.
+
+- **The edge vocabulary in the agent skill no longer reads as one flat list.** It listed all twelve labels in a single sentence with nothing marking four of them document-scoped, which is why agents kept creating exactly the edges that broke Flow. It is now a table split by endpoint pair, naming `relates` and `depends_on` as what a task-to-task edge almost always wants.
+
+- **`push-artifact` and `attach` appear in `plandesk help`.** Both shipped working and neither was listed, so `plandesk help --commands` did not mention them. Probing the CLI is the only way an agent can ask what is available, so the commands were effectively invisible — reported in [#51](https://github.com/asyncdotengineering/plandesk/issues/51) as "not a CLI command". A test now asserts every reserved command appears in the usage text, with exemptions named one at a time.
+
+### Changed
+
+- **Opening a project lands on the board.** The project switcher, the breadcrumb and the project card previously went to Overview. The board is where the work is; Overview stays one click away in the sidebar and the command menu.
+
+- **The sidebar no longer offers List as a separate destination.** List is a view of the board, reached from the board's view switcher and still addressable at `/projects/:id/list`. Two nav rows pointing at the same data read as two places to go.
+
 ## [3.1.0] — 2026-08-03
 
 `@plandesk/cli` only; api, db and mcp stay at 3.0.0.
