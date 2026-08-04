@@ -35,15 +35,9 @@ const PLAN_NAV: NavEntry[] = [
       </svg>
     ),
   },
-  {
-    label: 'List',
-    to: '/projects/$id/list' as const,
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
-        <path d="M4 6h16M4 12h16M4 18h10" />
-      </svg>
-    ),
-  },
+  // List is a view of the board, not a destination of its own — it is reached
+  // from the board's view switcher and stays addressable at /projects/$id/list.
+  // A second sidebar entry pointing at the same data read as two places to go.
   {
     label: 'Flow',
     to: '/projects/$id/flow' as const,
@@ -141,7 +135,7 @@ export function Sidebar() {
         <ProjectSwitcher
           activeProjectId={id}
           onNavigate={(projectId) => {
-            void navigate({ to: '/projects/$id/overview', params: { id: projectId } });
+            void navigate({ to: '/projects/$id/board', params: { id: projectId } });
           }}
         />
         {id !== undefined ? (

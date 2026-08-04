@@ -99,7 +99,7 @@ export function ProjectListPage() {
             {visibleProjects?.map((project) => (
               <Link
                 key={project.id}
-                to="/projects/$id/overview"
+                to="/projects/$id/board"
                 params={{ id: project.id }}
                 className="block"
               >

@@ -181,7 +181,7 @@ function ProjectCrumb({
     <>
       <ChevronRight />
       {viewLabel !== null ? (
-        <Link to="/projects/$id/overview" params={{ id }}>
+        <Link to="/projects/$id/board" params={{ id }}>
           {name}
         </Link>
       ) : (

@@ -80,7 +80,10 @@ describe('breadcrumb link targets', () => {
     expect(workspaceCrumb.getAttribute('href')).toBe('/');
   });
 
-  it('project crumb links to overview, not workspace landing', async () => {
+  // The assertion this test exists for is that the crumb goes *into* the project
+  // rather than back to the workspace landing. The project's own landing view is
+  // the board — opening a project should show the work, not a summary of it.
+  it('project crumb links to the project board, not workspace landing', async () => {
     const { router } = renderBoard();
 
     await waitFor(() => {
@@ -88,12 +91,12 @@ describe('breadcrumb link targets', () => {
     });
 
     const projectCrumb = screen.getByRole('link', { name: 'Smoke Project' });
-    expect(projectCrumb.getAttribute('href')).toContain('/overview');
+    expect(projectCrumb.getAttribute('href')).toContain('/board');
 
     fireEvent.click(projectCrumb);
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/projects/proj-1/overview');
+      expect(router.state.location.pathname).toBe('/projects/proj-1/board');
     });
   });
 });
