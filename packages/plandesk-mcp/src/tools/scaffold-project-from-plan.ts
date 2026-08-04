@@ -7,6 +7,7 @@ import { toolInvalidArgument, toolSuccess, type ToolResult } from './result.js';
 type ScaffoldArgs = {
   project_id?: string;
   goal_id?: string;
+  workspace_id?: string;
   name?: string;
   description?: string;
   tasks: Array<{
@@ -75,6 +76,9 @@ export function createScaffoldProjectFromPlanHandler(
         ...(args.goal_id !== undefined ? { goalId: args.goal_id } : {}),
         ...(args.name !== undefined ? { name: args.name } : {}),
         ...(args.description !== undefined ? { description: args.description } : {}),
+        // Ignored when project_id is set; otherwise picks the workspace for the
+        // new project. Omitted -> the caller's bound workspace, then the org default.
+        ...(args.workspace_id !== undefined ? { workspaceId: args.workspace_id } : {}),
         tasks: args.tasks.map((task) => ({
           key: task.key,
           label: task.label,

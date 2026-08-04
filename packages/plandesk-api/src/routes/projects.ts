@@ -99,7 +99,9 @@ export function createProjectsRouter(
       return c.json(project, 201);
     } catch (error) {
       if (error instanceof WorkspaceNotFoundError) {
-        return c.json({ error: 'not_found' }, 404);
+        // Carry the message: the common cause is a stale x-plandesk-workspace-id
+        // binding, and a bare "not_found" reads as if the project were missing.
+        return c.json({ error: 'not_found', message: error.message }, 404);
       }
       if (error instanceof InvalidOverviewDocumentError) {
         return c.json({ error: 'invalid_argument', message: error.message }, 400);
@@ -190,7 +192,7 @@ export function createProjectsRouter(
         return c.json(moved);
       } catch (error) {
         if (error instanceof WorkspaceNotFoundError) {
-          return c.json({ error: 'not_found' }, 404);
+          return c.json({ error: 'not_found', message: error.message }, 404);
         }
         throw error;
       }

@@ -60,6 +60,12 @@ export const listProjectsInputSchema = z.object({});
 export const createProjectInputSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
+  workspace_id: z
+    .string()
+    .optional()
+    .describe(
+      'Workspace to create the project in. Omit to use the workspace this repo is bound to (sent as the x-plandesk-workspace-id header by `plandesk connect`); if there is none, the org default workspace is used.',
+    ),
   owner_id: z.string().min(1).nullable().optional(),
   overview_document_id: z.string().uuid().nullable().optional(),
   repo_url: repoUrlSchema,
@@ -488,6 +494,12 @@ export const completeAgentRunInputSchema = z.object({
 });
 
 export const scaffoldProjectFromPlanInputSchema = z.object({
+  workspace_id: z
+    .string()
+    .optional()
+    .describe(
+      'Workspace to create the project in. Omit to use the workspace this repo is bound to (sent as the x-plandesk-workspace-id header by `plandesk connect`); if there is none, the org default workspace is used.',
+    ),
   project_id: z
     .string()
     .optional()

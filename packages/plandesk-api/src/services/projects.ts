@@ -190,6 +190,21 @@ async function resolveWorkspaceForNewProject(
     }
   }
 
+  /*
+   * The workspace a loopback caller is bound to, carried by the
+   * `x-plandesk-workspace-id` header that `plandesk connect` writes into the MCP
+   * server entry. Reads already honour it (see routes/search.ts) — creates did
+   * not, which is why a project created over MCP from a repo bound to a
+   * non-default workspace silently landed in the org default and was then
+   * `not_found` to the agent that had just created it.
+   *
+   * Deliberately NOT folded into `callerWorkspaceId`: an API key's workspace is
+   * a security boundary and binds (see the consistency check below), while this
+   * header is documented as "not a security boundary". It therefore acts as a
+   * default that an explicit `workspace_id` may override, never as a constraint.
+   */
+  const loopbackWorkspaceId = ctx?.kind === 'loopback' ? ctx.workspaceId : undefined;
+
   let workspaceId: string | undefined;
   if (requestedWorkspaceId !== undefined && requestedWorkspaceId.length > 0) {
     if (deps.auth === undefined) {
@@ -204,6 +219,18 @@ async function resolveWorkspaceForNewProject(
     // Scoped key without an explicit target: force its own workspace so it
     // can never land a project in the org-default (or any other) workspace.
     workspaceId = callerWorkspaceId;
+  } else if (loopbackWorkspaceId !== undefined && loopbackWorkspaceId.length > 0) {
+    // Validated exactly like an explicit request: an unknown id must throw
+    // rather than fall through to the org default, or the silent-wrong-workspace
+    // failure simply moves one branch down.
+    if (deps.auth === undefined) {
+      throw new WorkspaceNotFoundError(loopbackWorkspaceId);
+    }
+    const team = await getTeamInOrg(deps.auth, loopbackWorkspaceId, orgId);
+    if (team === undefined) {
+      throw new WorkspaceNotFoundError(loopbackWorkspaceId);
+    }
+    workspaceId = team.id;
   } else {
     workspaceId = deps.auth ? await ensureDefaultTeamForOrg(deps.auth, orgId) : undefined;
   }
