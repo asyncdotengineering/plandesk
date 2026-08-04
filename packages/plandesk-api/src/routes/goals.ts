@@ -1,3 +1,4 @@
+import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono, type Context } from 'hono';
 import { InvalidGoalStatusError, isGoalStatus } from '@plandesk/db';
 import {
@@ -64,13 +65,13 @@ function goalWriteResponse(goal: GoalWrite) {
 
 function handleGoalError(c: Context, error: unknown) {
   if (error instanceof InvalidGoalStatusError || error instanceof InvalidGoalTransitionError) {
-    return c.json({ error: 'invalid_argument' }, 400);
+    return invalidRequest(c, error.message);
   }
   if (error instanceof InvalidVerificationSurfaceError) {
-    return c.json({ error: 'invalid_argument' }, 400);
+    return invalidRequest(c, error.message);
   }
   if (error instanceof DuplicateGoalNameError) {
-    return c.json({ error: 'invalid_argument' }, 400);
+    return invalidRequest(c, error.message);
   }
   if (error instanceof GoalVerificationRequiredError) {
     return c.json(
@@ -109,10 +110,10 @@ export function createGoalsRouter(goalService: GoalService): Hono {
   router.post('/projects/:id/goals', async (c) => {
     const body = await c.req.json<CreateGoalBody>();
     if (typeof body.objective !== 'string' || body.objective.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'objective', 'objective is required and must be a non-empty string');
     }
     if (body.status !== undefined && !isGoalStatus(body.status)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'status', 'status must be a valid goal status');
     }
 
     try {
@@ -149,7 +150,7 @@ export function createGoalsRouter(goalService: GoalService): Hono {
   router.patch('/goals/:id', async (c) => {
     const body = await c.req.json<UpdateGoalBody>();
     if (body.objective !== undefined && body.objective.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'objective', 'objective is required');
     }
 
     try {

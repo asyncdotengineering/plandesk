@@ -220,7 +220,7 @@ describe('documents routes', () => {
       body: JSON.stringify({ body: 'No title' }),
     });
     expect(createRes.status).toBe(400);
-    expect(await parseJson(createRes)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson(createRes)).toMatchObject({ error: 'invalid_argument' });
   });
 
   it('DELETE /api/v1/documents/:id detaches children and deletes document', async () => {

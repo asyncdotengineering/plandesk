@@ -34,7 +34,7 @@ describe('projects routes', () => {
     });
 
     expect(res.status).toBe(400);
-    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
   });
 
   it('GET /api/v1/projects lists projects', async () => {
@@ -122,7 +122,7 @@ describe('projects routes', () => {
 
     const res = await app.request(`/api/v1/projects/${created.id}/tasks?status=invalid`);
     expect(res.status).toBe(400);
-    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
   });
 
   it('POST /api/v1/projects/:id/tasks creates a task', async () => {
@@ -175,7 +175,7 @@ describe('projects routes', () => {
     });
 
     expect(res.status).toBe(400);
-    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
   });
 
   it('POST /api/v1/projects/:id/tasks returns 404 for missing project', async () => {
@@ -335,7 +335,7 @@ describe('projects routes', () => {
       body: JSON.stringify({ name: 'Bad', repo_url: 'not-a-url' }),
     });
     expect(res.status).toBe(400);
-    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
   });
 
   it('POST /api/v1/projects rejects dangerous repo_url schemes and absolute folder_path', async () => {
@@ -352,7 +352,7 @@ describe('projects routes', () => {
         body: JSON.stringify({ name: 'Bad', repo_url }),
       });
       expect(res.status).toBe(400);
-      expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+      expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
     }
     for (const folder_path of ['/etc', '../../other', 'C:\\Windows', 'a//b', 'trailing/']) {
       const res = await app.request('/api/v1/projects', {
@@ -361,7 +361,7 @@ describe('projects routes', () => {
         body: JSON.stringify({ name: 'Bad', folder_path }),
       });
       expect(res.status).toBe(400);
-      expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+      expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
     }
   });
 
@@ -378,7 +378,7 @@ describe('projects routes', () => {
         body: JSON.stringify({ name: 'Bad', repo_url }),
       });
       expect(res.status).toBe(400);
-      expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+      expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
     }
     for (const folder_path of ['C:..\\secret', 'C:relative\\path', 'C:\\abs', 'c:..']) {
       const res = await app.request('/api/v1/projects', {
@@ -387,7 +387,7 @@ describe('projects routes', () => {
         body: JSON.stringify({ name: 'Bad', folder_path }),
       });
       expect(res.status).toBe(400);
-      expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+      expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
     }
   });
 
@@ -646,7 +646,7 @@ describe('tasks routes', () => {
     });
 
     expect(res.status).toBe(400);
-    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
   });
 
   it('DELETE /api/v1/tasks/:id deletes task and cascades edges', async () => {

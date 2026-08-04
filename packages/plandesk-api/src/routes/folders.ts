@@ -1,3 +1,4 @@
+import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
 import { InvalidFolderError, type FolderService } from '../services/folders.js';
 
@@ -25,7 +26,7 @@ export function createFoldersRouter(folderService: FolderService): Hono {
   router.post('/projects/:id/folders', async (c) => {
     const body = await c.req.json<CreateFolderBody>();
     if (typeof body.name !== 'string' || body.name.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'name', 'name is required and must be a non-empty string');
     }
 
     try {
@@ -41,7 +42,7 @@ export function createFoldersRouter(folderService: FolderService): Hono {
       return c.json(folder, 201);
     } catch (error) {
       if (error instanceof InvalidFolderError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }
@@ -71,7 +72,7 @@ export function createFoldersRouter(folderService: FolderService): Hono {
       return c.json(folder);
     } catch (error) {
       if (error instanceof InvalidFolderError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }

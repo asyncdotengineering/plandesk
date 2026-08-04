@@ -1,3 +1,4 @@
+import { invalidArgument, invalidRequest } from './errors.js';
 import { type Context, Hono } from 'hono';
 import type { ShareResourceRef, ShareService } from '../services/share.js';
 
@@ -31,7 +32,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
       return c.json({ error: 'invalid_expires' }, 400);
     }
     if (body.submit !== undefined && typeof body.submit !== 'boolean') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'submit', 'submit must be a boolean');
     }
     const origin = new URL(c.req.url).origin;
     const resource: ShareResourceRef =
@@ -75,7 +76,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
     }
     const audienceName = (body.audience_name ?? '').trim();
     if (audienceName === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'audience_name', 'audience_name is required and must be a non-empty string');
     }
     const mode = body.mode === 'public' ? 'public' : 'invite';
     const origin = new URL(c.req.url).origin;
@@ -244,7 +245,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
       return c.json({ error: 'invalid_json' }, 400);
     }
     if (typeof body.artifact_id !== 'string' || typeof body.body !== 'string') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidRequest(c, 'artifact_id and body are both required and must be strings');
     }
 
     const result = await shareService.createGuestArtifactComment(token, {
@@ -263,7 +264,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
       return c.json({ error: 'submit_not_permitted' }, 403);
     }
     if (result.status === 'invalid_argument') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidRequest(c, 'artifact_id and body must be valid for this share');
     }
     return c.json(result.comment, 201);
   });
@@ -271,7 +272,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
   router.get('/share/:token/artifact-comments', async (c) => {
     const artifactId = c.req.query('artifact_id');
     if (artifactId === undefined) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'artifact_id', 'artifact_id query parameter is required');
     }
     const result = await shareService.listGuestArtifactComments(c.req.param('token'), artifactId);
     if (result.status === 'unauthorized') {
@@ -281,7 +282,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
       return c.json({ error: 'not_found' }, 404);
     }
     if (result.status === 'invalid_argument') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'artifact_id', 'artifact_id must be valid for this share');
     }
     return c.json(result.comments);
   });

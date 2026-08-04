@@ -1,3 +1,4 @@
+import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
 import { InvalidAgentRunError, type AgentRunService } from '../services/agent-runs.js';
 import { parsePaginationParams } from '../serialize.js';
@@ -8,7 +9,7 @@ export function createAgentRunsRouter(agentRunService: AgentRunService): Hono {
   router.get('/projects/:id/agent-runs', async (c) => {
     const pagination = parsePaginationParams(c.req.query('limit'), c.req.query('offset'));
     if (pagination === 'invalid') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidRequest(c, 'limit and offset must be non-negative integers');
     }
     const runs = await agentRunService.listForProject(c.req.param('id'), pagination);
     if (!runs) {
@@ -20,7 +21,7 @@ export function createAgentRunsRouter(agentRunService: AgentRunService): Hono {
   router.post('/agent-runs/:id/progress', async (c) => {
     const body = await c.req.json<{ message?: string }>();
     if (typeof body.message !== 'string' || body.message.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'message', 'message is required and must be a non-empty string');
     }
 
     try {
@@ -31,7 +32,7 @@ export function createAgentRunsRouter(agentRunService: AgentRunService): Hono {
       return c.json(event, 201);
     } catch (error) {
       if (error instanceof InvalidAgentRunError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }

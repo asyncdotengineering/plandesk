@@ -180,7 +180,7 @@ describe('canvas routes', () => {
     });
 
     expect(res.status).toBe(400);
-    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
   });
 
   it('GET /canvas returns 404 for missing project', async () => {
@@ -217,7 +217,7 @@ describe('canvas routes', () => {
     });
 
     expect(res.status).toBe(400);
-    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
   });
 
   it('DELETE /projects/:id/edges/:edgeId removes an edge', async () => {
@@ -387,7 +387,7 @@ describe('canvas routes', () => {
       }),
     });
     expect(res.status).toBe(400);
-    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
   });
 
   it('POST refuses a task endpoint in another project', async () => {
@@ -408,7 +408,7 @@ describe('canvas routes', () => {
       }),
     });
     expect(res.status).toBe(400);
-    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
   });
 
   it('POST refuses an id whose real type differs from the claimed type', async () => {
@@ -434,7 +434,7 @@ describe('canvas routes', () => {
       }),
     });
     expect(asDoc.status).toBe(400);
-    expect(await parseJson(asDoc)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson(asDoc)).toMatchObject({ error: 'invalid_argument' });
 
     // Document id claimed as task.
     const asTask = await app.request(`/api/v1/projects/${project.id}/edges`, {
@@ -448,7 +448,7 @@ describe('canvas routes', () => {
       }),
     });
     expect(asTask.status).toBe(400);
-    expect(await parseJson(asTask)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson(asTask)).toMatchObject({ error: 'invalid_argument' });
   });
 
   it('links carry edge_id; DELETE by that id removes only that edge', async () => {

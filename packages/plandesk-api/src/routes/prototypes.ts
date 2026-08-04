@@ -1,3 +1,4 @@
+import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
 import { InvalidPrototypeError, type PrototypeService } from '../services/prototypes.js';
 
@@ -31,10 +32,16 @@ export function createPrototypesRouter(prototypeService: PrototypeService): Hono
   router.post('/projects/:id/prototypes', async (c) => {
     const body = await c.req.json<CreatePrototypeBody>();
     if (typeof body.name !== 'string' || body.name.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'name', 'name is required and must be a non-empty string');
     }
-    if (!isFiniteNumber(body.viewport_width) || !isFiniteNumber(body.viewport_height)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+    // Split deliberately: a caller who sent a bad viewport_height must be told
+    // that, not that "viewport_width" is wrong. Naming the wrong field is worse
+    // than naming none.
+    if (!isFiniteNumber(body.viewport_width)) {
+      return invalidArgument(c, 'viewport_width', 'viewport_width must be a finite number');
+    }
+    if (!isFiniteNumber(body.viewport_height)) {
+      return invalidArgument(c, 'viewport_height', 'viewport_height must be a finite number');
     }
 
     try {
@@ -51,7 +58,7 @@ export function createPrototypesRouter(prototypeService: PrototypeService): Hono
       return c.json(prototype, 201);
     } catch (error) {
       if (error instanceof InvalidPrototypeError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }
@@ -68,10 +75,10 @@ export function createPrototypesRouter(prototypeService: PrototypeService): Hono
   router.patch('/prototypes/:id', async (c) => {
     const body = await c.req.json<UpdatePrototypeBody>();
     if (body.viewport_width !== undefined && !isFiniteNumber(body.viewport_width)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'viewport_width', 'viewport_width must be a finite number');
     }
     if (body.viewport_height !== undefined && !isFiniteNumber(body.viewport_height)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'viewport_height', 'viewport_height must be a finite number');
     }
 
     try {
@@ -88,7 +95,7 @@ export function createPrototypesRouter(prototypeService: PrototypeService): Hono
       return c.json(prototype);
     } catch (error) {
       if (error instanceof InvalidPrototypeError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }

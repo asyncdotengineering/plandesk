@@ -1,3 +1,4 @@
+import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
 import { InvalidNoteError, type NoteService } from '../services/notes.js';
 import { parsePaginationParams } from '../serialize.js';
@@ -18,7 +19,7 @@ export function createNotesRouter(noteService: NoteService): Hono {
   router.get('/projects/:id/notes', async (c) => {
     const pagination = parsePaginationParams(c.req.query('limit'), c.req.query('offset'));
     if (pagination === 'invalid') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidRequest(c, 'limit and offset must be non-negative integers');
     }
     const notes = await noteService.list(c.req.param('id'), pagination);
     if (!notes) {
@@ -30,7 +31,7 @@ export function createNotesRouter(noteService: NoteService): Hono {
   router.post('/projects/:id/notes', async (c) => {
     const body = await c.req.json<CreateNoteBody>();
     if (typeof body.title !== 'string' || body.title.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'title', 'title is required and must be a non-empty string');
     }
 
     try {
@@ -46,7 +47,7 @@ export function createNotesRouter(noteService: NoteService): Hono {
       return c.json(note, 201);
     } catch (error) {
       if (error instanceof InvalidNoteError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }
@@ -76,7 +77,7 @@ export function createNotesRouter(noteService: NoteService): Hono {
       return c.json(note);
     } catch (error) {
       if (error instanceof InvalidNoteError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }

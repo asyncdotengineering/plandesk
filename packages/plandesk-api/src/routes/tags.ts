@@ -1,3 +1,4 @@
+import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
 import { InvalidTagError, type TagService } from '../services/tags.js';
 
@@ -25,7 +26,7 @@ export function createTagsRouter(tagService: TagService): Hono {
   router.post('/projects/:id/tags', async (c) => {
     const body = await c.req.json<CreateTagBody>();
     if (typeof body.name !== 'string' || body.name.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'name', 'name is required and must be a non-empty string');
     }
 
     try {
@@ -41,7 +42,7 @@ export function createTagsRouter(tagService: TagService): Hono {
       return c.json(tag, 201);
     } catch (error) {
       if (error instanceof InvalidTagError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }
@@ -63,7 +64,7 @@ export function createTagsRouter(tagService: TagService): Hono {
       return c.json(tag);
     } catch (error) {
       if (error instanceof InvalidTagError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }

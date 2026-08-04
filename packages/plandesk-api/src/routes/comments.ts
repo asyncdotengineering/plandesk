@@ -1,3 +1,4 @@
+import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono, type Context } from 'hono';
 import {
   InvalidCommentError,
@@ -31,7 +32,7 @@ async function handleCreateComment(
 ) {
   const body = await c.req.json<CreateCommentBody>();
   if (typeof body.body !== 'string') {
-    return c.json({ error: 'invalid_argument' }, 400);
+    return invalidArgument(c, 'body', 'body must be a string');
   }
 
   try {
@@ -48,7 +49,7 @@ async function handleCreateComment(
     return c.json(comment, 201);
   } catch (error) {
     if (error instanceof InvalidCommentError) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidRequest(c, error.message);
     }
     throw error;
   }
@@ -115,7 +116,7 @@ export function createCommentsRouter(commentService: CommentService): Hono {
   router.post('/projects/:id/artifact-comments', async (c) => {
     const body = await c.req.json<CreateArtifactCommentBody>();
     if (typeof body.body !== 'string' || typeof body.artifact_id !== 'string') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidRequest(c, 'body and artifact_id are both required and must be strings');
     }
     try {
       const comment = await commentService.createForArtifact(c.req.param('id'), body.artifact_id, {
@@ -129,7 +130,7 @@ export function createCommentsRouter(commentService: CommentService): Hono {
       return c.json(comment, 201);
     } catch (error) {
       if (error instanceof InvalidCommentError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }
@@ -138,7 +139,7 @@ export function createCommentsRouter(commentService: CommentService): Hono {
   router.get('/projects/:id/artifact-comments', async (c) => {
     const artifactId = c.req.query('artifact_id');
     if (artifactId === undefined || artifactId === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'artifact_id', 'artifact_id query parameter is required');
     }
     const includeResolved = parseIncludeResolved(c.req.query('include_resolved'));
     const comments = await commentService.listForArtifact(c.req.param('id'), artifactId, {
@@ -166,7 +167,7 @@ export function createCommentsRouter(commentService: CommentService): Hono {
       return c.json(comment);
     } catch (error) {
       if (error instanceof InvalidCommentError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }

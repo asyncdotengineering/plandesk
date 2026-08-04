@@ -1,3 +1,4 @@
+import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
 import {
   InvalidRevisionQueryError,
@@ -11,7 +12,7 @@ export function createRevisionsRouter(revisionService: RevisionService): Hono {
     const targetType = c.req.query('target_type');
     const targetId = c.req.query('target_id');
     if (targetType === undefined || targetId === undefined) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidRequest(c, 'target_type and target_id query parameters are both required');
     }
     try {
       const revisions = await revisionService.list(c.req.param('projectId'), targetType, targetId);
@@ -38,7 +39,7 @@ export function createRevisionsRouter(revisionService: RevisionService): Hono {
   router.get('/revisions/:id/diff', async (c) => {
     const against = c.req.query('against');
     if (against === undefined) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'against', 'against query parameter is required');
     }
     try {
       const diffs = await revisionService.diff(c.req.param('id'), against);

@@ -1,3 +1,4 @@
+import { invalidArgument } from './errors.js';
 import { Hono } from 'hono';
 import { InvalidViewError, type ViewService } from '../services/views.js';
 
@@ -35,13 +36,13 @@ export function createViewsRouter(viewService: ViewService): Hono {
   router.post('/projects/:id/views', async (c) => {
     const body = await c.req.json<CreateViewBody>();
     if (typeof body.name !== 'string' || body.name.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'name', 'name is required and must be a non-empty string');
     }
     if (body.config === undefined) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'config', 'config is required');
     }
     if (body.position !== undefined && typeof body.position !== 'number') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'position', 'position must be a number');
     }
 
     try {
@@ -65,7 +66,7 @@ export function createViewsRouter(viewService: ViewService): Hono {
   router.patch('/views/:id', async (c) => {
     const body = await c.req.json<UpdateViewBody>();
     if (body.position !== undefined && typeof body.position !== 'number') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'position', 'position must be a number');
     }
 
     try {

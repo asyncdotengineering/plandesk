@@ -1,3 +1,4 @@
+import { invalidArgument } from './errors.js';
 import { Hono } from 'hono';
 import type { SearchService } from '../services/search.js';
 
@@ -11,7 +12,7 @@ export function createSearchRouter(searchService: SearchService): Hono {
     const limitRaw = c.req.query('limit');
     const limit = limitRaw === undefined ? undefined : Number(limitRaw);
     if (limitRaw !== undefined && (Number.isNaN(limit) || limit === undefined)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'limit', 'limit must be a number');
     }
 
     const result = await searchService.search({

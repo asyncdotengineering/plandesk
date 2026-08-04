@@ -1,3 +1,4 @@
+import { invalidRequest } from './errors.js';
 import { Hono } from 'hono';
 import type { LinkEntityType } from '@plandesk/db';
 import { InvalidCanvasError, type CanvasService } from '../services/canvas.js';
@@ -21,7 +22,7 @@ export function createCanvasRouter(canvasService: CanvasService): Hono {
     }>();
 
     if (!Array.isArray(body.nodes) || !Array.isArray(body.edges)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidRequest(c, 'nodes and edges must both be arrays');
     }
 
     for (const node of body.nodes) {
@@ -31,7 +32,7 @@ export function createCanvasRouter(canvasService: CanvasService): Hono {
         typeof (node as { x?: unknown }).x !== 'number' ||
         typeof (node as { y?: unknown }).y !== 'number'
       ) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, 'each node must be an object with numeric x and y');
       }
     }
 
@@ -42,7 +43,7 @@ export function createCanvasRouter(canvasService: CanvasService): Hono {
         typeof (edge as { from_task_id?: unknown }).from_task_id !== 'string' ||
         typeof (edge as { to_task_id?: unknown }).to_task_id !== 'string'
       ) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, 'each edge must be an object with string from_task_id and to_task_id');
       }
     }
 
@@ -60,7 +61,7 @@ export function createCanvasRouter(canvasService: CanvasService): Hono {
       return c.json(canvas);
     } catch (error) {
       if (error instanceof InvalidCanvasError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }
@@ -107,7 +108,7 @@ export function createCanvasRouter(canvasService: CanvasService): Hono {
       return c.json(edge, 201);
     } catch (error) {
       if (error instanceof InvalidCanvasError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }

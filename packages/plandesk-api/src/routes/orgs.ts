@@ -1,3 +1,4 @@
+import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
 import {
   getProjectInOrg,
@@ -148,7 +149,7 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
 
     const body = await c.req.json<{ name?: unknown }>();
     if (typeof body.name !== 'string' || body.name.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'name', 'name is required and must be a non-empty string');
     }
     const name = body.name.trim();
 
@@ -181,7 +182,7 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     let permissions: PermissionSet | undefined;
     if (body.permissions !== undefined) {
       if (!isPermissionSet(body.permissions)) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidArgument(c, 'permissions', 'permissions must be a valid permission set');
       }
       permissions = body.permissions;
     }
@@ -189,7 +190,7 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     let name: string | undefined;
     if (body.name !== undefined) {
       if (typeof body.name !== 'string' || body.name.trim() === '') {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidArgument(c, 'name', 'name is required and must be a non-empty string');
       }
       name = body.name.trim();
     }
@@ -203,7 +204,7 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     const hasTeamId = typeof body.team_id === 'string' && body.team_id.trim() !== '';
 
     if (hasProjectId && hasTeamId) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidRequest(c, 'project_id and team_id are mutually exclusive — provide exactly one');
     }
 
     if (hasProjectId) {
@@ -256,7 +257,7 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
       return c.json({ token: minted.key, team_id: teamId }, 200);
     }
 
-    return c.json({ error: 'invalid_argument' }, 400);
+    return invalidRequest(c, 'provide exactly one of project_id or team_id');
   });
 
   /**
@@ -304,10 +305,10 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
 
     const body = await c.req.json<{ email?: string; role?: string; team_id?: string }>();
     if (typeof body.email !== 'string' || body.email.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'email', 'email is required and must be a non-empty string');
     }
     if (typeof body.role !== 'string' || !isInvitationRole(body.role)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'role', 'role must be a string');
     }
     if (typeof body.team_id !== 'string' || body.team_id.trim() === '') {
       return c.json({ error: 'invalid_argument', message: 'team_id is required' }, 400);
@@ -357,7 +358,7 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     }
     const invitationId = c.req.param('invitationId');
     if (invitationId.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'invitationId', 'invitationId path parameter must not be empty');
     }
     const preview = await getInvitationPreview(betterAuth, invitationId);
     if (preview === undefined) {
@@ -376,7 +377,7 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     }
     const invitationId = c.req.param('invitationId');
     if (invitationId.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'invitationId', 'invitationId path parameter must not be empty');
     }
 
     const session = await betterAuth.api.getSession({ headers: c.req.raw.headers });
@@ -442,14 +443,14 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     try {
       body = await c.req.json();
     } catch {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidRequest(c, 'request body must be valid JSON');
     }
     if (body === null || typeof body !== 'object') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidRequest(c, 'request body must be a JSON object');
     }
     const data = body as PlandeskExportInput;
     if (typeof data.version !== 'string' || data.version !== PLANDESK_EXPORT_VERSION) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'version', `version must be ${PLANDESK_EXPORT_VERSION}`);
     }
     try {
       // orgId always from authenticated path/context — never from the body.
@@ -457,7 +458,7 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
       return c.json({ globalProjectId: projectId }, 201);
     } catch (err) {
       if (err instanceof InvalidExportVersionError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, err.message);
       }
       throw err;
     }

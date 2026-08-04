@@ -88,7 +88,7 @@ describe('prototypes routes', () => {
       }),
     });
     expect(markdown.status).toBe(400);
-    expect(await parseJson<{ error: string }>(markdown)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson<{ error: string }>(markdown)).toMatchObject({ error: 'invalid_argument' });
 
     const foreignProtoRes = await app.request(`/api/v1/projects/${other.id}/prototypes`, {
       method: 'POST',
@@ -108,7 +108,7 @@ describe('prototypes routes', () => {
       }),
     });
     expect(cross.status).toBe(400);
-    expect(await parseJson<{ error: string }>(cross)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson<{ error: string }>(cross)).toMatchObject({ error: 'invalid_argument' });
   });
 
   it('refuses external references at write with 422 naming every offender', async () => {
@@ -146,5 +146,49 @@ describe('prototypes routes', () => {
         '//images.example/y.png',
       ]),
     );
+  });
+});
+
+/*
+ * The reproduction from plandesk#51: nine payload shapes, including `{}`, all
+ * returned a byte-identical `{ error: 'invalid_argument' }`, so the endpoint was
+ * reported as not existing. These assert the request shape is now discoverable
+ * by probing — which is the only way a caller who does not know it can learn it.
+ */
+describe('prototype create tells the caller which field is wrong', () => {
+  it('names `name` for an empty body', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Protos' });
+
+    const res = await app.request(`/api/v1/projects/${project.id}/prototypes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await parseJson<{ error: string; field?: string }>(res)).toMatchObject({
+      error: 'invalid_argument',
+      field: 'name',
+    });
+  });
+
+  // The branch used to test viewport_width and viewport_height together, so a
+  // bad height would have been reported as a width problem. Splitting them is
+  // what this asserts — naming the wrong field is worse than naming none.
+  it('names the viewport field that actually failed, not the first one checked', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Protos' });
+
+    const res = await app.request(`/api/v1/projects/${project.id}/prototypes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Checkout', viewport_width: 390, viewport_height: 'tall' }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await parseJson<{ error: string; field?: string; message?: string }>(res);
+    expect(body.field).toBe('viewport_height');
+    expect(body.message).toContain('finite number');
   });
 });

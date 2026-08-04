@@ -110,7 +110,7 @@ describe('folders routes', () => {
       body: JSON.stringify({ parent_folder_id: b.id }),
     });
     expect(cycleRes.status).toBe(400);
-    expect(await parseJson<{ error: string }>(cycleRes)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson<{ error: string }>(cycleRes)).toMatchObject({ error: 'invalid_argument' });
   });
 
   it('DELETE moves child folders and documents to the parent instead of orphaning', async () => {

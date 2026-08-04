@@ -1,3 +1,4 @@
+import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
 import {
   artifactKinds,
@@ -113,10 +114,10 @@ export function createArtifactsRouter(
   router.post('/projects/:id/artifacts', async (c) => {
     const body = await c.req.json<CreateArtifactBody>();
     if (typeof body.title !== 'string' || body.title.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'title', 'title is required and must be a non-empty string');
     }
     if (body.kind !== undefined && !isValidKind(body.kind)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'kind', 'kind must be a valid valid kind');
     }
 
     try {
@@ -138,7 +139,7 @@ export function createArtifactsRouter(
         return scan;
       }
       if (error instanceof InvalidArtifactError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }
@@ -153,11 +154,11 @@ export function createArtifactsRouter(
     const projectId = c.req.param('id');
     const body = (await c.req.json().catch(() => ({}))) as MintRenderTokenBody;
     if (!Array.isArray(body.prototype_ids)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'prototype_ids', 'prototype_ids must be an array');
     }
     const prototypeIds = body.prototype_ids.filter((id): id is string => typeof id === 'string');
     if (prototypeIds.length !== body.prototype_ids.length) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'prototype_ids', 'prototype_ids is not valid');
     }
 
     try {
@@ -209,7 +210,7 @@ export function createArtifactsRouter(
   router.post('/artifacts/:id/move', async (c) => {
     const body = await c.req.json<MoveCopyBody>();
     if (typeof body.prototype_id !== 'string' || body.prototype_id.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'prototype_id', 'prototype_id is required and must be a non-empty string');
     }
     try {
       const artifact = await artifactService.move(c.req.param('id'), body.prototype_id);
@@ -223,7 +224,7 @@ export function createArtifactsRouter(
         return scan;
       }
       if (error instanceof InvalidArtifactError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }
@@ -232,7 +233,7 @@ export function createArtifactsRouter(
   router.post('/artifacts/:id/copy', async (c) => {
     const body = await c.req.json<MoveCopyBody>();
     if (typeof body.prototype_id !== 'string' || body.prototype_id.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'prototype_id', 'prototype_id is required and must be a non-empty string');
     }
     try {
       const artifact = await artifactService.copy(c.req.param('id'), body.prototype_id);
@@ -246,7 +247,7 @@ export function createArtifactsRouter(
         return scan;
       }
       if (error instanceof InvalidArtifactError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }
@@ -310,13 +311,13 @@ export function createArtifactsRouter(
   router.patch('/artifacts/:id', async (c) => {
     const body = await c.req.json<UpdateArtifactBody>();
     if (body.kind !== undefined && !isValidKind(body.kind)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'kind', 'kind must be a valid valid kind');
     }
     if (body.x !== undefined && body.x !== null && !Number.isFinite(body.x)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'x', 'x must be a finite number');
     }
     if (body.y !== undefined && body.y !== null && !Number.isFinite(body.y)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'y', 'y must be a finite number');
     }
 
     try {
@@ -340,7 +341,7 @@ export function createArtifactsRouter(
         return scan;
       }
       if (error instanceof InvalidArtifactError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }

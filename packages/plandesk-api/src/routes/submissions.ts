@@ -1,3 +1,4 @@
+import { invalidArgument } from './errors.js';
 import { Hono } from 'hono';
 import { shareSubmissionStatuses, type ShareSubmissionStatus } from '@plandesk/db';
 import {
@@ -35,7 +36,7 @@ export function createSubmissionsRouter(
 
     const statusParam = c.req.query('status') ?? 'pending';
     if (!isSubmissionStatus(statusParam)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'status', 'status must be a valid submission status');
     }
 
     return c.json(await syncService.listTriage(projectId, statusParam));
@@ -46,7 +47,7 @@ export function createSubmissionsRouter(
     const body = await c.req.json<TriageBody>();
 
     if (body.action !== 'accept' && body.action !== 'reject') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'action', 'action is not valid');
     }
 
     const submission = await syncService.getSubmission(submissionId);

@@ -1,3 +1,4 @@
+import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
 import {
   InvalidTaskStatusError,
@@ -41,11 +42,11 @@ export function createTasksRouter(taskService: TaskService): Hono {
     }>();
 
     if (body.status !== undefined && !isTaskStatus(body.status)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'status', 'status must be a valid task status');
     }
 
     if (body.kind !== undefined && !isTaskKind(body.kind)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'kind', 'kind must be a valid task kind');
     }
 
     if (
@@ -53,18 +54,18 @@ export function createTasksRouter(taskService: TaskService): Hono {
       body.priority !== null &&
       !isTaskPriority(body.priority)
     ) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'priority', 'priority must be a valid task priority');
     }
 
     if (body.lane !== undefined && body.lane !== null && !isTaskLane(body.lane)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'lane', 'lane must be a valid task lane');
     }
     if (body.severity !== undefined && body.severity !== null && !isTaskSeverity(body.severity)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'severity', 'severity must be a valid task severity');
     }
 
     if (body.tags !== undefined && !isStringArray(body.tags)) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'tags', 'tags must be an array of strings');
     }
 
     let commitRefs: string[] | null | undefined;
@@ -75,7 +76,7 @@ export function createTasksRouter(taskService: TaskService): Hono {
     } else if (isStringArray(body.commit_refs) && isValidCommitRefs(body.commit_refs)) {
       commitRefs = normalizeCommitRefs(body.commit_refs);
     } else {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'commit_refs', 'commit_refs must be an array of strings');
     }
 
     try {
@@ -109,7 +110,7 @@ export function createTasksRouter(taskService: TaskService): Hono {
         error instanceof InvalidCommitRefsError ||
         error instanceof UnstoredColumnError
       ) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }
@@ -126,7 +127,7 @@ export function createTasksRouter(taskService: TaskService): Hono {
   router.post('/tasks/:id/claim', async (c) => {
     const body = await c.req.json<{ agent_ref?: string }>();
     if (typeof body.agent_ref !== 'string' || body.agent_ref.length === 0) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'agent_ref', 'agent_ref must be a string');
     }
 
     const result = await taskService.claim(c.req.param('id'), body.agent_ref);

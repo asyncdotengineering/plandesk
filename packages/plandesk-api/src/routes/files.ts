@@ -1,3 +1,4 @@
+import { invalidArgument } from './errors.js';
 import { Hono } from 'hono';
 import type { Db } from '@plandesk/db';
 import { runWithAuthContext } from '../auth-context.js';
@@ -61,13 +62,13 @@ export function createFilesRouter(fileService: FileService, deps: FilesRouterDep
     const body = await c.req.json<UploadFileBody>();
 
     if (typeof body.filename !== 'string' || body.filename.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'filename', 'filename is required and must be a non-empty string');
     }
     if (typeof body.mime !== 'string' || body.mime.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'mime', 'mime is required and must be a non-empty string');
     }
     if (typeof body.content_base64 !== 'string' || body.content_base64.length === 0) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'content_base64', 'content_base64 must be a string');
     }
 
     const bytes = Buffer.from(body.content_base64, 'base64');

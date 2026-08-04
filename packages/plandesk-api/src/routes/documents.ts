@@ -1,3 +1,4 @@
+import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
 import { InvalidDocumentError, type DocumentService } from '../services/documents.js';
 import { parsePaginationParams } from '../serialize.js';
@@ -24,7 +25,7 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
   router.get('/projects/:id/documents', async (c) => {
     const pagination = parsePaginationParams(c.req.query('limit'), c.req.query('offset'));
     if (pagination === 'invalid') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidRequest(c, 'limit and offset must be non-negative integers');
     }
     const tree = await documentService.listTree(c.req.param('id'), pagination);
     if (!tree) {
@@ -36,7 +37,7 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
   router.post('/projects/:id/documents', async (c) => {
     const body = await c.req.json<CreateDocumentBody>();
     if (typeof body.title !== 'string' || body.title.trim() === '') {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'title', 'title is required and must be a non-empty string');
     }
 
     try {
@@ -55,7 +56,7 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
       return c.json(document, 201);
     } catch (error) {
       if (error instanceof InvalidDocumentError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }
@@ -88,7 +89,7 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
       return c.json(document);
     } catch (error) {
       if (error instanceof InvalidDocumentError) {
-        return c.json({ error: 'invalid_argument' }, 400);
+        return invalidRequest(c, error.message);
       }
       throw error;
     }
@@ -116,7 +117,7 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
       !Array.isArray(body.labels) ||
       !body.labels.every((item): item is string => typeof item === 'string')
     ) {
-      return c.json({ error: 'invalid_argument' }, 400);
+      return invalidArgument(c, 'labels', 'labels must be an array');
     }
 
     const result = await documentService.convertBullets(c.req.param('id'), body.labels);

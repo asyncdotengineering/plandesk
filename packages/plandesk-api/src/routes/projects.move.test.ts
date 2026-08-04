@@ -264,7 +264,7 @@ describe('PATCH /api/v1/projects/:id { workspace_id } (move project, REQ-A2)', (
       }),
     });
     expect(res.status).toBe(400);
-    expect(await parseJson(res)).toEqual({ error: 'invalid_argument' });
+    expect(await parseJson(res)).toMatchObject({ error: 'invalid_argument' });
 
     const getRes = await app.request(`/api/v1/projects/${project.id}`, {
       headers: bearer(ownerKey.key),
