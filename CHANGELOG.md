@@ -4,6 +4,28 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+## [3.2.1] — 2026-08-05
+
+`@plandesk/api`, `@plandesk/mcp` and `@plandesk/cli` move to 3.2.1. `@plandesk/db` is unchanged and stays at 3.2.0. The CLI is republished only so its pinned dependency versions point at the fixed api and mcp — a global install otherwise keeps resolving the 3.2.0 pair.
+
+### Fixed
+
+- **A project created over MCP now lands in the workspace the repo is bound to, not the org default.** Creating one from a repo bound to a non-default workspace put it in the org-default workspace, and every follow-up call then failed `not_found` because reads are workspace-scoped. The project was write-once and orphaned: created successfully, unreachable by the agent that had just created it.
+
+  The workspace was already on the wire and ignored on exactly this path. `plandesk connect` writes `x-plandesk-workspace-id` into the MCP server entry, the API parses it into the loopback auth context, and search consults it — which is precisely why `list_projects` scoped correctly while creates did not.
+
+  Resolution order is now explicit `workspace_id` → API-key workspace → loopback header → org default. The API-key branch is unchanged and still binds; the header defaults rather than constrains, because it is documented as not a security boundary. `workspace_id` is a new optional parameter on `create_project` and `scaffold_project_from_plan`.
+
+  A header naming a workspace that is not a real team is now refused rather than silently falling back. Falling back would move the silent-wrong-workspace failure down one branch instead of removing it. If you see this after a local database reset, re-run `plandesk connect`.
+
+- **REST validation errors name the field that failed.** Every 400 returned `{ "error": "invalid_argument" }` and nothing else, from 120 sites across 19 route files, so a caller who did not already know a route's shape could not discover it by probing — every wrong guess produced a byte-identical response. Responses now carry `field` and `message` alongside the unchanged `error` code.
+
+  This is what made `POST /projects/:id/prototypes` get reported as a non-existent endpoint: nine payload shapes, including `{}`, all returned the same bare string. The prototype route also validated `viewport_width` and `viewport_height` in one branch, so a bad height was reported as a width problem; those are now separate.
+
+  A test asserts no route returns the bare form, so a new handler cannot inherit it by default.
+
+- **Workspace 404s carry their message.** The usual cause is a stale binding, and a bare `not_found` reads as though the project itself were missing.
+
 ## [3.2.0] — 2026-08-04
 
 `@plandesk/api`, `@plandesk/cli`, `@plandesk/db` and `@plandesk/mcp` all move to 3.2.0. The web SPA ships inside `@plandesk/api`, so the Flow fix below only reaches an installed board when that package is republished.
