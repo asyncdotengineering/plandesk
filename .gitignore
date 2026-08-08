@@ -38,7 +38,9 @@ plandesk.server.json
 .dev.vars.*
 
 # transient dispatch state (briefs, logs, results) — factory.md
-runs/
+# metrics.jsonl is the exception: it is the routing/lane evidence and is tracked
+runs/*
+!runs/metrics.jsonl
 .handoff/
 scratchpad/
 .plandesk/artifact-pushes.json

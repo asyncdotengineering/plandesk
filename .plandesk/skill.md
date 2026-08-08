@@ -121,7 +121,12 @@ one-off single addition, not for standing up a whole plan.
   5. **Validation contract** — the specific test, command, or observable
      outcome that proves this task done; align it to the parent Goal's
      `verification_surface` when the task belongs to one.
-  6. **References** — linked documents or related tasks.
+  6. **Non-goals** — the adjacent work this task explicitly does not do, and
+     where it lands instead (an edge or another task). Required when the task
+     borders other planned work or its label invites a broader reading; skip
+     only when the boundary is unambiguous. A worker with no boundary stated
+     will helpfully build past it.
+  7. **References** — linked documents or related tasks.
 - Descriptions stay consumer-clean: no internal RFC/PRD/ticket references
   embedded in the text — link a Plan Desk document instead of citing an
   external ticket ID inline.
@@ -309,7 +314,7 @@ inline, an attached `plandesk://file/`, or a curated `plandesk://lib/`.
 ### Authoring skill
 
 Flow-first conventions, mandatory unhappy paths, and the full authoring
-loop live in `.claude/skills/plandesk-prototype/SKILL.md` (and its
+loop live in `.agents/skills/plandesk-prototype/SKILL.md` (and its
 `references/`). Read that skill when building or revising a prototype;
 this section is the scheme and surface, not a second copy of those rules.
 

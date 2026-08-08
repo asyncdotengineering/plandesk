@@ -93,6 +93,7 @@ describe('runFactoryInit', () => {
       '.agents/factory/execution.md',
       '.agents/factory/slicing.md',
       '.agents/factory/brief.md',
+      '.agents/factory/brief-template.md',
       '.agents/factory/heartbeat.md',
       '.agents/factory/protocol.md',
       '.agents/factory/lanes.md',

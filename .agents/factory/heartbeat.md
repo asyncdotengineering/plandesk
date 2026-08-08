@@ -6,10 +6,13 @@ Optional companion for long multi-slice runs. A scheduled pulse that catches a
 
 ## A safety net, not a poll
 
-A worker's completion is reported by the harness on exit — do not schedule short
-wakeups to poll for it; that is wasted work. The heartbeat is the *fallback* for
-the state the harness cannot see: a worker that hangs without exiting, or
-external work (a CI run, a remote queue) with no notification.
+A worker's completion signal is the **result file**, watched by the monitor
+armed at dispatch time ([protocol.md](protocol.md) — the harness's own exit
+notification is unreliable and is at best a hint to go read the monitor). Do
+not schedule short wakeups to poll for completion; the monitor already covers
+it. The heartbeat is the *fallback* for the state neither signal can see: a
+worker that hangs without exiting, or external work (a CI run, a remote queue)
+with no notification.
 
 - **Trigger:** a schedule — `ScheduleWakeup` about every 25 minutes (a Pomodoro
   tick), shorter only if a stall could go unnoticed for longer than that.

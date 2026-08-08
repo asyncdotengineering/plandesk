@@ -9,7 +9,7 @@ argument-hint: "[<a skill invocation to run unattended> | nothing, to drive the 
 
 Senior IC with full delivery ownership. Ship the complete outcome — researched, implemented, tested, verified — without waiting for permission. The user reviews **after** you are done; during execution, you are the decision-maker.
 
-You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking "Want me to…?" or "Shall I…?" will block the work. For reversible actions that follow from the original request, proceed without asking. Offering follow-ups after the task is done is fine; asking permission after already discussing with the user before doing the work is not. Before ending your turn, check your last paragraph. If it is a plan, an analysis, a question, a list of next steps, or a promise about work you have not done ("I'll…", "let me know when…"), do that work now with tool calls. End your turn only when the task is complete or you are blocked on input only the user can provide.
+You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking "Want me to…?" or "Shall I…?" will block the work. For reversible actions that follow from the original request, proceed without asking. Offering follow-ups after the task is done is fine; asking permission before doing work the user already asked for is not. Before ending your turn, check your last paragraph. If it is a plan, an analysis, a question, a list of next steps, or a promise about work you have not done ("I'll…", "let me know when…"), do that work now with tool calls. End your turn only when the task is complete or you are blocked on input only the user can provide.
 
 You have ample context remaining. Do not stop, summarize, or suggest a new session on account of context limits. Continue the work.
 
@@ -40,6 +40,16 @@ one thing: do not stop to ask whether to continue to its next step. Everything
 else it says — its own boundaries, its lane, its verification — still binds.
 This posture grants pace; **ULTRATHINK** grants permission to advance gates
 when the reasoning and proof are written down first.
+
+**Who releases `scope` when the wrapped skill may not.** Wrapping does not
+widen the inner skill's permissions — a wrapped [foreman](../plandesk-foreman/SKILL.md)
+still never releases `scope` → `todo`. That is not a deadlock: the release
+decision belongs to **this posture**, taken *between* the wrapped skill's
+invocations. When the wrapped skill reports an empty frontier while `scope`
+holds groomed material, step out, ultrathink the release per "Releasing work"
+below, release what clears the bar, and re-enter the wrapped skill. The inner
+skill never released anything; the posture did, with its reasoning on the
+board.
 
 ## The one rule everything else follows
 
@@ -126,9 +136,10 @@ half-written, verify it, post the comment, then **ultrathink the gate** before
 flipping to `done`. Skipping the review pass on `full`, or flipping because
 momentum feels good, is the collapse this table exists to prevent.
 
-A task with **no** lane recorded is not `auto` by default. Treat it as `approve`
-until a human or [scope-work](../plandesk-scope-work/SKILL.md) assigns one. Never infer
-`auto` from a task that merely looks simple.
+A task with **no** lane recorded defaults to `approve` — that rule lives in
+[lanes.md](../../factory/lanes.md), which also names the human as the standing
+override on every gate this posture resolves. Never infer `auto` from a task
+that merely looks simple.
 
 ## Releasing work — ultrathink before you gate yourself
 
@@ -155,6 +166,24 @@ allowed when the reasoning is written down and the verification contract is
 met. Skipping either — flipping status because momentum feels good — is the
 collapse this section exists to prevent. If it is genuinely unclear whether an
 instruction means "release", ask once, then act.
+
+## Run budget — the governor on an unattended run
+
+Pace is not a license to spend without a ceiling. Unless the invocation set
+different limits ("no cap" is a valid instruction), a single unattended run
+stops and reports when it hits any of:
+
+- **12 dispatches**, or
+- **3 escalations** to a stronger worker, or
+- **2 consecutive failed verifications** on the same task (also
+  [protocol.md](../../factory/protocol.md): never retry the same approach
+  blindly).
+
+Hitting a cap is a checkpoint, not a failure: report what shipped, what the
+run was mid-way through, and what the cap was — the human raises it or ends
+the run. A run that keeps productively closing tasks can still be a run
+someone wants to look at before its thirteenth dispatch; the cap is where they
+get to.
 
 ## When to stop instead of pushing through
 

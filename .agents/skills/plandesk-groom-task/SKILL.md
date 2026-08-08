@@ -74,6 +74,7 @@ enough yet:
 | **Interfaces** | signatures, endpoint shapes, CLI flags, config keys written out exactly | "add an API for it"; a type named but never shaped |
 | **Pseudocode** | control flow for behavior the interfaces don't already make obvious | absent on non-obvious behavior — fine to skip on a small single-path edit |
 | **Validation contract** | a command or observable outcome a third party can run, aligned to the parent Goal's `verification_surface` | "tests pass"; "it works"; nothing |
+| **Non-goals** | names the adjacent work this task will not do and where it lands instead (an edge or another task) — fine to skip when the boundary is unambiguous | absent while the label or Problem invites a broader reading; "out of scope: everything else" |
 | **References** | the linked documents and related tasks, as links | a dangling mention of an external ticket ID |
 
 Outside the description, two more rows: a **lane** from
@@ -190,6 +191,13 @@ So: extend only from the source. Where the source runs out, the honest output is
 an open question, not a confident paragraph. `Inferred:` on anything derived.
 When the inference is load-bearing — it changes what gets built, not just how it
 is described — the row stays not-ready until a human confirms it.
+
+The **Non-goals** row is the containment for the same failure on the worker's
+side: an agent handed a task with no stated boundary expands into the adjacent
+surface it can imagine, and the expansion reads as diligence rather than drift.
+Stating what this task does not do — and where that work lives instead — is
+grooming's half of the fence; the WBS snapshot's "owned by later items — do not
+touch" line (protocol.md) is dispatch's half.
 
 ## Boundaries
 

@@ -35,8 +35,8 @@ already have.
 
 Timebox is harness-neutral. Prefer the scheduler and shell tools your runtime
 exposes; fall back to the portable stamp when it does not. **Never poll** — do
-not schedule short wakeups to check on background work the harness already
-notifies on; that is wasted work ([heartbeat.md](../../factory/heartbeat.md)).
+not schedule short wakeups to check on background work the dispatch monitor
+already watches; that is wasted work ([heartbeat.md](../../factory/heartbeat.md)).
 
 | capability | Cursor | Claude Code | Codex | Pi | OpenCode |
 | --- | --- | --- | --- | --- | --- |
@@ -57,8 +57,10 @@ notifies on; that is wasted work ([heartbeat.md](../../factory/heartbeat.md)).
    OpenCode loop tools), use it only to **resume this run across turns** after
    a checkpoint — not to re-fire an expensive slash command verbatim.
 4. **Background through the harness** — dispatch workers with `run_in_background`
-   (never `&` / `nohup`); wait with the harness completion signal (`Await`, result
-   file, monitor `onDone`). See [protocol.md](../../factory/protocol.md).
+   (never `&` / `nohup`); completion is the **result file**
+   (`runs/result-<task>.json`), watched by the monitor armed at dispatch —
+   `Await` the monitor shell, and treat the harness's own exit notification as
+   a hint only. See [protocol.md](../../factory/protocol.md).
 
 **Claude Code specifics.** `ScheduleWakeup` clamps `delaySeconds` to 60–3600.
 Pass a plain continuation prompt ("Continue timebox box 3; pick up item X from
@@ -194,7 +196,8 @@ the moment the list gets re-derived from reality rather than from memory.
 - **`date +%s` always works; schedulers are optional.** Do not fail to timebox
   because `ScheduleWakeup` is absent — the stamp at item boundaries is the
   portable core.
-- **Never poll background work on a timer.** The harness notifies on completion;
+- **Never poll background work on a timer.** The dispatch monitor watches the
+  result file and reports completion ([protocol.md](../../factory/protocol.md));
   heartbeat wakeups are for stall detection only ([heartbeat.md](../../factory/heartbeat.md)).
 - The clock is read at boundaries, so it is only as granular as your items. One
   90-minute item inside a 25-minute box produces one box, not four — that is

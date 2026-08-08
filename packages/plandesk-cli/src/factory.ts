@@ -119,6 +119,10 @@ export function buildBriefMarkdown(): string {
   return readTemplate('factory/brief.md');
 }
 
+export function buildBriefTemplateMarkdown(): string {
+  return readTemplate('factory/brief-template.md');
+}
+
 export function buildHeartbeatMarkdown(): string {
   return readTemplate('factory/heartbeat.md');
 }
@@ -325,6 +329,7 @@ export function authoredFactoryFiles(repoDir: string): SyncableFile[] {
     { path: join(factoryDir, 'execution.md'), content: buildExecutionMarkdown() },
     { path: join(factoryDir, 'slicing.md'), content: buildSlicingMarkdown() },
     { path: join(factoryDir, 'brief.md'), content: buildBriefMarkdown() },
+    { path: join(factoryDir, 'brief-template.md'), content: buildBriefTemplateMarkdown() },
     { path: join(factoryDir, 'heartbeat.md'), content: buildHeartbeatMarkdown() },
     { path: join(factoryDir, 'protocol.md'), content: buildProtocolMarkdown() },
     { path: join(factoryDir, 'routing.md'), content: buildRoutingMarkdown() },

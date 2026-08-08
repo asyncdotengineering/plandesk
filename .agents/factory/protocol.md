@@ -38,7 +38,25 @@ outcome. Three ways it is invalid, all treated as a failed dispatch:
    only the file's `command` template, with `{prompt_file}` and `{repo_path}`
    substituted.
    Which worker suits which task is data: [routing.md](routing.md).
-2. Write the brief to `runs/brief-<task>.md`. It carries five things:
+2. **Reset the task's `runs/` state, then capture the baseline.** A previous
+   attempt's result file is a loaded gun: the monitor treats
+   `runs/result-<task>.json` as the completion signal, so a stale one fires
+   "done" the instant the new dispatch starts, for a worker that has not
+   begun. Move it aside — `mv runs/result-<task>.json
+   runs/result-<task>.attempt-N.json` — and rotate the log the same way: the
+   redirect is `>`, which overwrites, and a failed attempt's log is the
+   evidence the failure analysis needs. Then record what the world looked
+   like before the worker touched it: tee the red-gate run (factory.md step
+   3) with its per-package test counts to `runs/baseline-<task>.txt` —
+   verification diffs against exactly this file, and a baseline nobody
+   captured is a check nobody can run.
+3. Write the brief to `runs/brief-<task>.md`, starting from
+   [brief-template.md](brief-template.md) — copy it, substitute every
+   placeholder, paste [workmanship.md](workmanship.md) in full where marked.
+   A section dropped from a hand-built brief is the documented cause of runs
+   that produce code but no verifiable result. **No secrets in a brief,
+   ever** — the share link is public to whoever holds it, and the worker's
+   log reprints whatever the brief contains. It carries five things:
 
    | section | content | live or frozen |
    | --- | --- | --- |
@@ -52,7 +70,7 @@ outcome. Three ways it is invalid, all treated as a failed dispatch:
    never pasted** — a human editing it mid-flight should reach the worker.
    **The WBS is pasted, never linked** — a board re-ordered mid-dispatch must
    not silently redirect a worker that is already building.
-3. Run the command. One process per dispatch, headless.
+4. Run the command. One process per dispatch, headless.
 
 ### The WBS snapshot
 
@@ -217,6 +235,7 @@ the reason the previous slice is committed before the next one starts.
   git status --porcelain          # did anything change at all?
   stat -f '%Sm' -t '%H:%M:%S' <a file the result claims to have edited> \
                               runs/result-<task>.json
+  # (BSD/macOS stat; on Linux: stat -c '%y' <file> runs/result-<task>.json)
   ```
 
   A file whose mtime predates the result was not written by that dispatch.
@@ -248,6 +267,12 @@ the reason the previous slice is committed before the next one starts.
   `@ts-nocheck` is the dangerous one — one line silences a whole file. Keep the
   word boundary on `\bxit\(`: unanchored, it matches the tail of `process.exit(`
   and fails an honest dispatch for adding a CLI exit code.
+- **Claims must cover every gate the brief named.** Re-running proves the
+  claims that exist; it says nothing about the gate a worker skipped. Compare
+  the result's claims against the brief's ground section: a result that omits
+  any named gate command is invalid — same as no result file — even when every
+  claim it does carry re-runs green. A worker that honestly ran only the lint
+  gate has honestly not satisfied the dispatch.
 - Re-run each claimed command; a claim whose re-run exit code differs from the
   claimed one is a false claim — treat the dispatch as failed, record it, and
   do not retry the same approach blindly.
@@ -263,7 +288,8 @@ the reason the previous slice is committed before the next one starts.
 - **A green suite does not prove an assertion is covered.** A worker maps
   `satisfies_assertions` onto a claim by hand, so `pnpm test` exiting 0 says the
   suite passed — never that a test for REQ-N exists. Diff the per-package test
-  counts against the pre-dispatch baseline: a requirement whose package gained
+  counts against the pre-dispatch baseline (`runs/baseline-<task>.txt`,
+  captured at dispatch step 2): a requirement whose package gained
   **zero** tests is unproven, whatever the proof file asserts. (Observed: a
   dispatch claimed REQ-5 — an entire new CLI command — satisfied by `tests`,
   while that package's count sat unchanged at 208.)
@@ -311,10 +337,15 @@ Model output is metadata.
   unstaged work. Staged, it would have been restored from the index untouched.
   Staging also gives a clean review boundary — `git diff --staged` is the
   worker's output, and anything you fix afterwards shows up unstaged.
-- **Commit every verified work item immediately** ([factory.md](factory.md):
-  one work item, one commit). Staging survives `git checkout -- <path>`; only a
-  commit survives `git checkout HEAD -- <path>`. Never defer a commit to batch
-  it with a later gate.
+- **Commit the moment the item's lane gate clears** ([factory.md](factory.md):
+  one work item, one commit — gate first, commit second). For `auto` that is
+  right after your own verification; for `approve`/`full` it is the moment the
+  gate is resolved (human, or autonomy with reasoning posted). Until the gate
+  clears the work stays staged — protected from `git checkout`, but not yet
+  history a human would have to revert. Once cleared, never defer the commit to
+  batch it with other items: staging survives `git checkout -- <path>`, only a
+  commit survives `git checkout HEAD -- <path>`, and only a push survives
+  `git reset --hard`.
 - **Never recover source from `dist/`.** Compiled output has no type
   annotations; "restoring" TypeScript from it produces code that emits but
   cannot typecheck, which then invites suppressions to hide the damage. If

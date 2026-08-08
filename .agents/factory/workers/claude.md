@@ -6,7 +6,8 @@ command: claude --dangerously-skip-permissions --model sonnet -p < {prompt_file}
 
 # claude
 
-Default implementation worker. **`--model sonnet`** is pinned in the command
+Implementation worker. Which worker is the default IC is routing data, not a
+worker-file fact — see [../routing.md](../routing.md). **`--model sonnet`** is pinned in the command
 (the alias, not a dated id; never a `[1m]` variant). stdin IS the prompt — do
 not add `< /dev/null`.
 

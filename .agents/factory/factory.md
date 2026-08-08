@@ -9,6 +9,11 @@ How delegated agent work cycles run in this repository. The bound Plan Desk
 project is the scheduler and the single source of truth for work items; this
 file is the policy the supervising agent follows.
 
+**Precedence.** Where factory files disagree, this file wins, then
+[protocol.md](protocol.md), then [lanes.md](lanes.md)/[routing.md](routing.md),
+then skills. A conflict between files is a bug — fix the losing file as part of
+the cycle rather than working around it.
+
 ## The cycle (one work item)
 
 One work item at a time, one dispatch, one commit. Slice cutting, parallel
@@ -33,12 +38,16 @@ them — [slicing.md](slicing.md), [brief.md](brief.md), [heartbeat.md](heartbea
 6. **Observe** — read the diff (the hunks, not the worker transcript) before
    any status change.
 7. **Gate** — apply the task's lane from [lanes.md](lanes.md): `auto`
-   proceeds, `approve` waits on a human resolving the diff-summary comment,
-   `full` runs an independent review plus a human.
-8. **Ship** — flip the task to `done` atomically with the verification,
-   commit that work item's diff as one atomic commit (subject references the
-   task), call `record_agent_progress`, and append one line to
-   `runs/metrics.jsonl` (cost, duration, lane, worker, verdicts).
+   proceeds; `approve` and `full` need their gate resolved — by a human when
+   attended, or by the agent itself under
+   [plandesk-autonomy](../skills/plandesk-autonomy/SKILL.md) with the
+   reasoning chain posted first (lanes.md names who may resolve; the posted
+   comment is the human's override surface either way).
+8. **Ship** — only after the gate has cleared: append the cycle's line to
+   `runs/metrics.jsonl` (cost, duration, lane, worker, verdicts), flip the
+   task to `done` atomically with the verification, commit that work item's
+   diff — metrics line included — as one atomic commit (subject references
+   the task), and call `record_agent_progress`.
 
 ## Supervisor posture — IC-first execution
 
@@ -91,13 +100,21 @@ human, what failed and why. Leave the board true.
 - Statuses flip atomically with the work event, never in batches.
 - **One work item, one commit.** Commit only after the lane gate clears — for
   `auto`, right after your own verification; for `approve`/`full`, only once
-  the human has resolved the gate and the task is `done`. The commit holds
-  exactly that item's changes and its subject names the task, so git history
-  stays 1:1 with the board. Never batch several done items into one commit, and
-  never commit work whose gate hasn't cleared.
+  the gate has been resolved (a human when attended; the agent under
+  [plandesk-autonomy](../skills/plandesk-autonomy/SKILL.md) with reasoning
+  posted) and the task is `done`. Until then the work stays **staged** — see
+  protocol.md's *Protecting work in flight* — so it survives a worker's git
+  operations without entering history a human may still reject. The commit
+  holds exactly that item's changes and its subject names the task, so git
+  history stays 1:1 with the board. Never batch several done items into one
+  commit, and never commit work whose gate hasn't cleared.
 - Review blockers become tasks with blocking edges — the board always shows
   why work is stuck.
 - If a change balloons past its triaged complexity, the task goes back to
   `scope` with a comment explaining why.
-- `runs/` is transient machine state (gitignored). Everything else under
-  `.agents/` is authored policy — edit it, commit it, own it.
+- `runs/` is transient machine state (gitignored) — **except
+  `runs/metrics.jsonl`, which is tracked.** The metrics ledger is the evidence
+  [routing.md](routing.md) picks the default IC by and [lanes.md](lanes.md)
+  loosens gates by; evidence that evaporates with the machine can justify
+  nothing, so it rides in each work item's commit (cycle step 8). Everything
+  else under `.agents/` is authored policy — edit it, commit it, own it.

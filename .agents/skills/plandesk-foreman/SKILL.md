@@ -1,6 +1,6 @@
 ---
 name: plandesk-foreman
-description: "Runs the Plan Desk board floor — takes one task or a whole frontier of todos, grooms each into a build contract, cuts slices, dispatches implementation to worker CLIs, verifies their claims, commits each verified slice, and stops at the risk lane. Use whenever asked to work a task, ship a ticket, take the next task, clear the todos, run the board, or hand implementation to a worker — even when the factory is not named."
+description: "Runs the Plan Desk board floor — takes one task or a whole frontier of todos, grooms each into a build contract, cuts slices, dispatches implementation to worker CLIs, verifies their claims, gates each slice by its risk lane, and commits what clears. Use whenever asked to work a task, ship a ticket, take the next task, clear the todos, run the board, or hand implementation to a worker — even when the factory is not named."
 user-invocable: true
 argument-hint: "<task id | 'next' | 'all todo' | goal name> [--to <worker>]"
 ---
@@ -43,6 +43,12 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
    task cannot be groomed without a decision you do not own, return it to
    `scope` with a comment naming the decision, and carry on with the rest.
 
+   Grooming as a prelude to dispatch does **not** wait on groom-task's own
+   `approve` gate: post the groom comment (what changed, what was inferred) for
+   traceability, then proceed — the rewrite is reviewed together with the work
+   it produced, at the item's own lane gate, where a human can still reject
+   both. A groom left uncommented is still the violation.
+
 4. **Cut slices when the frontier is wider than one item.** One task needs no
    slicing. Several become deliverable units per
    [slicing.md](../../factory/slicing.md) — complete paths through the layers
@@ -55,27 +61,33 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
    [protocol.md](../../factory/protocol.md). Pick the worker from
    [routing.md](../../factory/routing.md) unless one was named; a named worker
    wins, and several named workers split the slices across worktrees. Build the
-   brief to protocol.md's five-section contract — the bar, the result contract,
-   the ground, the WBS snapshot, and a live `Context:` link.
+   brief from [brief-template.md](../../factory/brief-template.md) — copy,
+   substitute, paste workmanship in full — which carries protocol.md's
+   five-section contract: the bar, the result contract, the ground, the WBS
+   snapshot, and a live `Context:` link.
 
    **Fire async unless the slice is trivial.** Background is the default for
    every real dispatch. Run foreground only when the slice is genuinely
    small (one obvious edit, expected under a few minutes) and the user asked
    for inline work. The recipe:
 
-   1. Run the worker's `probe`; substitute `{prompt_file}` and `{repo_path}` in
+   1. Reset the task's `runs/` state and capture the baseline per
+      [protocol.md](../../factory/protocol.md) dispatch step 2 — a stale
+      result file fires the monitor instantly, and verification needs the
+      pre-dispatch test counts to diff against.
+   2. Run the worker's `probe`; substitute `{prompt_file}` and `{repo_path}` in
       its `command` template — flags come from [workers/](../../factory/workers/),
       never from memory.
-   2. Append the log redirect the engine owns:
+   3. Append the log redirect the engine owns:
       `> runs/worker-<task>.log 2>&1` (never put redirects in worker files).
-   3. **Background through the harness** — `run_in_background: true` on the
+   4. **Background through the harness** — `run_in_background: true` on the
       Shell/Bash tool. Never append `&` or wrap in `nohup … &`; that
       orphan-detaches, the harness fires a false "completed", and the real leaf
       keeps writing to a tree nobody is watching.
-   4. **Arm the monitor in the same step**, also backgrounded — the watch loop
+   5. **Arm the monitor in the same step**, also backgrounded — the watch loop
       in protocol.md's *Watching a live dispatch*. Do not dispatch and "remember
       to watch later."
-   5. **Do not poll the harness completion notification.** Wrapper exit is
+   6. **Do not poll the harness completion notification.** Wrapper exit is
       unreliable (orphan shell, transient API blip). The monitor watches
       `runs/result-<task>.json`; use `Await` on the monitor shell when you are
       ready to verify, or continue other foreman work while it runs.
@@ -119,23 +131,29 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
    summary. A dispatch that fails verification is recorded and re-scoped, not
    retried blindly with the same brief.
 
-8. **Commit each verified slice on its own.** One work item, one commit, the
-   subject naming the task. Do this as soon as the slice verifies — batching
-   commits until the end of a run means a single later failure puts every
-   earlier success at risk, and it breaks the 1:1 between history and board.
+8. **Review what landed.** Read the diff — the hunks, not the worker's
+   transcript, from the staged index (`git diff --staged`). For anything beyond
+   an isolated change, dispatch a fresh reviewer that did not write the code,
+   a different model family per [routing.md](../../factory/routing.md), and
+   give it the acceptance criteria and the diff. A reviewer inheriting the
+   author's context confirms the author's assumptions.
 
-9. **Review what landed.** Read the diff — the hunks, not the worker's
-   transcript. For anything beyond an isolated change, dispatch a fresh reviewer
-   that did not write the code, ideally a different model family, and give it
-   the acceptance criteria and the diff. A reviewer inheriting the author's
-   context confirms the author's assumptions.
+9. **Apply the lane.** [lanes.md](../../factory/lanes.md) decides what happens
+   next: `auto` continues; `approve` posts a diff summary; `full` needs the
+   independent review from step 8. Who resolves the gate is lanes.md's call —
+   a human when attended, the agent itself under
+   [autonomy](../plandesk-autonomy/SKILL.md) with the reasoning chain posted
+   first. Either way the resolution lives as a comment, which is the human's
+   override surface.
 
-10. **Apply the lane.** [lanes.md](../../factory/lanes.md) decides what happens
-    next: `auto` continues, `approve` posts a diff summary and waits for a human
-    to resolve it, `full` waits for independent review and a human. Flip the
-    task to `done` only when its gate has cleared, in the same step as the
-    verification. Call `record_agent_progress` and append the cycle to
-    `runs/metrics.jsonl`.
+10. **Commit when the gate clears — each slice on its own.** One work item,
+    one commit, the subject naming the task; the work stays staged until its
+    gate resolves and enters history only after. Commit the moment the gate
+    clears — batching commits until the end of a run means a single later
+    failure puts every earlier success at risk, and it breaks the 1:1 between
+    history and board. Flip the task to `done` in the same step, call
+    `record_agent_progress`, and append the cycle to `runs/metrics.jsonl`
+    (tracked — include it in the slice's commit).
 
 11. **Take the next slice, or stop.** Repeat from step 5 while the frontier has
     work and no gate is blocking. On long runs, pulse per

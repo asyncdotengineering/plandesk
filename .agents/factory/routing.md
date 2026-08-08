@@ -26,24 +26,29 @@ failing the dispatch.
 
 ## The default reviewer is `pi` on `zai`/`glm-5.2`
 
-Decided 2026-08-02. Every `full`-lane review and every adversarial pass goes to
-`pi` unless its probe fails; `codex` is no longer the default reviewer and is a
+Decided 2026-08-02; rationale refreshed once the implementation workers' models
+were pinned. Every `full`-lane review and every adversarial pass goes to `pi`
+unless its probe fails; `codex` is no longer the default reviewer and is a
 fallback only.
 
-Two reasons, and the second is the load-bearing one:
+Two reasons:
 
 - **1M context.** A review that must read a 48-file diff, the migration SQL, the
   author's notes and the board task in one pass is exactly the shape that gets
   truncated and produces a confident verdict on half the evidence.
-- **It is the only family we can *prove* is not the author's.** The default IC is
-  `cursor`, which runs `--model auto` and routes per turn, so on any given
-  dispatch nobody can say which family wrote the code. GLM is not in Cursor's
-  routing pool, so `pi` satisfies the cross-family rule below *by construction*
-  rather than by assumption. With `codex` the check was an assumption, and an
-  unverifiable one.
+- **Cross-family by construction.** Every implementation worker's model is
+  pinned in its worker file — `cursor` on `composer-2.5`, `claude` on sonnet,
+  `codex` on `gpt-5.6-luna`, `grok` on `grok-4.5` — and GLM appears in none of
+  them, so a `pi` (`zai`/`glm-5.2`) review can never share the author's family.
+  The pin is what makes this provable: an unpinned or `--model auto` worker
+  would make the author's family unknowable, which is why
+  [workers/cursor.md](workers/cursor.md) forbids `auto`. If a worker file's pin
+  ever changes to a GLM-family model, this rationale breaks — update both files
+  in the same edit.
 
-If `pi`'s probe fails, fall through to `codex`, then `claude-glm`. Never fall
-through to the worker that authored the diff.
+If `pi`'s probe fails, fall through to `codex`, then `claude`. Never fall
+through to the worker that authored the diff — if the fallback would be the
+author, skip to the next family.
 
 ## The two rules that matter more than the table
 
@@ -55,12 +60,19 @@ through to the worker that authored the diff.
   bar, rerun with a stronger one. Judge the output, not the price tag —
   re-dispatching costs less than shipping work that has to be unpicked later.
 
-## Choosing the default IC
+## The default IC
 
-Whichever worker this repository has the most clean cycles with in
-`runs/metrics.jsonl`. That file is the routing evidence: it records worker,
-lane, verdicts and notes per cycle. Read it before assuming a preference, and
-record a note when a worker surprises you in either direction.
+**The default IC is `cursor`, pinned to `composer-2.5`** (the pin lives in
+[workers/cursor.md](workers/cursor.md), never in a brief). This section is the
+*only* place a default is named — worker files describe capability and
+mechanics, never rank; a "default" written into a worker file is a second copy
+that drifts.
+
+The evidence behind the choice is `runs/metrics.jsonl` (tracked in git — it
+records worker, lane, verdicts and notes per cycle). Read it before assuming
+the preference still holds, revisit the default when another worker
+accumulates a clearly better clean-cycle record, and record a note when a
+worker surprises you in either direction.
 
 A worker file may name a model id. Model ids rot — a stale one fails the
 dispatch instantly with an unknown-model error. When a dispatch fails that way,

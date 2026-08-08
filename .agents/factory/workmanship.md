@@ -5,8 +5,9 @@ version: 1
 
 # Workmanship
 
-The bar a dispatched worker's output must meet. Prepended to every implementation
-brief. Self-contained on purpose: a consumer's machine has none of the operator's
+The bar a dispatched worker's output must meet. Pasted in full into every
+implementation brief — the closing section of
+[brief-template.md](brief-template.md). Self-contained on purpose: a consumer's machine has none of the operator's
 global instruction files, so everything a worker needs lives under `.agents/`. A
 brief that reaches outside `.agents/` for a contract is the bug.
 
