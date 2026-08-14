@@ -38,5 +38,7 @@ The agent installs the CLI, starts the local server, creates or binds a project,
 - [Quickstart](/getting-started/quickstart/) — install from npm, init, serve, open the UI
 - [Your first project](/getting-started/first-project/) — plan on the canvas, attach specs, use the board
 - [Plan & execute a project](/guides/plan-and-execute/) — connect an agent and work from the live plan
+- [Goals](/reference/goals/) — the contract layer above tasks, and how completion is proved
+- [Prototypes](/reference/prototypes/) — click-through HTML screens for review before the build
 - [Self-host with Docker](/self-hosting/docker/) — run on `0.0.0.0` with auth
 - [Connect an agent](/connecting-agents/mcp-setup/) — wire Claude Code or Codex via MCP

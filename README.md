@@ -51,8 +51,8 @@ _A graph, not a list of tickets. Dependencies are edges, and specs live on the n
 
 - **[Flow canvas](https://plandesk.asyncdot.com/getting-started/first-project/)** — labeled, directed edges between tasks, with auto-layout when the graph gets wide.
 - **[Docs on nodes](https://plandesk.asyncdot.com/getting-started/first-project/)** — the spec attaches to the task, not to a wiki nobody opens.
-- **[Goals](https://plandesk.asyncdot.com/reference/api/)** — a durable contract: cycle tasks, a verification surface, and an acceptance status.
-- **[Prototypes](https://plandesk.asyncdot.com/connecting-agents/skill/)** — click-through HTML screens to react to before anyone builds the real thing.
+- **[Goals](https://plandesk.asyncdot.com/reference/goals/)** — a durable contract: cycle tasks, a verification surface, and an acceptance status.
+- **[Prototypes](https://plandesk.asyncdot.com/reference/prototypes/)** — click-through HTML screens to react to before anyone builds the real thing.
 - **[Board and notes](https://plandesk.asyncdot.com/getting-started/first-project/)** — kanban over the same task status, plus free-form working notes.
 
 ## Hand it to an agent.
@@ -184,17 +184,17 @@ audit trail, two readers.
 
 ## Documentation
 
-| I want to…                             | Start here                                                                                                                                                                                                       |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Get running in five minutes            | [Quickstart](https://plandesk.asyncdot.com/getting-started/quickstart/) · [Your first project](https://plandesk.asyncdot.com/getting-started/first-project/)                                                     |
-| Connect Claude Code or Codex           | [MCP setup](https://plandesk.asyncdot.com/connecting-agents/mcp-setup/) · [Bind a repo](https://plandesk.asyncdot.com/connecting-agents/connect/)                                                                |
-| Go from an idea to a built feature     | [Idea to development](https://plandesk.asyncdot.com/guides/idea-to-development/) · [Plan & execute](https://plandesk.asyncdot.com/guides/plan-and-execute/)                                                      |
-| Run agents against the plan unattended | [Drive the factory](https://plandesk.asyncdot.com/guides/drive-the-factory/) · [Factory reference](https://plandesk.asyncdot.com/reference/factory/)                                                             |
-| Share work with a client               | [Collaboration & sync](https://plandesk.asyncdot.com/reference/collaboration/) · [Plan, share, build](https://plandesk.asyncdot.com/guides/plan-share-build/)                                                    |
-| Host it for a team                     | [Docker](https://plandesk.asyncdot.com/self-hosting/docker/) · [Topologies](https://plandesk.asyncdot.com/self-hosting/topologies/) · [Server config](https://plandesk.asyncdot.com/self-hosting/server-config/) |
-| Script it                              | [CLI reference](https://plandesk.asyncdot.com/reference/cli/) · [REST API](https://plandesk.asyncdot.com/reference/api/)                                                                                         |
-| Understand how it fits together        | [Architecture](https://plandesk.asyncdot.com/reference/architecture/) · [Workspaces](https://plandesk.asyncdot.com/reference/workspaces/)                                                                        |
-| Work out why something broke           | [Troubleshooting](https://plandesk.asyncdot.com/reference/troubleshooting/) · [Upgrading](https://plandesk.asyncdot.com/reference/upgrading/)                                                                    |
+| I want to…                             | Start here                                                                                                                                                                                                                                                              |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Get running in five minutes            | [Quickstart](https://plandesk.asyncdot.com/getting-started/quickstart/) · [Your first project](https://plandesk.asyncdot.com/getting-started/first-project/)                                                                                                            |
+| Connect Claude Code or Codex           | [MCP setup](https://plandesk.asyncdot.com/connecting-agents/mcp-setup/) · [Bind a repo](https://plandesk.asyncdot.com/connecting-agents/connect/)                                                                                                                       |
+| Go from an idea to a built feature     | [Idea to development](https://plandesk.asyncdot.com/guides/idea-to-development/) · [Plan & execute](https://plandesk.asyncdot.com/guides/plan-and-execute/)                                                                                                             |
+| Run agents against the plan unattended | [Drive the factory](https://plandesk.asyncdot.com/guides/drive-the-factory/) · [Factory reference](https://plandesk.asyncdot.com/reference/factory/)                                                                                                                    |
+| Share work with a client               | [Collaboration & sync](https://plandesk.asyncdot.com/reference/collaboration/) · [Plan, share, build](https://plandesk.asyncdot.com/guides/plan-share-build/)                                                                                                           |
+| Host it for a team                     | [Docker](https://plandesk.asyncdot.com/self-hosting/docker/) · [Topologies](https://plandesk.asyncdot.com/self-hosting/topologies/) · [Server config](https://plandesk.asyncdot.com/self-hosting/server-config/)                                                        |
+| Script it                              | [CLI reference](https://plandesk.asyncdot.com/reference/cli/) · [REST API](https://plandesk.asyncdot.com/reference/api/)                                                                                                                                                |
+| Understand how it fits together        | [Architecture](https://plandesk.asyncdot.com/reference/architecture/) · [Goals](https://plandesk.asyncdot.com/reference/goals/) · [Prototypes](https://plandesk.asyncdot.com/reference/prototypes/) · [Workspaces](https://plandesk.asyncdot.com/reference/workspaces/) |
+| Work out why something broke           | [Troubleshooting](https://plandesk.asyncdot.com/reference/troubleshooting/) · [Upgrading](https://plandesk.asyncdot.com/reference/upgrading/)                                                                                                                           |
 
 ---
 

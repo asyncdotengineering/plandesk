@@ -86,6 +86,8 @@ export default defineConfig({
           label: 'Reference',
           items: [
             { slug: 'reference/cli' },
+            { slug: 'reference/goals' },
+            { slug: 'reference/prototypes' },
             { slug: 'reference/factory' },
             { slug: 'reference/api' },
             { slug: 'reference/architecture' },
