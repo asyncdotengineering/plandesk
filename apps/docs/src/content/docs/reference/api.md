@@ -9,58 +9,58 @@ description: REST endpoints and MCP tools exposed by Plan Desk v1.
 
 **Auth:** Local loopback = owner (zero-auth). Hosted: better-auth **session** cookie (web GitHub sign-in) or **Bearer** better-auth API key (CLI owner key / project-scoped agent key from `plandesk connect --to`). Optional HTTP basic via `PLANDESK_AUTH_PASSWORD`.
 
-| Method | Path                          | Purpose                                               |
-| ------ | ----------------------------- | ----------------------------------------------------- |
-| GET    | `/health`                     | Health check `{ ok: true }`                           |
-| GET    | `/projects`                   | List projects                                         |
-| POST   | `/projects`                   | Create project `{ name, description? }`               |
-| GET    | `/projects/:id`               | Project detail + summary counts                       |
-| GET    | `/projects/:id/canvas`        | `{ nodes, edges, layout }`                            |
-| PUT    | `/projects/:id/canvas`        | Upsert nodes, edges, layout                           |
-| PATCH  | `/projects/:id`               | Rename / update `{ name?, description? }`             |
-| DELETE | `/projects/:id`               | Delete project (cascades children)                    |
-| GET    | `/projects/:id/documents`     | Document tree                                         |
-| POST   | `/projects/:id/documents`     | Create doc `{ title, body, link_to? }`                |
-| GET    | `/documents/:id`              | Document body, plus `links` and `backlinks`           |
-| PATCH  | `/documents/:id`              | Update title/body/status                              |
-| DELETE | `/documents/:id`              | Delete document                                       |
-| GET    | `/projects/:id/tasks`         | Task list (filter query params)                       |
-| POST   | `/projects/:id/tasks`         | Create task `{ label, status?, goal_id?, … }`         |
-| PATCH  | `/tasks/:id`                  | Update status, label, description, position           |
-| DELETE | `/tasks/:id`                  | Delete task (cascades its edges)                      |
-| GET    | `/tasks/:id/backlinks`        | Tasks and documents pointing at this task             |
-| GET    | `/projects/:id/edges`         | List edges                                            |
-| POST   | `/projects/:id/edges`         | Create edge `{ from_type, from_id, to_type, to_id, label?, … }` |
-| DELETE | `/projects/:id/edges/:edgeId` | Delete one edge                                       |
-| POST   | `/projects/:id/goals`         | Create goal `{ objective, verification_surface?, … }` |
-| GET    | `/projects/:id/goals`         | List goals for a project                              |
-| GET    | `/goals/:id`                  | Goal detail incl. `cycle_tasks`                       |
-| PATCH  | `/goals/:id`                  | Edit goal contract fields                             |
-| POST   | `/goals/:id/pause`            | Pause an active goal                                  |
-| POST   | `/goals/:id/resume`           | Resume a paused goal                                  |
-| POST   | `/goals/:id/complete`         | Complete goal `{ evidence? }`                         |
-| POST   | `/documents/:id/comments`     | Add comment `{ body, passage? }`                      |
-| GET    | `/documents/:id/comments`     | Comments for a document                               |
-| POST   | `/tasks/:id/comments`         | Add comment on a task                                 |
-| GET    | `/tasks/:id/comments`         | Comments for a task                                   |
-| POST   | `/notes/:id/comments`         | Add comment on a note                                 |
-| GET    | `/notes/:id/comments`         | Comments for a note                                   |
-| POST   | `/submissions/:id/comments`   | Add comment on a submission                           |
-| GET    | `/submissions/:id/comments`   | Comments for a submission                             |
-| GET    | `/projects/:id/comments`      | Comments across a project                             |
-| POST   | `/projects/:id/artifact-comments` | Annotate a file `{ artifact_id, body, passage?, anchor? }`        |
-| GET    | `/projects/:id/artifact-comments` | Annotations for a file `?artifact_id=…&include_resolved=`         |
-| PATCH  | `/comments/:id`               | Edit / resolve `{ body?, resolved? }`                 |
-| DELETE | `/comments/:id`               | Delete a comment (UI only)                            |
-| POST   | `/projects/:id/files`         | Upload a file `{ filename, mime, content_base64 }` (≤10MB) → `{ id, url, … }` |
-| GET    | `/files/:id`                  | Fetch a file; `image/*` renders inline, everything else downloads |
-| GET    | `/projects/:id/artifacts`     | List artifact summaries `{ id, title, kind, updated_at }`         |
-| POST   | `/projects/:id/artifacts`     | Create artifact `{ title, kind?, content? }`          |
-| GET    | `/artifacts/:id`              | Get artifact incl. full `content`                     |
-| PATCH  | `/artifacts/:id`               | Update `{ title?, kind?, content? }`                  |
-| GET    | `/share/:token.md`            | Agent-ready Markdown for a shared task/document (404 unknown, 410 expired/revoked) |
-| GET    | `/projects/:id/agent-runs`    | List agent runs (with nested progress events)         |
-| POST   | `/agent-runs/:id/progress`    | Append a progress event to a run                      |
+| Method | Path                              | Purpose                                                                            |
+| ------ | --------------------------------- | ---------------------------------------------------------------------------------- |
+| GET    | `/health`                         | Health check `{ ok: true }`                                                        |
+| GET    | `/projects`                       | List projects                                                                      |
+| POST   | `/projects`                       | Create project `{ name, description? }`                                            |
+| GET    | `/projects/:id`                   | Project detail + summary counts                                                    |
+| GET    | `/projects/:id/canvas`            | `{ nodes, edges, layout }`                                                         |
+| PUT    | `/projects/:id/canvas`            | Upsert nodes, edges, layout                                                        |
+| PATCH  | `/projects/:id`                   | Rename / update `{ name?, description? }`                                          |
+| DELETE | `/projects/:id`                   | Delete project (cascades children)                                                 |
+| GET    | `/projects/:id/documents`         | Document tree                                                                      |
+| POST   | `/projects/:id/documents`         | Create doc `{ title, body, link_to? }`                                             |
+| GET    | `/documents/:id`                  | Document body, plus `links` and `backlinks`                                        |
+| PATCH  | `/documents/:id`                  | Update title/body/status                                                           |
+| DELETE | `/documents/:id`                  | Delete document                                                                    |
+| GET    | `/projects/:id/tasks`             | Task list (filter query params)                                                    |
+| POST   | `/projects/:id/tasks`             | Create task `{ label, status?, goal_id?, … }`                                      |
+| PATCH  | `/tasks/:id`                      | Update status, label, description, position                                        |
+| DELETE | `/tasks/:id`                      | Delete task (cascades its edges)                                                   |
+| GET    | `/tasks/:id/backlinks`            | Tasks and documents pointing at this task                                          |
+| GET    | `/projects/:id/edges`             | List edges                                                                         |
+| POST   | `/projects/:id/edges`             | Create edge `{ from_type, from_id, to_type, to_id, label?, … }`                    |
+| DELETE | `/projects/:id/edges/:edgeId`     | Delete one edge                                                                    |
+| POST   | `/projects/:id/goals`             | Create goal `{ objective, verification_surface?, … }`                              |
+| GET    | `/projects/:id/goals`             | List goals for a project                                                           |
+| GET    | `/goals/:id`                      | Goal detail incl. `cycle_tasks`                                                    |
+| PATCH  | `/goals/:id`                      | Edit goal contract fields                                                          |
+| POST   | `/goals/:id/pause`                | Pause an active goal                                                               |
+| POST   | `/goals/:id/resume`               | Resume a paused goal                                                               |
+| POST   | `/goals/:id/complete`             | Complete goal `{ evidence? }`                                                      |
+| POST   | `/documents/:id/comments`         | Add comment `{ body, passage? }`                                                   |
+| GET    | `/documents/:id/comments`         | Comments for a document                                                            |
+| POST   | `/tasks/:id/comments`             | Add comment on a task                                                              |
+| GET    | `/tasks/:id/comments`             | Comments for a task                                                                |
+| POST   | `/notes/:id/comments`             | Add comment on a note                                                              |
+| GET    | `/notes/:id/comments`             | Comments for a note                                                                |
+| POST   | `/submissions/:id/comments`       | Add comment on a submission                                                        |
+| GET    | `/submissions/:id/comments`       | Comments for a submission                                                          |
+| GET    | `/projects/:id/comments`          | Comments across a project                                                          |
+| POST   | `/projects/:id/artifact-comments` | Annotate a file `{ artifact_id, body, passage?, anchor? }`                         |
+| GET    | `/projects/:id/artifact-comments` | Annotations for a file `?artifact_id=…&include_resolved=`                          |
+| PATCH  | `/comments/:id`                   | Edit / resolve `{ body?, resolved? }`                                              |
+| DELETE | `/comments/:id`                   | Delete a comment (UI only)                                                         |
+| POST   | `/projects/:id/files`             | Upload a file `{ filename, mime, content_base64 }` (≤10MB) → `{ id, url, … }`      |
+| GET    | `/files/:id`                      | Fetch a file; `image/*` renders inline, everything else downloads                  |
+| GET    | `/projects/:id/artifacts`         | List artifact summaries `{ id, title, kind, updated_at }`                          |
+| POST   | `/projects/:id/artifacts`         | Create artifact `{ title, kind?, content? }`                                       |
+| GET    | `/artifacts/:id`                  | Get artifact incl. full `content`                                                  |
+| PATCH  | `/artifacts/:id`                  | Update `{ title?, kind?, content? }`                                               |
+| GET    | `/share/:token.md`                | Agent-ready Markdown for a shared task/document (404 unknown, 410 expired/revoked) |
+| GET    | `/projects/:id/agent-runs`        | List agent runs (with nested progress events)                                      |
+| POST   | `/agent-runs/:id/progress`        | Append a progress event to a run                                                   |
 
 ### Goals
 
@@ -80,7 +80,7 @@ Comments are polymorphic: a single `comments` table keyed by `target_type` (`doc
 
 ### Artifacts
 
-An **artifact** is a stored agent deliverable — a Markdown report, an RFC, an HTML diagram — distinct from the `artifact`-typed comment target above (which annotates *any* file the agent wrote, artifact or not). Artifacts are first-class rows (`title`, `kind`: `markdown` | `html`, `content`) so a human can annotate one with `plandesk <file>` and the agent can revise it in place with the same `artifact_id`: `list_artifact_comments` → address feedback → `update_artifact`.
+An **artifact** is a stored agent deliverable — a Markdown report, an RFC, an HTML diagram — distinct from the `artifact`-typed comment target above (which annotates _any_ file the agent wrote, artifact or not). Artifacts are first-class rows (`title`, `kind`: `markdown` | `html`, `content`) so a human can annotate one with `plandesk <file>` and the agent can revise it in place with the same `artifact_id`: `list_artifact_comments` → address feedback → `update_artifact`.
 
 ### Share links
 
@@ -94,57 +94,76 @@ An **artifact** is a stored agent deliverable — a Markdown report, an RFC, an 
 
 ### Tools (v1)
 
-| Tool                         | Purpose                                                                                                                    |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `list_projects`              | List accessible projects                                                                                                   |
-| `get_project`                | Tasks, docs summary, canvas snapshot                                                                                       |
-| `create_project`             | Create a new project                                                                                                       |
-| `scaffold_project_from_plan` | Create a project + tasks + edges + docs in one call                                                                        |
-| `create_goal`                | Create a goal-altitude node with optional verification surface                                                             |
-| `get_goal`                   | Goal detail incl. `cycle_tasks`                                                                                            |
-| `list_goals`                 | List goals for a project                                                                                                   |
-| `pause_goal`                 | Pause an active goal                                                                                                       |
-| `resume_goal`                | Resume a paused goal                                                                                                       |
-| `complete_goal`              | Complete a goal with optional verification evidence                                                                        |
-| `get_next_task`              | Next actionable `todo` on the active goal frontier (optional `goal_id`; reasons `no_active_goal`, `multiple_active_goals`) |
-| `claim_task`                 | Atomically claim a task for an agent — guards against two agents taking the same one                                       |
-| `create_task`                | Add canvas node + task row (optional `goal_id`, `tags`)                                                                    |
-| `update_task`                | Status, label, description, position, `tags` (replaces set)                                                                |
-| `get_task`                   | Fetch a single task by id                                                                                                  |
-| `list_tasks`                 | Project tasks, filterable by status and tags (OR)                                                                          |
-| `create_document`            | Markdown body; `link_to` takes one id or a list of task/document ids                                                       |
-| `update_document`            | Patch title/body/status line, folder, and `link_to` (task or document ids; unlink with `delete_edge`)                      |
-| `get_document`               | Fetch a document, with `links` (outgoing) and `backlinks` (incoming); each entry carries an `edge_id`                       |
-| `list_documents`             | Project documents as a tree; filter by `folder_id`                                                                         |
-| `create_folder`              | Create a document folder (optionally nested)                                                                               |
-| `update_folder`              | Rename / re-parent a folder (cycles rejected)                                                                              |
-| `create_note`                | Create a free-form project note (Markdown body)                                                                            |
-| `update_note`                | Patch a note's title or body                                                                                               |
-| `get_note`                   | Fetch a note by id                                                                                                         |
-| `list_notes`                 | Project working notes                                                                                                      |
-| `list_tags`                  | Project tags (id, name, color)                                                                                             |
-| `create_edge`                | Labeled link between any two entities via `from_type`/`from_id`/`to_type`/`to_id` (`task` or `document`)                    |
-| `list_edges`                 | Every edge in a project, with typed endpoints                                                                              |
-| `delete_edge`                | Remove one edge by `edge_id` (from a `get_document` links entry or `list_edges`); siblings are untouched                    |
-| `attach_file`                | Upload a file (image today), get back `{ file_id, url }` to embed as `![alt](url)`                                        |
-| `create_artifact`            | Store an agent deliverable (report, RFC, HTML diagram); returned `artifact_id` doubles as the comment target              |
-| `get_artifact`               | Fetch a stored artifact by id, including full `content`                                                                    |
-| `update_artifact`            | Revise a stored artifact's title, content, or kind                                                                          |
-| `list_artifacts`             | List artifact summaries for a project (id, title, kind, updated_at)                                                         |
-| `create_share_link`          | Mint a public, expiring Markdown link for one task or document `{ url, markdown_url, expires_at }`                         |
-| `list_comments`              | Project comments; filter by `target_type`, `target_id`, `include_resolved`                                                 |
-| `add_comment`                | Leave a comment `{ target_type, target_id, body, passage? }`                                                               |
-| `resolve_comment`            | Mark a comment resolved (no delete tool)                                                                                   |
-| `list_artifact_comments`     | Annotations on a file artifact `{ project_id, artifact_id, include_resolved? }`                                            |
-| `add_artifact_comment`       | Annotate a file artifact `{ project_id, artifact_id, body, passage?, anchor? }` (anchor = W3C selector JSON)               |
-| `start_agent_run`            | Begin external agent session                                                                                               |
-| `record_agent_progress`      | Append progress event                                                                                                      |
-| `complete_agent_run`         | Close run (completed or failed)                                                                                            |
-| `sync_pull`                  | Fetch participant submissions into the triage inbox                                                                        |
-| `list_submissions`           | List pulled submissions (triage inbox)                                                                                     |
-| `triage_submission`          | Accept a submission → real task (or reject)                                                                                |
+| Tool                         | Purpose                                                                                                                                        |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_projects`              | List accessible projects                                                                                                                       |
+| `get_project`                | Tasks, docs summary, canvas snapshot                                                                                                           |
+| `create_project`             | Create a new project                                                                                                                           |
+| `update_project`             | Update name, description, `repo_url`, or `folder_path` (pass null to clear the last two)                                                       |
+| `search`                     | Search documents, tasks, and notes by title or label in the workspace (or one project); bodies are not searched                                |
+| `list_views`                 | Saved named views for a project (name + config) — read-only; views are human-authored                                                          |
+| `scaffold_project_from_plan` | Create a project + tasks + edges + docs in one call                                                                                            |
+| `create_goal`                | Create a goal-altitude node with optional verification surface                                                                                 |
+| `get_goal`                   | Goal detail incl. `cycle_tasks`                                                                                                                |
+| `list_goals`                 | List goals for a project                                                                                                                       |
+| `update_goal`                | Edit name, objective, or contract fields (`verification_surface`, `constraints`, `boundaries`, `iteration_policy`, `stop_condition`, `budget`) |
+| `invoke_goal`                | Begin working a goal: sets `current_goal_id`, checks the graph for cycles, returns the first frontier todo                                     |
+| `set_current_goal`           | Point `current_goal_id` at an active goal so `get_next_task` resolves there when `goal_id` is omitted                                          |
+| `pause_goal`                 | Pause an active goal                                                                                                                           |
+| `resume_goal`                | Resume a paused goal                                                                                                                           |
+| `complete_goal`              | Complete a goal with optional verification evidence                                                                                            |
+| `get_next_task`              | Next actionable `todo` on the active goal frontier (optional `goal_id`; reasons `no_active_goal`, `multiple_active_goals`)                     |
+| `claim_task`                 | Atomically claim a task for an agent — guards against two agents taking the same one                                                           |
+| `create_task`                | Add canvas node + task row (optional `goal_id`, `tags`)                                                                                        |
+| `update_task`                | Status, label, description, position, `tags` (replaces set)                                                                                    |
+| `get_task`                   | Fetch a single task by id                                                                                                                      |
+| `list_tasks`                 | Project tasks, filterable by status and tags (OR)                                                                                              |
+| `get_task_graph`             | Dependency graph: prerequisite fan-in, depth, roots, detected cycles, and what would be actionable if scope were released                      |
+| `create_document`            | Markdown body; `link_to` takes one id or a list of task/document ids                                                                           |
+| `update_document`            | Patch title/body/status line, folder, and `link_to` (task or document ids; unlink with `delete_edge`)                                          |
+| `get_document`               | Fetch a document, with `links` (outgoing) and `backlinks` (incoming); each entry carries an `edge_id`                                          |
+| `list_documents`             | Project documents as a tree; filter by `folder_id`                                                                                             |
+| `create_folder`              | Create a document folder (optionally nested)                                                                                                   |
+| `update_folder`              | Rename / re-parent a folder (cycles rejected)                                                                                                  |
+| `delete_folder`              | Delete a folder without orphaning contents — documents and sub-folders reparent (Unfiled by default)                                           |
+| `move_documents`             | Move many documents into a folder in one call; not atomic — returns `moved` ids plus per-item `failed` entries                                 |
+| `list_revisions`             | Content-history metadata for a task or document (author, changed fields, timestamp), newest first                                              |
+| `get_revision`               | One revision including its prior-state snapshot — read-only, there is no restore tool over MCP                                                 |
+| `create_note`                | Create a free-form project note (Markdown body)                                                                                                |
+| `update_note`                | Patch a note's title or body                                                                                                                   |
+| `get_note`                   | Fetch a note by id                                                                                                                             |
+| `list_notes`                 | Project working notes                                                                                                                          |
+| `list_tags`                  | Project tags (id, name, color)                                                                                                                 |
+| `create_edge`                | Labeled link between any two entities via `from_type`/`from_id`/`to_type`/`to_id` (`task` or `document`)                                       |
+| `list_edges`                 | Every edge in a project, with typed endpoints                                                                                                  |
+| `delete_edge`                | Remove one edge by `edge_id` (from a `get_document` links entry or `list_edges`); siblings are untouched                                       |
+| `attach_file`                | Upload a file (image today), get back `{ file_id, url }` to embed as `![alt](url)`                                                             |
+| `create_artifact`            | Store an agent deliverable (report, RFC, HTML diagram); returned `artifact_id` doubles as the comment target                                   |
+| `get_artifact`               | Fetch a stored artifact by id, including full `content`                                                                                        |
+| `update_artifact`            | Revise a stored artifact's title, content, or kind                                                                                             |
+| `list_artifacts`             | List artifact summaries for a project (id, title, kind, updated_at)                                                                            |
+| `create_prototype`           | Create a named prototype flow with a declared viewport; screens are HTML artifacts carrying its `prototype_id`                                 |
+| `get_prototype`              | One prototype with its screens (the HTML artifacts bound to it)                                                                                |
+| `list_prototypes`            | Prototypes for a project (id, name, viewport, timestamps)                                                                                      |
+| `update_prototype`           | Rename a prototype or change its viewport                                                                                                      |
+| `move_screen`                | Move a screen to another prototype in the same project — keeps the artifact id and its comments                                                |
+| `copy_screen`                | Copy a screen into another prototype — new artifact id, same content, comments do not travel                                                   |
+| `create_share_link`          | Mint a public, expiring Markdown link for one task, document, or prototype `{ url, markdown_url, expires_at }`                                 |
+| `list_comments`              | Project comments; filter by `target_type`, `target_id`, `include_resolved`                                                                     |
+| `add_comment`                | Leave a comment `{ target_type, target_id, body, passage? }`                                                                                   |
+| `resolve_comment`            | Mark a comment resolved (no delete tool)                                                                                                       |
+| `list_artifact_comments`     | Annotations on a file artifact `{ project_id, artifact_id, include_resolved? }`                                                                |
+| `add_artifact_comment`       | Annotate a file artifact `{ project_id, artifact_id, body, passage?, anchor? }` (anchor = W3C selector JSON)                                   |
+| `start_agent_run`            | Begin external agent session                                                                                                                   |
+| `record_agent_progress`      | Append progress event                                                                                                                          |
+| `complete_agent_run`         | Close run (completed or failed)                                                                                                                |
+| `sync_pull`                  | Fetch participant submissions into the triage inbox                                                                                            |
+| `list_submissions`           | List pulled submissions (triage inbox)                                                                                                         |
+| `triage_submission`          | Accept a submission → real task (or reject)                                                                                                    |
 
-45 tools in total. The last three are the [collaboration tier](/reference/collaboration/) — sharing a project with a client or team (`create_share_link` is a separate, lighter-weight primitive for handing one resource to a worker — see [Share links](#share-links) above). At session start, list tools before calling them. Resolve the project from `.plandesk/config.json` when present — do not guess IDs. To stand up a whole plan at once use `scaffold_project_from_plan`; to execute it, loop `get_next_task` → `update_task` within a Goal. There is no delete tool by design — resolve comments rather than deleting them.
+64 tools in total. The last three are the [collaboration tier](/reference/collaboration/) — sharing a project with a client or team (`create_share_link` is a separate, lighter-weight primitive for handing one resource to a worker — see [Share links](#share-links) above). At session start, list tools before calling them. Resolve the project from `.plandesk/config.json` when present — do not guess IDs. To stand up a whole plan at once use `scaffold_project_from_plan`; to execute it, loop `get_next_task` → `update_task` within a Goal.
+
+**An agent cannot delete your plan.** No MCP tool deletes a project, task, document, note, or artifact — the agent resolves, supersedes, or sets a status instead. The two `delete_*` MCP tools act on structure only, and neither destroys content: `delete_edge` removes one link, and `delete_folder` reparents its contents. Deletion is a human action through the UI and the REST endpoints above.
 
 ### Error cases
 

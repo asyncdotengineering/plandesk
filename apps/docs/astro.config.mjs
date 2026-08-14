@@ -26,7 +26,7 @@ export default defineConfig({
         starlightLlmsTxt({
           projectName: 'Plan Desk',
           description:
-            'Plan Desk is a local-first, self-hostable planning workspace: a flow canvas of task nodes with labeled dependency edges, specs attached to nodes, a board, and an MCP server (46 tools) that coding agents use to scaffold plans, pick the next task, and update status live.',
+            'Plan Desk is a local-first, self-hostable planning workspace: a flow canvas of task nodes with labeled dependency edges, specs attached to nodes, a board, and an MCP server (64 tools) that coding agents use to scaffold plans, pick the next task, and update status live.',
           details:
             'Set up for an agent in one prompt: "Read https://plandesk.asyncdot.com/start.md then set up Plan Desk for this project." Published on npm as @plandesk/cli. Collaboration (portal + moderated inbox) runs on the same Plan Desk API — one server, not a separate sync package.',
         }),

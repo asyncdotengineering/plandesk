@@ -36,14 +36,14 @@ plandesk connect --project "Checkout Revamp"
 
 `connect` writes commit-safe project binding and MCP wiring:
 
-| Path                      | Committed? | Purpose                                            |
-| ------------------------- | ---------- | -------------------------------------------------- |
-| `.plandesk/config.json`   | yes        | Pins repo → project (`projectId`, server URL)      |
-| `.plandesk/skill.md`      | yes        | Agent conventions                                  |
-| `.plandesk/token`         | no         | Project-scoped agent key (gitignored) — written only for a hosted `connect --to`; local loopback needs none |
-| `.claude/skills/plandesk/` / `.agents/skills/plandesk/` | yes | Skill symlinks → `.plandesk/skill.md` |
-| `.mcp.json`               | yes        | MCP entry; `headersHelper` reads `.plandesk/token` |
-| `CLAUDE.md` / `AGENTS.md` | yes        | Idempotent include of `@.plandesk/skill.md`        |
+| Path                                                    | Committed? | Purpose                                                                                                     |
+| ------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
+| `.plandesk/config.json`                                 | yes        | Pins repo → project (`projectId`, server URL)                                                               |
+| `.plandesk/skill.md`                                    | yes        | Agent conventions                                                                                           |
+| `.plandesk/token`                                       | no         | Project-scoped agent key (gitignored) — written only for a hosted `connect --to`; local loopback needs none |
+| `.claude/skills/plandesk/` / `.agents/skills/plandesk/` | yes        | Skill symlinks → `.plandesk/skill.md`                                                                       |
+| `.mcp.json`                                             | yes        | MCP entry; `headersHelper` reads `.plandesk/token`                                                          |
+| `CLAUDE.md` / `AGENTS.md`                               | yes        | Idempotent include of `@.plandesk/skill.md`                                                                 |
 
 Local loopback is zero-auth — no token is generated or needed. Connecting to a hosted org (`connect --to <org>`) mints a scoped agent key and reads it from `.plandesk/token` automatically — no export needed (set `PLANDESK_MCP_TOKEN` only to override).
 
@@ -77,14 +77,14 @@ Open Claude Code or Codex in the bound repo and point it at Plan Desk. Example p
 
 > Use Plan Desk MCP. Inspect this project, read the tasks, documents, and edges. Start an agent run. Pick the next `todo` task that isn't blocked, explain the relevant files, make the smallest safe change, update the task to `in_progress` then `done`, record progress, and complete the run. Do not delete tasks.
 
-The agent works through Plan Desk's 46 MCP tools and resolves the project from `.plandesk/config.json` — no guessing IDs. Two make the loop tight:
+The agent works through Plan Desk's 64 MCP tools and resolves the project from `.plandesk/config.json` — no guessing IDs. Two make the loop tight:
 
 - **`get_next_task`** returns the next actionable `todo` task — one whose prerequisite tasks are all `done` — plus the blocked tasks and what each is waiting on. The agent loops `get_next_task` → read the linked doc → `update_task` to `in_progress` → do the work → `update_task` to `done`, until nothing actionable remains. No need to eyeball the graph for what's unblocked.
 - **`scaffold_project_from_plan`** lets the agent stand up an entire plan — project, tasks, dependency edges, and linked spec docs — in one atomic call (see _Plan with an agent_ below).
 
 ## 4. Watch it live
 
-As the agent calls `update_task` and `record_agent_progress`, changes stream over SSE to every open view:
+As the agent calls `update_task` and `record_agent_progress`, changes reach every open view within about 2.5 seconds:
 
 - Canvas status badges update on **Flow**
 - Cards move on **Board**
@@ -119,9 +119,9 @@ plandesk doctor                    # workspace DB health
 plandesk doctor --repo .           # + binding, token, MCP tool list
 ```
 
-| Symptom            | Check                                                           |
-| ------------------ | --------------------------------------------------------------- |
+| Symptom            | Check                                                                                     |
+| ------------------ | ----------------------------------------------------------------------------------------- |
 | MCP 401            | Hosted only — scoped agent key wrong/revoked; re-run `connect --to <org>` for a fresh one |
-| Server unreachable | `plandesk serve` running; `--url` matches                       |
-| Tools missing      | New agent session after `mcp add` or `connect`                  |
-| Wrong project      | `.plandesk/config.json` `projectId`; re-run `connect --project` |
+| Server unreachable | `plandesk serve` running; `--url` matches                                                 |
+| Tools missing      | New agent session after `mcp add` or `connect`                                            |
+| Wrong project      | `.plandesk/config.json` `projectId`; re-run `connect --project`                           |

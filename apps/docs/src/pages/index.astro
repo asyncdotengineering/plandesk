@@ -1,4 +1,11 @@
 ---
+import { Image } from 'astro:assets';
+import boardShot from '../../../../.github/assets/board.png';
+import flowShot from '../../../../.github/assets/flow.png';
+import goalsShot from '../../../../.github/assets/goals.png';
+import documentsShot from '../../../../.github/assets/documents.png';
+import prototypesShot from '../../../../.github/assets/prototypes.png';
+
 const SITE = 'https://plandesk.asyncdot.com';
 const GITHUB = 'https://github.com/asyncdotengineering/plandesk';
 const PROMPT = `Run this in bash: curl -fsSL ${SITE}/start.md | cat\nThen follow the instructions to set up Plan Desk for this project.`;
@@ -46,7 +53,7 @@ const features = [
   { t: 'Specs on nodes', d: 'Attach a document to any task. Agents read the spec before they touch a line of code.' },
   { t: 'Board', d: 'A kanban view that shares one source of truth with the canvas. Move a card, the graph updates.' },
   { t: 'Project notes', d: 'Free-form working notes in a rich-text editor, scoped to the project and separate from formal specs — for findings and context worth keeping.' },
-  { t: 'MCP — 27 tools', d: 'Agents scaffold whole plans, pick the next unblocked task, and update status live over MCP.' },
+  { t: 'MCP — 64 tools', d: 'Agents scaffold whole plans, pick the next unblocked task, and update status live over MCP.' },
   { t: 'Comments loop', d: 'Leave feedback on a doc in the UI; the agent pulls it, addresses it, and resolves it — live.' },
   { t: 'Local-first', d: 'Runs on your machine over SQLite. No cloud, no lock-in. Lossless JSON export/import.' },
 ];
@@ -55,6 +62,33 @@ const steps = [
   { n: '01', t: 'Plan', d: 'Sketch the graph on the canvas, or have your agent scaffold it from a one-line idea.' },
   { n: '02', t: 'Connect', d: 'plandesk connect binds the repo over MCP — commit-safe, no secrets committed.' },
   { n: '03', t: 'Build', d: 'The agent loops get_next_task → code → done, in dependency order, live on the canvas.' },
+];
+
+const surfaces = [
+  {
+    src: flowShot,
+    alt: 'The Plan Desk flow canvas showing task nodes joined by labeled dependency edges, with an agent activity panel beside it',
+    t: 'Flow',
+    d: 'Dependencies as a graph, with every agent run recorded beside it.',
+  },
+  {
+    src: goalsShot,
+    alt: 'A Plan Desk goal showing its acceptance checklist, stop condition, constraints and cycle tasks',
+    t: 'Goals',
+    d: 'A contract you hand to an agent: acceptance checklist, stop condition, boundaries.',
+  },
+  {
+    src: documentsShot,
+    alt: 'A Plan Desk design document open in the reader with a review comment in the sidebar',
+    t: 'Documents',
+    d: 'The spec lives on the node, with review comments from people and agents.',
+  },
+  {
+    src: prototypesShot,
+    alt: 'A Plan Desk prototype canvas showing generated point-of-sale screens open for comment',
+    t: 'Prototypes',
+    d: 'Click-through HTML screens to react to before anyone builds the real thing.',
+  },
 ];
 ---
 
@@ -118,6 +152,17 @@ const steps = [
           <code class="prompt-line">{PROMPT}</code>
         </section>
 
+        <figure class="shot shot-hero">
+          <Image
+            src={boardShot}
+            alt="A Plan Desk board with tasks across Scope, Todo, In Progress and Done columns"
+            widths={[720, 1080, 1600]}
+            sizes="(max-width: 760px) 100vw, 1032px"
+            loading="eager"
+          />
+          <figcaption>A real build, planned on the board the agent works from.</figcaption>
+        </figure>
+
         <section class="showcase">
           <div class="tabs" role="tablist">
             <button class="tab active" data-tab="plan">scaffold_project_from_plan</button>
@@ -139,6 +184,28 @@ const steps = [
               </div>
             ))
           }
+        </section>
+
+        <section class="surfaces">
+          <h2 class="section-title">One plan, a surface for every job.</h2>
+          <div class="surface-grid">
+            {
+              surfaces.map((s) => (
+                <figure class="shot">
+                  <Image
+                    src={s.src}
+                    alt={s.alt}
+                    widths={[520, 780, 1040]}
+                    sizes="(max-width: 760px) 100vw, 508px"
+                    loading="lazy"
+                  />
+                  <figcaption>
+                    <strong>{s.t}</strong> — {s.d}
+                  </figcaption>
+                </figure>
+              ))
+            }
+          </div>
         </section>
 
         <section class="features">
@@ -467,6 +534,45 @@ const steps = [
         font-size: 0.95rem;
       }
 
+      /* screenshots */
+      .shot {
+        margin: 0;
+      }
+      .shot img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--ink);
+      }
+      .shot figcaption {
+        margin-top: 12px;
+        font-size: 0.88rem;
+        color: var(--muted);
+      }
+      .shot figcaption strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .shot-hero {
+        margin: 0 0 88px;
+      }
+      .shot-hero img {
+        box-shadow: 0 18px 40px -24px rgba(10, 10, 10, 0.45);
+      }
+      .shot-hero figcaption {
+        text-align: center;
+      }
+      .surfaces {
+        margin-bottom: 88px;
+      }
+      .surface-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 32px 16px;
+      }
+
       /* features */
       .section-title {
         font-size: clamp(1.6rem, 3.5vw, 2.3rem);
@@ -550,7 +656,8 @@ const steps = [
 
       @media (max-width: 760px) {
         .steps,
-        .grid {
+        .grid,
+        .surface-grid {
           grid-template-columns: 1fr;
         }
         .hero {

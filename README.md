@@ -1,41 +1,139 @@
+<div align="center">
+
+<img src=".github/assets/logo.svg" alt="Plan Desk" width="56">
+
 # Plan Desk
 
-**Local-first, self-hostable planning workspace** — canvas + docs-on-nodes + tasks + board + MCP for product teams and agent workflows.
+**Stop pasting tickets into prompts.**
 
-Plan Desk is a graph-native planning app you run on your machine: map dependencies on a flow canvas, attach specs to nodes, track status on a board, and let Claude Code or Codex read and update the plan over MCP. Data stays in a local SQLite workspace; export/import keeps projects portable.
+Plan Desk is a local-first planning workspace your coding agent can read and write.
+You get a canvas, a board, and specs on the nodes. Claude Code and Codex get 64 MCP
+tools over the same data. One plan, two readers, one audit trail.
 
-## Set up with your coding agent
+[![npm](https://img.shields.io/npm/v/@plandesk/cli?style=flat&labelColor=000&color=555)](https://www.npmjs.com/package/@plandesk/cli)
+[![node](https://img.shields.io/badge/node-%E2%89%A520-000?style=flat&labelColor=000&color=555)](https://nodejs.org)
+[![docs](https://img.shields.io/badge/docs-plandesk.asyncdot.com-000?style=flat&labelColor=000&color=555)](https://plandesk.asyncdot.com)
 
-Let your agent wire Plan Desk into the current repo. From your project folder, paste into Claude Code (or Codex):
+[Docs](https://plandesk.asyncdot.com) ·
+[Quickstart](https://plandesk.asyncdot.com/getting-started/quickstart/) ·
+[Connect an agent](https://plandesk.asyncdot.com/connecting-agents/mcp-setup/) ·
+[Self-hosting](https://plandesk.asyncdot.com/self-hosting/docker/) ·
+[CLI reference](https://plandesk.asyncdot.com/reference/cli/)
+
+</div>
+
+<p align="center">
+  <img src=".github/assets/board.png" alt="A Plan Desk board with tasks in Scope, Todo, In Progress and Done" width="100%">
+</p>
+
+<p align="center">
+  <sub><em>A real build, planned on the board the agent works from.</em></sub>
+</p>
+
+---
+
+## Why this exists
+
+Your plan lives in a tool your agent cannot reach. So you paste the ticket into the
+prompt, explain the constraints again, and watch the run leave no trace on the plan.
+Add a second agent and you do it twice. The planning tool and the work drift apart,
+and you become the integration layer between them.
+
+Plan Desk removes the paste step. The plan is one object on your machine. You open it
+as a canvas or a board. The agent opens it as an API — it pulls its own next task,
+records progress against a run, and leaves the result where you review it.
+
+---
+
+## Plan it once.
+
+_A graph, not a list of tickets. Dependencies are edges, and specs live on the node._
+
+- **[Flow canvas](https://plandesk.asyncdot.com/getting-started/first-project/)** — labeled, directed edges between tasks, with auto-layout when the graph gets wide.
+- **[Docs on nodes](https://plandesk.asyncdot.com/getting-started/first-project/)** — the spec attaches to the task, not to a wiki nobody opens.
+- **[Goals](https://plandesk.asyncdot.com/reference/api/)** — a durable contract: cycle tasks, a verification surface, and an acceptance status.
+- **[Prototypes](https://plandesk.asyncdot.com/connecting-agents/skill/)** — click-through HTML screens to react to before anyone builds the real thing.
+- **[Board and notes](https://plandesk.asyncdot.com/getting-started/first-project/)** — kanban over the same task status, plus free-form working notes.
+
+## Hand it to an agent.
+
+_The other half of the product, and the half the screenshots never show._
+
+- **[64 MCP tools](https://plandesk.asyncdot.com/connecting-agents/mcp-setup/)** — `get_next_task`, `claim_task`, `start_agent_run`, `record_agent_progress`, `scaffold_project_from_plan`, and the rest of the plan surface.
+- **[9 skills](.agents/skills/)** — `plandesk factory init` installs them into your repo. MCP connects; skills teach the agent to use the connection well.
+- **[Share links](https://plandesk.asyncdot.com/reference/collaboration/)** — mint an expiring Markdown URL for a task, document, or prototype, and a sub-agent gets full context without MCP access.
+- **[Artifacts](https://plandesk.asyncdot.com/reference/cli/)** — the agent stores a report or RFC, you annotate it, the agent revises the same `artifact_id`.
+- **[Agent runs](https://plandesk.asyncdot.com/reference/factory/)** — every run is recorded against the plan, so the canvas shows who did what.
+
+## Stay in control.
+
+_The agent operates. You approve, correct, and undo._
+
+- **[Risk lanes and gates](https://plandesk.asyncdot.com/reference/factory/)** — a task declares `auto`, `approve`, or `full`. Gated work waits for a human.
+- **[Comments everywhere](https://plandesk.asyncdot.com/reference/collaboration/)** — leave feedback on a document, task, note, or artifact; the agent resolves it and closes the loop.
+- **[Review files in place](https://plandesk.asyncdot.com/reference/cli/)** — run `plandesk report.md`, highlight text, attach a note. Your annotations land on the board.
+- **Agents cannot delete your plan** — MCP has no tool to delete a task, document, note, or artifact. The agent resolves, supersedes, or sets a status instead.
+
+## Own your data.
+
+_It runs on your machine. It stays on your machine unless you say otherwise._
+
+- **[Local SQLite](https://plandesk.asyncdot.com/reference/architecture/)** — one workspace file, no cloud in the request path.
+- **[Lossless export/import](https://plandesk.asyncdot.com/reference/upgrading/)** — `plandesk-export-v2` JSON moves a project between machines.
+- **[Docker self-hosting](https://plandesk.asyncdot.com/self-hosting/docker/)** — run it for a team, with auth, on your own infrastructure.
+- **[Client portal](https://plandesk.asyncdot.com/reference/collaboration/)** — share a curated projection of the plan with a client; guests file issues into a moderated inbox.
+
+---
+
+## The same plan, a surface for each job
+
+|                                                                                                         |                                                                                                                 |
+| :-----------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------: |
+| <img src=".github/assets/flow.png" alt="Flow canvas with dependency edges and an agent activity panel"> | <img src=".github/assets/goals.png" alt="A goal with its acceptance checklist, stop condition and constraints"> |
+|              **Flow** — dependencies as a graph, with every agent run recorded beside it.               |             **Goals** — a contract with an acceptance checklist, a stop condition, and boundaries.              |
+|      <img src=".github/assets/documents.png" alt="A design document with an open review comment">       |       <img src=".github/assets/prototypes.png" alt="Prototype screens on a canvas with review comments">        |
+|           **Documents** — the spec on the node, with review comments from people and agents.            |                      **Prototypes** — HTML screens, linked into a flow, open for comment.                       |
+
+---
+
+## Get started
+
+```bash
+npm i -g @plandesk/cli   # Node ≥ 20
+plandesk init
+plandesk serve
+```
+
+Open [http://127.0.0.1:7526](http://127.0.0.1:7526).
+
+Then bind a repo and wire MCP, from that repo's root:
+
+```bash
+plandesk connect
+```
+
+Start a fresh agent session and it plans and builds from the live graph.
+
+<details>
+<summary><b>Let your agent do the setup instead</b></summary>
+
+<br/>
+
+From your project folder, paste this into Claude Code or Codex:
 
 ```text
 Read https://plandesk.asyncdot.com/start.md then set up Plan Desk for this project.
 ```
 
-It installs the CLI, starts the local server, creates or binds a project, and verifies — scoped to your folder, no secrets committed. Then a fresh session plans and builds from the live graph. Walkthrough: [From idea to development with Claude Code](https://plandesk.asyncdot.com/guides/idea-to-development/).
+It installs the CLI, starts the local server, creates or binds a project, and verifies —
+scoped to your folder, no secrets committed.
 
-## Documentation
+</details>
 
-📖 **[plandesk.asyncdot.com](https://plandesk.asyncdot.com)** — hosted documentation: quickstart, Docker self-hosting, MCP/agent setup, CLI reference, API, architecture, and validation.
+<details>
+<summary><b>Run from source</b></summary>
 
-Built with Astro Starlight in [`apps/docs`](apps/docs/):
-
-```bash
-pnpm --filter @plandesk/docs dev      # http://localhost:4321
-pnpm --filter @plandesk/docs build    # static site in apps/docs/dist/
-```
-
-## Quickstart
-
-```bash
-npm i -g @plandesk/cli
-plandesk init
-plandesk serve
-```
-
-Open [http://127.0.0.1:3847](http://127.0.0.1:3847).
-
-**From source (contributors):**
+<br/>
 
 ```bash
 git clone https://github.com/asyncdotengineering/plandesk
@@ -45,6 +143,89 @@ export PATH="$PWD/packages/plandesk-cli/bin:$PATH"
 plandesk init
 plandesk serve
 ```
+
+</details>
+
+New here? Run `plandesk onboard` for the full model — how the board works, the execution
+loop, delegation, and the MCP surface.
+
+---
+
+## What the agent actually does
+
+The agent never asks you what to work on. It asks the board:
+
+```jsonc
+// 1. Pull the next unblocked task — the board decides, not the prompt.
+get_next_task({ project_id })
+// → { next: { next_task: { id, label, description, status: "todo", ... },
+//             reason: "ok",
+//             blocked: [{ task, waiting_on: [...] }] } }
+
+// 2. Claim it and open a run, so the canvas shows work in flight.
+claim_task({ task_id, agent_ref: "claude-code" })
+start_agent_run({ project_id, label: "Fix the receipt total" })
+
+// 3. Read the spec that lives on the node.
+get_document({ document_id })
+
+// 4. Work, and record progress against the run as you go.
+record_agent_progress({ run_id, message: "Red gate reproduced the bug" })
+
+// 5. Flip status the moment the work is verified — never in a batch at the end.
+update_task({ task_id, status: "done" })
+complete_agent_run({ run_id, status: "completed" })
+```
+
+Every one of those calls is a tool a human action mirrors in the UI. Same data, one
+audit trail, two readers.
+
+---
+
+## Documentation
+
+| I want to…                             | Start here                                                                                                                                                                                                       |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Get running in five minutes            | [Quickstart](https://plandesk.asyncdot.com/getting-started/quickstart/) · [Your first project](https://plandesk.asyncdot.com/getting-started/first-project/)                                                     |
+| Connect Claude Code or Codex           | [MCP setup](https://plandesk.asyncdot.com/connecting-agents/mcp-setup/) · [Bind a repo](https://plandesk.asyncdot.com/connecting-agents/connect/)                                                                |
+| Go from an idea to a built feature     | [Idea to development](https://plandesk.asyncdot.com/guides/idea-to-development/) · [Plan & execute](https://plandesk.asyncdot.com/guides/plan-and-execute/)                                                      |
+| Run agents against the plan unattended | [Drive the factory](https://plandesk.asyncdot.com/guides/drive-the-factory/) · [Factory reference](https://plandesk.asyncdot.com/reference/factory/)                                                             |
+| Share work with a client               | [Collaboration & sync](https://plandesk.asyncdot.com/reference/collaboration/) · [Plan, share, build](https://plandesk.asyncdot.com/guides/plan-share-build/)                                                    |
+| Host it for a team                     | [Docker](https://plandesk.asyncdot.com/self-hosting/docker/) · [Topologies](https://plandesk.asyncdot.com/self-hosting/topologies/) · [Server config](https://plandesk.asyncdot.com/self-hosting/server-config/) |
+| Script it                              | [CLI reference](https://plandesk.asyncdot.com/reference/cli/) · [REST API](https://plandesk.asyncdot.com/reference/api/)                                                                                         |
+| Understand how it fits together        | [Architecture](https://plandesk.asyncdot.com/reference/architecture/) · [Workspaces](https://plandesk.asyncdot.com/reference/workspaces/)                                                                        |
+| Work out why something broke           | [Troubleshooting](https://plandesk.asyncdot.com/reference/troubleshooting/) · [Upgrading](https://plandesk.asyncdot.com/reference/upgrading/)                                                                    |
+
+---
+
+## Architecture
+
+```
+        You                                   Your coding agent
+         │                                            │
+    browser UI                                   MCP (64 tools)
+         │                                            │
+         └──────────────┬─────────────────────────────┘
+                        ▼
+              ┌───────────────────┐
+              │  plandesk serve   │   one local process, your machine
+              │  REST JSON API    │
+              └─────────┬─────────┘
+                        ▼
+              ┌───────────────────┐
+              │  SQLite workspace │   exportable, portable, yours
+              └───────────────────┘
+```
+
+| Layer           | Stack                                                                                |
+| --------------- | ------------------------------------------------------------------------------------ |
+| Web             | React 19, TanStack Router, React Flow, TipTap                                        |
+| API             | Node + Hono, REST JSON (`@plandesk/api`)                                             |
+| Agent surface   | MCP server, 64 tools (`@plandesk/mcp`)                                               |
+| Storage         | Drizzle ORM over libSQL (`@plandesk/db`) — a local SQLite file, lossless JSON export |
+| Sync (optional) | Cloudflare Workers + Turso + R2 (`@plandesk/worker`)                                 |
+
+---
 
 ## Development
 
@@ -56,35 +237,22 @@ pnpm validate       # live health + MCP smoke
 pnpm metrics        # v1 performance targets
 ```
 
-## Roadmap
+The docs site is Astro Starlight in [`apps/docs`](apps/docs/):
 
-### Shipped (`@plandesk/*` 0.4.0)
+```bash
+pnpm --filter @plandesk/docs dev      # http://localhost:4321
+```
 
-Local-first planning workspace: flow canvas with labeled dependency edges, specs on nodes, kanban board, project notes, 27 MCP tools (incl. `scaffold_project_from_plan`, `get_next_task`, document comments), lossless export/import, Docker self-hosting — plus the Client Collaboration tier below.
+---
 
-### Shipped in 0.4.0 — Client Collaboration
+## Status
 
-Share a project with an external client or another team and collaborate two-way, without giving up local-first authoring. Full design in [`rfcs/client-collaboration-sync/`](rfcs/client-collaboration-sync/). **Phases 1–5 ship the complete client-facing + owner + agent + live loop:**
+Current release: **3.2.1**. Shipped and in daily use: the canvas, board, goals,
+prototypes, documents, notes, artifacts, comments, the MCP surface, the CLI, Docker
+self-hosting, and the client collaboration tier (read-only portal, named join,
+moderated issue intake, and status that flows back to the guest's view).
 
-- **Read-only portal** — a guest opens a share link and sees a curated, **allow-list** projection of the plan (graph + board + shared docs). Internal data is structurally absent, never filtered.
-- **Named join + identity** — Zoom-style "enter your name" join → scoped, session-gated view; invite-scoped or public; append-only activity/audit log.
-- **Moderated issue intake** — guests file bugs into a **proposal inbox** that never touches the source of truth; the owner pulls and triages.
-- **Pull → triage → task** — `plandesk pull` brings submissions into a local triage inbox; **accept** creates a real task via the normal write path (so the agent can `get_next_task` it); status acks back to the guest. Driven by CLI (`publish`/`push`/`pull`/`sync --watch`/`share create`) and 5 MCP tools.
-- **Live status-back** — a change on the owner's canvas propagates to the guest's portal in ~2s over SSE, no reload.
-- **Agent-assisted deploy** — `plandesk deploy cloudflare | claude` hands a coding agent a hosted, grounded runbook that stands up your own sync server on Cloudflare Workers + D1 + Pages. See [Collaboration & sync](https://plandesk.asyncdot.com/reference/collaboration/).
-
-### Pending — Phase 6: multi-tenant hardening
-
-What turns the collaboration tier into a true multi-tenant product. **Not yet built** — gated because a mistake here is a cross-tenant data leak (`tenant_isolation` is an unshippable-if-failing test):
-
-- **Org / tenant model** — `orgs`, `org_members`, `project_members` on the hosted sync server.
-- **Fail-closed tenant scoping** — every hosted query carries an `org_id` or throws; the raw DB client is unreachable outside the scoping module, so "forgot the `WHERE org_id`" cannot compile.
-- **Intra-org project silos** — membership ACL so teams in one org only see projects they're shared into.
-- **Per-audience revocation / expiry** — revoking one share invalidates its cached projection + open SSE without touching siblings.
-
-(Agent-assisted self-deploy shipped in 0.4.0 as `plandesk deploy` — a hosted connector-spec an agent runs, not a bundled provisioner; see [RFC Delta 06](rfcs/client-collaboration-sync/06-c21-deploy-connector-delta.md).)
-
-Smaller follow-ups: magic-link invite verification (current invite check trusts the typed email), cross-instance SSE pub/sub for multi-replica deploys, and `sync --watch` auto-reconnect.
+Shipped changes are in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 

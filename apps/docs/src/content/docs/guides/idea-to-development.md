@@ -29,7 +29,7 @@ claude mcp add --transport http plandesk http://127.0.0.1:7526/mcp/
 
 (Connecting to a hosted org instead of local? See [MCP Setup](/connecting-agents/mcp-setup/#step-1--auth-none-locally-a-cli-token-for-hosted) for the two-actor `login` + `connect --to` flow.)
 
-Start a **new** Claude Code session so the tools load. You should see Plan Desk's 46 MCP tools (see [REST + MCP API](/reference/api/)). The two that drive this workflow are `scaffold_project_from_plan` (plan once) and `get_next_task` (the build loop).
+Start a **new** Claude Code session so the tools load. You should see Plan Desk's 64 MCP tools (see [REST + MCP API](/reference/api/)). The two that drive this workflow are `scaffold_project_from_plan` (plan once) and `get_next_task` (the build loop).
 
 ## 2. Turn the idea into a plan — let Claude do it
 
@@ -96,7 +96,7 @@ Next time Claude checks in (the skill tells it to pull open comments with `list_
 
 ## 7. Watch it live
 
-Every `update_task`, `record_agent_progress`, and `resolve_comment` streams over SSE to every open view, with no refresh:
+Every `update_task`, `record_agent_progress`, and `resolve_comment` reaches every open view within about 2.5 seconds, with no refresh:
 
 - **Flow** — status badges flip as tasks move to `done`
 - **Board** — cards advance across columns
@@ -118,5 +118,5 @@ That's the whole arc: an idea became a connected plan, Claude Code built it from
 ## Next steps
 
 - [The Skill](/connecting-agents/skill/) — the exact conventions Claude follows
-- [REST + MCP API](/reference/api/) — all 46 tools
+- [REST + MCP API](/reference/api/) — all 64 tools
 - [Plan & execute a project](/guides/plan-and-execute/) — the conceptual workflow + Codex setup

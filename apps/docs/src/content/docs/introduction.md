@@ -30,7 +30,7 @@ The agent installs the CLI, starts the local server, creates or binds a project,
 - **Files** — upload an image via MCP (`attach_file`) and embed it with a short URL instead of inlining base64
 - **Agent share links** — mint a public, expiring Markdown link for one task or document (`create_share_link`) to hand a sub-agent or worker full context via a URL, no MCP access required
 - **Artifacts** — stored agent deliverables (Markdown/HTML reports, RFCs) a human annotates via the CLI previewer and the agent revises — the same `artifact_id` closes the produce → annotate → revise loop
-- **MCP** — 46 tools for agents to scaffold plans, pick the next task, read/write tasks, docs, notes, files, artifacts, share links, comments, and agent runs
+- **MCP** — 64 tools for agents to scaffold plans, pick the next task, read/write tasks, docs, notes, files, artifacts, share links, comments, and agent runs
 - **Portable data** — lossless `plandesk-export-v2` JSON export/import (v1 files still import)
 
 ## Next steps
