@@ -3,6 +3,12 @@ title: Factory workspace
 description: The project-local .agents/ factory format — portable, file-based agent policy that Plan Desk scaffolds and any harness can consume.
 ---
 
+:::note
+This page is the **format reference** — the files, their frontmatter, and the command
+flags. For the model behind it — the roles, the work cycle, the risk lanes, and the
+skills — read [How the factory works](/reference/how-the-factory-works/).
+:::
+
 `plandesk factory init` scaffolds a **project-local agent factory workspace**: a small tree of markdown policy files under `.agents/` that defines how delegated agent work runs in this repository — the work cycle, the worker roster, the risk lanes, and the per-change verifiers. Plan Desk is the scheduler (the board); these files are the policy.
 
 The format is deliberately harness-neutral. Claude Code consumes it today through a thin command adapter; any other runtime (Codex, a workflow engine like Mastra, your own orchestrator) can consume the same files, because the format follows conventions that are converging across the ecosystem: path-derived identity, markdown with minimal frontmatter, and permissive consumers.
@@ -16,13 +22,16 @@ Agent config written into global directories (`~/.claude`, `~/.codex`) leaks int
 ```
 .agents/
 ├─ index.md                    # progressive disclosure: what lives here (sentinel block)
-├─ skills/                     # invocable skills — all `plandesk-*`
+├─ skills/                     # nine invocable skills — all `plandesk-*`
 │  ├─ plandesk-plan-writer/    #   write the RFC before there is a board
 │  ├─ plandesk-scope-work/     #   raw signal or a whole idea → scope tasks + edges
 │  ├─ plandesk-groom-task/     #   thin task → build contract (owns the Definition of Ready)
+│  ├─ plandesk-prototype/      #   click-through HTML screens for review before the build
 │  ├─ plandesk-foreman/        #   runs the board floor (execution)
 │  ├─ plandesk-autonomy/       #   chainable: run another skill unattended
-│  └─ plandesk-timebox/        #   chainable: pace a run in timeboxes
+│  ├─ plandesk-timebox/        #   chainable: pace a run in timeboxes
+│  ├─ plandesk-standup/        #   rebuild context at the start of a session
+│  └─ plandesk-standdown/      #   what shipped, what blocked, what is left
 └─ factory/
    ├─ factory.md               # the contract: how a work cycle runs (type: factory)
    ├─ execution.md             # IC spine: decompose, drive to zero, ship (type: execution)
@@ -59,9 +68,9 @@ Two zones with different ownership:
 The format is small on purpose; it borrows the conformance posture of the Open Knowledge Format and the Agent Skills spec:
 
 1. **One required frontmatter field.** Every policy file declares a `type` (`factory`, `execution`, `protocol`, `worker`, `lanes`, `verifier`). Everything else is optional.
-2. **Identity is the path.** A file's name is its name — no `id` fields, no registry. `verifiers/tests-pass.md` *is* the verifier `tests-pass`.
+2. **Identity is the path.** A file's name is its name — no `id` fields, no registry. `verifiers/tests-pass.md` _is_ the verifier `tests-pass`.
 3. **Consumers are permissive.** Tools reading `.agents/` MUST tolerate unknown types, unknown frontmatter keys, and links to files that do not exist yet. Old consumers never break on new producers — this is what lets one repo serve Claude Code today and a hosted orchestrator later without changing a file.
-4. **Markdown is the interchange layer.** Guidance (contracts, rosters, policy) lives in markdown and ports across harnesses. Anything executable a specific runtime needs is compiled *from* these files, never written back into them.
+4. **Markdown is the interchange layer.** Guidance (contracts, rosters, policy) lives in markdown and ports across harnesses. Anything executable a specific runtime needs is compiled _from_ these files, never written back into them.
 
 ## Workers and the dispatch protocol
 
@@ -82,7 +91,7 @@ command: codex exec --full-auto < {prompt_file}
 
 ## Running the board: `/plandesk-foreman`
 
-The files above are policy — they describe how a cycle runs. `plandesk-foreman` is what *runs* one. Give it a scope and it takes board work to committed:
+The files above are policy — they describe how a cycle runs. `plandesk-foreman` is what _runs_ one. Give it a scope and it takes board work to committed:
 
 ```bash
 /plandesk-foreman <task-id>     # one item
@@ -95,14 +104,14 @@ Its cycle: preflight (clean tree, no live dispatch, board reachable, a worker pr
 
 Two of those deserve calling out, because both encode an incident:
 
-- **Grooming stays inline; only implementation dispatches.** A task is ready when a worker with no session history could build it — stated outcome, context, constraints, testable acceptance criteria, and the commands that prove it. Anything short of that gets rewritten by the conductor, not shipped to a worker. Grooming is judgment about *intent*, and delegating that is how a plan drifts from what was actually wanted.
+- **Grooming stays inline; only implementation dispatches.** A task is ready when a worker with no session history could build it — stated outcome, context, constraints, testable acceptance criteria, and the commands that prove it. Anything short of that gets rewritten by the conductor, not shipped to a worker. Grooming is judgment about _intent_, and delegating that is how a plan drifts from what was actually wanted.
 - **Staging happens before review, not after.** Review takes minutes and unstaged work is defenceless for all of them; staged work survives a stray `git checkout` because git restores it from the index.
 
 The skill links the policy rather than restating it, which is deliberate: a second copy of the cycle is a second authority, and they drift.
 
 ## The bar for dispatched work: `workmanship.md`
 
-`protocol.md` covers the engine verifying a worker *after* a dispatch returns. `workmanship.md` is the other half — the standard prepended to every implementation brief, so a worker knows the bar before it starts rather than discovering it by failing verification.
+`protocol.md` covers the engine verifying a worker _after_ a dispatch returns. `workmanship.md` is the other half — the standard prepended to every implementation brief, so a worker knows the bar before it starts rather than discovering it by failing verification.
 
 It covers: no workarounds and never editing a gate's config to make the gate pass; never claiming done without proof; writing the test so it fails first; surgical changes; never destroying work it did not create; and honest reporting through the result contract.
 
@@ -130,7 +139,7 @@ Autonomy removes the pause between steps; timebox adds a rhythm and a report so 
 
 Three skills need to answer "is this task buildable yet?" — scope-work when it drafts a task, groom-task when it rewrites one, the foreman before it dispatches one. That question is answered in exactly one place: the **Definition of Ready** table in `plandesk-groom-task`. The other two link to it rather than restating it, for the same reason the foreman links the cycle contract instead of copying it — a second copy is a second authority, and they drift.
 
-The split with `.plandesk/skill.md` is deliberate: that file owns the *shape* of a task description (which fields it carries, always loaded in default context), and `plandesk-groom-task` owns the *verdict* (whether each field is good enough yet). Shape is a convention; readiness is a judgement with a gate behind it.
+The split with `.plandesk/skill.md` is deliberate: that file owns the _shape_ of a task description (which fields it carries, always loaded in default context), and `plandesk-groom-task` owns the _verdict_ (whether each field is good enough yet). Shape is a convention; readiness is a judgement with a gate behind it.
 
 `plandesk-groom-task` is also the only entry point for an **ad-hoc** requirement. Scope-work drafts tasks only at creation time, from whatever the source material carried; the foreman grooms only as a prelude to dispatch. A one-liner someone drops on the board mid-week has no other route to becoming work: `/plandesk-groom-task <task-id>` rewrites it in place, and `/plandesk-groom-task "we need X"` creates the task first and then grooms it. It never changes status — making a task buildable and releasing it stay separate decisions.
 
@@ -217,9 +226,9 @@ Every human touchpoint is a board interaction (drag, resolve, merge), not a chat
 Releasing a task (`scope` → `todo`) works two ways today:
 
 - **Humans** drag the card between columns on the Board view (five columns: Scope, Todo, In progress, Done, Backlog) — the drop issues the status change; connected agents' UIs pick it up on their next poll (~2.5s).
-- **Agents** technically can call `update_task` with `status: "todo"` — the API does not restrict transitions. The enforcement in the current design is at *read* time: `get_next_task` never returns unreleased work, and the factory contract instructs the supervisor to treat release as human-owned.
+- **Agents** technically can call `update_task` with `status: "todo"` — the API does not restrict transitions. The enforcement in the current design is at _read_ time: `get_next_task` never returns unreleased work, and the factory contract instructs the supervisor to treat release as human-owned.
 
-In other words: the release gate is mechanism-enforced for *pulling* work and convention-enforced for *promoting* it. If your policy needs hard human-only release (e.g. regulated repos), keep `update_task`-driven promotion out of your supervisor's contract — and watch the changelog: token-scoped transition rules are a candidate hardening.
+In other words: the release gate is mechanism-enforced for _pulling_ work and convention-enforced for _promoting_ it. If your policy needs hard human-only release (e.g. regulated repos), keep `update_task`-driven promotion out of your supervisor's contract — and watch the changelog: token-scoped transition rules are a candidate hardening.
 
 ## One contract, optional extensions
 
@@ -250,11 +259,11 @@ plandesk factory init [--repo <dir>] [--print] [--force]
 plandesk factory sync [--write] [--force] [--repo <dir>]
 ```
 
-| Flag      | Purpose                                                        |
-| --------- | -------------------------------------------------------------- |
-| `--repo`  | Target repository (default: cwd)                               |
-| `--print` | `init` dry-run: print every artifact without writing           |
+| Flag      | Purpose                                                                                              |
+| --------- | ---------------------------------------------------------------------------------------------------- |
+| `--repo`  | Target repository (default: cwd)                                                                     |
+| `--print` | `init` dry-run: print every artifact without writing                                                 |
 | `--write` | `sync` only: apply creates + safe updates, keeping your customized files (default is a dry-run plan) |
-| `--force` | `init`: scaffold even in a global config dir · `sync`: also overwrite customized files |
+| `--force` | `init`: scaffold even in a global config dir · `sync`: also overwrite customized files               |
 
 `factory sync` updates scaffolded policy to the latest shipped version **without clobbering your edits** — it classifies each file as up-to-date / create / safe-update / customized and, with `--write`, applies the safe ones (and refreshes generated adapters). See [Upgrading → Sync the factory policy](/reference/upgrading/#sync-the-factory-policy).

@@ -88,6 +88,7 @@ export default defineConfig({
             { slug: 'reference/cli' },
             { slug: 'reference/goals' },
             { slug: 'reference/prototypes' },
+            { slug: 'reference/how-the-factory-works' },
             { slug: 'reference/factory' },
             { slug: 'reference/api' },
             { slug: 'reference/architecture' },
