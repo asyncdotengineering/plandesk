@@ -70,7 +70,7 @@ _The other half of the product, and the half the screenshots never show._
 
 _The agent operates. You approve, correct, and undo._
 
-- **[Risk lanes and gates](https://plandesk.asyncdot.com/reference/factory/)** — a task declares `auto`, `approve`, or `full`. Gated work waits for a human.
+- **[Risk lanes and gates](https://plandesk.asyncdot.com/reference/how-the-factory-works/)** — a task declares how much review it needs, and gated work waits. See [The factory](#the-factory).
 - **[Comments everywhere](https://plandesk.asyncdot.com/reference/collaboration/)** — leave feedback on a document, task, note, or artifact; the agent resolves it and closes the loop.
 - **[Review files in place](https://plandesk.asyncdot.com/reference/cli/)** — run `plandesk report.md`, highlight text, attach a note. Your annotations land on the board.
 - **Agents cannot delete your plan** — MCP has no tool to delete a task, document, note, or artifact. The agent resolves, supersedes, or sets a status instead.
@@ -183,6 +183,47 @@ audit trail, two readers.
 
 ---
 
+## The factory
+
+The board holds the plan. The factory turns one released task into one verified commit.
+`plandesk factory init` installs it into your repo as markdown policy files under
+`.agents/`, plus the nine skills that drive it.
+
+It splits the work three ways, and each role is barred from the others' job:
+
+| Role           | Is                      | Does                                                 |
+| -------------- | ----------------------- | ---------------------------------------------------- |
+| **Human**      | You, on the board       | Releases work, clears gates, owns every merge.       |
+| **Supervisor** | Your agent session      | Reads the plan, writes the brief, proves the result. |
+| **Worker**     | A CLI agent on your box | Makes the change and reports the commands it ran.    |
+
+Every work item runs the same cycle:
+
+```
+pull → read the spec → red gate → delegate → prove → observe the diff → gate → ship
+```
+
+Two of those steps are the ones that matter:
+
+- **Red gate.** The check must fail before work starts. A check that already passes proves
+  nothing, so a green-at-start task goes back to `scope` with a comment.
+- **Prove.** The worker writes `{ status, claims: [{ command, exit_code }] }`. The
+  supervisor re-runs every claim. Exit codes are authoritative, a `done` with no claims is
+  a failed dispatch, and no worker grades its own work.
+
+How far it gets without you depends on the task's lane:
+
+| Lane      | For                                   | Gate                                           |
+| --------- | ------------------------------------- | ---------------------------------------------- |
+| `auto`    | Copy, docs, isolated changes          | Proof and verifiers only. No human.            |
+| `approve` | Ordinary feature work                 | Diff summary posted; someone clears it.        |
+| `full`    | Schema, infra, auth, public contracts | Independent cross-family review, then a human. |
+
+A task with no lane is `approve`, never `auto`. Full explanation:
+[How the factory works](https://plandesk.asyncdot.com/reference/how-the-factory-works/).
+
+---
+
 ## Documentation
 
 | I want to…                             | Start here                                                                                                                                                                                                                                                              |
@@ -190,7 +231,7 @@ audit trail, two readers.
 | Get running in five minutes            | [Quickstart](https://plandesk.asyncdot.com/getting-started/quickstart/) · [Your first project](https://plandesk.asyncdot.com/getting-started/first-project/)                                                                                                            |
 | Connect Claude Code or Codex           | [MCP setup](https://plandesk.asyncdot.com/connecting-agents/mcp-setup/) · [Bind a repo](https://plandesk.asyncdot.com/connecting-agents/connect/)                                                                                                                       |
 | Go from an idea to a built feature     | [Idea to development](https://plandesk.asyncdot.com/guides/idea-to-development/) · [Plan & execute](https://plandesk.asyncdot.com/guides/plan-and-execute/)                                                                                                             |
-| Run agents against the plan unattended | [Drive the factory](https://plandesk.asyncdot.com/guides/drive-the-factory/) · [Factory reference](https://plandesk.asyncdot.com/reference/factory/)                                                                                                                    |
+| Run agents against the plan unattended | [How the factory works](https://plandesk.asyncdot.com/reference/how-the-factory-works/) · [Drive the factory](https://plandesk.asyncdot.com/guides/drive-the-factory/) · [Factory workspace](https://plandesk.asyncdot.com/reference/factory/)                          |
 | Share work with a client               | [Collaboration & sync](https://plandesk.asyncdot.com/reference/collaboration/) · [Plan, share, build](https://plandesk.asyncdot.com/guides/plan-share-build/)                                                                                                           |
 | Host it for a team                     | [Docker](https://plandesk.asyncdot.com/self-hosting/docker/) · [Topologies](https://plandesk.asyncdot.com/self-hosting/topologies/) · [Server config](https://plandesk.asyncdot.com/self-hosting/server-config/)                                                        |
 | Script it                              | [CLI reference](https://plandesk.asyncdot.com/reference/cli/) · [REST API](https://plandesk.asyncdot.com/reference/api/)                                                                                                                                                |
