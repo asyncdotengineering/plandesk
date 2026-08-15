@@ -36,11 +36,11 @@ cpSync(source, dest, {
     if (rel === '.plandesk-sync.json' || rel.endsWith('/.plandesk-sync.json')) {
       return false;
     }
-    // `skills/plandesk` is a repo-local symlink to .plandesk/skill.md, so this
-    // repo's own agents find the MCP conventions skill beside the other nine.
-    // It is not a template: consumers get that skill from PLANDESK_SKILL_TEMPLATE
-    // via `connect`, and SHIPPED_TEMPLATES never declares it. Excluded here so
-    // the symlink guard below can treat every remaining symlink as a defect.
+    // `skills/plandesk` is written by `connect` itself (SKILL_DIRS) as a symlink
+    // to .plandesk/skill.md — output, not source. The conventions skill ships as
+    // `plandesk-skill.md` at this root, which is why the source does not live
+    // under skills/: connect would overwrite it here with a link to its own
+    // output. Excluded so the guard below can treat every symlink as a defect.
     if (rel === 'skills/plandesk' || rel.startsWith('skills/plandesk/')) {
       return false;
     }

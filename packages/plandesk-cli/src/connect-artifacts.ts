@@ -1,7 +1,10 @@
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { PLANDESK_SKILL_TEMPLATE } from './skill-template.js';
+import { readTemplate } from './templates.js';
+
+/** Path of the conventions skill inside the templates root. */
+export const PLANDESK_SKILL_TEMPLATE_PATH = 'plandesk-skill.md';
 
 export const PLANDESK_CONNECT_VERSION = 'plandesk-connect-v1';
 export const PLANDESK_CONNECT_VERSION_V2 = 'plandesk-connect-v2';
@@ -642,8 +645,15 @@ export function appendGitignoreLine(content: string | undefined, line: string): 
   return `${content}${suffix}${normalizedLine}\n`;
 }
 
+/**
+ * The MCP conventions skill, vendored like every other template rather than
+ * compiled in as a string. It lives at `.agents/plandesk-skill.md` and not
+ * under `.agents/skills/`, because `connect` owns `skills/plandesk/SKILL.md`
+ * (see SKILL_DIRS) and would overwrite the source with a symlink to its own
+ * output when run in this repo.
+ */
 export function buildSkillMarkdown(): string {
-  return `${PLANDESK_SKILL_TEMPLATE}\n`;
+  return readTemplate(PLANDESK_SKILL_TEMPLATE_PATH);
 }
 
 export function buildCommandMarkdown(): string {

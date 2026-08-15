@@ -3,7 +3,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { buildPrototypeLibrariesMarkdown } from './prototype-libraries-md.js';
-import { PLANDESK_SKILL_TEMPLATE } from './skill-template.js';
+import { buildSkillMarkdown } from './connect-artifacts.js';
+
+const PLANDESK_SKILL_TEMPLATE = buildSkillMarkdown();
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 // The canonical location is .agents/ — that is what gets vendored and shipped.

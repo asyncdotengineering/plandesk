@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { PLANDESK_SKILL_TEMPLATE } from './skill-template.js';
+import { buildSkillMarkdown } from './connect-artifacts.js';
+
+const PLANDESK_SKILL_TEMPLATE = buildSkillMarkdown();
 
 describe('PLANDESK_SKILL_TEMPLATE task creation section', () => {
   const afterTaskCreation = PLANDESK_SKILL_TEMPLATE.split('## Task creation')[1];

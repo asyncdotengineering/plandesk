@@ -1,9 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { PLANDESK_SKILL_TEMPLATE } from './skill-template.js';
+import { PLANDESK_SKILL_TEMPLATE_PATH } from './connect-artifacts.js';
+import { templatesRoot } from './templates.js';
 import {
   appendGitignoreLine,
   buildConfigJson,
@@ -428,8 +430,23 @@ describe('connect artifacts', () => {
     });
   });
 
-  it('ships RFC skill template verbatim', () => {
-    expect(buildSkillMarkdown()).toBe(`${PLANDESK_SKILL_TEMPLATE}\n`);
+  it('ships the conventions skill verbatim from the templates root', () => {
+    expect(buildSkillMarkdown()).toBe(
+      readFileSync(join(templatesRoot(), PLANDESK_SKILL_TEMPLATE_PATH), 'utf8'),
+    );
+  });
+
+  /**
+   * .plandesk/skill.md is generated output that this repo also commits, so it
+   * can drift from its source and nothing downstream would notice — it did,
+   * across several commits, until the endpoint-pair edge table went missing
+   * from one side. Regenerate it rather than editing it.
+   */
+  it('keeps the committed .plandesk/skill.md equal to its source', () => {
+    const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+    expect(readFileSync(join(repoRoot, '.plandesk', 'skill.md'), 'utf8')).toBe(
+      buildSkillMarkdown(),
+    );
   });
 
   describe('mergeHooksJson', () => {
