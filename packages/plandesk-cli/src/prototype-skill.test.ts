@@ -51,7 +51,7 @@ describe('PLANDESK_SKILL_TEMPLATE prototypes section', () => {
     expect(PLANDESK_SKILL_TEMPLATE).toContain('move_screen');
     expect(PLANDESK_SKILL_TEMPLATE).toContain('copy_screen');
     expect(PLANDESK_SKILL_TEMPLATE).toContain('plandesk push-artifact');
-    expect(PLANDESK_SKILL_TEMPLATE).toContain('.claude/skills/plandesk-prototype/SKILL.md');
+    expect(PLANDESK_SKILL_TEMPLATE).toContain('.agents/skills/plandesk-prototype/SKILL.md');
     // Authoring Forbidden list stays in the skill, not duplicated here.
     expect(PLANDESK_SKILL_TEMPLATE).not.toMatch(/## 5\. Forbidden/);
   });

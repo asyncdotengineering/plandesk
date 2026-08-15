@@ -42,7 +42,7 @@ already watches; that is wasted work ([heartbeat.md](../../factory/heartbeat.md)
 | --- | --- | --- | --- | --- | --- |
 | work-list scratchpad | `TaskCreate` / `TaskList` / `TaskUpdate` | same harness task tools | `runs/tasks-<task>.md` | `TaskCreate` (pi-loop fallback) or pi-tasks | session notes / plugin tasks |
 | background command | Shell `run_in_background` + `Await` | Bash `run_in_background` | background flag if present | `MonitorCreate` (pi-loop) | `/background` (monitor plugin) |
-| one-shot resume | — | `ScheduleWakeup` | — (use external cron) | `schedule_loop_wakeup` / `LoopCreate` (extensions) | `ScheduleWakeup` (opencode-routines) |
+| one-shot resume | backgrounded `sleep` sentinel (see Cursor specifics) | `ScheduleWakeup` | — (use external cron) | `schedule_loop_wakeup` / `LoopCreate` (extensions) | `ScheduleWakeup` (opencode-routines) |
 | recurring loop | — | `/loop` + `ScheduleWakeup` | `.codex/automations/*.toml` | `LoopCreate` / `/loop` (pi-loop) | `LoopCreate` / `/loop` (routines plugin) |
 | portable clock | `date +%s` at item boundaries | same | same | same | same |
 
@@ -61,6 +61,21 @@ already watches; that is wasted work ([heartbeat.md](../../factory/heartbeat.md)
    (`runs/result-<task>.json`), watched by the monitor armed at dispatch —
    `Await` the monitor shell, and treat the harness's own exit notification as
    a hint only. See [protocol.md](../../factory/protocol.md).
+
+**Cursor specifics.** There is no scheduler tool, but there is a working box
+timer: at each box start, background a sentinel shell —
+
+```bash
+sleep {interval_seconds} && echo "TIMEBOX: box {n} boundary"
+```
+
+— with `run_in_background` (block_until_ms 0). Its completion notification is
+delivered even after your turn ends and **resumes the run**, so a box boundary
+can wake you instead of relying on you noticing the stamp. This is the
+documented sleep-and-echo self-notification pattern, not polling: one shell
+per box, armed once, disarmed (kill the pid) when the list empties early. The
+`date +%s` stamp at item boundaries stays the authority on whether the box has
+actually expired — the sentinel is the wakeup, not the clock.
 
 **Claude Code specifics.** `ScheduleWakeup` clamps `delaySeconds` to 60–3600.
 Pass a plain continuation prompt ("Continue timebox box 3; pick up item X from
@@ -103,22 +118,21 @@ while busy is correct: the box boundary fires when the in-flight item finishes.
 
 ```
 box_start = read from timebox:state (or date +%s on first box)
+arm the box timer if the harness has one    # Cursor: sentinel sleep; Claude: ScheduleWakeup
 loop:
   item = next pending harness task (skip timebox:state)
   if item is null:
-    stop — the list is done; final report; ScheduleWakeup stop if armed
+    stop — the list is done; final report; disarm timer / ScheduleWakeup stop
   work(item)                       # the wrapped skill's own procedure, in full
   verify(item)                     # its own completion check — exit codes, not claims
   TaskUpdate(item, completed)      # or mark Done in runs/tasks-*.md
   commit/checkpoint(item)          # leave nothing half-applied
   if (date +%s) - box_start >= interval_seconds:
-    checkpoint_report()            # see the template below
+    checkpoint_report()            # see the template below — then KEEP GOING
     increment box number in timebox:state
     box_start = date +%s
-    if scheduler available and more items remain:
-      ScheduleWakeup(delaySeconds=min(interval, 3600),
-        prompt="Continue plandesk-timebox; read TaskList; resume next pending item")
-  continue loop
+    re-arm the box timer for the new box
+  continue loop                    # same turn — the report is not a turn boundary
 ```
 
 **Inside a box with a background dispatch:** background the worker per
@@ -162,10 +176,17 @@ result is `carried`, not `done` — this is the check the interval exists to
 force, and reporting an unverified item as done makes every later box's report
 worthless.
 
-Then continue into the next box without waiting for a reply. The checkpoint is
-a surfacing moment, not a permission request: the human reads it if they are
-there and interrupts if they want to. Lane gates still bind — see
-[lanes.md](../../factory/lanes.md) and [autonomy](../plandesk-autonomy/SKILL.md).
+Then continue into the next box **in the same turn — do not end your turn
+after a checkpoint.** Ending the turn is how a run silently converts a report
+into a permission request: in a harness with no scheduler, nothing wakes you,
+and the run dies with "say continue for box 3" — which is exactly the pause
+the wrapper was invoked to remove. Never write "say continue", "shall I
+proceed", or any variant; the only legitimate turn-enders are the stop
+conditions below. The checkpoint is a surfacing moment, not a permission
+request: the human reads it if they are there and **interrupts** if they want
+to — interruption is their affordance, not something you solicit. Lane gates
+still bind — see [lanes.md](../../factory/lanes.md) and
+[autonomy](../plandesk-autonomy/SKILL.md).
 
 ## Breaks
 
@@ -205,6 +226,9 @@ the moment the list gets re-derived from reality rather than from memory.
 - Do not let the box become a deadline the work is rushed to fit. Skipping
   verification to land inside the interval defeats the entire point; the box is
   a reporting rhythm, not a budget.
+- A checkpoint is not a turn boundary. If you catch yourself typing "say
+  continue" or "ready for box N?", delete it and start the next item — the
+  human interrupts when they want to; you never solicit it.
 - Harness tasks are the per-session scratchpad for the list. If the run is
   board-driven, the board stays the source of truth and the harness list is
   re-derived from it after any compaction.

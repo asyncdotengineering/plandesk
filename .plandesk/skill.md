@@ -173,9 +173,20 @@ memory rather than a deliverable spec.
 
 ## Edges
 - Connect related tasks and documents with labeled edges keyed on
-  `from_type`/`from_id`/`to_type`/`to_id` (`task` or `document`). Prefer the
-  vocabulary: `blocks`, `depends_on`, `unblocks`, `feeds`, `clarifies`,
-  `enables`, `supports`, `documents`, `references`, `supersedes`, `extends`.
+  `from_type`/`from_id`/`to_type`/`to_id` (`task` or `document`).
+- **The vocabulary is split by endpoint pair. Use the half that matches.**
+
+  | endpoint pair | labels |
+  | --- | --- |
+  | task → task | `blocks`, `depends_on`, `unblocks`, `feeds`, `clarifies`, `enables`, `supports`, `relates` |
+  | document → task | `documents` |
+  | document → document | `references`, `supersedes`, `extends` |
+
+  `references`, `supersedes`, `extends` and `documents` are **document-scoped**.
+  Reaching for one of them to link two tasks is the common mistake: the closest
+  task→task label is almost always `relates` (loose association) or `depends_on`
+  (real sequencing). The label column is free text, so a wrong label is stored
+  without complaint and only shows up as a mislabelled edge on the canvas.
 - When you discover a new dependency while working, add the edge.
 
 ## Executing the plan
@@ -198,6 +209,14 @@ Edge direction drives sequencing: `from → to` with most labels (`blocks`,
 it (`from depends_on to` ⇒ `to` first). Add edges so dependencies sequence right.
 
 **Track the moves within a task with the harness task tools** — when a task needs more than one verifiable step, decompose it with `TaskCreate` / `TaskList` / `TaskUpdate`: one sub-task per move, `in_progress` when you start it, `completed` the moment its done-condition holds. The board decides what is next (durable, survives compaction via the F1 hooks); harness tasks are per-session scratchpad for the moves inside the current item — re-derive from the board after a compaction, never trust the harness list as the source of truth.
+
+**On an unattended run, a progress report is not a stopping point.** Post the
+checkpoint and keep working in the same turn; end the turn only at a lane
+gate, a genuine blocker, or an empty frontier. Never end by soliciting
+continuation — "say continue", "shall I proceed", "ready for the next box?" —
+that converts a surfacing moment into a permission request and silently kills
+the run the wrapper existed to keep moving (pacing and wakeup mechanics:
+`plandesk-timebox`; the posture: `plandesk-autonomy`).
 
 ## Keeping the board true
 
@@ -329,10 +348,14 @@ The highest-consequence guardrails — each section above states the positive
 form; these are the ones worth a hard, consolidated reminder:
 
 - Guess or hardcode IDs.
+- End a turn on an unattended run by asking to continue — checkpoint, then
+  keep going; stop only at a gate, a blocker, or an empty frontier (see
+  "Executing the plan").
 - Delete tasks, documents, notes, or artifacts — there is no delete tool by
   design; resolve, supersede, or set status instead.
 - Batch status updates for the end of a session — statuses flip atomically as
   the work happens (see "Keeping the board true").
 - Inline large images as base64 in a document/task/comment body — `attach_file`
   and embed the returned `url` instead.
+
 
