@@ -36,6 +36,14 @@ cpSync(source, dest, {
     if (rel === '.plandesk-sync.json' || rel.endsWith('/.plandesk-sync.json')) {
       return false;
     }
+    // `skills/plandesk` is a repo-local symlink to .plandesk/skill.md, so this
+    // repo's own agents find the MCP conventions skill beside the other nine.
+    // It is not a template: consumers get that skill from PLANDESK_SKILL_TEMPLATE
+    // via `connect`, and SHIPPED_TEMPLATES never declares it. Excluded here so
+    // the symlink guard below can treat every remaining symlink as a defect.
+    if (rel === 'skills/plandesk' || rel.startsWith('skills/plandesk/')) {
+      return false;
+    }
     // Transient machine state under factory/runs/** — keep only .gitignore.
     if (rel === 'factory/runs' || rel.startsWith('factory/runs/')) {
       return rel === 'factory/runs' || rel === 'factory/runs/.gitignore';
@@ -73,6 +81,34 @@ if (stragglers.length > 0) {
   console.error(
     `copy-templates: dotfiles left in dist/templates — npm rewrites these on install:\n` +
       stragglers.map((f) => `  ${f}`).join('\n'),
+  );
+  process.exit(1);
+}
+
+/**
+ * A symlink here cannot ship correctly, and both ways it can fail are silent.
+ * `cpSync` resolves the target to an ABSOLUTE path (verbatimSymlinks defaults
+ * to false), so the link points at the build machine; npm then omits symlinks
+ * from the tarball entirely, so the file is simply missing for consumers and no
+ * local gate notices. Switching this copy to `dereference: true` swaps that for
+ * a worse failure: a build-time snapshot of a generated file would ship and
+ * silently diverge from the source it was generated from. Fail the build.
+ */
+function findSymlinks(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = join(dir, entry.name);
+    if (entry.isSymbolicLink()) {
+      return [relative(dest, full)];
+    }
+    return entry.isDirectory() ? findSymlinks(full) : [];
+  });
+}
+const links = findSymlinks(dest);
+if (links.length > 0) {
+  console.error(
+    `copy-templates: symlinks left in dist/templates — npm drops these from the tarball:\n` +
+      links.map((f) => `  ${f}`).join('\n') +
+      `\nMake the file real in .agents/, or exclude it in the filter above.`,
   );
   process.exit(1);
 }
