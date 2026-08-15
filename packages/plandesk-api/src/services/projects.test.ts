@@ -28,6 +28,7 @@ import {
   listPrototypes,
   listRevisionsByTarget,
   listTasks,
+  setProjectCurrentGoalId,
   migrate,
   type Db,
   type GoalStatus,
@@ -642,7 +643,7 @@ describe('projectService', () => {
     expect(next?.next_task?.id).toBe(task?.id);
   });
 
-  it('rejects scaffold without goal_id when multiple active goals exist', async () => {
+  it('rejects scaffold without goal_id when several are active and none is current', async () => {
     const service = await createService();
     const project = await createProject(db, { name: 'Ambiguous' });
     const goalA = await createGoal(db, {
@@ -657,6 +658,7 @@ describe('projectService', () => {
       status: 'active',
       id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     });
+    await setProjectCurrentGoalId(db, project.id, null);
 
     await expect(
       service.scaffoldFromPlan({

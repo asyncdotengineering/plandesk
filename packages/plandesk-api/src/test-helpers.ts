@@ -76,6 +76,7 @@ type ProjectDetailResponse = ProjectResponse & {
 type TaskResponse = {
   id: string;
   project_id: string;
+  goal_id: string;
   label: string;
   status: string;
   description: string | null;

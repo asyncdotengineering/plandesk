@@ -157,19 +157,22 @@ export async function getOrCreateDefaultGoal(db: DbClient, projectId: string): P
   });
 }
 
-/** Resolves where new work should land: active goals only; never complete/paused/blocked. */
+/**
+ * Resolves where new work should land: active goals only; never complete/paused/blocked.
+ *
+ * Order is deliberately identical to how get_next_task resolves an omitted
+ * goal_id — current_goal_id, then the sole active goal. Reads and writes that
+ * disagree put a new task on a different goal than the one being worked.
+ */
 export async function resolveGoalForNewWork(db: DbClient, projectId: string): Promise<Goal> {
-  const active = await db
+  const projectGoals = await db
     .select()
     .from(goals)
     .where(eq(goals.projectId, projectId))
     .orderBy(asc(goals.createdAt), asc(goals.id))
     .all();
-  const activeGoals = active.filter((goal) => goal.status === 'active');
-  const [soleActiveGoal] = activeGoals;
-  if (activeGoals.length === 1 && soleActiveGoal !== undefined) {
-    return soleActiveGoal;
-  }
+  const activeGoals = projectGoals.filter((goal) => goal.status === 'active');
+
   if (activeGoals.length === 0) {
     return createGoal(db, {
       projectId,
@@ -177,6 +180,18 @@ export async function resolveGoalForNewWork(db: DbClient, projectId: string): Pr
       status: 'active',
     });
   }
+
+  const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).all();
+  const currentGoal = activeGoals.find((goal) => goal.id === project?.currentGoalId);
+  if (currentGoal !== undefined) {
+    return currentGoal;
+  }
+
+  const [soleActiveGoal] = activeGoals;
+  if (activeGoals.length === 1 && soleActiveGoal !== undefined) {
+    return soleActiveGoal;
+  }
+
   throw new AmbiguousActiveGoalsError(
     activeGoals.map((goal) => ({ id: goal.id, objective: goal.objective })),
   );

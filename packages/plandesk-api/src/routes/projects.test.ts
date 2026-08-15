@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createEdge, createProjectInDefaultOrg as createProject, getTask, listEdges } from '@plandesk/db';
+import {
+  createEdge,
+  createGoal,
+  createProjectInDefaultOrg as createProject,
+  getTask,
+  listEdges,
+  setProjectCurrentGoalId,
+} from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import {
   createTestApp,
@@ -186,6 +193,55 @@ describe('projects routes', () => {
       body: JSON.stringify({ label: 'Ghost' }),
     });
     expect(res.status).toBe(404);
+  });
+
+  it('POST /api/v1/projects/:id/tasks defaults to the project current goal', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Many goals' });
+    await createGoal(db, { projectId: project.id, objective: 'Cycle A', status: 'active' });
+    const current = await createGoal(db, {
+      projectId: project.id,
+      objective: 'Cycle B',
+      status: 'active',
+    });
+    await setProjectCurrentGoalId(db, project.id, current.id);
+
+    const res = await app.request(`/api/v1/projects/${project.id}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 'No goal named', status: 'todo' }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(await parseJson<TaskResponse>(res)).toMatchObject({ goal_id: current.id });
+  });
+
+  it('POST /api/v1/projects/:id/tasks returns 400 naming candidates when goals are ambiguous', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Ambiguous' });
+    const goalA = await createGoal(db, {
+      projectId: project.id,
+      objective: 'Cycle A',
+      status: 'active',
+    });
+    const goalB = await createGoal(db, {
+      projectId: project.id,
+      objective: 'Cycle B',
+      status: 'active',
+    });
+    await setProjectCurrentGoalId(db, project.id, null);
+
+    const res = await app.request(`/api/v1/projects/${project.id}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 'No goal named', status: 'todo' }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await parseJson<{ error: string; message: string }>(res);
+    expect(body.error).toBe('invalid_argument');
+    expect(body.message).toContain(goalA.id);
+    expect(body.message).toContain(goalB.id);
   });
 
   it('PATCH /api/v1/projects/:id renames a project', async () => {

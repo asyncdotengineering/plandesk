@@ -1,6 +1,6 @@
 import { invalidRequest } from './errors.js';
 import { Hono } from 'hono';
-import type { LinkEntityType } from '@plandesk/db';
+import { AmbiguousActiveGoalsError, type LinkEntityType } from '@plandesk/db';
 import { InvalidCanvasError, type CanvasService } from '../services/canvas.js';
 
 export function createCanvasRouter(canvasService: CanvasService): Hono {
@@ -60,7 +60,7 @@ export function createCanvasRouter(canvasService: CanvasService): Hono {
 
       return c.json(canvas);
     } catch (error) {
-      if (error instanceof InvalidCanvasError) {
+      if (error instanceof InvalidCanvasError || error instanceof AmbiguousActiveGoalsError) {
         return invalidRequest(c, error.message);
       }
       throw error;

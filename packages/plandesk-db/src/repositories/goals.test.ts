@@ -13,6 +13,7 @@ import {
   updateGoal,
   updateGoalStatus,
 } from './goals.js';
+import { setProjectCurrentGoalId } from './projects.js';
 
 describe('goals repository', () => {
   let db: Db;
@@ -148,7 +149,7 @@ describe('goals repository', () => {
     expect(resolved.id).toBe(active.id);
   });
 
-  it('resolveGoalForNewWork throws when multiple active goals exist', async () => {
+  it('resolveGoalForNewWork throws when several are active and none is current', async () => {
     const first = await createGoal(db, {
       projectId,
       objective: 'First active',
@@ -159,9 +160,46 @@ describe('goals repository', () => {
       objective: 'Second active',
       id: '22222222-2222-4222-8222-222222222222',
     });
+    await setProjectCurrentGoalId(db, projectId, null);
 
     await expect(resolveGoalForNewWork(db, projectId)).rejects.toThrow(AmbiguousActiveGoalsError);
     await expect(resolveGoalForNewWork(db, projectId)).rejects.toThrow(first.id);
     await expect(resolveGoalForNewWork(db, projectId)).rejects.toThrow(second.id);
+  });
+
+  it('resolveGoalForNewWork honours the project current goal when several are active', async () => {
+    await createGoal(db, {
+      projectId,
+      objective: 'First active',
+      id: '11111111-1111-4111-8111-111111111111',
+    });
+    const current = await createGoal(db, {
+      projectId,
+      objective: 'Second active',
+      id: '22222222-2222-4222-8222-222222222222',
+    });
+    await setProjectCurrentGoalId(db, projectId, current.id);
+
+    const resolved = await resolveGoalForNewWork(db, projectId);
+    expect(resolved.id).toBe(current.id);
+  });
+
+  it('resolveGoalForNewWork ignores a current goal that is no longer active', async () => {
+    const paused = await createGoal(db, {
+      projectId,
+      objective: 'Paused cycle',
+      status: 'paused',
+      id: '11111111-1111-4111-8111-111111111111',
+    });
+    const active = await createGoal(db, {
+      projectId,
+      objective: 'Live cycle',
+      status: 'active',
+      id: '22222222-2222-4222-8222-222222222222',
+    });
+    await setProjectCurrentGoalId(db, projectId, paused.id);
+
+    const resolved = await resolveGoalForNewWork(db, projectId);
+    expect(resolved.id).toBe(active.id);
   });
 });
