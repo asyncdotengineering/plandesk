@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -437,16 +437,16 @@ describe('connect artifacts', () => {
   });
 
   /**
-   * .plandesk/skill.md is generated output that this repo also commits, so it
-   * can drift from its source and nothing downstream would notice — it did,
-   * across several commits, until the endpoint-pair edge table went missing
-   * from one side. Regenerate it rather than editing it.
+   * There must be exactly one copy of the skill. Two copies drift: `factory
+   * sync` updates the shipped file on a CLI upgrade and knows nothing about
+   * .plandesk/skill.md, so a real file there would leave the CLAUDE.md include
+   * serving older text than the skill directory beside it. Keep it a pointer.
    */
-  it('keeps the committed .plandesk/skill.md equal to its source', () => {
+  it('keeps .plandesk/skill.md a pointer at the one real copy', () => {
     const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-    expect(readFileSync(join(repoRoot, '.plandesk', 'skill.md'), 'utf8')).toBe(
-      buildSkillMarkdown(),
-    );
+    const generated = join(repoRoot, '.plandesk', 'skill.md');
+    expect(lstatSync(generated).isSymbolicLink()).toBe(true);
+    expect(readFileSync(generated, 'utf8')).toBe(buildSkillMarkdown());
   });
 
   describe('mergeHooksJson', () => {

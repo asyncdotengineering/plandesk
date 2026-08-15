@@ -57,13 +57,26 @@ export type McpJson = {
 };
 
 /**
- * Only the harness-facing link is connect's to write. `.agents/skills/plandesk`
- * holds the skill itself, shipped and hash-managed by `factory sync` like the
- * other nine — connect symlinking over it would bury the source under a link to
- * connect's own output.
+ * The one real copy of the conventions skill: a shipped SKILL.md, hash-managed
+ * by `factory sync` like the other nine. `connect` writes it too, so a repo
+ * that never runs `factory init` still has it, and every other path is a
+ * pointer at it.
+ *
+ * A second copy is not an option. `factory sync` updates this file on a CLI
+ * upgrade and knows nothing about the rest; anything holding its own copy goes
+ * stale silently, and the CLAUDE.md include would then serve older text than
+ * the skill directory beside it.
  */
+export const SKILL_SOURCE_REL = '.agents/skills/plandesk/SKILL.md';
 export const SKILL_DIRS = ['.claude/skills/plandesk'] as const;
-export const SKILL_SYMLINK_TARGET = '../../../.plandesk/skill.md';
+export const SKILL_SYMLINK_TARGET = '../../../.agents/skills/plandesk/SKILL.md';
+
+/**
+ * `.plandesk/skill.md` keeps its published path — it is what the CLAUDE.md and
+ * AGENTS.md sentinel includes and both command files already reference in every
+ * connected repo — but it holds a pointer rather than a copy.
+ */
+export const GENERATED_SKILL_SYMLINK_TARGET = '../.agents/skills/plandesk/SKILL.md';
 
 export function buildSentinelBlock(): string {
   return `${SENTINEL_START}\n${SENTINEL_INCLUDE}\n${SENTINEL_END}`;

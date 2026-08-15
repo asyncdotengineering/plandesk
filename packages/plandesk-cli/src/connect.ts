@@ -27,7 +27,9 @@ import {
   parseConfigJson,
   resolveEffectivePort,
   insertSentinelBlock,
+  GENERATED_SKILL_SYMLINK_TARGET,
   SKILL_DIRS,
+  SKILL_SOURCE_REL,
   SKILL_SYMLINK_TARGET,
   TOKEN_ENV_VAR,
   type AnyPlanDeskConfig,
@@ -582,10 +584,20 @@ function buildArtifacts(
     });
   }
 
+  const skillSourcePath = join(options.repoDir, SKILL_SOURCE_REL);
+  artifacts.push({
+    path: skillSourcePath,
+    content: buildSkillMarkdown(),
+    action: existsSync(skillSourcePath) ? 'update' : 'create',
+  });
+
   artifacts.push({
     path: join(plandeskDir, 'skill.md'),
     content: buildSkillMarkdown(),
-    action: existsSync(join(plandeskDir, 'skill.md')) ? 'update' : 'create',
+    action: lstatSync(join(plandeskDir, 'skill.md'), { throwIfNoEntry: false }) === undefined
+      ? 'create'
+      : 'update',
+    symlinkTarget: GENERATED_SKILL_SYMLINK_TARGET,
   });
 
   for (const skillDir of SKILL_DIRS) {

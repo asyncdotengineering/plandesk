@@ -263,14 +263,17 @@ describe('runConnect', () => {
       expect(readFileSync(join(repoDir, '.claude/commands/plandesk.md'), 'utf8')).toContain(
         '@.plandesk/skill.md',
       );
-      // Only the harness-facing link is connect's. `.agents/skills/plandesk`
-      // holds the shipped skill and belongs to `factory sync`.
-      const linkPath = join(repoDir, '.claude/skills/plandesk', 'SKILL.md');
-      expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
-      const linked = readFileSync(linkPath, 'utf8');
-      expect(linked).toContain('name: plandesk');
-      expect(linked).toBe(readFileSync(join(repoDir, '.plandesk', 'skill.md'), 'utf8'));
-      expect(existsSync(join(repoDir, '.agents/skills/plandesk'))).toBe(false);
+      // Exactly one real copy; every other path points at it. A second copy
+      // would go stale the moment `factory sync` updated the shipped skill.
+      const source = join(repoDir, '.agents/skills/plandesk/SKILL.md');
+      expect(lstatSync(source).isSymbolicLink()).toBe(false);
+      expect(readFileSync(source, 'utf8')).toContain('name: plandesk');
+
+      for (const pointer of ['.claude/skills/plandesk/SKILL.md', '.plandesk/skill.md']) {
+        const path = join(repoDir, pointer);
+        expect(lstatSync(path).isSymbolicLink()).toBe(true);
+        expect(readFileSync(path, 'utf8')).toBe(readFileSync(source, 'utf8'));
+      }
       const gitignore = readFileSync(join(repoDir, '.gitignore'), 'utf8');
       expect(gitignore).toContain('.plandesk/token');
       expect(gitignore).toContain('.plandesk/server.json');
