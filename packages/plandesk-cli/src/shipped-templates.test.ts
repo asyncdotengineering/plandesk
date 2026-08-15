@@ -45,11 +45,10 @@ describe('shipped skill file names', () => {
   });
 
   it('every shipped skill directory ships uppercase SKILL.md', () => {
-    // `plandesk-` (with the hyphen) is the shipped roster; the bare `plandesk`
-    // directory symlinks `.plandesk/skill.md` and is written by connect, not
-    // scaffolded, so it is correctly excluded by the prefix.
+    // The roster is `plandesk` and `plandesk-*` alike — every directory here
+    // ships. A stray directory that matches neither fails the equality below.
     const skillDirs = readdirSync(skillsRoot, { withFileTypes: true }).filter(
-      (e) => e.isDirectory() && e.name.startsWith('plandesk-'),
+      (e) => e.isDirectory() && (e.name === 'plandesk' || e.name.startsWith('plandesk-')),
     );
     // Derived, not a magic number: the on-disk dirs and the shipped roster are
     // the same set, so adding a skill to one without the other fails here.

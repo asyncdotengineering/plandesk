@@ -263,13 +263,14 @@ describe('runConnect', () => {
       expect(readFileSync(join(repoDir, '.claude/commands/plandesk.md'), 'utf8')).toContain(
         '@.plandesk/skill.md',
       );
-      for (const skillDir of ['.claude/skills/plandesk', '.agents/skills/plandesk']) {
-        const linkPath = join(repoDir, skillDir, 'SKILL.md');
-        expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
-        const linked = readFileSync(linkPath, 'utf8');
-        expect(linked).toContain('name: plandesk');
-        expect(linked).toBe(readFileSync(join(repoDir, '.plandesk', 'skill.md'), 'utf8'));
-      }
+      // Only the harness-facing link is connect's. `.agents/skills/plandesk`
+      // holds the shipped skill and belongs to `factory sync`.
+      const linkPath = join(repoDir, '.claude/skills/plandesk', 'SKILL.md');
+      expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+      const linked = readFileSync(linkPath, 'utf8');
+      expect(linked).toContain('name: plandesk');
+      expect(linked).toBe(readFileSync(join(repoDir, '.plandesk', 'skill.md'), 'utf8'));
+      expect(existsSync(join(repoDir, '.agents/skills/plandesk'))).toBe(false);
       const gitignore = readFileSync(join(repoDir, '.gitignore'), 'utf8');
       expect(gitignore).toContain('.plandesk/token');
       expect(gitignore).toContain('.plandesk/server.json');
@@ -413,9 +414,6 @@ describe('runConnect', () => {
       expect(existsSync(join(repoDir, 'CLAUDE.md'))).toBe(false);
       expect(existsSync(join(repoDir, '.mcp.json'))).toBe(false);
       expect(lstatSync(join(repoDir, '.claude/skills/plandesk'), { throwIfNoEntry: false })).toBe(
-        undefined,
-      );
-      expect(lstatSync(join(repoDir, '.agents/skills/plandesk'), { throwIfNoEntry: false })).toBe(
         undefined,
       );
     });

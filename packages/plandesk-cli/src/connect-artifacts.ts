@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { readTemplate } from './templates.js';
 
 /** Path of the conventions skill inside the templates root. */
-export const PLANDESK_SKILL_TEMPLATE_PATH = 'plandesk-skill.md';
+export const PLANDESK_SKILL_TEMPLATE_PATH = 'skills/plandesk/SKILL.md';
 
 export const PLANDESK_CONNECT_VERSION = 'plandesk-connect-v1';
 export const PLANDESK_CONNECT_VERSION_V2 = 'plandesk-connect-v2';
@@ -56,7 +56,13 @@ export type McpJson = {
   >;
 };
 
-export const SKILL_DIRS = ['.claude/skills/plandesk', '.agents/skills/plandesk'] as const;
+/**
+ * Only the harness-facing link is connect's to write. `.agents/skills/plandesk`
+ * holds the skill itself, shipped and hash-managed by `factory sync` like the
+ * other nine — connect symlinking over it would bury the source under a link to
+ * connect's own output.
+ */
+export const SKILL_DIRS = ['.claude/skills/plandesk'] as const;
 export const SKILL_SYMLINK_TARGET = '../../../.plandesk/skill.md';
 
 export function buildSentinelBlock(): string {
@@ -647,10 +653,10 @@ export function appendGitignoreLine(content: string | undefined, line: string): 
 
 /**
  * The MCP conventions skill, vendored like every other template rather than
- * compiled in as a string. It lives at `.agents/plandesk-skill.md` and not
- * under `.agents/skills/`, because `connect` owns `skills/plandesk/SKILL.md`
- * (see SKILL_DIRS) and would overwrite the source with a symlink to its own
- * output when run in this repo.
+ * compiled in as a string. One file serves both delivery paths: `factory sync`
+ * installs it under `.agents/skills/`, and `connect` writes this same content
+ * to `.plandesk/skill.md` for the CLAUDE.md/AGENTS.md include, so a repo that
+ * only ever runs `connect` still gets the skill.
  */
 export function buildSkillMarkdown(): string {
   return readTemplate(PLANDESK_SKILL_TEMPLATE_PATH);

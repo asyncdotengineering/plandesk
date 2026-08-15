@@ -17,6 +17,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   AGENTS_INDEX_SENTINEL_END,
   AGENTS_INDEX_SENTINEL_START,
+  buildSkillMarkdown,
   globalDirRefusalReason,
 } from './connect-artifacts.js';
 import {
@@ -83,6 +84,28 @@ describe('globalDirRefusalReason', () => {
 });
 
 describe('runFactoryInit', () => {
+  /**
+   * `factory init` and `connect` both write .claude/skills/plandesk/SKILL.md,
+   * at different targets — the shipped skill for one, connect's generated
+   * .plandesk/skill.md for the other. Last writer wins, which is only safe
+   * because both resolve to the same bytes. A drift between them would turn
+   * command order into a silent content difference, so pin it here.
+   */
+  it('leaves a resolvable claude skill link whichever way connect ordered', () => {
+    const repo = makeTempDir('plandesk-factory-order-');
+    const generated = join(repo, '.plandesk', 'skill.md');
+    mkdirSync(dirname(generated), { recursive: true });
+    writeFileSync(generated, buildSkillMarkdown(), 'utf8');
+
+    runFactoryInit({ repoDir: repo });
+
+    const shipped = join(repo, '.agents', 'skills', 'plandesk', 'SKILL.md');
+    expect(readFileSync(shipped, 'utf8')).toBe(buildSkillMarkdown());
+    expect(readFileSync(join(repo, '.claude', 'skills', 'plandesk', 'SKILL.md'), 'utf8')).toBe(
+      readFileSync(generated, 'utf8'),
+    );
+  });
+
   it('scaffolds the .agents factory tree with a claude command adapter', () => {
     const repo = makeTempDir('plandesk-factory-');
     const result = runFactoryInit({ repoDir: repo });

@@ -36,14 +36,6 @@ cpSync(source, dest, {
     if (rel === '.plandesk-sync.json' || rel.endsWith('/.plandesk-sync.json')) {
       return false;
     }
-    // `skills/plandesk` is written by `connect` itself (SKILL_DIRS) as a symlink
-    // to .plandesk/skill.md — output, not source. The conventions skill ships as
-    // `plandesk-skill.md` at this root, which is why the source does not live
-    // under skills/: connect would overwrite it here with a link to its own
-    // output. Excluded so the guard below can treat every symlink as a defect.
-    if (rel === 'skills/plandesk' || rel.startsWith('skills/plandesk/')) {
-      return false;
-    }
     // Transient machine state under factory/runs/** — keep only .gitignore.
     if (rel === 'factory/runs' || rel.startsWith('factory/runs/')) {
       return rel === 'factory/runs' || rel === 'factory/runs/.gitignore';

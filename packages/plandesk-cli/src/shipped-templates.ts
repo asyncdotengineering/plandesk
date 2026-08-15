@@ -24,11 +24,12 @@ function shippedTemplate(relativePath: string, executable?: boolean): ShippedTem
   };
 }
 
-// Every shipped skill is `plandesk-*`: one prefix, one list. Splitting the
-// roster by family (planning vs execution) was tried and dropped — two lists
-// drift, and the scaffolding mechanism (write the file, symlink it) is
-// identical either way. The bare `plandesk` skill is deliberately absent: it is
-// `.plandesk/skill.md`, written by `connect`, not scaffolded by `factory init`.
+// One roster, one list. Splitting it by family (planning vs execution) was
+// tried and dropped — two lists drift, and the scaffolding mechanism (write the
+// file, symlink it) is identical either way. The bare `plandesk` skill belongs
+// here too: it is a shipped SKILL.md like the rest, and `connect` reads that
+// same file to write `.plandesk/skill.md`. It was previously excluded, which
+// left its text compiled into the CLI as a second, drifting source.
 /**
  * Skills vendored into a consumer's repo by `plandesk factory init` / `factory sync`.
  *
@@ -38,6 +39,10 @@ function shippedTemplate(relativePath: string, executable?: boolean): ShippedTem
  * dangling reference.
  */
 export const SHIPPED_SKILL_NAMES = [
+  // The MCP conventions skill. Bare `plandesk` where the rest are `plandesk-<verb>`,
+  // because it is the surface itself rather than a procedure over it. It doubles as
+  // the source `connect` reads to write .plandesk/skill.md.
+  'plandesk',
   'plandesk-foreman',
   'plandesk-scope-work',
   'plandesk-groom-task',

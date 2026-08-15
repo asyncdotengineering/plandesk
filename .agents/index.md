@@ -16,8 +16,8 @@ not-yet-written files.
 - [factory/brief.md](factory/brief.md) - optional: what multi-slice dispatch adds to a brief (branch, integration point, intent)
 - [factory/heartbeat.md](factory/heartbeat.md) - optional: the scheduled stall check for long multi-slice runs
 - [factory/verifiers/](factory/verifiers/) - fast per-change checks (exit 0 = pass)
-- [skills/](skills/) - Agent Skills (SKILL.md directories) usable by any harness; every shipped skill is `plandesk-*`
-- [skills/plandesk/SKILL.md](skills/plandesk/SKILL.md) - Plan Desk MCP conventions: tasks, documents, edges, comments, artifacts, sharing
+- [skills/](skills/) - Agent Skills (SKILL.md directories) usable by any harness; the roster is `plandesk` and `plandesk-*`
+- [skills/plandesk/SKILL.md](skills/plandesk/SKILL.md) - Plan Desk MCP conventions: tasks, documents, edges, comments, artifacts, sharing. Also the source `connect` reads to write `.plandesk/skill.md`, so edit it here and regenerate — never edit the generated copy
 - [skills/plandesk-plan-writer/SKILL.md](skills/plandesk-plan-writer/SKILL.md) - RFC / design proposal as a Plan Desk `Design:` document (upstream of scope-work)
 - [skills/plandesk-scope-work/SKILL.md](skills/plandesk-scope-work/SKILL.md) - raw signal or a whole idea → `scope` tasks, edges, and a Design doc, with provenance
 - [skills/plandesk-groom-task/SKILL.md](skills/plandesk-groom-task/SKILL.md) - one thin task or bare requirement → a build contract, in place; owns the Definition of Ready
