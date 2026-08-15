@@ -87,7 +87,7 @@ npx mcporter emit-ts plandesk --mode client --out src/plandesk-client.ts
 - **Server must be running** — mcporter talks to your local `plandesk serve`; if it's down, calls fail. (`serve` uses a fixed port (7526) and fails if that port is busy — free the port, or start it on a different one with `--port` and point `baseUrl` at that.)
 - **401 Unauthorized** — `PLANDESK_MCP_TOKEN` is unset, wrong, or revoked. Re-export it, or create a new token.
 - **No `plandesk` server listed** — check the config path and that the JSON is valid; mcporter also supports `${VAR}` and `${VAR:-fallback}` interpolation if you prefer.
-- **Resolve ids without guessing** — `plandesk.list_projects` for project ids; a project's tasks come from `plandesk.get_project`. There is no delete tool by design.
+- **Resolve ids without guessing** — `plandesk.list_projects` for project ids; a project's tasks come from `plandesk.get_project`. No MCP tool deletes a task, document, note, or artifact.
 
 ## See also
 

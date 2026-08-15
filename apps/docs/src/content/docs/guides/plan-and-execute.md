@@ -108,7 +108,7 @@ The committed `.plandesk/skill.md` (written by `plandesk connect`) teaches agent
 - Link documents to tasks; add edges when dependencies emerge
 - Pull document comments with `list_comments` and `resolve_comment` when addressed
 - Start, record, and complete agent runs — never leave a run open
-- Never delete tasks or documents (there is no delete tool by design)
+- Never delete tasks or documents — no MCP tool deletes a task, document, note, or artifact
 
 Review or customize the skill content in [The Skill](/connecting-agents/skill/).
 

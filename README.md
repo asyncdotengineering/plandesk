@@ -11,6 +11,7 @@ You get a canvas, a board, and specs on the nodes. Claude Code and Codex get 64 
 tools over the same data. One plan, two readers, one audit trail.
 
 [![npm](https://img.shields.io/npm/v/@plandesk/cli?style=flat&labelColor=000&color=555)](https://www.npmjs.com/package/@plandesk/cli)
+[![license](https://img.shields.io/badge/license-MIT-000?style=flat&labelColor=000&color=555)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A520-000?style=flat&labelColor=000&color=555)](https://nodejs.org)
 [![docs](https://img.shields.io/badge/docs-plandesk.asyncdot.com-000?style=flat&labelColor=000&color=555)](https://plandesk.asyncdot.com)
 
@@ -60,7 +61,7 @@ _A graph, not a list of tickets. Dependencies are edges, and specs live on the n
 _The other half of the product, and the half the screenshots never show._
 
 - **[64 MCP tools](https://plandesk.asyncdot.com/connecting-agents/mcp-setup/)** — `get_next_task`, `claim_task`, `start_agent_run`, `record_agent_progress`, `scaffold_project_from_plan`, and the rest of the plan surface.
-- **[9 skills](.agents/skills/)** — `plandesk factory init` installs them into your repo. MCP connects; skills teach the agent to use the connection well.
+- **[10 skills](.agents/skills/)** — `plandesk connect` writes the base conventions skill; `plandesk factory init` adds nine more. MCP connects; skills teach the agent to use the connection well.
 - **[Share links](https://plandesk.asyncdot.com/reference/collaboration/)** — mint an expiring Markdown URL for a task, document, or prototype, and a sub-agent gets full context without MCP access.
 - **[Artifacts](https://plandesk.asyncdot.com/reference/cli/)** — the agent stores a report or RFC, you annotate it, the agent revises the same `artifact_id`.
 - **[Agent runs](https://plandesk.asyncdot.com/reference/factory/)** — every run is recorded against the plan, so the canvas shows who did what.
@@ -256,4 +257,4 @@ Shipped changes are in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 
-Private / see repository owner.
+[MIT](LICENSE) © asyncdotengineering.

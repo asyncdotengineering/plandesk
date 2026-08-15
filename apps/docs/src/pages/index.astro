@@ -39,12 +39,12 @@ const connectCode = `$ plandesk connect --project "Rate limiting"
 
 const buildCode = `// The agent works the graph in dependency order
 get_next_task({ project_id })
-→ {
-    next_task: { label: "Add token-bucket middleware", status: "todo" },
-    reason: "ok",
-    blocked: [{ task: "Wire Redis counter store",
-                waiting_on: ["Add token-bucket middleware"] }],
-  }
+→ { next: {
+      next_task: { label: "Add token-bucket middleware", status: "todo" },
+      reason: "ok",
+      blocked: [{ task: "Wire Redis counter store",
+                  waiting_on: ["Add token-bucket middleware"] }],
+    } }
 
 update_task({ task_id, status: "done" })  // canvas + board update live`;
 
@@ -52,6 +52,8 @@ const features = [
   { t: 'Dependency canvas', d: 'Map work as a directed graph with labeled edges — what blocks what is explicit, not buried in a list.' },
   { t: 'Specs on nodes', d: 'Attach a document to any task. Agents read the spec before they touch a line of code.' },
   { t: 'Board', d: 'A kanban view that shares one source of truth with the canvas. Move a card, the graph updates.' },
+  { t: 'Goals', d: 'The contract above the tasks: a verification surface, a stop condition, and an acceptance status the agent has to satisfy.' },
+  { t: 'Prototypes', d: 'Click-through HTML screens an agent builds and you comment on — argue about the flow before it costs a sprint.' },
   { t: 'Project notes', d: 'Free-form working notes in a rich-text editor, scoped to the project and separate from formal specs — for findings and context worth keeping.' },
   { t: 'MCP — 64 tools', d: 'Agents scaffold whole plans, pick the next unblocked task, and update status live over MCP.' },
   { t: 'Comments loop', d: 'Leave feedback on a doc in the UI; the agent pulls it, addresses it, and resolves it — live.' },
