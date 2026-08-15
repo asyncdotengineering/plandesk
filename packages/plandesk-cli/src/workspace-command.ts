@@ -77,7 +77,7 @@ async function fetchWorkspaces(
   return body.workspaces;
 }
 
-async function createWorkspaceViaApi(
+export async function createWorkspaceViaApi(
   serverUrl: string,
   orgId: string,
   name: string,

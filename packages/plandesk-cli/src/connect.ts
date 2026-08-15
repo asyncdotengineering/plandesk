@@ -34,6 +34,7 @@ import {
 } from './connect-artifacts.js';
 import { DEFAULT_PORT } from './args.js';
 import { readCliConfig } from './config.js';
+import { createWorkspaceViaApi } from './workspace-command.js';
 import {
   folderPathSyncWarning,
   FolderPathSyncError,
@@ -238,11 +239,15 @@ export type WorkspaceApiSummary = {
   name: string;
 };
 
-async function fetchWorkspaces(
+/**
+ * `undefined` means the server has no workspace tier (503 — better-auth absent),
+ * which callers that only *prefer* a workspace treat as "carry on without one".
+ */
+async function fetchWorkspacesIfSupported(
   serverUrl: string,
   orgId: string,
   bearerToken?: string,
-): Promise<WorkspaceApiSummary[]> {
+): Promise<WorkspaceApiSummary[] | undefined> {
   const headers: Record<string, string> = {};
   if (bearerToken !== undefined && bearerToken !== '') {
     headers.Authorization = `Bearer ${bearerToken}`;
@@ -251,6 +256,9 @@ async function fetchWorkspaces(
     `${normalizeServerUrl(serverUrl)}/api/v1/orgs/${encodeURIComponent(orgId)}/workspaces`,
     { headers },
   );
+  if (response.status === 503) {
+    return undefined;
+  }
   if (!response.ok) {
     throw new ConnectError(
       `Plan Desk server unreachable at ${serverUrl} (${String(response.status)}).`,
@@ -258,6 +266,18 @@ async function fetchWorkspaces(
   }
   const body = (await response.json()) as { workspaces: WorkspaceApiSummary[] };
   return body.workspaces;
+}
+
+async function fetchWorkspaces(
+  serverUrl: string,
+  orgId: string,
+  bearerToken?: string,
+): Promise<WorkspaceApiSummary[]> {
+  const workspaces = await fetchWorkspacesIfSupported(serverUrl, orgId, bearerToken);
+  if (workspaces === undefined) {
+    throw new ConnectError(`Plan Desk server unreachable at ${serverUrl} (503).`);
+  }
+  return workspaces;
 }
 
 function matchWorkspace(
@@ -284,6 +304,41 @@ async function resolveWorkspace(
     );
   }
   return { id: match.id, name: match.name };
+}
+
+export const UNCREATED_WORKSPACE_ID = '(created on connect)';
+
+/**
+ * Resolve-then-create, never create blindly: the workspaces API accepts a
+ * duplicate name, so a second connect on a repo whose config.json was deleted
+ * would otherwise fork a twin workspace and split the repo's projects across it.
+ */
+async function resolveOrCreateWorkspace(
+  serverUrl: string,
+  orgId: string,
+  name: string,
+  create: boolean,
+): Promise<WorkspaceSummary | undefined> {
+  const workspaces = await fetchWorkspacesIfSupported(serverUrl, orgId);
+  if (workspaces === undefined) {
+    return undefined;
+  }
+  const existing = matchWorkspace(workspaces, name);
+  if (existing !== undefined) {
+    return { id: existing.id, name: existing.name };
+  }
+  // --print is a dry run. A workspace has no delete, so a preview that leaves
+  // one behind is worse than a preview that names the id it would mint.
+  if (!create) {
+    return { id: UNCREATED_WORKSPACE_ID, name };
+  }
+  try {
+    return await createWorkspaceViaApi(serverUrl, orgId, name, '');
+  } catch (err) {
+    throw new ConnectError(
+      `Failed to create workspace "${name}" on ${serverUrl}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
 
 function matchProjects(projects: ProjectSummary[], query: string): ProjectSummary[] {
@@ -694,6 +749,47 @@ export function formatConnectSummary(result: ConnectResult): string {
   return `${lines.join('\n')}\n`;
 }
 
+async function connectToWorkspace(
+  options: ConnectOptions,
+  serverUrl: string,
+  orgId: string,
+  workspace: WorkspaceSummary,
+): Promise<ConnectResult> {
+  const projects = await fetchProjects(serverUrl);
+  const projectIds = projects.filter((p) => p.workspace_id === workspace.id).map((p) => p.id);
+
+  const { token, created } = resolveLocalToken(options);
+  const agents = resolveAgents(options.repoDir, options.agent ?? 'detect');
+  const artifacts = buildArtifacts(
+    options,
+    serverUrl,
+    undefined,
+    workspace,
+    orgId,
+    projectIds,
+    token,
+    agents,
+  );
+
+  const result: ConnectResult = {
+    workspace,
+    serverUrl,
+    artifacts,
+    tokenCreated: created,
+    tokenLine:
+      token !== undefined && token !== ''
+        ? `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`
+        : 'Local loopback mode — no token file (server treats loopback as owner).',
+    warnings: shadowWarnings(options.repoDir),
+  };
+
+  if (options.print === true) {
+    return result;
+  }
+  writeArtifacts(artifacts);
+  return result;
+}
+
 export async function runConnect(options: ConnectOptions): Promise<ConnectResult> {
   const globalRefusal = globalDirRefusalReason(options.repoDir);
   if (globalRefusal !== undefined) {
@@ -715,47 +811,38 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
     const { DEFAULT_ORG_ID } = await import('@plandesk/db');
     const orgId = DEFAULT_ORG_ID;
     const workspace = await resolveWorkspace(serverUrl, orgId, options.workspace.trim());
-    const projects = await fetchProjects(serverUrl);
-    const projectIds = projects
-      .filter((p) => p.workspace_id === workspace.id)
-      .map((p) => p.id);
-
-    const { token, created } = resolveLocalToken(options);
-    const agents = resolveAgents(options.repoDir, options.agent ?? 'detect');
-    const artifacts = buildArtifacts(
-      options,
-      serverUrl,
-      undefined,
-      workspace,
-      orgId,
-      projectIds,
-      token,
-      agents,
-    );
-
-    const result: ConnectResult = {
-      workspace,
-      serverUrl,
-      artifacts,
-      tokenCreated: created,
-      tokenLine:
-        token !== undefined && token !== ''
-          ? `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`
-          : 'Local loopback mode — no token file (server treats loopback as owner).',
-        warnings: shadowWarnings(options.repoDir),
-  };
-
-    if (options.print === true) {
-      return result;
-    }
-    writeArtifacts(artifacts);
-    return result;
+    return connectToWorkspace(options, serverUrl, orgId, workspace);
   }
 
   const configPath = join(options.repoDir, '.plandesk', 'config.json');
   const existingConfigContent = readOptionalFile(configPath);
   const existingConfig =
     existingConfigContent !== undefined ? parseConfigJson(existingConfigContent) : undefined;
+
+  /**
+   * An unbound repo with nothing of its own on the board gets its own
+   * workspace, named after the folder. Without this the caller falls through to
+   * the org default workspace and every new repo silently piles into "General":
+   * create_project only reads a workspace from the header connect writes here.
+   * Narrow on purpose — an explicit --project, an existing binding, or a
+   * project already named after the folder all keep their prior behaviour.
+   */
+  if (options.project === undefined && existingConfig === undefined) {
+    const projects = await fetchProjects(serverUrl);
+    if (matchRepoName(projects, options.repoDir).length === 0) {
+      const { DEFAULT_ORG_ID } = await import('@plandesk/db');
+      const orgId = DEFAULT_ORG_ID;
+      const workspace = await resolveOrCreateWorkspace(
+        serverUrl,
+        orgId,
+        basename(options.repoDir),
+        options.print !== true,
+      );
+      if (workspace !== undefined) {
+        return connectToWorkspace(options, serverUrl, orgId, workspace);
+      }
+    }
+  }
 
   const { project, explicitProject } = await resolveProject(options, serverUrl);
   assertRebindAllowed(existingConfig, project, explicitProject);

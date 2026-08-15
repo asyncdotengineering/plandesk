@@ -11,7 +11,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { realpathSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getRequestListener } from '@hono/node-server';
 import {
@@ -42,6 +42,7 @@ import {
 } from './connect-artifacts.js';
 import {
   ConnectError,
+  UNCREATED_WORKSPACE_ID,
   formatConnectPrint,
   formatConnectSummary,
   runConnect,
@@ -220,6 +221,23 @@ describe('runConnect', () => {
     writeFileSync(join(repoDir, 'README.md'), `# ${name}\n`, 'utf8');
     return repoDir;
   }
+
+  it('still binds to a project whose name matches the repo folder', async () => {
+    await withTestServer(async ({ baseUrl, db }) => {
+      const repoDir = makeRepo();
+      const named = await createProject(db, { name: basename(repoDir) });
+
+      const result = await runConnect({
+        repoDir,
+        url: baseUrl,
+        agent: 'both',
+        interactive: false,
+      });
+
+      expect(result.project?.id).toBe(named.id);
+      expect(result.workspace).toBeUndefined();
+    });
+  });
 
   it('writes connect artifacts with env-var mcp config (local: no token file)', async () => {
     await withTestServer(async ({ baseUrl, projectId, projectName }) => {
@@ -749,6 +767,114 @@ describe('runConnect --to hosted (BA4b-3)', () => {
     expect(mcpDoc.mcpServers?.plandesk?.headers?.['x-plandesk-workspace-id']).toBe(
       DEFAULT_WORKSPACE_ID,
     );
+  });
+
+  async function startWorkspaceServer(): Promise<string> {
+    const db = await createDb(':memory:');
+    await migrate(db);
+    await createProjectInOrg(db, {
+      name: 'unrelated-project',
+      orgId: DEFAULT_ORG_ID,
+      workspaceId: DEFAULT_WORKSPACE_ID,
+    });
+
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: HOSTED_SECRET,
+      baseURL: 'http://127.0.0.1',
+      github: { clientId: 'test-client', clientSecret: 'test-secret' },
+    });
+    if (auth === undefined) throw new Error('expected better-auth');
+    await runBetterAuthMigrations(auth);
+    await ensureLocalBetterAuthOrganization(db, auth);
+
+    const services = createServices({ db, orgId: DEFAULT_ORG_ID });
+    const app = createApp({
+      db,
+      services,
+      mcp: createMcpApp({ services }),
+      betterAuth: { secret: HOSTED_SECRET, baseURL: 'http://127.0.0.1' },
+    });
+    const server = createServer((req, res) => {
+      void getRequestListener(app.fetch)(req, res);
+    });
+    servers.push(server);
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => {
+        resolve();
+      });
+    });
+    const address = server.address();
+    if (address === null || typeof address !== 'object') {
+      throw new Error('expected TCP address');
+    }
+    return `http://127.0.0.1:${String(address.port)}`;
+  }
+
+  function makeUnboundRepo(): string {
+    const repoDir = mkdtempSync(join(tmpdir(), 'plandesk-auto-ws-'));
+    tempDirs.push(repoDir);
+    writeFileSync(join(repoDir, 'README.md'), '# new repo\n', 'utf8');
+    return repoDir;
+  }
+
+  it('gives an unbound repo its own workspace named after the folder', async () => {
+    const baseUrl = await startWorkspaceServer();
+    const repoDir = makeUnboundRepo();
+
+    const result = await runConnect({ repoDir, url: baseUrl, agent: 'claude', interactive: false });
+
+    expect(result.workspace?.name).toBe(basename(repoDir));
+    expect(result.project).toBeUndefined();
+
+    const config = parseConfigJson(readFileSync(join(repoDir, '.plandesk', 'config.json'), 'utf8'));
+    expect(config.version).toBe(PLANDESK_CONNECT_VERSION_V2);
+    expect((config as { workspaceName: string }).workspaceName).toBe(basename(repoDir));
+
+    const mcpDoc = JSON.parse(readFileSync(join(repoDir, '.mcp.json'), 'utf8')) as {
+      mcpServers?: Record<string, { headers?: Record<string, string> }>;
+    };
+    expect(mcpDoc.mcpServers?.plandesk?.headers?.['x-plandesk-workspace-id']).toBe(
+      (config as { workspaceId: string }).workspaceId,
+    );
+  });
+
+  it('--print previews the new workspace without creating it', async () => {
+    const baseUrl = await startWorkspaceServer();
+    const repoDir = makeUnboundRepo();
+
+    const result = await runConnect({
+      repoDir,
+      url: baseUrl,
+      agent: 'claude',
+      interactive: false,
+      print: true,
+    });
+
+    expect(result.workspace?.name).toBe(basename(repoDir));
+    expect(result.workspace?.id).toBe(UNCREATED_WORKSPACE_ID);
+    expect(existsSync(join(repoDir, '.plandesk', 'config.json'))).toBe(false);
+
+    const listed = (await fetch(`${baseUrl}/api/v1/orgs/${DEFAULT_ORG_ID}/workspaces`).then((r) =>
+      r.json(),
+    )) as { workspaces: { name: string }[] };
+    expect(listed.workspaces.some((w) => w.name === basename(repoDir))).toBe(false);
+  });
+
+  it('reuses a same-named workspace instead of forking a duplicate on reconnect', async () => {
+    const baseUrl = await startWorkspaceServer();
+    const repoDir = makeUnboundRepo();
+
+    const first = await runConnect({ repoDir, url: baseUrl, agent: 'claude', interactive: false });
+    rmSync(join(repoDir, '.plandesk', 'config.json'), { force: true });
+    const second = await runConnect({ repoDir, url: baseUrl, agent: 'claude', interactive: false });
+
+    expect(second.workspace?.id).toBe(first.workspace?.id);
+
+    const listed = (await fetch(`${baseUrl}/api/v1/orgs/${DEFAULT_ORG_ID}/workspaces`).then((r) =>
+      r.json(),
+    )) as { workspaces: { name: string }[] };
+    expect(listed.workspaces.filter((w) => w.name === basename(repoDir))).toHaveLength(1);
   });
 });
 
