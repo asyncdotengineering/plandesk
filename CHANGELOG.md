@@ -4,6 +4,86 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Mermaid diagrams render in document bodies.** A ` ```mermaid ` fence written by an agent survived storage but showed as a plain code block, so the diagram existed in the document and nobody could see it.
+
+  Storage was never the gap. Tiptap already parsed `<pre><code class="language-mermaid">` into a code block carrying `language: 'mermaid'` and serialised it back byte-identical, and the document sanitizer already kept the class. Only the rendering was missing. So there is no migration, no schema change, and no risk to an existing document — the diagrams were always there.
+
+  Source stays editable while the caret is inside the block; the diagram renders when it leaves. A diagram that fails to parse keeps its source on screen and shows the message, because silently falling back to a code block hides the problem from the only person who can fix it. Reader mode and the client portal draw diagrams too — one that only rendered while editing would not be a document.
+
+  Mermaid loads on demand and lands in its own chunk, so a document with no diagram does not pay for the 3.5 MB library. Diagrams render under mermaid's `strict` security level, which sanitises labels and disables click handlers; document bodies are user-authored.
+
+  The community Tiptap extension was rejected rather than adopted: npm version `0.0.0` with a single publish, last code commit in October 2025, and a dependency chain of further `0.0.0` packages by one author. The CLI previewer already had the rendering pattern.
+
+- **An artifact can be filed in the document tree, and opens as a page.** An HTML report had nowhere to live beside the documents it belonged with, so keeping one near its documents meant not having one.
+
+  `artifacts` gains a nullable `folder_id`, available over REST and MCP. Null means unfiled. Deleting a folder now reparents its artifacts alongside its documents and sub-folders in the same transaction — an artifact pointing at a deleted folder row is invisible in every tree read, which is worse than refusing the delete. A prototype screen is refused a folder: it is laid out from its prototype's link graph, and accepting both placements would give it two homes free to disagree.
+
+  Opening a filed artifact renders the page rather than the rich-text reader. An HTML artifact renders in the sandboxed frame it was always served from, under the artifact CSP; its content deliberately never passes through the document sanitizer, which strips `<style>`, `<script>` and `<svg>` — most of what a report is made of. A markdown artifact is rich text and takes the ordinary document path. The documents page lists filed artifacts under **Pages**, marked so a rendered page reads as different from a document before it is opened.
+
+  Why this shape and not HTML-bodied documents: making a document body carry a real page means loosening the sanitizer that protects every document, including ones clients write through a share link. That trades a system-wide guarantee for one workflow. Artifacts already had the hardened sandbox; they gained a place in the tree instead.
+
+- **A runner can open and close an agent run over HTTP.** `POST /api/v1/projects/:id/agent-runs` and `PATCH /api/v1/agent-runs/:id`. Only list and record-progress were reachable over REST, so a remote runner could append to a run it had no way to create.
+
+- **`@plandesk/runner`** — the machine-side agent that polls a board, claims one actionable task, briefs a headless coding-agent CLI, runs the task's gate command, and writes the outcome back. It judges a result from an exit code rather than from the worker's account of its own work. Unreleased and at `0.1.0`.
+
+### Fixed
+
+- **`list_edges` and `get_document` no longer fail on a project that has ever used a prototype or linked an artifact.** The MCP layer kept its own copy of the entity vocabulary reading `task | document`, while the writer produced `artifact` and `prototype` endpoints too. The tool schema rejected the whole response, so five edges out of 1,437 made the other 1,432 unreadable, and the failure named Zod enum internals rather than the cause.
+
+  Publishing one prototype screen was enough to disable the dependency-graph read for that entire project — and, unreported, the document read as well, for any document linked to an artifact or prototype. `create_edge` also could not create either kind of edge at all.
+
+  The enum is now derived from the schema rather than restated, so a new entity type cannot break reads without a compile error. That is the same defect class as the 3.2.0 edge-label crash — one vocabulary with two definitions — recurring in a layer the earlier fix did not reach. Reported in [#53](https://github.com/asyncdotengineering/plandesk/issues/53).
+
+- **`GET /api/v1/tasks/:id` exists.** The path accepted `PATCH` and refused `GET`, so there was no way to read one task over REST — only the whole collection.
+
+  This asymmetry destroyed data. A read-modify-write script read `.description` off the 404 body, got `undefined`, appended to it, and `PATCH` accepted the result with 200 — overwriting four task descriptions with the literal string `undefined`. Content revisions made recovery possible; the sharp edge is now gone.
+
+  A 404 body names the resource and the id instead of returning a bare `not_found`, so a caller cannot fold it into its data unnoticed. An unsupported method on an existing path returns 405 with an `Allow` header, so a probe can tell a missing route from a wrong verb. A contract test asserts every path accepting `PATCH :id` also serves `GET :id` — it immediately found the same gap on agent runs and tags, which now have member reads too. Reported in [#54](https://github.com/asyncdotengineering/plandesk/issues/54).
+
+## [3.3.1] — 2026-08-16
+
+`@plandesk/api`, `@plandesk/cli`, `@plandesk/db` and `@plandesk/mcp` move to 3.3.1.
+
+### Fixed
+
+- **`plandesk connect` no longer destroys the conventions skill in a repo connected by a pre-3.3.0 CLI.** Those repos have `.agents/skills/plandesk/SKILL.md` as a symlink to `.plandesk/skill.md`. 3.3.0 wrote the skill to the first path, followed the link — filling `.plandesk/skill.md` — then replaced `.plandesk/skill.md` with a link back to it. All three paths then read `ELOOP`, so the `CLAUDE.md` include resolved to nothing.
+
+  Writing an artifact now clears an existing symlink before writing a real file. Following a link was never intended for any artifact; the skill is simply the first one whose path could already be one.
+
+  Caught on a replica of the pre-3.3.0 shape before `connect` ran against any real repository, so none were affected.
+
+## [3.3.0] — 2026-08-15
+
+`@plandesk/api`, `@plandesk/cli`, `@plandesk/db` and `@plandesk/mcp` move to 3.3.0.
+
+### Fixed
+
+- **A new repo gets its own workspace instead of landing in General.** `create_project` resolves a workspace from an explicit `workspace_id`, a scoped key, or the header `connect` writes into `.mcp.json`, and otherwise falls back to the org default. A fresh folder has none of the three, so it always fell back. `connect` could not help either: `--project` only matches an existing project, and with no match it either bound an arbitrary project or blocked on an interactive picker that has no TTY under an agent.
+
+  An unbound repo with nothing of its own on the board now resolves or creates a workspace named after its folder and binds to it. Deliberately narrow: an explicit `--project`, an existing `config.json`, or a project already named after the folder all keep their previous behaviour.
+
+  Resolve before create, because the workspaces API accepts a duplicate name and a blind create would fork a twin on any reconnect after `config.json` was removed. Under `--print` nothing is created at all — a workspace has no delete, so a dry run reports the id it would mint rather than leaving one behind.
+
+- **Creating a task without naming a goal no longer returns a bodyless 500.** Two defects behind one symptom. The write path never read `projects.current_goal_id` while `get_next_task` resolved it first, so read and write resolution had drifted and a project with a perfectly good current goal still raised an ambiguity error. That error was also missing from the catch list on `POST /projects/:id/tasks` and `PUT /projects/:id/canvas`, so it escaped as a 500 with no body — which is why creating a card in the board UI failed the same way.
+
+  The write path now resolves in the same order as the read path: `current_goal_id` when still active, then the sole active goal, then a created General goal. Both routes return a 400 naming the candidate goals.
+
+- **The conventions skill has one copy, not two.** The shipped `SKILL.md` was a real file while `connect` wrote its own real `.plandesk/skill.md` — two copies, two writers, no link between them, and `factory sync` updated only the first on a CLI upgrade. After a sync the shipped skill moved to 19,175 bytes while `.plandesk/skill.md` stayed at 19,131, so the `CLAUDE.md` include served older text than the skill directory beside it.
+
+  The shipped `SKILL.md` is now the single real copy and everything else points at it. `.plandesk/skill.md` keeps its published path — `CLAUDE.md`, `AGENTS.md` and both command files reference it in every connected repo — but holds a symlink, so no include changes and no repo needs migrating.
+
+### Changed
+
+- **The conventions skill ships as a file rather than a compiled string**, and the CLI build now fails on a symlink in `dist/templates` so the packed artifact cannot carry one.
+
+### Documentation
+
+- README rewritten as a landing page, with a short section on the factory workflow and a plain-language page on how it works.
+- Added the missing Goals and Prototypes reference pages.
+- Corrected the license, the skills count, and several claims that had drifted from the code.
+
 ## [3.2.1] — 2026-08-05
 
 `@plandesk/api`, `@plandesk/mcp` and `@plandesk/cli` move to 3.2.1. `@plandesk/db` is unchanged and stays at 3.2.0. The CLI is republished only so its pinned dependency versions point at the fixed api and mcp — a global install otherwise keeps resolving the 3.2.0 pair.
