@@ -46,6 +46,17 @@ function makeTempDir(prefix: string): string {
   return dir;
 }
 
+function requestUrl(input: Parameters<typeof fetch>[0]): string {
+  return input instanceof URL ? input.href : typeof input === 'string' ? input : input.url;
+}
+
+function writeDoctorToml(text: string): string {
+  const dir = makeTempDir('plandesk-runner-doctor-auth-');
+  const configPath = join(dir, 'runner.toml');
+  writeFileSync(configPath, text);
+  return configPath;
+}
+
 function makeFixture(boardUrl: string): { configPath: string; workersDir: string } {
   const dir = makeTempDir('plandesk-runner-doctor-');
   const configPath = join(dir, 'runner.toml');
@@ -264,5 +275,45 @@ describe('formatDoctorReport', () => {
       `  ${'ghost'.padEnd(16)} repo-declared=no config-enabled=yes probe-ready=n/a — not declared by this repository`,
     );
     expect(report.resolution?.enabledButNotDeclared).toEqual(['ghost']);
+  });
+
+  it('reports the loopback auth mode when the agent key is empty', async () => {
+    const path = writeDoctorToml('board_url = "https://board.example.com"\nagent_key = ""\n');
+    const report = await runDoctor({
+      configPath: path,
+      fetchImpl: () => Promise.resolve(new Response('{}', { status: 200 })),
+    });
+    expect(report.board.authMode).toBe('loopback');
+    expect(formatDoctorReport(report)).toContain('loopback');
+  });
+
+  it('reports the bearer auth mode and an authenticated probe when a key is set', async () => {
+    const path = writeDoctorToml('board_url = "https://board.example.com"\nagent_key = "sk-doctor"\n');
+    const seen: string[] = [];
+    const report = await runDoctor({
+      configPath: path,
+      fetchImpl: (input) => {
+        seen.push(requestUrl(input));
+        return Promise.resolve(new Response('[]', { status: 200 }));
+      },
+    });
+    expect(report.board.authMode).toBe('bearer');
+    expect(report.board.authenticated).toBe(true);
+    expect(seen.some((u) => u.includes('/api/v1/projects'))).toBe(true);
+  });
+
+  it('reports authenticated=false when the credential is rejected', async () => {
+    const path = writeDoctorToml('board_url = "https://board.example.com"\nagent_key = "sk-bad"\n');
+    const report = await runDoctor({
+      configPath: path,
+      fetchImpl: (input) =>
+        Promise.resolve(
+          new Response('{}', { status: requestUrl(input).includes('/api/v1/projects') ? 401 : 200 }),
+        ),
+    });
+    expect(report.board.reachable).toBe(true);
+    expect(report.board.authenticated).toBe(false);
+    expect(report.board.authStatus).toBe(401);
+    expect(formatDoctorReport(report)).toContain('401');
   });
 });

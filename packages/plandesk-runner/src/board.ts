@@ -258,9 +258,19 @@ interface RequestSpec {
 }
 
 /**
+ * Build the credential headers for a board request. An empty `agentKey` yields
+ * NO `Authorization` header at all: the board rejects any bearer that is not a
+ * real key, so `Bearer ` with an empty value would 401 rather than fall through
+ * to the loopback-owner path.
+ */
+export function authHeaders(agentKey: string): Record<string, string> {
+  return agentKey === '' ? {} : { Authorization: `Bearer ${agentKey}` };
+}
+
+/**
  * Create the HTTP {@link BoardClient} for one board and one project.
- * Base URL comes from `config.boardUrl`; every request carries
- * `Authorization: Bearer <config.agentKey>` — the only place the key is read.
+ * Base URL comes from `config.boardUrl`; requests carry the credential from
+ * {@link authHeaders} — the only place the key is read.
  */
 export function createBoardClient(
   config: RunnerConfig,
@@ -280,7 +290,7 @@ export function createBoardClient(
         headers: {
           Accept: 'application/json',
           ...(spec.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-          Authorization: `Bearer ${config.agentKey}`,
+          ...authHeaders(config.agentKey),
           ...(spec.runId !== undefined ? { [AGENT_RUN_HEADER]: spec.runId } : {}),
         },
         body: spec.body !== undefined ? JSON.stringify(spec.body) : undefined,

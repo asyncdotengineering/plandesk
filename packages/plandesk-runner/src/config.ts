@@ -13,7 +13,13 @@ import { parse } from 'smol-toml';
 export interface RunnerConfig {
   /** Base URL of the Plan Desk board this runner serves. Required. */
   boardUrl: string;
-  /** Agent authentication key. Required; may come from PLANDESK_AGENT_KEY. */
+  /**
+   * Agent authentication key. Required as a field; may come from
+   * PLANDESK_AGENT_KEY. An EMPTY value selects the unauthenticated loopback
+   * path: no `Authorization` header is sent and the board resolves the caller
+   * as org owner. Only valid against a board bound to loopback, which cannot
+   * mint a key — `plandesk connect` locally mints no token by design.
+   */
   agentKey: string;
   /** Runner name shown on the board. Default: os.hostname(). */
   name: string;
@@ -176,7 +182,13 @@ export function loadConfig(path?: string): RunnerConfig {
     );
   }
 
-  const fileAgentKey = readString(raw, 'agent_key');
+  const rawAgentKey = raw['agent_key'];
+  if (rawAgentKey !== undefined && typeof rawAgentKey !== 'string') {
+    throw new ConfigError('agent_key', 'runner config field agent_key must be a string');
+  }
+  // A present-but-empty agent_key is the loopback declaration, not a missing
+  // field, so it must not fall through to the environment or the error below.
+  const fileAgentKey = typeof rawAgentKey === 'string' ? rawAgentKey.trim() : undefined;
   const agentKey = fileAgentKey ?? readEnv(AGENT_KEY_ENV);
   if (agentKey === undefined) {
     throw new ConfigError(

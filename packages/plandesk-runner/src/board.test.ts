@@ -328,4 +328,28 @@ describe('createBoardClient', () => {
 
     expect(calls[0]?.path).toBe('/api/v1/tasks/a%2Fb%20c/document');
   });
+
+  it('sends no Authorization header when the agent key is empty (loopback path)', async () => {
+    const { impl, calls } = makeFetch([
+      { method: 'GET', path: '/api/v1/projects/proj-1/next-task', body: { next_task: null, reason: 'no_tasks', blocked: [] } },
+    ]);
+    const board = createBoardClient({ ...makeConfig(), agentKey: '' }, 'proj-1', { fetchImpl: impl });
+
+    await board.nextTask();
+
+    // Absent, not empty: `Bearer ` with no value is a stranger bearer and 401s.
+    expect(calls[0]?.headers).not.toHaveProperty('Authorization');
+    expect(JSON.stringify(calls[0]?.headers)).not.toContain('Bearer');
+  });
+
+  it('still sends the bearer credential when the agent key is non-empty', async () => {
+    const { impl, calls } = makeFetch([
+      { method: 'GET', path: '/api/v1/projects/proj-1/next-task', body: { next_task: null, reason: 'no_tasks', blocked: [] } },
+    ]);
+    const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: impl });
+
+    await board.nextTask();
+
+    expect(calls[0]?.headers['Authorization']).toBe(`Bearer ${AGENT_KEY}`);
+  });
 });

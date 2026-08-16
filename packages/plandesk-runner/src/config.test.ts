@@ -214,4 +214,15 @@ describe('redact', () => {
     expect(redacted.labels).toEqual(config.labels);
     expect(config.agentKey).toBe('sk-live-key-abcdefghijklmnop');
   });
+
+  it('accepts an explicitly empty agent_key as the unauthenticated loopback declaration', () => {
+    const path = writeToml('board_url = "https://board.example.com"\nagent_key = ""\n');
+    const config = loadConfig(path);
+    expect(config.agentKey).toBe('');
+  });
+
+  it('accepts a whitespace-only agent_key as empty rather than treating it as a credential', () => {
+    const path = writeToml('board_url = "https://board.example.com"\nagent_key = "   "\n');
+    expect(loadConfig(path).agentKey).toBe('');
+  });
 });

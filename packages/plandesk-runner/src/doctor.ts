@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { authHeaders } from './board.js';
 import { loadConfig, readEnv, redact, CONFIG_PATH_ENV, type RunnerConfig } from './config.js';
 import { scanOrphans } from './reconcile.js';
 import {
@@ -18,6 +19,12 @@ export interface DoctorBoardResult {
   reachable: boolean;
   status?: number;
   error?: string;
+  /** Which credential path this runner uses: a bearer key, or unauthenticated loopback. */
+  authMode: 'bearer' | 'loopback';
+  /** Result of an authenticated probe. Undefined when the board was unreachable. */
+  authenticated?: boolean;
+  /** HTTP status of the authenticated probe. */
+  authStatus?: number;
 }
 
 /** The declare-then-probe worker outcome, flattened for the doctor report. */
@@ -73,11 +80,20 @@ export interface DoctorOptions {
 
 const DEFAULT_DOCTOR_TIMEOUT_MS = 5000;
 
+/**
+ * Probe the board twice. Reachability alone is not enough: the health endpoint
+ * is unauthenticated, so a runner whose credential the board rejects reports a
+ * healthy board and then fails every real call with 401.
+ */
 async function pingBoard(
-  boardUrl: string,
+  config: RunnerConfig,
   fetchImpl: typeof fetch,
   timeoutMs: number,
 ): Promise<DoctorBoardResult> {
+  const boardUrl = config.boardUrl;
+  const authMode = config.agentKey === '' ? 'loopback' : 'bearer';
+
+  let reached: DoctorBoardResult;
   try {
     const response = await fetchImpl(boardUrl, {
       method: 'GET',
@@ -85,9 +101,23 @@ async function pingBoard(
       cache: 'no-store',
       signal: AbortSignal.timeout(timeoutMs),
     });
-    return { url: boardUrl, reachable: true, status: response.status };
+    reached = { url: boardUrl, reachable: true, status: response.status, authMode };
   } catch (cause) {
-    return { url: boardUrl, reachable: false, error: (cause as Error).message };
+    return { url: boardUrl, reachable: false, error: (cause as Error).message, authMode };
+  }
+
+  const base = boardUrl.trim().replace(/\/+$/, '');
+  try {
+    const probe = await fetchImpl(`${base}/api/v1/projects`, {
+      method: 'GET',
+      headers: { Accept: 'application/json', ...authHeaders(config.agentKey) },
+      redirect: 'manual',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return { ...reached, authenticated: probe.status < 400, authStatus: probe.status };
+  } catch (cause) {
+    return { ...reached, authenticated: false, error: (cause as Error).message };
   }
 }
 
@@ -154,7 +184,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   const workersDir = options.workersDir ?? findFactoryWorkersDir(cwd);
 
   const board = await pingBoard(
-    config.boardUrl,
+    config,
     options.fetchImpl ?? fetch,
     options.timeoutMs ?? DEFAULT_DOCTOR_TIMEOUT_MS,
   );
@@ -243,8 +273,15 @@ function orphanRows(report: DoctorReport): string[] {
 
 /** Render the doctor report as the text `plandesk-runner doctor` prints. */
 export function formatDoctorReport(report: DoctorReport): string {
+  const authLine =
+    report.board.authenticated === undefined
+      ? `auth ${report.board.authMode}`
+      : report.board.authenticated
+        ? `auth ${report.board.authMode}: accepted (HTTP ${String(report.board.authStatus)})`
+        : `auth ${report.board.authMode}: REJECTED (HTTP ${String(report.board.authStatus)}) — every board call will fail`;
+
   const boardLine = report.board.reachable
-    ? `board ${report.board.url}: reachable (HTTP ${String(report.board.status)})`
+    ? `board ${report.board.url}: reachable (HTTP ${String(report.board.status)}) — ${authLine}`
     : `board ${report.board.url}: unreachable — ${String(report.board.error)}`;
 
   const lines = [
