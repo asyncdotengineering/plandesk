@@ -56,6 +56,22 @@ export function createTagService(deps: TagServiceDeps) {
       return (await dbListTags(db, projectId)).map(serializeTag);
     },
 
+    async get(id: string): Promise<SerializedTag | undefined> {
+      const tag = await dbGetTag(db, id);
+      if (!tag) {
+        return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, tag.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+      return serializeTag(tag);
+    },
+
     async create(projectId: string, input: CreateTagInput): Promise<SerializedTag | undefined> {
       assertPermission(deps, 'task', 'update');
       try {

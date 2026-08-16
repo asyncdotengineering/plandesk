@@ -79,6 +79,22 @@ export function createAgentRunService(deps: AgentRunServiceDeps) {
       return serializeAgentRun(run);
     },
 
+    async get(runId: string) {
+      const run = await getAgentRun(db, runId);
+      if (!run) {
+        return undefined;
+      }
+      try {
+        await assertProjectInOrg(db, run.projectId, resolveOrgId(deps));
+      } catch (error) {
+        if (error instanceof ProjectNotInOrgError) {
+          return undefined;
+        }
+        throw error;
+      }
+      return serializeAgentRun(run);
+    },
+
     async recordProgress(runId: string, message: string) {
       assertPermission(deps, 'agent_run', 'update');
       const run = await getAgentRun(db, runId);

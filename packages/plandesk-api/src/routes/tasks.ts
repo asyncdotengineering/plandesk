@@ -1,4 +1,4 @@
-import { invalidArgument, invalidRequest } from './errors.js';
+import { invalidArgument, invalidRequest, notFound } from './errors.js';
 import { Hono } from 'hono';
 import {
   InvalidTaskStatusError,
@@ -25,6 +25,15 @@ export function isStringArray(value: unknown): value is string[] {
 
 export function createTasksRouter(taskService: TaskService): Hono {
   const router = new Hono();
+
+  router.get('/tasks/:id', async (c) => {
+    const id = c.req.param('id');
+    const task = await taskService.get(id);
+    if (!task) {
+      return notFound(c, 'task', id);
+    }
+    return c.json(task);
+  });
 
   router.patch('/tasks/:id', async (c) => {
     const body = await c.req.json<{

@@ -1,4 +1,4 @@
-import { invalidArgument, invalidRequest } from './errors.js';
+import { invalidArgument, invalidRequest, notFound } from './errors.js';
 import { Hono } from 'hono';
 import { InvalidAgentRunError, type AgentRunService } from '../services/agent-runs.js';
 import { parsePaginationParams } from '../serialize.js';
@@ -31,6 +31,15 @@ export function createAgentRunsRouter(agentRunService: AgentRunService): Hono {
       return c.json({ error: 'not_found' }, 404);
     }
     return c.json(run, 201);
+  });
+
+  router.get('/agent-runs/:id', async (c) => {
+    const id = c.req.param('id');
+    const run = await agentRunService.get(id);
+    if (!run) {
+      return notFound(c, 'agent_run', id);
+    }
+    return c.json(run);
   });
 
   router.patch('/agent-runs/:id', async (c) => {

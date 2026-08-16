@@ -33,3 +33,59 @@ export function invalidArgument(c: Context, field: string, message: string): Res
 export function invalidRequest(c: Context, message: string): Response {
   return c.json({ error: 'invalid_argument', message }, 400);
 }
+
+/**
+ * The one way to return a 404 for a resource that was addressed and not found.
+ *
+ * `resource` and `id` are required for the same reason `invalidArgument` requires
+ * `field`: a bare `{ "error": "not_found" }` tells a caller nothing it can act on.
+ * That body is not merely unhelpful — it has destroyed data. A read-modify-write
+ * script read `.description` off a 404 body, got `undefined`, appended to it, and
+ * `PATCH` accepted the result with 200, overwriting four task descriptions with
+ * the string "undefined". A body that names what was missing does not survive
+ * being folded into a caller's data unnoticed.
+ *
+ * `error` keeps its value and position — callers switch on that string.
+ */
+export function notFound(c: Context, resource: string, id: string): Response {
+  return c.json({ error: 'not_found', resource, id }, 404);
+}
+
+type RegisteredRoute = { path: string; method: string };
+
+function patternToRegExp(pattern: string): RegExp {
+  const source = pattern
+    .split('/')
+    .map((segment) => {
+      if (segment === '*') {
+        return '.*';
+      }
+      if (segment.startsWith(':')) {
+        return '[^/]+';
+      }
+      return segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    })
+    .join('/');
+  return new RegExp(`^${source}/?$`);
+}
+
+/**
+ * Methods any registered route would accept for `path`, so a 404 handler can
+ * tell "no such route" from "wrong verb". Middleware registered with `app.use`
+ * carries the method `ALL` and matches every path, so it is excluded — counting
+ * it would report every path as supporting every method.
+ *
+ * Cold path only: this runs when routing has already missed.
+ */
+export function allowedMethodsForPath(routes: RegisteredRoute[], path: string): string[] {
+  const methods = new Set<string>();
+  for (const route of routes) {
+    if (route.method === 'ALL') {
+      continue;
+    }
+    if (patternToRegExp(route.path).test(path)) {
+      methods.add(route.method.toUpperCase());
+    }
+  }
+  return [...methods].sort();
+}

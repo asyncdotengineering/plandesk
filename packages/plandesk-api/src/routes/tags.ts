@@ -1,4 +1,4 @@
-import { invalidArgument, invalidRequest } from './errors.js';
+import { invalidArgument, invalidRequest, notFound } from './errors.js';
 import { Hono } from 'hono';
 import { InvalidTagError, type TagService } from '../services/tags.js';
 
@@ -46,6 +46,15 @@ export function createTagsRouter(tagService: TagService): Hono {
       }
       throw error;
     }
+  });
+
+  router.get('/tags/:id', async (c) => {
+    const id = c.req.param('id');
+    const tag = await tagService.get(id);
+    if (!tag) {
+      return notFound(c, 'tag', id);
+    }
+    return c.json(tag);
   });
 
   router.patch('/tags/:id', async (c) => {

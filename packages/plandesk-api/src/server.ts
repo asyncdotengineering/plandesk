@@ -5,6 +5,7 @@ import {
   createOrgAuthMiddleware,
   createWriteGuardMiddleware,
 } from './auth.js';
+import { allowedMethodsForPath } from './routes/errors.js';
 import { createHealthRouter } from './routes/health.js';
 import { createAuthRouter } from './routes/auth.js';
 import type { GithubConfig } from './github.js';
@@ -186,7 +187,21 @@ export function createApp(deps: AppDeps): Hono {
   // Keeping static out of createApp prevents node:fs and @hono/node-server
   // from entering the edge bundle graph.
 
-  app.notFound((c) => c.json({ error: 'not_found' }, 404));
+  // A missing route and an unsupported verb both land here. Answering both with
+  // 404 makes them indistinguishable to a probe, which is how `GET /tasks/:id`
+  // read as "no such endpoint" while `PATCH` on the same path worked.
+  // A matched handler may also call c.notFound() to reject its own input, so the
+  // request's own method must be excluded: if the verb IS supported here, this is
+  // a genuine 404 from that handler, not a verb mismatch.
+  app.notFound((c) => {
+    const allowed = allowedMethodsForPath(app.routes, new URL(c.req.url).pathname);
+    if (allowed.length > 0 && !allowed.includes(c.req.method.toUpperCase())) {
+      return c.json({ error: 'method_not_allowed', method: c.req.method, allow: allowed }, 405, {
+        Allow: [...allowed, 'OPTIONS'].join(', '),
+      });
+    }
+    return c.json({ error: 'not_found' }, 404);
+  });
 
   return app;
 }
