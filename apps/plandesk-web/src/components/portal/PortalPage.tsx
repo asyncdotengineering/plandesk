@@ -2,8 +2,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { useEffect, useRef } from 'react';
 import { capabilitiesFromShare } from '../../lib/capabilities.js';
 import { bodyToHtml } from '../../lib/markdown.js';
+import { renderMermaidIn } from '../../lib/mermaid.js';
 import { sanitizeHtml } from '../../lib/sanitize.js';
 import '../docs/document-editor.css';
 import type { ClientView, PortalSubmission } from '../../lib/portal.js';
@@ -31,6 +33,27 @@ function progressChipStyle(status: string): { backgroundColor: string; color: st
     return { backgroundColor: vars.bg, color: vars.fg };
   }
   return { backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' };
+}
+
+/** A shared document body, with its mermaid blocks drawn after the HTML lands. */
+function PortalDocumentBody({ html }: { html: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = ref.current;
+    if (container === null) {
+      return;
+    }
+    void renderMermaidIn(container);
+  }, [html]);
+
+  return (
+    <div
+      ref={ref}
+      className="portal-document-content rounded-lg border border-border bg-card p-4 leading-relaxed"
+      dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyToHtml(html)) }}
+    />
+  );
 }
 
 export function PortalPage({
@@ -138,10 +161,7 @@ export function PortalPage({
               <div key={doc.id}>
                 <h3 className="mb-2 text-sm font-semibold">{doc.title}</h3>
                 {doc.body_html !== null && doc.body_html !== '' ? (
-                  <div
-                    className="portal-document-content rounded-lg border border-border bg-card p-4 leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(bodyToHtml(doc.body_html)) }}
-                  />
+                  <PortalDocumentBody html={doc.body_html} />
                 ) : (
                   <p className="m-0 text-sm italic text-muted-foreground">No content</p>
                 )}

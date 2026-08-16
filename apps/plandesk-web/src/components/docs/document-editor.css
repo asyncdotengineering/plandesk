@@ -289,3 +289,28 @@
 .document-editor-content:focus-visible {
   outline: none;
 }
+
+/* Mermaid diagrams. The source block keeps its existing code styling; these
+   rules cover the rendered figure and the parse-error message beside it. */
+.mermaid-diagram {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+  overflow-x: auto;
+  text-align: center;
+  cursor: pointer;
+}
+
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-error {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--destructive);
+  white-space: pre-wrap;
+}

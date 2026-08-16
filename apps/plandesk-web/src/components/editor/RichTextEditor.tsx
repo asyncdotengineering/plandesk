@@ -14,12 +14,14 @@ import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 import { ListTodoIcon, MessageSquarePlusIcon } from 'lucide-react';
 import { bodyToHtml } from '../../lib/markdown.js';
+import { renderMermaidIn } from '../../lib/mermaid.js';
 import { sanitizeHtml } from '../../lib/sanitize.js';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { selectedListItems } from '../docs/selected-list-items.js';
 import { createDocLinkExtension, createSlashExtension } from './editor-extensions.js';
+import { MermaidCodeBlock } from './MermaidCodeBlock.js';
 import '../docs/document-editor.css';
 
 const COMMENT_DRAFT_HIGHLIGHT = 'comment-draft';
@@ -400,7 +402,10 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       const base = [
         // openOnClick:false — links (incl. doc links) never navigate from inside
         // the editable surface; reader-mode navigation is handled on click below.
-        StarterKit.configure({ link: { openOnClick: false } }),
+        // codeBlock:false — MermaidCodeBlock owns that node name and adds the
+        // diagram preview; two extensions claiming it is a duplicate-name error.
+        StarterKit.configure({ link: { openOnClick: false }, codeBlock: false }),
+        MermaidCodeBlock,
         AnnotatableImage,
         ImageUploadContext,
         // Official paste/drop handling — the callbacks upload + insert; the
@@ -581,6 +586,20 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       },
       [],
     );
+
+    // Reader mode writes the body in as HTML, so mermaid blocks arrive as plain
+    // code. The editor draws its own diagrams through the node view; this is the
+    // read-only half of the same feature.
+    useEffect(() => {
+      if (mode !== 'reader') {
+        return;
+      }
+      const container = contentRef.current;
+      if (container === null) {
+        return;
+      }
+      void renderMermaidIn(container);
+    }, [mode, value]);
 
     // In the document context (docs/notes pass projectId) the editor is a
     // seamless, full-height canvas rather than a bordered box.
