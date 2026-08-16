@@ -1,7 +1,9 @@
 ---
 type: worker
 probe: command -v claude
+version: claude --version
 command: claude --dangerously-skip-permissions --model sonnet -p < {prompt_file}
+headless: claude --print --output-format stream-json --verbose --permission-mode bypassPermissions --model sonnet < {prompt_file}
 ---
 
 # claude

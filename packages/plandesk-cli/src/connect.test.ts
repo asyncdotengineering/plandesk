@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -47,6 +48,7 @@ import {
   formatConnectSummary,
   runConnect,
 } from './connect.js';
+import { buildSkillMarkdown } from './connect-artifacts.js';
 import { runDisconnect } from './disconnect.js';
 import { runBindingDoctor } from './binding-doctor.js';
 import { main } from './cli.js';
@@ -221,6 +223,37 @@ describe('runConnect', () => {
     writeFileSync(join(repoDir, 'README.md'), `# ${name}\n`, 'utf8');
     return repoDir;
   }
+
+  /**
+   * The pre-3.3.0 shape: .agents/skills/plandesk/SKILL.md is a symlink at
+   * .plandesk/skill.md, which holds the real file. Writing the skill without
+   * clearing that link first writes through it, and .plandesk/skill.md then
+   * becomes a link back — every path reads ELOOP and the CLAUDE.md include
+   * resolves to nothing. Shipped broken in 3.3.0.
+   */
+  it('replaces a pre-3.3.0 skill symlink instead of writing through it', async () => {
+    await withTestServer(async ({ baseUrl, projectId }) => {
+      const repoDir = makeRepo();
+      mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
+      mkdirSync(join(repoDir, '.agents', 'skills', 'plandesk'), { recursive: true });
+      writeFileSync(join(repoDir, '.plandesk', 'skill.md'), '# old shipped skill\n', 'utf8');
+      symlinkSync(
+        '../../../.plandesk/skill.md',
+        join(repoDir, '.agents', 'skills', 'plandesk', 'SKILL.md'),
+      );
+
+      await runConnect({ repoDir, project: projectId, url: baseUrl, interactive: false });
+
+      const source = join(repoDir, '.agents', 'skills', 'plandesk', 'SKILL.md');
+      expect(lstatSync(source).isSymbolicLink()).toBe(false);
+      expect(readFileSync(source, 'utf8')).toBe(buildSkillMarkdown());
+
+      // Every pointer must still resolve — an ELOOP throws here.
+      for (const pointer of ['.plandesk/skill.md', '.claude/skills/plandesk/SKILL.md']) {
+        expect(readFileSync(join(repoDir, pointer), 'utf8')).toBe(buildSkillMarkdown());
+      }
+    });
+  });
 
   it('still binds to a project whose name matches the repo folder', async () => {
     await withTestServer(async ({ baseUrl, db }) => {

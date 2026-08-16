@@ -18,13 +18,13 @@ failing the dispatch.
 | The task is… | Worker |
 | --- | --- |
 | Implementation — write, fix, refactor, add tests | the default IC (see below) |
-| Review, audit, security pass | **`pi` (`zai`/`glm-5.2`)** — see below |
+| Review, audit, security pass | **`pi` (`zai`/`glm-5.3`)** — see below |
 | Mechanical and well-specified — rename, codemod, boilerplate | the cheapest worker that probes |
 | Taste-sensitive — user-facing copy, layout, API ergonomics | the strongest worker available |
 | Long-context — repo-wide survey, large migration | a worker with the largest context window |
 | Non-code — planning, documentation, analysis | any worker; prefer one with strong prose |
 
-## The default reviewer is `pi` on `zai`/`glm-5.2`
+## The default reviewer is `pi` on `zai`/`glm-5.3`
 
 Decided 2026-08-02; rationale refreshed once the implementation workers' models
 were pinned. Every `full`-lane review and every adversarial pass goes to `pi`
@@ -39,7 +39,7 @@ Two reasons:
 - **Cross-family by construction.** Every implementation worker's model is
   pinned in its worker file — `cursor` on `composer-2.5`, `claude` on sonnet,
   `codex` on `gpt-5.6-luna`, `grok` on `grok-4.5` — and GLM appears in none of
-  them, so a `pi` (`zai`/`glm-5.2`) review can never share the author's family.
+  them, so a `pi` (`zai`/`glm-5.3`) review can never share the author's family.
   The pin is what makes this provable: an unpinned or `--model auto` worker
   would make the author's family unknowable, which is why
   [workers/cursor.md](workers/cursor.md) forbids `auto`. If a worker file's pin

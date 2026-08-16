@@ -687,6 +687,15 @@ function writeArtifacts(artifacts: ConnectArtifact[]): void {
     }
     mkdirSync(dirname(artifact.path), { recursive: true });
     if (artifact.symlinkTarget === undefined) {
+      // Writing to a path that is currently a symlink follows it and writes the
+      // TARGET. A repo connected before 3.3.0 has .agents/skills/plandesk/SKILL.md
+      // linked at .plandesk/skill.md, so writing the skill here would fill the
+      // old generated file, and the next artifact — .plandesk/skill.md, now a
+      // link back — would close the loop. Every path then reads ELOOP and the
+      // CLAUDE.md include resolves to nothing. Replace the link, never follow it.
+      if (lstatSync(artifact.path, { throwIfNoEntry: false })?.isSymbolicLink() === true) {
+        rmSync(artifact.path, { force: true });
+      }
       writeFileSync(artifact.path, artifact.content, 'utf8');
       continue;
     }

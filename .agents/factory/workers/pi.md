@@ -1,7 +1,9 @@
 ---
 type: worker
 probe: command -v pi
-command: pi -p --provider zai --model glm-5.2 --approve --thinking medium @{prompt_file} < /dev/null
+version: pi --version
+command: pi -p --provider zai --model glm-5.3 --approve --thinking medium @{prompt_file} < /dev/null
+headless: pi --print --no-session --provider zai --model glm-5.3 --approve --thinking medium
 ---
 
 # pi
@@ -20,7 +22,7 @@ Delivers the brief via pi's `@file` attachment syntax — not stdin. **`< /dev/n
 is mandatory** on background fires. Pick the
 provider/model per task:
 
-- `zai`/`glm-5.2` (DEFAULT — ZhipuAI direct API, 1M ctx) — general
+- `zai`/`glm-5.3` (DEFAULT — ZhipuAI direct API, 1M ctx) — general
   implementation. Requires `ZAI_API_KEY`.
 - `opencode-go`/`kimi-k2.7-code` (262K, image-capable) — agentic,
   multi-step work. Requires `OPENCODE_API_KEY` (or `pi /login`).

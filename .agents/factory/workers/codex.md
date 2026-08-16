@@ -1,13 +1,15 @@
 ---
 type: worker
 probe: command -v codex
+version: codex --version
 command: codex exec -C {repo_path} --model gpt-5.6-luna -c model_reasoning_effort="high" --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust --skip-git-repo-check "$(cat {prompt_file})" < /dev/null
+headless: codex exec --json --color never -o {result_file} -C {repo_path} --model gpt-5.6-luna -c model_reasoning_effort="high" --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust --skip-git-repo-check "$(cat {prompt_file})" < /dev/null
 ---
 
 # codex
 
 Adversarial review and live-smoke worker. **No longer the default reviewer** —
-that is `pi` on `zai`/`glm-5.2` as of 2026-08-02; see
+that is `pi` on `zai`/`glm-5.3` as of 2026-08-02; see
 [../routing.md](../routing.md) for why. Use `codex` as the review fallback when
 `pi`'s probe fails, or when a task explicitly names it. The three bypass flags are
 mandatory in every mode: a sandboxed codex cannot bind sockets, reach the
