@@ -191,4 +191,200 @@ describe('agent-runs routes', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it('POST /projects/:id/agent-runs starts a run and lists it', async () => {
+    const { app } = await createTestApp();
+    const project = await parseJson<{ id: string }>(
+      await app.request('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Start over HTTP' }),
+      }),
+    );
+
+    const res = await app.request(`/api/v1/projects/${project.id}/agent-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 'runner' }),
+    });
+    expect(res.status).toBe(201);
+    const run = await parseJson<AgentRunResponse>(res);
+    expect(run).toMatchObject({
+      project_id: project.id,
+      status: 'running',
+      label: 'runner',
+      completed_at: null,
+    });
+
+    const listed = await parseJson<AgentRunResponse[]>(
+      await app.request(`/api/v1/projects/${project.id}/agent-runs`),
+    );
+    expect(listed.map((entry) => entry.id)).toContain(run.id);
+  });
+
+  it('POST /projects/:id/agent-runs accepts an absent body and stores a null label', async () => {
+    const { app } = await createTestApp();
+    const project = await parseJson<{ id: string }>(
+      await app.request('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'No label' }),
+      }),
+    );
+
+    const res = await app.request(`/api/v1/projects/${project.id}/agent-runs`, {
+      method: 'POST',
+    });
+    expect(res.status).toBe(201);
+    expect(await parseJson<AgentRunResponse>(res)).toMatchObject({ label: null });
+  });
+
+  it('POST /projects/:id/agent-runs returns 400 for a non-string label', async () => {
+    const { app } = await createTestApp();
+    const project = await parseJson<{ id: string }>(
+      await app.request('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Bad label' }),
+      }),
+    );
+
+    const res = await app.request(`/api/v1/projects/${project.id}/agent-runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 42 }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /projects/:id/agent-runs returns 404 for a project outside the caller scope', async () => {
+    const { app } = await createTestApp();
+    const res = await app.request(
+      '/api/v1/projects/00000000-0000-4000-8000-000000009999/agent-runs',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: 'nowhere' }),
+      },
+    );
+    expect(res.status).toBe(404);
+    expect(await parseJson(res)).toEqual({ error: 'not_found' });
+  });
+
+  it('PATCH /agent-runs/:id completes a running run', async () => {
+    const { app, db, orgId } = await createTestApp();
+    const { agentRunService } = createServices({ db, orgId });
+    const project = await parseJson<{ id: string }>(
+      await app.request('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Complete over HTTP' }),
+      }),
+    );
+    const run = await agentRunService.start(project.id, 'Worker');
+    if (!run) {
+      throw new Error('expected run');
+    }
+
+    const res = await app.request(`/api/v1/agent-runs/${run.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'completed' }),
+    });
+    expect(res.status).toBe(200);
+    const completed = await parseJson<AgentRunResponse>(res);
+    expect(completed).toMatchObject({ id: run.id, status: 'completed' });
+    expect(completed.completed_at).not.toBeNull();
+  });
+
+  it('PATCH /agent-runs/:id accepts failed', async () => {
+    const { app, db, orgId } = await createTestApp();
+    const { agentRunService } = createServices({ db, orgId });
+    const project = await parseJson<{ id: string }>(
+      await app.request('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Failed run' }),
+      }),
+    );
+    const run = await agentRunService.start(project.id, 'Worker');
+    if (!run) {
+      throw new Error('expected run');
+    }
+
+    const res = await app.request(`/api/v1/agent-runs/${run.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'failed' }),
+    });
+    expect(res.status).toBe(200);
+    expect(await parseJson<AgentRunResponse>(res)).toMatchObject({ status: 'failed' });
+  });
+
+  it('PATCH /agent-runs/:id returns 400 for a status outside the terminal pair', async () => {
+    const { app, db, orgId } = await createTestApp();
+    const { agentRunService } = createServices({ db, orgId });
+    const project = await parseJson<{ id: string }>(
+      await app.request('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Bad status' }),
+      }),
+    );
+    const run = await agentRunService.start(project.id, 'Worker');
+    if (!run) {
+      throw new Error('expected run');
+    }
+
+    for (const status of ['running', 'cancelled', '']) {
+      const res = await app.request(`/api/v1/agent-runs/${run.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      expect(res.status).toBe(400);
+    }
+
+    const missing = await app.request(`/api/v1/agent-runs/${run.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(missing.status).toBe(400);
+  });
+
+  it('PATCH /agent-runs/:id returns 404 for an unknown run', async () => {
+    const { app } = await createTestApp();
+    const res = await app.request('/api/v1/agent-runs/00000000-0000-4000-8000-000000009999', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'completed' }),
+    });
+    expect(res.status).toBe(404);
+    expect(await parseJson(res)).toEqual({ error: 'not_found' });
+  });
+
+  it('PATCH /agent-runs/:id returns 400 for an already-completed run', async () => {
+    const { app, db, orgId } = await createTestApp();
+    const { agentRunService } = createServices({ db, orgId });
+    const project = await parseJson<{ id: string }>(
+      await app.request('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Double complete' }),
+      }),
+    );
+    const run = await agentRunService.start(project.id, 'Worker');
+    if (!run) {
+      throw new Error('expected run');
+    }
+    await agentRunService.complete(run.id, 'completed');
+
+    const res = await app.request(`/api/v1/agent-runs/${run.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'failed' }),
+    });
+    expect(res.status).toBe(400);
+  });
 });

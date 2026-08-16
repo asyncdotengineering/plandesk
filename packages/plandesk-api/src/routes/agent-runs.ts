@@ -18,6 +18,41 @@ export function createAgentRunsRouter(agentRunService: AgentRunService): Hono {
     return c.json(runs);
   });
 
+  router.post('/projects/:id/agent-runs', async (c) => {
+    // A run may be opened with no body at all, so an unparsable body is an
+    // absent label rather than a client error.
+    const body: { label?: unknown } = await c.req.json<{ label?: unknown }>().catch(() => ({}));
+    if (body.label !== undefined && body.label !== null && typeof body.label !== 'string') {
+      return invalidArgument(c, 'label', 'label must be a string when present');
+    }
+
+    const run = await agentRunService.start(c.req.param('id'), body.label ?? null);
+    if (!run) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json(run, 201);
+  });
+
+  router.patch('/agent-runs/:id', async (c) => {
+    const body: { status?: unknown } = await c.req.json<{ status?: unknown }>().catch(() => ({}));
+    if (body.status !== 'completed' && body.status !== 'failed') {
+      return invalidArgument(c, 'status', "status must be 'completed' or 'failed'");
+    }
+
+    try {
+      const run = await agentRunService.complete(c.req.param('id'), body.status);
+      if (!run) {
+        return c.json({ error: 'not_found' }, 404);
+      }
+      return c.json(run);
+    } catch (error) {
+      if (error instanceof InvalidAgentRunError) {
+        return invalidRequest(c, error.message);
+      }
+      throw error;
+    }
+  });
+
   router.post('/agent-runs/:id/progress', async (c) => {
     const body = await c.req.json<{ message?: string }>();
     if (typeof body.message !== 'string' || body.message.trim() === '') {
