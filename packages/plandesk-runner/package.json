@@ -17,13 +17,15 @@
     "bin",
     "!dist/**/*.test.js",
     "!dist/**/*.test.d.ts",
-    "!dist/**/*.map"
+    "!dist/**/*.map",
+    "scripts"
   ],
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "e2e": "node scripts/e2e.mjs"
   },
   "dependencies": {
     "smol-toml": "^1.6.1",
