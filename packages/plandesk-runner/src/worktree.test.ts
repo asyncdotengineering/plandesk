@@ -139,7 +139,11 @@ describe('ensureRepo', () => {
 describe('resolveBaseCommit', () => {
   it('returns the full OID the remote default branch advertises', async () => {
     const fixture = await makeFixture();
-    const advertised = gitText(undefined, ['ls-remote', fixture.remoteUrl, 'refs/heads/main']).split('\t')[0];
+    const advertised = gitText(undefined, [
+      'ls-remote',
+      fixture.remoteUrl,
+      'refs/heads/main',
+    ]).split('\t')[0];
 
     expect(fixture.baseOid).toMatch(/^[0-9a-f]{40}$/);
     expect(fixture.baseOid).toBe(advertised);
@@ -179,7 +183,9 @@ describe('prepareWorktree', () => {
   it('rejects a base commit that is not a full OID', async () => {
     const fixture = await makeFixture();
 
-    await expect(prepareWorktree(fixture.repoDir, 't2', 'main', fixture.config)).rejects.toMatchObject({
+    await expect(
+      prepareWorktree(fixture.repoDir, 't2', 'main', fixture.config),
+    ).rejects.toMatchObject({
       name: 'WorktreeError',
       field: 'baseOid',
     });
@@ -219,8 +225,18 @@ describe('prepareWorktree', () => {
     const username = gitText(undefined, ['config', '--get', 'user.name']);
 
     try {
-      const wtA = await prepareWorktree(fixture.repoDir, 'a;rm -rf /tmp/x', fixture.baseOid, fixture.config);
-      const wtB = await prepareWorktree(fixture.repoDir, '$(whoami)', fixture.baseOid, fixture.config);
+      const wtA = await prepareWorktree(
+        fixture.repoDir,
+        'a;rm -rf /tmp/x',
+        fixture.baseOid,
+        fixture.config,
+      );
+      const wtB = await prepareWorktree(
+        fixture.repoDir,
+        '$(whoami)',
+        fixture.baseOid,
+        fixture.config,
+      );
 
       expect(wtA.branch).toBe('task/a-rm--rf--tmp-x');
       expect(wtA.dir).toBe(join(fixture.workdir, 'worktrees', 'a-rm--rf--tmp-x'));
@@ -244,7 +260,9 @@ describe('prepareWorktree', () => {
   it('rejects a task id that sanitizes to nothing usable', async () => {
     const fixture = await makeFixture();
 
-    await expect(prepareWorktree(fixture.repoDir, '..', fixture.baseOid, fixture.config)).rejects.toMatchObject({
+    await expect(
+      prepareWorktree(fixture.repoDir, '..', fixture.baseOid, fixture.config),
+    ).rejects.toMatchObject({
       name: 'WorktreeError',
       field: 'taskId',
     });
@@ -254,9 +272,9 @@ describe('prepareWorktree', () => {
     const fixture = await makeFixture();
     await prepareWorktree(fixture.repoDir, 't4', fixture.baseOid, fixture.config);
 
-    await expect(prepareWorktree(fixture.repoDir, 't4', fixture.baseOid, fixture.config)).rejects.toMatchObject(
-      { name: 'WorktreeError', field: 'taskId' },
-    );
+    await expect(
+      prepareWorktree(fixture.repoDir, 't4', fixture.baseOid, fixture.config),
+    ).rejects.toMatchObject({ name: 'WorktreeError', field: 'taskId' });
   }, 30_000);
 });
 
@@ -269,7 +287,9 @@ describe('retainOrRemove', () => {
 
     expect(decision).toEqual({ action: 'removed', ignoredPaths: [] });
     expect(existsSync(wt.dir)).toBe(false);
-    expect(gitText(fixture.repoDir, ['worktree', 'list', '--porcelain'])).not.toContain('refs/heads/task/r1');
+    expect(gitText(fixture.repoDir, ['worktree', 'list', '--porcelain'])).not.toContain(
+      'refs/heads/task/r1',
+    );
   }, 30_000);
 
   it('removes a clean worktree whose branch is provably pushed', async () => {
@@ -283,7 +303,9 @@ describe('retainOrRemove', () => {
 
     expect(decision).toEqual({ action: 'removed', ignoredPaths: [] });
     expect(existsSync(wt.dir)).toBe(false);
-    expect(gitText(fixture.repoDir, ['worktree', 'list', '--porcelain'])).not.toContain('refs/heads/task/r2');
+    expect(gitText(fixture.repoDir, ['worktree', 'list', '--porcelain'])).not.toContain(
+      'refs/heads/task/r2',
+    );
     // The branch itself is preserved even though the worktree is gone.
     expect(gitText(fixture.repoDir, ['rev-parse', '--verify', wt.branch])).toBe(
       gitText(fixture.repoDir, ['rev-parse', '--verify', `origin/${wt.branch}`]),
@@ -352,7 +374,12 @@ describe('retainOrRemove', () => {
     'retains regardless of cleanliness when outcome is %s',
     async (outcome) => {
       const fixture = await makeFixture();
-      const wt = await prepareWorktree(fixture.repoDir, `r-${outcome}`, fixture.baseOid, fixture.config);
+      const wt = await prepareWorktree(
+        fixture.repoDir,
+        `r-${outcome}`,
+        fixture.baseOid,
+        fixture.config,
+      );
       commitInWorktree(wt.dir, 'pushed but not done');
       gitRun(wt.dir, ['push', '-q', 'origin', wt.branch]);
       gitRun(fixture.repoDir, ['fetch', '-q', '--prune', 'origin']);

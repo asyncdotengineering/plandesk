@@ -58,11 +58,7 @@ export function createTasksRouter(taskService: TaskService): Hono {
       return invalidArgument(c, 'kind', 'kind must be a valid task kind');
     }
 
-    if (
-      body.priority !== undefined &&
-      body.priority !== null &&
-      !isTaskPriority(body.priority)
-    ) {
+    if (body.priority !== undefined && body.priority !== null && !isTaskPriority(body.priority)) {
       return invalidArgument(c, 'priority', 'priority must be a valid task priority');
     }
 

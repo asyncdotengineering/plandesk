@@ -4,7 +4,7 @@ The machine-side agent. It polls a Plan Desk board, claims one actionable task,
 briefs a headless coding-agent CLI, runs the task's own gate command, and writes
 the outcome back.
 
-**The runner is not the agent.** Every job it does exists *because* it is not
+**The runner is not the agent.** Every job it does exists _because_ it is not
 the agent: it decides what to work on, isolates where the work happens, bounds
 how long it may run, and judges the result from an exit code rather than from
 the worker's opinion of its own output.
@@ -36,13 +36,13 @@ Only `board_url` and `agent_key` are required. Everything else has a default —
 
 ### Credentials
 
-`agent_key` is required as a *field*, and its empty value carries meaning:
+`agent_key` is required as a _field_, and its empty value carries meaning:
 
-| value | behaviour |
-| --- | --- |
-| `agent_key = "sk-…"` | sent as `Authorization: Bearer sk-…` |
-| `agent_key = ""` | **no `Authorization` header at all** — the board resolves the caller as org owner over loopback |
-| field absent | `ConfigError` — an omitted credential is a mistake, an empty one is a decision |
+| value                | behaviour                                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| `agent_key = "sk-…"` | sent as `Authorization: Bearer sk-…`                                                            |
+| `agent_key = ""`     | **no `Authorization` header at all** — the board resolves the caller as org owner over loopback |
+| field absent         | `ConfigError` — an omitted credential is a mistake, an empty one is a decision                  |
 
 An empty key is the correct setting for a **local** board. A local board cannot
 mint an agent key: owner keys come only from the `plandesk login` device flow,
@@ -109,12 +109,12 @@ success for work it cannot check.
 
 Outcome is decided in this order, and nothing else participates:
 
-| condition | outcome |
-| --- | --- |
-| `.plandesk/NEEDS_INPUT.md` exists in the worktree | `needs_input` → task to `scope` |
-| worker exit ≠ 0 | `failed` (the gate is **not** run) → task to `todo` |
-| gate exit 0 | `done` |
-| gate exit ≠ 0 | `failed` → task to `todo` |
+| condition                                         | outcome                                             |
+| ------------------------------------------------- | --------------------------------------------------- |
+| `.plandesk/NEEDS_INPUT.md` exists in the worktree | `needs_input` → task to `scope`                     |
+| worker exit ≠ 0                                   | `failed` (the gate is **not** run) → task to `todo` |
+| gate exit 0                                       | `done`                                              |
+| gate exit ≠ 0                                     | `failed` → task to `todo`                           |
 
 On `done`, the lane decides what happens next: `auto` closes the task, while
 `approve` and `full` leave it `in_progress` with a progress event saying it
@@ -142,12 +142,12 @@ message naming what was absent — never a silent pass.
 
 The four paths and what each pins down:
 
-| path | gate | proves |
-| --- | --- | --- |
-| `happy` | `true` | task reaches `done`, run `completed` |
-| `failure` | `false` | task returns to `todo`, run `failed`, gate output recorded |
-| `park` | `true` | a worker question parks the task in `scope` and reaches the run |
-| `approve` | `true` | lane `approve` holds at `in_progress` for a human |
+| path      | gate    | proves                                                          |
+| --------- | ------- | --------------------------------------------------------------- |
+| `happy`   | `true`  | task reaches `done`, run `completed`                            |
+| `failure` | `false` | task returns to `todo`, run `failed`, gate output recorded      |
+| `park`    | `true`  | a worker question parks the task in `scope` and reaches the run |
+| `approve` | `true`  | lane `approve` holds at `in_progress` for a human               |
 
 The gate commands are deliberately `true`/`false`: they isolate the runner's
 plumbing from whether the worker happened to write good code.
@@ -158,7 +158,7 @@ Each attempt gets its own `git worktree` under `<workdir>/worktrees/<taskId>`,
 branched from a full commit OID resolved from the remote's default branch.
 
 **Cleanup fails closed.** A worktree is removed only when the tree is provably
-clean *and* the branch is provably pushed. Dirty, failed, parked, or unprovable
+clean _and_ the branch is provably pushed. Dirty, failed, parked, or unprovable
 worktrees are retained with a reason, because a wrong `git worktree remove`
 destroys work no one has seen. Ignored-only content such as `node_modules` does
 not block removal, and is listed in the decision.

@@ -222,7 +222,7 @@ export const deleteFolderInputSchema = z.object({
     .nullable()
     .optional()
     .describe(
-      'Where documents and sub-folders go. Omit to use the deleted folder\'s parent (Unfiled when it was at the project root). Pass null for Unfiled. Pass a folder id to move contents there. Never orphans or deletes contents.',
+      "Where documents and sub-folders go. Omit to use the deleted folder's parent (Unfiled when it was at the project root). Pass null for Unfiled. Pass a folder id to move contents there. Never orphans or deletes contents.",
     ),
 });
 
@@ -667,14 +667,22 @@ export const getNextTaskInputSchema = z.object({
     .describe(
       'Scope the frontier to a specific goal. When omitted, resolves via the project current_goal_id, then the sole active goal, then ambiguous_goal.',
     ),
-  goal: z.string().min(1).optional().describe('Project-scoped goal name; use this instead of goal_id.'),
+  goal: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Project-scoped goal name; use this instead of goal_id.'),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_FILTER_DESCRIPTION),
   verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
 export const getTaskGraphInputSchema = z.object({
   project_id: z.string().uuid(),
-  goal_id: z.string().uuid().optional().describe('Scope the graph to one goal. Omit for the whole project.'),
+  goal_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('Scope the graph to one goal. Omit for the whole project.'),
 });
 
 export const claimTaskInputSchema = z.object({

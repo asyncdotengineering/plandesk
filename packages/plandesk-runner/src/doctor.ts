@@ -136,7 +136,13 @@ async function resolveWorkerResolution(
   const enabledButNotDeclared = config.workers.filter((name) => !declared.includes(name));
   try {
     const resolved = await resolveWorkersIn(workersDir, config);
-    return { declared, enabled, enabledButNotDeclared, usable: resolved.usable, excluded: resolved.excluded };
+    return {
+      declared,
+      enabled,
+      enabledButNotDeclared,
+      usable: resolved.usable,
+      excluded: resolved.excluded,
+    };
   } catch (error) {
     if (error instanceof NoUsableWorkersError) {
       return { declared, enabled, enabledButNotDeclared, usable: [], excluded: error.excluded };
@@ -190,7 +196,9 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   );
   const workers = listWorkerFiles(workersDir ?? join(cwd, '.agents', 'factory', 'workers'));
   const resolution =
-    workersDir === undefined ? undefined : await resolveWorkerResolution(workersDir, config, workers);
+    workersDir === undefined
+      ? undefined
+      : await resolveWorkerResolution(workersDir, config, workers);
   const orphanScan = await scanOrphansForReport(config);
 
   return {
@@ -231,9 +239,7 @@ function workerRows(report: DoctorReport): string[] {
       `no .agents/factory/workers directory found (searched up from ${report.workersSearchedFrom})`,
     ];
   }
-  const lines = [
-    `workers (${String(report.workers.length)}) from ${report.workersDir}:`,
-  ];
+  const lines = [`workers (${String(report.workers.length)}) from ${report.workersDir}:`];
   const resolution = report.resolution;
   if (resolution === undefined) {
     return lines;
@@ -249,7 +255,9 @@ function workerRows(report: DoctorReport): string[] {
     lines.push(formatWorkerRow(name, resolution));
   }
   const usableNames = resolution.usable.map((worker) => worker.name).join(', ');
-  lines.push(`usable (${String(resolution.usable.length)}): ${usableNames.length > 0 ? usableNames : '(none)'}`);
+  lines.push(
+    `usable (${String(resolution.usable.length)}): ${usableNames.length > 0 ? usableNames : '(none)'}`,
+  );
   return lines;
 }
 

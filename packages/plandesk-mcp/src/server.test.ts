@@ -582,9 +582,9 @@ describe('createMcpApp', () => {
         }>;
       };
       expect(treePayload.documents.some((entry) => entry.title === 'At root')).toBe(true);
-      expect(treePayload.documents.some((entry) => entry.id === docId && entry.folder_id === folderId)).toBe(
-        true,
-      );
+      expect(
+        treePayload.documents.some((entry) => entry.id === docId && entry.folder_id === folderId),
+      ).toBe(true);
       const specsNode = treePayload.folders.find((entry) => entry.id === folderId);
       expect(specsNode?.doc_count).toBe(1);
       expect(specsNode?.folders.map((entry) => entry.name)).toEqual(['Old specs']);
@@ -661,14 +661,14 @@ describe('createMcpApp', () => {
         arguments: { project_id: projectId, title: 'Doc B' },
       });
       const docAId = (
-        JSON.parse(
-          (docA.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
-        ) as { document: { id: string } }
+        JSON.parse((docA.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}') as {
+          document: { id: string };
+        }
       ).document.id;
       const docBId = (
-        JSON.parse(
-          (docB.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
-        ) as { document: { id: string } }
+        JSON.parse((docB.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}') as {
+          document: { id: string };
+        }
       ).document.id;
 
       const moved = await client.callTool({
@@ -804,8 +804,12 @@ describe('createMcpApp', () => {
           documents: Array<{ body: string | null }>;
           folders: Array<Record<string, unknown>>;
         };
-        expect(verboseTreePayload.documents.find((document) => document.body === '<p>root body</p>')).toBeDefined();
-        expect(verboseTreePayload.documents.find((document) => document.body === '<p>secret body</p>')).toBeDefined();
+        expect(
+          verboseTreePayload.documents.find((document) => document.body === '<p>root body</p>'),
+        ).toBeDefined();
+        expect(
+          verboseTreePayload.documents.find((document) => document.body === '<p>secret body</p>'),
+        ).toBeDefined();
         expect(verboseTreePayload.folders[0]).not.toHaveProperty('documents');
 
         const summaryFlat = await client.callTool({
@@ -883,9 +887,9 @@ describe('createMcpApp', () => {
       });
       const verboseListText =
         (verboseListed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
-      expect((JSON.parse(verboseListText) as { notes: Array<{ body: string | null }> }).notes[0]?.body).toContain(
-        '<h2>',
-      );
+      expect(
+        (JSON.parse(verboseListText) as { notes: Array<{ body: string | null }> }).notes[0]?.body,
+      ).toContain('<h2>');
 
       const got = await client.callTool({ name: 'get_note', arguments: { note_id: noteId } });
       const gotContent = got.content as Array<{ type: string; text?: string }>;
@@ -1341,7 +1345,12 @@ describe('createMcpApp', () => {
       const createdText =
         (created.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
       const createdPayload = JSON.parse(createdText) as {
-        goal: { id: string; name: string | null; objective: string; verification_surface: string | null };
+        goal: {
+          id: string;
+          name: string | null;
+          objective: string;
+          verification_surface: string | null;
+        };
         warnings: string[];
       };
       expect(createdPayload.goal.name).toBe('mcp-goal');
@@ -1472,7 +1481,8 @@ describe('createMcpApp', () => {
           name: 'list_goals',
           arguments: { project_id: projectId },
         });
-        const listedText = (listed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+        const listedText =
+          (listed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
         const listedPayload = JSON.parse(listedText) as {
           goals: Array<{ objective: string }>;
         };
@@ -2273,8 +2283,14 @@ describe('createMcpApp', () => {
     await withMcpServer(async ({ baseUrl, projectId, services }) => {
       const client = await connectClient(baseUrl);
       try {
-        const goalA = await services.goalService.create(projectId, { objective: 'Goal A', name: 'goal-a' });
-        const goalB = await services.goalService.create(projectId, { objective: 'Goal B', name: 'goal-b' });
+        const goalA = await services.goalService.create(projectId, {
+          objective: 'Goal A',
+          name: 'goal-a',
+        });
+        const goalB = await services.goalService.create(projectId, {
+          objective: 'Goal B',
+          name: 'goal-b',
+        });
         if (!goalA || !goalB) {
           throw new Error('expected goals');
         }
@@ -2282,7 +2298,10 @@ describe('createMcpApp', () => {
           label: 'A todo',
           goalId: goalA.id,
         });
-        const taskB = await services.taskService.create(projectId, { label: 'B todo', goalId: goalB.id });
+        const taskB = await services.taskService.create(projectId, {
+          label: 'B todo',
+          goalId: goalB.id,
+        });
 
         const scopedToA = await client.callTool({
           name: 'get_next_task',

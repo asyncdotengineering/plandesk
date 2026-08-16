@@ -103,13 +103,24 @@ describe('buildEnv', () => {
 
 describe('substitutePlaceholders', () => {
   it('substitutes repo_path, prompt_file, and result_file into argv', () => {
-    const argv = substitutePlaceholders('agent run {prompt_file} --repo {repo_path} --out {result_file}', {
-      repoPath: '/work/tree',
-      promptFile: '/tmp/brief.md',
-      resultFile: '/tmp/result.md',
-    });
+    const argv = substitutePlaceholders(
+      'agent run {prompt_file} --repo {repo_path} --out {result_file}',
+      {
+        repoPath: '/work/tree',
+        promptFile: '/tmp/brief.md',
+        resultFile: '/tmp/result.md',
+      },
+    );
 
-    expect(argv).toEqual(['agent', 'run', '/tmp/brief.md', '--repo', '/work/tree', '--out', '/tmp/result.md']);
+    expect(argv).toEqual([
+      'agent',
+      'run',
+      '/tmp/brief.md',
+      '--repo',
+      '/work/tree',
+      '--out',
+      '/tmp/result.md',
+    ]);
   });
 
   it('splits shell-style words: quotes join, escapes unquote, mid-word quotes hold', () => {
@@ -210,32 +221,35 @@ posix('spawn', () => {
     expect(result.durationMs).toBeLessThan(5000);
   });
 
-  it('a timeout kills a spawned grandchild too — the grandchild pid is gone', { timeout: 15_000 }, async () => {
-    const dir = makeTempDir('plandesk-spawn-');
-    const pidFile = join(dir, 'grandchild.pid');
-    // A shell that backgrounds a long sleep (the grandchild), records its
-    // pid, then sleeps itself: the group is alive when the timeout fires.
-    const script =
-      '/bin/sleep 300 &\necho $! > "$PLANDESK_GRANDCHILD_PID_FILE"\n/bin/sleep 300';
+  it(
+    'a timeout kills a spawned grandchild too — the grandchild pid is gone',
+    { timeout: 15_000 },
+    async () => {
+      const dir = makeTempDir('plandesk-spawn-');
+      const pidFile = join(dir, 'grandchild.pid');
+      // A shell that backgrounds a long sleep (the grandchild), records its
+      // pid, then sleeps itself: the group is alive when the timeout fires.
+      const script = '/bin/sleep 300 &\necho $! > "$PLANDESK_GRANDCHILD_PID_FILE"\n/bin/sleep 300';
 
-    const result = await spawn({
-      cmd: ['/bin/sh', '-c', script],
-      cwd: dir,
-      env: buildEnv({ PLANDESK_GRANDCHILD_PID_FILE: pidFile }),
-      timeoutMs: 400,
-    });
+      const result = await spawn({
+        cmd: ['/bin/sh', '-c', script],
+        cwd: dir,
+        env: buildEnv({ PLANDESK_GRANDCHILD_PID_FILE: pidFile }),
+        timeoutMs: 400,
+      });
 
-    expect(result.reason).toBe('timeout');
-    const grandchildPid = Number.parseInt(readFileSync(pidFile, 'utf8').trim(), 10);
-    expect(Number.isInteger(grandchildPid)).toBe(true);
-    expect(grandchildPid).toBeGreaterThan(0);
-    expect(grandchildPid).not.toBe(result.pid);
+      expect(result.reason).toBe('timeout');
+      const grandchildPid = Number.parseInt(readFileSync(pidFile, 'utf8').trim(), 10);
+      expect(Number.isInteger(grandchildPid)).toBe(true);
+      expect(grandchildPid).toBeGreaterThan(0);
+      expect(grandchildPid).not.toBe(result.pid);
 
-    // The single most important assertion in this suite: the grandchild —
-    // not merely the parent shell — is dead, and so is the whole group.
-    await expect(waitForPidGone(grandchildPid)).resolves.toBe(true);
-    expect(() => process.kill(-result.pgid, 0)).toThrow();
-  });
+      // The single most important assertion in this suite: the grandchild —
+      // not merely the parent shell — is dead, and so is the whole group.
+      await expect(waitForPidGone(grandchildPid)).resolves.toBe(true);
+      expect(() => process.kill(-result.pgid, 0)).toThrow();
+    },
+  );
 
   it('an AbortSignal fired mid-run kills the child and resolves reason cancelled', async () => {
     const controller = new AbortController();
@@ -286,30 +300,34 @@ posix('spawn', () => {
     expect(result.stderr).toContain('plandesk-no-such-binary');
   });
 
-  it('hands the child only the allowlisted environment — a secret never reaches it', { timeout: 15_000 }, async () => {
-    const saved = process.env.PLANDESK_TEST_SECRET;
-    process.env.PLANDESK_TEST_SECRET = 'super-secret-board-credential';
-    try {
-      const result = await spawn({
-        cmd: ['/usr/bin/env'],
-        cwd: makeTempDir('plandesk-spawn-'),
-        env: buildEnv(),
-        timeoutMs: 10_000,
-      });
+  it(
+    'hands the child only the allowlisted environment — a secret never reaches it',
+    { timeout: 15_000 },
+    async () => {
+      const saved = process.env.PLANDESK_TEST_SECRET;
+      process.env.PLANDESK_TEST_SECRET = 'super-secret-board-credential';
+      try {
+        const result = await spawn({
+          cmd: ['/usr/bin/env'],
+          cwd: makeTempDir('plandesk-spawn-'),
+          env: buildEnv(),
+          timeoutMs: 10_000,
+        });
 
-      expect(result.reason).toBe('exited');
-      expect(result.stdout).not.toContain('PLANDESK_TEST_SECRET');
-      expect(result.stdout).not.toContain('super-secret-board-credential');
-      // HOME is load-bearing: the child sees it too, not just buildEnv().
-      expect(result.stdout).toContain(`HOME=${process.env.HOME ?? ''}`);
-    } finally {
-      if (saved === undefined) {
-        delete process.env.PLANDESK_TEST_SECRET;
-      } else {
-        process.env.PLANDESK_TEST_SECRET = saved;
+        expect(result.reason).toBe('exited');
+        expect(result.stdout).not.toContain('PLANDESK_TEST_SECRET');
+        expect(result.stdout).not.toContain('super-secret-board-credential');
+        // HOME is load-bearing: the child sees it too, not just buildEnv().
+        expect(result.stdout).toContain(`HOME=${process.env.HOME ?? ''}`);
+      } finally {
+        if (saved === undefined) {
+          delete process.env.PLANDESK_TEST_SECRET;
+        } else {
+          process.env.PLANDESK_TEST_SECRET = saved;
+        }
       }
-    }
-  });
+    },
+  );
 });
 
 describe('readBoundedFile', () => {
@@ -338,7 +356,9 @@ describe('readBoundedFile', () => {
   });
 
   it('returns undefined for a missing file', () => {
-    expect(readBoundedFile(join(makeTempDir('plandesk-bounded-'), 'absent.md'), 100)).toBeUndefined();
+    expect(
+      readBoundedFile(join(makeTempDir('plandesk-bounded-'), 'absent.md'), 100),
+    ).toBeUndefined();
   });
 });
 

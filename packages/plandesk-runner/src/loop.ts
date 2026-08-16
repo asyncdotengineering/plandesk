@@ -5,7 +5,13 @@ import type { BoardClient, BoardDocument, BoardTask } from './board.js';
 import { buildEnv, readBoundedFile, runHeadless, spawn, substitutePlaceholders } from './spawn.js';
 import type { SpawnResult } from './spawn.js';
 import { pickWorker, resolveWorkers, type Worker } from './workers.js';
-import { retainOrRemove, ensureRepo, prepareWorktree, resolveBaseCommit, type Worktree } from './worktree.js';
+import {
+  retainOrRemove,
+  ensureRepo,
+  prepareWorktree,
+  resolveBaseCommit,
+  type Worktree,
+} from './worktree.js';
 import { reconcile } from './reconcile.js';
 
 /**
@@ -377,7 +383,10 @@ export async function runOnce(
 
   const mutation = applyOutcome(task, evidence.outcome);
   const detail = evidence.detail.trim();
-  await board.recordProgress(run.id, detail.length > 0 ? `${mutation.note}\n\n${detail}` : mutation.note);
+  await board.recordProgress(
+    run.id,
+    detail.length > 0 ? `${mutation.note}\n\n${detail}` : mutation.note,
+  );
   if (mutation.kind === 'set-status') {
     await board.setTaskStatus(task.id, mutation.status, run.id);
   }

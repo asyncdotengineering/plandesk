@@ -129,13 +129,19 @@ async function scanOrphansWithEvidence(config: RunnerConfig): Promise<ScannedOrp
       return {
         taskId: name,
         worktreeDir,
-        registration: { repoDir: match.repoDir, branch: match.entry.branch, head: match.entry.head },
+        registration: {
+          repoDir: match.repoDir,
+          branch: match.entry.branch,
+          head: match.entry.head,
+        },
       };
     }
     return {
       taskId: name,
       worktreeDir,
-      ...(registrationErrors.length > 0 ? { registrationError: registrationErrors.join('; ') } : {}),
+      ...(registrationErrors.length > 0
+        ? { registrationError: registrationErrors.join('; ') }
+        : {}),
     };
   });
 }
@@ -268,7 +274,9 @@ async function reconcileOne(
       action: 'returned-to-todo',
       detail:
         `task was in_progress with its attempt's run ${run.id} still running — interruption recorded on that run, task returned to todo` +
-        (progressError !== undefined ? ` (progress event could not be recorded: ${progressError})` : '') +
+        (progressError !== undefined
+          ? ` (progress event could not be recorded: ${progressError})`
+          : '') +
         `; worktree retained at ${worktreeDir} (${evidence})`,
     };
   } catch (error) {

@@ -143,7 +143,10 @@ function loadWorkContext(
  * poll loop; `--once` claims at most one task, settles it, and exits 0
  * whatever the outcome (the board carries it); `doctor` reports and exits 0.
  */
-export async function main(argv: string[] = process.argv.slice(2), options: MainOptions = {}): Promise<number> {
+export async function main(
+  argv: string[] = process.argv.slice(2),
+  options: MainOptions = {},
+): Promise<number> {
   let parsed: ParsedCommand;
   try {
     parsed = parseArgs(argv);

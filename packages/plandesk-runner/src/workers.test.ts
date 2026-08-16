@@ -74,7 +74,9 @@ function frontmatter(extra: Record<string, string> = {}): Record<string, string>
   };
 }
 
-function makeWorktree(workers: Array<{ name: string; frontmatter: Record<string, string> }>): string {
+function makeWorktree(
+  workers: Array<{ name: string; frontmatter: Record<string, string> }>,
+): string {
   const repo = makeTempDir('plandesk-runner-wt-');
   const workersDir = join(repo, '.agents', 'factory', 'workers');
   mkdirSync(workersDir, { recursive: true });
@@ -234,7 +236,9 @@ describe('resolveWorkers', () => {
     const result = await resolveWorkers(worktree, makeConfig());
 
     expect(result.usable.find((worker) => worker.name === 'v')?.resolvedVersion).toBe('9.9.9');
-    expect(result.usable.find((worker) => worker.name === 'noversion')?.resolvedVersion).toBeUndefined();
+    expect(
+      result.usable.find((worker) => worker.name === 'noversion')?.resolvedVersion,
+    ).toBeUndefined();
     expect(result.usable.find((worker) => worker.name === 'noversion')?.version).toBeUndefined();
   });
 
@@ -251,7 +255,10 @@ describe('resolveWorkers', () => {
 
   it('derives usesPromptFile and usesResultFile from placeholder presence', async () => {
     const worktree = makeWorktree([
-      { name: 'both', frontmatter: frontmatter({ headless: 'agent run {prompt_file} --out {result_file}' }) },
+      {
+        name: 'both',
+        frontmatter: frontmatter({ headless: 'agent run {prompt_file} --out {result_file}' }),
+      },
       { name: 'promptonly', frontmatter: frontmatter({ headless: 'agent run {prompt_file}' }) },
       { name: 'neither', frontmatter: frontmatter({ headless: 'agent run' }) },
     ]);
@@ -267,7 +274,10 @@ describe('resolveWorkers', () => {
   it('throws NoUsableWorkersError naming the declared set, the enabled set, and every exclusion', async () => {
     const worktree = makeWorktree([
       { name: 'broken', frontmatter: frontmatter({ probe: 'echo dead >&2; exit 1' }) },
-      { name: 'locked', frontmatter: { type: 'worker', probe: 'true', command: 'locked {prompt_file}' } },
+      {
+        name: 'locked',
+        frontmatter: { type: 'worker', probe: 'true', command: 'locked {prompt_file}' },
+      },
     ]);
 
     let caught: unknown;
@@ -323,7 +333,12 @@ describe('resolveWorkers', () => {
 });
 
 describe('pickWorker', () => {
-  const base = { probe: 'true', headless: 'agent run', usesPromptFile: false, usesResultFile: false };
+  const base = {
+    probe: 'true',
+    headless: 'agent run',
+    usesPromptFile: false,
+    usesResultFile: false,
+  };
   const worker = (name: string): Worker => ({ name, ...base });
 
   it('prefers config.defaultWorker when it is usable', () => {

@@ -121,10 +121,7 @@ export interface PlaceholderContext {
  * through as literal words. A placeholder whose context entry is absent
  * (e.g. `{result_file}` for a worker that has none) is left verbatim.
  */
-export function substitutePlaceholders(
-  headless: string,
-  ctx: PlaceholderContext,
-): string[] {
+export function substitutePlaceholders(headless: string, ctx: PlaceholderContext): string[] {
   const replacements: Array<[placeholder: string, value: string]> = [['{repo_path}', ctx.repoPath]];
   if (ctx.promptFile !== undefined) {
     replacements.push(['{prompt_file}', ctx.promptFile]);
@@ -377,8 +374,10 @@ export function spawn(opts: SpawnOptions): Promise<SpawnResult> {
     const pid = child.pid ?? -1;
     const pgid = process.platform === 'win32' || pid === -1 ? -1 : pid;
 
-    const stdoutCapture = child.stdout !== null ? attachCapture(child.stdout, maxOutputBytes) : emptyCapture();
-    const stderrCapture = child.stderr !== null ? attachCapture(child.stderr, maxOutputBytes) : emptyCapture();
+    const stdoutCapture =
+      child.stdout !== null ? attachCapture(child.stdout, maxOutputBytes) : emptyCapture();
+    const stderrCapture =
+      child.stderr !== null ? attachCapture(child.stderr, maxOutputBytes) : emptyCapture();
 
     let claimed: SpawnResult['reason'] | undefined;
     let closed = false;
@@ -441,9 +440,10 @@ export function spawn(opts: SpawnOptions): Promise<SpawnResult> {
         clearTimeout(timer);
       }
       opts.signal?.removeEventListener('abort', onAbort);
-      const stderr = failureMessage === undefined
-        ? decodeBoundedText(Buffer.concat(stderrCapture.chunks))
-        : `${failureMessage}\n${decodeBoundedText(Buffer.concat(stderrCapture.chunks))}`;
+      const stderr =
+        failureMessage === undefined
+          ? decodeBoundedText(Buffer.concat(stderrCapture.chunks))
+          : `${failureMessage}\n${decodeBoundedText(Buffer.concat(stderrCapture.chunks))}`;
       resolve({
         exitCode,
         reason,

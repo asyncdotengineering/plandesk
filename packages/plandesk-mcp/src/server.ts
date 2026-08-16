@@ -294,7 +294,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Delete Folder',
       description:
-        'Delete a folder without orphaning contents. By default documents and sub-folders move to the deleted folder\'s parent (Unfiled when it was at the project root). Pass reparent_to null for Unfiled, or a folder id to move contents there.',
+        "Delete a folder without orphaning contents. By default documents and sub-folders move to the deleted folder's parent (Unfiled when it was at the project root). Pass reparent_to null for Unfiled, or a folder id to move contents there.",
       inputSchema: deleteFolderInputSchema.shape,
     },
     createDeleteFolderHandler(services.folderService),
@@ -593,7 +593,8 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     'create_goal',
     {
       title: 'Create Goal',
-      description: 'Create a goal for a project with an optional short unique name, objective, and contract fields',
+      description:
+        'Create a goal for a project with an optional short unique name, objective, and contract fields',
       inputSchema: createGoalInputSchema.shape,
     },
     createCreateGoalHandler(services.goalService),
@@ -690,7 +691,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Get Next Task',
       description:
-        "Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id or project-scoped goal name). When both are omitted: resolves via current_goal_id, then the sole active goal, then ambiguous_goal — never unions active goals. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.",
+        'Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id or project-scoped goal name). When both are omitted: resolves via current_goal_id, then the sole active goal, then ambiguous_goal — never unions active goals. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.',
       inputSchema: getNextTaskInputSchema.shape,
       annotations: { readOnlyHint: true },
     },

@@ -64,7 +64,9 @@ function makeFetch(routes: Route[]): { impl: typeof fetch; calls: RecordedCall[]
     if (route.rawBody !== undefined) {
       return Promise.resolve(new Response(route.rawBody, { status: route.status ?? 200 }));
     }
-    return Promise.resolve(new Response(JSON.stringify(route.body ?? {}), { status: route.status ?? 200 }));
+    return Promise.resolve(
+      new Response(JSON.stringify(route.body ?? {}), { status: route.status ?? 200 }),
+    );
   };
   return { impl, calls };
 }
@@ -87,7 +89,11 @@ const TASK: Record<string, unknown> = {
 describe('createBoardClient', () => {
   it('fetches the next task from /projects/:id/next-task with the bearer credential', async () => {
     const { impl, calls } = makeFetch([
-      { method: 'GET', path: '/api/v1/projects/proj-1/next-task', body: { next_task: TASK, reason: 'ok', blocked: [] } },
+      {
+        method: 'GET',
+        path: '/api/v1/projects/proj-1/next-task',
+        body: { next_task: TASK, reason: 'ok', blocked: [] },
+      },
     ]);
     const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: impl });
 
@@ -100,7 +106,11 @@ describe('createBoardClient', () => {
 
   it('resolves null when the board reports no next task', async () => {
     const { impl } = makeFetch([
-      { method: 'GET', path: '/api/v1/projects/proj-1/next-task', body: { next_task: null, reason: 'no_tasks', blocked: [] } },
+      {
+        method: 'GET',
+        path: '/api/v1/projects/proj-1/next-task',
+        body: { next_task: null, reason: 'no_tasks', blocked: [] },
+      },
     ]);
     const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: impl });
 
@@ -109,13 +119,20 @@ describe('createBoardClient', () => {
 
   it('raises BoardError naming the field when next_task is malformed', async () => {
     const { impl } = makeFetch([
-      { method: 'GET', path: '/api/v1/projects/proj-1/next-task', body: { next_task: { id: 'task-1' } } },
+      {
+        method: 'GET',
+        path: '/api/v1/projects/proj-1/next-task',
+        body: { next_task: { id: 'task-1' } },
+      },
     ]);
     const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: impl });
 
     // Validators run in wire order: project_id is the first required field
     // missing after id, so that is the field the error must name.
-    await expect(board.nextTask()).rejects.toMatchObject({ name: 'BoardError', field: 'next_task.project_id' });
+    await expect(board.nextTask()).rejects.toMatchObject({
+      name: 'BoardError',
+      field: 'next_task.project_id',
+    });
   });
 
   it('claims via POST /tasks/:id/claim with agent_ref, mapping 409 to a lost race', async () => {
@@ -132,7 +149,12 @@ describe('createBoardClient', () => {
     expect(won.calls[0]?.body).toBe(JSON.stringify({ agent_ref: 'runner-a' }));
 
     const lost = makeFetch([
-      { method: 'POST', path: '/api/v1/tasks/task-1/claim', status: 409, body: { claimed: false, reason: 'taken_or_not_actionable' } },
+      {
+        method: 'POST',
+        path: '/api/v1/tasks/task-1/claim',
+        status: 409,
+        body: { claimed: false, reason: 'taken_or_not_actionable' },
+      },
     ]);
     const boardLost = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: lost.impl });
     await expect(boardLost.claimTask('task-1', 'runner-a')).resolves.toEqual({ claimed: false });
@@ -166,7 +188,11 @@ describe('createBoardClient', () => {
 
   it('reads the project (repo_url decides where work happens)', async () => {
     const { impl } = makeFetch([
-      { method: 'GET', path: '/api/v1/projects/proj-1', body: { id: 'proj-1', name: 'Fixture', repo_url: 'https://github.com/acme/widget.git' } },
+      {
+        method: 'GET',
+        path: '/api/v1/projects/proj-1',
+        body: { id: 'proj-1', name: 'Fixture', repo_url: 'https://github.com/acme/widget.git' },
+      },
     ]);
     const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: impl });
 
@@ -182,7 +208,14 @@ describe('createBoardClient', () => {
       {
         method: 'POST',
         path: '/api/v1/projects/proj-1/agent-runs',
-        body: { id: 'run-1', project_id: 'proj-1', status: 'running', label: 'attempt', started_at: '2026-01-01T00:00:00.000Z', completed_at: null },
+        body: {
+          id: 'run-1',
+          project_id: 'proj-1',
+          status: 'running',
+          label: 'attempt',
+          started_at: '2026-01-01T00:00:00.000Z',
+          completed_at: null,
+        },
       },
     ]);
     const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: impl });
@@ -195,7 +228,12 @@ describe('createBoardClient', () => {
 
   it('records progress via POST /agent-runs/:id/progress (not /events) with the run header', async () => {
     const { impl, calls } = makeFetch([
-      { method: 'POST', path: '/api/v1/agent-runs/run-1/progress', status: 201, body: { id: 'ev-1', message: 'hi', created_at: '2026-01-01T00:00:00.000Z' } },
+      {
+        method: 'POST',
+        path: '/api/v1/agent-runs/run-1/progress',
+        status: 201,
+        body: { id: 'ev-1', message: 'hi', created_at: '2026-01-01T00:00:00.000Z' },
+      },
     ]);
     const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: impl });
 
@@ -211,7 +249,14 @@ describe('createBoardClient', () => {
       {
         method: 'PATCH',
         path: '/api/v1/agent-runs/run-1',
-        body: { id: 'run-1', project_id: 'proj-1', status: 'completed', label: null, started_at: '2026-01-01T00:00:00.000Z', completed_at: '2026-01-01T00:01:00.000Z' },
+        body: {
+          id: 'run-1',
+          project_id: 'proj-1',
+          status: 'completed',
+          label: null,
+          started_at: '2026-01-01T00:00:00.000Z',
+          completed_at: '2026-01-01T00:01:00.000Z',
+        },
       },
     ]);
     const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: impl });
@@ -285,10 +330,23 @@ describe('createBoardClient', () => {
 
   it('reads the linked task document, mapping 404 to null', async () => {
     const found = makeFetch([
-      { method: 'GET', path: '/api/v1/tasks/task-1/document', body: { id: 'doc-1', project_id: 'proj-1', title: 'Spec', body: 'The body', status_line: 'Draft' } },
+      {
+        method: 'GET',
+        path: '/api/v1/tasks/task-1/document',
+        body: {
+          id: 'doc-1',
+          project_id: 'proj-1',
+          title: 'Spec',
+          body: 'The body',
+          status_line: 'Draft',
+        },
+      },
     ]);
     const boardFound = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: found.impl });
-    await expect(boardFound.taskDocument('task-1')).resolves.toMatchObject({ id: 'doc-1', body: 'The body' });
+    await expect(boardFound.taskDocument('task-1')).resolves.toMatchObject({
+      id: 'doc-1',
+      body: 'The body',
+    });
 
     const missing = makeFetch([]);
     const boardMissing = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: missing.impl });
@@ -296,7 +354,14 @@ describe('createBoardClient', () => {
   });
 
   it('raises BoardError with the status for unexpected HTTP failures', async () => {
-    const { impl } = makeFetch([{ method: 'GET', path: '/api/v1/projects/proj-1/next-task', status: 500, body: { error: 'boom' } }]);
+    const { impl } = makeFetch([
+      {
+        method: 'GET',
+        path: '/api/v1/projects/proj-1/next-task',
+        status: 500,
+        body: { error: 'boom' },
+      },
+    ]);
     const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: impl });
 
     const error = await board.nextTask().catch((cause: unknown) => cause);
@@ -308,8 +373,7 @@ describe('createBoardClient', () => {
   });
 
   it('raises BoardError for transport failures and non-JSON bodies', async () => {
-    const failing: typeof fetch = () =>
-      Promise.reject(new Error('connection refused'));
+    const failing: typeof fetch = () => Promise.reject(new Error('connection refused'));
     const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: failing });
     await expect(board.nextTask()).rejects.toMatchObject({ name: 'BoardError', field: 'http' });
 
@@ -331,9 +395,15 @@ describe('createBoardClient', () => {
 
   it('sends no Authorization header when the agent key is empty (loopback path)', async () => {
     const { impl, calls } = makeFetch([
-      { method: 'GET', path: '/api/v1/projects/proj-1/next-task', body: { next_task: null, reason: 'no_tasks', blocked: [] } },
+      {
+        method: 'GET',
+        path: '/api/v1/projects/proj-1/next-task',
+        body: { next_task: null, reason: 'no_tasks', blocked: [] },
+      },
     ]);
-    const board = createBoardClient({ ...makeConfig(), agentKey: '' }, 'proj-1', { fetchImpl: impl });
+    const board = createBoardClient({ ...makeConfig(), agentKey: '' }, 'proj-1', {
+      fetchImpl: impl,
+    });
 
     await board.nextTask();
 
@@ -344,7 +414,11 @@ describe('createBoardClient', () => {
 
   it('still sends the bearer credential when the agent key is non-empty', async () => {
     const { impl, calls } = makeFetch([
-      { method: 'GET', path: '/api/v1/projects/proj-1/next-task', body: { next_task: null, reason: 'no_tasks', blocked: [] } },
+      {
+        method: 'GET',
+        path: '/api/v1/projects/proj-1/next-task',
+        body: { next_task: null, reason: 'no_tasks', blocked: [] },
+      },
     ]);
     const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: impl });
 

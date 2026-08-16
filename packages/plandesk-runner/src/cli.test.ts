@@ -112,9 +112,12 @@ describe('main', () => {
       );
     };
 
-    const code = await main(['--once', '--project', 'proj-1', '--config', join(dir, 'runner.toml')], {
-      fetchImpl,
-    });
+    const code = await main(
+      ['--once', '--project', 'proj-1', '--config', join(dir, 'runner.toml')],
+      {
+        fetchImpl,
+      },
+    );
 
     expect(code).toBe(0);
     expect(polls).toBe(1);
@@ -150,7 +153,13 @@ describe('main', () => {
   it('--once exits 1 with a board error when the board is unreachable', async () => {
     const dir = makeFixtureRepo(); // board_url is a refused loopback port
 
-    const code = await main(['--once', '--project', 'proj-1', '--config', join(dir, 'runner.toml')]);
+    const code = await main([
+      '--once',
+      '--project',
+      'proj-1',
+      '--config',
+      join(dir, 'runner.toml'),
+    ]);
 
     expect(code).toBe(1);
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('board'));

@@ -112,7 +112,10 @@ async function startScratchRepo() {
   await git(['init', '--initial-branch=main', '.'], work);
   await git(['config', 'user.email', 'e2e@plandesk.invalid'], work);
   await git(['config', 'user.name', 'Plan Desk E2E'], work);
-  writeFileSync(join(work, 'README.md'), '# scratch\n\nFixture repository for the runner end-to-end check.\n');
+  writeFileSync(
+    join(work, 'README.md'),
+    '# scratch\n\nFixture repository for the runner end-to-end check.\n',
+  );
 
   // Worker resolution is repo-declared by design: the runner reads
   // `.agents/factory/workers` from the WORKTREE, not from wherever it was
@@ -138,7 +141,15 @@ async function startScratchRepo() {
   const port = await freePort();
   const daemon = spawn(
     'git',
-    ['daemon', '--reuseaddr', '--listen=127.0.0.1', `--port=${port}`, `--base-path=${base}`, '--export-all', base],
+    [
+      'daemon',
+      '--reuseaddr',
+      '--listen=127.0.0.1',
+      `--port=${port}`,
+      `--base-path=${base}`,
+      '--export-all',
+      base,
+    ],
     { stdio: 'ignore' },
   );
   cleanups.push(() => {
@@ -248,9 +259,13 @@ async function runPath(name, spec, ctx) {
 
   const started = Date.now();
   const result = await new Promise((resolve) => {
-    const child = spawn(process.execPath, [RUNNER_BIN, '--once', '--config', ctx.configPath, '--project', ctx.projectId], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const child = spawn(
+      process.execPath,
+      [RUNNER_BIN, '--once', '--config', ctx.configPath, '--project', ctx.projectId],
+      {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (chunk) => {
@@ -319,13 +334,17 @@ async function main() {
   const raw = parseToml(readFileSync(configPath, 'utf8'));
   const boardUrl = typeof raw['board_url'] === 'string' ? raw['board_url'] : undefined;
   const agentKey =
-    typeof raw['agent_key'] === 'string' ? raw['agent_key'].trim() : process.env['PLANDESK_AGENT_KEY'];
+    typeof raw['agent_key'] === 'string'
+      ? raw['agent_key'].trim()
+      : process.env['PLANDESK_AGENT_KEY'];
   if (boardUrl === undefined || agentKey === undefined) {
     log(`SKIP: ${configPath} is missing board_url or agent_key`);
     return 0;
   }
   try {
-    const health = await fetch(`${boardUrl.replace(/\/+$/, '')}/api/v1/health`, { cache: 'no-store' });
+    const health = await fetch(`${boardUrl.replace(/\/+$/, '')}/api/v1/health`, {
+      cache: 'no-store',
+    });
     if (!health.ok) throw new Error(`HTTP ${health.status}`);
   } catch (cause) {
     log(`SKIP: board ${boardUrl} is unreachable — ${cause.message}`);
@@ -372,7 +391,9 @@ async function main() {
 
   log('\nsummary');
   for (const result of results) {
-    log(`  ${result.name.padEnd(9)} status=${String(result.status).padEnd(12)} ${(result.durationMs / 1000).toFixed(1)}s`);
+    log(
+      `  ${result.name.padEnd(9)} status=${String(result.status).padEnd(12)} ${(result.durationMs / 1000).toFixed(1)}s`,
+    );
   }
   log(failures === 0 ? '\nALL PATHS PASSED' : `\n${failures} ASSERTION(S) FAILED`);
   return failures === 0 ? 0 : 1;

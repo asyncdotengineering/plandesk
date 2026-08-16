@@ -5,7 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RunnerConfig } from './config.js';
-import type { BoardAgentRun, BoardClient, BoardDocument, BoardProject, BoardTask, ClaimResult } from './board.js';
+import type {
+  BoardAgentRun,
+  BoardClient,
+  BoardDocument,
+  BoardProject,
+  BoardTask,
+  ClaimResult,
+} from './board.js';
 import {
   applyOutcome,
   decideOutcome,
@@ -160,7 +167,14 @@ class StubBoard implements BoardClient {
     return Promise.resolve(this.projectResult);
   }
 
-  startRun(label?: string): Promise<{ id: string; project_id: string; status: string; label: string | null; started_at: string; completed_at: string | null }> {
+  startRun(label?: string): Promise<{
+    id: string;
+    project_id: string;
+    status: string;
+    label: string | null;
+    started_at: string;
+    completed_at: string | null;
+  }> {
     this.calls.push('startRun');
     return Promise.resolve({
       id: RUN_ID,
@@ -335,7 +349,9 @@ describe('runGate', () => {
   it('captures gate output and a non-zero exit code', async () => {
     const wt = makeWorktreeStub();
     const config = makeConfig(wt.dir);
-    const task = makeTask({ description: 'gate: node -e "console.log(\'gate says no\'); process.exit(1)"' });
+    const task = makeTask({
+      description: 'gate: node -e "console.log(\'gate says no\'); process.exit(1)"',
+    });
 
     const result = await runGate(task, wt, config);
     expect(result.exitCode).toBe(1);
@@ -360,7 +376,9 @@ describe('decideOutcome', () => {
     writeFileSync(needsInputPath(wt.dir), 'Which database?');
     const gate = vi.fn(() => Promise.resolve({ exitCode: 0 }));
 
-    await expect(decideOutcome(wt, makeSpawnResult({ exitCode: 0 }), gate)).resolves.toBe('needs_input');
+    await expect(decideOutcome(wt, makeSpawnResult({ exitCode: 0 }), gate)).resolves.toBe(
+      'needs_input',
+    );
     expect(gate).not.toHaveBeenCalled();
   });
 
@@ -390,13 +408,24 @@ describe('decideOutcome', () => {
 
   it('a zero agent exit defers to the gate: exit 0 → done, anything else → failed', async () => {
     const wt = makeWorktreeStub();
-    await expect(decideOutcome(wt, makeSpawnResult(), vi.fn(() => Promise.resolve({ exitCode: 0 })))).resolves.toBe('done');
-    await expect(decideOutcome(wt, makeSpawnResult(), vi.fn(() => Promise.resolve({ exitCode: 1 })))).resolves.toBe('failed');
+    await expect(
+      decideOutcome(
+        wt,
+        makeSpawnResult(),
+        vi.fn(() => Promise.resolve({ exitCode: 0 })),
+      ),
+    ).resolves.toBe('done');
+    await expect(
+      decideOutcome(
+        wt,
+        makeSpawnResult(),
+        vi.fn(() => Promise.resolve({ exitCode: 1 })),
+      ),
+    ).resolves.toBe('failed');
   });
 });
 
 describe('applyOutcome (pure and total)', () => {
-
   function allRows(): Array<[BoardTask, ReturnType<typeof applyOutcome>]> {
     const auto = makeTask({ lane: 'auto' });
     const approve = makeTask({ lane: 'approve' });
@@ -522,7 +551,13 @@ describe('runOnce', () => {
     const fixture = makeLoopFixture();
     const board = new StubBoard(makeTask());
     board.projectResult = { id: 'proj-1', name: 'Fixture', repo_url: fixture.remoteUrl };
-    board.docResult = { id: 'doc-1', project_id: 'proj-1', title: 'Spec', body: 'Frob it.', status_line: 'Draft' };
+    board.docResult = {
+      id: 'doc-1',
+      project_id: 'proj-1',
+      title: 'Spec',
+      body: 'Frob it.',
+      status_line: 'Draft',
+    };
 
     const result = await runOnce(fixture.config, board);
 

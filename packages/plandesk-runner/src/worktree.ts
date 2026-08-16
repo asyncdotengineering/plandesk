@@ -118,7 +118,9 @@ function runGit(args: string[], cwd?: string, timeoutMs: number = GIT_TIMEOUT_MS
       (error, stdout, stderr) => {
         if (error !== null) {
           const detail = flatten(stderr).length > 0 ? flatten(stderr) : error.message;
-          rejectPromise(new GitError(args, stderr, `git ${args.join(' ')} failed: ${detail}`, { cause: error }));
+          rejectPromise(
+            new GitError(args, stderr, `git ${args.join(' ')} failed: ${detail}`, { cause: error }),
+          );
           return;
         }
         resolvePromise(stdout);
@@ -239,20 +241,31 @@ export async function ensureRepo(repoUrl: string, config: RunnerConfig): Promise
  */
 export async function resolveBaseCommit(repoDir: string): Promise<string> {
   await runGit(['fetch', 'origin', '--prune'], repoDir, GIT_REMOTE_TIMEOUT_MS);
-  const stdout = await runGit(['ls-remote', '--symref', 'origin', 'HEAD'], repoDir, GIT_REMOTE_TIMEOUT_MS);
+  const stdout = await runGit(
+    ['ls-remote', '--symref', 'origin', 'HEAD'],
+    repoDir,
+    GIT_REMOTE_TIMEOUT_MS,
+  );
 
   let branch: string | undefined;
   let oid: string | undefined;
   for (const line of stdout.split('\n')) {
     // Whitespace-split like factory's strings.Fields: the symref line reads
     // `ref: refs/heads/main\tHEAD` and the oid line `<oid>\tHEAD`.
-    const fields = line.trim().split(/\s+/).filter((field) => field.length > 0);
+    const fields = line
+      .trim()
+      .split(/\s+/)
+      .filter((field) => field.length > 0);
     if (fields.length === 3 && fields[0] === 'ref:' && fields[2] === 'HEAD') {
       const name = fields[1] ?? '';
       if (name.startsWith('refs/heads/')) {
         branch = name.slice('refs/heads/'.length);
       }
-    } else if (fields.length === 2 && fields[1] === 'HEAD' && FULL_OID_PATTERN.test(fields[0] ?? '')) {
+    } else if (
+      fields.length === 2 &&
+      fields[1] === 'HEAD' &&
+      FULL_OID_PATTERN.test(fields[0] ?? '')
+    ) {
       oid = fields[0];
     }
   }
@@ -378,7 +391,10 @@ function realpathOrSelf(path: string): string {
  * are realpath-resolved before comparing.
  */
 export function samePath(a: string, b: string): boolean {
-  return realpathOrSelf(a) === realpathOrSelf(b) || resolve(realpathOrSelf(a)) === resolve(realpathOrSelf(b));
+  return (
+    realpathOrSelf(a) === realpathOrSelf(b) ||
+    resolve(realpathOrSelf(a)) === resolve(realpathOrSelf(b))
+  );
 }
 
 function retained(
@@ -497,7 +513,9 @@ export async function retainOrRemove(
 
   await runGit(['worktree', 'remove', entry.path], repoDir);
   if (existsSync(entry.path) || existsSync(wt.dir)) {
-    throw new Error(`git reported worktree removal but ${wt.dir} still exists — refusing to report it removed`);
+    throw new Error(
+      `git reported worktree removal but ${wt.dir} still exists — refusing to report it removed`,
+    );
   }
   const after = await listWorktrees(repoDir);
   if (after.some((candidate) => samePath(candidate.path, wt.dir))) {

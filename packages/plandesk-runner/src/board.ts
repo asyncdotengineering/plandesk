@@ -187,7 +187,11 @@ function requireString(source: Record<string, unknown>, key: string, field: stri
   return value;
 }
 
-function optionalString(source: Record<string, unknown>, key: string, field: string): string | null {
+function optionalString(
+  source: Record<string, unknown>,
+  key: string,
+  field: string,
+): string | null {
   const value = source[key];
   if (value === undefined || value === null) {
     return null;
@@ -341,9 +345,15 @@ export function createBoardClient(
   async function requestJson(spec: RequestSpec): Promise<Record<string, unknown>> {
     const parsed = await request(spec);
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      throw new BoardError('http', spec.method, spec.path, `board response for ${spec.path} is not an object`, {
-        status: 200,
-      });
+      throw new BoardError(
+        'http',
+        spec.method,
+        spec.path,
+        `board response for ${spec.path} is not an object`,
+        {
+          status: 200,
+        },
+      );
     }
     return parsed as Record<string, unknown>;
   }

@@ -183,7 +183,9 @@ function formatExclusions(excluded: Exclusion[]): string {
   if (excluded.length === 0) {
     return '(none)';
   }
-  return excluded.map((exclusion) => `${exclusion.worker} (${describeExclusion(exclusion)})`).join('; ');
+  return excluded
+    .map((exclusion) => `${exclusion.worker} (${describeExclusion(exclusion)})`)
+    .join('; ');
 }
 
 /** Collapse whitespace so multi-line stderr stays on one diagnostic line. */
@@ -234,7 +236,11 @@ async function runShellCommand(
     if (captured.trim().length > 0) {
       return { ok: false, stdout: '', stderr: captured };
     }
-    return { ok: false, stdout: '', stderr: cause instanceof Error ? cause.message : String(cause) };
+    return {
+      ok: false,
+      stdout: '',
+      stderr: cause instanceof Error ? cause.message : String(cause),
+    };
   }
 }
 

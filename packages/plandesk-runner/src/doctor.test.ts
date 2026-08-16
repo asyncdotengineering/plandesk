@@ -85,7 +85,10 @@ function makeFullFixture(
   configWorkers: string[] = [],
 ): { configPath: string; workersDir: string } {
   const dir = makeTempDir('plandesk-runner-doctor-');
-  const workersLine = configWorkers.length > 0 ? `\nworkers = [${configWorkers.map((w) => `"${w}"`).join(', ')}]\n` : '\n';
+  const workersLine =
+    configWorkers.length > 0
+      ? `\nworkers = [${configWorkers.map((w) => `"${w}"`).join(', ')}]\n`
+      : '\n';
   const configPath = join(dir, 'runner.toml');
   writeFileSync(
     configPath,
@@ -325,7 +328,9 @@ describe('formatDoctorReport', () => {
       workersDir,
       fetchImpl: (input) =>
         Promise.resolve(
-          new Response('{}', { status: requestUrl(input).includes('/api/v1/projects') ? 401 : 200 }),
+          new Response('{}', {
+            status: requestUrl(input).includes('/api/v1/projects') ? 401 : 200,
+          }),
         ),
     });
     expect(report.board.reachable).toBe(true);
