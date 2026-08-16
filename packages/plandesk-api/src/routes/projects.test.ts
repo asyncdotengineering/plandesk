@@ -732,8 +732,16 @@ describe('tasks routes', () => {
   it('GET /projects/:id/next-task returns the next actionable task', async () => {
     const { app, db } = await createTestApp();
     const project = await createProject(db, { name: 'Next task' });
-    const blocker = await createTask(db, { projectId: project.id, label: 'Blocker', status: 'todo' });
-    const blocked = await createTask(db, { projectId: project.id, label: 'Blocked', status: 'todo' });
+    const blocker = await createTask(db, {
+      projectId: project.id,
+      label: 'Blocker',
+      status: 'todo',
+    });
+    const blocked = await createTask(db, {
+      projectId: project.id,
+      label: 'Blocked',
+      status: 'todo',
+    });
     await createEdge(db, {
       projectId: project.id,
       fromTaskId: blocker.id,

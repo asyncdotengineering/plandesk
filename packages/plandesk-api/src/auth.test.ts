@@ -47,7 +47,10 @@ describe('createAuthMiddleware (basic)', () => {
     const { app } = await createTestApp({ authPassword: 'secret' });
     const res = await app.request('/api/v1/health');
     expect(res.status).toBe(200);
-    const body = await parseJson<{ ok: boolean; schema?: { current: boolean; missingTags: string[] } }>(res);
+    const body = await parseJson<{
+      ok: boolean;
+      schema?: { current: boolean; missingTags: string[] };
+    }>(res);
     expect(body).toMatchObject({ ok: true });
     expect(body.schema).toMatchObject({ current: true, missingTags: [] });
   });
@@ -73,7 +76,10 @@ describe('createOrgAuthMiddleware', () => {
     const { app } = await createTestApp({ bindHost: '0.0.0.0' });
     const res = await app.request('/api/v1/health');
     expect(res.status).toBe(200);
-    const body = await parseJson<{ ok: boolean; schema?: { current: boolean; missingTags: string[] } }>(res);
+    const body = await parseJson<{
+      ok: boolean;
+      schema?: { current: boolean; missingTags: string[] };
+    }>(res);
     expect(body).toMatchObject({ ok: true });
     expect(body.schema).toMatchObject({ current: true, missingTags: [] });
   });

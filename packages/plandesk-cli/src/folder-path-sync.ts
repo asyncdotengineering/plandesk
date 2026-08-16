@@ -30,8 +30,7 @@ export async function syncRepoFolderPathViaApi(
 ): Promise<SyncRepoFolderPathResult> {
   const folderPath = resolveRegisteredRepoRoot(repoDir);
   const headers: Record<string, string> = {};
-  const authToken =
-    useLoopbackOwner && isLoopbackServerUrl(serverUrl) ? undefined : bearerToken;
+  const authToken = useLoopbackOwner && isLoopbackServerUrl(serverUrl) ? undefined : bearerToken;
   if (authToken !== undefined && authToken !== '') {
     headers.Authorization = `Bearer ${authToken}`;
   }

@@ -1,10 +1,6 @@
 import type { OrgRole } from '@plandesk/db';
 import { getAuthContext, tryGetAuthContext } from '../auth-context.js';
-import {
-  orgRoleToPermissionSet,
-  requirePermission,
-  type PermissionSet,
-} from '../permissions.js';
+import { orgRoleToPermissionSet, requirePermission, type PermissionSet } from '../permissions.js';
 import {
   resolveWriteActorFromAuthContext,
   type WriteActor,

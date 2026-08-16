@@ -128,10 +128,7 @@ export async function listBaOrgs(auth: BetterAuthInstance): Promise<BaOrg[]> {
   return adapter.findMany<BaOrg>({ model: 'organization' });
 }
 
-export async function getBaOrg(
-  auth: BetterAuthInstance,
-  id: string,
-): Promise<BaOrg | undefined> {
+export async function getBaOrg(auth: BetterAuthInstance, id: string): Promise<BaOrg | undefined> {
   const adapter = (await auth.$context).adapter;
   const org = await adapter.findOne<BaOrg>({
     model: 'organization',

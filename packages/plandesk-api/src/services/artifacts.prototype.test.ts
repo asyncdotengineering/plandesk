@@ -165,9 +165,9 @@ describe('artifactService prototype_id', () => {
       return;
     }
 
-    await expect(
-      artifacts().update(screen.id, { prototypeId: foreign.id }),
-    ).rejects.toThrow(/cross-project|does not belong/i);
+    await expect(artifacts().update(screen.id, { prototypeId: foreign.id })).rejects.toThrow(
+      /cross-project|does not belong/i,
+    );
   });
 
   it('refuses changing kind to markdown while prototype_id remains set', async () => {

@@ -88,7 +88,9 @@ describe('prototypes routes', () => {
       }),
     });
     expect(markdown.status).toBe(400);
-    expect(await parseJson<{ error: string }>(markdown)).toMatchObject({ error: 'invalid_argument' });
+    expect(await parseJson<{ error: string }>(markdown)).toMatchObject({
+      error: 'invalid_argument',
+    });
 
     const foreignProtoRes = await app.request(`/api/v1/projects/${other.id}/prototypes`, {
       method: 'POST',

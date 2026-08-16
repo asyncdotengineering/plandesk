@@ -42,8 +42,7 @@ export async function createRenderToken(
   const token = generateRenderToken();
   const tokenHash = hashRenderToken(token);
   const now = new Date();
-  const expiresAt =
-    input.expiresAt ?? new Date(now.getTime() + RENDER_TOKEN_DEFAULT_TTL_MS);
+  const expiresAt = input.expiresAt ?? new Date(now.getTime() + RENDER_TOKEN_DEFAULT_TTL_MS);
 
   const rows = await db
     .insert(renderTokens)
@@ -85,11 +84,7 @@ export async function getRenderTokenByHash(
 }
 
 export async function revokeRenderToken(db: DbClient, id: string): Promise<void> {
-  await db
-    .update(renderTokens)
-    .set({ revokedAt: new Date() })
-    .where(eq(renderTokens.id, id))
-    .run();
+  await db.update(renderTokens).set({ revokedAt: new Date() }).where(eq(renderTokens.id, id)).run();
 }
 
 export function parseRenderTokenPrototypeIds(row: RenderToken): string[] {

@@ -29,7 +29,6 @@ import { main } from './cli.js';
 import { runInit } from './init.js';
 import { openWorkspace } from './workspace.js';
 
-
 const SYNC_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
 const SYNC_BASE = 'http://127.0.0.1';
 

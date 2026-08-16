@@ -104,28 +104,32 @@ export const projects = sqliteTable('projects', {
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
 });
 
-export const goals = sqliteTable('goals', {
-  id: text('id').primaryKey(),
-  projectId: text('project_id')
-    .notNull()
-    .references(() => projects.id),
-  objective: text('objective').notNull(),
-  name: text('name'),
-  status: text('status', { enum: goalStatuses }).notNull().default('active'),
-  verificationSurface: text('verification_surface'),
-  constraints: text('constraints'),
-  boundaries: text('boundaries'),
-  iterationPolicy: text('iteration_policy'),
-  stopCondition: text('stop_condition'),
-  budget: text('budget'),
-  lastVerification: text('last_verification'),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' })
-    .notNull()
-    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-    .notNull()
-    .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
-}, (table) => [uniqueIndex('goals_project_id_name_unique').on(table.projectId, table.name)]);
+export const goals = sqliteTable(
+  'goals',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    objective: text('objective').notNull(),
+    name: text('name'),
+    status: text('status', { enum: goalStatuses }).notNull().default('active'),
+    verificationSurface: text('verification_surface'),
+    constraints: text('constraints'),
+    boundaries: text('boundaries'),
+    iterationPolicy: text('iteration_policy'),
+    stopCondition: text('stop_condition'),
+    budget: text('budget'),
+    lastVerification: text('last_verification'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
+  },
+  (table) => [uniqueIndex('goals_project_id_name_unique').on(table.projectId, table.name)],
+);
 
 export const tasks = sqliteTable('tasks', {
   id: text('id').primaryKey(),

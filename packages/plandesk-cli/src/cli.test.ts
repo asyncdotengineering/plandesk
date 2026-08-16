@@ -106,7 +106,7 @@ describe('parseArgs', () => {
 
   describe('per-command --help (REQ-A6a)', () => {
     it.each(['legacy-upgrade', 'serve', 'init', 'connect', 'doctor', 'status'])(
-      '`%s --help` routes to that command\'s own help, not the generic banner',
+      "`%s --help` routes to that command's own help, not the generic banner",
       (command) => {
         expect(parseArgs(['node', 'plandesk', command, '--help'])).toEqual({
           command: 'help',
@@ -687,7 +687,7 @@ describe('startServer', () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-auth-'));
     const db = await createDb(workspaceDbPath(dataDir));
     await migrate(db);
-        const before = await db.$client.execute(
+    const before = await db.$client.execute(
       "SELECT name FROM sqlite_master WHERE type='table' AND name='organization'",
     );
     expect(before.rows).toHaveLength(0);
@@ -903,7 +903,10 @@ describe('resolveBoard', () => {
     mkdirSync(plandeskDir);
     try {
       writeFileSync(join(plandeskDir, 'workspace.db'), '');
-      expect(resolveBoard({ startDir: tmpDir })).toEqual({ dataDir: plandeskDir, source: 'shadow' });
+      expect(resolveBoard({ startDir: tmpDir })).toEqual({
+        dataDir: plandeskDir,
+        source: 'shadow',
+      });
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -927,7 +930,10 @@ describe('resolveBoard', () => {
       );
       expect(resolveBoard({ localDb: true, startDir: tmpDir }).source).toBe('flag');
       // shadow beats default.
-      expect(resolveBoard({ startDir: tmpDir })).toEqual({ dataDir: plandeskDir, source: 'shadow' });
+      expect(resolveBoard({ startDir: tmpDir })).toEqual({
+        dataDir: plandeskDir,
+        source: 'shadow',
+      });
     } finally {
       vi.unstubAllEnvs();
       rmSync(tmpDir, { recursive: true, force: true });

@@ -10,10 +10,7 @@ import { createFolderService, type FolderService } from './folders.js';
 import { createNoteService, type NoteService } from './notes.js';
 import { createPrototypeService, type PrototypeService } from './prototypes.js';
 import { createProjectService, type ProjectService } from './projects.js';
-import {
-  createProjectExportService,
-  type ProjectExportService,
-} from './project-export.js';
+import { createProjectExportService, type ProjectExportService } from './project-export.js';
 import { createAgentRunService, type AgentRunService } from './agent-runs.js';
 import { createTagService, type TagService } from './tags.js';
 import { createGoalService, type GoalService } from './goals.js';

@@ -184,14 +184,11 @@ describe('workspace-tier adversarial audit repros', () => {
 
   it('artifact comments: a workspace-A key cannot create a comment in workspace B', async () => {
     const f = await fixture();
-    const response = await f.app.request(
-      `/api/v1/projects/${f.projectB.id}/artifact-comments`,
-      {
-        method: 'POST',
-        headers: { ...bearer(f.workspaceAKey), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ artifact_id: 'private/path.md', body: 'cross-workspace write' }),
-      },
-    );
+    const response = await f.app.request(`/api/v1/projects/${f.projectB.id}/artifact-comments`, {
+      method: 'POST',
+      headers: { ...bearer(f.workspaceAKey), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ artifact_id: 'private/path.md', body: 'cross-workspace write' }),
+    });
 
     expect(response.status).toBe(404);
   });
@@ -213,19 +210,26 @@ describe('workspace-tier adversarial audit repros', () => {
 
   it('canvas: a workspace-A key cannot delete a workspace-B edge', async () => {
     const f = await fixture();
-    const from = await createTask(f.db, { projectId: f.projectB.id, label: 'from', status: 'todo' });
+    const from = await createTask(f.db, {
+      projectId: f.projectB.id,
+      label: 'from',
+      status: 'todo',
+    });
     const to = await createTask(f.db, { projectId: f.projectB.id, label: 'to', status: 'todo' });
     const edge = await createEdge(f.db, {
       projectId: f.projectB.id,
       fromTaskId: from.id,
       toTaskId: to.id,
     });
-    const response = await f.app.request(
-      `/api/v1/projects/${f.projectB.id}/edges/${edge.id}`,
-      { method: 'DELETE', headers: bearer(f.workspaceAKey) },
-    );
+    const response = await f.app.request(`/api/v1/projects/${f.projectB.id}/edges/${edge.id}`, {
+      method: 'DELETE',
+      headers: bearer(f.workspaceAKey),
+    });
 
-    expect({ status: response.status, stillExists: (await getEdge(f.db, edge.id)) !== undefined }).toEqual({
+    expect({
+      status: response.status,
+      stillExists: (await getEdge(f.db, edge.id)) !== undefined,
+    }).toEqual({
       status: 404,
       stillExists: true,
     });

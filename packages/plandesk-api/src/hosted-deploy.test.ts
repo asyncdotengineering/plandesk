@@ -137,7 +137,10 @@ describe('hosted better-auth wiring (BA9)', () => {
       MISSING_BETTER_AUTH_SECRET_MESSAGE,
     );
     expect(() =>
-      resolveHostedBetterAuth({ PLANDESK_BETTER_AUTH_SECRET: '   ' }, 'https://example.workers.dev'),
+      resolveHostedBetterAuth(
+        { PLANDESK_BETTER_AUTH_SECRET: '   ' },
+        'https://example.workers.dev',
+      ),
     ).toThrow(MISSING_BETTER_AUTH_SECRET_MESSAGE);
 
     const response = hostedMisconfigResponse(new Error(MISSING_BETTER_AUTH_SECRET_MESSAGE));
@@ -157,7 +160,10 @@ describe('hosted better-auth wiring (BA9)', () => {
     ).toEqual({ secret: TEST_SECRET, baseURL: 'https://configured.example.com' });
 
     expect(
-      resolveHostedBetterAuth({ PLANDESK_BETTER_AUTH_SECRET: TEST_SECRET }, 'https://from-request.dev/'),
+      resolveHostedBetterAuth(
+        { PLANDESK_BETTER_AUTH_SECRET: TEST_SECRET },
+        'https://from-request.dev/',
+      ),
     ).toEqual({ secret: TEST_SECRET, baseURL: 'https://from-request.dev' });
 
     expect(() => resolveHostedBetterAuth({ PLANDESK_BETTER_AUTH_SECRET: TEST_SECRET })).toThrow(

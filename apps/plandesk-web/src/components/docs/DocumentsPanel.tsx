@@ -275,11 +275,7 @@ function MoveDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <FolderPicker
-          folders={targets}
-          value={choice}
-          onChange={setChoice}
-        />
+        <FolderPicker folders={targets} value={choice} onChange={setChoice} />
         <DialogFooter>
           <Button
             type="button"
@@ -344,10 +340,7 @@ export const DOCUMENT_DRAG_MIME = 'application/x-plandesk-document-id';
 export const FOLDER_DRAG_MIME = 'application/x-plandesk-folder-id';
 
 /** Ancestry from root to folderId (inclusive), for breadcrumbs. */
-export function folderAncestry(
-  folders: SerializedFolder[],
-  folderId: string,
-): SerializedFolder[] {
+export function folderAncestry(folders: SerializedFolder[], folderId: string): SerializedFolder[] {
   const byId = new Map(folders.map((folder) => [folder.id, folder]));
   const chain: SerializedFolder[] = [];
   const visited = new Set<string>();
@@ -404,12 +397,7 @@ function defaultExpandedIds(folders: SerializedFolder[]): Set<string> {
   return new Set([UNFILED_FOLDER_KEY, ...folders.map((folder) => folder.id)]);
 }
 
-export function DocumentsPanel({
-  projectId,
-  documents,
-  folders,
-  tasks = [],
-}: DocumentsPanelProps) {
+export function DocumentsPanel({ projectId, documents, folders, tasks = [] }: DocumentsPanelProps) {
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newDocOpen, setNewDocOpen] = useState(false);
   const [folderToRename, setFolderToRename] = useState<SerializedFolder | null>(null);
@@ -455,10 +443,7 @@ export function DocumentsPanel({
       }),
     [allDocuments, optimisticFolderById],
   );
-  const taskLabelById = useMemo(
-    () => new Map(tasks.map((t) => [t.id, t.label])),
-    [tasks],
-  );
+  const taskLabelById = useMemo(() => new Map(tasks.map((t) => [t.id, t.label])), [tasks]);
 
   // Drop optimistic overrides once the server-backed props catch up.
   useEffect(() => {
@@ -517,9 +502,7 @@ export function DocumentsPanel({
 
   const recent = useMemo(
     () =>
-      [...displayDocuments]
-        .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-        .slice(0, 4),
+      [...displayDocuments].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 4),
     [displayDocuments],
   );
 
@@ -1010,7 +993,10 @@ export function DocumentsPanel({
           >
             {folder.name}
           </button>
-          <span className="shrink-0 text-[11.5px] text-muted-foreground" data-testid={`doc-count-${folder.id}`}>
+          <span
+            className="shrink-0 text-[11.5px] text-muted-foreground"
+            data-testid={`doc-count-${folder.id}`}
+          >
             {docCount}
           </span>
           <RowKebab label={`Actions for folder ${folder.name}`}>
@@ -1069,8 +1055,7 @@ export function DocumentsPanel({
   const unfiledCount = directDocumentCount(displayDocuments, null);
   const unfiledDropHandlers = folderDropHandlers(null, UNFILED_FOLDER_KEY);
   const unfiledIsDropTarget = dropTargetKey === UNFILED_FOLDER_KEY;
-  const breadcrumbTrail =
-    navFolderId === null ? [] : folderAncestry(folders, navFolderId);
+  const breadcrumbTrail = navFolderId === null ? [] : folderAncestry(folders, navFolderId);
 
   return (
     <section aria-label="Documents">
@@ -1135,9 +1120,7 @@ export function DocumentsPanel({
           className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-[13px]"
           data-testid="selection-bar"
         >
-          <span className="font-medium">
-            {selectedIds.size} selected
-          </span>
+          <span className="font-medium">{selectedIds.size} selected</span>
           <Button
             type="button"
             size="sm"
@@ -1206,51 +1189,57 @@ export function DocumentsPanel({
             ))}
           </nav>
           <ul className="rounded-lg border py-1" aria-label="Folder tree">
-          {rootFolders.map((folder) => renderFolderNode(folder, 0))}
-          <li className="list-none">
-            <div
-              data-testid="folder-drop-unfiled"
-              className={
-                unfiledIsDropTarget
-                  ? 'group flex items-center gap-1 bg-accent py-1.5 pr-2 ring-1 ring-inset ring-ring transition-colors'
-                  : 'group flex items-center gap-1 py-1.5 pr-2 transition-colors hover:bg-accent'
-              }
-              style={{ paddingLeft: '4px' }}
-              {...unfiledDropHandlers}
-            >
-              <button
-                type="button"
-                aria-expanded={unfiledOpen}
-                aria-label={unfiledOpen ? 'Collapse Unfiled' : 'Expand Unfiled'}
-                onClick={() => {
-                  toggleExpanded(UNFILED_FOLDER_KEY);
-                }}
-                className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+            {rootFolders.map((folder) => renderFolderNode(folder, 0))}
+            <li className="list-none">
+              <div
+                data-testid="folder-drop-unfiled"
+                className={
+                  unfiledIsDropTarget
+                    ? 'group flex items-center gap-1 bg-accent py-1.5 pr-2 ring-1 ring-inset ring-ring transition-colors'
+                    : 'group flex items-center gap-1 py-1.5 pr-2 transition-colors hover:bg-accent'
+                }
+                style={{ paddingLeft: '4px' }}
+                {...unfiledDropHandlers}
               >
-                {unfiledOpen ? (
-                  <ChevronDownIcon className="size-3.5" />
-                ) : (
-                  <ChevronRightIcon className="size-3.5" />
-                )}
-              </button>
-              <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">Unfiled</span>
-              <span className="shrink-0 text-[11.5px] text-muted-foreground" data-testid="doc-count-unfiled">
-                {unfiledCount}
-              </span>
-            </div>
-            {unfiledOpen ? (
-              <ul>
-                {unfiledDocuments.map((doc) => renderDocumentRow(doc, 1))}
-                {unfiledDocuments.length === 0 ? (
-                  <li className="py-1.5 text-[12.5px] text-muted-foreground" style={{ paddingLeft: '28px' }}>
-                    No unfiled documents.
-                  </li>
-                ) : null}
-              </ul>
-            ) : null}
-          </li>
-        </ul>
+                <button
+                  type="button"
+                  aria-expanded={unfiledOpen}
+                  aria-label={unfiledOpen ? 'Collapse Unfiled' : 'Expand Unfiled'}
+                  onClick={() => {
+                    toggleExpanded(UNFILED_FOLDER_KEY);
+                  }}
+                  className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                >
+                  {unfiledOpen ? (
+                    <ChevronDownIcon className="size-3.5" />
+                  ) : (
+                    <ChevronRightIcon className="size-3.5" />
+                  )}
+                </button>
+                <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">Unfiled</span>
+                <span
+                  className="shrink-0 text-[11.5px] text-muted-foreground"
+                  data-testid="doc-count-unfiled"
+                >
+                  {unfiledCount}
+                </span>
+              </div>
+              {unfiledOpen ? (
+                <ul>
+                  {unfiledDocuments.map((doc) => renderDocumentRow(doc, 1))}
+                  {unfiledDocuments.length === 0 ? (
+                    <li
+                      className="py-1.5 text-[12.5px] text-muted-foreground"
+                      style={{ paddingLeft: '28px' }}
+                    >
+                      No unfiled documents.
+                    </li>
+                  ) : null}
+                </ul>
+              ) : null}
+            </li>
+          </ul>
         </>
       )}
 
@@ -1389,9 +1378,7 @@ export function DocumentsPanel({
               <Button
                 type="submit"
                 disabled={
-                  createDocument.isPending ||
-                  createEdge.isPending ||
-                  newDocTitle.trim() === ''
+                  createDocument.isPending || createEdge.isPending || newDocTitle.trim() === ''
                 }
               >
                 Create document

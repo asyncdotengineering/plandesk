@@ -197,7 +197,12 @@ function normalizeCreateInput(input: CreateEdgeInput): EdgeEndpointsInput {
   const fromId = input.fromId ?? input.fromTaskId;
   const toId = input.toId ?? input.toTaskId;
 
-  if (fromType === undefined || toType === undefined || fromId === undefined || toId === undefined) {
+  if (
+    fromType === undefined ||
+    toType === undefined ||
+    fromId === undefined ||
+    toId === undefined
+  ) {
     throw new InvalidCanvasError('Edge requires from/to endpoints (typed or task-shaped)');
   }
   assertLinkEntityType(fromType, 'from');
@@ -460,11 +465,7 @@ export function createCanvasService(deps: CanvasServiceDeps) {
      * List edges involving a single typed endpoint (from or to side).
      * Validates the endpoint exists in the project before reading.
      */
-    async listEdgesForEndpoint(
-      projectId: string,
-      type: LinkEntityType,
-      id: string,
-    ) {
+    async listEdgesForEndpoint(projectId: string, type: LinkEntityType, id: string) {
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
       } catch (error) {

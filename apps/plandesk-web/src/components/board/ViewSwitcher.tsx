@@ -13,13 +13,7 @@ const VIEWS: {
   { id: 'flow', label: 'Canvas', to: '/projects/$id/flow' },
 ];
 
-export function ViewSwitcher({
-  projectId,
-  active,
-}: {
-  projectId: string;
-  active: ProjectView;
-}) {
+export function ViewSwitcher({ projectId, active }: { projectId: string; active: ProjectView }) {
   return (
     <nav
       aria-label="Project view"

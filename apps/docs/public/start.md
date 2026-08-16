@@ -14,11 +14,11 @@ Data lives in a local SQLite file. Docs: https://plandesk.asyncdot.com (or
   board. Run `plandesk legacy-upgrade` first; see
   https://plandesk.asyncdot.com/reference/upgrading.
 - **A server might already be running on the default port** — possibly
-  serving a *different* board than the one you expect. Check with
+  serving a _different_ board than the one you expect. Check with
   `curl "$(plandesk url)/api/v1/projects"` before assuming step 2's "server
-  is up" means *your* board is up; pass `--port <n>` to run a second one.
+  is up" means _your_ board is up; pass `--port <n>` to run a second one.
 - **An existing local `.plandesk/workspace.db` in this repo?** `plandesk
-  init`/`serve` silently prefer a repo-local board over the machine-global
+init`/`serve` silently prefer a repo-local board over the machine-global
   one when they find one already there. If you didn't intend a repo-local
   board, see step 3 below before proceeding.
 
@@ -256,7 +256,7 @@ plandesk login
 # stores { server, token, orgId } in ~/.plandesk/config.json
 ```
 
-   For a non-default server: `plandesk login --server https://your-host.example`.
+For a non-default server: `plandesk login --server https://your-host.example`.
 
 3. **You (the agent)** then provision a scoped agent key for this repo:
 
@@ -264,9 +264,9 @@ plandesk login
 plandesk connect --to <org> --project "<PROJECT NAME>"
 ```
 
-   This mints a **project-scoped agent key** and writes it to `.plandesk/token`
-   (gitignored). MCP reads it via `${PLANDESK_MCP_TOKEN:-$(cat .plandesk/token)}`.
-   The agent never sees or stores the owner key — only the scoped key.
+This mints a **project-scoped agent key** and writes it to `.plandesk/token`
+(gitignored). MCP reads it via `${PLANDESK_MCP_TOKEN:-$(cat .plandesk/token)}`.
+The agent never sees or stores the owner key — only the scoped key.
 
 Then continue from step 5 (factory init) and step 6 (verify) as usual. Do not invent
 flags (`--org` does not exist); use exactly `login` and `connect --to`.

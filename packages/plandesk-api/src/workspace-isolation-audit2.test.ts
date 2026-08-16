@@ -23,10 +23,7 @@ import {
 } from '@plandesk/db';
 import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
 import type { Hono } from 'hono';
-import {
-  createWorkspaceScopedAgentKey,
-  DEFAULT_AGENT_KEY_PERMISSIONS,
-} from './agent-keys.js';
+import { createWorkspaceScopedAgentKey, DEFAULT_AGENT_KEY_PERMISSIONS } from './agent-keys.js';
 import { runWithAuthContext, type AuthContext } from './auth-context.js';
 import {
   createBetterAuth,
@@ -364,7 +361,12 @@ describe('workspace-tier adversarial audit round 2', () => {
         body: JSON.stringify({ resolved: true }),
       });
 
-      expect({ list: list.status, rows: await parseJson<unknown[]>(list), create: create.status, resolve: resolve.status }).toEqual({
+      expect({
+        list: list.status,
+        rows: await parseJson<unknown[]>(list),
+        create: create.status,
+        resolve: resolve.status,
+      }).toEqual({
         list: 404,
         rows: [],
         create: 404,
@@ -460,7 +462,11 @@ describe('workspace-tier adversarial audit round 2', () => {
     const file = await parseJson<{ url: string }>(ownerUpload);
     const deniedDownload = await f.app.request(file.url, { headers: bearer(f.workspaceAKey) });
 
-    expect({ upload: deniedUpload.status, ownerUpload: ownerUpload.status, download: deniedDownload.status }).toEqual({
+    expect({
+      upload: deniedUpload.status,
+      ownerUpload: ownerUpload.status,
+      download: deniedDownload.status,
+    }).toEqual({
       upload: 404,
       ownerUpload: 201,
       download: 404,
@@ -608,7 +614,11 @@ describe('workspace-tier adversarial audit round 2', () => {
       headers: bearer(f.workspaceAKey),
     });
 
-    expect({ moveOut: moveOut.status, moveIn: moveIn.status, deleteSibling: deleteSibling.status }).toEqual({
+    expect({
+      moveOut: moveOut.status,
+      moveIn: moveIn.status,
+      deleteSibling: deleteSibling.status,
+    }).toEqual({
       moveOut: 403,
       moveIn: 403,
       deleteSibling: 403,
@@ -635,7 +645,10 @@ describe('workspace-tier adversarial audit round 2', () => {
       body,
     });
 
-    expect({ key: keyAttempt.status, member: memberAttempt.status }).toEqual({ key: 403, member: 403 });
+    expect({ key: keyAttempt.status, member: memberAttempt.status }).toEqual({
+      key: 403,
+      member: 403,
+    });
   });
 
   it('CONFIRMED REPRO — scaffold_project_from_plan must create in the scoped key workspace', async () => {

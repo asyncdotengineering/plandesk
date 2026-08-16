@@ -14,13 +14,7 @@ export function QueryFailure({
       <p role="alert" className="text-sm text-destructive">
         {message}
       </p>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={isRetrying}
-        onClick={onRetry}
-      >
+      <Button type="button" variant="outline" size="sm" disabled={isRetrying} onClick={onRetry}>
         {isRetrying ? 'Retrying…' : 'Retry'}
       </Button>
     </div>

@@ -92,9 +92,7 @@ export const SHIPPED_TEMPLATES: ShippedTemplate[] = [
 ];
 
 /** Settings snippet used by `mergeHooksJson` during factory init. */
-export const HOOKS_SETTINGS_SNIPPET_JSON = readTemplate(
-  'factory/hooks/settings.snippet.json',
-);
+export const HOOKS_SETTINGS_SNIPPET_JSON = readTemplate('factory/hooks/settings.snippet.json');
 
 /** Absolute path for a shipped template in a target repo. */
 export function agentsArtifactPath(repoDir: string, relativePath: string): string {

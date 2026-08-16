@@ -22,7 +22,11 @@ import {
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { ensureHtmlBody } from '../markdown.js';
 import { PermissionDeniedError } from '../permissions.js';
-import { createDocumentService, InvalidDocumentError, type DocumentServiceDeps } from './documents.js';
+import {
+  createDocumentService,
+  InvalidDocumentError,
+  type DocumentServiceDeps,
+} from './documents.js';
 import { createTaskService } from './tasks.js';
 
 describe('documentService', () => {
@@ -258,9 +262,9 @@ describe('documentService', () => {
     const otherProjectId = (await createProject(db, { name: 'Other' })).id;
     const foreignFolder = await createFolder(db, { projectId: otherProjectId, name: 'Foreign' });
 
-    await expect(service.create(projectId, { title: 'Doc', folderId: foreignFolder.id })).rejects.toThrow(
-      InvalidDocumentError,
-    );
+    await expect(
+      service.create(projectId, { title: 'Doc', folderId: foreignFolder.id }),
+    ).rejects.toThrow(InvalidDocumentError);
 
     const document = await service.create(projectId, { title: 'Doc' });
     expect(document).toBeDefined();
@@ -282,7 +286,11 @@ describe('documentService', () => {
 
     const tree = await service.listFolderTree(projectId);
     expect(tree).toBeDefined();
-    expect(tree?.documents.map((doc) => doc.title)).toEqual(['Root doc', 'Parent doc', 'Child doc']);
+    expect(tree?.documents.map((doc) => doc.title)).toEqual([
+      'Root doc',
+      'Parent doc',
+      'Child doc',
+    ]);
     expect(tree?.folders).toHaveLength(1);
     const parentNode = tree?.folders[0];
     expect(parentNode?.name).toBe('Parent');
@@ -292,7 +300,9 @@ describe('documentService', () => {
     expect(parentNode?.folders[0]?.name).toBe('Child');
     expect(parentNode?.folders[0]?.doc_count).toBe(1);
     expect(parentNode?.folders[0]).not.toHaveProperty('documents');
-    expect(tree?.documents.find((doc) => doc.folder_id === parentNode?.id)?.title).toBe('Parent doc');
+    expect(tree?.documents.find((doc) => doc.folder_id === parentNode?.id)?.title).toBe(
+      'Parent doc',
+    );
     expect(tree?.documents.find((doc) => doc.folder_id === parentNode?.folders[0]?.id)?.title).toBe(
       'Child doc',
     );
@@ -358,7 +368,9 @@ describe('documentService', () => {
     const docs = await service.listByFolder(projectId, folder.id);
     expect(docs?.map((doc) => doc.title)).toEqual(['In folder']);
 
-    expect(await service.listByFolder(projectId, '00000000-0000-4000-8000-000000009999')).toBeUndefined();
+    expect(
+      await service.listByFolder(projectId, '00000000-0000-4000-8000-000000009999'),
+    ).toBeUndefined();
   });
 
   it('gets document linked to a task via edge', async () => {
@@ -619,9 +631,7 @@ describe('documentService', () => {
       const edges = await listEdges(db, projectId);
       const docTaskEdges = edges.filter(
         (edge) =>
-          edge.fromType === 'document' &&
-          edge.fromId === document.id &&
-          edge.toType === 'task',
+          edge.fromType === 'document' && edge.fromId === document.id && edge.toType === 'task',
       );
       expect(docTaskEdges).toHaveLength(1);
     });
@@ -651,9 +661,9 @@ describe('documentService', () => {
       expect(result?.created.every((task) => task.x === 0)).toBe(true);
 
       const linked = await service.get(document.id);
-      expect(linked?.links.filter((link) => link.type === 'task').map((link) => link.title)).toEqual(
-        expect.arrayContaining(['A', 'B', 'C']),
-      );
+      expect(
+        linked?.links.filter((link) => link.type === 'task').map((link) => link.title),
+      ).toEqual(expect.arrayContaining(['A', 'B', 'C']));
       expect(linked?.body).toBe(document.body);
       // Existing card untouched.
       expect((await getTask(db, existing.id))?.y).toBe(400);

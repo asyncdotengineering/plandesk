@@ -1,4 +1,8 @@
-import { DuplicateGoalNameError, InvalidVerificationSurfaceError, type GoalService } from '@plandesk/api';
+import {
+  DuplicateGoalNameError,
+  InvalidVerificationSurfaceError,
+  type GoalService,
+} from '@plandesk/api';
 import {
   toolInvalidArgument,
   toolNotFound,
@@ -41,7 +45,10 @@ export function createUpdateGoalHandler(
         warnings: goal.verification_surface === null ? ['verification_surface is null'] : [],
       });
     } catch (error) {
-      if (error instanceof InvalidVerificationSurfaceError || error instanceof DuplicateGoalNameError) {
+      if (
+        error instanceof InvalidVerificationSurfaceError ||
+        error instanceof DuplicateGoalNameError
+      ) {
         return toolInvalidArgument(error.message);
       }
       throw error;

@@ -93,11 +93,7 @@ export async function listDocumentsLinkedToTask(
 
   const edgeRows = await listEdgesByEndpoint(db, projectId, 'task', taskId);
   for (const edge of edgeRows) {
-    if (
-      edge.fromType === 'document' &&
-      edge.toType === 'task' &&
-      edge.toId === taskId
-    ) {
+    if (edge.fromType === 'document' && edge.toType === 'task' && edge.toId === taskId) {
       linkedIds.add(edge.fromId);
     }
   }

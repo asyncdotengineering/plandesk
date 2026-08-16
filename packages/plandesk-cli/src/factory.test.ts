@@ -783,7 +783,9 @@ describe('classifyAgentsPath', () => {
     expect(classifyAgentsPath('.agents/factory/hooks/session-start.sh')).toBe('owned');
     expect(classifyAgentsPath('.agents/factory/workers/claude.md')).toBe('owned');
     expect(classifyAgentsPath('.agents/.plandesk-sync.json')).toBe('owned');
-    expect(classifyAgentsPath('.agents/skills/plandesk-scope-work/SKILL.md')).toBe('shared_namespace');
+    expect(classifyAgentsPath('.agents/skills/plandesk-scope-work/SKILL.md')).toBe(
+      'shared_namespace',
+    );
     expect(classifyAgentsPath('.agents/skills/other-tool/SKILL.md')).toBe('shared_namespace');
     expect(classifyAgentsPath('.agents/index.md')).toBe('shared_file');
     expect(classifyAgentsPath('.agents/other.md')).toBe('foreign');

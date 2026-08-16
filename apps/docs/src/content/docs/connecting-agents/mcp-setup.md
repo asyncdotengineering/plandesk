@@ -101,12 +101,12 @@ plandesk doctor                    # workspace DB + tables
 plandesk doctor --repo .           # + binding, token, MCP tool list
 ```
 
-| Symptom            | Check                                                           |
-| ------------------ | --------------------------------------------------------------- |
+| Symptom            | Check                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
 | MCP 401            | Hosted only — scoped agent key wrong/revoked; re-run `plandesk connect --to <org>` for a fresh one (local loopback doesn't 401) |
-| Server unreachable | `plandesk serve` running; `--url` matches                       |
-| Tools missing      | New agent session after `mcp add`                               |
-| Wrong project      | `.plandesk/config.json` `projectId`; re-run `connect --project` |
+| Server unreachable | `plandesk serve` running; `--url` matches                                                                                       |
+| Tools missing      | New agent session after `mcp add`                                                                                               |
+| Wrong project      | `.plandesk/config.json` `projectId`; re-run `connect --project`                                                                 |
 
 ## Factory Desk
 

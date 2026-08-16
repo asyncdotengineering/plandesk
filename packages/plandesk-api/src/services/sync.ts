@@ -321,9 +321,7 @@ export function createSyncService(deps: SyncServiceDeps) {
         if (
           (action === 'accept' && submission.status === 'rejected') ||
           (action === 'reject' && submission.status === 'accepted') ||
-          (action === 'accept' &&
-            submission.status === 'accepted' &&
-            asTask !== undefined) ||
+          (action === 'accept' && submission.status === 'accepted' && asTask !== undefined) ||
           (action === 'accept' &&
             submission.status === 'accepted' &&
             linkTaskId !== undefined &&

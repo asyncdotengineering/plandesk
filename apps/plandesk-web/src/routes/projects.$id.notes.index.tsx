@@ -102,8 +102,8 @@ function ProjectNotesPage() {
         <div className="flex flex-wrap items-baseline gap-2.5">
           <h2 className="text-[15px] font-semibold tracking-tight">Notes</h2>
           <span className="text-xs text-muted-foreground">
-            Your working memory for this project — findings and scratch context, kept out of the formal
-            plan. Open one to read or edit.
+            Your working memory for this project — findings and scratch context, kept out of the
+            formal plan. Open one to read or edit.
           </span>
         </div>
         <Button

@@ -5,11 +5,11 @@ description: The plandesk.server.json config file — one place for every server
 
 When you run the Plan Desk server yourself (`plandesk serve`, or the [self-host container](./docker/)), every knob is configurable three ways. **Precedence is strict: environment > file > default** (12-factor).
 
-| Source | Wins? | Use for |
-| --- | --- | --- |
-| **Environment** (`PLANDESK_*`) | ✅ always wins | Secrets, containers, CI — anything that must override the file |
-| **File** (`plandesk.server.json`) | when env is unset | Collecting every knob in one place for a self-host operator |
-| **Defaults** | last resort | Safe local defaults (loopback host, port 7526, local storage) |
+| Source                            | Wins?             | Use for                                                        |
+| --------------------------------- | ----------------- | -------------------------------------------------------------- |
+| **Environment** (`PLANDESK_*`)    | ✅ always wins    | Secrets, containers, CI — anything that must override the file |
+| **File** (`plandesk.server.json`) | when env is unset | Collecting every knob in one place for a self-host operator    |
+| **Defaults**                      | last resort       | Safe local defaults (loopback host, port 7526, local storage)  |
 
 ## The config file — `plandesk.server.json`
 
@@ -40,17 +40,17 @@ plandesk serve --config /etc/plandesk/plandesk.server.json
 
 Every field is optional. The keys:
 
-| Key | Env override | Purpose |
-| --- | --- | --- |
-| `dbUrl` | `PLANDESK_DB_URL` | Remote libSQL/Turso URL. Unset → local file SQLite (the [local topology](./topologies/)). |
-| `dbToken` | `PLANDESK_DB_TOKEN` | Auth token for a remote libSQL DB. **Secret.** |
-| `host` | `PLANDESK_HOST` | Bind address (`127.0.0.1` loopback default; `0.0.0.0` for LAN/container). |
-| `port` | `PLANDESK_PORT` | Bind port (default `7526`). |
-| `baseUrl` | `PLANDESK_BASE_URL` | Public base URL the server is reachable at (better-auth `baseURL`, OAuth callbacks, share links). |
-| `authPassword` | `PLANDESK_AUTH_PASSWORD` | Enables HTTP basic-auth on the UI/REST API. **Secret.** Recommended for any non-loopback host. |
-| `sessionSecret` | `PLANDESK_BETTER_AUTH_SECRET` (`PLANDESK_SESSION_SECRET` accepted for back-compat) | **better-auth secret** (sessions + API keys). **Secret.** Local `serve` auto-generates one under the data dir if unset; set explicitly for multi-replica / durable hosted deploys so sessions and keys stay valid across restarts. |
-| `storage` | `PLANDESK_STORAGE` + `PLANDESK_S3_*` | `{ "kind": "local" }` (default, blobs in the DB) or `{ "kind": "s3", "bucket", "region", "accessKeyId", "secretAccessKey", "endpoint"? }`. The S3 `secretAccessKey` is a **secret**. |
-| `github` | `PLANDESK_GITHUB_CLIENT_ID` / `_SECRET` / `_CALLBACK_URL`, `PLANDESK_DASHBOARD_URL` | GitHub **social** sign-in for the web dashboard (better-auth). **All-or-nothing**: set all three of client id / secret / callback URL, or none. Register the OAuth app callback as `{baseUrl}/api/auth/callback/github`. The `clientSecret` is a **secret**. Unset → no GitHub sign-in; CLI still uses paste-a-token (`plandesk login`). |
+| Key             | Env override                                                                        | Purpose                                                                                                                                                                                                                                                                                                                                  |
+| --------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dbUrl`         | `PLANDESK_DB_URL`                                                                   | Remote libSQL/Turso URL. Unset → local file SQLite (the [local topology](./topologies/)).                                                                                                                                                                                                                                                |
+| `dbToken`       | `PLANDESK_DB_TOKEN`                                                                 | Auth token for a remote libSQL DB. **Secret.**                                                                                                                                                                                                                                                                                           |
+| `host`          | `PLANDESK_HOST`                                                                     | Bind address (`127.0.0.1` loopback default; `0.0.0.0` for LAN/container).                                                                                                                                                                                                                                                                |
+| `port`          | `PLANDESK_PORT`                                                                     | Bind port (default `7526`).                                                                                                                                                                                                                                                                                                              |
+| `baseUrl`       | `PLANDESK_BASE_URL`                                                                 | Public base URL the server is reachable at (better-auth `baseURL`, OAuth callbacks, share links).                                                                                                                                                                                                                                        |
+| `authPassword`  | `PLANDESK_AUTH_PASSWORD`                                                            | Enables HTTP basic-auth on the UI/REST API. **Secret.** Recommended for any non-loopback host.                                                                                                                                                                                                                                           |
+| `sessionSecret` | `PLANDESK_BETTER_AUTH_SECRET` (`PLANDESK_SESSION_SECRET` accepted for back-compat)  | **better-auth secret** (sessions + API keys). **Secret.** Local `serve` auto-generates one under the data dir if unset; set explicitly for multi-replica / durable hosted deploys so sessions and keys stay valid across restarts.                                                                                                       |
+| `storage`       | `PLANDESK_STORAGE` + `PLANDESK_S3_*`                                                | `{ "kind": "local" }` (default, blobs in the DB) or `{ "kind": "s3", "bucket", "region", "accessKeyId", "secretAccessKey", "endpoint"? }`. The S3 `secretAccessKey` is a **secret**.                                                                                                                                                     |
+| `github`        | `PLANDESK_GITHUB_CLIENT_ID` / `_SECRET` / `_CALLBACK_URL`, `PLANDESK_DASHBOARD_URL` | GitHub **social** sign-in for the web dashboard (better-auth). **All-or-nothing**: set all three of client id / secret / callback URL, or none. Register the OAuth app callback as `{baseUrl}/api/auth/callback/github`. The `clientSecret` is a **secret**. Unset → no GitHub sign-in; CLI still uses paste-a-token (`plandesk login`). |
 
 :::caution[This file can hold secrets — gitignore it]
 `plandesk.server.json` is in the repo's `.gitignore`. Never commit a file that contains tokens, passwords, or keys. Prefer env (`PLANDESK_*`) for secrets in containers, and keep the file for the non-secret knobs if you like.

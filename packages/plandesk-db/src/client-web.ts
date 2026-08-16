@@ -15,9 +15,7 @@ import * as schema from './schema.js';
  */
 export async function createWebDb(url: string, authToken?: string): Promise<Db> {
   const client = createClient(
-    authToken !== undefined && authToken.length > 0
-      ? { url, authToken }
-      : { url },
+    authToken !== undefined && authToken.length > 0 ? { url, authToken } : { url },
   );
   await client.execute('PRAGMA foreign_keys = ON');
   return drizzle(client, { schema });

@@ -84,8 +84,7 @@ describe('MCP assignee wiring (closes create/update gap)', () => {
     await update({ task_id: created.id, assignee: 'bob@example.com', status: 'todo' });
     const claimed = await claim({ task_id: created.id, agent_ref: 'agent-42' });
     expect(claimed.isError).not.toBe(true);
-    const claimedText =
-      claimed.content[0]?.type === 'text' ? claimed.content[0].text : undefined;
+    const claimedText = claimed.content[0]?.type === 'text' ? claimed.content[0].text : undefined;
     const claimPayload = JSON.parse(claimedText ?? '{}') as {
       claimed: boolean;
       task?: { assignee: string | null };

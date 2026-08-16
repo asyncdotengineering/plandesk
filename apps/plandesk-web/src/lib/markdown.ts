@@ -1,7 +1,4 @@
-import {
-  convertDocumentBody,
-  type WikiLinkResolver,
-} from '@plandesk/api/markdown';
+import { convertDocumentBody, type WikiLinkResolver } from '@plandesk/api/markdown';
 
 const HTML_BODY_RE = /^\s*<(?:[a-z][\w-]*)(?:\s|>|\/)/i;
 

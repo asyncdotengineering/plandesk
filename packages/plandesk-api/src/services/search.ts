@@ -137,11 +137,7 @@ export function createSearchService(deps: SearchServiceDeps) {
           }
         }
 
-        if (
-          tasks.length >= limit &&
-          documents.length >= limit &&
-          notes.length >= limit
-        ) {
+        if (tasks.length >= limit && documents.length >= limit && notes.length >= limit) {
           break;
         }
       }

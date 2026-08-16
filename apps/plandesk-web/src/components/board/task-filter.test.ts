@@ -254,8 +254,7 @@ describe('FIELD_OPERATORS table', () => {
   it('allows contains only on text and tags fields', () => {
     for (const field of Object.keys(FIELD_OPERATORS) as (keyof typeof FIELD_OPERATORS)[]) {
       const hasContains = operatorsForField(field).includes('contains');
-      const allows =
-        field === 'label' || field === 'assignee' || field === 'tags';
+      const allows = field === 'label' || field === 'assignee' || field === 'tags';
       expect(hasContains).toBe(allows);
     }
   });

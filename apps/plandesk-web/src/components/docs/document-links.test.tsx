@@ -36,9 +36,7 @@ function renderLinks(document: SerializedDocument) {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   const rootRoute = createRootRoute({
-    component: () => (
-      <DocumentLinks projectId={projectId} document={document} editable={false} />
-    ),
+    component: () => <DocumentLinks projectId={projectId} document={document} editable={false} />,
   });
   const router = createRouter({ routeTree: rootRoute });
   return render(
@@ -57,11 +55,11 @@ describe('DocumentLinks task links', () => {
   // all, so clicking a task in a document's link list landed on the board and
   // opened nothing. Reported from a real board.
   it('links a task to the board with the task in the URL', async () => {
-    renderLinks(makeDocument([makeLink('task', 'task-abc', 'CR001-WI3: API — skincare hero fetch')]));
-
-    const link = await waitFor(() =>
-      screen.getByRole('link', { name: /CR001-WI3: API/ }),
+    renderLinks(
+      makeDocument([makeLink('task', 'task-abc', 'CR001-WI3: API — skincare hero fetch')]),
     );
+
+    const link = await waitFor(() => screen.getByRole('link', { name: /CR001-WI3: API/ }));
     const href = link.getAttribute('href') ?? '';
 
     expect(href).toContain(`/projects/${projectId}/board`);

@@ -8,14 +8,7 @@ import TaskList from '@tiptap/extension-task-list';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { useRouter } from '@tanstack/react-router';
-import {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
@@ -36,9 +29,8 @@ const COMMENT_DRAFT_HIGHLIGHT = 'comment-draft';
 // selection when the composer takes focus, and follows the text on scroll).
 // No-ops where the API is unavailable (e.g. jsdom in tests).
 function setDraftHighlight(range: Range | null) {
-  const highlights = (
-    globalThis as unknown as { CSS?: { highlights?: Map<string, unknown> } }
-  ).CSS?.highlights;
+  const highlights = (globalThis as unknown as { CSS?: { highlights?: Map<string, unknown> } }).CSS
+    ?.highlights;
   const HighlightCtor = (globalThis as unknown as { Highlight?: new (r: Range) => unknown })
     .Highlight;
   if (highlights === undefined) {
@@ -190,7 +182,11 @@ function normalizeForMarkdown(html: string): string {
 // Uploads each image to a lean file URL (uploader read from editor storage) and
 // inserts an AnnotatableImage node; falls back to the inline data URL when no
 // uploader is available or upload fails.
-function uploadAndInsertImages(editor: Editor, files: FileList | File[] | null | undefined, pos?: number) {
+function uploadAndInsertImages(
+  editor: Editor,
+  files: FileList | File[] | null | undefined,
+  pos?: number,
+) {
   const uploader = editor.storage.imageUpload?.uploader ?? null;
   const images = Array.from(files ?? []).filter((file) => file.type.startsWith('image/'));
   for (const file of images) {
@@ -504,11 +500,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     // (getBoundingClientRect can throw on a detached range under jsdom).
     useEffect(() => {
       const convertEnabled = mode === 'editor' && onConvertListItems !== undefined;
-      if (
-        onCommentOnSelection === undefined &&
-        onCreateComment === undefined &&
-        !convertEnabled
-      ) {
+      if (onCommentOnSelection === undefined && onCreateComment === undefined && !convertEnabled) {
         return;
       }
       const container = contentRef.current;
@@ -518,9 +510,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       const showForSelection = () => {
         const selection = window.getSelection();
         const text = selection?.toString().trim() ?? '';
-        const listLabels = convertEnabled
-          ? selectedListItems(editor).map((item) => item.text)
-          : [];
+        const listLabels = convertEnabled ? selectedListItems(editor).map((item) => item.text) : [];
         if (
           selection === null ||
           selection.rangeCount === 0 ||
@@ -796,11 +786,7 @@ function RichTextToolbar({ editor }: { editor: ToolbarEditor }) {
     );
 
   return (
-    <div
-      role="toolbar"
-      aria-label="Formatting"
-      className="mb-2 flex flex-wrap gap-2"
-    >
+    <div role="toolbar" aria-label="Formatting" className="mb-2 flex flex-wrap gap-2">
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleBold().run()}

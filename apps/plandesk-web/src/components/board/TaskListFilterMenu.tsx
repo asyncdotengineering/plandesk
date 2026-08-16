@@ -1,10 +1,7 @@
 import { FilterIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  taskPriorities,
-  taskStatuses,
-} from '../../lib/api.js';
+import { taskPriorities, taskStatuses } from '../../lib/api.js';
 import {
   FILTER_OPERATOR_LABELS,
   FILTERABLE_FIELD_LABELS,
@@ -39,20 +36,14 @@ function updateChild(
   };
 }
 
-function removeChild(
-  group: Extract<FilterNode, { kind: 'group' }>,
-  index: number,
-): FilterNode {
+function removeChild(group: Extract<FilterNode, { kind: 'group' }>, index: number): FilterNode {
   return {
     ...group,
     children: group.children.filter((_, i) => i !== index),
   };
 }
 
-function appendChild(
-  group: Extract<FilterNode, { kind: 'group' }>,
-  child: FilterNode,
-): FilterNode {
+function appendChild(group: Extract<FilterNode, { kind: 'group' }>, child: FilterNode): FilterNode {
   return { ...group, children: [...group.children, child] };
 }
 
@@ -260,7 +251,9 @@ function FilterValueInput({
   return (
     <input
       type="text"
-      list={field === 'tags' && tagSuggestions.length > 0 ? 'filter-tag-suggestions-root' : undefined}
+      list={
+        field === 'tags' && tagSuggestions.length > 0 ? 'filter-tag-suggestions-root' : undefined
+      }
       aria-label={`Filter value ${pathLabel}`}
       className="h-8 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 text-xs"
       value={stringValue}
@@ -305,7 +298,9 @@ function GroupEditor({
           <option value="or">Or</option>
         </select>
         <span className="flex-1 text-xs text-muted-foreground">
-          {node.children.length === 0 ? 'Matches everything' : `${String(node.children.length)} rules`}
+          {node.children.length === 0
+            ? 'Matches everything'
+            : `${String(node.children.length)} rules`}
         </span>
         {onRemove !== null ? (
           <Button
@@ -394,8 +389,7 @@ export function TaskListFilterMenu({
   tagSuggestions = [],
 }: TaskListFilterMenuProps) {
   const [open, setOpen] = useState(false);
-  const activeRoot =
-    root !== null && root.kind === 'group' ? root : emptyFilterGroup('and');
+  const activeRoot = root !== null && root.kind === 'group' ? root : emptyFilterGroup('and');
   const conditionCount = countFilterConditions(root);
 
   // datalist for tag suggestions (shared id when panel is open)

@@ -8,16 +8,16 @@ Plan Desk ships as one npm package: `@plandesk/cli` contains the CLI, the server
 There are three kinds of upgrade on this page:
 
 - **[Routine upgrade](#routine-upgrade)** — same schema, most releases: update the package, restart the server, migrations run automatically. Your data is untouched.
-- **[The 1.x → 2.0.0 upgrade](#the-1x--200-upgrade-one-link-shape)** — your board migrates **automatically and in place**, and the web UI and CLI need nothing from you. It is a major version because `linked_task_id` was removed from the API and MCP payloads, so it breaks anything *you* wrote that read that field.
+- **[The 1.x → 2.0.0 upgrade](#the-1x--200-upgrade-one-link-shape)** — your board migrates **automatically and in place**, and the web UI and CLI need nothing from you. It is a major version because `linked_task_id` was removed from the API and MCP payloads, so it breaks anything _you_ wrote that read that field.
 - **[The 0.20.0 → better-auth upgrade](#the-020x--better-auth-upgrade-breaking)** — a one-time **breaking** migration for anyone on 0.20.0 or earlier. The database schema was reset (no in-place migration) and the board moved to a machine-global default. Read that section before you upgrade past 0.20.0.
 
 If you don't know which applies, run `plandesk --version`:
 
-| Current version | What you need |
-| --- | --- |
-| `0.20.x` or earlier | [The 0.20.0 upgrade](#the-020x--better-auth-upgrade-breaking) first — your data does not carry forward on its own |
-| `1.x` | [The 1.x → 2.0.0 upgrade](#the-1x--200-upgrade-one-link-shape) — automatic, but read it if you built anything on the API |
-| `2.x` | [Routine upgrade](#routine-upgrade) |
+| Current version     | What you need                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `0.20.x` or earlier | [The 0.20.0 upgrade](#the-020x--better-auth-upgrade-breaking) first — your data does not carry forward on its own        |
+| `1.x`               | [The 1.x → 2.0.0 upgrade](#the-1x--200-upgrade-one-link-shape) — automatic, but read it if you built anything on the API |
+| `2.x`               | [Routine upgrade](#routine-upgrade)                                                                                      |
 
 ## Routine upgrade
 
@@ -51,7 +51,7 @@ Then start a **new** agent session so MCP tools and the skill reload.
 
 ### Sync the factory policy
 
-`connect` and `factory init` regenerate the *generated* files (the sentinel block, adapters, `skill.md`), but the **authored** factory policy — `.agents/factory/{factory,execution,protocol,lanes,routing}.md` (and the optional companions `slicing` / `brief` / `heartbeat`) plus the skills under `.agents/skills/plandesk-*/` — is created once and never overwritten, so your edits survive. That also means shipped improvements to those files don't reach an existing repo automatically. `plandesk factory sync` closes that gap without clobbering your edits:
+`connect` and `factory init` regenerate the _generated_ files (the sentinel block, adapters, `skill.md`), but the **authored** factory policy — `.agents/factory/{factory,execution,protocol,lanes,routing}.md` (and the optional companions `slicing` / `brief` / `heartbeat`) plus the skills under `.agents/skills/plandesk-*/` — is created once and never overwritten, so your edits survive. That also means shipped improvements to those files don't reach an existing repo automatically. `plandesk factory sync` closes that gap without clobbering your edits:
 
 ```bash
 plandesk factory sync                    # dry-run: show what's stale vs. the shipped version
@@ -106,12 +106,12 @@ A file copy of a running SQLite database can be inconsistent. Stop `plandesk ser
 
 Only one thing, and only if you built on it: **`linked_task_id` is gone** from the document payload in the REST API and the MCP tools, and from the `documents` table.
 
-| If you have | Do this |
-| --- | --- |
+| If you have                                               | Do this                                                                                                 |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | A script or integration reading `document.linked_task_id` | Read `links` instead — entries are `{ type, id, title, label, edge_id }`, filtered to `type === 'task'` |
-| Code writing `linked_task_id` on create/update | Pass `link_to` with a task id, or a list of ids |
-| Code that unlinks by setting it to `null` | Call `delete_edge` with the `edge_id` from the link entry |
-| A saved export file from 1.x | Still imports — the importer accepts older versions |
+| Code writing `linked_task_id` on create/update            | Pass `link_to` with a task id, or a list of ids                                                         |
+| Code that unlinks by setting it to `null`                 | Call `delete_edge` with the `edge_id` from the link entry                                               |
+| A saved export file from 1.x                              | Still imports — the importer accepts older versions                                                     |
 
 The web UI, the CLI, `plandesk context`, and the shipped agent skill were all updated. If you only use Plan Desk through those, nothing changes for you except that documents can now cover several tasks.
 
@@ -176,7 +176,7 @@ What it actually does, exactly:
 Imported 4 projects, 37 tasks, 12 documents into the global board (org <id>). Skipped: 1 already present. Old board backed up to ~/.plandesk/workspace.db.pre-legacy-upgrade. Regenerate a CLI token via the dashboard for hosted use.
 ```
 
-### What does *not* carry over
+### What does _not_ carry over
 
 `legacy-upgrade` moves planning data only. It does **not** migrate:
 
@@ -213,16 +213,16 @@ Confirm the imported projects appear in the UI (`plandesk serve`, open the print
 
 The shipped skills collapsed onto a single prefix, and two merged:
 
-| Before | After |
-| --- | --- |
-| `factory-foreman` | `plandesk-foreman` |
-| `curator-triage` + `curator-intake` | **`plandesk-scope-work`** |
-| `curator-plan-writer` | `plandesk-plan-writer` |
-| `curator-autonomy` | `plandesk-autonomy` |
-| `curator-provenance` | folded into `plandesk-scope-work` |
-| `curator-automation` | removed |
-| — | **`plandesk-groom-task`** (new) |
-| — | **`plandesk-timebox`** (new) |
+| Before                              | After                             |
+| ----------------------------------- | --------------------------------- |
+| `factory-foreman`                   | `plandesk-foreman`                |
+| `curator-triage` + `curator-intake` | **`plandesk-scope-work`**         |
+| `curator-plan-writer`               | `plandesk-plan-writer`            |
+| `curator-autonomy`                  | `plandesk-autonomy`               |
+| `curator-provenance`                | folded into `plandesk-scope-work` |
+| `curator-automation`                | removed                           |
+| —                                   | **`plandesk-groom-task`** (new)   |
+| —                                   | **`plandesk-timebox`** (new)      |
 
 Two prefixes meant every request began with a routing decision, and a wrong route is expensive: one real session reached for `curator-plan-writer` with 29 items, got a correct refusal — most were below the RFC threshold — and fell through to bare `create_task`, outside every readiness bar the project keeps. Both refusal paths now hand off explicitly instead.
 

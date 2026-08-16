@@ -49,9 +49,7 @@ describe('checkout-revamp dogfood fixture', () => {
     // Pre-v3 fixtures may carry primary-task pointers on documents; import rewrites
     // those into document→task edges, so the live edge count can exceed the file's.
     const legacyDocLinks = fixture.documents.filter((doc) => {
-      const raw = (doc as typeof doc & Record<string, unknown>)[
-        ['linked', 'task', 'id'].join('_')
-      ];
+      const raw = (doc as typeof doc & Record<string, unknown>)[['linked', 'task', 'id'].join('_')];
       return typeof raw === 'string';
     }).length;
     expect(edges.length).toBeGreaterThanOrEqual(fixture.edges.length);
@@ -87,9 +85,7 @@ describe('checkout-revamp dogfood fixture', () => {
     // Pre-v3 fixture carried the primary task on the document; import rewrote it to an edge.
     const scopeLink = edges.find(
       (edge) =>
-        edge.fromType === 'document' &&
-        edge.fromId === scopeDoc?.id &&
-        edge.toType === 'task',
+        edge.fromType === 'document' && edge.fromId === scopeDoc?.id && edge.toType === 'task',
     );
     expect(scopeLink).toBeDefined();
     const linkedTask = tasks.find((task) => task.id === scopeLink?.toId);

@@ -43,11 +43,14 @@ import {
   usePatchTask,
   useTags,
 } from '../../lib/queries.js';
+import { documentsByLinkedTask, taskIdsWithLinkedDocuments } from '../docs/DocumentsPanel.js';
 import {
-  documentsByLinkedTask,
-  taskIdsWithLinkedDocuments,
-} from '../docs/DocumentsPanel.js';
-import { boardColumnOrder, columnLabels, filterTasksByAnyTag, groupTasksByStatus, LANE_TAG_PREFIX } from './board-utils.js';
+  boardColumnOrder,
+  columnLabels,
+  filterTasksByAnyTag,
+  groupTasksByStatus,
+  LANE_TAG_PREFIX,
+} from './board-utils.js';
 import { BoardColumn } from './BoardColumn.js';
 import { TaskDrawer } from './TaskDrawer.js';
 import { TaskCardPreview } from './TaskCard.js';
@@ -82,14 +85,8 @@ export function Board({
   const { data: projectTags } = useTags(projectId);
   const { data: documents } = useDocuments(projectId);
 
-  const linkedDocTaskIds = useMemo(
-    () => taskIdsWithLinkedDocuments(documents ?? []),
-    [documents],
-  );
-  const linkedDocsByTask = useMemo(
-    () => documentsByLinkedTask(documents ?? []),
-    [documents],
-  );
+  const linkedDocTaskIds = useMemo(() => taskIdsWithLinkedDocuments(documents ?? []), [documents]);
+  const linkedDocsByTask = useMemo(() => documentsByLinkedTask(documents ?? []), [documents]);
 
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [drawerTaskId, setDrawerTaskId] = useState<string | null>(openTaskId ?? null);
@@ -126,7 +123,8 @@ export function Board({
     onOpenTaskIdChange?.(taskId);
   };
 
-  const drawerTask = drawerTaskId !== null ? tasks.find((task) => task.id === drawerTaskId) : undefined;
+  const drawerTask =
+    drawerTaskId !== null ? tasks.find((task) => task.id === drawerTaskId) : undefined;
   const tagNames = (projectTags ?? []).map((tag) => tag.name);
 
   const toggleTagFilter = (tagId: string) => {
@@ -209,7 +207,11 @@ export function Board({
     <div className="flex h-full flex-col">
       <ViewSwitcher projectId={projectId} active="board" />
       {projectTags !== undefined && projectTags.length > 0 ? (
-        <div role="group" aria-label="Filter by tag" className="mb-3 flex flex-wrap items-center gap-1.5">
+        <div
+          role="group"
+          aria-label="Filter by tag"
+          className="mb-3 flex flex-wrap items-center gap-1.5"
+        >
           <span className="text-xs text-muted-foreground">Filter:</span>
           {projectTags.map((tag) => (
             <FilterTagButton
@@ -277,9 +279,7 @@ export function Board({
         open={drawerTask !== undefined}
         task={drawerTask ?? null}
         repoUrl={repoUrl}
-        linkedDocs={
-          drawerTask !== undefined ? (linkedDocsByTask.get(drawerTask.id) ?? []) : []
-        }
+        linkedDocs={drawerTask !== undefined ? (linkedDocsByTask.get(drawerTask.id) ?? []) : []}
         tagSuggestions={tagNames}
         isSaving={patchTask.isPending}
         onOpenChange={(open) => {
@@ -337,7 +337,11 @@ function FilterTagButton({
       onClick={onClick}
     >
       {tag.color !== null ? (
-        <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+        <span
+          aria-hidden
+          className="size-1.5 rounded-full"
+          style={{ backgroundColor: tag.color }}
+        />
       ) : null}
       {tag.name}
     </Button>
@@ -415,9 +419,12 @@ function CreateTaskDialog({ open, status, isCreating, onClose, onCreate }: Creat
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="new-task-lane">Lane</Label>
-              <Select value={lane} onValueChange={(value) => {
-              setLane(value as LaneOption);
-            }}>
+              <Select
+                value={lane}
+                onValueChange={(value) => {
+                  setLane(value as LaneOption);
+                }}
+              >
                 <SelectTrigger id="new-task-lane" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -485,5 +492,3 @@ function DeleteTaskDialog({ open, isDeleting, onClose, onConfirm }: DeleteTaskDi
     </Dialog>
   );
 }
-
-

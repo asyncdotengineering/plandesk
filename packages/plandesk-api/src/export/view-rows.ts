@@ -38,9 +38,7 @@ function cellValue(
       return task.priority;
     case 'goal':
     case 'goal_id':
-      return isEmptyText(task.goal_id)
-        ? null
-        : (goalLabels.get(task.goal_id) ?? task.goal_id);
+      return isEmptyText(task.goal_id) ? null : (goalLabels.get(task.goal_id) ?? task.goal_id);
     case 'assignee':
       return task.assignee;
     case 'tags':

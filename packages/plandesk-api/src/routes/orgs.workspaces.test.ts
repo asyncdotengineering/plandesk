@@ -8,10 +8,7 @@ import {
   type Db,
 } from '@plandesk/db';
 import type { Hono } from 'hono';
-import {
-  createOrgOwnerKey,
-  verifyBetterAuthApiKey,
-} from '../agent-keys.js';
+import { createOrgOwnerKey, verifyBetterAuthApiKey } from '../agent-keys.js';
 import {
   createBetterAuth,
   runBetterAuthMigrations,
@@ -315,7 +312,11 @@ describe('POST /api/v1/orgs/:orgId/agent-keys team_id (REQ-A3)', () => {
     const workspace = await parseJson<{ id: string; name: string }>(createRes);
 
     // Create a project in that workspace.
-    const project = await createProject(db, { name: 'Board', orgId: org.id, workspaceId: workspace.id });
+    const project = await createProject(db, {
+      name: 'Board',
+      orgId: org.id,
+      workspaceId: workspace.id,
+    });
 
     const res = await app.request(`/api/v1/orgs/${org.id}/agent-keys`, {
       method: 'POST',
@@ -387,7 +388,12 @@ describe('POST /api/v1/orgs/:orgId/agent-keys team_id (REQ-A3)', () => {
       org: { id: orgB.id, name: orgB.name, slug: 'org-b' },
       role: 'owner',
     });
-    const ownerKeyB = await createOrgOwnerKey({ auth, userId: userIdB, orgId: orgB.id, name: 'owner-b' });
+    const ownerKeyB = await createOrgOwnerKey({
+      auth,
+      userId: userIdB,
+      orgId: orgB.id,
+      name: 'owner-b',
+    });
     const createRes = await app.request(`/api/v1/orgs/${orgB.id}/workspaces`, {
       method: 'POST',
       headers: { ...bearer(ownerKeyB.key), 'Content-Type': 'application/json' },

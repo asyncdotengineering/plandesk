@@ -209,9 +209,7 @@ export type CreatedScopedAgentKey = {
 export async function createScopedAgentKey(
   input: CreateScopedAgentKeyInput,
 ): Promise<CreatedScopedAgentKey> {
-  const permissions = compactPermissions(
-    input.permissions ?? DEFAULT_AGENT_KEY_PERMISSIONS,
-  );
+  const permissions = compactPermissions(input.permissions ?? DEFAULT_AGENT_KEY_PERMISSIONS);
   const metadata = { projectId: input.projectId, orgId: input.orgId };
   const minted = await mintBetterAuthApiKey({
     auth: input.auth,
@@ -250,9 +248,7 @@ export type CreatedWorkspaceScopedAgentKey = {
 export async function createWorkspaceScopedAgentKey(
   input: CreateWorkspaceScopedAgentKeyInput,
 ): Promise<CreatedWorkspaceScopedAgentKey> {
-  const permissions = compactPermissions(
-    input.permissions ?? DEFAULT_AGENT_KEY_PERMISSIONS,
-  );
+  const permissions = compactPermissions(input.permissions ?? DEFAULT_AGENT_KEY_PERMISSIONS);
   const metadata = { orgId: input.orgId, teamId: input.teamId };
   const minted = await mintBetterAuthApiKey({
     auth: input.auth,
@@ -291,9 +287,7 @@ export type CreatedOrgOwnerKey = {
 export async function createOrgOwnerKey(
   input: CreateOrgOwnerKeyInput,
 ): Promise<CreatedOrgOwnerKey> {
-  const permissions = compactPermissions(
-    input.permissions ?? DEFAULT_OWNER_KEY_PERMISSIONS,
-  );
+  const permissions = compactPermissions(input.permissions ?? DEFAULT_OWNER_KEY_PERMISSIONS);
   const metadata = { orgId: input.orgId, kind: 'owner' as const };
   const minted = await mintBetterAuthApiKey({
     auth: input.auth,

@@ -99,9 +99,7 @@ export async function listProjects(
   }
   const [onlyCondition] = conditions;
   const filter =
-    conditions.length === 1 && onlyCondition !== undefined
-      ? onlyCondition
-      : and(...conditions);
+    conditions.length === 1 && onlyCondition !== undefined ? onlyCondition : and(...conditions);
   let query = db.select().from(projects).where(filter).$dynamic();
   if (options?.limit !== undefined) {
     query = query.limit(options.limit);
@@ -167,10 +165,7 @@ export async function setProjectCurrentGoalId(
  * SQLite ALTER ADD COLUMN REFERENCES does not carry ON DELETE SET NULL, so
  * application code must null the pin before the document row is removed.
  */
-export async function clearOverviewDocumentRefs(
-  db: DbClient,
-  documentId: string,
-): Promise<number> {
+export async function clearOverviewDocumentRefs(db: DbClient, documentId: string): Promise<number> {
   const now = new Date();
   const result = await db
     .update(projects)

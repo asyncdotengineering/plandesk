@@ -41,13 +41,8 @@
       "assignee": "DISTINCT-assignee",
       "due_date": "2031-04-15T12:30:00.000Z",
       "goal_id": "00000000-0000-4000-8000-00000000f002",
-      "tag_ids": [
-        "00000000-0000-4000-8000-00000000f004"
-      ],
-      "commit_refs": [
-        "abcdef1",
-        "1234567890abcdef1234567890abcdef12345678"
-      ],
+      "tag_ids": ["00000000-0000-4000-8000-00000000f004"],
+      "commit_refs": ["abcdef1", "1234567890abcdef1234567890abcdef12345678"],
       "created_at": "2028-01-02T00:00:00.000Z",
       "updated_at": "2028-01-02T00:00:00.000Z"
     }
@@ -173,13 +168,7 @@
             "direction": "asc"
           }
         ],
-        "visibleColumns": [
-          "label",
-          "status",
-          "priority",
-          "assignee",
-          "due_date"
-        ]
+        "visibleColumns": ["label", "status", "priority", "assignee", "due_date"]
       },
       "position": 3
     }

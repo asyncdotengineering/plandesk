@@ -228,7 +228,11 @@ describe('shares routes', () => {
     const { app, db, services } = await createTestAppWithServices();
 
     const project = await createProject(db, { name: 'Share route gone' });
-    const task = await createTask(db, { projectId: project.id, label: 'Revoke target', status: 'todo' });
+    const task = await createTask(db, {
+      projectId: project.id,
+      label: 'Revoke target',
+      status: 'todo',
+    });
 
     const created = await services.shareService.createResourceShare(
       { resource: { kind: 'task', id: task.id } },
@@ -260,7 +264,11 @@ describe('shares routes', () => {
   it('POST /tasks/:id/share mints a public markdown link the .md route then serves', async () => {
     const { app, db } = await createTestAppWithServices();
     const project = await createProject(db, { name: 'UI share' });
-    const task = await createTask(db, { projectId: project.id, label: 'Shareable task', status: 'todo' });
+    const task = await createTask(db, {
+      projectId: project.id,
+      label: 'Shareable task',
+      status: 'todo',
+    });
 
     const res = await app.request(`/api/v1/tasks/${task.id}/share`, {
       method: 'POST',
@@ -268,7 +276,11 @@ describe('shares routes', () => {
       body: JSON.stringify({ expires: '7d' }),
     });
     expect(res.status).toBe(201);
-    const json = (await res.json()) as { url: string; markdown_url: string; expires_at: string | null };
+    const json = (await res.json()) as {
+      url: string;
+      markdown_url: string;
+      expires_at: string | null;
+    };
     expect(json.markdown_url).toContain('/api/v1/share/');
     expect(json.markdown_url.endsWith('.md')).toBe(true);
     expect(json.expires_at).not.toBeNull(); // 7d → a real expiry
@@ -283,7 +295,11 @@ describe('shares routes', () => {
   it('POST /documents/:id/share supports never-expiring links; 404s a missing resource; 400s a bad TTL', async () => {
     const { app, db } = await createTestAppWithServices();
     const project = await createProject(db, { name: 'UI share doc' });
-    const doc = await createDocument(db, { projectId: project.id, title: 'Design', body: '<p>x</p>' });
+    const doc = await createDocument(db, {
+      projectId: project.id,
+      title: 'Design',
+      body: '<p>x</p>',
+    });
 
     const never = await app.request(`/api/v1/documents/${doc.id}/share`, {
       method: 'POST',
@@ -354,7 +370,11 @@ describe('portal view (guest-session gated)', () => {
     const { app, db, services } = await createTestAppWithServices();
     const orgB = { id: randomUUID(), name: 'Other Org' };
     const projectA = await createProject(db, { name: 'Project A' });
-    const projectB = await createProjectInOrg(db, { name: 'Project B', orgId: orgB.id, workspaceId: DEFAULT_WORKSPACE_ID });
+    const projectB = await createProjectInOrg(db, {
+      name: 'Project B',
+      orgId: orgB.id,
+      workspaceId: DEFAULT_WORKSPACE_ID,
+    });
     await createTask(db, { projectId: projectA.id, label: 'A task', status: 'todo' });
     await createTask(db, { projectId: projectB.id, label: 'B secret task', status: 'todo' });
 

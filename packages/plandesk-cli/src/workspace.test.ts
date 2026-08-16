@@ -53,7 +53,7 @@ describe('openWorkspace migrations', () => {
     const dbPath = join(dataDir, 'workspace.db');
     const legacyDb = await createDb(dbPath);
     await migrate(legacyDb);
-        legacyDb.$client.close();
+    legacyDb.$client.close();
 
     const { db } = await openWorkspace(dataDir);
     const tables = await db.$client.execute(

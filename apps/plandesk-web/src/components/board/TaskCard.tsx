@@ -32,7 +32,13 @@ type TaskCardProps = {
 // activation distance, so a real drag never opens the drawer).
 const DRAG_CLICK_TOLERANCE_PX = 6;
 
-export function TaskCard({ task, hasLinkedDoc, onOpen, onChangeStatus, onRequestDelete }: TaskCardProps) {
+export function TaskCard({
+  task,
+  hasLinkedDoc,
+  onOpen,
+  onChangeStatus,
+  onRequestDelete,
+}: TaskCardProps) {
   const lane = laneFromTags(task.tags);
   const chips = (task.tags ?? []).filter((tag) => !tag.name.startsWith(LANE_TAG_PREFIX));
 
@@ -147,7 +153,10 @@ export function TaskCard({ task, hasLinkedDoc, onOpen, onChangeStatus, onRequest
           </span>
         ) : null}
         {hasLinkedDoc ? (
-          <FileTextIcon className="size-3.5 text-muted-foreground" aria-label="Has linked document" />
+          <FileTextIcon
+            className="size-3.5 text-muted-foreground"
+            aria-label="Has linked document"
+          />
         ) : null}
         <span
           className="mono ml-auto text-[10.5px] text-muted-foreground"
@@ -183,7 +192,13 @@ export function TaskCard({ task, hasLinkedDoc, onOpen, onChangeStatus, onRequest
 
 // Floating preview rendered inside <DragOverlay>. Deliberately a separate,
 // hook-free component so the dragged id is never registered twice with dnd-kit.
-export function TaskCardPreview({ task, hasLinkedDoc }: { task: SerializedTask; hasLinkedDoc: boolean }) {
+export function TaskCardPreview({
+  task,
+  hasLinkedDoc,
+}: {
+  task: SerializedTask;
+  hasLinkedDoc: boolean;
+}) {
   const lane = laneFromTags(task.tags);
   return (
     <Card className="w-[258px] gap-0 rounded-lg px-2.5 py-2.5 shadow-[var(--shadow-pop)]">

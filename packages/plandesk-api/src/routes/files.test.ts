@@ -22,7 +22,11 @@ describe('files routes', () => {
     const createRes = await app.request(`/api/v1/projects/${project.id}/files`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: 'shot.png', mime: 'image/png', content_base64: contentBase64 }),
+      body: JSON.stringify({
+        filename: 'shot.png',
+        mime: 'image/png',
+        content_base64: contentBase64,
+      }),
     });
     expect(createRes.status).toBe(201);
     const created = await parseJson<UploadedFileResponse>(createRes);
@@ -147,7 +151,11 @@ describe('files routes', () => {
     const firstRes = await app.request(`/api/v1/projects/${project.id}/files`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: 'first.png', mime: 'image/png', content_base64: contentBase64 }),
+      body: JSON.stringify({
+        filename: 'first.png',
+        mime: 'image/png',
+        content_base64: contentBase64,
+      }),
     });
     const first = await parseJson<UploadedFileResponse>(firstRes);
 

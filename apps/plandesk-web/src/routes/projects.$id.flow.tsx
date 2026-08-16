@@ -27,10 +27,10 @@ function ProjectFlowPage() {
         <ViewSwitcher projectId={id} active="flow" />
       </div>
       <div className="flex min-h-0 flex-1">
-      <FlowCanvas projectId={id} />
-      <div className="relative h-full w-[300px] shrink-0 border-l border-border bg-card">
-        <AgentRunsPanel projectId={id} className="rounded-none border-0 shadow-none" />
-      </div>
+        <FlowCanvas projectId={id} />
+        <div className="relative h-full w-[300px] shrink-0 border-l border-border bg-card">
+          <AgentRunsPanel projectId={id} className="rounded-none border-0 shadow-none" />
+        </div>
       </div>
     </div>
   );

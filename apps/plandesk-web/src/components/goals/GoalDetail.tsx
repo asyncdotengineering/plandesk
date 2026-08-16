@@ -165,7 +165,9 @@ export function GoalDetail({ projectId, goal }: GoalDetailProps) {
         <h2 className="text-xl font-semibold leading-snug tracking-tight">
           {goal.name ?? goal.objective}
         </h2>
-        {goal.name !== null ? <p className="text-sm text-muted-foreground">{goal.objective}</p> : null}
+        {goal.name !== null ? (
+          <p className="text-sm text-muted-foreground">{goal.objective}</p>
+        ) : null}
         <GoalStatusBadge status={goal.status} />
       </div>
 
@@ -196,7 +198,9 @@ export function GoalDetail({ projectId, goal }: GoalDetailProps) {
           {goal.constraints !== null ? (
             <DetailField label="Constraints" value={goal.constraints} />
           ) : null}
-          {goal.boundaries !== null ? <DetailField label="Boundaries" value={goal.boundaries} /> : null}
+          {goal.boundaries !== null ? (
+            <DetailField label="Boundaries" value={goal.boundaries} />
+          ) : null}
           {goal.iteration_policy !== null ? (
             <DetailField label="Iteration policy" value={goal.iteration_policy} />
           ) : null}
@@ -305,8 +309,8 @@ export function GoalDetail({ projectId, goal }: GoalDetailProps) {
         ) : null}
         {surfaceKind === 'gate_command' || surfaceKind === 'acceptance_checklist' ? (
           <p className="text-sm text-muted-foreground">
-            Completion is handled automatically by the agent runner when this goal&apos;s gate passes
-            — there&apos;s nothing to click here.
+            Completion is handled automatically by the agent runner when this goal&apos;s gate
+            passes — there&apos;s nothing to click here.
           </p>
         ) : null}
       </div>
@@ -330,7 +334,8 @@ export function GoalDetail({ projectId, goal }: GoalDetailProps) {
           <DialogHeader>
             <DialogTitle>Sign off & complete</DialogTitle>
             <DialogDescription>
-              Enter the approver name to record human sign-off evidence. This action is irreversible.
+              Enter the approver name to record human sign-off evidence. This action is
+              irreversible.
             </DialogDescription>
           </DialogHeader>
           <form

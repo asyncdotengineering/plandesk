@@ -44,21 +44,21 @@ MCP writes go through the same service layer as REST; the web UI picks them up o
 
 **Hosted (and multi-user self-host) auth is 100% better-auth** — sessions, API keys, organization identity, membership, roles, and invitations. There is no parallel hand-rolled auth stack.
 
-| Actor | How they authenticate |
-| ----- | --------------------- |
-| **Human (web)** | GitHub social sign-in → better-auth **session** (cookie). Mounted at `/api/auth/*`. |
-| **Human (CLI)** | Dashboard **Generate CLI token** (org-wide better-auth API key) → paste via `plandesk login` into `~/.plandesk/config.json`. |
-| **Agent** | Never logs in. After a human has logged in, `plandesk connect --to <org>` mints a **project-scoped agent key** into `.plandesk/token` (gitignored). MCP reads that file (or `PLANDESK_MCP_TOKEN`). |
+| Actor           | How they authenticate                                                                                                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Human (web)** | GitHub social sign-in → better-auth **session** (cookie). Mounted at `/api/auth/*`.                                                                                                                |
+| **Human (CLI)** | Dashboard **Generate CLI token** (org-wide better-auth API key) → paste via `plandesk login` into `~/.plandesk/config.json`.                                                                       |
+| **Agent**       | Never logs in. After a human has logged in, `plandesk connect --to <org>` mints a **project-scoped agent key** into `.plandesk/token` (gitignored). MCP reads that file (or `PLANDESK_MCP_TOKEN`). |
 
 **Organizations and workspaces.** The tenancy model is **Org → Workspace → Project**. better-auth’s `organization` / `member` tables are the single source of truth for orgs and membership, and a **workspace** is a native better-auth **team** (`team` / `teamMember`) — there is no parallel custom table. Every project belongs to exactly one workspace (`projects.workspace_id`); each org gets a default **General** workspace so no project ever sits outside one. Roles are **permission sets** (`owner` / `admin` / `member` via better-auth access-control), not a rank ladder. Domain rows carry an `org_id` scoping column; cross-org access returns 404. A user can belong to more than one organization; the dashboard's account menu has an **org switcher** backed by better-auth's active-organization, and a **workspace switcher** (Org ▸ Workspace ▸ Projects) backed by its active team — so accepting an invitation to a second org or joining a second workspace is just a switch, not a separate account. See [Workspaces](/reference/workspaces/).
 
 **Agent key scopes.** A scoped agent key is one of three tiers:
 
-| Tier          | Reach                                                         |
-| ------------- | ------------------------------------------------------------- |
-| **Owner**     | Every workspace and project in the org                        |
-| **Workspace** | All projects in one workspace (`{ orgId, teamId }`)           |
-| **Project**   | That one project (`{ orgId, projectId }`)                     |
+| Tier          | Reach                                               |
+| ------------- | --------------------------------------------------- |
+| **Owner**     | Every workspace and project in the org              |
+| **Workspace** | All projects in one workspace (`{ orgId, teamId }`) |
+| **Project**   | That one project (`{ orgId, projectId }`)           |
 
 A workspace-scoped key can read only its workspace’s projects; a project outside the scoped workspace returns the **same 404 as a missing project** (no existence leak), enforced in the service layer by `assertProjectInWorkspace`. Owner keys skip the guard. Cross-workspace and cross-org requests are indistinguishable from missing ones.
 

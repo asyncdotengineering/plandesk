@@ -1,5 +1,10 @@
 import { InvalidGoalTransitionError, type GoalService } from '@plandesk/api';
-import { toolInvalidArgument, toolNotFound, toolSuccessPayload, type ToolResult } from './result.js';
+import {
+  toolInvalidArgument,
+  toolNotFound,
+  toolSuccessPayload,
+  type ToolResult,
+} from './result.js';
 
 export function createSetCurrentGoalHandler(
   goalService: GoalService,

@@ -177,9 +177,7 @@ async function importHostedProject(
   }
   const body = (await response.json()) as { globalProjectId?: string };
   if (typeof body.globalProjectId !== 'string' || body.globalProjectId === '') {
-    throw new GoOnlineError(
-      `Import of "${exported.project.name}" returned no project id.`,
-    );
+    throw new GoOnlineError(`Import of "${exported.project.name}" returned no project id.`);
   }
   return body.globalProjectId;
 }
@@ -247,7 +245,9 @@ async function pickWorkspacesInteractively(
   }
   const rl = createInterface({ input: inStream, output: out });
   try {
-    const answer = (await rl.question('Select workspace numbers (comma-separated), or "all": ')).trim();
+    const answer = (
+      await rl.question('Select workspace numbers (comma-separated), or "all": ')
+    ).trim();
     if (answer.toLowerCase() === 'all') {
       return local;
     }
@@ -270,7 +270,11 @@ async function pickWorkspacesInteractively(
   }
 }
 
-function resolveHostedTarget(options: GoOnlineOptions): { orgId: string; server: string; token: string } {
+function resolveHostedTarget(options: GoOnlineOptions): {
+  orgId: string;
+  server: string;
+  token: string;
+} {
   const cliConfig =
     options.to === undefined || options.server === undefined || options.token === undefined
       ? readCliConfig(options.home)
@@ -281,19 +285,13 @@ function resolveHostedTarget(options: GoOnlineOptions): { orgId: string; server:
   const token = options.token ?? cliConfig?.token;
 
   if (orgId === undefined || orgId.trim() === '') {
-    throw new GoOnlineError(
-      'No hosted org id. Pass --to <orgId> or run `plandesk login` first.',
-    );
+    throw new GoOnlineError('No hosted org id. Pass --to <orgId> or run `plandesk login` first.');
   }
   if (server === undefined || server.trim() === '') {
-    throw new GoOnlineError(
-      'No hosted server. Pass --server <url> or run `plandesk login` first.',
-    );
+    throw new GoOnlineError('No hosted server. Pass --server <url> or run `plandesk login` first.');
   }
   if (token === undefined || token.trim() === '') {
-    throw new GoOnlineError(
-      'No hosted token. Pass --token <key> or run `plandesk login` first.',
-    );
+    throw new GoOnlineError('No hosted token. Pass --token <key> or run `plandesk login` first.');
   }
   return { orgId: orgId.trim(), server: normalizeServerUrl(server.trim()), token: token.trim() };
 }
@@ -322,27 +320,16 @@ export async function runGoOnline(options: GoOnlineOptions): Promise<GoOnlineRes
   const auth = await buildLocalAuth(db, dataDir);
 
   const localTeams = await listTeamsForOrg(auth, DEFAULT_ORG_ID);
-  const selected = await selectWorkspaces(
-    localTeams,
-    options,
-    out,
-    options.input ?? input,
-  );
+  const selected = await selectWorkspaces(localTeams, options, out, options.input ?? input);
 
   const perWorkspace: GoOnlineWorkspaceResult[] = [];
   let pushedProjects = 0;
 
   for (const localTeam of selected) {
-    const hosted = await reuseOrCreateHostedWorkspace(
-      fetcher,
-      target,
-      localTeam.name,
-    );
+    const hosted = await reuseOrCreateHostedWorkspace(fetcher, target, localTeam.name);
     const hostedProjects = await listHostedProjects(fetcher, target.server, target.token);
     const existingNames = new Set(
-      hostedProjects
-        .filter((p) => p.workspace_id === hosted.id)
-        .map((p) => p.name),
+      hostedProjects.filter((p) => p.workspace_id === hosted.id).map((p) => p.name),
     );
 
     const localProjects = await listProjects(db, DEFAULT_ORG_ID, { workspaceId: localTeam.id });
@@ -410,7 +397,13 @@ async function reuseOrCreateHostedWorkspace(
   if (match !== undefined) {
     return { ...match, created: false };
   }
-  const created = await createHostedWorkspace(fetcher, target.server, target.orgId, target.token, name);
+  const created = await createHostedWorkspace(
+    fetcher,
+    target.server,
+    target.orgId,
+    target.token,
+    name,
+  );
   return { ...created, created: true };
 }
 

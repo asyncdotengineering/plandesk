@@ -62,9 +62,7 @@ export function createScaffoldProjectFromPlanHandler(
       for (const doc of args.documents ?? []) {
         for (const key of normalizeLinkTo(doc.link_to)) {
           if (!taskKeys.has(key) && !documentKeys.has(key)) {
-            return toolInvalidArgument(
-              `document link_to references unknown plan key: ${key}`,
-            );
+            return toolInvalidArgument(`document link_to references unknown plan key: ${key}`);
           }
         }
       }

@@ -17,7 +17,11 @@ const WS_HEADER = 'x-plandesk-workspace-id';
 async function loopbackApp(): Promise<{ app: Hono; db: Db; auth: BetterAuthInstance }> {
   const db = await createDb(':memory:');
   await migrate(db);
-  const auth = createBetterAuth({ client: db.$client, secret: TEST_SECRET, baseURL: TEST_BASE_URL });
+  const auth = createBetterAuth({
+    client: db.$client,
+    secret: TEST_SECRET,
+    baseURL: TEST_BASE_URL,
+  });
   if (auth === undefined) throw new Error('expected better-auth');
   await runBetterAuthMigrations(auth);
   const app = createApp({

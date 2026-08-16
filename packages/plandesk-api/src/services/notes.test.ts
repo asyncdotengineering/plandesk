@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDb, createProjectInDefaultOrg as createProject, getNote, migrate, type Db } from '@plandesk/db';
+import {
+  createDb,
+  createProjectInDefaultOrg as createProject,
+  getNote,
+  migrate,
+  type Db,
+} from '@plandesk/db';
 import { createNoteService, InvalidNoteError } from './notes.js';
 
 describe('noteService', () => {

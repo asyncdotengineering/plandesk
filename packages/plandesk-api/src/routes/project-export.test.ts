@@ -65,16 +65,9 @@ describe('POST /projects/:id/export', () => {
   });
 
   it('denies a caller without access to the project for both formats', async () => {
-    const {
-      createDb,
-      migrate,
-      createProject: createProjectRaw,
-    } = await import('@plandesk/db');
-    const {
-      createBetterAuth,
-      createOrgOwnerKey,
-      runBetterAuthMigrations,
-    } = await import('../index.js');
+    const { createDb, migrate, createProject: createProjectRaw } = await import('@plandesk/db');
+    const { createBetterAuth, createOrgOwnerKey, runBetterAuthMigrations } =
+      await import('../index.js');
     const { createApp } = await import('../server.js');
 
     const db = await createDb(':memory:');

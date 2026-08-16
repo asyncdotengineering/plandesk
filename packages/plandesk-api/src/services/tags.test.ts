@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createDb, createProjectInDefaultOrg as createProject, listTagsForTask, migrate } from '@plandesk/db';
+import {
+  createDb,
+  createProjectInDefaultOrg as createProject,
+  listTagsForTask,
+  migrate,
+} from '@plandesk/db';
 import { createTagService, InvalidTagError } from './tags.js';
 import { createTaskService } from './tasks.js';
 

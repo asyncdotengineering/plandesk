@@ -38,9 +38,9 @@ describe('file-path intake (Rule 14)', () => {
       expect(await resolveProjectScopedPath('screen.html', workspaceRoots, root)).toBe(
         join(realRoot, 'screen.html'),
       );
-      expect(await resolveProjectScopedPath(join(root, 'nested', 'a.png'), workspaceRoots, root)).toBe(
-        join(realRoot, 'nested', 'a.png'),
-      );
+      expect(
+        await resolveProjectScopedPath(join(root, 'nested', 'a.png'), workspaceRoots, root),
+      ).toBe(join(realRoot, 'nested', 'a.png'));
       expect(await resolveProjectScopedPath('../outside', workspaceRoots, root)).toBeNull();
       expect(await resolveProjectScopedPath('/etc/passwd', workspaceRoots, root)).toBeNull();
     } finally {
@@ -156,7 +156,9 @@ describe('file-path intake (Rule 14)', () => {
       const readOutside = await readScopedFileBytes(outsideFile, '127.0.0.1', { workspaceRoots });
       expect(readOutside.ok).toBe(false);
       if (!readOutside.ok) {
-        expect(readOutside.error.content[0]?.text ?? '').toContain(FILE_PATH_OUTSIDE_WORKSPACE_ERROR);
+        expect(readOutside.error.content[0]?.text ?? '').toContain(
+          FILE_PATH_OUTSIDE_WORKSPACE_ERROR,
+        );
       }
     } finally {
       rmSync(inWorkspace, { recursive: true, force: true });

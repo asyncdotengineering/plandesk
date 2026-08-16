@@ -31,8 +31,9 @@ time-tracking capability, so every project/board can report agent + manual hours
   Same self-hostable, local-first-friendly shape as Plan Desk (CF Workers/D1 vs Plan Desk's SQLite).
 
 ### What Tempo already gives you
+
 - Data model with **caller-settable `startAt` and `createdAt`** — i.e. entries can be **backdated**,
-  which is exactly what you need when logging work *after* an agent run finished.
+  which is exactly what you need when logging work _after_ an agent run finished.
 - **Import** of a timesheet CSV (create-or-links project/task, backdates `createdAt = startAt`).
 - **Live timer** + manual entry grid — the manual-hours side, done.
 - **Reports** (group by project/task/tag, hours + amount) and **export** (CSV/XLSX/print-PDF).
@@ -54,12 +55,13 @@ turns and 300k tokens** to produce a diff a human would have taken **half a day*
    client, an estimate, or a retro actually wants — and it's the one to solve.
 
 **Research questions to answer:**
+
 - What's a defensible way to convert an agent run into **equivalent human working-hours**? Is it a
-  fixed multiplier, a complexity-weighted estimate, or reconstructed from the *artifacts* the run
+  fixed multiplier, a complexity-weighted estimate, or reconstructed from the _artifacts_ the run
   produced (diff size, files touched, stories closed)?
 - **Reuse the git-timesheet method.** Tempo's `git-timesheet` skill already reconstructs
-  working-hours from *human* commits (anchored to real commit dates, spread realistically,
-  reconciled to a target total). The Factory produces **agent** commits/PRs — so the *same*
+  working-hours from _human_ commits (anchored to real commit dates, spread realistically,
+  reconciled to a target total). The Factory produces **agent** commits/PRs — so the _same_
   reconstruction could translate agent-authored commits into equivalent working-hours. Evaluate
   whether that's the cleanest bridge: agent output → git-timesheet → hours → Tempo entry (tagged
   `agent`), sitting next to `manual`-tagged human entries on the same project.
@@ -75,7 +77,7 @@ clock, **attribute hours to stories**:
 - Each board story/node carries an **estimate** (points or hours).
 - When a story is closed — by an agent run, by a human, or both — the estimate (not raw runtime)
   becomes the tracked hours, split into an **agent share** and a **manual share**.
-- Agent hours then roll up from *stories delivered*, not from stopwatch time — which sidesteps the
+- Agent hours then roll up from _stories delivered_, not from stopwatch time — which sidesteps the
   "8 minutes vs half a day" problem entirely and stays legible to a client.
 - Research whether story-point → hours calibration (velocity, historical actuals) gives a stable
   enough conversion to trust, and how it composes with the git-reconstruction approach above

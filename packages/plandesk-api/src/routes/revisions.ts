@@ -1,9 +1,6 @@
 import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
-import {
-  InvalidRevisionQueryError,
-  type RevisionService,
-} from '../services/revisions.js';
+import { InvalidRevisionQueryError, type RevisionService } from '../services/revisions.js';
 
 export function createRevisionsRouter(revisionService: RevisionService): Hono {
   const router = new Hono();

@@ -1,9 +1,9 @@
 ---
-title: "Beta launch log: from local-first to a hosted control plane"
+title: 'Beta launch log: from local-first to a hosted control plane'
 description: The Plan Desk 1.0.0-beta.1 launch — what shipped, and the real bugs we hit deploying it. A running log we update as we learn.
 ---
 
-*A running log of the 1.0.0-beta.1 launch. We update it as we go — including the things that broke.*
+_A running log of the 1.0.0-beta.1 launch. We update it as we go — including the things that broke._
 
 ## What this beta is
 
@@ -27,7 +27,7 @@ Your existing `@latest` install is untouched — the beta ships under the `beta`
 
 We deployed the hosted API to **Cloudflare Workers + Turso** as part of this launch. "It built in CI and passed a dry-run" is not the same as "it runs on the edge." Deploying for real surfaced three genuine bugs — all of them the kind you only find by doing it:
 
-1. **`fileURLToPath(import.meta.url)` at module load.** A few modules resolved a package path at import time (to read a version, to find the migrations folder). The Workers runtime can't resolve `import.meta.url` to a filesystem path, so the Worker threw *"path argument must be… Received undefined"* on every deploy — before running a single line of our logic. Fix: make those lazy, so they only run when actually called (which, on the Worker, is never).
+1. **`fileURLToPath(import.meta.url)` at module load.** A few modules resolved a package path at import time (to read a version, to find the migrations folder). The Workers runtime can't resolve `import.meta.url` to a filesystem path, so the Worker threw _"path argument must be… Received undefined"_ on every deploy — before running a single line of our logic. Fix: make those lazy, so they only run when actually called (which, on the Worker, is never).
 2. **Storage hard-required S3 credentials.** The Worker entry unconditionally constructed the S3/R2 adapter and threw if the creds were missing. That's wrong — file storage is optional; the planning core doesn't need it. Fix: only wire storage when its credentials are present, exactly like `plandesk serve` already did.
 3. **An SPA redirect loop.** The web build ships a `_redirects` file (`/* /index.html 200`) for Netlify/Pages-style hosts. On Workers, `not_found_handling = "single-page-application"` already does that — having both created an infinite-loop rule Cloudflare rejects.
 

@@ -28,11 +28,7 @@ function ProjectOverviewPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const { data: project, isLoading, error } = useProject(id);
-  const {
-    data: goals,
-    isLoading: goalsLoading,
-    isError: goalsError,
-  } = useGoals(id);
+  const { data: goals, isLoading: goalsLoading, isError: goalsError } = useGoals(id);
   const {
     data: documents,
     isLoading: documentsLoading,
@@ -253,7 +249,10 @@ function ProjectOverviewPage() {
       </header>
 
       {/* Status at a glance */}
-      <section aria-label="Task status" className="rounded-xl border bg-card p-4 shadow-[var(--shadow)]">
+      <section
+        aria-label="Task status"
+        className="rounded-xl border bg-card p-4 shadow-[var(--shadow)]"
+      >
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-sm font-medium">Progress</h2>
           <Link

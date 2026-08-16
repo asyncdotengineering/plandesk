@@ -264,9 +264,7 @@ describe('GET /artifacts/:id/render', () => {
       expect(body.endsWith(content)).toBe(true);
       // Shim is a fixed constant — hostile title bytes only appear after it.
       const shimAt = body.indexOf(HTML_ARTIFACT_SHIM);
-      expect(body.slice(shimAt, shimAt + HTML_ARTIFACT_SHIM.length)).toBe(
-        HTML_ARTIFACT_SHIM,
-      );
+      expect(body.slice(shimAt, shimAt + HTML_ARTIFACT_SHIM.length)).toBe(HTML_ARTIFACT_SHIM);
     }
   });
 });

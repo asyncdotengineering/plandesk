@@ -105,7 +105,9 @@ export const GLOBAL_CONFIG_DIR_NAMES = [
  * job, which makes its presence definitional rather than incidental.
  */
 export function isPlandeskSourceRepo(repoDir: string): boolean {
-  return existsSync(join(resolve(repoDir), 'packages', 'plandesk-cli', 'scripts', 'copy-templates.mjs'));
+  return existsSync(
+    join(resolve(repoDir), 'packages', 'plandesk-cli', 'scripts', 'copy-templates.mjs'),
+  );
 }
 
 export function globalDirRefusalReason(repoDir: string, home = homedir()): string | undefined {

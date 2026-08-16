@@ -4,10 +4,7 @@ import { createOrgOwnerKey } from '../agent-keys.js';
 import { getAuthContext } from '../auth-context.js';
 import type { BetterAuthInstance } from '../better-auth.js';
 import type { GithubConfig } from '../github.js';
-import {
-  getActiveTeamForSession,
-  listTeamsForOrg,
-} from '../identity.js';
+import { getActiveTeamForSession, listTeamsForOrg } from '../identity.js';
 import { listOrganizationsForUser, resolveOrganizationName } from '../organizations.js';
 import { requirePermission } from '../permissions.js';
 
@@ -57,13 +54,8 @@ export function createAuthRouter(deps: AuthRouterDeps): Hono {
           return c.json({ error: 'unauthorized' }, 401);
         }
         orgs = await listOrganizationsForUser(betterAuth, session.user.id);
-        const active = await getActiveTeamForSession(
-          betterAuth,
-          session.session.token,
-          ctx.orgId,
-        );
-        activeWorkspace =
-          active ?? (workspaces[0] !== undefined ? workspaces[0] : null);
+        const active = await getActiveTeamForSession(betterAuth, session.session.token, ctx.orgId);
+        activeWorkspace = active ?? (workspaces[0] !== undefined ? workspaces[0] : null);
       } else {
         // Loopback: no session row to carry an active team. Default to the first
         // workspace that actually HAS projects, so an imported/populated board

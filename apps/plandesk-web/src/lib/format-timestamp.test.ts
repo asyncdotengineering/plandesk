@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  formatAbsoluteTimestamp,
-  formatRelativeTimestamp,
-} from './format-timestamp.js';
+import { formatAbsoluteTimestamp, formatRelativeTimestamp } from './format-timestamp.js';
 
 describe('formatRelativeTimestamp', () => {
   const now = Date.parse('2026-08-03T12:00:00.000Z');

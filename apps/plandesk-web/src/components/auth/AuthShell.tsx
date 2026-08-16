@@ -15,7 +15,12 @@ export function BrandMark() {
         style={{ color: 'var(--primary)' }}
       >
         <rect x="1.5" y="1.5" width="29" height="29" rx="7" fill="currentColor" />
-        <path d="M11.5 12.5 20.5 19.5" stroke="var(--primary-foreground)" strokeWidth="2" strokeLinecap="round" />
+        <path
+          d="M11.5 12.5 20.5 19.5"
+          stroke="var(--primary-foreground)"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
         <circle cx="11" cy="12" r="3.4" fill="var(--primary-foreground)" />
         <circle cx="21" cy="20" r="3.4" fill="var(--primary-foreground)" />
       </svg>

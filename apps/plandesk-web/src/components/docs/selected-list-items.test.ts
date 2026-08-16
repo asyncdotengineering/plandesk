@@ -7,11 +7,7 @@ import { selectedListItems } from './selected-list-items.js';
 
 function makeEditor(html: string): Editor {
   return new Editor({
-    extensions: [
-      StarterKit,
-      TaskList,
-      TaskItem.configure({ nested: true }),
-    ],
+    extensions: [StarterKit, TaskList, TaskItem.configure({ nested: true })],
     content: html,
   });
 }
@@ -31,11 +27,7 @@ describe('selectedListItems', () => {
   it('returns one entry per selected bullet in document order', () => {
     editor = makeEditor('<ul><li><p>Alpha</p></li><li><p>Beta</p></li><li><p>Gamma</p></li></ul>');
     selectAll(editor);
-    expect(selectedListItems(editor).map((item) => item.text)).toEqual([
-      'Alpha',
-      'Beta',
-      'Gamma',
-    ]);
+    expect(selectedListItems(editor).map((item) => item.text)).toEqual(['Alpha', 'Beta', 'Gamma']);
   });
 
   it('collapses nested children into the parent text', () => {
@@ -54,13 +46,10 @@ describe('selectedListItems', () => {
   });
 
   it('extracts wiki-link text without corrupting the underlying link node', () => {
-    const html =
-      '<ul><li><p>See <a href="/documents/doc-1">the spec</a> then ship</p></li></ul>';
+    const html = '<ul><li><p>See <a href="/documents/doc-1">the spec</a> then ship</p></li></ul>';
     editor = makeEditor(html);
     selectAll(editor);
-    expect(selectedListItems(editor).map((item) => item.text)).toEqual([
-      'See the spec then ship',
-    ]);
+    expect(selectedListItems(editor).map((item) => item.text)).toEqual(['See the spec then ship']);
     expect(editor.getHTML()).toContain('href="/documents/doc-1"');
     expect(editor.getHTML()).toContain('the spec');
   });

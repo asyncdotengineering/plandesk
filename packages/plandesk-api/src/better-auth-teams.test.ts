@@ -358,7 +358,11 @@ describe('better-auth teams (workspace foundation)', () => {
   it('backfillProjectWorkspaces never resets a project already in a real non-default workspace', async () => {
     const db = await createDb(':memory:');
     await migrate(db);
-    const auth = createBetterAuth({ client: db.$client, secret: TEST_SECRET, baseURL: TEST_BASE_URL });
+    const auth = createBetterAuth({
+      client: db.$client,
+      secret: TEST_SECRET,
+      baseURL: TEST_BASE_URL,
+    });
     if (auth === undefined) throw new Error('expected better-auth');
     await runBetterAuthMigrations(auth);
 
@@ -374,7 +378,11 @@ describe('better-auth teams (workspace foundation)', () => {
     });
     await ensureDefaultTeamForOrg(auth, orgId);
     const clientTeam = await createTeamForOrg(auth, orgId, 'Client X');
-    const project = await createProject(db, { name: 'In Client X', orgId, workspaceId: clientTeam.id });
+    const project = await createProject(db, {
+      name: 'In Client X',
+      orgId,
+      workspaceId: clientTeam.id,
+    });
 
     // Backfill (as runs on every serve boot) must NOT reset a valid assignment.
     const res = await backfillProjectWorkspaces(db, auth);

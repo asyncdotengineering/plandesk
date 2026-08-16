@@ -5,9 +5,7 @@ import {
   type FilterNode,
   type FilterOperator,
 } from '@plandesk/db/saved-view-config';
-import {
-  type SerializedTask,
-} from '../../lib/api.js';
+import { type SerializedTask } from '../../lib/api.js';
 import { laneFromTags, LANE_TAG_PREFIX } from './board-utils.js';
 
 export type { FilterableField, FilterNode, FilterOperator };
@@ -59,9 +57,7 @@ export function operatorNeedsValue(operator: FilterOperator): boolean {
   return operator !== 'is_empty' && operator !== 'is_not_empty';
 }
 
-export function emptyFilterGroup(
-  op: 'and' | 'or' = 'and',
-): Extract<FilterNode, { kind: 'group' }> {
+export function emptyFilterGroup(op: 'and' | 'or' = 'and'): Extract<FilterNode, { kind: 'group' }> {
   return { kind: 'group', op, children: [] };
 }
 
@@ -234,10 +230,7 @@ export function evaluateFilter(task: SerializedTask, node: FilterNode): boolean 
 }
 
 /** Filter tasks by a root node. `null` means no filter (pass-through). */
-export function filterTasks(
-  tasks: SerializedTask[],
-  root: FilterNode | null,
-): SerializedTask[] {
+export function filterTasks(tasks: SerializedTask[], root: FilterNode | null): SerializedTask[] {
   if (root === null) {
     return tasks.slice();
   }

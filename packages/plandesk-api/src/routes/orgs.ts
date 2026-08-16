@@ -204,7 +204,10 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     const hasTeamId = typeof body.team_id === 'string' && body.team_id.trim() !== '';
 
     if (hasProjectId && hasTeamId) {
-      return invalidRequest(c, 'project_id and team_id are mutually exclusive — provide exactly one');
+      return invalidRequest(
+        c,
+        'project_id and team_id are mutually exclusive — provide exactly one',
+      );
     }
 
     if (hasProjectId) {

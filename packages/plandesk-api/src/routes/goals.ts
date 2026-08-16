@@ -110,7 +110,11 @@ export function createGoalsRouter(goalService: GoalService): Hono {
   router.post('/projects/:id/goals', async (c) => {
     const body = await c.req.json<CreateGoalBody>();
     if (typeof body.objective !== 'string' || body.objective.trim() === '') {
-      return invalidArgument(c, 'objective', 'objective is required and must be a non-empty string');
+      return invalidArgument(
+        c,
+        'objective',
+        'objective is required and must be a non-empty string',
+      );
     }
     if (body.status !== undefined && !isGoalStatus(body.status)) {
       return invalidArgument(c, 'status', 'status must be a valid goal status');

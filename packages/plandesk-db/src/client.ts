@@ -46,9 +46,7 @@ function normalizeUrl(path: string): string {
 export async function createDb(path: string, authToken?: string) {
   const url = normalizeUrl(path);
   const client = createClient(
-    authToken !== undefined && authToken.length > 0
-      ? { url, authToken }
-      : { url },
+    authToken !== undefined && authToken.length > 0 ? { url, authToken } : { url },
   );
   await client.execute('PRAGMA foreign_keys = ON');
   await client.execute('PRAGMA busy_timeout = 250');

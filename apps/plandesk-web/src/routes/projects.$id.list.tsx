@@ -16,9 +16,7 @@ import {
   useTasks,
   useViews,
 } from '../lib/queries.js';
-import {
-  validateTaskFilterSearch,
-} from '../lib/search.js';
+import { validateTaskFilterSearch } from '../lib/search.js';
 
 function ListSkeleton() {
   return (

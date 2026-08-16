@@ -310,9 +310,7 @@ describe('documents routes', () => {
       await app.request(`/api/v1/documents/${docA.id}`),
     );
     expect(getA.links.filter((l) => l.type === 'task')).toHaveLength(3);
-    expect(getA.links.map((l) => l.id).sort()).toEqual(
-      [t1.id, t2.id, t3.id, docB.id].sort(),
-    );
+    expect(getA.links.map((l) => l.id).sort()).toEqual([t1.id, t2.id, t3.id, docB.id].sort());
     expect(getA.links).toContainEqual(
       expect.objectContaining({
         type: 'document',

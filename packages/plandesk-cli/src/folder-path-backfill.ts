@@ -8,7 +8,9 @@ import { getProject, updateProject, type Db } from '@plandesk/db';
 export async function backfillRepoFolderPathFromCwd(
   db: Db,
   cwd: string = process.cwd(),
-): Promise<{ projectId: string; folderPath: string; status: 'set' | 'unchanged' | 'conflict' } | undefined> {
+): Promise<
+  { projectId: string; folderPath: string; status: 'set' | 'unchanged' | 'conflict' } | undefined
+> {
   const plandeskDir = findLocalPlandeskDir(cwd);
   if (plandeskDir === undefined) {
     return undefined;

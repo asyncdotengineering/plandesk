@@ -30,7 +30,11 @@ export function readCliConfig(home = homedir()): CliConfig | undefined {
   const path = cliConfigPath(home);
   if (!existsSync(path)) return undefined;
   const value = JSON.parse(readFileSync(path, 'utf8')) as Partial<CliConfig>;
-  if (typeof value.server !== 'string' || typeof value.token !== 'string' || typeof value.orgId !== 'string') {
+  if (
+    typeof value.server !== 'string' ||
+    typeof value.token !== 'string' ||
+    typeof value.orgId !== 'string'
+  ) {
     throw new ConfigFileError(`${path}: invalid CLI config`);
   }
   return { server: value.server, token: value.token, orgId: value.orgId };
@@ -63,9 +67,7 @@ export type S3ServerConfig = {
   endpoint?: string;
 };
 
-export type StorageServerConfig =
-  | { kind: 'local' }
-  | ({ kind: 's3' } & S3ServerConfig);
+export type StorageServerConfig = { kind: 'local' } | ({ kind: 's3' } & S3ServerConfig);
 
 export type ServerConfig = {
   /** Remote libSQL/Turso URL. Unset → local file SQLite (the local topology). */
@@ -193,11 +195,7 @@ function assertObject(value: unknown, file: string, key: string): Record<string,
   return value as Record<string, unknown>;
 }
 
-function assertString(
-  value: unknown,
-  file: string,
-  key: string,
-): string {
+function assertString(value: unknown, file: string, key: string): string {
   if (typeof value !== 'string') {
     throw new ConfigFileError(`${file}: "${key}" must be a string`);
   }
@@ -309,7 +307,10 @@ function resolveStorage(
   env: NodeJS.ProcessEnv,
   filePath: string | undefined,
 ): { storage: StorageServerConfig; source: ConfigSource } {
-  const fileStorage = file?.storage !== undefined ? parseStorageFromFile(file.storage, filePath ?? '<file>') : undefined;
+  const fileStorage =
+    file?.storage !== undefined
+      ? parseStorageFromFile(file.storage, filePath ?? '<file>')
+      : undefined;
 
   const envKind = env.PLANDESK_STORAGE;
   if (envKind !== undefined && envKind !== 's3' && envKind !== 'local') {
@@ -319,7 +320,8 @@ function resolveStorage(
   // The selector: environment wins, then the file, then local default.
   const wantS3 = envKind === 's3' || fileStorage?.kind === 's3';
   if (!wantS3) {
-    const source: ConfigSource = envKind === 'local' ? 'env' : fileStorage !== undefined ? 'file' : 'default';
+    const source: ConfigSource =
+      envKind === 'local' ? 'env' : fileStorage !== undefined ? 'file' : 'default';
     return { storage: { kind: 'local' }, source };
   }
 
@@ -331,14 +333,23 @@ function resolveStorage(
   const secretAccessKey = trim(env.PLANDESK_S3_SECRET_ACCESS_KEY) ?? fromFile?.secretAccessKey;
   const endpoint = trim(env.PLANDESK_S3_ENDPOINT) ?? fromFile?.endpoint;
 
-  if (bucket === undefined || region === undefined || accessKeyId === undefined || secretAccessKey === undefined) {
+  if (
+    bucket === undefined ||
+    region === undefined ||
+    accessKeyId === undefined ||
+    secretAccessKey === undefined
+  ) {
     throw new Error(
       'storage=s3 requires PLANDESK_S3_BUCKET, PLANDESK_S3_REGION, PLANDESK_S3_ACCESS_KEY_ID, and ' +
         'PLANDESK_S3_SECRET_ACCESS_KEY (env, or storage.* in plandesk.server.json).',
     );
   }
-  const source: ConfigSource = envKind === 's3' || env.PLANDESK_S3_BUCKET !== undefined ? 'env' : 'file';
-  return { storage: { kind: 's3', bucket, region, accessKeyId, secretAccessKey, endpoint }, source };
+  const source: ConfigSource =
+    envKind === 's3' || env.PLANDESK_S3_BUCKET !== undefined ? 'env' : 'file';
+  return {
+    storage: { kind: 's3', bucket, region, accessKeyId, secretAccessKey, endpoint },
+    source,
+  };
 }
 
 function resolveGithub(
@@ -346,7 +357,8 @@ function resolveGithub(
   env: NodeJS.ProcessEnv,
   filePath: string | undefined,
 ): { github: GithubServerConfig | undefined; source: ConfigSource } {
-  const fileGithub = file?.github !== undefined ? parseGithubFromFile(file.github, filePath ?? '<file>') : undefined;
+  const fileGithub =
+    file?.github !== undefined ? parseGithubFromFile(file.github, filePath ?? '<file>') : undefined;
   const clientId = trim(env.PLANDESK_GITHUB_CLIENT_ID) ?? fileGithub?.clientId;
   const clientSecret = trim(env.PLANDESK_GITHUB_CLIENT_SECRET) ?? fileGithub?.clientSecret;
   const callbackUrl = trim(env.PLANDESK_GITHUB_CALLBACK_URL) ?? fileGithub?.callbackUrl;
@@ -365,7 +377,12 @@ function resolveGithub(
   }
   const source: ConfigSource = env.PLANDESK_GITHUB_CLIENT_ID !== undefined ? 'env' : 'file';
   return {
-    github: { clientId: clientId as string, clientSecret: clientSecret as string, callbackUrl: callbackUrl as string, dashboardUrl },
+    github: {
+      clientId: clientId as string,
+      clientSecret: clientSecret as string,
+      callbackUrl: callbackUrl as string,
+      dashboardUrl,
+    },
     source,
   };
 }
@@ -410,7 +427,11 @@ export function resolveServerConfig(opts: ResolveServerConfigOptions = {}): Reso
   // --- port ---
   let port: number;
   const envPortRaw = env.PLANDESK_PORT;
-  if (envPortRaw !== undefined && envPortRaw.trim() !== '' && Number.isInteger(Number(envPortRaw))) {
+  if (
+    envPortRaw !== undefined &&
+    envPortRaw.trim() !== '' &&
+    Number.isInteger(Number(envPortRaw))
+  ) {
     const n = Number(envPortRaw);
     if (n >= 0 && n <= 65535) {
       port = n;

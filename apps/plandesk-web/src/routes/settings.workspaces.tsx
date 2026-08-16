@@ -19,7 +19,10 @@ function WorkspacesSettingsPage() {
           >
             Members
           </Link>
-          <Link to="/settings/workspaces" className="font-medium text-foreground underline-offset-4">
+          <Link
+            to="/settings/workspaces"
+            className="font-medium text-foreground underline-offset-4"
+          >
             Workspaces
           </Link>
           <Link

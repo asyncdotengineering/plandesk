@@ -1,11 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import {
-  createDb,
-  createTaskWithDefaultGoal as createTask,
-  migrate,
-  type Db,
-} from '@plandesk/db';
+import { createDb, createTaskWithDefaultGoal as createTask, migrate, type Db } from '@plandesk/db';
 import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
 import type { Hono } from 'hono';
 import {
@@ -165,7 +160,11 @@ describe('workspace-scoped agent keys (cross-workspace isolation)', () => {
     const org = { id: randomUUID(), name: 'WS Org' };
     const wsA = randomUUID();
     const wsB = randomUUID();
-    const projectA = await createProject(db, { name: 'Project A', orgId: org.id, workspaceId: wsA });
+    const projectA = await createProject(db, {
+      name: 'Project A',
+      orgId: org.id,
+      workspaceId: wsA,
+    });
     await createProject(db, { name: 'Project B', orgId: org.id, workspaceId: wsB });
 
     const { userId } = await seedBetterAuthUser(auth, {
@@ -206,8 +205,16 @@ describe('workspace-scoped agent keys (cross-workspace isolation)', () => {
     const org = { id: randomUUID(), name: 'WS2 Org' };
     const wsA = randomUUID();
     const wsB = randomUUID();
-    const projectA = await createProject(db, { name: 'Project A', orgId: org.id, workspaceId: wsA });
-    const projectB = await createProject(db, { name: 'Project B', orgId: org.id, workspaceId: wsB });
+    const projectA = await createProject(db, {
+      name: 'Project A',
+      orgId: org.id,
+      workspaceId: wsA,
+    });
+    const projectB = await createProject(db, {
+      name: 'Project B',
+      orgId: org.id,
+      workspaceId: wsB,
+    });
     const taskB = await createTask(db, {
       projectId: projectB.id,
       label: 'On B',
@@ -262,8 +269,16 @@ describe('workspace-scoped agent keys (cross-workspace isolation)', () => {
     const org = { id: randomUUID(), name: 'Owner WS Org' };
     const wsA = randomUUID();
     const wsB = randomUUID();
-    const projectA = await createProject(db, { name: 'Project A', orgId: org.id, workspaceId: wsA });
-    const projectB = await createProject(db, { name: 'Project B', orgId: org.id, workspaceId: wsB });
+    const projectA = await createProject(db, {
+      name: 'Project A',
+      orgId: org.id,
+      workspaceId: wsA,
+    });
+    const projectB = await createProject(db, {
+      name: 'Project B',
+      orgId: org.id,
+      workspaceId: wsB,
+    });
 
     const { userId } = await seedBetterAuthUser(auth, {
       email: 'owner-ws@example.com',
@@ -306,8 +321,16 @@ describe('workspace-scoped agent keys (cross-workspace isolation)', () => {
     const org = { id: randomUUID(), name: 'Proj WS Org' };
     const wsA = randomUUID();
     const wsB = randomUUID();
-    const projectA = await createProject(db, { name: 'Project A', orgId: org.id, workspaceId: wsA });
-    const projectB = await createProject(db, { name: 'Project B', orgId: org.id, workspaceId: wsB });
+    const projectA = await createProject(db, {
+      name: 'Project A',
+      orgId: org.id,
+      workspaceId: wsA,
+    });
+    const projectB = await createProject(db, {
+      name: 'Project B',
+      orgId: org.id,
+      workspaceId: wsB,
+    });
 
     const { userId } = await seedBetterAuthUser(auth, {
       email: 'proj-ws@example.com',
@@ -341,17 +364,26 @@ describe('workspace-scoped agent keys (cross-workspace isolation)', () => {
   });
 
   it('5: readApiKeyMetadata maps teamId → workspaceId; key with neither → both undefined', () => {
-    expect(
-      readApiKeyMetadata({ orgId: 'o1', teamId: 't1' }),
-    ).toEqual({ orgId: 'o1', projectId: undefined, workspaceId: 't1', kind: 'agent' });
+    expect(readApiKeyMetadata({ orgId: 'o1', teamId: 't1' })).toEqual({
+      orgId: 'o1',
+      projectId: undefined,
+      workspaceId: 't1',
+      kind: 'agent',
+    });
 
-    expect(
-      readApiKeyMetadata({ orgId: 'o1', projectId: 'p1' }),
-    ).toEqual({ orgId: 'o1', projectId: 'p1', workspaceId: undefined, kind: 'agent' });
+    expect(readApiKeyMetadata({ orgId: 'o1', projectId: 'p1' })).toEqual({
+      orgId: 'o1',
+      projectId: 'p1',
+      workspaceId: undefined,
+      kind: 'agent',
+    });
 
-    expect(
-      readApiKeyMetadata({ orgId: 'o1', kind: 'owner' }),
-    ).toEqual({ orgId: 'o1', projectId: undefined, workspaceId: undefined, kind: 'owner' });
+    expect(readApiKeyMetadata({ orgId: 'o1', kind: 'owner' })).toEqual({
+      orgId: 'o1',
+      projectId: undefined,
+      workspaceId: undefined,
+      kind: 'owner',
+    });
 
     expect(readApiKeyMetadata(null)).toEqual({
       orgId: undefined,
@@ -412,7 +444,11 @@ describe('loopback workspace scoping (local convenience)', () => {
     const org = { id: randomUUID(), name: 'Header Ignore Org' };
     const wsA = randomUUID();
     const wsB = randomUUID();
-    const projectA = await createProject(db, { name: 'Project A', orgId: org.id, workspaceId: wsA });
+    const projectA = await createProject(db, {
+      name: 'Project A',
+      orgId: org.id,
+      workspaceId: wsA,
+    });
     await createProject(db, { name: 'Project B', orgId: org.id, workspaceId: wsB });
 
     const { userId } = await seedBetterAuthUser(auth, {

@@ -95,7 +95,10 @@ describe('resolveServerConfig — precedence env > file > default (REQ-2)', () =
 
   it('resolves from a config file alone with no env (REQ-1, server boots from file alone)', () => {
     const dataDir = makeDataDir();
-    writeConfig(dataDir, JSON.stringify({ host: '0.0.0.0', port: 4002, baseUrl: 'https://pd.test' }));
+    writeConfig(
+      dataDir,
+      JSON.stringify({ host: '0.0.0.0', port: 4002, baseUrl: 'https://pd.test' }),
+    );
     const resolved = resolveServerConfig({ dataDir, env: {} });
     expect(resolved.values.host).toBe('0.0.0.0');
     expect(resolved.values.port).toBe(4002);
@@ -181,7 +184,13 @@ describe('resolveServerConfig — storage', () => {
     writeConfig(
       dataDir,
       JSON.stringify({
-        storage: { kind: 's3', bucket: 'fb', region: 'r', accessKeyId: 'fak', secretAccessKey: 'fsk' },
+        storage: {
+          kind: 's3',
+          bucket: 'fb',
+          region: 'r',
+          accessKeyId: 'fak',
+          secretAccessKey: 'fsk',
+        },
       }),
     );
     const resolved = resolveServerConfig({
@@ -217,14 +226,21 @@ describe('resolveServerConfig — github', () => {
       }),
     );
     const resolved = resolveServerConfig({ dataDir, env: {} });
-    expect(resolved.values.github).toEqual({ clientId: 'cid', clientSecret: 'cs', callbackUrl: 'https://app/cb', dashboardUrl: undefined });
+    expect(resolved.values.github).toEqual({
+      clientId: 'cid',
+      clientSecret: 'cs',
+      callbackUrl: 'https://app/cb',
+      dashboardUrl: undefined,
+    });
     expect(resolved.sources.github).toBe('file');
   });
 
   it('partial github throws (all-or-nothing)', () => {
     const dataDir = makeDataDir();
     writeConfig(dataDir, JSON.stringify({ github: { clientId: 'cid' } }));
-    expect(() => resolveServerConfig({ dataDir, env: {} })).toThrow(/clientId, clientSecret and callbackUrl together/);
+    expect(() => resolveServerConfig({ dataDir, env: {} })).toThrow(
+      /clientId, clientSecret and callbackUrl together/,
+    );
   });
 });
 
@@ -246,7 +262,9 @@ describe('resolveServerConfig — malformed file (clear error naming file + key)
   it('wrong-typed port names the key', () => {
     const dataDir = makeDataDir();
     writeConfig(dataDir, JSON.stringify({ port: 'not-a-port' }));
-    expect(() => resolveServerConfig({ dataDir, env: {} })).toThrow(/"port" must be an integer port/);
+    expect(() => resolveServerConfig({ dataDir, env: {} })).toThrow(
+      /"port" must be an integer port/,
+    );
   });
 });
 

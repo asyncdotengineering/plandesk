@@ -38,7 +38,11 @@ import { createBetterAuth, runBetterAuthMigrations } from '../better-auth.js';
 import { createTeamForOrg, ensureLocalBetterAuthOrganization } from '../identity.js';
 import { runWithAuthContext, type AuthContext } from '../auth-context.js';
 import { DEFAULT_AGENT_KEY_PERMISSIONS, DEFAULT_OWNER_KEY_PERMISSIONS } from '../agent-keys.js';
-import { createProjectService, InvalidScaffoldError, InvalidOverviewDocumentError } from './projects.js';
+import {
+  createProjectService,
+  InvalidScaffoldError,
+  InvalidOverviewDocumentError,
+} from './projects.js';
 import { createTaskService, InvalidGoalReferenceError } from './tasks.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
@@ -100,11 +104,7 @@ describe('projectService', () => {
     });
   }
 
-  async function seedOldestInactiveGoal(
-    projectId: string,
-    status: GoalStatus,
-    objective: string,
-  ) {
+  async function seedOldestInactiveGoal(projectId: string, status: GoalStatus, objective: string) {
     const inactive = await createGoal(db, {
       projectId,
       objective,
@@ -161,9 +161,9 @@ describe('projectService', () => {
       }),
     );
     expect(scaffold.project.workspace_id).toBe(workspaceId);
-    expect(
-      (await runWithAuthContext(context, () => service.list())).map((p) => p.id),
-    ).toContain(scaffold.project.id);
+    expect((await runWithAuthContext(context, () => service.list())).map((p) => p.id)).toContain(
+      scaffold.project.id,
+    );
 
     const roundTrip = await runWithAuthContext(context, () =>
       service.scaffoldFromPlan({
@@ -239,9 +239,9 @@ describe('projectService', () => {
       overview_document_id: doc.id,
     });
 
-    await expect(
-      service.update(created.id, { overviewDocumentId: foreignDoc.id }),
-    ).rejects.toThrow(InvalidOverviewDocumentError);
+    await expect(service.update(created.id, { overviewDocumentId: foreignDoc.id })).rejects.toThrow(
+      InvalidOverviewDocumentError,
+    );
   });
 
   it('REVERT-PROOF: cross-org get/update of owner and overview is denied', async () => {
@@ -478,33 +478,39 @@ describe('projectService', () => {
 
   it('rejects duplicate task keys and persists nothing', async () => {
     const service = await createService();
-    await expect(service.scaffoldFromPlan({
+    await expect(
+      service.scaffoldFromPlan({
         name: 'Dup',
         tasks: [
           { key: 'dup', label: 'One' },
           { key: 'dup', label: 'Two' },
         ],
-      }),).rejects.toThrow(InvalidScaffoldError);
+      }),
+    ).rejects.toThrow(InvalidScaffoldError);
     expect(await service.list()).toHaveLength(0);
   });
 
   it('rejects unknown edge keys and persists nothing', async () => {
     const service = await createService();
-    await expect(service.scaffoldFromPlan({
+    await expect(
+      service.scaffoldFromPlan({
         name: 'Bad edge',
         tasks: [{ key: 'a', label: 'A' }],
         edges: [{ from: 'a', to: 'missing' }],
-      }),).rejects.toThrow(InvalidScaffoldError);
+      }),
+    ).rejects.toThrow(InvalidScaffoldError);
     expect(await service.list()).toHaveLength(0);
   });
 
   it('rejects self-edges and persists nothing', async () => {
     const service = await createService();
-    await expect(service.scaffoldFromPlan({
+    await expect(
+      service.scaffoldFromPlan({
         name: 'Self',
         tasks: [{ key: 'a', label: 'A' }],
         edges: [{ from: 'a', to: 'a' }],
-      }),).rejects.toThrow(InvalidScaffoldError);
+      }),
+    ).rejects.toThrow(InvalidScaffoldError);
     expect(await service.list()).toHaveLength(0);
   });
 

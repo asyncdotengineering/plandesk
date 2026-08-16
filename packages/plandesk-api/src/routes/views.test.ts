@@ -177,16 +177,9 @@ describe('views routes', () => {
 
   it('denies cross-org HTTP read and write of a view', async () => {
     const { randomUUID } = await import('node:crypto');
-    const {
-      createDb,
-      migrate,
-      createProject,
-    } = await import('@plandesk/db');
-    const {
-      createBetterAuth,
-      createOrgOwnerKey,
-      runBetterAuthMigrations,
-    } = await import('../index.js');
+    const { createDb, migrate, createProject } = await import('@plandesk/db');
+    const { createBetterAuth, createOrgOwnerKey, runBetterAuthMigrations } =
+      await import('../index.js');
     const { createApp } = await import('../server.js');
 
     const db = await createDb(':memory:');

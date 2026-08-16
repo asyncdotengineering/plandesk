@@ -62,7 +62,10 @@ describe('folders repository', () => {
   it('renames and re-parents a folder and bumps updated_at', async () => {
     const parent = await createFolder(db, { projectId, name: 'Parent' });
     const created = await createFolder(db, { projectId, name: 'Before' });
-    const updated = await updateFolder(db, created.id, { name: 'After', parentFolderId: parent.id });
+    const updated = await updateFolder(db, created.id, {
+      name: 'After',
+      parentFolderId: parent.id,
+    });
     expect(updated?.name).toBe('After');
     expect(updated?.parentFolderId).toBe(parent.id);
     expect(updated?.updatedAt.getTime()).toBeGreaterThanOrEqual(created.updatedAt.getTime());

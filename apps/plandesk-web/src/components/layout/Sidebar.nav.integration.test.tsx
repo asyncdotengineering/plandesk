@@ -52,7 +52,11 @@ function stubFetch() {
       if (url.endsWith('/auth/session')) return ok(session);
       if (url.endsWith('/workspaces')) return ok({ workspaces: session.workspaces });
       if (url.endsWith('/projects') && method === 'GET') return ok([project]);
-      if (url.includes('/projects/proj-1') && !url.includes('/documents') && !url.includes('/tasks')) {
+      if (
+        url.includes('/projects/proj-1') &&
+        !url.includes('/documents') &&
+        !url.includes('/tasks')
+      ) {
         return ok(project);
       }
       if (url.endsWith('/projects/proj-1/documents')) return ok([sampleDocument]);

@@ -1,10 +1,5 @@
 import type { OrgRole } from '@plandesk/db';
-import {
-  admin,
-  member,
-  owner,
-  type statement,
-} from './access-control.js';
+import { admin, member, owner, type statement } from './access-control.js';
 
 export type PermissionSet = Record<string, readonly string[]>;
 export type PermissionResource = keyof typeof statement;

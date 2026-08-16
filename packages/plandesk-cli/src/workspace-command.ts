@@ -69,9 +69,7 @@ async function fetchWorkspaces(
     { headers },
   );
   if (!response.ok) {
-    throw new WorkspaceCommandError(
-      `Failed to list workspaces (${String(response.status)}).`,
-    );
+    throw new WorkspaceCommandError(`Failed to list workspaces (${String(response.status)}).`);
   }
   const body = (await response.json()) as { workspaces: WorkspaceSummary[] };
   return body.workspaces;
@@ -95,18 +93,13 @@ export async function createWorkspaceViaApi(
     },
   );
   if (!response.ok) {
-    throw new WorkspaceCommandError(
-      `Failed to create workspace (${String(response.status)}).`,
-    );
+    throw new WorkspaceCommandError(`Failed to create workspace (${String(response.status)}).`);
   }
   const body = (await response.json()) as { id: string; name: string };
   return { id: body.id, name: body.name };
 }
 
-export async function runWorkspaceList(options: {
-  repoDir: string;
-  to?: string;
-}): Promise<void> {
+export async function runWorkspaceList(options: { repoDir: string; to?: string }): Promise<void> {
   const orgId = resolveOrgId(options.to);
   const serverUrl = resolveServerUrl(options.to, options.repoDir);
 

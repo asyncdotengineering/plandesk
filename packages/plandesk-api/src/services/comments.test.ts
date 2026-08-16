@@ -22,7 +22,7 @@ describe('commentService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-    let projectId = '';
+  let projectId = '';
   let orgId = '';
   let documentId = '';
   let taskId = '';
@@ -118,9 +118,9 @@ describe('commentService', () => {
 
   it('rejects empty body on create and update', async () => {
     const service = createService();
-    await expect(service.create({ type: 'document', id: documentId }, { body: '   ' })).rejects.toThrow(
-      InvalidCommentError,
-    );
+    await expect(
+      service.create({ type: 'document', id: documentId }, { body: '   ' }),
+    ).rejects.toThrow(InvalidCommentError);
 
     const created = await createComment(db, {
       projectId,
@@ -147,9 +147,9 @@ describe('commentService', () => {
     });
     await service.update(resolved.id, { resolved: true });
 
-    expect((await service.listByTarget({ type: 'document', id: documentId }))?.map((c) => c.id)).toEqual([
-      open.id,
-    ]);
+    expect(
+      (await service.listByTarget({ type: 'document', id: documentId }))?.map((c) => c.id),
+    ).toEqual([open.id]);
     expect(
       await service.listByTarget({ type: 'document', id: documentId }, { includeResolved: true }),
     ).toHaveLength(2);
@@ -197,6 +197,8 @@ describe('commentService', () => {
     expect(updated?.resolved).toBe(true);
 
     expect(await service.delete(created.id)).toBe(true);
-    expect(await listCommentsByTarget(db, 'task', taskId, { includeResolved: true })).toHaveLength(0);
+    expect(await listCommentsByTarget(db, 'task', taskId, { includeResolved: true })).toHaveLength(
+      0,
+    );
   });
 });

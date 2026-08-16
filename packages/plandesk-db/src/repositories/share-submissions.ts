@@ -30,7 +30,10 @@ export type CreateGuestSubmissionInput = {
   taskRef?: string | null;
 };
 
-export async function upsertSubmission(db: DbClient, input: UpsertSubmissionInput): Promise<boolean> {
+export async function upsertSubmission(
+  db: DbClient,
+  input: UpsertSubmissionInput,
+): Promise<boolean> {
   const result = await db
     .insert(shareSubmissions)
     .values({

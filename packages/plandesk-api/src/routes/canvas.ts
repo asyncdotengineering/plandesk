@@ -43,7 +43,10 @@ export function createCanvasRouter(canvasService: CanvasService): Hono {
         typeof (edge as { from_task_id?: unknown }).from_task_id !== 'string' ||
         typeof (edge as { to_task_id?: unknown }).to_task_id !== 'string'
       ) {
-        return invalidRequest(c, 'each edge must be an object with string from_task_id and to_task_id');
+        return invalidRequest(
+          c,
+          'each edge must be an object with string from_task_id and to_task_id',
+        );
       }
     }
 

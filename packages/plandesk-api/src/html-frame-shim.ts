@@ -85,7 +85,8 @@ export function offsetsToRange(root: Node, start: number, end: number): Range | 
   const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let node = walker.nextNode();
   while (node !== null) {
-    const text = node.textContent === null || node.textContent === undefined ? '' : node.textContent;
+    const text =
+      node.textContent === null || node.textContent === undefined ? '' : node.textContent;
     const len = text.length;
     if (!startSet && pos + len >= start) {
       range.setStart(node, start - pos);
@@ -178,7 +179,8 @@ export function installHtmlFrameShim(): void {
           }
           p = p.parentNode;
         }
-        var nElText = nEl.textContent === null || nEl.textContent === undefined ? '' : nEl.textContent;
+        var nElText =
+          nEl.textContent === null || nEl.textContent === undefined ? '' : nEl.textContent;
         if (hit) {
           if (!inside) {
             inside = true;
@@ -333,13 +335,16 @@ export function installHtmlFrameShim(): void {
     Function.prototype.apply.call(origError, console, args);
   };
 
-  document.addEventListener('securitypolicyviolation', function (event: SecurityPolicyViolationEvent) {
-    post({
-      kind: 'plandesk:blocked',
-      directive: event.violatedDirective,
-      blockedUri: event.blockedURI,
-    });
-  });
+  document.addEventListener(
+    'securitypolicyviolation',
+    function (event: SecurityPolicyViolationEvent) {
+      post({
+        kind: 'plandesk:blocked',
+        directive: event.violatedDirective,
+        blockedUri: event.blockedURI,
+      });
+    },
+  );
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', reportReady);

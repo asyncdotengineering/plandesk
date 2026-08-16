@@ -1,12 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type Db } from '../client.js';
 import { migrate } from '../migrate.js';
-import {
-  deleteProject,
-  getProject,
-  updateProject,
-  clearOverviewDocumentRefs,
-} from './projects.js';
+import { deleteProject, getProject, updateProject, clearOverviewDocumentRefs } from './projects.js';
 import { createDocument, deleteDocument } from './documents.js';
 import { listProjectsInDefaultOrg as listProjects } from '../testing.js';
 import { createProjectInDefaultOrg as createProject } from '../testing.js';

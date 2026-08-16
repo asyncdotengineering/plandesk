@@ -1,12 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import {
-  createAgentRun,
-  createDb,
-  migrate,
-  type Db,
-} from '@plandesk/db';
+import { createAgentRun, createDb, migrate, type Db } from '@plandesk/db';
 import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
 import { createScopedAgentKey } from './agent-keys.js';
 import { tryGetAuthContext } from './auth-context.js';
@@ -164,11 +159,14 @@ function createActorProbeApp(db: Db, auth: BetterAuthInstance): Hono {
       });
     } catch (error) {
       if (error instanceof WriteActorUnresolvedError) {
-        return c.json({
-          ok: false,
-          error: 'actor_unresolved',
-          agentRunId: ctx?.kind === 'apikey' ? ctx.agentRunId : undefined,
-        }, 403);
+        return c.json(
+          {
+            ok: false,
+            error: 'actor_unresolved',
+            agentRunId: ctx?.kind === 'apikey' ? ctx.agentRunId : undefined,
+          },
+          403,
+        );
       }
       throw error;
     }

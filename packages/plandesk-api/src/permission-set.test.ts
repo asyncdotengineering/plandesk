@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { admin, member, owner } from './access-control.js';
-import {
-  hasAnyWritePermission,
-  hasPermission,
-  orgRoleToPermissionSet,
-} from './permissions.js';
+import { hasAnyWritePermission, hasPermission, orgRoleToPermissionSet } from './permissions.js';
 
 describe('permission set ladder equivalence', () => {
   it('member denies project:create; admin allows project:create, denies member:create; owner allows member:create', () => {

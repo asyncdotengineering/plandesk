@@ -113,7 +113,9 @@ describe('linkEntityTypes single definition', () => {
   });
 
   it('lists artifacts and prototypes for the link picker', async () => {
-    mockFetch([{ id: 'art-1', title: 'Screen', kind: 'html', updated_at: '2026-08-02T00:00:00.000Z' }]);
+    mockFetch([
+      { id: 'art-1', title: 'Screen', kind: 'html', updated_at: '2026-08-02T00:00:00.000Z' },
+    ]);
     await expect(listArtifacts('proj-1')).resolves.toEqual([
       { id: 'art-1', title: 'Screen', kind: 'html', updated_at: '2026-08-02T00:00:00.000Z' },
     ]);
@@ -130,7 +132,9 @@ describe('linkEntityTypes single definition', () => {
         updated_at: '2026-08-02T00:00:00.000Z',
       },
     ]);
-    await expect(listPrototypes('proj-1')).resolves.toMatchObject([{ id: 'proto-1', name: 'Checkout' }]);
+    await expect(listPrototypes('proj-1')).resolves.toMatchObject([
+      { id: 'proto-1', name: 'Checkout' },
+    ]);
     expectFetchCall('/api/v1/projects/proj-1/prototypes');
   });
 });
@@ -444,12 +448,7 @@ describe('api client', () => {
   });
 
   it('listRevisions / getRevision / diffRevision / restoreRevision hit the content-history routes', async () => {
-    const {
-      listRevisions,
-      getRevision,
-      diffRevision,
-      restoreRevision,
-    } = await import('./api.js');
+    const { listRevisions, getRevision, diffRevision, restoreRevision } = await import('./api.js');
 
     mockFetch([
       {
@@ -460,9 +459,7 @@ describe('api client', () => {
       },
     ]);
     await listRevisions('proj-1', 'task', 'task-1');
-    expectFetchCall(
-      '/api/v1/projects/proj-1/revisions?target_type=task&target_id=task-1',
-    );
+    expectFetchCall('/api/v1/projects/proj-1/revisions?target_type=task&target_id=task-1');
 
     mockFetch({
       id: 'rev-1',

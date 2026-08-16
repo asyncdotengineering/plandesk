@@ -180,7 +180,11 @@ export function createProjectsRouter(
 
     if (body.workspace_id !== undefined && body.workspace_id !== null) {
       if (typeof body.workspace_id !== 'string' || body.workspace_id.trim() === '') {
-        return invalidArgument(c, 'workspace_id', 'workspace_id is required and must be a non-empty string');
+        return invalidArgument(
+          c,
+          'workspace_id',
+          'workspace_id is required and must be a non-empty string',
+        );
       }
       try {
         const moved = await projectService.moveProjectToWorkspace(
@@ -250,11 +254,7 @@ export function createProjectsRouter(
       return invalidArgument(c, 'kind', 'kind must be a valid task kind');
     }
 
-    if (
-      body.priority !== undefined &&
-      body.priority !== null &&
-      !isTaskPriority(body.priority)
-    ) {
+    if (body.priority !== undefined && body.priority !== null && !isTaskPriority(body.priority)) {
       return invalidArgument(c, 'priority', 'priority must be a valid task priority');
     }
 

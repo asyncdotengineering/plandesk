@@ -66,7 +66,7 @@ All notable changes to Plan Desk are documented here.
 
   Depth-bounded and skips `node_modules`, `.git`, `dist` and friends: an unbounded walk of a home directory spends most of its time inside dependency trees, and a checkout vendored under one is not a project anyone wants swept.
 
-  Discovery is read-only. Only `--write` records a root — a dry run that quietly mutated the registry would be a dry run in name only, so a bare `--all --scan` previews the repos it *would* register and touch.
+  Discovery is read-only. Only `--write` records a root — a dry run that quietly mutated the registry would be a dry run in name only, so a bare `--all --scan` previews the repos it _would_ register and touch.
 
   An empty registry reports what to do about it rather than "0 synced".
 
@@ -90,7 +90,7 @@ Major because three surfaces changed shape in ways a consumer can depend on. Eve
 
 ### Breaking
 
-- **`get_next_task` resolves one goal instead of unioning all of them.** It previously returned the next actionable task across *every* active goal, which silently interleaved unrelated workstreams — the caller could not tell which goal a returned task belonged to, and a second active goal changed the answer without anything on the board looking different.
+- **`get_next_task` resolves one goal instead of unioning all of them.** It previously returned the next actionable task across _every_ active goal, which silently interleaved unrelated workstreams — the caller could not tell which goal a returned task belonged to, and a second active goal changed the answer without anything on the board looking different.
 
   It now resolves a single current goal: the project's `current_goal_id` if set, otherwise the sole active goal. When neither holds it returns `next_task: null` with a `reason` of `no_active_goal` or `ambiguous_goal`, and `ambiguous_goal` carries an `ambiguous_goals` array so the caller can pick.
 
@@ -122,13 +122,13 @@ Prototypes — named flows of HTML screens with a declared viewport, canvas layo
 
 ### Changed
 
-- **`plandesk-groom-task` states the root-cause rule for bugs plainly.** The Definition of Ready already failed "a symptom with no located cause", but that read as an aside and no skill used the word *bug*.
+- **`plandesk-groom-task` states the root-cause rule for bugs plainly.** The Definition of Ready already failed "a symptom with no located cause", but that read as an aside and no skill used the word _bug_.
 
   A bug is now ready when its Problem carries **either** the located cause — file, function, why it misbehaves — **or** a reproduction plus what has already been ruled out. Never a guess dressed as a cause: a guessed cause is worse than an absent one, because the worker inherits it as evidence, scopes the fix to it, and the real defect survives with a test pinned to the wrong explanation.
 
   The bug fixed in this same release is the worked example — groomed from its symptom it becomes "fix the link", and that fix would have pointed at nothing.
 
-  Also states that an investigation is a legitimate task shape rather than an ungroomed one: when the cause is unknown the deliverable *is* the cause, and its validation contract is a reproduction and a written finding, not a fix.
+  Also states that an investigation is a legitimate task shape rather than an ungroomed one: when the cause is unknown the deliverable _is_ the cause, and its validation contract is a reproduction and a written finding, not a fix.
 
 - **`plandesk-foreman` names `create_share_link` again when handing off.** 2.3.3 rewrote the dispatch step to add the WBS snapshot and, in doing so, replaced the explicit minting instruction with the phrase "a live `Context:` link" — leaving `protocol.md` as the only place naming the tool, in a table cell.
 
@@ -152,7 +152,7 @@ Both changes came out of reviewing how Linear and Notion structure engineering p
 
 ### Added
 
-- **`plandesk-scope-work` converts a written decomposition instead of re-deriving one.** A `Design:` document from `plandesk-plan-writer` ends with a numbered decomposition sketch in landing order — that sketch *is* the WBS. Scope-work was reading past it and rebuilding one from the surrounding prose.
+- **`plandesk-scope-work` converts a written decomposition instead of re-deriving one.** A `Design:` document from `plandesk-plan-writer` ends with a numbered decomposition sketch in landing order — that sketch _is_ the WBS. Scope-work was reading past it and rebuilding one from the surrounding prose.
 
   Re-deriving a decomposition someone already reasoned through is how a plan quietly becomes a different plan: the author's sequencing carried an argument, and whichever part of it you did not re-read is the part you lose. `plan` mode now reads the sketch with `get_document`, creates one task per entry in the order given, links each back to the source, and requires a stated reason before splitting or merging an entry. The remaining WBS guidance applies only to entries the sketch did not cover, and to sources with no sketch at all.
 
@@ -164,7 +164,7 @@ Both changes came out of reviewing how Linear and Notion structure engineering p
 
 ### Changed
 
-- **`plandesk-plan-writer` now advertises that it writes ADRs.** It always could — the skill forks on one question, *"is anything going to be built from this?"*, writing an RFC as a `Design:` document when yes and a decision record as a `Decision:` document when no. But its description named only the RFC, and the description is the entire mechanism deciding whether a skill fires, so "write an ADR" or "record why we chose X over Y" never reached it. The decision-record form sat at line 137 of 243, unreachable in practice.
+- **`plandesk-plan-writer` now advertises that it writes ADRs.** It always could — the skill forks on one question, _"is anything going to be built from this?"_, writing an RFC as a `Design:` document when yes and a decision record as a `Decision:` document when no. But its description named only the RFC, and the description is the entire mechanism deciding whether a skill fires, so "write an ADR" or "record why we chose X over Y" never reached it. The decision-record form sat at line 137 of 243, unreachable in practice.
 
 - **Decision records file into a `Decisions` folder.** `list_documents` already returns the project's folder tree, documents already carry `folder_id`, and `create_folder` already exists — so "what have we decided?" becomes `list_documents(folder_id)` with no schema change. The skill reuses an existing folder rather than creating a second one. A `documents.type` column was considered and rejected as unnecessary for now.
 
@@ -240,7 +240,7 @@ Only `@plandesk/cli` changed; the other three republish unchanged to stay aligne
 
 - **`plandesk-groom-task`** — grooms one thin task, or a bare one-line requirement with no card yet, into a build contract **in place**. This was the hole: `plan-writer` needs an RFC-worthy change, `scope-work` drafts only at creation time from whatever the source carried, and the foreman grooms only as a prelude to dispatch. A one-liner dropped on the board mid-week had no entry point at all.
 
-  It also owns the **Definition of Ready**, which had forked four ways — a 3-item rubric in `.plandesk/skill.md`, a 6-item one in the shipped template, a third inside triage, and prose inside the foreman. `scope-work` and `plandesk-foreman` now link it instead of restating it. `.plandesk/skill.md` keeps the *shape* of a description; groom-task owns the *verdict* on whether it is good enough yet.
+  It also owns the **Definition of Ready**, which had forked four ways — a 3-item rubric in `.plandesk/skill.md`, a 6-item one in the shipped template, a third inside triage, and prose inside the foreman. `scope-work` and `plandesk-foreman` now link it instead of restating it. `.plandesk/skill.md` keeps the _shape_ of a description; groom-task owns the _verdict_ on whether it is good enough yet.
 
 - **`plandesk-timebox`** — pomodoro pacing over a work list you define, chainable onto another skill (`/plandesk-timebox 25m /plandesk-foreman next`). The interval is a checkpoint cadence, never a kill signal: an expiring box lets the in-flight item finish, verify and commit before reporting. A box that cuts through a dispatch strands work in the one state no report can honestly describe.
 
@@ -310,7 +310,7 @@ Ships a shipped-policy fix that missed the 2.1.0 tag by one commit, plus the doc
 ### Fixed
 
 - **The suppression sweep failed honest work.** `protocol.md`'s check for gate-silencing edits used an unanchored `xit\(`, which matches the tail of `process.exit(`. Any dispatch that added a CLI exit code was rejected as if it had suppressed a test. Found by running the factory: a worker implementing an exit-code contract wrote `process.exit(broken > 0 ? 1 : 0)` and its clean dispatch was refused. A gate that fails honest work teaches people to stop running it.
-- **Stall detection could kill a healthy worker.** The check said `ps -o time= -p <pid>` without saying *which* pid. A worker launched through a shell wrapper leaves the parent parked at ~0.01s of CPU while the child does the work, so the check reported "flat" every time. It now says to sample the leaf, gives the command to find it, and notes that some worker CLIs flush their log in bulk — so silence alone is not a stall signal.
+- **Stall detection could kill a healthy worker.** The check said `ps -o time= -p <pid>` without saying _which_ pid. A worker launched through a shell wrapper leaves the parent parked at ~0.01s of CPU while the child does the work, so the check reported "flat" every time. It now says to sample the leaf, gives the command to find it, and notes that some worker CLIs flush their log in bulk — so silence alone is not a stall signal.
 - **`pnpm validate` is green for the first time.** It was failing on 577 accumulated eslint errors (`cli` 221, web 170, `api` 128, `mcp` 58) and, behind those, on a call to `plandesk token create` — a command that has not existed since before 2.0.0. The step had been unreachable, so nobody noticed. No token is needed: `validate` binds loopback, and a loopback bind is the local trust boundary. This matters beyond tidiness — the guard that keeps the shipped skill documentation in sync with its source lives inside `validate` and could never run while the suite was red.
 
 ### Documentation
@@ -336,7 +336,7 @@ Only `@plandesk/cli` changed. `db`, `api` and `mcp` are republished at the same 
 
   It conducts rather than restates — every policy it needs is linked, because a fourth copy of the cycle is exactly the overlapping-authority problem that collapsing `workflow.md` into `factory.md` removed. **Grooming stays inline and only implementation dispatches:** grooming is judgment about intent, and handing that to a worker is how a plan drifts from what was actually wanted.
 
-- **`.agents/factory/workmanship.md` — the worker-side standard**, prepended to implementation briefs. `protocol.md` covers the engine verifying a worker *after* a dispatch; nothing told the worker the bar *before* it started, so a dispatch could only discover the standard by failing verification. Covers no workarounds, never claiming done without proof, tests that fail first, surgical changes, never destroying work it did not create, and honest reporting. Self-contained by necessity — a consumer machine has none of an operator's personal contracts.
+- **`.agents/factory/workmanship.md` — the worker-side standard**, prepended to implementation briefs. `protocol.md` covers the engine verifying a worker _after_ a dispatch; nothing told the worker the bar _before_ it started, so a dispatch could only discover the standard by failing verification. Covers no workarounds, never claiming done without proof, tests that fail first, surgical changes, never destroying work it did not create, and honest reporting. Self-contained by necessity — a consumer machine has none of an operator's personal contracts.
 
 - **Two skill families.** `.agents/skills/` now reads as the model: `curator-*` plans, `factory-*` executes.
 
@@ -383,9 +383,9 @@ All four published packages move to **2.0.0** together and stay aligned from her
 
 ### Fixed
 
-- **`plandesk factory init` crashed on every npm install.** npm rewrites a packaged `.gitignore` to `.npmignore` when it *installs* a package, so `factory/runs/.gitignore` was present in the tarball and gone by the time anyone ran the CLI — `factory init` died with `ENOENT`. This was invisible to every gate: the repo build, all five test suites and `pnpm pack` each see the file; only a real `npm install` of the tarball reproduces it. It arrived with the move of templates from TypeScript string constants into shipped files — a constant cannot be mangled, a file can. Templates are now vendored de-dotted, the build **fails** if any dotfile remains under `dist/templates` so the next one cannot ship silently, and the reader resolves either spelling.
-- **A local board behaves like one on `localhost`, not just `127.0.0.1`.** Opening `http://localhost:7526/` returned unauthenticated and could not reach workspaces, while `http://127.0.0.1:7526/` worked — the same server, two different answers. A loopback bind is what makes a local board zero-setup (every request is the org owner, no login), but the check ran only when better-auth had no opinion, and better-auth answered `unauthorized` for `localhost` first. Loopback is now decided before that answer is consulted. The check tests the *server's bind address*, never a caller-supplied `Host` header, so it cannot be spoofed from outside.
-- **Task shares and task→document lookup see edge-linked documents.** A document linked through the new edge path was silently omitted from a task's share bundle and invisible to `getDocumentByTask`, because both still read the legacy column. Found with a purpose-built repro that linked two documents to one task by *different* mechanisms and diffed what each surface returned.
+- **`plandesk factory init` crashed on every npm install.** npm rewrites a packaged `.gitignore` to `.npmignore` when it _installs_ a package, so `factory/runs/.gitignore` was present in the tarball and gone by the time anyone ran the CLI — `factory init` died with `ENOENT`. This was invisible to every gate: the repo build, all five test suites and `pnpm pack` each see the file; only a real `npm install` of the tarball reproduces it. It arrived with the move of templates from TypeScript string constants into shipped files — a constant cannot be mangled, a file can. Templates are now vendored de-dotted, the build **fails** if any dotfile remains under `dist/templates` so the next one cannot ship silently, and the reader resolves either spelling.
+- **A local board behaves like one on `localhost`, not just `127.0.0.1`.** Opening `http://localhost:7526/` returned unauthenticated and could not reach workspaces, while `http://127.0.0.1:7526/` worked — the same server, two different answers. A loopback bind is what makes a local board zero-setup (every request is the org owner, no login), but the check ran only when better-auth had no opinion, and better-auth answered `unauthorized` for `localhost` first. Loopback is now decided before that answer is consulted. The check tests the _server's bind address_, never a caller-supplied `Host` header, so it cannot be spoofed from outside.
+- **Task shares and task→document lookup see edge-linked documents.** A document linked through the new edge path was silently omitted from a task's share bundle and invisible to `getDocumentByTask`, because both still read the legacy column. Found with a purpose-built repro that linked two documents to one task by _different_ mechanisms and diffed what each surface returned.
 - **`plandesk context` resolves the linked document through edges.** It feeds `session-start.sh`, so the wrong answer here silently degrades every agent session's starting context.
 
 ### Documentation
@@ -399,7 +399,7 @@ Two agent-experience papercuts found while exercising the full MCP surface again
 ### Fixed
 
 - **`create_goal` documents its `verification_surface` shape.** The parameter only named the three kinds, so the first call failed with `verification_surface must include a kind` and an agent had to read the service source to discover the JSON. The tool schema now spells out all three surface shapes (`gate_command` / `acceptance_checklist` / `human_sign_off`) and the matching `complete_goal` evidence shapes.
-- **`connect` warns when an ancestor `.mcp.json` shadows the one it writes.** An agent session opened from a parent directory reads *that* directory's `.mcp.json`, so the config `connect` just wrote is silently ignored — observed live, where a parent `.mcp.json` still pointed at a dead port after a successful connect. `connect` now detects the shadowing file and names it, with the fix.
+- **`connect` warns when an ancestor `.mcp.json` shadows the one it writes.** An agent session opened from a parent directory reads _that_ directory's `.mcp.json`, so the config `connect` just wrote is silently ignored — observed live, where a parent `.mcp.json` still pointed at a dead port after a successful connect. `connect` now detects the shadowing file and names it, with the fix.
 
 ## [1.0.6] — 2026-07-19
 
@@ -489,7 +489,7 @@ UX hardening from a full four-phase audit of every web user flow (see `AUDIT-SUM
 
 ### Fixed
 
-- **Invite links now work end to end.** The claim link an owner/admin hands out (`/invite/:invitationId`) previously led nowhere — there was no page to render it, and the path sat inside the auth wall, so a signed-out invitee was bounced to sign-in, `accept` was never called, and the invitation stayed pending forever. There is now a real claim page: it previews *"you've been invited to join **{org}** as **{role}**"*, then walks the invitee through GitHub sign-in (returning to the invite) and accepting, landing them in the workspace. Clear states for expired/already-used links and wrong-account mismatches.
+- **Invite links now work end to end.** The claim link an owner/admin hands out (`/invite/:invitationId`) previously led nowhere — there was no page to render it, and the path sat inside the auth wall, so a signed-out invitee was bounced to sign-in, `accept` was never called, and the invitation stayed pending forever. There is now a real claim page: it previews _"you've been invited to join **{org}** as **{role}**"_, then walks the invitee through GitHub sign-in (returning to the invite) and accepting, landing them in the workspace. Clear states for expired/already-used links and wrong-account mismatches.
 
 ### Added
 

@@ -42,7 +42,7 @@ Plan Desk stays local-first while letting you share a project — read-only and 
 
 Plan Desk's tenancy is **Org → Workspace → Project**, and the collaboration primitives are **workspace-scoped** (see [Workspaces](/reference/workspaces/)). The same guest-session + `ClientView` machinery widens from a single project to a whole workspace.
 
-**Invitations.** You invite a person (or a client) to a **workspace** with a role (`owner` / `admin` / `member`); accepting joins the *team* behind that workspace, not just the org. Invitations are link-only — there is no mailer; the inviter gets a `claimUrl` to deliver by hand — and owner/admin-gated (a non-owner/admin cannot create one; better-auth additionally blocks inviting an owner as a non-owner). Session-only: a token or loopback caller cannot drive the invite path.
+**Invitations.** You invite a person (or a client) to a **workspace** with a role (`owner` / `admin` / `member`); accepting joins the _team_ behind that workspace, not just the org. Invitations are link-only — there is no mailer; the inviter gets a `claimUrl` to deliver by hand — and owner/admin-gated (a non-owner/admin cannot create one; better-auth additionally blocks inviting an owner as a non-owner). Session-only: a token or loopback caller cannot drive the invite path.
 
 **Client sharing.** Share an entire workspace with a client and their portal shows **every project in that workspace** (read-only, submit-if-allowed). The same projection rules apply — internal entities are never serialized into the portal; a client only ever reads the workspace's projects and appends pending submissions.
 

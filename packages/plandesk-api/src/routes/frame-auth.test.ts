@@ -199,9 +199,7 @@ describe('frame auth (render token + share credential)', () => {
     const previous = process.env.PLANDESK_BASE_URL;
     process.env.PLANDESK_BASE_URL = 'https://boards.example';
     try {
-      const res = await app.request(
-        `http://127.0.0.1:7526/api/v1/artifacts/${screen.id}/render`,
-      );
+      const res = await app.request(`http://127.0.0.1:7526/api/v1/artifacts/${screen.id}/render`);
       expect(res.status).toBe(200);
       const body = await res.text();
       expect(body).toContain(`https://boards.example/api/v1/files/${file.id}?token=`);

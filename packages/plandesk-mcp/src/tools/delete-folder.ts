@@ -22,8 +22,7 @@ export function createDeleteFolderHandler(
 ): (args: DeleteFolderArgs) => Promise<ToolResult> {
   return async (args) => {
     try {
-      const options =
-        args.reparent_to !== undefined ? { reparentTo: args.reparent_to } : undefined;
+      const options = args.reparent_to !== undefined ? { reparentTo: args.reparent_to } : undefined;
       const deleted = await folderService.delete(args.folder_id, options);
       if (!deleted) {
         return toolNotFound();

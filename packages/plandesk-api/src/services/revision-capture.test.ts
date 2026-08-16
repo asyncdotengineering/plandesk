@@ -271,6 +271,8 @@ describe('PLANDESK_MAX_REVISIONS retention', () => {
 
   it('evictRevisionsBeyondCap rejects a non-positive cap', async () => {
     const { db, task } = await setup();
-    await expect(evictRevisionsBeyondCap(db, 'task', task.id, 0)).rejects.toThrow(/positive integer/);
+    await expect(evictRevisionsBeyondCap(db, 'task', task.id, 0)).rejects.toThrow(
+      /positive integer/,
+    );
   });
 });

@@ -92,9 +92,9 @@ describe('shareService', () => {
   it('throws InvalidShareError for empty audience names', async () => {
     const service = createService();
     const project = await createProject(db, { name: 'Invalid' });
-    await expect(service.createShare(project.id, { audienceName: '   ', mode: 'invite' })).rejects.toThrow(
-      InvalidShareError,
-    );
+    await expect(
+      service.createShare(project.id, { audienceName: '   ', mode: 'invite' }),
+    ).rejects.toThrow(InvalidShareError);
   });
 
   it('revokes a share', async () => {
@@ -402,7 +402,9 @@ describe('shareService', () => {
       throw new Error('expected share row');
     }
     expect(await service.revokeShare(revokedRow.id)).toBe(true);
-    expect((await service.getResourceMarkdown(revoked.token, 'https://plandesk.example')).status).toBe('gone');
+    expect(
+      (await service.getResourceMarkdown(revoked.token, 'https://plandesk.example')).status,
+    ).toBe('gone');
 
     const expired = await service.createResourceShare(
       { resource: { kind: 'task', id: task.id }, expiresAt: new Date(Date.now() - 1000) },
@@ -411,10 +413,17 @@ describe('shareService', () => {
     if (!expired) {
       throw new Error('expected share to be created');
     }
-    expect((await service.getResourceMarkdown(expired.token, 'https://plandesk.example')).status).toBe('gone');
+    expect(
+      (await service.getResourceMarkdown(expired.token, 'https://plandesk.example')).status,
+    ).toBe('gone');
 
     expect(
-      (await service.getResourceMarkdown('plandesk_share_unknown-token', 'https://plandesk.example')).status,
+      (
+        await service.getResourceMarkdown(
+          'plandesk_share_unknown-token',
+          'https://plandesk.example',
+        )
+      ).status,
     ).toBe('not_found');
   });
 

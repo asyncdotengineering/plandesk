@@ -277,16 +277,13 @@ export function parseSavedViewConfig(raw: unknown): SavedViewConfig {
   if (!('filter' in value)) {
     throw new InvalidSavedViewConfigError('config.filter is required');
   }
-  const filter =
-    value.filter === null ? null : parseFilterNode(value.filter, 0);
+  const filter = value.filter === null ? null : parseFilterNode(value.filter, 0);
 
   if (!Array.isArray(value.sort)) {
     throw new InvalidSavedViewConfigError('config.sort must be an array');
   }
   if (value.sort.length > MAX_SORT_SPECS) {
-    throw new InvalidSavedViewConfigError(
-      `config.sort exceeds max of ${String(MAX_SORT_SPECS)}`,
-    );
+    throw new InvalidSavedViewConfigError(`config.sort exceeds max of ${String(MAX_SORT_SPECS)}`);
   }
   const sort = value.sort.map((spec, index) => parseSortSpec(spec, index));
 

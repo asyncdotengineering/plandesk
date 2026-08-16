@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDb, createProjectInDefaultOrg as createProject, migrate, type Db } from '@plandesk/db';
+import {
+  createDb,
+  createProjectInDefaultOrg as createProject,
+  migrate,
+  type Db,
+} from '@plandesk/db';
 import { createServices } from '@plandesk/api';
 import { createCreatePrototypeHandler } from './create-prototype.js';
 import { createGetPrototypeHandler } from './get-prototype.js';
@@ -36,9 +41,9 @@ describe('prototype MCP tools', () => {
       viewport_height: 844,
     });
     expect(created.isError).toBeFalsy();
-    const createdText = JSON.parse(
-      (created.content[0] as { text: string }).text,
-    ) as { prototype: { id: string; name: string } };
+    const createdText = JSON.parse((created.content[0] as { text: string }).text) as {
+      prototype: { id: string; name: string };
+    };
     const prototypeId = createdText.prototype.id;
 
     const listed = await list({ project_id: projectId });

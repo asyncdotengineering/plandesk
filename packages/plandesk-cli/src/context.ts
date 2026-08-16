@@ -35,7 +35,12 @@ export type PlanDeskContext = {
 };
 
 type TaskResponse = { id: string; label: string; status: string; updated_at: string };
-type DocumentResponse = { id: string; title: string; status_line: string | null; body: string | null };
+type DocumentResponse = {
+  id: string;
+  title: string;
+  status_line: string | null;
+  body: string | null;
+};
 type AgentRunEventResponse = { message: string; created_at: string };
 type AgentRunResponse = { status: string; started_at: string; events: AgentRunEventResponse[] };
 type NextTaskResponse = { next_task: { id: string; label: string } | null };
@@ -100,7 +105,9 @@ function capBody(body: string | null): string | null {
 // agent-run progress message, and (when idle) the next actionable task.
 // Returns {} when the repo isn't bound or its config is unreadable — an idle
 // no-op, never an error: a hook must never fail a session start.
-export async function runContext(repoDir: string): Promise<PlanDeskContext | Record<string, never>> {
+export async function runContext(
+  repoDir: string,
+): Promise<PlanDeskContext | Record<string, never>> {
   const binding = (() => {
     try {
       return resolvePlandeskBinding(repoDir);

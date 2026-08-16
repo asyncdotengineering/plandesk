@@ -20,17 +20,12 @@ describe('better-auth access-control model', () => {
 
   it('intersects actions shared by both permission sets', () => {
     expect(
-      intersectPermissions(
-        { task: ['read', 'update'] },
-        { task: ['read'], project: ['create'] },
-      ),
+      intersectPermissions({ task: ['read', 'update'] }, { task: ['read'], project: ['create'] }),
     ).toEqual({ task: ['read'] });
   });
 
   it('returns no permissions when either permission set is empty', () => {
-    expect(
-      intersectPermissions({ task: ['read', 'update'], member: ['create'] }, {}),
-    ).toEqual({});
+    expect(intersectPermissions({ task: ['read', 'update'], member: ['create'] }, {})).toEqual({});
     expect(intersectPermissions({}, { task: ['read'] })).toEqual({});
   });
 });

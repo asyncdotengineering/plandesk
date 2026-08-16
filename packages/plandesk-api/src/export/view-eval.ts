@@ -405,9 +405,7 @@ function compareNonEmptyGroupValues(
 ): number {
   switch (field) {
     case 'status':
-      return (
-        (STATUS_ORDER[a as TaskStatus] ?? 0) - (STATUS_ORDER[b as TaskStatus] ?? 0)
-      );
+      return (STATUS_ORDER[a as TaskStatus] ?? 0) - (STATUS_ORDER[b as TaskStatus] ?? 0);
     case 'priority':
       return taskPriorityOrder[a as TaskPriority] - taskPriorityOrder[b as TaskPriority];
     case 'blocked':
@@ -480,16 +478,7 @@ function flattenGroupLevel(
     const label = displayLabel(spec.field, entry.value, goalLabels);
     const nextPath = [...pathLabels, label];
     if (hasChild) {
-      flattenGroupLevel(
-        entry.tasks,
-        specs,
-        1,
-        nextPath,
-        sortSpecs,
-        goalLabels,
-        collator,
-        out,
-      );
+      flattenGroupLevel(entry.tasks, specs, 1, nextPath, sortSpecs, goalLabels, collator, out);
     } else {
       const leafTasks = sortTasks(entry.tasks, sortSpecs);
       const groupLabel = nextPath.join(' / ');
@@ -525,15 +514,6 @@ export function applyViewOrder(
 
   const out: FlattenedExportRow[] = [];
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
-  flattenGroupLevel(
-    filtered,
-    options.group,
-    0,
-    [],
-    options.sort,
-    goalLabels,
-    collator,
-    out,
-  );
+  flattenGroupLevel(filtered, options.group, 0, [], options.sort, goalLabels, collator, out);
   return out;
 }

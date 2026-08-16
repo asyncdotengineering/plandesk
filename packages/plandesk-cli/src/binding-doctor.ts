@@ -156,7 +156,9 @@ export function formatBindingDoctorReport(report: BindingDoctorReport): string[]
   lines.push('binding: present');
   if (report.config !== undefined) {
     if (report.config.version === 'plandesk-connect-v2') {
-      lines.push(`binding-workspace: ${report.config.workspaceName} (${report.config.workspaceId})`);
+      lines.push(
+        `binding-workspace: ${report.config.workspaceName} (${report.config.workspaceId})`,
+      );
     } else {
       lines.push(`binding-project: ${report.config.projectName} (${report.config.projectId})`);
     }

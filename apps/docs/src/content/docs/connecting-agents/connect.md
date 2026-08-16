@@ -15,15 +15,15 @@ plandesk connect --project "Checkout Revamp"
 
 `connect` is idempotent — safe to re-run:
 
-| Path                                                             | Committed?          | Purpose                                                    |
-| ---------------------------------------------------------------- | ------------------- | ---------------------------------------------------------- |
-| `.plandesk/config.json`                                          | yes                 | Pins repo → project **or** workspace. `--project`: v1 (`projectId`, `projectName`, `serverUrl`). `--workspace`: `plandesk-connect-v2` (`{ serverUrl, orgId, workspaceId, workspaceName, projectIds }`) |
-| `.plandesk/skill.md`                                             | yes                 | Agent conventions ([The Skill](/connecting-agents/skill/)) |
-| `.plandesk/token`                                                | **no** (gitignored) | Scoped agent key — written for a hosted `connect --to` (project- or workspace-scoped); local loopback needs none |
-| `.claude/skills/plandesk/SKILL.md` / `.agents/skills/plandesk/SKILL.md` | yes          | Symlinks → `.plandesk/skill.md` (skill discovery)          |
-| `.mcp.json`                                                      | yes                 | MCP server entry with a `headersHelper` that reads the token |
-| `CLAUDE.md` / `AGENTS.md`                                        | yes                 | Sentinel block `@.plandesk/skill.md`                       |
-| `.codex/commands/plandesk.md`                                    | yes                 | Codex command → skill file                                 |
+| Path                                                                    | Committed?          | Purpose                                                                                                                                                                                                |
+| ----------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `.plandesk/config.json`                                                 | yes                 | Pins repo → project **or** workspace. `--project`: v1 (`projectId`, `projectName`, `serverUrl`). `--workspace`: `plandesk-connect-v2` (`{ serverUrl, orgId, workspaceId, workspaceName, projectIds }`) |
+| `.plandesk/skill.md`                                                    | yes                 | Agent conventions ([The Skill](/connecting-agents/skill/))                                                                                                                                             |
+| `.plandesk/token`                                                       | **no** (gitignored) | Scoped agent key — written for a hosted `connect --to` (project- or workspace-scoped); local loopback needs none                                                                                       |
+| `.claude/skills/plandesk/SKILL.md` / `.agents/skills/plandesk/SKILL.md` | yes                 | Symlinks → `.plandesk/skill.md` (skill discovery)                                                                                                                                                      |
+| `.mcp.json`                                                             | yes                 | MCP server entry with a `headersHelper` that reads the token                                                                                                                                           |
+| `CLAUDE.md` / `AGENTS.md`                                               | yes                 | Sentinel block `@.plandesk/skill.md`                                                                                                                                                                   |
+| `.codex/commands/plandesk.md`                                           | yes                 | Codex command → skill file                                                                                                                                                                             |
 
 ## Workflow
 

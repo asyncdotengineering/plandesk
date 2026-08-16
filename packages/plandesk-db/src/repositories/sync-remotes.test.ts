@@ -1,5 +1,10 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import { createDb, createProjectInDefaultOrg as createProject, migrate, type Db } from '../index.js';
+import {
+  createDb,
+  createProjectInDefaultOrg as createProject,
+  migrate,
+  type Db,
+} from '../index.js';
 import { deleteSyncRemoteByProjectId, getSyncRemote, setSyncRemote } from './sync-remotes.js';
 
 describe('sync-remotes repository', () => {

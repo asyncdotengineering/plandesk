@@ -12,12 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import type { RichTextEditorHandle } from '../editor/RichTextEditor.js';
 import { RichTextEditor } from '../editor/RichTextEditor.js';
 import { flattenDocumentTree } from '../docs/DocumentsPanel.js';
@@ -172,11 +167,7 @@ function TaskDrawerBody({
           {shortId(task.id)}
         </span>
         <span className="ml-auto" />
-        <ContentHistoryButton
-          projectId={task.project_id}
-          targetType="task"
-          targetId={task.id}
-        />
+        <ContentHistoryButton projectId={task.project_id} targetType="task" targetId={task.id} />
         <ShareButton resource={{ kind: 'task', id: task.id }} />
         <Button
           type="button"

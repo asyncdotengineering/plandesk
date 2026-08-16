@@ -15,7 +15,7 @@ Org        asyncdot                       better-auth organization (tenant)
 
 One concept solves four real shapes at once:
 
-- **Agent isolation.** Bind a repo to one workspace and its agent gets a key scoped to *that workspace's projects and nothing else in the org*. A stray key on a client engagement can never read your other clients' boards.
+- **Agent isolation.** Bind a repo to one workspace and its agent gets a key scoped to _that workspace's projects and nothing else in the org_. A stray key on a client engagement can never read your other clients' boards.
 - **Multi-project folders.** A single client or product often carries several projects (one repo per service, or a portfolio of initiatives). A workspace groups them so `connect --workspace` binds the whole set at once.
 - **Client engagements.** A workspace is the natural unit of a client engagement: invite the client's people into it, and (optionally) share the entire workspace with the client over the portal.
 - **Member scoping.** Membership and invitations are workspace-scoped. A teammate belongs to the workspaces they need, not the whole org.
@@ -31,11 +31,11 @@ One concept solves four real shapes at once:
 
 An agent key carries one of three scopes (see [Architecture → Auth and tenancy](/reference/architecture/#auth-and-tenancy)):
 
-| Tier            | Metadata                         | Reach                                                |
-| --------------- | -------------------------------- | ---------------------------------------------------- |
-| **Owner**       | `{ orgId, kind: 'owner' }`       | Every workspace and project in the org               |
-| **Workspace**   | `{ orgId, teamId }`              | All projects in one workspace, nothing else in the org |
-| **Project**     | `{ orgId, projectId }`           | That one project                                     |
+| Tier          | Metadata                   | Reach                                                  |
+| ------------- | -------------------------- | ------------------------------------------------------ |
+| **Owner**     | `{ orgId, kind: 'owner' }` | Every workspace and project in the org                 |
+| **Workspace** | `{ orgId, teamId }`        | All projects in one workspace, nothing else in the org |
+| **Project**   | `{ orgId, projectId }`     | That one project                                       |
 
 The owner key (from `plandesk login`) mints workspace- and project-scoped keys. Agents never receive the owner key.
 
@@ -47,25 +47,25 @@ This is enforced in the service layer (`assertProjectInWorkspace`), extending th
 
 ## How things relate
 
-| Entity        | Lives under   | Notes                                                                |
-| ------------- | ------------- | -------------------------------------------------------------------- |
-| Organization  | (root tenant) | better-auth `organization`; billing/identity boundary                |
-| Workspace     | Organization  | better-auth `team`; the agent/repo boundary                          |
-| Project       | Workspace     | `projects.workspace_id`; one workspace each                         |
-| Member        | Workspace     | better-auth `teamMember`; a user may join many workspaces in an org  |
-| Invitation    | Workspace     | invite email + role to a workspace; accepting joins the team         |
-| Client share  | Workspace     | share an entire workspace → portal shows all its projects            |
-| Agent key     | Workspace/org | workspace- or project-scoped; owner keys span the org                |
+| Entity       | Lives under   | Notes                                                               |
+| ------------ | ------------- | ------------------------------------------------------------------- |
+| Organization | (root tenant) | better-auth `organization`; billing/identity boundary               |
+| Workspace    | Organization  | better-auth `team`; the agent/repo boundary                         |
+| Project      | Workspace     | `projects.workspace_id`; one workspace each                         |
+| Member       | Workspace     | better-auth `teamMember`; a user may join many workspaces in an org |
+| Invitation   | Workspace     | invite email + role to a workspace; accepting joins the team        |
+| Client share | Workspace     | share an entire workspace → portal shows all its projects           |
+| Agent key    | Workspace/org | workspace- or project-scoped; owner keys span the org               |
 
 ## CLI
 
-| Command                                        | Purpose                                                       |
-| ---------------------------------------------- | ------------------------------------------------------------- |
-| `plandesk workspace create <name> [--to <org>]` | Create a workspace in an org (local by default; `--to` hosted) |
-| `plandesk workspace list [--to <org>]`         | List workspaces in an org                                     |
-| `plandesk connect [--workspace <name>] [--to <org>]` | Bind a repo to a workspace; mint a workspace-scoped key (hosted) |
-| `plandesk go-online [--to <org>] [--all \| --workspace <name>...]` | Push local workspaces + projects up to a hosted org |
-| `plandesk legacy-upgrade [--into-workspace <name>]` | Import an old board into a workspace                      |
+| Command                                                            | Purpose                                                          |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `plandesk workspace create <name> [--to <org>]`                    | Create a workspace in an org (local by default; `--to` hosted)   |
+| `plandesk workspace list [--to <org>]`                             | List workspaces in an org                                        |
+| `plandesk connect [--workspace <name>] [--to <org>]`               | Bind a repo to a workspace; mint a workspace-scoped key (hosted) |
+| `plandesk go-online [--to <org>] [--all \| --workspace <name>...]` | Push local workspaces + projects up to a hosted org              |
+| `plandesk legacy-upgrade [--into-workspace <name>]`                | Import an old board into a workspace                             |
 
 See [CLI reference](/reference/cli/) for flags. Connecting a repo to a workspace writes a `plandesk-connect-v2` config — see [plandesk connect](/connecting-agents/connect/).
 

@@ -66,11 +66,21 @@ export function normalizeRectBounds(
   return { x, y, w: Math.abs(x2 - x1), h: Math.abs(y2 - y1) };
 }
 
-export function arrowEndpoints(shape: AnnotationShape): { x1: number; y1: number; x2: number; y2: number } {
+export function arrowEndpoints(shape: AnnotationShape): {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+} {
   return { x1: shape.x, y1: shape.y, x2: shape.x + shape.w, y2: shape.y + shape.h };
 }
 
-export function shapeBounds(shape: AnnotationShape): { x: number; y: number; w: number; h: number } {
+export function shapeBounds(shape: AnnotationShape): {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} {
   if (shape.type === 'arrow') {
     const { x1, y1, x2, y2 } = arrowEndpoints(shape);
     return normalizeRectBounds(x1, y1, x2, y2);
@@ -88,9 +98,7 @@ export function pointInBounds(
   y: number,
   bounds: { x: number; y: number; w: number; h: number },
 ): boolean {
-  return (
-    x >= bounds.x && x <= bounds.x + bounds.w && y >= bounds.y && y <= bounds.y + bounds.h
-  );
+  return x >= bounds.x && x <= bounds.x + bounds.w && y >= bounds.y && y <= bounds.y + bounds.h;
 }
 
 /** Topmost annotation whose bounds contain the point (last painted wins). */
@@ -172,13 +180,7 @@ function drawArrow(
   ctx.fill();
 }
 
-function drawBlurRedact(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-) {
+function drawBlurRedact(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
   if (w < 1 || h < 1) {
     return;
   }
@@ -237,7 +239,13 @@ function paintShape(ctx: CanvasRenderingContext2D, shape: AnnotationShape) {
     ctx.fillText(shape.text ?? '', shape.x, shape.y + fontSize);
     return;
   }
-  drawBlurRedact(ctx, Math.round(shape.x), Math.round(shape.y), Math.round(shape.w), Math.round(shape.h));
+  drawBlurRedact(
+    ctx,
+    Math.round(shape.x),
+    Math.round(shape.y),
+    Math.round(shape.w),
+    Math.round(shape.h),
+  );
 }
 
 export async function flattenAnnotations(

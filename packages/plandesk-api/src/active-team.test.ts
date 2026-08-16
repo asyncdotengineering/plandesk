@@ -256,9 +256,9 @@ describe('setDefaultActiveTeam', () => {
       where: [{ field: 'token', value: newToken }],
     });
     expect(session).not.toBeNull();
-    expect(
-      (session as BetterAuthSession & { activeTeamId?: string | null }).activeTeamId,
-    ).toBe(secondTeam.id);
+    expect((session as BetterAuthSession & { activeTeamId?: string | null }).activeTeamId).toBe(
+      secondTeam.id,
+    );
   });
 
   it('never chooses a team from a different org', async () => {
@@ -333,9 +333,9 @@ describe('setDefaultActiveTeam', () => {
       where: [{ field: 'token', value: newToken }],
     });
     expect(session).not.toBeNull();
-    expect(
-      (session as BetterAuthSession & { activeTeamId?: string | null }).activeTeamId,
-    ).toBe(teamA);
+    expect((session as BetterAuthSession & { activeTeamId?: string | null }).activeTeamId).toBe(
+      teamA,
+    );
   });
 
   it('returns undefined when the user has no team memberships', async () => {

@@ -99,11 +99,12 @@ describe('groupTasks', () => {
 
     expect(groups.map((group) => group.label)).toEqual(['alex', 'blake', 'No assignee']);
     expect(groups.at(-1)?.value).toBeNull();
-    expect(groups.at(-1)?.tasks.map((task) => task.id).sort()).toEqual([
-      'empty',
-      'null-a',
-      'null-b',
-    ]);
+    expect(
+      groups
+        .at(-1)
+        ?.tasks.map((task) => task.id)
+        .sort(),
+    ).toEqual(['empty', 'null-a', 'null-b']);
 
     const total = groups.reduce((sum, group) => sum + group.tasks.length, 0);
     expect(total).toBe(tasks.length);
@@ -174,18 +175,14 @@ describe('groupTasks', () => {
       }),
     ];
 
-    const groups = groupTasks(
-      tasks,
-      [{ field: 'goal_id', direction: 'asc' }],
-      {
-        aggregates: [
-          { field: 'label', op: 'count' },
-          { field: 'due_date', op: 'count_non_empty' },
-          { field: 'label', op: 'percent_of_parent' },
-          { field: 'due_date', op: 'earliest' },
-        ],
-      },
-    );
+    const groups = groupTasks(tasks, [{ field: 'goal_id', direction: 'asc' }], {
+      aggregates: [
+        { field: 'label', op: 'count' },
+        { field: 'due_date', op: 'count_non_empty' },
+        { field: 'label', op: 'percent_of_parent' },
+        { field: 'due_date', op: 'earliest' },
+      ],
+    });
 
     const g1 = groups.find((group) => group.value === 'goal-1');
     const g2 = groups.find((group) => group.value === 'goal-2');
@@ -264,16 +261,10 @@ describe('groupTasks', () => {
       makeTask('todo', { goal_id: 'goal-1', status: 'todo', label: 'M' }),
     ];
 
-    const groups = groupTasks(
-      tasks,
-      [{ field: 'goal_id', direction: 'asc' }],
-      { sort: [{ field: 'status', direction: 'asc' }] },
-    );
+    const groups = groupTasks(tasks, [{ field: 'goal_id', direction: 'asc' }], {
+      sort: [{ field: 'status', direction: 'asc' }],
+    });
 
-    expect(groups[0]?.tasks.map((task) => task.id)).toEqual([
-      'scope',
-      'todo',
-      'in_progress',
-    ]);
+    expect(groups[0]?.tasks.map((task) => task.id)).toEqual(['scope', 'todo', 'in_progress']);
   });
 });

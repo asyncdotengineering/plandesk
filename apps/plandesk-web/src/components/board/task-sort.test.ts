@@ -7,10 +7,7 @@ import {
 } from '../../lib/api.js';
 import { sortTasks, type SortSpec } from './task-sort.js';
 
-function makeTask(
-  id: string,
-  overrides: Partial<SerializedTask> = {},
-): SerializedTask {
+function makeTask(id: string, overrides: Partial<SerializedTask> = {}): SerializedTask {
   return {
     id,
     project_id: 'proj-1',
@@ -46,9 +43,7 @@ describe('sortTasks', () => {
 
     expect(statuses.indexOf('scope')).toBeLessThan(statuses.indexOf('in_progress'));
     expect(statuses).toEqual(
-      [...statuses].sort(
-        (a, b) => taskStatuses.indexOf(a) - taskStatuses.indexOf(b),
-      ),
+      [...statuses].sort((a, b) => taskStatuses.indexOf(a) - taskStatuses.indexOf(b)),
     );
   });
 
@@ -138,7 +133,11 @@ describe('sortTasks', () => {
   });
 
   it('orders label alphabetically and reverses on desc', () => {
-    const tasks = [makeTask('c', { label: 'Charlie' }), makeTask('a', { label: 'Alice' }), makeTask('b', { label: 'Bob' })];
+    const tasks = [
+      makeTask('c', { label: 'Charlie' }),
+      makeTask('a', { label: 'Alice' }),
+      makeTask('b', { label: 'Bob' }),
+    ];
 
     const asc = sortTasks(tasks, [{ field: 'label', direction: 'asc' }]);
     expect(asc.map((task) => task.label)).toEqual(['Alice', 'Bob', 'Charlie']);

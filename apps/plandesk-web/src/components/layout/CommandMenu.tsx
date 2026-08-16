@@ -14,14 +14,7 @@ import {
   StickyNoteIcon,
   TargetIcon,
 } from 'lucide-react';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -141,11 +134,7 @@ export function CommandMenu() {
         }
       }}
     >
-      <CommandInput
-        placeholder="Search or run a command…"
-        value={query}
-        onValueChange={setQuery}
-      />
+      <CommandInput placeholder="Search or run a command…" value={query} onValueChange={setQuery} />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
 

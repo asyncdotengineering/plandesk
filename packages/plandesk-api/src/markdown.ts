@@ -44,11 +44,14 @@ function documentHref(projectId: string | undefined, documentId: string): string
 
 function protectFencedCode(body: string): { text: string; segments: string[] } {
   const segments: string[] = [];
-  const text = body.replace(/(^|\n)((?:```|~~~)[\s\S]*?(?:```|~~~))/g, (_match, prefix: string, block: string) => {
-    const index = segments.length;
-    segments.push(block);
-    return `${prefix}@@PLANDESK_FENCED_${String(index)}@@`;
-  });
+  const text = body.replace(
+    /(^|\n)((?:```|~~~)[\s\S]*?(?:```|~~~))/g,
+    (_match, prefix: string, block: string) => {
+      const index = segments.length;
+      segments.push(block);
+      return `${prefix}@@PLANDESK_FENCED_${String(index)}@@`;
+    },
+  );
   return { text, segments };
 }
 
@@ -63,11 +66,17 @@ function protectInlineCode(body: string): { text: string; segments: string[] } {
 }
 
 function restoreFencedPlaceholders(text: string, segments: string[]): string {
-  return text.replace(FENCED_PLACEHOLDER_RE, (_match, index: string) => segments[Number(index)] ?? '');
+  return text.replace(
+    FENCED_PLACEHOLDER_RE,
+    (_match, index: string) => segments[Number(index)] ?? '',
+  );
 }
 
 function restoreInlinePlaceholders(text: string, segments: string[]): string {
-  return text.replace(INLINE_PLACEHOLDER_RE, (_match, index: string) => segments[Number(index)] ?? '');
+  return text.replace(
+    INLINE_PLACEHOLDER_RE,
+    (_match, index: string) => segments[Number(index)] ?? '',
+  );
 }
 
 function replaceWikiLinksWithPlaceholders(
@@ -99,7 +108,10 @@ function replaceWikiLinksWithPlaceholders(
 }
 
 function restoreWikiLinkPlaceholders(text: string, segments: string[]): string {
-  return text.replace(WIKI_PLACEHOLDER_RE, (_match, index: string) => segments[Number(index)] ?? '');
+  return text.replace(
+    WIKI_PLACEHOLDER_RE,
+    (_match, index: string) => segments[Number(index)] ?? '',
+  );
 }
 
 export function convertDocumentBody(

@@ -1,11 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import {
-  createDb,
-  createTaskWithDefaultGoal as createTask,
-  migrate,
-  type Db,
-} from '@plandesk/db';
+import { createDb, createTaskWithDefaultGoal as createTask, migrate, type Db } from '@plandesk/db';
 import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
 import type { Hono } from 'hono';
 import {
@@ -545,7 +540,6 @@ describe('better-auth API keys with live-role ceiling (BA5)', () => {
     const { orgId } = await createTestApp({ bindHost: '0.0.0.0' });
     void orgId;
   });
-
 
   it('invalid better-auth-looking bearer still falls through / rejects cleanly', async () => {
     const { app } = await hostedApp();

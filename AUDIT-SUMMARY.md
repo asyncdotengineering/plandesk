@@ -4,12 +4,12 @@ Full four-phase audit of every user flow in the web app (`apps/plandesk-web`). S
 
 ## Counts by status
 
-| Status | Count |
-|---|---|
-| `tested` (pass, no defect) | 64 |
-| `retested-pass` (defect fixed + verified) | 70 |
-| `error` (unresolved) | 0 |
-| **Total flows** | **134** |
+| Status                                    | Count   |
+| ----------------------------------------- | ------- |
+| `tested` (pass, no defect)                | 64      |
+| `retested-pass` (defect fixed + verified) | 70      |
+| `error` (unresolved)                      | 0       |
+| **Total flows**                           | **134** |
 
 **All 70 defects are fixed.** The first pass shipped 34 "clear defects" (beta.6); the second pass (beta.7) cleared the remaining 36 — jargon → plain language, hidden affordances made reachable, dark-mode theming, and every missing empty/loading/error state. Verification: `pnpm build` 0, `pnpm test` 0 (web 155 tests, +6 over baseline). No regressions.
 
@@ -17,14 +17,14 @@ Full four-phase audit of every user flow in the web app (`apps/plandesk-web`). S
 
 All 16 route areas and every route in `src/routes/` are represented, plus the shared editor / comments / share / portal surfaces. No screen was left un-exercised; UI-only interactions were verified by code-trace of the cited `path:line` where an executable test did not already exist.
 
-| Area | Flows | Area | Flows |
-|---|---|---|---|
-| Documents | 24 | Comments | 7 |
-| Canvas/Flow | 19 | Settings | 7 |
-| Board | 18 | Overview | 6 |
-| Portal | 11 | Goals | 6 |
-| Inbox | 9 | Notes | 5 |
-| Layout/chrome | 7 | Auth·Share·Image·Account·Home | 15 |
+| Area          | Flows | Area                          | Flows |
+| ------------- | ----- | ----------------------------- | ----- |
+| Documents     | 24    | Comments                      | 7     |
+| Canvas/Flow   | 19    | Settings                      | 7     |
+| Board         | 18    | Overview                      | 6     |
+| Portal        | 11    | Goals                         | 6     |
+| Inbox         | 9     | Notes                         | 5     |
+| Layout/chrome | 7     | Auth·Share·Image·Account·Home | 15    |
 
 ## Fixed this pass (34) — the "clear defects" batch
 

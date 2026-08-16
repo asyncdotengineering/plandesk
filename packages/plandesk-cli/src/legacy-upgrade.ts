@@ -235,8 +235,7 @@ function mapTask(row: SqlRow): PlandeskExportTask {
 function mapEdge(row: SqlRow): PlandeskExportEdge {
   const fromTaskId = asNullableString(row['from_task_id']);
   const toTaskId = asNullableString(row['to_task_id']);
-  const fromType =
-    asNullableString(row['from_type']) ?? (fromTaskId !== null ? 'task' : null);
+  const fromType = asNullableString(row['from_type']) ?? (fromTaskId !== null ? 'task' : null);
   const toType = asNullableString(row['to_type']) ?? (toTaskId !== null ? 'task' : null);
   const fromId = asNullableString(row['from_id']) ?? fromTaskId;
   const toId = asNullableString(row['to_id']) ?? toTaskId;
@@ -454,7 +453,10 @@ export async function readLegacyProjectExports(
  * Default source resolution for an old board:
  * --from if given, else ~/.plandesk/workspace.db, else ./.plandesk/workspace.db.
  */
-export function resolveLegacySourcePath(from?: string, cwd: string = process.cwd()): string | undefined {
+export function resolveLegacySourcePath(
+  from?: string,
+  cwd: string = process.cwd(),
+): string | undefined {
   if (from !== undefined && from.trim() !== '') {
     return from;
   }
@@ -588,7 +590,14 @@ export async function previewLegacyUpgrade(options: {
   const sourceDb = await createDb(sourcePath);
   try {
     if (await isAlreadyNewSchema(sourceDb.$client)) {
-      return { sourcePath, targetDbPath, alreadyNewSchema: true, wouldImport: 0, wouldSkip: 0, targetConflict };
+      return {
+        sourcePath,
+        targetDbPath,
+        alreadyNewSchema: true,
+        wouldImport: 0,
+        wouldSkip: 0,
+        targetConflict,
+      };
     }
 
     const exports = await readLegacyProjectExports(sourceDb.$client);
@@ -697,7 +706,11 @@ export async function runLegacyUpgrade(options: {
         : basename(dirname(sourcePath));
 
     const adapter = (await auth.$context).adapter;
-    const existingTeams = await adapter.findMany<{ id: string; name: string; organizationId: string }>({
+    const existingTeams = await adapter.findMany<{
+      id: string;
+      name: string;
+      organizationId: string;
+    }>({
       model: 'team',
       where: [{ field: 'organizationId', value: DEFAULT_ORG_ID }],
     });
@@ -719,7 +732,13 @@ export async function runLegacyUpgrade(options: {
 async function importLegacyExports(
   db: Db,
   exports: Array<{ sourceProjectId: string; export: PlandeskExport }>,
-  meta: { sourcePath: string; backupPath: string; orgId: string; workspaceId: string; workspaceName: string },
+  meta: {
+    sourcePath: string;
+    backupPath: string;
+    orgId: string;
+    workspaceId: string;
+    workspaceName: string;
+  },
 ): Promise<LegacyUpgradeResult> {
   let importedProjects = 0;
   let importedTasks = 0;

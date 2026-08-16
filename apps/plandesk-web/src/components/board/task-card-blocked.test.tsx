@@ -7,11 +7,7 @@ import { Board } from './Board.js';
 
 const projectId = 'proj-1';
 
-function makeTask(
-  id: string,
-  label: string,
-  status: SerializedTask['status'],
-): SerializedTask {
+function makeTask(id: string, label: string, status: SerializedTask['status']): SerializedTask {
   return {
     id,
     project_id: projectId,

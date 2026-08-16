@@ -77,7 +77,14 @@ function viewLabelFromPath(pathname: string): string | null {
 
 function ChevronRight() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+    >
       <path d="M9 6l6 6-6 6" />
     </svg>
   );
@@ -198,9 +205,7 @@ function ProjectCrumb({
           )}
         </>
       ) : null}
-      {detail === null ? null : (
-        <DetailCrumb kind={detail.kind} recordId={detail.recordId} />
-      )}
+      {detail === null ? null : <DetailCrumb kind={detail.kind} recordId={detail.recordId} />}
     </>
   );
 }
@@ -277,7 +282,11 @@ function RootLayout() {
   const shell = <AppShell showAccount={!isPortal} />;
 
   if (isInvite) {
-    return <CommandMenuProvider><Outlet /></CommandMenuProvider>;
+    return (
+      <CommandMenuProvider>
+        <Outlet />
+      </CommandMenuProvider>
+    );
   }
   if (isPortal) {
     return <CommandMenuProvider>{shell}</CommandMenuProvider>;

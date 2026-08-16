@@ -241,7 +241,10 @@ describe('DocumentsPanel folder tree', () => {
       expect(postCall).toBeTruthy();
       expect(postCall?.[0]).toBe(`/api/v1/projects/${projectId}/folders`);
       const rawBody = postCall?.[1]?.body;
-      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<string, unknown>;
+      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<
+        string,
+        unknown
+      >;
       expect(body.name).toBe('New folder name');
       expect(body.parent_folder_id).toBeNull();
     });
@@ -263,7 +266,10 @@ describe('DocumentsPanel folder tree', () => {
       expect(postCall).toBeTruthy();
       expect(postCall?.[0]).toBe(`/api/v1/projects/${projectId}/documents`);
       const rawBody = postCall?.[1]?.body;
-      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<string, unknown>;
+      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<
+        string,
+        unknown
+      >;
       expect(body.title).toBe('Design: caching');
       expect(body.folder_id).toBe('f1');
     });
@@ -504,10 +510,7 @@ describe('DocumentsPanel nesting, re-nest, breadcrumbs', () => {
   }
 
   it('renders nested sub-folders under their parent when expanded', async () => {
-    const folders = [
-      makeFolder('f1', 'Specs', null),
-      makeFolder('f2', 'Archive', 'f1'),
-    ];
+    const folders = [makeFolder('f1', 'Specs', null), makeFolder('f2', 'Archive', 'f1')];
     renderPanel([makeDocument('d1', 'Old', 'f2')], folders);
     await panelReady();
 
@@ -533,7 +536,10 @@ describe('DocumentsPanel nesting, re-nest, breadcrumbs', () => {
       const postCall = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'POST');
       expect(postCall?.[0]).toBe(`/api/v1/projects/${projectId}/folders`);
       const rawBody = postCall?.[1]?.body;
-      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<string, unknown>;
+      const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as Record<
+        string,
+        unknown
+      >;
       expect(body.name).toBe('Nested');
       expect(body.parent_folder_id).toBe('f1');
     });
@@ -558,10 +564,7 @@ describe('DocumentsPanel nesting, re-nest, breadcrumbs', () => {
 
   it('rejects a cycle-creating folder drop with a named toast and no PATCH', async () => {
     vi.mocked(toast.error).mockClear();
-    const folders = [
-      makeFolder('f1', 'Specs', null),
-      makeFolder('f2', 'Archive', 'f1'),
-    ];
+    const folders = [makeFolder('f1', 'Specs', null), makeFolder('f2', 'Archive', 'f1')];
     renderPanel([], folders);
     await panelReady();
 
@@ -575,10 +578,7 @@ describe('DocumentsPanel nesting, re-nest, breadcrumbs', () => {
   });
 
   it('clicking a folder updates breadcrumbs; crumb navigates up', async () => {
-    const folders = [
-      makeFolder('f1', 'Specs', null),
-      makeFolder('f2', 'Archive', 'f1'),
-    ];
+    const folders = [makeFolder('f1', 'Specs', null), makeFolder('f2', 'Archive', 'f1')];
     renderPanel([], folders);
     await panelReady();
 

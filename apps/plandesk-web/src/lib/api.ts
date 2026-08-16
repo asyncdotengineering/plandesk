@@ -37,7 +37,14 @@ export {
   isTaskEdgeLabel,
   isDocumentEdgeLabel,
 };
-export type { TaskStatus, TaskPriority, LinkEntityType, TaskEdgeLabel, DocumentEdgeLabel, EdgeLabel };
+export type {
+  TaskStatus,
+  TaskPriority,
+  LinkEntityType,
+  TaskEdgeLabel,
+  DocumentEdgeLabel,
+  EdgeLabel,
+};
 export type { SavedViewConfig };
 
 export type SerializedView = {

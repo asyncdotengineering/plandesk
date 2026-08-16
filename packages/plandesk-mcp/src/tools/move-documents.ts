@@ -1,6 +1,11 @@
 import type { DocumentService } from '@plandesk/api';
 import { InvalidDocumentError } from '@plandesk/api';
-import { toolInvalidArgument, toolNotFound, toolSuccessPayload, type ToolResult } from './result.js';
+import {
+  toolInvalidArgument,
+  toolNotFound,
+  toolSuccessPayload,
+  type ToolResult,
+} from './result.js';
 
 export type MoveDocumentsArgs = {
   document_ids: string[];

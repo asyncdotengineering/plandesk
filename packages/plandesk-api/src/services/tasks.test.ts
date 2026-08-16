@@ -38,7 +38,7 @@ describe('taskService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-    let projectId = '';
+  let projectId = '';
   let orgId = '';
 
   function createService() {
@@ -292,8 +292,13 @@ describe('taskService', () => {
   it('rejects a goal_id that does not belong to the project', async () => {
     const service = createService();
     const otherProject = await createProject(db, { name: 'Other' });
-    const foreignGoal = await createGoal(db, { projectId: otherProject.id, objective: 'Elsewhere' });
-    await expect(service.create(projectId, { label: 'Wrong goal', goalId: foreignGoal.id }),).rejects.toThrow(InvalidGoalReferenceError);
+    const foreignGoal = await createGoal(db, {
+      projectId: otherProject.id,
+      objective: 'Elsewhere',
+    });
+    await expect(
+      service.create(projectId, { label: 'Wrong goal', goalId: foreignGoal.id }),
+    ).rejects.toThrow(InvalidGoalReferenceError);
   });
 
   it('returns undefined when updating a missing task', async () => {
@@ -306,14 +311,24 @@ describe('taskService', () => {
   it('serves a goal task graph with depth, roots, cycles, and release actionability', async () => {
     const service = createService();
     const goal = await createGoal(db, { projectId, objective: 'Graph' });
-    const root = await createTask(db, { projectId, goalId: goal.id, label: 'Root', status: 'scope' });
+    const root = await createTask(db, {
+      projectId,
+      goalId: goal.id,
+      label: 'Root',
+      status: 'scope',
+    });
     const middle = await createTask(db, {
       projectId,
       goalId: goal.id,
       label: 'Middle',
       status: 'scope',
     });
-    const leaf = await createTask(db, { projectId, goalId: goal.id, label: 'Leaf', status: 'scope' });
+    const leaf = await createTask(db, {
+      projectId,
+      goalId: goal.id,
+      label: 'Leaf',
+      status: 'scope',
+    });
     await createEdge(db, {
       projectId,
       fromTaskId: middle.id,
@@ -374,15 +389,18 @@ describe('taskService', () => {
     const service = createService();
     const goalA = await createGoal(db, { projectId, objective: 'Goal A' });
     const otherProject = await createProject(db, { name: 'Other' });
-    const foreignGoal = await createGoal(db, { projectId: otherProject.id, objective: 'Elsewhere' });
+    const foreignGoal = await createGoal(db, {
+      projectId: otherProject.id,
+      objective: 'Elsewhere',
+    });
     const created = await service.create(projectId, { label: 'Movable', goalId: goalA.id });
     if (!created) {
       throw new Error('expected created task');
     }
 
-    await expect(
-      service.update(created.id, { goalId: foreignGoal.id }),
-    ).rejects.toThrow(InvalidGoalReferenceError);
+    await expect(service.update(created.id, { goalId: foreignGoal.id })).rejects.toThrow(
+      InvalidGoalReferenceError,
+    );
   });
 
   it('deletes a task and cascades edges including document→task links', async () => {
@@ -583,9 +601,9 @@ describe('taskService', () => {
     const clearedRefs = await service.update(created?.id ?? '', { commitRefs: null });
     expect(clearedRefs?.commit_refs).toEqual([]);
 
-    await expect(
-      service.update(created?.id ?? '', { commitRefs: ['NOTHEX!'] }),
-    ).rejects.toThrow(InvalidCommitRefsError);
+    await expect(service.update(created?.id ?? '', { commitRefs: ['NOTHEX!'] })).rejects.toThrow(
+      InvalidCommitRefsError,
+    );
 
     const upper = await service.update(created?.id ?? '', {
       commitRefs: ['ABC1234', 'DeAdBeEf'],
@@ -607,7 +625,9 @@ describe('taskService', () => {
       InvalidTagError,
     );
     const created = await service.create(projectId, { label: 'Ok' });
-    await expect(service.update(created?.id ?? '', { tags: [''] })).rejects.toThrow(InvalidTagError);
+    await expect(service.update(created?.id ?? '', { tags: [''] })).rejects.toThrow(
+      InvalidTagError,
+    );
   });
 
   it('listByProject filters by tags with OR semantics and combines with status', async () => {
@@ -746,9 +766,7 @@ describe('taskService', () => {
     expect(result?.next_task).toBeNull();
     expect(result?.reason).toBe('ambiguous_goal');
     expect(result?.blocked).toEqual([]);
-    expect(
-      [...(result?.ambiguous_goals ?? [])].sort((a, b) => a.id.localeCompare(b.id)),
-    ).toEqual(
+    expect([...(result?.ambiguous_goals ?? [])].sort((a, b) => a.id.localeCompare(b.id))).toEqual(
       [
         { id: goalA.id, name: null, objective: 'A' },
         { id: goalB.id, name: null, objective: 'B' },
@@ -761,7 +779,12 @@ describe('taskService', () => {
     const goalA = await createGoal(db, { projectId, objective: 'A', status: 'active' });
     const goalB = await createGoal(db, { projectId, objective: 'B', status: 'active' });
     await createTask(db, { projectId, goalId: goalA.id, label: 'A done', status: 'done' });
-    await createTask(db, { projectId, goalId: goalB.id, label: 'B in progress', status: 'in_progress' });
+    await createTask(db, {
+      projectId,
+      goalId: goalB.id,
+      label: 'B in progress',
+      status: 'in_progress',
+    });
 
     expect(await service.nextActionable(projectId)).toEqual({
       next_task: null,
@@ -774,7 +797,12 @@ describe('taskService', () => {
     const service = createService();
     const goalA = await createGoal(db, { projectId, objective: 'A', status: 'active' });
     const goalB = await createGoal(db, { projectId, objective: 'B', status: 'active' });
-    const taskA = await createTask(db, { projectId, goalId: goalA.id, label: 'A todo', status: 'todo' });
+    const taskA = await createTask(db, {
+      projectId,
+      goalId: goalA.id,
+      label: 'A todo',
+      status: 'todo',
+    });
     await createTask(db, { projectId, goalId: goalB.id, label: 'B todo', status: 'todo' });
 
     const scoped = await service.nextActionable(projectId, { goalId: goalA.id });
@@ -787,7 +815,12 @@ describe('taskService', () => {
     const goalA = await createGoal(db, { projectId, objective: 'Goal A', status: 'active' });
     const goalB = await createGoal(db, { projectId, objective: 'Goal B', status: 'paused' });
     await updateGoalStatus(db, (await getOrCreateDefaultGoal(db, projectId)).id, 'paused');
-    const taskA = await createTask(db, { projectId, goalId: goalA.id, label: 'A todo', status: 'todo' });
+    const taskA = await createTask(db, {
+      projectId,
+      goalId: goalA.id,
+      label: 'A todo',
+      status: 'todo',
+    });
     await createTask(db, { projectId, goalId: goalB.id, label: 'B todo', status: 'todo' });
 
     const scoped = await service.nextActionable(projectId, { goalId: goalA.id });

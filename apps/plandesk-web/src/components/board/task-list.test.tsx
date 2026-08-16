@@ -251,10 +251,7 @@ describe('TaskList', () => {
   });
 
   it('renders every task as a row across several goals', async () => {
-    const goals = [
-      makeGoal('goal-a', 'Goal Alpha'),
-      makeGoal('goal-b', 'Goal Beta'),
-    ];
+    const goals = [makeGoal('goal-a', 'Goal Alpha'), makeGoal('goal-b', 'Goal Beta')];
     const tasks = [
       makeTask('t1', 'Alpha task', 'todo', { goal_id: 'goal-a' }),
       makeTask('t2', 'Beta task', 'done', { goal_id: 'goal-b' }),
@@ -372,8 +369,8 @@ describe('TaskList', () => {
       expect(screen.getByText('Scope row')).toBeTruthy();
     });
 
-    const idsBefore = [...container.querySelectorAll('[data-task-list] tbody tr')].map(
-      (row) => row.getAttribute('data-task-id'),
+    const idsBefore = [...container.querySelectorAll('[data-task-list] tbody tr')].map((row) =>
+      row.getAttribute('data-task-id'),
     );
     expect(idsBefore).toEqual(['t-scope', 't-progress', 't-todo']);
 
@@ -396,10 +393,7 @@ describe('TaskList', () => {
   });
 
   it('sub-groups by status inside each goal and collapsing a parent hides nested rows', async () => {
-    const goals = [
-      makeGoal('goal-a', 'Goal Alpha'),
-      makeGoal('goal-b', 'Goal Beta'),
-    ];
+    const goals = [makeGoal('goal-a', 'Goal Alpha'), makeGoal('goal-b', 'Goal Beta')];
     const tasks = [
       makeTask('t-a-todo', 'Alpha todo', 'todo', { goal_id: 'goal-a' }),
       makeTask('t-a-scope', 'Alpha scope', 'scope', { goal_id: 'goal-a' }),
@@ -446,15 +440,17 @@ describe('TaskList', () => {
     if (alphaId === null) {
       throw new Error('expected data-group-id on Goal Alpha group row');
     }
-    expect(container.querySelectorAll(`[data-group-id^="${alphaId}/"]`).length).toBeGreaterThanOrEqual(
-      2,
-    );
+    expect(
+      container.querySelectorAll(`[data-group-id^="${alphaId}/"]`).length,
+    ).toBeGreaterThanOrEqual(2);
 
     fireEvent.click(screen.getByLabelText('Collapse group Goal Alpha'));
 
     await waitFor(() => {
       expect(
-        container.querySelector(`[data-group-id="${alphaId}"]`)?.getAttribute('data-group-collapsed'),
+        container
+          .querySelector(`[data-group-id="${alphaId}"]`)
+          ?.getAttribute('data-group-collapsed'),
       ).toBe('true');
       expect(container.querySelector('[data-task-id="t-a-todo"]')).toBeNull();
       expect(container.querySelector('[data-task-id="t-a-scope"]')).toBeNull();
@@ -469,7 +465,9 @@ describe('TaskList', () => {
     await waitFor(() => {
       expect(container.querySelector('[data-list-column="assignee"]')).toBeNull();
       expect(
-        container.querySelector(`[data-group-id="${alphaId}"]`)?.getAttribute('data-group-collapsed'),
+        container
+          .querySelector(`[data-group-id="${alphaId}"]`)
+          ?.getAttribute('data-group-collapsed'),
       ).toBe('true');
       expect(container.querySelector('[data-task-id="t-a-todo"]')).toBeNull();
     });
@@ -511,9 +509,11 @@ describe('TaskList', () => {
     fireEvent.click(screen.getByLabelText('Collapse group Goal Alpha'));
 
     await waitFor(() => {
-      expect(container.querySelector(`[data-group-id="${goalId}"]`)?.getAttribute('data-group-collapsed')).toBe(
-        'true',
-      );
+      expect(
+        container
+          .querySelector(`[data-group-id="${goalId}"]`)
+          ?.getAttribute('data-group-collapsed'),
+      ).toBe('true');
       expect(container.querySelector('[data-task-id="t-a-todo"]')).toBeNull();
     });
 
@@ -527,7 +527,9 @@ describe('TaskList', () => {
 
     await waitFor(() => {
       expect(
-        remounted.container.querySelector(`[data-group-id="${goalId}"]`)?.getAttribute('data-group-collapsed'),
+        remounted.container
+          .querySelector(`[data-group-id="${goalId}"]`)
+          ?.getAttribute('data-group-collapsed'),
       ).toBe('true');
       expect(remounted.container.querySelector('[data-task-id="t-a-todo"]')).toBeNull();
     });
@@ -547,8 +549,8 @@ describe('TaskList', () => {
     fireEvent.change(fieldSelect, { target: { value: 'status' } });
 
     const operatorSelect = screen.getByLabelText('Filter operator root.0');
-    const statusOptions = [...operatorSelect.querySelectorAll('option')].map(
-      (option) => option.getAttribute('value'),
+    const statusOptions = [...operatorSelect.querySelectorAll('option')].map((option) =>
+      option.getAttribute('value'),
     );
     expect(statusOptions).toContain('is');
     expect(statusOptions).not.toContain('before');
@@ -556,9 +558,9 @@ describe('TaskList', () => {
 
     fireEvent.change(fieldSelect, { target: { value: 'due_date' } });
     await waitFor(() => {
-      const dateOptions = [...screen.getByLabelText('Filter operator root.0').querySelectorAll('option')].map(
-        (option) => option.getAttribute('value'),
-      );
+      const dateOptions = [
+        ...screen.getByLabelText('Filter operator root.0').querySelectorAll('option'),
+      ].map((option) => option.getAttribute('value'));
       expect(dateOptions).toContain('before');
       expect(dateOptions).toContain('after');
       expect(dateOptions).not.toContain('contains');
@@ -611,11 +613,17 @@ describe('TaskList', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add group to root' }));
     fireEvent.change(screen.getByLabelText('Filter group op root.1'), { target: { value: 'or' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add condition to root.1' }));
-    fireEvent.change(screen.getByLabelText('Filter field root.1.0'), { target: { value: 'status' } });
+    fireEvent.change(screen.getByLabelText('Filter field root.1.0'), {
+      target: { value: 'status' },
+    });
     fireEvent.change(screen.getByLabelText('Filter value root.1.0'), { target: { value: 'todo' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add condition to root.1' }));
-    fireEvent.change(screen.getByLabelText('Filter field root.1.1'), { target: { value: 'status' } });
-    fireEvent.change(screen.getByLabelText('Filter value root.1.1'), { target: { value: 'scope' } });
+    fireEvent.change(screen.getByLabelText('Filter field root.1.1'), {
+      target: { value: 'status' },
+    });
+    fireEvent.change(screen.getByLabelText('Filter value root.1.1'), {
+      target: { value: 'scope' },
+    });
 
     await waitFor(() => {
       const ids = [...container.querySelectorAll('[data-task-list] tbody tr')].map((row) =>

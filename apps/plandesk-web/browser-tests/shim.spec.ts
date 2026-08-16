@@ -63,10 +63,7 @@ function postMode(page: Page, mode: 'arrange' | 'interact' | 'comment'): Promise
 }
 
 /** Collect navigate/selection messages produced while running `action`. */
-async function collectNavOrSelection(
-  page: Page,
-  action: () => Promise<void>,
-): Promise<FrameMsg[]> {
+async function collectNavOrSelection(page: Page, action: () => Promise<void>): Promise<FrameMsg[]> {
   const pending = page.evaluate(
     () =>
       new Promise<FrameMsg[]>((resolve) => {

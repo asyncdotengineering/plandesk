@@ -73,7 +73,10 @@ describe('validateTaskFilterSearch', () => {
     ];
     expect(encodeSortParam(sort)).toBe('priority:desc,due_date:asc');
     expect(
-      validateTaskFilterSearch({ sort: encodeSortParam(sort), columns: encodeColumnsParam(['label', 'tags']) }),
+      validateTaskFilterSearch({
+        sort: encodeSortParam(sort),
+        columns: encodeColumnsParam(['label', 'tags']),
+      }),
     ).toEqual({
       sort,
       columns: ['label', 'tags'],
@@ -85,13 +88,28 @@ describe('validateTaskFilterSearch', () => {
       kind: 'group' as const,
       op: 'and' as const,
       children: [
-        { kind: 'condition' as const, field: 'lane' as const, operator: 'is' as const, value: 'full' },
+        {
+          kind: 'condition' as const,
+          field: 'lane' as const,
+          operator: 'is' as const,
+          value: 'full',
+        },
         {
           kind: 'group' as const,
           op: 'or' as const,
           children: [
-            { kind: 'condition' as const, field: 'status' as const, operator: 'is' as const, value: 'todo' },
-            { kind: 'condition' as const, field: 'status' as const, operator: 'is' as const, value: 'scope' },
+            {
+              kind: 'condition' as const,
+              field: 'status' as const,
+              operator: 'is' as const,
+              value: 'todo',
+            },
+            {
+              kind: 'condition' as const,
+              field: 'status' as const,
+              operator: 'is' as const,
+              value: 'scope',
+            },
           ],
         },
       ],

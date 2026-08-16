@@ -148,10 +148,7 @@ function readOptionalFile(path: string): string | undefined {
   return readFileSync(path, 'utf8');
 }
 
-async function fetchProjects(
-  serverUrl: string,
-  bearerToken?: string,
-): Promise<ProjectSummary[]> {
+async function fetchProjects(serverUrl: string, bearerToken?: string): Promise<ProjectSummary[]> {
   const headers: Record<string, string> = {};
   if (bearerToken !== undefined && bearerToken !== '') {
     headers.Authorization = `Bearer ${bearerToken}`;
@@ -287,9 +284,7 @@ function matchWorkspace(
   query: string,
 ): WorkspaceApiSummary | undefined {
   const normalized = query.trim().toLowerCase();
-  return workspaces.find(
-    (ws) => ws.id === query || ws.name.toLowerCase() === normalized,
-  );
+  return workspaces.find((ws) => ws.id === query || ws.name.toLowerCase() === normalized);
 }
 
 async function resolveWorkspace(
@@ -479,7 +474,10 @@ function assertRebindAllowed(
   }
 }
 
-export function resolveAgents(repoDir: string, agent: ConnectAgent): { claude: boolean; codex: boolean } {
+export function resolveAgents(
+  repoDir: string,
+  agent: ConnectAgent,
+): { claude: boolean; codex: boolean } {
   if (agent === 'claude') {
     return { claude: true, codex: false };
   }
@@ -511,9 +509,10 @@ export function resolveAgents(repoDir: string, agent: ConnectAgent): { claude: b
  * stale key minted against a different server, so sending it as a Bearer yields
  * 401. buildArtifacts removes any leftover token instead.
  */
-function resolveLocalToken(
-  options: ConnectOptions,
-): { token: string | undefined; created: boolean } {
+function resolveLocalToken(options: ConnectOptions): {
+  token: string | undefined;
+  created: boolean;
+} {
   if (options.token !== undefined) {
     return { token: options.token, created: false };
   }
@@ -594,9 +593,10 @@ function buildArtifacts(
   artifacts.push({
     path: join(plandeskDir, 'skill.md'),
     content: buildSkillMarkdown(),
-    action: lstatSync(join(plandeskDir, 'skill.md'), { throwIfNoEntry: false }) === undefined
-      ? 'create'
-      : 'update',
+    action:
+      lstatSync(join(plandeskDir, 'skill.md'), { throwIfNoEntry: false }) === undefined
+        ? 'create'
+        : 'update',
     symlinkTarget: GENERATED_SKILL_SYMLINK_TARGET,
   });
 
@@ -729,7 +729,9 @@ export function formatConnectPrint(result: ConnectResult): string {
   lines.push('');
   for (const artifact of result.artifacts) {
     if (artifact.symlinkTarget !== undefined) {
-      lines.push(`--- ${artifact.action.toUpperCase()} ${artifact.path} -> ${artifact.symlinkTarget}`);
+      lines.push(
+        `--- ${artifact.action.toUpperCase()} ${artifact.path} -> ${artifact.symlinkTarget}`,
+      );
       continue;
     }
     lines.push(`--- ${artifact.action.toUpperCase()} ${artifact.path}`);
@@ -738,7 +740,9 @@ export function formatConnectPrint(result: ConnectResult): string {
       lines.push('');
     }
   }
-  lines.push(`Token is read from .plandesk/token automatically (set ${TOKEN_ENV_VAR} to override).`);
+  lines.push(
+    `Token is read from .plandesk/token automatically (set ${TOKEN_ENV_VAR} to override).`,
+  );
   for (const warning of result.warnings) {
     lines.push(warning);
   }
@@ -870,7 +874,16 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
 
   const { token, created } = resolveLocalToken(options);
   const agents = resolveAgents(options.repoDir, options.agent ?? 'detect');
-  const artifacts = buildArtifacts(options, serverUrl, project, undefined, undefined, [], token, agents);
+  const artifacts = buildArtifacts(
+    options,
+    serverUrl,
+    project,
+    undefined,
+    undefined,
+    [],
+    token,
+    agents,
+  );
 
   const result: ConnectResult = {
     project,
@@ -881,7 +894,7 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
       token !== undefined && token !== ''
         ? `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`
         : 'Local loopback mode — no token file (server treats loopback as owner).',
-      warnings: shadowWarnings(options.repoDir),
+    warnings: shadowWarnings(options.repoDir),
   };
 
   if (options.print === true) {
@@ -905,10 +918,7 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
  * write that key (never the owner key) into .plandesk/token.
  * REQ-4: no Local|hosted where-prompt — --to is explicit hosted; omit = local.
  */
-async function runHostedConnect(
-  options: ConnectOptions,
-  orgId: string,
-): Promise<ConnectResult> {
+async function runHostedConnect(options: ConnectOptions, orgId: string): Promise<ConnectResult> {
   const home = options.home ?? homedir();
   const cliConfig = readCliConfig(home);
   if (cliConfig === undefined) {
@@ -922,9 +932,7 @@ async function runHostedConnect(
     );
   }
   if (cliConfig.token.trim() === '') {
-    throw new ConnectError(
-      'Login config has no owner token. Run `plandesk login` first.',
-    );
+    throw new ConnectError('Login config has no owner token. Run `plandesk login` first.');
   }
 
   const serverUrl = normalizeServerUrl(options.url ?? cliConfig.server);
@@ -932,11 +940,14 @@ async function runHostedConnect(
 
   // Workspace connect branch (hosted).
   if (options.workspace !== undefined && options.workspace.trim() !== '') {
-    const workspace = await resolveWorkspace(serverUrl, orgId, options.workspace.trim(), ownerToken);
+    const workspace = await resolveWorkspace(
+      serverUrl,
+      orgId,
+      options.workspace.trim(),
+      ownerToken,
+    );
     const projects = await fetchProjects(serverUrl, ownerToken);
-    const projectIds = projects
-      .filter((p) => p.workspace_id === workspace.id)
-      .map((p) => p.id);
+    const projectIds = projects.filter((p) => p.workspace_id === workspace.id).map((p) => p.id);
 
     let token: string;
     let created: boolean;
@@ -968,8 +979,8 @@ async function runHostedConnect(
       tokenLine: created
         ? `Scoped agent key saved to .plandesk/token (gitignored) — not your owner key. set ${TOKEN_ENV_VAR} to override.`
         : `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`,
-        warnings: shadowWarnings(options.repoDir),
-  };
+      warnings: shadowWarnings(options.repoDir),
+    };
 
     if (options.print === true) {
       return result;
@@ -997,7 +1008,16 @@ async function runHostedConnect(
   }
 
   const agents = resolveAgents(options.repoDir, options.agent ?? 'detect');
-  const artifacts = buildArtifacts(options, serverUrl, project, undefined, undefined, [], token, agents);
+  const artifacts = buildArtifacts(
+    options,
+    serverUrl,
+    project,
+    undefined,
+    undefined,
+    [],
+    token,
+    agents,
+  );
 
   const result: ConnectResult = {
     project,
@@ -1007,7 +1027,7 @@ async function runHostedConnect(
     tokenLine: created
       ? `Scoped agent key saved to .plandesk/token (gitignored) — not your owner key. set ${TOKEN_ENV_VAR} to override.`
       : `Token saved to .plandesk/token (gitignored) — .mcp.json reads it automatically; set ${TOKEN_ENV_VAR} to override.`,
-      warnings: shadowWarnings(options.repoDir),
+    warnings: shadowWarnings(options.repoDir),
   };
 
   if (options.print === true) {

@@ -188,7 +188,8 @@ describe('better-auth foundation (slice 1/6)', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((input: string | URL | Request) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
         if (url === 'https://github.com/login/oauth/access_token') {
           return Promise.resolve(
             jsonResponse({ access_token: 'github-token', token_type: 'bearer' }),

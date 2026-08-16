@@ -63,12 +63,7 @@ export function createUpdateDocumentHandler(
         if (existingLinkIds.has(id)) {
           continue;
         }
-        const type = await resolveEntityKind(
-          taskService,
-          documentService,
-          document.project_id,
-          id,
-        );
+        const type = await resolveEntityKind(taskService, documentService, document.project_id, id);
         if (type === undefined) {
           return toolInvalidArgument(`link_to target not found in project: ${id}`);
         }

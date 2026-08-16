@@ -45,7 +45,10 @@ export async function runInit(
   dataDirOverride?: string,
   options: RunInitOptions = {},
 ): Promise<string> {
-  const { dataDir } = resolveBoard({ override: dataDirOverride, localDb: options.localDb === true });
+  const { dataDir } = resolveBoard({
+    override: dataDirOverride,
+    localDb: options.localDb === true,
+  });
   mkdirSync(dataDir, { recursive: true });
   const betterAuthSecret = ensureLocalBetterAuthSecret(dataDir);
   const dbPath = workspaceDbPath(dataDir);

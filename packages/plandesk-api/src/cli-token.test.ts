@@ -1,18 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
-import {
-  createDb,
-  createTaskWithDefaultGoal as createTask,
-  migrate,
-  type Db,
-} from '@plandesk/db';
+import { createDb, createTaskWithDefaultGoal as createTask, migrate, type Db } from '@plandesk/db';
 import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
 import type { Hono } from 'hono';
-import {
-  createOrgOwnerKey,
-  verifyBetterAuthApiKey,
-} from './agent-keys.js';
+import { createOrgOwnerKey, verifyBetterAuthApiKey } from './agent-keys.js';
 import {
   createBetterAuth,
   runBetterAuthMigrations,

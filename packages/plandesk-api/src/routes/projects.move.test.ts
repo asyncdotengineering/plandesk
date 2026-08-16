@@ -7,10 +7,7 @@ import {
   type Db,
 } from '@plandesk/db';
 import type { Hono } from 'hono';
-import {
-  createOrgOwnerKey,
-  createWorkspaceScopedAgentKey,
-} from '../agent-keys.js';
+import { createOrgOwnerKey, createWorkspaceScopedAgentKey } from '../agent-keys.js';
 import {
   createBetterAuth,
   runBetterAuthMigrations,

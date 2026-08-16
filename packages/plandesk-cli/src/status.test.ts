@@ -109,7 +109,14 @@ describe('runStatus', () => {
 
   it('formatStatusReport renders a readable table with board/port/pid/projects columns', () => {
     const report = formatStatusReport([
-      { dataDir: '/tmp/board-a', source: 'default', running: true, pid: 123, port: 7526, projectCount: 3 },
+      {
+        dataDir: '/tmp/board-a',
+        source: 'default',
+        running: true,
+        pid: 123,
+        port: 7526,
+        projectCount: 3,
+      },
       { dataDir: '/tmp/board-b', source: 'shadow', running: false, port: 8080, projectCount: 0 },
     ]);
     expect(report).toContain('/tmp/board-a');

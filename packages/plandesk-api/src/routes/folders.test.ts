@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createDocument, createProjectInDefaultOrg as createProject, getDocument, getFolder } from '@plandesk/db';
+import {
+  createDocument,
+  createProjectInDefaultOrg as createProject,
+  getDocument,
+  getFolder,
+} from '@plandesk/db';
 import { createTestApp, parseJson } from '../test-helpers.js';
 
 type FolderResponse = {
@@ -110,7 +115,9 @@ describe('folders routes', () => {
       body: JSON.stringify({ parent_folder_id: b.id }),
     });
     expect(cycleRes.status).toBe(400);
-    expect(await parseJson<{ error: string }>(cycleRes)).toMatchObject({ error: 'invalid_argument' });
+    expect(await parseJson<{ error: string }>(cycleRes)).toMatchObject({
+      error: 'invalid_argument',
+    });
   });
 
   it('DELETE moves child folders and documents to the parent instead of orphaning', async () => {
@@ -135,7 +142,11 @@ describe('folders routes', () => {
       body: JSON.stringify({ name: 'Leaf', parent_folder_id: mid.id }),
     });
     const leaf = await parseJson<FolderResponse>(leafRes);
-    const doc = await createDocument(db, { projectId: project.id, title: 'In mid', folderId: mid.id });
+    const doc = await createDocument(db, {
+      projectId: project.id,
+      title: 'In mid',
+      folderId: mid.id,
+    });
 
     const deleteRes = await app.request(`/api/v1/folders/${mid.id}`, { method: 'DELETE' });
     expect(deleteRes.status).toBe(204);

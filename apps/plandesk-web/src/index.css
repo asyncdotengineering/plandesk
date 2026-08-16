@@ -51,11 +51,21 @@
   --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
 
   /* semantic status (ElevenLabs) — kept from prior palette; the board columns read them. */
-  --s-scope-bg: #eceae6; --s-scope-fg: #565550; --s-scope-dot: #9a978f;
-  --s-todo-bg: #e9eef5;  --s-todo-fg: #33506e;  --s-todo-dot: #5a7da8;
-  --s-prog-bg: #f6efdb;  --s-prog-fg: #7a5a18;  --s-prog-dot: #cc9f3c;
-  --s-done-bg: #e6f0e7;  --s-done-fg: #33623f;  --s-done-dot: #4e9160;
-  --s-back-bg: #efeeeb;  --s-back-fg: #6b6963;  --s-back-dot: #a8a59f;
+  --s-scope-bg: #eceae6;
+  --s-scope-fg: #565550;
+  --s-scope-dot: #9a978f;
+  --s-todo-bg: #e9eef5;
+  --s-todo-fg: #33506e;
+  --s-todo-dot: #5a7da8;
+  --s-prog-bg: #f6efdb;
+  --s-prog-fg: #7a5a18;
+  --s-prog-dot: #cc9f3c;
+  --s-done-bg: #e6f0e7;
+  --s-done-fg: #33623f;
+  --s-done-dot: #4e9160;
+  --s-back-bg: #efeeeb;
+  --s-back-fg: #6b6963;
+  --s-back-dot: #a8a59f;
 }
 
 .dark {
@@ -96,11 +106,21 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.6);
 
-  --s-scope-bg: #22211f; --s-scope-fg: #b6b3ac; --s-scope-dot: #7d7a72;
-  --s-todo-bg: #16263a;  --s-todo-fg: #8fb0d8;  --s-todo-dot: #557da8;
-  --s-prog-bg: #332811;  --s-prog-fg: #e0bd76;  --s-prog-dot: #cc9f3c;
-  --s-done-bg: #132a1a;  --s-done-fg: #7cc492;  --s-done-dot: #4e9160;
-  --s-back-bg: #212120;  --s-back-fg: #9a978f;  --s-back-dot: #5f5d58;
+  --s-scope-bg: #22211f;
+  --s-scope-fg: #b6b3ac;
+  --s-scope-dot: #7d7a72;
+  --s-todo-bg: #16263a;
+  --s-todo-fg: #8fb0d8;
+  --s-todo-dot: #557da8;
+  --s-prog-bg: #332811;
+  --s-prog-fg: #e0bd76;
+  --s-prog-dot: #cc9f3c;
+  --s-done-bg: #132a1a;
+  --s-done-fg: #7cc492;
+  --s-done-dot: #4e9160;
+  --s-back-bg: #212120;
+  --s-back-fg: #9a978f;
+  --s-back-dot: #5f5d58;
 }
 
 @theme inline {
@@ -158,7 +178,12 @@
     text-rendering: optimizeLegibility;
     letter-spacing: -0.01em;
   }
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-weight: 600;
     letter-spacing: -0.02em;
     text-wrap: balance;

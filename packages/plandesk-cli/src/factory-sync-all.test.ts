@@ -23,7 +23,12 @@ function boundRepo(root: string, projectId: string): string {
   mkdirSync(join(root, '.plandesk'), { recursive: true });
   writeFileSync(
     join(root, '.plandesk', 'config.json'),
-    JSON.stringify({ version: 'plandesk-connect-v1', serverUrl: 'http://x', projectId, projectName: 'p' }),
+    JSON.stringify({
+      version: 'plandesk-connect-v1',
+      serverUrl: 'http://x',
+      projectId,
+      projectName: 'p',
+    }),
     'utf8',
   );
   return root;
@@ -165,7 +170,11 @@ describe('formatFactorySyncAllSummary', () => {
 
   it('marks a dry run so a reader does not think files were written', () => {
     const out = formatFactorySyncAllSummary(
-      { considered: 1, registered: [], outcomes: [{ root: '/x', status: 'skipped', reason: 'no longer on disk' }] },
+      {
+        considered: 1,
+        registered: [],
+        outcomes: [{ root: '/x', status: 'skipped', reason: 'no longer on disk' }],
+      },
       { write: false },
     );
 

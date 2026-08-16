@@ -198,8 +198,7 @@ describe('POST /api/v1/orgs/:id/import', () => {
     expect(hostedExport.edges).toHaveLength(localExport.edges.length);
     expect(hostedExport.documents).toHaveLength(localExport.documents.length);
 
-    const goalObjectives = (g: typeof localExport.goals) =>
-      g.map((x) => x.objective).sort();
+    const goalObjectives = (g: typeof localExport.goals) => g.map((x) => x.objective).sort();
     expect(goalObjectives(hostedExport.goals)).toEqual(goalObjectives(localExport.goals));
 
     const taskLabels = (t: typeof localExport.tasks) =>
@@ -208,12 +207,13 @@ describe('POST /api/v1/orgs/:id/import', () => {
         .sort((a, b) => a.label.localeCompare(b.label));
     expect(taskLabels(hostedExport.tasks)).toEqual(taskLabels(localExport.tasks));
 
-    const edgeLabels = (e: typeof localExport.edges) =>
-      e.map((x) => x.label).sort();
+    const edgeLabels = (e: typeof localExport.edges) => e.map((x) => x.label).sort();
     expect(edgeLabels(hostedExport.edges)).toEqual(edgeLabels(localExport.edges));
 
     const docTitles = (d: typeof localExport.documents) =>
-      d.map((x) => ({ title: x.title, body: x.body })).sort((a, b) => a.title.localeCompare(b.title));
+      d
+        .map((x) => ({ title: x.title, body: x.body }))
+        .sort((a, b) => a.title.localeCompare(b.title));
     expect(docTitles(hostedExport.documents)).toEqual(docTitles(localExport.documents));
 
     const columns = await db.$client.execute('PRAGMA table_info(projects)');

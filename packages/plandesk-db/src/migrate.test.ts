@@ -13,9 +13,15 @@ const drizzleDir = new URL('../drizzle/', import.meta.url);
 // which SQLITE_CONSTRAINT_FOREIGNKEY-blocks the drop on any DB with portal data.
 // This applies the migrations raw (bypassing the migrator's bookkeeping) to
 // reproduce the populated-DB transition the empty-db migrate() test cannot.
-async function applyMigrationSqlRaw(db: Awaited<ReturnType<typeof createDb>>, file: string): Promise<void> {
+async function applyMigrationSqlRaw(
+  db: Awaited<ReturnType<typeof createDb>>,
+  file: string,
+): Promise<void> {
   const sql = readFileSync(new URL(file, drizzleDir), 'utf8');
-  for (const stmt of sql.split('--> statement-breakpoint').map((s) => s.trim()).filter(Boolean)) {
+  for (const stmt of sql
+    .split('--> statement-breakpoint')
+    .map((s) => s.trim())
+    .filter(Boolean)) {
     await db.$client.execute(stmt);
   }
 }
@@ -45,13 +51,7 @@ const EXPECTED_TABLES = [
   '__drizzle_migrations',
 ] as const;
 
-const LEGACY_TABLES = [
-  'orgs',
-  'org_members',
-  'sessions',
-  'pending_auth',
-  'mcp_tokens',
-] as const;
+const LEGACY_TABLES = ['orgs', 'org_members', 'sessions', 'pending_auth', 'mcp_tokens'] as const;
 
 /**
  * libSQL cells are `string | number | bigint | ArrayBuffer | null`. The schema
@@ -174,7 +174,9 @@ describe('migrate', () => {
     const guests = await db.$client.execute(
       'SELECT id, share_id, project_id, workspace_id FROM guest_sessions',
     );
-    expect(guests.rows).toEqual([{ id: 'gs1', share_id: 's1', project_id: 'p1', workspace_id: null }]);
+    expect(guests.rows).toEqual([
+      { id: 'gs1', share_id: 's1', project_id: 'p1', workspace_id: null },
+    ]);
   });
 
   // Expand: polymorphic edge columns + document→task backfill. Task FK columns stay.
@@ -472,13 +474,13 @@ describe('migrate', () => {
     );
 
     const projectBefore = await db.$client.execute(
-      'SELECT id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at FROM projects WHERE id = \'p1\'',
+      "SELECT id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at FROM projects WHERE id = 'p1'",
     );
     const docBefore = await db.$client.execute(
-      'SELECT id, project_id, title, body, status_line, parent_id, folder_id, created_at, updated_at FROM documents WHERE id = \'d1\'',
+      "SELECT id, project_id, title, body, status_line, parent_id, folder_id, created_at, updated_at FROM documents WHERE id = 'd1'",
     );
     const edgeBefore = await db.$client.execute(
-      'SELECT id, project_id, from_type, from_id, to_type, to_id, label, arrow_direction, style, created_at FROM edges WHERE id = \'e1\'',
+      "SELECT id, project_id, from_type, from_id, to_type, to_id, label, arrow_direction, style, created_at FROM edges WHERE id = 'e1'",
     );
     expect(projectBefore.rows).toHaveLength(1);
     expect(docBefore.rows).toHaveLength(1);
@@ -497,7 +499,7 @@ describe('migrate', () => {
     expect(await hasColumn(db, 'projects', 'folder_path')).toBe(true);
 
     const projectAfter = await db.$client.execute(
-      'SELECT id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at, repo_url, folder_path FROM projects WHERE id = \'p1\'',
+      "SELECT id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at, repo_url, folder_path FROM projects WHERE id = 'p1'",
     );
     expect(projectAfter.rows).toEqual([
       {
@@ -508,12 +510,12 @@ describe('migrate', () => {
     ]);
 
     const docAfter = await db.$client.execute(
-      'SELECT id, project_id, title, body, status_line, parent_id, folder_id, created_at, updated_at FROM documents WHERE id = \'d1\'',
+      "SELECT id, project_id, title, body, status_line, parent_id, folder_id, created_at, updated_at FROM documents WHERE id = 'd1'",
     );
     expect(docAfter.rows).toEqual(docBefore.rows);
 
     const edgeAfter = await db.$client.execute(
-      'SELECT id, project_id, from_type, from_id, to_type, to_id, label, arrow_direction, style, created_at FROM edges WHERE id = \'e1\'',
+      "SELECT id, project_id, from_type, from_id, to_type, to_id, label, arrow_direction, style, created_at FROM edges WHERE id = 'e1'",
     );
     expect(edgeAfter.rows).toEqual(edgeBefore.rows);
   });
@@ -643,9 +645,7 @@ describe('migrate', () => {
     await db.$client.execute(
       "INSERT INTO tags (id, project_id, name, color, created_at) VALUES ('tag-sev','p1','severity:high',NULL,100)",
     );
-    await db.$client.execute(
-      "INSERT INTO task_tags (task_id, tag_id) VALUES ('t-sev','tag-sev')",
-    );
+    await db.$client.execute("INSERT INTO task_tags (task_id, tag_id) VALUES ('t-sev','tag-sev')");
 
     expect(await hasColumn(db, 'tasks', 'priority')).toBe(false);
 
@@ -691,9 +691,7 @@ describe('migrate', () => {
     for (const stmt of backfillOnly) {
       await db.$client.execute(stmt);
     }
-    const sevAgain = await db.$client.execute(
-      "SELECT id, priority FROM tasks WHERE id = 't-sev'",
-    );
+    const sevAgain = await db.$client.execute("SELECT id, priority FROM tasks WHERE id = 't-sev'");
     expect(sevAgain.rows).toEqual([{ id: 't-sev', priority: 'high' }]);
     const plainStillNull = await db.$client.execute(
       "SELECT priority FROM tasks WHERE id = 't-plain'",
@@ -742,7 +740,9 @@ describe('migrate', () => {
         `INSERT INTO tags (id, project_id, name, color, created_at) VALUES ('${id}','p17','${name}',NULL,100)`,
       );
     }
-    await db.$client.execute("INSERT INTO task_tags (task_id, tag_id) VALUES ('t-auto','lane-auto')");
+    await db.$client.execute(
+      "INSERT INTO task_tags (task_id, tag_id) VALUES ('t-auto','lane-auto')",
+    );
     await db.$client.execute(
       "INSERT INTO task_tags (task_id, tag_id) VALUES ('t-conflict','lane-approve'), ('t-conflict','lane-full')",
     );
@@ -765,7 +765,7 @@ describe('migrate', () => {
       { id: 't-sev-conflict', lane: null, severity: null },
     ]);
     const conflicts = await db.$client.execute(
-      "SELECT task_id, field, tag_values FROM task_field_migration_conflicts ORDER BY task_id, field",
+      'SELECT task_id, field, tag_values FROM task_field_migration_conflicts ORDER BY task_id, field',
     );
     expect(conflicts.rows).toEqual([
       { task_id: 't-conflict', field: 'lane', tag_values: 'approve,full' },
@@ -883,9 +883,7 @@ describe('migrate', () => {
 
     // DOWN — clear FKs, drop columns, drop table (additive reverse)
     await db.$client.execute('PRAGMA foreign_keys = OFF');
-    await db.$client.execute(
-      'UPDATE artifacts SET prototype_id = NULL, x = NULL, y = NULL',
-    );
+    await db.$client.execute('UPDATE artifacts SET prototype_id = NULL, x = NULL, y = NULL');
     await db.$client.execute('ALTER TABLE artifacts DROP COLUMN prototype_id');
     await db.$client.execute('ALTER TABLE artifacts DROP COLUMN x');
     await db.$client.execute('ALTER TABLE artifacts DROP COLUMN y');

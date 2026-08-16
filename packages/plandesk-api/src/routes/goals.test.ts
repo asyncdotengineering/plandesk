@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createDb, createGoal, createProjectInDefaultOrg as createProject, migrate } from '@plandesk/db';
+import {
+  createDb,
+  createGoal,
+  createProjectInDefaultOrg as createProject,
+  migrate,
+} from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createApp } from '../server.js';
 import { createServices } from '../services/index.js';
@@ -50,7 +55,10 @@ describe('goals routes', () => {
     const createRes = await app.request(`/api/v1/projects/${project.id}/goals`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ objective: 'Checklist route goal', verification_surface: JSON.stringify(surface) }),
+      body: JSON.stringify({
+        objective: 'Checklist route goal',
+        verification_surface: JSON.stringify(surface),
+      }),
     });
     expect(createRes.status).toBe(201);
     const created = await parseJson<{ id: string; verification_surface: string }>(createRes);
@@ -62,7 +70,12 @@ describe('goals routes', () => {
       expect.any(String),
     ]);
 
-    await createTask(db, { projectId: project.id, goalId: created.id, label: 'Done', status: 'done' });
+    await createTask(db, {
+      projectId: project.id,
+      goalId: created.id,
+      label: 'Done',
+      status: 'done',
+    });
     const completeRes = await app.request(`/api/v1/goals/${created.id}/complete`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -216,7 +229,10 @@ describe('goals routes', () => {
     expect(blockedBody.error).toBe('blocked_by_incomplete_tasks');
     expect(blockedBody.incomplete_task_ids).toEqual([open.id]);
 
-    await db.$client.execute({ sql: 'UPDATE tasks SET status = ? WHERE id = ?', args: ['done', open.id] });
+    await db.$client.execute({
+      sql: 'UPDATE tasks SET status = ? WHERE id = ?',
+      args: ['done', open.id],
+    });
     const completeRes = await app.request(`/api/v1/goals/${goal.id}/complete`, { method: 'POST' });
     expect(completeRes.status).toBe(200);
     expect((await parseJson<{ status: string }>(completeRes)).status).toBe('complete');
@@ -253,7 +269,10 @@ describe('goals routes', () => {
     expect(redBody.status).toBe('blocked');
     expect(redBody.last_verification.green).toBe(false);
 
-    await db.$client.execute({ sql: 'UPDATE goals SET status = ? WHERE id = ?', args: ['active', goal.id] });
+    await db.$client.execute({
+      sql: 'UPDATE goals SET status = ? WHERE id = ?',
+      args: ['active', goal.id],
+    });
     for (const row of (
       await db.$client.execute({
         sql: 'SELECT id FROM tasks WHERE goal_id = ? AND status = ?',

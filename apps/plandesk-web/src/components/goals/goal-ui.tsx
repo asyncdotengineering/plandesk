@@ -42,10 +42,14 @@ export function AcceptanceIndicator({
   verification: SerializedLastVerification | null;
 }) {
   if (verification === null) {
-    return <CircleIcon className="size-3.5 text-muted-foreground" aria-label="acceptance unknown" />;
+    return (
+      <CircleIcon className="size-3.5 text-muted-foreground" aria-label="acceptance unknown" />
+    );
   }
   if (verification.green) {
-    return <CheckIcon className="size-3.5 text-[var(--s-done-fg)]" aria-label="acceptance passed" />;
+    return (
+      <CheckIcon className="size-3.5 text-[var(--s-done-fg)]" aria-label="acceptance passed" />
+    );
   }
   return <XIcon className="size-3.5 text-destructive" aria-label="acceptance failed" />;
 }

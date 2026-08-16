@@ -28,9 +28,7 @@ export function selectedListItems(editor: Editor): SelectedListItem[] {
     // Skip nested items whose ancestor listItem/taskItem already intersects —
     // their text folds into the parent's textContent.
     if (
-      hits.some(
-        (hit) => nodeFrom >= hit.pos && nodeTo <= hit.pos + ancestorSize(editor, hit.pos),
-      )
+      hits.some((hit) => nodeFrom >= hit.pos && nodeTo <= hit.pos + ancestorSize(editor, hit.pos))
     ) {
       return false;
     }

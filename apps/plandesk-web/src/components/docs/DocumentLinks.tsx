@@ -208,11 +208,7 @@ type LinkPickerProps = {
   documents: Array<{ id: string; title: string }>;
   artifacts: SerializedArtifactSummary[];
   prototypes: SerializedPrototype[];
-  onCreate: (input: {
-    to_type: LinkEntityType;
-    to_id: string;
-    label: DocumentEdgeLabel;
-  }) => void;
+  onCreate: (input: { to_type: LinkEntityType; to_id: string; label: DocumentEdgeLabel }) => void;
   busy: boolean;
 };
 
@@ -589,4 +585,3 @@ export function DocumentLinks({ projectId, document, editable = true }: Document
     </section>
   );
 }
-

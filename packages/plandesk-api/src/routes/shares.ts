@@ -76,7 +76,11 @@ export function createSharesRouter(shareService: ShareService): Hono {
     }
     const audienceName = (body.audience_name ?? '').trim();
     if (audienceName === '') {
-      return invalidArgument(c, 'audience_name', 'audience_name is required and must be a non-empty string');
+      return invalidArgument(
+        c,
+        'audience_name',
+        'audience_name is required and must be a non-empty string',
+      );
     }
     const mode = body.mode === 'public' ? 'public' : 'invite';
     const origin = new URL(c.req.url).origin;

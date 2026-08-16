@@ -77,9 +77,7 @@ describe('wrapHtmlArtifactForRender', () => {
     const out = wrapHtmlArtifactForRender(content, csp);
     const shimStart = out.indexOf(HTML_ARTIFACT_SHIM);
     expect(shimStart).toBeGreaterThan(0);
-    expect(out.slice(shimStart, shimStart + HTML_ARTIFACT_SHIM.length)).toBe(
-      HTML_ARTIFACT_SHIM,
-    );
+    expect(out.slice(shimStart, shimStart + HTML_ARTIFACT_SHIM.length)).toBe(HTML_ARTIFACT_SHIM);
     // Hostile title remains only in the content region after the constant shim.
     expect(out.slice(shimStart + HTML_ARTIFACT_SHIM.length)).toBe(content);
   });

@@ -10,7 +10,9 @@ const ROUTES_DIR = dirname(fileURLToPath(import.meta.url));
 describe('invalidArgument', () => {
   it('returns 400 naming the field and the expectation', async () => {
     const app = new Hono();
-    app.post('/x', (c) => invalidArgument(c, 'viewport_width', 'viewport_width must be a finite number'));
+    app.post('/x', (c) =>
+      invalidArgument(c, 'viewport_width', 'viewport_width must be a finite number'),
+    );
 
     const res = await app.request('/x', { method: 'POST' });
     expect(res.status).toBe(400);

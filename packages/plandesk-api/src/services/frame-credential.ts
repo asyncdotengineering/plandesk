@@ -104,7 +104,17 @@ export async function artifactAuthorizedByCredential(
   db: Db,
   credential: FrameCredential,
   artifactId: string,
-): Promise<{ id: string; projectId: string; prototypeId: string | null; content: string; kind: string; title: string } | undefined> {
+): Promise<
+  | {
+      id: string;
+      projectId: string;
+      prototypeId: string | null;
+      content: string;
+      kind: string;
+      title: string;
+    }
+  | undefined
+> {
   const artifact = await getArtifact(db, artifactId);
   if (!artifact) {
     return undefined;

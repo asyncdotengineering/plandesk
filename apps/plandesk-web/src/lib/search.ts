@@ -66,9 +66,8 @@ function asSpecArray<T>(value: unknown, isSpec: (entry: unknown) => entry is T):
 }
 
 function parseGroupParam(value: unknown): GroupSpec[] | undefined {
-  const decoded = asSpecArray(
-    value,
-    (entry): entry is GroupSpec => isSpecShape(entry, GROUPABLE_FIELD_SET),
+  const decoded = asSpecArray(value, (entry): entry is GroupSpec =>
+    isSpecShape(entry, GROUPABLE_FIELD_SET),
   );
   if (decoded !== undefined) {
     return decoded;
@@ -100,9 +99,8 @@ function parseGroupParam(value: unknown): GroupSpec[] | undefined {
 }
 
 function parseSortParam(value: unknown): SortSpec[] | undefined {
-  const decoded = asSpecArray(
-    value,
-    (entry): entry is SortSpec => isSpecShape(entry, SORTABLE_FIELD_SET),
+  const decoded = asSpecArray(value, (entry): entry is SortSpec =>
+    isSpecShape(entry, SORTABLE_FIELD_SET),
   );
   if (decoded !== undefined) {
     return decoded;

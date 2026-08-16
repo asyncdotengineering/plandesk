@@ -159,7 +159,11 @@ export async function updateEdge(
   if (input.toId !== undefined) {
     patch.toId = input.toId;
   }
-  if (input.fromTaskId !== undefined && input.fromType === undefined && input.fromId === undefined) {
+  if (
+    input.fromTaskId !== undefined &&
+    input.fromType === undefined &&
+    input.fromId === undefined
+  ) {
     patch.fromType = 'task';
     patch.fromId = input.fromTaskId;
   }

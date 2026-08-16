@@ -25,9 +25,7 @@ export function PortalWorkspacePage({
     return (
       <section className="mx-auto max-w-5xl px-5 py-8">
         <h1 className="mb-2 text-xl font-semibold">{view.workspace.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          This workspace has no shared projects yet.
-        </p>
+        <p className="text-sm text-muted-foreground">This workspace has no shared projects yet.</p>
       </section>
     );
   }

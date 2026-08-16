@@ -1,6 +1,11 @@
 import { existsSync } from 'node:fs';
 import { createDb } from '@plandesk/db';
-import { defaultDataDir, findLocalWorkspaceDir, workspaceDbPath, type BoardSource } from './args.js';
+import {
+  defaultDataDir,
+  findLocalWorkspaceDir,
+  workspaceDbPath,
+  type BoardSource,
+} from './args.js';
 import { isPidAlive, readServerInfoRaw } from './connect-artifacts.js';
 import { countRows, listTables } from './database-schema.js';
 

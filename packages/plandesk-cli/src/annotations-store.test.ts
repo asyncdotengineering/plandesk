@@ -2,12 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  addAnnotation,
-  isStale,
-  listAnnotations,
-  resolveAnnotation,
-} from './annotations-store.js';
+import { addAnnotation, isStale, listAnnotations, resolveAnnotation } from './annotations-store.js';
 
 describe('annotation store', () => {
   const storeDirs: string[] = [];
@@ -77,8 +72,8 @@ describe('annotation store', () => {
 
   it('rejects an empty annotation body', () => {
     const storeDir = createStoreDir();
-    expect(() =>
-      addAnnotation('/artifact.md', 'content', { body: '   \n\t' }, storeDir),
-    ).toThrow('Annotation body must not be empty or whitespace');
+    expect(() => addAnnotation('/artifact.md', 'content', { body: '   \n\t' }, storeDir)).toThrow(
+      'Annotation body must not be empty or whitespace',
+    );
   });
 });

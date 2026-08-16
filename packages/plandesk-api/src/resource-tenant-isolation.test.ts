@@ -173,7 +173,11 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     const wsA = randomUUID();
     const wsB = randomUUID();
 
-    const projectA = await createProject(db, { name: 'Project A', orgId: orgA.id, workspaceId: wsA });
+    const projectA = await createProject(db, {
+      name: 'Project A',
+      orgId: orgA.id,
+      workspaceId: wsA,
+    });
     await createProject(db, { name: 'Project B', orgId: orgA.id, workspaceId: wsB });
     await createProject(db, { name: 'Project Other', orgId: orgB.id, workspaceId: wsA });
 
@@ -204,31 +208,57 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
       role: 'owner',
     });
 
-    const ownerKeyA = await createOrgOwnerKey({ auth, userId: userA, orgId: orgA.id, name: 'owner-a' });
+    const ownerKeyA = await createOrgOwnerKey({
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      name: 'owner-a',
+    });
     const wsKeyA = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsA,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-a',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsA,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-a',
     });
     const wsKeyB = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsB,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-b',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsB,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-b',
     });
-    const ownerKeyB = await createOrgOwnerKey({ auth, userId: userB, orgId: orgB.id, name: 'owner-b' });
+    const ownerKeyB = await createOrgOwnerKey({
+      auth,
+      userId: userB,
+      orgId: orgB.id,
+      name: 'owner-b',
+    });
 
     // GET cross-org → 404
-    const getCrossOrg = await app.request(`/api/v1/documents/${doc.id}`, { headers: bearer(ownerKeyB.key) });
+    const getCrossOrg = await app.request(`/api/v1/documents/${doc.id}`, {
+      headers: bearer(ownerKeyB.key),
+    });
     expect(getCrossOrg.status).toBe(404);
     expect(await parseJson(getCrossOrg)).toEqual({ error: 'not_found' });
 
     // GET cross-workspace → 404
-    const getCrossWs = await app.request(`/api/v1/documents/${doc.id}`, { headers: bearer(wsKeyB.key) });
+    const getCrossWs = await app.request(`/api/v1/documents/${doc.id}`, {
+      headers: bearer(wsKeyB.key),
+    });
     expect(getCrossWs.status).toBe(404);
     expect(await parseJson(getCrossWs)).toEqual({ error: 'not_found' });
 
     // GET in-scope → 200
-    const getOk = await app.request(`/api/v1/documents/${doc.id}`, { headers: bearer(ownerKeyA.key) });
+    const getOk = await app.request(`/api/v1/documents/${doc.id}`, {
+      headers: bearer(ownerKeyA.key),
+    });
     expect(getOk.status).toBe(200);
-    const getWsOk = await app.request(`/api/v1/documents/${doc.id}`, { headers: bearer(wsKeyA.key) });
+    const getWsOk = await app.request(`/api/v1/documents/${doc.id}`, {
+      headers: bearer(wsKeyA.key),
+    });
     expect(getWsOk.status).toBe(200);
 
     // PATCH cross-org → 404
@@ -273,11 +303,17 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
 
     // DELETE in-scope → 204 (but we won't delete because we need doc for getByTask)
     // Instead test getByTask cross-org / cross-workspace
-    const taskDocCrossOrg = await app.request(`/api/v1/tasks/${taskA.id}/document`, { headers: bearer(ownerKeyB.key) });
+    const taskDocCrossOrg = await app.request(`/api/v1/tasks/${taskA.id}/document`, {
+      headers: bearer(ownerKeyB.key),
+    });
     expect(taskDocCrossOrg.status).toBe(404);
-    const taskDocCrossWs = await app.request(`/api/v1/tasks/${taskA.id}/document`, { headers: bearer(wsKeyB.key) });
+    const taskDocCrossWs = await app.request(`/api/v1/tasks/${taskA.id}/document`, {
+      headers: bearer(wsKeyB.key),
+    });
     expect(taskDocCrossWs.status).toBe(404);
-    const taskDocOk = await app.request(`/api/v1/tasks/${taskA.id}/document`, { headers: bearer(ownerKeyA.key) });
+    const taskDocOk = await app.request(`/api/v1/tasks/${taskA.id}/document`, {
+      headers: bearer(ownerKeyA.key),
+    });
     expect(taskDocOk.status).toBe(200);
   });
 
@@ -288,13 +324,29 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     const wsA = randomUUID();
     const wsB = randomUUID();
 
-    const projectA = await createProject(db, { name: 'Project A', orgId: orgA.id, workspaceId: wsA });
+    const projectA = await createProject(db, {
+      name: 'Project A',
+      orgId: orgA.id,
+      workspaceId: wsA,
+    });
     await createProject(db, { name: 'Project B', orgId: orgA.id, workspaceId: wsB });
     await createProject(db, { name: 'Project Other', orgId: orgB.id, workspaceId: wsA });
 
-    const goalActive = await createGoal(db, { projectId: projectA.id, objective: 'Active', status: 'active' });
-    const goalPaused = await createGoal(db, { projectId: projectA.id, objective: 'Paused', status: 'paused' });
-    const goalBlocked = await createGoal(db, { projectId: projectA.id, objective: 'Blocked', status: 'blocked' });
+    const goalActive = await createGoal(db, {
+      projectId: projectA.id,
+      objective: 'Active',
+      status: 'active',
+    });
+    const goalPaused = await createGoal(db, {
+      projectId: projectA.id,
+      objective: 'Paused',
+      status: 'paused',
+    });
+    const goalBlocked = await createGoal(db, {
+      projectId: projectA.id,
+      objective: 'Blocked',
+      status: 'blocked',
+    });
 
     const { userId: userA } = await seedBetterAuthUser(auth, {
       email: 'a@example.com',
@@ -312,25 +364,50 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
       role: 'owner',
     });
 
-    const ownerKeyA = await createOrgOwnerKey({ auth, userId: userA, orgId: orgA.id, name: 'owner-a' });
+    const ownerKeyA = await createOrgOwnerKey({
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      name: 'owner-a',
+    });
     await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsA,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-a',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsA,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-a',
     });
     const wsKeyB = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsB,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-b',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsB,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-b',
     });
-    const ownerKeyB = await createOrgOwnerKey({ auth, userId: userB, orgId: orgB.id, name: 'owner-b' });
+    const ownerKeyB = await createOrgOwnerKey({
+      auth,
+      userId: userB,
+      orgId: orgB.id,
+      name: 'owner-b',
+    });
 
     // GET cross-org
-    const getCrossOrg = await app.request(`/api/v1/goals/${goalActive.id}`, { headers: bearer(ownerKeyB.key) });
+    const getCrossOrg = await app.request(`/api/v1/goals/${goalActive.id}`, {
+      headers: bearer(ownerKeyB.key),
+    });
     expect(getCrossOrg.status).toBe(404);
     // GET cross-workspace
-    const getCrossWs = await app.request(`/api/v1/goals/${goalActive.id}`, { headers: bearer(wsKeyB.key) });
+    const getCrossWs = await app.request(`/api/v1/goals/${goalActive.id}`, {
+      headers: bearer(wsKeyB.key),
+    });
     expect(getCrossWs.status).toBe(404);
     // GET in-scope
-    expect((await app.request(`/api/v1/goals/${goalActive.id}`, { headers: bearer(ownerKeyA.key) })).status).toBe(200);
+    expect(
+      (await app.request(`/api/v1/goals/${goalActive.id}`, { headers: bearer(ownerKeyA.key) }))
+        .status,
+    ).toBe(200);
 
     // PATCH cross-org
     const patchCrossOrg = await app.request(`/api/v1/goals/${goalActive.id}`, {
@@ -422,7 +499,11 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     const wsA = randomUUID();
     const wsB = randomUUID();
 
-    const projectA = await createProject(db, { name: 'Project A', orgId: orgA.id, workspaceId: wsA });
+    const projectA = await createProject(db, {
+      name: 'Project A',
+      orgId: orgA.id,
+      workspaceId: wsA,
+    });
     const note = await createNote(db, { projectId: projectA.id, title: 'Note A' });
 
     const { userId: userA } = await seedBetterAuthUser(auth, {
@@ -440,22 +521,48 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
       role: 'owner',
     });
 
-    const ownerKeyA = await createOrgOwnerKey({ auth, userId: userA, orgId: orgA.id, name: 'owner-a' });
+    const ownerKeyA = await createOrgOwnerKey({
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      name: 'owner-a',
+    });
     const wsKeyA = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsA,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-a',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsA,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-a',
     });
     const wsKeyB = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsB,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-b',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsB,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-b',
     });
-    const ownerKeyB = await createOrgOwnerKey({ auth, userId: userB, orgId: orgB.id, name: 'owner-b' });
+    const ownerKeyB = await createOrgOwnerKey({
+      auth,
+      userId: userB,
+      orgId: orgB.id,
+      name: 'owner-b',
+    });
 
     // GET cross-org / cross-workspace
-    expect((await app.request(`/api/v1/notes/${note.id}`, { headers: bearer(ownerKeyB.key) })).status).toBe(404);
-    expect((await app.request(`/api/v1/notes/${note.id}`, { headers: bearer(wsKeyB.key) })).status).toBe(404);
-    expect((await app.request(`/api/v1/notes/${note.id}`, { headers: bearer(ownerKeyA.key) })).status).toBe(200);
-    expect((await app.request(`/api/v1/notes/${note.id}`, { headers: bearer(wsKeyA.key) })).status).toBe(200);
+    expect(
+      (await app.request(`/api/v1/notes/${note.id}`, { headers: bearer(ownerKeyB.key) })).status,
+    ).toBe(404);
+    expect(
+      (await app.request(`/api/v1/notes/${note.id}`, { headers: bearer(wsKeyB.key) })).status,
+    ).toBe(404);
+    expect(
+      (await app.request(`/api/v1/notes/${note.id}`, { headers: bearer(ownerKeyA.key) })).status,
+    ).toBe(200);
+    expect(
+      (await app.request(`/api/v1/notes/${note.id}`, { headers: bearer(wsKeyA.key) })).status,
+    ).toBe(200);
 
     // PATCH cross-org / cross-workspace
     const patchCrossOrg = await app.request(`/api/v1/notes/${note.id}`, {
@@ -478,12 +585,21 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     expect(patchOk.status).toBe(200);
 
     // DELETE cross-org / cross-workspace
-    const delCrossOrg = await app.request(`/api/v1/notes/${note.id}`, { method: 'DELETE', headers: bearer(ownerKeyB.key) });
+    const delCrossOrg = await app.request(`/api/v1/notes/${note.id}`, {
+      method: 'DELETE',
+      headers: bearer(ownerKeyB.key),
+    });
     expect(delCrossOrg.status).toBe(404);
-    const delCrossWs = await app.request(`/api/v1/notes/${note.id}`, { method: 'DELETE', headers: bearer(wsKeyB.key) });
+    const delCrossWs = await app.request(`/api/v1/notes/${note.id}`, {
+      method: 'DELETE',
+      headers: bearer(wsKeyB.key),
+    });
     expect(delCrossWs.status).toBe(404);
     // Don't delete the in-scope one so we can verify it still exists
-    const delOk = await app.request(`/api/v1/notes/${note.id}`, { method: 'DELETE', headers: bearer(ownerKeyA.key) });
+    const delOk = await app.request(`/api/v1/notes/${note.id}`, {
+      method: 'DELETE',
+      headers: bearer(ownerKeyA.key),
+    });
     expect(delOk.status).toBe(204);
   });
 
@@ -494,7 +610,11 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     const wsA = randomUUID();
     const wsB = randomUUID();
 
-    const projectA = await createProject(db, { name: 'Project A', orgId: orgA.id, workspaceId: wsA });
+    const projectA = await createProject(db, {
+      name: 'Project A',
+      orgId: orgA.id,
+      workspaceId: wsA,
+    });
     const folder = await createFolder(db, { projectId: projectA.id, name: 'Folder A' });
 
     const { userId: userA } = await seedBetterAuthUser(auth, {
@@ -512,22 +632,50 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
       role: 'owner',
     });
 
-    const ownerKeyA = await createOrgOwnerKey({ auth, userId: userA, orgId: orgA.id, name: 'owner-a' });
+    const ownerKeyA = await createOrgOwnerKey({
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      name: 'owner-a',
+    });
     const wsKeyA = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsA,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-a',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsA,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-a',
     });
     const wsKeyB = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsB,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-b',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsB,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-b',
     });
-    const ownerKeyB = await createOrgOwnerKey({ auth, userId: userB, orgId: orgB.id, name: 'owner-b' });
+    const ownerKeyB = await createOrgOwnerKey({
+      auth,
+      userId: userB,
+      orgId: orgB.id,
+      name: 'owner-b',
+    });
 
     // GET
-    expect((await app.request(`/api/v1/folders/${folder.id}`, { headers: bearer(ownerKeyB.key) })).status).toBe(404);
-    expect((await app.request(`/api/v1/folders/${folder.id}`, { headers: bearer(wsKeyB.key) })).status).toBe(404);
-    expect((await app.request(`/api/v1/folders/${folder.id}`, { headers: bearer(ownerKeyA.key) })).status).toBe(200);
-    expect((await app.request(`/api/v1/folders/${folder.id}`, { headers: bearer(wsKeyA.key) })).status).toBe(200);
+    expect(
+      (await app.request(`/api/v1/folders/${folder.id}`, { headers: bearer(ownerKeyB.key) }))
+        .status,
+    ).toBe(404);
+    expect(
+      (await app.request(`/api/v1/folders/${folder.id}`, { headers: bearer(wsKeyB.key) })).status,
+    ).toBe(404);
+    expect(
+      (await app.request(`/api/v1/folders/${folder.id}`, { headers: bearer(ownerKeyA.key) }))
+        .status,
+    ).toBe(200);
+    expect(
+      (await app.request(`/api/v1/folders/${folder.id}`, { headers: bearer(wsKeyA.key) })).status,
+    ).toBe(200);
 
     // PATCH
     const patchCrossOrg = await app.request(`/api/v1/folders/${folder.id}`, {
@@ -550,11 +698,20 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     expect(patchOk.status).toBe(200);
 
     // DELETE
-    const delCrossOrg = await app.request(`/api/v1/folders/${folder.id}`, { method: 'DELETE', headers: bearer(ownerKeyB.key) });
+    const delCrossOrg = await app.request(`/api/v1/folders/${folder.id}`, {
+      method: 'DELETE',
+      headers: bearer(ownerKeyB.key),
+    });
     expect(delCrossOrg.status).toBe(404);
-    const delCrossWs = await app.request(`/api/v1/folders/${folder.id}`, { method: 'DELETE', headers: bearer(wsKeyB.key) });
+    const delCrossWs = await app.request(`/api/v1/folders/${folder.id}`, {
+      method: 'DELETE',
+      headers: bearer(wsKeyB.key),
+    });
     expect(delCrossWs.status).toBe(404);
-    const delOk = await app.request(`/api/v1/folders/${folder.id}`, { method: 'DELETE', headers: bearer(ownerKeyA.key) });
+    const delOk = await app.request(`/api/v1/folders/${folder.id}`, {
+      method: 'DELETE',
+      headers: bearer(ownerKeyA.key),
+    });
     expect(delOk.status).toBe(204);
   });
 
@@ -565,8 +722,16 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     const wsA = randomUUID();
     const wsB = randomUUID();
 
-    const projectA = await createProject(db, { name: 'Project A', orgId: orgA.id, workspaceId: wsA });
-    const artifact = await createArtifact(db, { projectId: projectA.id, title: 'Artifact A', kind: 'markdown' });
+    const projectA = await createProject(db, {
+      name: 'Project A',
+      orgId: orgA.id,
+      workspaceId: wsA,
+    });
+    const artifact = await createArtifact(db, {
+      projectId: projectA.id,
+      title: 'Artifact A',
+      kind: 'markdown',
+    });
 
     const { userId: userA } = await seedBetterAuthUser(auth, {
       email: 'a@example.com',
@@ -583,22 +748,52 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
       role: 'owner',
     });
 
-    const ownerKeyA = await createOrgOwnerKey({ auth, userId: userA, orgId: orgA.id, name: 'owner-a' });
+    const ownerKeyA = await createOrgOwnerKey({
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      name: 'owner-a',
+    });
     const wsKeyA = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsA,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-a',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsA,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-a',
     });
     const wsKeyB = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsB,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-b',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsB,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-b',
     });
-    const ownerKeyB = await createOrgOwnerKey({ auth, userId: userB, orgId: orgB.id, name: 'owner-b' });
+    const ownerKeyB = await createOrgOwnerKey({
+      auth,
+      userId: userB,
+      orgId: orgB.id,
+      name: 'owner-b',
+    });
 
     // GET
-    expect((await app.request(`/api/v1/artifacts/${artifact.id}`, { headers: bearer(ownerKeyB.key) })).status).toBe(404);
-    expect((await app.request(`/api/v1/artifacts/${artifact.id}`, { headers: bearer(wsKeyB.key) })).status).toBe(404);
-    expect((await app.request(`/api/v1/artifacts/${artifact.id}`, { headers: bearer(ownerKeyA.key) })).status).toBe(200);
-    expect((await app.request(`/api/v1/artifacts/${artifact.id}`, { headers: bearer(wsKeyA.key) })).status).toBe(200);
+    expect(
+      (await app.request(`/api/v1/artifacts/${artifact.id}`, { headers: bearer(ownerKeyB.key) }))
+        .status,
+    ).toBe(404);
+    expect(
+      (await app.request(`/api/v1/artifacts/${artifact.id}`, { headers: bearer(wsKeyB.key) }))
+        .status,
+    ).toBe(404);
+    expect(
+      (await app.request(`/api/v1/artifacts/${artifact.id}`, { headers: bearer(ownerKeyA.key) }))
+        .status,
+    ).toBe(200);
+    expect(
+      (await app.request(`/api/v1/artifacts/${artifact.id}`, { headers: bearer(wsKeyA.key) }))
+        .status,
+    ).toBe(200);
 
     // PATCH
     const patchCrossOrg = await app.request(`/api/v1/artifacts/${artifact.id}`, {
@@ -628,9 +823,18 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     const wsA = randomUUID();
     const wsB = randomUUID();
 
-    const projectA = await createProject(db, { name: 'Project A', orgId: orgA.id, workspaceId: wsA });
+    const projectA = await createProject(db, {
+      name: 'Project A',
+      orgId: orgA.id,
+      workspaceId: wsA,
+    });
     const doc = await createDocument(db, { projectId: projectA.id, title: 'Doc A' });
-    const comment = await createComment(db, { projectId: projectA.id, targetType: 'document', targetId: doc.id, body: 'Nice' });
+    const comment = await createComment(db, {
+      projectId: projectA.id,
+      targetType: 'document',
+      targetId: doc.id,
+      body: 'Nice',
+    });
 
     const { userId: userA } = await seedBetterAuthUser(auth, {
       email: 'a@example.com',
@@ -647,16 +851,34 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
       role: 'owner',
     });
 
-    const ownerKeyA = await createOrgOwnerKey({ auth, userId: userA, orgId: orgA.id, name: 'owner-a' });
+    const ownerKeyA = await createOrgOwnerKey({
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      name: 'owner-a',
+    });
     await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsA,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-a',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsA,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-a',
     });
     const wsKeyB = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsB,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-b',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsB,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-b',
     });
-    const ownerKeyB = await createOrgOwnerKey({ auth, userId: userB, orgId: orgB.id, name: 'owner-b' });
+    const ownerKeyB = await createOrgOwnerKey({
+      auth,
+      userId: userB,
+      orgId: orgB.id,
+      name: 'owner-b',
+    });
 
     // PATCH cross-org / cross-workspace
     const patchCrossOrg = await app.request(`/api/v1/comments/${comment.id}`, {
@@ -679,11 +901,20 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     expect(patchOk.status).toBe(200);
 
     // DELETE cross-org / cross-workspace
-    const delCrossOrg = await app.request(`/api/v1/comments/${comment.id}`, { method: 'DELETE', headers: bearer(ownerKeyB.key) });
+    const delCrossOrg = await app.request(`/api/v1/comments/${comment.id}`, {
+      method: 'DELETE',
+      headers: bearer(ownerKeyB.key),
+    });
     expect(delCrossOrg.status).toBe(404);
-    const delCrossWs = await app.request(`/api/v1/comments/${comment.id}`, { method: 'DELETE', headers: bearer(wsKeyB.key) });
+    const delCrossWs = await app.request(`/api/v1/comments/${comment.id}`, {
+      method: 'DELETE',
+      headers: bearer(wsKeyB.key),
+    });
     expect(delCrossWs.status).toBe(404);
-    const delOk = await app.request(`/api/v1/comments/${comment.id}`, { method: 'DELETE', headers: bearer(ownerKeyA.key) });
+    const delOk = await app.request(`/api/v1/comments/${comment.id}`, {
+      method: 'DELETE',
+      headers: bearer(ownerKeyA.key),
+    });
     expect(delOk.status).toBe(204);
   });
 
@@ -694,7 +925,11 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     const wsA = randomUUID();
     const wsB = randomUUID();
 
-    const projectA = await createProject(db, { name: 'Project A', orgId: orgA.id, workspaceId: wsA });
+    const projectA = await createProject(db, {
+      name: 'Project A',
+      orgId: orgA.id,
+      workspaceId: wsA,
+    });
     const run = await createAgentRun(db, { projectId: projectA.id, label: 'Run A' });
 
     const { userId: userA } = await seedBetterAuthUser(auth, {
@@ -712,16 +947,34 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
       role: 'owner',
     });
 
-    const ownerKeyA = await createOrgOwnerKey({ auth, userId: userA, orgId: orgA.id, name: 'owner-a' });
+    const ownerKeyA = await createOrgOwnerKey({
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      name: 'owner-a',
+    });
     const wsKeyA = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsA,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-a',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsA,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-a',
     });
     const wsKeyB = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsB,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-b',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsB,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-b',
     });
-    const ownerKeyB = await createOrgOwnerKey({ auth, userId: userB, orgId: orgB.id, name: 'owner-b' });
+    const ownerKeyB = await createOrgOwnerKey({
+      auth,
+      userId: userB,
+      orgId: orgB.id,
+      name: 'owner-b',
+    });
 
     // POST /progress cross-org
     const progCrossOrg = await app.request(`/api/v1/agent-runs/${run.id}/progress`, {
@@ -763,7 +1016,11 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
     const wsA = randomUUID();
     const wsB = randomUUID();
 
-    const projectA = await createProject(db, { name: 'Project A', orgId: orgA.id, workspaceId: wsA });
+    const projectA = await createProject(db, {
+      name: 'Project A',
+      orgId: orgA.id,
+      workspaceId: wsA,
+    });
 
     const { userId: userA } = await seedBetterAuthUser(auth, {
       email: 'a@example.com',
@@ -780,23 +1037,45 @@ describe('resource tenant isolation (cross-org + cross-workspace)', () => {
       role: 'owner',
     });
 
-    const ownerKeyA = await createOrgOwnerKey({ auth, userId: userA, orgId: orgA.id, name: 'owner-a' });
+    const ownerKeyA = await createOrgOwnerKey({
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      name: 'owner-a',
+    });
     const wsKeyA = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsA,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-a',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsA,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-a',
     });
     const wsKeyB = await createWorkspaceScopedAgentKey({
-      auth, userId: userA, orgId: orgA.id, teamId: wsB,
-      permissions: DEFAULT_AGENT_KEY_PERMISSIONS, name: 'ws-b',
+      auth,
+      userId: userA,
+      orgId: orgA.id,
+      teamId: wsB,
+      permissions: DEFAULT_AGENT_KEY_PERMISSIONS,
+      name: 'ws-b',
     });
-    const ownerKeyB = await createOrgOwnerKey({ auth, userId: userB, orgId: orgB.id, name: 'owner-b' });
+    const ownerKeyB = await createOrgOwnerKey({
+      auth,
+      userId: userB,
+      orgId: orgB.id,
+      name: 'owner-b',
+    });
 
     // Upload file with ownerKeyA
     const bytes = Buffer.from('secret-payload', 'utf8');
     const uploadRes = await app.request(`/api/v1/projects/${projectA.id}/files`, {
       method: 'POST',
       headers: { ...bearer(ownerKeyA.key), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: 'secret.txt', mime: 'text/plain', content_base64: bytes.toString('base64') }),
+      body: JSON.stringify({
+        filename: 'secret.txt',
+        mime: 'text/plain',
+        content_base64: bytes.toString('base64'),
+      }),
     });
     expect(uploadRes.status).toBe(201);
     const file = await parseJson<{ id: string; url: string }>(uploadRes);

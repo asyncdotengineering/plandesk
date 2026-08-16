@@ -96,8 +96,8 @@ export function GoalsPanel({ projectId }: GoalsPanelProps) {
         <div className="flex flex-wrap items-baseline gap-2.5">
           <h2 className="text-[15px] font-semibold tracking-tight">Goals</h2>
           <span className="text-xs text-muted-foreground">
-            Durable contracts you hand to agents. Open one to watch it get built and act where a gate
-            needs you.
+            Durable contracts you hand to agents. Open one to watch it get built and act where a
+            gate needs you.
           </span>
         </div>
         <Button
@@ -220,7 +220,9 @@ export function GoalsPanel({ projectId }: GoalsPanelProps) {
                     {goal.name ?? goal.objective}
                   </p>
                   {goal.name !== null ? (
-                    <p className="mb-2 text-xs leading-snug text-muted-foreground">{goal.objective}</p>
+                    <p className="mb-2 text-xs leading-snug text-muted-foreground">
+                      {goal.objective}
+                    </p>
                   ) : null}
                   <div className="flex flex-wrap items-center gap-2">
                     <GoalStatusBadge status={goal.status} />

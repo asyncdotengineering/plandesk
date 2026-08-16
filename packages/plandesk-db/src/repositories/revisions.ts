@@ -74,10 +74,7 @@ export async function insertRevision(db: DbClient, input: NewRevision): Promise<
   return row;
 }
 
-export async function getRevision(
-  db: DbClient,
-  id: string,
-): Promise<Revision | undefined> {
+export async function getRevision(db: DbClient, id: string): Promise<Revision | undefined> {
   return db.select().from(revisions).where(eq(revisions.id, id)).get();
 }
 
@@ -219,7 +216,9 @@ export async function reportRevisionUsage(db: Db): Promise<RevisionUsageReport> 
 
   const pageCountResult = await db.$client.execute('PRAGMA page_count');
   const pageSizeResult = await db.$client.execute('PRAGMA page_size');
-  const pageCount = asFiniteNumber(pageCountResult.rows[0]?.page_count ?? pageCountResult.rows[0]?.[0]);
+  const pageCount = asFiniteNumber(
+    pageCountResult.rows[0]?.page_count ?? pageCountResult.rows[0]?.[0],
+  );
   const pageSize = asFiniteNumber(pageSizeResult.rows[0]?.page_size ?? pageSizeResult.rows[0]?.[0]);
   const databaseBytes = pageCount * pageSize;
   const snapshotShareOfDatabase = databaseBytes === 0 ? 0 : snapshotBytes / databaseBytes;

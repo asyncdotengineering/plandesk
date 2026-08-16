@@ -1,9 +1,4 @@
-import {
-  createEdge,
-  getEdgeByEndpoints,
-  type DbClient,
-  type Document,
-} from '@plandesk/db';
+import { createEdge, getEdgeByEndpoints, type DbClient, type Document } from '@plandesk/db';
 import { convertDocumentBody, type WikiLinkResolved } from './markdown.js';
 
 export function buildDocumentTitleResolver(

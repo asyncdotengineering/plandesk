@@ -285,10 +285,7 @@ function computeAggregates(
               : spec.field === 'created_at'
                 ? task.created_at
                 : task.updated_at;
-          if (
-            bestMs === null ||
-            (spec.op === 'earliest' ? ms < bestMs : ms > bestMs)
-          ) {
+          if (bestMs === null || (spec.op === 'earliest' ? ms < bestMs : ms > bestMs)) {
             bestMs = ms;
             bestIso = iso;
           }
@@ -361,18 +358,9 @@ function groupLevel(
     const idSuffix = `${spec.field}:${entry.key}`;
     const id = pathPrefix === '' ? idSuffix : `${pathPrefix}/${idSuffix}`;
     const children = hasChild
-      ? groupLevel(
-          entry.tasks,
-          specs,
-          1,
-          entry.tasks.length,
-          id,
-          options,
-          collator,
-        )
+      ? groupLevel(entry.tasks, specs, 1, entry.tasks.length, id, options, collator)
       : null;
-    const leafTasks =
-      children === null ? sortTasks(entry.tasks, sortSpecs) : entry.tasks;
+    const leafTasks = children === null ? sortTasks(entry.tasks, sortSpecs) : entry.tasks;
 
     return {
       id,
@@ -404,10 +392,7 @@ export function groupTasks(
  * True when a `tag` grouping level fans tasks so memberships exceed the
  * parent task count (top-level or nested).
  */
-export function groupCountsExceedTaskTotal(
-  groups: GroupNode[],
-  parentTaskCount: number,
-): boolean {
+export function groupCountsExceedTaskTotal(groups: GroupNode[], parentTaskCount: number): boolean {
   if (groups.length === 0) {
     return false;
   }
@@ -417,8 +402,7 @@ export function groupCountsExceedTaskTotal(
   }
   return groups.some(
     (group) =>
-      group.children !== null &&
-      groupCountsExceedTaskTotal(group.children, group.tasks.length),
+      group.children !== null && groupCountsExceedTaskTotal(group.children, group.tasks.length),
   );
 }
 

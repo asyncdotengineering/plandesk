@@ -227,9 +227,7 @@ describe('typed edge service', () => {
     });
 
     // Caller scoped to project A cannot list by B's document endpoint under A.
-    expect(
-      await service().listEdgesForEndpoint(projectAId, 'document', docB.id),
-    ).toBeUndefined();
+    expect(await service().listEdgesForEndpoint(projectAId, 'document', docB.id)).toBeUndefined();
 
     // Listing under B works for the same org-scoped service (project isolation
     // is the gate; workspace isolation is covered by the HTTP audit suites).

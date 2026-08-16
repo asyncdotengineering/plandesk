@@ -22,7 +22,7 @@ if (!agent.startsWith('pnpm')) {
       '',
       `    detected packager: ${agent || '(none — npm_config_user_agent unset)'}`,
       '',
-      '    npm leaves pnpm\'s `workspace:*` protocol in the packed manifest, so the',
+      "    npm leaves pnpm's `workspace:*` protocol in the packed manifest, so the",
       '    published version is uninstallable (EUNSUPPORTEDPROTOCOL). A burned',
       '    version number cannot be reused.',
       '',

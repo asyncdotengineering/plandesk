@@ -10,11 +10,7 @@ function ProjectDocumentsPage() {
     isLoading: documentsLoading,
     isError: documentsError,
   } = useDocuments(id);
-  const {
-    data: folders,
-    isLoading: foldersLoading,
-    isError: foldersError,
-  } = useFolders(id);
+  const { data: folders, isLoading: foldersLoading, isError: foldersError } = useFolders(id);
   const { data: tasks } = useTasks(id);
 
   if (isLoading || documentsLoading || foldersLoading) {

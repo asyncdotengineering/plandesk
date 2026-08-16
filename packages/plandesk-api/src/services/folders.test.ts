@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDb, createProjectInDefaultOrg as createProject, getDocument, getFolder, migrate , type Db} from '@plandesk/db';
+import {
+  createDb,
+  createProjectInDefaultOrg as createProject,
+  getDocument,
+  getFolder,
+  migrate,
+  type Db,
+} from '@plandesk/db';
 import { createDocumentService } from './documents.js';
 import { createFolderService, InvalidFolderError } from './folders.js';
 
@@ -10,7 +17,7 @@ describe('folderService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-    let projectId = '';
+  let projectId = '';
   let orgId = '';
 
   function createService() {
@@ -81,9 +88,9 @@ describe('folderService', () => {
     if (!foreign) {
       return;
     }
-    await expect(service.create(projectId, { name: 'Child', parentFolderId: foreign.id })).rejects.toThrow(
-      InvalidFolderError,
-    );
+    await expect(
+      service.create(projectId, { name: 'Child', parentFolderId: foreign.id }),
+    ).rejects.toThrow(InvalidFolderError);
   });
 
   it('nests folders and rejects self-parenting', async () => {
@@ -109,8 +116,12 @@ describe('folderService', () => {
       return;
     }
 
-    await expect(service.update(a.id, { parentFolderId: c.id })).rejects.toThrow(InvalidFolderError);
-    await expect(service.update(a.id, { parentFolderId: b.id })).rejects.toThrow(InvalidFolderError);
+    await expect(service.update(a.id, { parentFolderId: c.id })).rejects.toThrow(
+      InvalidFolderError,
+    );
+    await expect(service.update(a.id, { parentFolderId: b.id })).rejects.toThrow(
+      InvalidFolderError,
+    );
     // a sibling move stays legal
     const moved = await service.update(c.id, { parentFolderId: a.id });
     expect(moved?.parent_folder_id).toBe(a.id);

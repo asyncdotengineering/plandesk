@@ -450,7 +450,10 @@ describe('syncService', () => {
   it('triage rejects link_task_id for a task belonging to a different project', async () => {
     const project = await createProject(db, { name: 'Cross-project source' });
     const otherProject = await createProject(db, { name: 'Cross-project other' });
-    const otherTask = await createTask(db, { projectId: otherProject.id, label: 'Other project task' });
+    const otherTask = await createTask(db, {
+      projectId: otherProject.id,
+      label: 'Other project task',
+    });
     const service = await pullSubmission(project.id);
 
     await expect(
@@ -566,9 +569,9 @@ describe('syncService', () => {
 
     await service.triage('sub-remote-1', 'accept', remote, undefined, taskA.id);
 
-    await expect(
-      service.triage('sub-remote-1', 'reject', remote),
-    ).rejects.toBeInstanceOf(SubmissionRetriageMismatchError);
+    await expect(service.triage('sub-remote-1', 'reject', remote)).rejects.toBeInstanceOf(
+      SubmissionRetriageMismatchError,
+    );
 
     expect((await getSubmission(db, 'sub-remote-1'))?.status).toBe('accepted');
   });
@@ -589,9 +592,9 @@ describe('syncService', () => {
 
     await service.triage('sub-remote-1', 'reject', remote);
 
-    await expect(
-      service.triage('sub-remote-1', 'accept', remote),
-    ).rejects.toBeInstanceOf(SubmissionRetriageMismatchError);
+    await expect(service.triage('sub-remote-1', 'accept', remote)).rejects.toBeInstanceOf(
+      SubmissionRetriageMismatchError,
+    );
 
     expect((await getSubmission(db, 'sub-remote-1'))?.status).toBe('rejected');
   });

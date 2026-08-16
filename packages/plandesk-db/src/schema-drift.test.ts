@@ -19,7 +19,10 @@ async function applyMigrationSqlRaw(
   file: string,
 ): Promise<void> {
   const sql = readFileSync(new URL(file, drizzleDir), 'utf8');
-  for (const stmt of sql.split('--> statement-breakpoint').map((s) => s.trim()).filter(Boolean)) {
+  for (const stmt of sql
+    .split('--> statement-breakpoint')
+    .map((s) => s.trim())
+    .filter(Boolean)) {
     await db.$client.execute(stmt);
   }
 }

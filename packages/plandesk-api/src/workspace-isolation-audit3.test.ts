@@ -212,7 +212,10 @@ describe('workspace-tier adversarial audit round 3', () => {
     const markdown = await f.app.request(`/api/v1/share/${invite.token}.md`);
     const body = await markdown.text();
 
-    expect({ status: markdown.status, leaked: body.includes('invite-only workspace secret') }).toEqual({
+    expect({
+      status: markdown.status,
+      leaked: body.includes('invite-only workspace secret'),
+    }).toEqual({
       status: 404,
       leaked: false,
     });
@@ -261,9 +264,8 @@ describe('workspace-tier adversarial audit round 3', () => {
     const response = await f.app.request('/api/v1/projects', {
       headers: bearer(f.projectAKey),
     });
-    const projects = await parseJson<Array<{ id: string; name: string; description: string | null }>>(
-      response,
-    );
+    const projects =
+      await parseJson<Array<{ id: string; name: string; description: string | null }>>(response);
 
     expect({
       status: response.status,
@@ -477,7 +479,11 @@ describe('workspace-tier adversarial audit round 3', () => {
       headers: bearer(f.workspaceAKey),
     });
 
-    expect([...responses.map((response) => response.status), listKeys.status].every((status) => status === 401 || status === 403)).toBe(true);
+    expect(
+      [...responses.map((response) => response.status), listKeys.status].every(
+        (status) => status === 401 || status === 403,
+      ),
+    ).toBe(true);
   });
 
   it('CONFIRMED REPRO — MCP get_task must not return sibling-workspace or cross-org task data', async () => {
@@ -497,9 +503,8 @@ describe('workspace-tier adversarial audit round 3', () => {
     });
     const handler = createGetTaskHandler(f.services.taskService);
 
-    const [workspaceResult, crossOrgResult] = await runWithAuthContext(
-      workspaceKeyContext(f),
-      () => Promise.all([handler({ task_id: taskB.id }), handler({ task_id: otherOrgTask.id })]),
+    const [workspaceResult, crossOrgResult] = await runWithAuthContext(workspaceKeyContext(f), () =>
+      Promise.all([handler({ task_id: taskB.id }), handler({ task_id: otherOrgTask.id })]),
     );
 
     expect({
@@ -546,17 +551,14 @@ describe('workspace-tier adversarial audit round 3', () => {
     // makes every Promise compare unequal to undefined.
     const handler = createListSubmissionsHandler(
       f.services.syncService,
-      async (projectId: string) =>
-        (await f.services.projectService.get(projectId)) !== undefined,
+      async (projectId: string) => (await f.services.projectService.get(projectId)) !== undefined,
     );
 
-    const [workspaceResult, crossOrgResult] = await runWithAuthContext(
-      workspaceKeyContext(f),
-      () =>
-        Promise.all([
-          handler({ project_id: f.projectB.id }),
-          handler({ project_id: otherOrgProject.id }),
-        ]),
+    const [workspaceResult, crossOrgResult] = await runWithAuthContext(workspaceKeyContext(f), () =>
+      Promise.all([
+        handler({ project_id: f.projectB.id }),
+        handler({ project_id: otherOrgProject.id }),
+      ]),
     );
 
     expect({

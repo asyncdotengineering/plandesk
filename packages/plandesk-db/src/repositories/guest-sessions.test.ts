@@ -3,11 +3,7 @@ import { createDb } from '../client.js';
 import { migrate } from '../migrate.js';
 import { createProjectInDefaultOrg as createProject } from '../testing.js';
 import { createShare } from './shares.js';
-import {
-  createGuestSession,
-  revokeGuestSession,
-  verifyGuestSession,
-} from './guest-sessions.js';
+import { createGuestSession, revokeGuestSession, verifyGuestSession } from './guest-sessions.js';
 
 describe('guestSessions repository', () => {
   it('mints a guest session and verifies the raw token once', async () => {

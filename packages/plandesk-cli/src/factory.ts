@@ -89,7 +89,12 @@ export function classifyAgentsPath(relPath: string): AgentsPathTier {
   if (p === SYNC_MANIFEST_REL || p === '.agents/.plandesk-sync.json') {
     return 'owned';
   }
-  if (p === FACTORY_DIR || p === '.agents/factory' || p.startsWith(`${FACTORY_DIR}/`) || p.startsWith('.agents/factory/')) {
+  if (
+    p === FACTORY_DIR ||
+    p === '.agents/factory' ||
+    p.startsWith(`${FACTORY_DIR}/`) ||
+    p.startsWith('.agents/factory/')
+  ) {
     return 'owned';
   }
   if (p.startsWith('.agents/skills/')) {
@@ -335,7 +340,10 @@ export function authoredFactoryFiles(repoDir: string): SyncableFile[] {
     { path: join(factoryDir, 'routing.md'), content: buildRoutingMarkdown() },
     { path: join(factoryDir, 'lanes.md'), content: buildLanesMarkdown() },
     { path: join(factoryDir, 'workmanship.md'), content: buildWorkmanshipMarkdown() },
-    { path: join(factoryDir, 'verifiers', 'tests-pass.md'), content: buildExampleVerifierMarkdown() },
+    {
+      path: join(factoryDir, 'verifiers', 'tests-pass.md'),
+      content: buildExampleVerifierMarkdown(),
+    },
     ...WORKER_NAMES.map((name) => ({
       path: join(factoryDir, 'workers', `${name}.md`),
       content: buildWorkerMarkdown(name),
@@ -556,12 +564,25 @@ export function planFactorySync(repoDir: string): FactorySyncEntry[] {
   for (const file of syncableAuthoredFiles(repoDir)) {
     const relPath = relative(repoDir, file.path);
     if (!existsSync(file.path)) {
-      entries.push({ path: file.path, relPath, status: 'create', shipped: file.content, executable: file.executable });
+      entries.push({
+        path: file.path,
+        relPath,
+        status: 'create',
+        shipped: file.content,
+        executable: file.executable,
+      });
       continue;
     }
     const onDisk = readFileSync(file.path, 'utf8');
     if (onDisk === file.content) {
-      entries.push({ path: file.path, relPath, status: 'up_to_date', shipped: file.content, onDisk, executable: file.executable });
+      entries.push({
+        path: file.path,
+        relPath,
+        status: 'up_to_date',
+        shipped: file.content,
+        onDisk,
+        executable: file.executable,
+      });
       continue;
     }
     // Differs from shipped. If the manifest proves it's unmodified since we last
@@ -660,7 +681,11 @@ export function runFactorySync(options: FactorySyncOptions): FactorySyncResult {
     // Re-read declared hashes after writes; keep conflict bases for edited files.
     const next: Record<string, string> = {};
     for (const entry of entries) {
-      if (entry.status === 'up_to_date' || entry.status === 'create' || entry.status === 'safe_update') {
+      if (
+        entry.status === 'up_to_date' ||
+        entry.status === 'create' ||
+        entry.status === 'safe_update'
+      ) {
         next[entry.relPath] = sha256(entry.shipped);
       } else {
         if (options.force === true) {
@@ -716,7 +741,9 @@ export function formatFactorySyncSummary(result: FactorySyncResult): string {
   if (result.applied) {
     lines.push('Factory sync applied.');
     if (created.length > 0)
-      lines.push(`created (${String(created.length)}): ${created.map((e) => e.relPath).join(', ')}`);
+      lines.push(
+        `created (${String(created.length)}): ${created.map((e) => e.relPath).join(', ')}`,
+      );
     if (safe.length > 0)
       lines.push(`updated (${String(safe.length)}): ${safe.map((e) => e.relPath).join(', ')}`);
     if (result.pruned.length > 0) {
@@ -759,7 +786,9 @@ export function formatFactorySyncSummary(result: FactorySyncResult): string {
   if (created.length + safe.length === 0 && conflicts.length === 0) {
     lines.push('Everything is up to date.');
   } else {
-    lines.push('Run `plandesk factory sync --write` to apply creates + safe updates (customized files are kept).');
+    lines.push(
+      'Run `plandesk factory sync --write` to apply creates + safe updates (customized files are kept).',
+    );
     if (conflicts.length > 0) {
       lines.push('Add `--force` to also overwrite customized files with the shipped version.');
     }

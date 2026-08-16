@@ -9,10 +9,7 @@ type AgentRunsPanelProps = {
   className?: string;
 };
 
-const runStatusVars: Record<
-  SerializedAgentRun['status'],
-  { bg: string; fg: string }
-> = {
+const runStatusVars: Record<SerializedAgentRun['status'], { bg: string; fg: string }> = {
   running: { bg: 'var(--s-prog-bg)', fg: 'var(--s-prog-fg)' },
   completed: { bg: 'var(--s-done-bg)', fg: 'var(--s-done-fg)' },
   failed: { bg: 'var(--destructive)', fg: '#ffffff' },
@@ -108,7 +105,10 @@ export function AgentRunsPanel({ projectId, className }: AgentRunsPanelProps) {
                     <span className="text-[12px] font-semibold">{run.label ?? 'Agent run'}</span>
                     <Badge
                       className="rounded-full px-1.5 py-0 text-[9px] font-semibold uppercase tracking-[0.05em]"
-                      style={{ backgroundColor: runStatusVars[run.status].bg, color: runStatusVars[run.status].fg }}
+                      style={{
+                        backgroundColor: runStatusVars[run.status].bg,
+                        color: runStatusVars[run.status].fg,
+                      }}
                     >
                       {formatStatus(run.status)}
                     </Badge>
@@ -119,7 +119,10 @@ export function AgentRunsPanel({ projectId, className }: AgentRunsPanelProps) {
                   {run.events.length > 0 ? (
                     <ul className="space-y-0.5">
                       {run.events.map((event) => (
-                        <li key={event.id} className="text-[11.5px] leading-snug text-[var(--text-2)]">
+                        <li
+                          key={event.id}
+                          className="text-[11.5px] leading-snug text-[var(--text-2)]"
+                        >
                           {event.message}
                         </li>
                       ))}

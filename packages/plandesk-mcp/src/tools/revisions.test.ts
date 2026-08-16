@@ -1,12 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { createServices } from '@plandesk/api';
-import {
-  createDb,
-  createProject,
-  insertRevision,
-  migrate,
-} from '@plandesk/db';
+import { createDb, createProject, insertRevision, migrate } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createGetRevisionHandler } from './get-revision.js';
 import { createListRevisionsHandler } from './list-revisions.js';

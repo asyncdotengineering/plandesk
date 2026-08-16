@@ -210,7 +210,11 @@ export function createArtifactsRouter(
   router.post('/artifacts/:id/move', async (c) => {
     const body = await c.req.json<MoveCopyBody>();
     if (typeof body.prototype_id !== 'string' || body.prototype_id.trim() === '') {
-      return invalidArgument(c, 'prototype_id', 'prototype_id is required and must be a non-empty string');
+      return invalidArgument(
+        c,
+        'prototype_id',
+        'prototype_id is required and must be a non-empty string',
+      );
     }
     try {
       const artifact = await artifactService.move(c.req.param('id'), body.prototype_id);
@@ -233,7 +237,11 @@ export function createArtifactsRouter(
   router.post('/artifacts/:id/copy', async (c) => {
     const body = await c.req.json<MoveCopyBody>();
     if (typeof body.prototype_id !== 'string' || body.prototype_id.trim() === '') {
-      return invalidArgument(c, 'prototype_id', 'prototype_id is required and must be a non-empty string');
+      return invalidArgument(
+        c,
+        'prototype_id',
+        'prototype_id is required and must be a non-empty string',
+      );
     }
     try {
       const artifact = await artifactService.copy(c.req.param('id'), body.prototype_id);

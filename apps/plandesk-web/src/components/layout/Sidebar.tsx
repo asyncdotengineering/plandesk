@@ -18,7 +18,14 @@ const PLAN_NAV: NavEntry[] = [
     label: 'Overview',
     to: '/projects/$id/overview' as const,
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.7}
+      >
         <rect x="4" y="4" width="16" height="16" rx="2" />
         <path d="M8 8h8M8 12h8M8 16h5" />
       </svg>
@@ -28,7 +35,14 @@ const PLAN_NAV: NavEntry[] = [
     label: 'Board',
     to: '/projects/$id/board' as const,
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.7}
+      >
         <rect x="3.5" y="4" width="5" height="16" rx="1.5" />
         <rect x="10" y="4" width="5" height="11" rx="1.5" />
         <rect x="16.5" y="4" width="4.5" height="8" rx="1.5" />
@@ -42,7 +56,14 @@ const PLAN_NAV: NavEntry[] = [
     label: 'Flow',
     to: '/projects/$id/flow' as const,
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.7}
+      >
         <circle cx="6" cy="7" r="2.4" />
         <circle cx="18" cy="12" r="2.4" />
         <circle cx="6" cy="17" r="2.4" />
@@ -54,7 +75,14 @@ const PLAN_NAV: NavEntry[] = [
     label: 'Goals',
     to: '/projects/$id/goals' as const,
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.7}
+      >
         <circle cx="12" cy="12" r="8" />
         <circle cx="12" cy="12" r="3.4" />
       </svg>
@@ -64,7 +92,14 @@ const PLAN_NAV: NavEntry[] = [
     label: 'Prototypes',
     to: '/projects/$id/prototypes' as const,
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.7}
+      >
         <rect x="4" y="3" width="16" height="18" rx="2" />
         <path d="M8 7h8M8 11h8M8 15h5" />
       </svg>
@@ -77,7 +112,14 @@ const WORKSPACE_NAV: NavEntry[] = [
     label: 'Documents',
     to: '/projects/$id/documents' as const,
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.7}
+      >
         <path d="M6 3.5h8l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1z" />
         <path d="M14 3.5V8h4" />
       </svg>
@@ -87,7 +129,14 @@ const WORKSPACE_NAV: NavEntry[] = [
     label: 'Notes',
     to: '/projects/$id/notes' as const,
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.7}
+      >
         <path d="M5 19l1-4L16 5l3 3L9 18l-4 1z" />
       </svg>
     ),
@@ -96,7 +145,14 @@ const WORKSPACE_NAV: NavEntry[] = [
     label: 'Inbox',
     to: '/projects/$id/inbox' as const,
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.7}
+      >
         <path d="M4 13l2.2-7.2A2 2 0 0 1 8.1 4.5h7.8a2 2 0 0 1 1.9 1.3L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
         <path d="M4 13h4l1.5 2.2h5L16 13h4" />
       </svg>
@@ -106,12 +162,7 @@ const WORKSPACE_NAV: NavEntry[] = [
 
 function NavRow({ entry, id }: { entry: NavEntry; id: string }) {
   return (
-    <Link
-      to={entry.to}
-      params={{ id }}
-      className="nav-item"
-      activeProps={{ className: 'active' }}
-    >
+    <Link to={entry.to} params={{ id }} className="nav-item" activeProps={{ className: 'active' }}>
       {entry.icon}
       {entry.label}
     </Link>

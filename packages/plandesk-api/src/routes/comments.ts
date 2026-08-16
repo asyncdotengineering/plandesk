@@ -55,7 +55,11 @@ async function handleCreateComment(
   }
 }
 
-async function handleListComments(c: Context, commentService: CommentService, target: CommentTarget) {
+async function handleListComments(
+  c: Context,
+  commentService: CommentService,
+  target: CommentTarget,
+) {
   const includeResolved = parseIncludeResolved(c.req.query('include_resolved'));
   const comments = await commentService.listByTarget(target, { includeResolved });
   if (!comments) {

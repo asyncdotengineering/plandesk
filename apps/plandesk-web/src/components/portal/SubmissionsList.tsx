@@ -105,7 +105,9 @@ export function SubmissionsList({
                   <StatusBadge status={submission.status} />
                 </div>
                 <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                  {submission.severity !== null ? <span>Severity: {submission.severity}</span> : null}
+                  {submission.severity !== null ? (
+                    <span>Severity: {submission.severity}</span>
+                  ) : null}
                   <span>{formatCreatedAt(submission.created_at)}</span>
                 </div>
               </Card>

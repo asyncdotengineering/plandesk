@@ -20,7 +20,10 @@ import {
   listProjects,
   migrate,
 } from '@plandesk/db';
-import { createProjectInDefaultOrg as createProject, createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
+import {
+  createProjectInDefaultOrg as createProject,
+  createTaskWithDefaultGoal as createTask,
+} from '@plandesk/db/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { GoOnlineError, runGoOnline } from './go-online.js';
 import { readStringCell } from './database-schema.js';
@@ -70,7 +73,13 @@ async function seedOwnerKey(
   });
   await adapter.create<BaAccount>({
     model: 'account',
-    data: { accountId: githubAccountId, providerId: 'github', userId: user.id, createdAt: now, updatedAt: now },
+    data: {
+      accountId: githubAccountId,
+      providerId: 'github',
+      userId: user.id,
+      createdAt: now,
+      updatedAt: now,
+    },
   });
   // forceAllowId accepts id at runtime, but TS excess-property check rejects an
   // inline literal — assign to an intermediate first (see invitations.test.ts).
@@ -84,7 +93,12 @@ async function seedOwnerKey(
     model: 'member',
     data: { organizationId: org.id, userId: user.id, role: 'owner', createdAt: now },
   });
-  const minted = await createOrgOwnerKey({ auth, userId: user.id, orgId: org.id, name: 'go-online' });
+  const minted = await createOrgOwnerKey({
+    auth,
+    userId: user.id,
+    orgId: org.id,
+    name: 'go-online',
+  });
   return minted.key;
 }
 
@@ -108,7 +122,12 @@ async function startHosted(): Promise<Hosted> {
   });
   if (auth === undefined) throw new Error('expected better-auth');
   await runBetterAuthMigrations(auth);
-  const token = await seedOwnerKey(auth, { id: orgId, name: 'Hosted', slug: 'hosted' }, 'owner@go-online.test', '7001');
+  const token = await seedOwnerKey(
+    auth,
+    { id: orgId, name: 'Hosted', slug: 'hosted' },
+    'owner@go-online.test',
+    '7001',
+  );
   const app = createApp({
     db,
     bindHost: '0.0.0.0',
@@ -165,7 +184,12 @@ async function makeLocalBoard(): Promise<LocalBoard> {
 
   // Second workspace, created via the same adapter path identity.ts uses.
   const adapter = (await localAuth.$context).adapter;
-  const fiji = await adapter.create<{ id: string; name: string; organizationId: string; createdAt: Date }>({
+  const fiji = await adapter.create<{
+    id: string;
+    name: string;
+    organizationId: string;
+    createdAt: Date;
+  }>({
     model: 'team',
     data: { name: 'Fiji TV', organizationId: DEFAULT_ORG_ID, createdAt: new Date() },
   });
@@ -196,7 +220,9 @@ async function makeLocalBoard(): Promise<LocalBoard> {
 }
 
 /** The local default "General" team id (DEFAULT_WORKSPACE_ID after init). */
-async function ensureDefaultGeneralTeamId(db: Awaited<ReturnType<typeof createDb>>): Promise<string> {
+async function ensureDefaultGeneralTeamId(
+  db: Awaited<ReturnType<typeof createDb>>,
+): Promise<string> {
   const result = await db.$client.execute({
     sql: "SELECT id FROM team WHERE organizationId = ? AND name = 'General' LIMIT 1",
     args: [DEFAULT_ORG_ID],
@@ -207,7 +233,11 @@ async function ensureDefaultGeneralTeamId(db: Awaited<ReturnType<typeof createDb
 }
 
 function silentOut(): Writable {
-  return new Writable({ write(_chunk, _enc, cb) { cb(); } });
+  return new Writable({
+    write(_chunk, _enc, cb) {
+      cb();
+    },
+  });
 }
 
 describe('plandesk go-online', () => {
@@ -353,7 +383,12 @@ describe('plandesk go-online', () => {
     });
 
     await expect(
-      runGoOnline({ all: true, dataDir: local.dataDir, home: '/nonexistent-home-zz', out: silentOut() }),
+      runGoOnline({
+        all: true,
+        dataDir: local.dataDir,
+        home: '/nonexistent-home-zz',
+        out: silentOut(),
+      }),
     ).rejects.toThrow(GoOnlineError);
   });
 });

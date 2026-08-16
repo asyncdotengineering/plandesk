@@ -9,11 +9,7 @@ import type {
   SerializedTask,
 } from '../../lib/api.js';
 import { requestUrl } from '../../test-utils.js';
-import {
-  ContentHistoryPanel,
-  formatRevisionAuthor,
-  relativeTime,
-} from './ContentHistoryPanel.js';
+import { ContentHistoryPanel, formatRevisionAuthor, relativeTime } from './ContentHistoryPanel.js';
 
 const projectId = 'proj-1';
 const taskId = 'task-1';
@@ -92,7 +88,9 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as Response;
 }
 
-function mockFetch(handler: (url: string, init?: RequestInit) => Response): ReturnType<typeof vi.fn> {
+function mockFetch(
+  handler: (url: string, init?: RequestInit) => Response,
+): ReturnType<typeof vi.fn> {
   const fetchMock = vi.fn((input: unknown, init?: RequestInit) =>
     Promise.resolve(handler(requestUrl(input), init)),
   );
@@ -100,9 +98,7 @@ function mockFetch(handler: (url: string, init?: RequestInit) => Response): Retu
   return fetchMock;
 }
 
-function renderPanel(
-  props: Partial<ComponentProps<typeof ContentHistoryPanel>> = {},
-) {
+function renderPanel(props: Partial<ComponentProps<typeof ContentHistoryPanel>> = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -171,17 +167,13 @@ describe('ContentHistoryPanel', () => {
       expect(screen.getByText('alice')).toBeTruthy();
     });
 
-    const snapshotCalls = fetchMock.mock.calls.filter((call) =>
-      isSnapshotGet(requestUrl(call[0])),
-    );
+    const snapshotCalls = fetchMock.mock.calls.filter((call) => isSnapshotGet(requestUrl(call[0])));
     expect(snapshotCalls).toHaveLength(0);
 
     fireEvent.click(screen.getByText('bob'));
 
     await waitFor(() => {
-      expect(
-        fetchMock.mock.calls.some((call) => isSnapshotGet(requestUrl(call[0]))),
-      ).toBe(true);
+      expect(fetchMock.mock.calls.some((call) => isSnapshotGet(requestUrl(call[0])))).toBe(true);
     });
   });
 

@@ -24,12 +24,16 @@ function writeRepoConfig(repoDir: string, serverUrl: string): void {
   mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
   writeFileSync(
     join(repoDir, '.plandesk', 'config.json'),
-    `${JSON.stringify({
-      version: 'plandesk-connect-v1',
-      serverUrl,
-      projectId: 'proj-1',
-      projectName: 'test',
-    }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        version: 'plandesk-connect-v1',
+        serverUrl,
+        projectId: 'proj-1',
+        projectName: 'test',
+      },
+      null,
+      2,
+    )}\n`,
     'utf8',
   );
 }
@@ -64,10 +68,7 @@ describe('resolvePromoteToken — login→push seam', () => {
   it('precedence: env beats global beats repo', () => {
     const home = makeTemp();
     const repoDir = makeTemp();
-    writeCliConfig(
-      { server: 'https://plan.example', token: 'global-token', orgId: 'org-1' },
-      home,
-    );
+    writeCliConfig({ server: 'https://plan.example', token: 'global-token', orgId: 'org-1' }, home);
     writeRepoToken(repoDir, 'repo-token');
 
     expect(resolvePromoteToken(repoDir, home)).toBe('global-token');
@@ -76,10 +77,7 @@ describe('resolvePromoteToken — login→push seam', () => {
     expect(resolvePromoteToken(repoDir, home)).toBe('env-token');
 
     Reflect.deleteProperty(process.env, TOKEN_ENV_VAR);
-    writeCliConfig(
-      { server: 'https://plan.example', token: '', orgId: 'org-1' },
-      home,
-    );
+    writeCliConfig({ server: 'https://plan.example', token: '', orgId: 'org-1' }, home);
     // Empty global token is skipped → repo wins.
     expect(resolvePromoteToken(repoDir, home)).toBe('repo-token');
   });
@@ -107,10 +105,7 @@ describe('resolvePromoteServerUrl — flag > repo > global', () => {
     const home = makeTemp();
     const repoDir = makeTemp();
     writeRepoConfig(repoDir, 'http://127.0.0.1:3450');
-    writeCliConfig(
-      { server: 'https://global.example', token: 't', orgId: 'o' },
-      home,
-    );
+    writeCliConfig({ server: 'https://global.example', token: 't', orgId: 'o' }, home);
 
     expect(resolvePromoteServerUrl(repoDir, 'https://flag.example/', home)).toBe(
       'https://flag.example',
@@ -121,10 +116,7 @@ describe('resolvePromoteServerUrl — flag > repo > global', () => {
     const home = makeTemp();
     const repoDir = makeTemp();
     writeRepoConfig(repoDir, 'http://127.0.0.1:3450');
-    writeCliConfig(
-      { server: 'https://global.example', token: 't', orgId: 'o' },
-      home,
-    );
+    writeCliConfig({ server: 'https://global.example', token: 't', orgId: 'o' }, home);
 
     expect(resolvePromoteServerUrl(repoDir, undefined, home)).toBe('http://127.0.0.1:3450');
   });
@@ -132,13 +124,8 @@ describe('resolvePromoteServerUrl — flag > repo > global', () => {
   it('falls back to global login server when repo has no config', () => {
     const home = makeTemp();
     const repoDir = makeTemp();
-    writeCliConfig(
-      { server: 'https://plan.asyncdot.com', token: 't', orgId: 'o' },
-      home,
-    );
+    writeCliConfig({ server: 'https://plan.asyncdot.com', token: 't', orgId: 'o' }, home);
 
-    expect(resolvePromoteServerUrl(repoDir, undefined, home)).toBe(
-      'https://plan.asyncdot.com',
-    );
+    expect(resolvePromoteServerUrl(repoDir, undefined, home)).toBe('https://plan.asyncdot.com');
   });
 });

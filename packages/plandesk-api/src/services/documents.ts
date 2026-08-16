@@ -41,7 +41,12 @@ import {
   type SerializedEntityLink,
 } from '../serialize.js';
 import { serializeActor } from '../write-actor.js';
-import { assertPermission, resolveOrgId, resolveWriteActor, type OrgScopedDeps } from './org-scope.js';
+import {
+  assertPermission,
+  resolveOrgId,
+  resolveWriteActor,
+  type OrgScopedDeps,
+} from './org-scope.js';
 import {
   captureRevision,
   changedVersionedFields,
@@ -489,9 +494,12 @@ export function createDocumentService(deps: DocumentServiceDeps) {
           input.body !== undefined
             ? prepareDocumentBody(input.body, prior.projectId, projectDocuments, id)
             : { body: input.body, resolved: [] as WikiLinkResolved[] };
-        const versionedInput =
-          input.body !== undefined ? { ...input, body: prepared.body } : input;
-        const versionedChanges = changedVersionedFields(prior, versionedInput, DOCUMENT_VERSIONED_FIELDS);
+        const versionedInput = input.body !== undefined ? { ...input, body: prepared.body } : input;
+        const versionedChanges = changedVersionedFields(
+          prior,
+          versionedInput,
+          DOCUMENT_VERSIONED_FIELDS,
+        );
         let row: Document | undefined;
         try {
           row = await retryOnSqliteBusy(() =>
@@ -668,10 +676,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
      * exact label is already linked from this document (documents → task).
      * Placement starts below the project's lowest card so new cards never overlap.
      */
-    async convertBullets(
-      id: string,
-      labels: string[],
-    ): Promise<ConvertBulletsResult | undefined> {
+    async convertBullets(id: string, labels: string[]): Promise<ConvertBulletsResult | undefined> {
       // Writing the document is the gate: converting is an edit affordance on
       // the source doc, even though the body itself is left unchanged.
       assertPermission(deps, 'document', 'update');
@@ -700,11 +705,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       const edges = await listEdgesByEndpoint(db, projectId, 'document', id);
       const linkedTaskIds = new Set<string>();
       for (const edge of edges) {
-        if (
-          edge.fromType === 'document' &&
-          edge.fromId === id &&
-          edge.toType === 'task'
-        ) {
+        if (edge.fromType === 'document' && edge.fromId === id && edge.toType === 'task') {
           linkedTaskIds.add(edge.toId);
         }
       }

@@ -53,10 +53,7 @@ describe('resolveGithubIdentity', () => {
       return Promise.resolve(jsonResponse({ id: 42, login: 'ada', name: 'Ada L' }));
     });
 
-    const identity = await resolveGithubIdentity(
-      { ...baseConfig, fetch: doFetch },
-      'the-code',
-    );
+    const identity = await resolveGithubIdentity({ ...baseConfig, fetch: doFetch }, 'the-code');
 
     expect(identity).toEqual({ id: 42, login: 'ada', name: 'Ada L' });
 

@@ -10,10 +10,7 @@ import {
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createOrgOwnerKey, createScopedAgentKey } from '../agent-keys.js';
-import {
-  createBetterAuth,
-  runBetterAuthMigrations,
-} from '../index.js';
+import { createBetterAuth, runBetterAuthMigrations } from '../index.js';
 import { ensureHtmlBody } from '../markdown.js';
 import { createApp } from '../server.js';
 import { createDocumentService } from '../services/documents.js';
@@ -61,7 +58,11 @@ async function seedCrossOrgFixture() {
     orgId: orgA.id,
     workspaceId: wsA,
   });
-  const taskA = await createTask(db, { projectId: projectA.id, label: 'Secret', description: 'v0' });
+  const taskA = await createTask(db, {
+    projectId: projectA.id,
+    label: 'Secret',
+    description: 'v0',
+  });
   const revision = await insertRevision(db, {
     projectId: projectA.id,
     targetType: 'task',
@@ -107,7 +108,12 @@ async function seedCrossOrgFixture() {
   });
   await adapter.create({
     model: 'organization',
-    data: { id: orgB.id, name: orgB.name, slug: `org-b-${randomUUID().slice(0, 8)}`, createdAt: now },
+    data: {
+      id: orgB.id,
+      name: orgB.name,
+      slug: `org-b-${randomUUID().slice(0, 8)}`,
+      createdAt: now,
+    },
     forceAllowId: true,
   });
   await adapter.create({
@@ -192,7 +198,11 @@ describe('revisions routes', () => {
     const { app, db } = await createTestApp();
     const project = await createProjectInDefaultOrg(db, { name: 'Fetch' });
     const taskService = createTaskService({ db, orgId: project.orgId });
-    const task = await createTask(db, { projectId: project.id, label: 'Card', description: 'prior' });
+    const task = await createTask(db, {
+      projectId: project.id,
+      label: 'Card',
+      description: 'prior',
+    });
     await taskService.update(task.id, { description: 'next' });
 
     const listed = await parseJson<RevisionMeta[]>(

@@ -96,9 +96,7 @@ describe('create/update project handlers forward repo binding', () => {
     expect(bare.repo_url).toBeNull();
     expect(bare.folder_path).toBeNull();
 
-    const cleared = parseProject(
-      await update({ project_id: bound.id, repo_url: null }),
-    );
+    const cleared = parseProject(await update({ project_id: bound.id, repo_url: null }));
     expect(updates[0]).toEqual({
       id: bound.id,
       input: { repoUrl: null },

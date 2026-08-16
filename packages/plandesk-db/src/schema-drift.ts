@@ -15,9 +15,7 @@ export type SchemaMigrationSummary = {
 };
 
 export class SchemaDriftError extends Error {
-  constructor(
-    public readonly summary: SchemaMigrationSummary,
-  ) {
+  constructor(public readonly summary: SchemaMigrationSummary) {
     super(formatSchemaDriftMessage(summary));
     this.name = 'SchemaDriftError';
   }
@@ -90,9 +88,7 @@ export async function getSchemaMigrationSummary(db: Db): Promise<SchemaMigration
 
 export function formatSchemaDriftMessage(summary: SchemaMigrationSummary): string {
   const missing =
-    summary.missingTags.length > 0
-      ? ` Missing: ${summary.missingTags.join(', ')}.`
-      : '';
+    summary.missingTags.length > 0 ? ` Missing: ${summary.missingTags.join(', ')}.` : '';
   return (
     `Database schema is behind the server (${String(summary.applied)}/${String(summary.shipped)} migrations applied).` +
     missing +

@@ -6,10 +6,7 @@ import { Label } from '@/components/ui/label';
 export const UNFILED_PICKER_VALUE = '__unfiled__';
 
 /** Breadcrumb-style path for a folder (e.g. "Specs / Archive"). */
-export function folderNestingPath(
-  folders: SerializedFolder[],
-  folderId: string,
-): string {
+export function folderNestingPath(folders: SerializedFolder[], folderId: string): string {
   const byId = new Map(folders.map((folder) => [folder.id, folder]));
   const parts: string[] = [];
   const visited = new Set<string>();
@@ -71,8 +68,7 @@ export function FolderPicker({
     }
     return rows.filter(
       (row) =>
-        row.path.toLowerCase().includes(normalized) ||
-        row.id.toLowerCase().includes(normalized),
+        row.path.toLowerCase().includes(normalized) || row.id.toLowerCase().includes(normalized),
     );
   }, [folders, excludeIds, normalized]);
 
@@ -107,9 +103,7 @@ export function FolderPicker({
           className="flex min-h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
           size={Math.min(8, Math.max(2, options.length + (allowUnfiled ? 1 : 0)))}
         >
-          {allowUnfiled ? (
-            <option value={UNFILED_PICKER_VALUE}>Unfiled (no folder)</option>
-          ) : null}
+          {allowUnfiled ? <option value={UNFILED_PICKER_VALUE}>Unfiled (no folder)</option> : null}
           {options.map((row) => (
             <option key={row.id} value={row.id}>
               {row.path}

@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  createDb,
-  createProject,
-  migrate,
-  NON_TRIVIAL_SAVED_VIEW_CONFIG,
-} from '@plandesk/db';
+import { createDb, createProject, migrate, NON_TRIVIAL_SAVED_VIEW_CONFIG } from '@plandesk/db';
 import { createViewService, InvalidViewError } from './views.js';
 
 const ORG_A = '00000000-0000-4000-8000-00000000aaaa';

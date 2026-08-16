@@ -111,7 +111,6 @@ function openSortMenu() {
   fireEvent.click(screen.getByRole('button', { name: 'Sort' }));
 }
 
-
 function laneFullTodoOrScopeFilter() {
   return encodeFilterParam({
     kind: 'group',
@@ -224,7 +223,9 @@ describe('Project list route', () => {
     stubListFetch(tasks);
 
     const filter = laneFullTodoOrScopeFilter();
-    const { router } = renderListAt(`/projects/${projectId}/list?filter=${encodeURIComponent(filter ?? '')}`);
+    const { router } = renderListAt(
+      `/projects/${projectId}/list?filter=${encodeURIComponent(filter ?? '')}`,
+    );
     await router.load();
 
     await waitFor(() => {

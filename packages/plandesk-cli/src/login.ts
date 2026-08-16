@@ -30,11 +30,16 @@ export async function runLogin(server: string, deps: LoginDeps = {}): Promise<Cl
   rl.close();
   if (token.trim() === '') throw new Error('A Plan Desk token is required.');
 
-  const session = await requestJson<{ org?: { id?: unknown } }>(fetcher, `${base}/api/v1/auth/session`, {
-    headers: { Authorization: `Bearer ${token.trim()}` },
-  });
+  const session = await requestJson<{ org?: { id?: unknown } }>(
+    fetcher,
+    `${base}/api/v1/auth/session`,
+    {
+      headers: { Authorization: `Bearer ${token.trim()}` },
+    },
+  );
   const orgId = session.org?.id;
-  if (typeof orgId !== 'string' || orgId === '') throw new Error('The Plan Desk token has no organization.');
+  if (typeof orgId !== 'string' || orgId === '')
+    throw new Error('The Plan Desk token has no organization.');
 
   const config: CliConfig = { server: base, token: token.trim(), orgId };
   writeCliConfig(config, deps.home);

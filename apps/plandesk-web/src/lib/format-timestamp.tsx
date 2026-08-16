@@ -28,13 +28,7 @@ export function formatRelativeTimestamp(iso: string, nowMs = Date.now()): string
   return `${String(days)}d ago`;
 }
 
-export function Timestamp({
-  iso,
-  label,
-}: {
-  iso: string;
-  label: string;
-}) {
+export function Timestamp({ iso, label }: { iso: string; label: string }) {
   const relative = formatRelativeTimestamp(iso);
   const absolute = formatAbsoluteTimestamp(iso);
   return (

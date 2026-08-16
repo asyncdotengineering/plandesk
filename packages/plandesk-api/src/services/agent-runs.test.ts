@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createAgentRun, createDb, createProjectInDefaultOrg as createProject, migrate, type Db } from '@plandesk/db';
+import {
+  createAgentRun,
+  createDb,
+  createProjectInDefaultOrg as createProject,
+  migrate,
+  type Db,
+} from '@plandesk/db';
 import { createAgentRunService, InvalidAgentRunError } from './agent-runs.js';
 
 describe('agentRunService', () => {

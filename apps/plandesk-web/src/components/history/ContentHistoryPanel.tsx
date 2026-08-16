@@ -17,12 +17,7 @@ import {
 import { queryKeys } from '../../lib/queries.js';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { ConfirmDialog } from '../docs/ConfirmDialog.js';
 
 const RETENTION_COPY =
@@ -236,11 +231,7 @@ export function ContentHistoryPanel({
       const compareMeta = revisions.find((row) => row.id === compareId);
       const primaryTime = Date.parse(primaryMeta?.created_at ?? '');
       const compareTime = Date.parse(compareMeta?.created_at ?? '');
-      if (
-        !Number.isNaN(primaryTime) &&
-        !Number.isNaN(compareTime) &&
-        compareTime < primaryTime
-      ) {
+      if (!Number.isNaN(primaryTime) && !Number.isNaN(compareTime) && compareTime < primaryTime) {
         baseId = compareId;
         against = primaryId;
       } else {
@@ -360,10 +351,7 @@ export function ContentHistoryPanel({
 
             {!listLoading && listError === null && revisions.length > 0 ? (
               <>
-                <ul
-                  className="max-h-[40%] shrink-0 overflow-y-auto border-b"
-                  aria-label="Versions"
-                >
+                <ul className="max-h-[40%] shrink-0 overflow-y-auto border-b" aria-label="Versions">
                   {revisions.map((row) => {
                     const selected = selectedIds.includes(row.id);
                     const selectionIndex = selectedIds.indexOf(row.id);

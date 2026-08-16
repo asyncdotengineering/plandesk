@@ -27,7 +27,11 @@ function stubFetch(projects: unknown) {
     vi.fn((input: unknown) => {
       const url = String(input);
       if (url.endsWith('/auth/session')) {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(localSession) });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(localSession),
+        });
       }
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(projects) });
     }),

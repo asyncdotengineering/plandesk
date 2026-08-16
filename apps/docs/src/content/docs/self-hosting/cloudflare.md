@@ -44,6 +44,7 @@ If you want social sign-in:
    Example: `https://plandesk-api.your-subdomain.workers.dev/api/auth/callback/github`
 
    This is **better-auth’s** callback route. Do **not** use the removed path `/api/v1/auth/github/callback`.
+
 3. Note the client id and client secret for Wrangler secrets below.
 
 ## 3. Configure secrets and public URL
@@ -121,14 +122,14 @@ Agents never log in themselves — humans paste tokens; `connect` writes a scope
 
 ## Checklist
 
-| Step | Done when |
-| --- | --- |
-| Turso + `plandesk migrate` | Domain + better-auth tables exist |
-| GitHub callback | `{baseURL}/api/auth/callback/github` |
-| Secrets | DB, `PLANDESK_BETTER_AUTH_SECRET`, S3/R2, optional GitHub |
-| Vars | `PLANDESK_BASE_URL` public origin |
-| SPA | `web/` next to `wrangler.toml` |
-| Deploy | `wrangler deploy` succeeds; `/api/v1/health` is 200 |
+| Step                       | Done when                                                 |
+| -------------------------- | --------------------------------------------------------- |
+| Turso + `plandesk migrate` | Domain + better-auth tables exist                         |
+| GitHub callback            | `{baseURL}/api/auth/callback/github`                      |
+| Secrets                    | DB, `PLANDESK_BETTER_AUTH_SECRET`, S3/R2, optional GitHub |
+| Vars                       | `PLANDESK_BASE_URL` public origin                         |
+| SPA                        | `web/` next to `wrangler.toml`                            |
+| Deploy                     | `wrangler deploy` succeeds; `/api/v1/health` is 200       |
 
 ## Related
 

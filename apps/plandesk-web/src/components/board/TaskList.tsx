@@ -1,9 +1,4 @@
-import {
-  ChevronDownIcon,
-  ChevronRightIcon,
-  Columns3Icon,
-  DownloadIcon,
-} from 'lucide-react';
+import { ChevronDownIcon, ChevronRightIcon, Columns3Icon, DownloadIcon } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { SAVED_VIEW_CONFIG_VERSION } from '@plandesk/db/saved-view-config';
@@ -25,12 +20,7 @@ import {
   type SerializedView,
   type TaskStatus,
 } from '../../lib/api.js';
-import {
-  useDocuments,
-  useGoals,
-  usePatchTask,
-  useTags,
-} from '../../lib/queries.js';
+import { useDocuments, useGoals, usePatchTask, useTags } from '../../lib/queries.js';
 import { documentsByLinkedTask } from '../docs/DocumentsPanel.js';
 import { BlockedIndicator } from './BlockedIndicator.js';
 import { LANE_TAG_PREFIX } from './board-utils.js';
@@ -46,10 +36,7 @@ import { SavedViewsMenu } from './SavedViewsMenu.js';
 import { TaskListFilterMenu } from './TaskListFilterMenu.js';
 import { TaskListGroupMenu, toGroupSpecs } from './TaskListGroupMenu.js';
 import { TaskListSortMenu } from './TaskListSortMenu.js';
-import {
-  filterTasks,
-  type FilterNode,
-} from './task-filter.js';
+import { filterTasks, type FilterNode } from './task-filter.js';
 import {
   TAG_COUNT_NOTE,
   formatAggregate,
@@ -58,10 +45,7 @@ import {
   type GroupNode,
   type GroupSpec,
 } from './task-group.js';
-import {
-  loadCollapsedGroupIds,
-  saveCollapsedGroupIds,
-} from './list-group-collapse.js';
+import { loadCollapsedGroupIds, saveCollapsedGroupIds } from './list-group-collapse.js';
 import { sortTasks, type SortSpec } from './task-sort.js';
 import { ViewSwitcher } from './ViewSwitcher.js';
 
@@ -123,12 +107,10 @@ export function TaskList({
     () => new Map((goals ?? []).map((goal) => [goal.id, goal.objective])),
     [goals],
   );
-  const linkedDocsByTask = useMemo(
-    () => documentsByLinkedTask(documents ?? []),
-    [documents],
-  );
+  const linkedDocsByTask = useMemo(() => documentsByLinkedTask(documents ?? []), [documents]);
 
-  const [visibleColumnsState, setVisibleColumnsState] = useState<Set<ListColumnId>>(defaultVisibleColumns);
+  const [visibleColumnsState, setVisibleColumnsState] =
+    useState<Set<ListColumnId>>(defaultVisibleColumns);
   const [filterRootState, setFilterRootState] = useState<FilterNode | null>(null);
   const [sortSpecsState, setSortSpecsState] = useState<SortSpec[]>([]);
   const [groupSpecsState, setGroupSpecsState] = useState<GroupSpec[]>([]);
@@ -185,10 +167,7 @@ export function TaskList({
   const activeGroupSpecs = useMemo(() => toGroupSpecs(groupSpecs), [groupSpecs]);
 
   // Filter → group → sort within groups (or flat sort when ungrouped).
-  const filteredTasks = useMemo(
-    () => filterTasks(tasks, filterRoot),
-    [tasks, filterRoot],
-  );
+  const filteredTasks = useMemo(() => filterTasks(tasks, filterRoot), [tasks, filterRoot]);
 
   const sortedTasks = useMemo(
     () => sortTasks(filteredTasks, sortSpecs),
@@ -457,9 +436,7 @@ export function TaskList({
         open={drawerTask !== undefined}
         task={drawerTask ?? null}
         repoUrl={repoUrl}
-        linkedDocs={
-          drawerTask !== undefined ? (linkedDocsByTask.get(drawerTask.id) ?? []) : []
-        }
+        linkedDocs={drawerTask !== undefined ? (linkedDocsByTask.get(drawerTask.id) ?? []) : []}
         tagSuggestions={tagNames}
         isSaving={patchTask.isPending}
         onOpenChange={(open) => {
@@ -572,31 +549,31 @@ function GroupRows({
           </button>
         </td>
       </tr>
-      {collapsed ? null : group.children !== null ? (
-        group.children.map((child) => (
-          <GroupRows
-            key={child.id}
-            group={child}
-            depth={depth + 1}
-            columnCount={columnCount}
-            columnOrder={columnOrder}
-            goalById={goalById}
-            collapsedGroupIds={collapsedGroupIds}
-            onToggleCollapsed={onToggleCollapsed}
-            onOpenTask={onOpenTask}
-          />
-        ))
-      ) : (
-        group.tasks.map((task) => (
-          <TaskListRow
-            key={`${group.id}:${task.id}`}
-            task={task}
-            columnOrder={columnOrder}
-            goalById={goalById}
-            onOpen={onOpenTask}
-          />
-        ))
-      )}
+      {collapsed
+        ? null
+        : group.children !== null
+          ? group.children.map((child) => (
+              <GroupRows
+                key={child.id}
+                group={child}
+                depth={depth + 1}
+                columnCount={columnCount}
+                columnOrder={columnOrder}
+                goalById={goalById}
+                collapsedGroupIds={collapsedGroupIds}
+                onToggleCollapsed={onToggleCollapsed}
+                onOpenTask={onOpenTask}
+              />
+            ))
+          : group.tasks.map((task) => (
+              <TaskListRow
+                key={`${group.id}:${task.id}`}
+                task={task}
+                columnOrder={columnOrder}
+                goalById={goalById}
+                onOpen={onOpenTask}
+              />
+            ))}
     </Fragment>
   );
 }
@@ -617,9 +594,7 @@ function TaskListCell({
       return <StatusChip status={task.status} tabIndex={-1} className="pointer-events-none" />;
     case 'goal':
       return (
-        <span className="text-muted-foreground">
-          {goalById.get(task.goal_id) ?? task.goal_id}
-        </span>
+        <span className="text-muted-foreground">{goalById.get(task.goal_id) ?? task.goal_id}</span>
       );
     case 'assignee':
       return <span>{task.assignee ?? '—'}</span>;
@@ -645,10 +620,14 @@ function TaskListCell({
     case 'blocked':
       return <BlockedIndicator blocked={task.blocked} waitingOn={task.waiting_on} />;
     case 'due_date':
-      return <span className="mono text-xs text-muted-foreground">{formatListDate(task.due_date)}</span>;
+      return (
+        <span className="mono text-xs text-muted-foreground">{formatListDate(task.due_date)}</span>
+      );
     case 'updated_at':
       return (
-        <span className="mono text-xs text-muted-foreground">{formatListDate(task.updated_at)}</span>
+        <span className="mono text-xs text-muted-foreground">
+          {formatListDate(task.updated_at)}
+        </span>
       );
     default:
       return null;

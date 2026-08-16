@@ -41,7 +41,7 @@ docker compose -f docker-compose.hosted.yml up --build
 
 Open [http://127.0.0.1:7526](http://127.0.0.1:7526). For a durable database, point `PLANDESK_DB_URL` at your own libSQL/Turso database — see [Docker (self-host)](./docker/) and [Server configuration](./server-config/).
 
-**Migrations.** *You* own the database, so *you* run migrations:
+**Migrations.** _You_ own the database, so _you_ run migrations:
 
 ```bash
 plandesk migrate --db "libsql://your-db.example" --db-token "<token>"
@@ -67,11 +67,11 @@ If the same database is also served by Workers or Vercel, use the same value for
 
 Migrations are keyed to **who owns the database**, not to which client you use:
 
-| Topology | Database owner | Who migrates | How |
-| --- | --- | --- | --- |
-| Local single-project | You (local file) | The tool | Automatically, at `serve` boot |
-| Self-host | You (your DB) | **You, the operator** | `plandesk migrate --db <your-url>` after each upgrade |
-| Free-hosted | The provider | The provider, in CI | Against their own secret URL — invisible to you |
+| Topology             | Database owner   | Who migrates          | How                                                   |
+| -------------------- | ---------------- | --------------------- | ----------------------------------------------------- |
+| Local single-project | You (local file) | The tool              | Automatically, at `serve` boot                        |
+| Self-host            | You (your DB)    | **You, the operator** | `plandesk migrate --db <your-url>` after each upgrade |
+| Free-hosted          | The provider     | The provider, in CI   | Against their own secret URL — invisible to you       |
 
 :::caution[A cloud user never migrates]
 On the free-hosted topology there is **no** `plandesk migrate`, **no** database URL, and **no** schema access. If you are ever asked to run a migration against a URL while using the hosted instance, something is wrong — stop and report it.
@@ -85,7 +85,7 @@ The local tool has no phone-home. Specifically:
 - **No `syncUrl` until you set one.** Sync/share only activates when you explicitly run `plandesk deploy …` and `plandesk share create …` against a server URL you chose.
 - **No telemetry.** The CLI does not send usage data anywhere.
 
-The hosted instance is one *option* for running the same open-source server — not a dependency of the local tool.
+The hosted instance is one _option_ for running the same open-source server — not a dependency of the local tool.
 
 ## Next
 

@@ -194,7 +194,11 @@ describe('runContext', () => {
     await withTestServer(async ({ baseUrl, db, services, projectId }) => {
       const repoDir = makeRepo();
       bindRepo(repoDir, baseUrl, projectId);
-      const task = await createTask(db, { projectId, label: 'Big doc task', status: 'in_progress' });
+      const task = await createTask(db, {
+        projectId,
+        label: 'Big doc task',
+        status: 'in_progress',
+      });
       const bigBody = 'x'.repeat(9000);
       const bigDoc = await services.documentService.create(projectId, {
         title: 'Design: big',

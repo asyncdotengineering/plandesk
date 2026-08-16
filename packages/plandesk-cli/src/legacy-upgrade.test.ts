@@ -217,7 +217,14 @@ describe('parseArgs legacy-upgrade', () => {
 
   it('parses legacy-upgrade with bare --into-workspace flag', () => {
     expect(
-      parseArgs(['node', 'plandesk', 'legacy-upgrade', '--from', '/tmp/old.db', '--into-workspace']),
+      parseArgs([
+        'node',
+        'plandesk',
+        'legacy-upgrade',
+        '--from',
+        '/tmp/old.db',
+        '--into-workspace',
+      ]),
     ).toEqual({
       command: 'legacy-upgrade',
       from: '/tmp/old.db',
@@ -330,15 +337,7 @@ describe('CLI legacy-upgrade', () => {
     await runInit(dataDir);
 
     const { code, stdout, stderr } = await captureIo(() =>
-      main([
-        'node',
-        'plandesk',
-        'legacy-upgrade',
-        '--from',
-        oldPath,
-        '--data-dir',
-        dataDir,
-      ]),
+      main(['node', 'plandesk', 'legacy-upgrade', '--from', oldPath, '--data-dir', dataDir]),
     );
 
     expect(stderr).toBe('');
@@ -442,7 +441,19 @@ describe('CLI legacy-upgrade', () => {
     });
     await oldDb.$client.execute({
       sql: `INSERT INTO tasks (id, project_id, label, status, description, x, y, assignee, due_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: ['legacy-task-002', 'legacy-proj-002', 'Task Two', 'todo', null, 0, 0, null, null, now, now],
+      args: [
+        'legacy-task-002',
+        'legacy-proj-002',
+        'Task Two',
+        'todo',
+        null,
+        0,
+        0,
+        null,
+        null,
+        now,
+        now,
+      ],
     });
     oldDb.$client.close();
     await runInit(dataDir);
@@ -648,7 +659,16 @@ describe('CLI legacy-upgrade', () => {
     await runInit(dataDir);
 
     const { code, stdout, stderr } = await captureIo(() =>
-      main(['node', 'plandesk', 'legacy-upgrade', '--from', oldPath, '--data-dir', dataDir, '--print']),
+      main([
+        'node',
+        'plandesk',
+        'legacy-upgrade',
+        '--from',
+        oldPath,
+        '--data-dir',
+        dataDir,
+        '--print',
+      ]),
     );
 
     expect(stderr).toBe('');
@@ -673,7 +693,16 @@ describe('CLI legacy-upgrade', () => {
     await createOldSchemaFixture(join(dataDir, 'workspace.db'));
 
     const { code, stdout } = await captureIo(() =>
-      main(['node', 'plandesk', 'legacy-upgrade', '--from', oldPath, '--data-dir', dataDir, '--print']),
+      main([
+        'node',
+        'plandesk',
+        'legacy-upgrade',
+        '--from',
+        oldPath,
+        '--data-dir',
+        dataDir,
+        '--print',
+      ]),
     );
 
     expect(code).toBe(0);

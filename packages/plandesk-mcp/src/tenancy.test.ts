@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createApp, createServices } from '@plandesk/api';
-import {
-  createDb,
-  DEFAULT_ORG_ID,
-  migrate,
-} from '@plandesk/db';
+import { createDb, DEFAULT_ORG_ID, migrate } from '@plandesk/db';
 import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
 import { createMcpApp } from './server.js';
 

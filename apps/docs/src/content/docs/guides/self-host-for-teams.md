@@ -89,11 +89,11 @@ This mints that person's agent a project-scoped key — never their owner key �
 
 ## Roles
 
-| Role | Can do |
-| --- | --- |
-| `owner` | Everything, including minting CLI/agent keys and inviting members |
-| `admin` | Manage projects |
-| `member` | Work with content — tasks, documents, notes |
+| Role     | Can do                                                            |
+| -------- | ----------------------------------------------------------------- |
+| `owner`  | Everything, including minting CLI/agent keys and inviting members |
+| `admin`  | Manage projects                                                   |
+| `member` | Work with content — tasks, documents, notes                       |
 
 ## Next
 

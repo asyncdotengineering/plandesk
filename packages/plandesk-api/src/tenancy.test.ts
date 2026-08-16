@@ -1,10 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import {
-  createTaskWithDefaultGoal as createTask,
-  migrate,
-  createDb,
-} from '@plandesk/db';
+import { createTaskWithDefaultGoal as createTask, migrate, createDb } from '@plandesk/db';
 import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
 import {
   createBetterAuth,

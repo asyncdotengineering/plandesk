@@ -139,7 +139,11 @@ describe('RichTextEditor', () => {
   it('serializes a plain (un-annotated) image as a Markdown image', async () => {
     const ref = createRef<RichTextEditorHandle>();
     render(
-      <RichTextEditor ref={ref} value={'<img src="data:image/png;base64,AAAA" alt="pic">'} mode="editor" />,
+      <RichTextEditor
+        ref={ref}
+        value={'<img src="data:image/png;base64,AAAA" alt="pic">'}
+        mode="editor"
+      />,
     );
 
     await waitFor(() => {

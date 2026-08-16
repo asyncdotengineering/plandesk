@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createDb, createEdge, createProjectInDefaultOrg as createProject, getTask, listEdges, migrate , type Db} from '@plandesk/db';
+import {
+  createDb,
+  createEdge,
+  createProjectInDefaultOrg as createProject,
+  getTask,
+  listEdges,
+  migrate,
+  type Db,
+} from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createCanvasService, InvalidCanvasError } from './canvas.js';
 
@@ -10,7 +18,7 @@ describe('canvasService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-    let projectId = '';
+  let projectId = '';
   let orgId = '';
 
   function createService() {
@@ -135,7 +143,8 @@ describe('canvasService', () => {
 
   it('rejects edges referencing missing tasks', async () => {
     const service = createService();
-    await expect(service.putLayout(projectId, {
+    await expect(
+      service.putLayout(projectId, {
         nodes: [],
         edges: [
           {
@@ -143,7 +152,8 @@ describe('canvasService', () => {
             to_task_id: '00000000-0000-4000-8000-000000009998',
           },
         ],
-      }),).rejects.toThrow(InvalidCanvasError);
+      }),
+    ).rejects.toThrow(InvalidCanvasError);
   });
 
   it('createEdge adds an edge', async () => {
@@ -170,18 +180,22 @@ describe('canvasService', () => {
     const otherProjectId = (await createProject(db, { name: 'Other' })).id;
     const foreign = await createTask(db, { projectId: otherProjectId, label: 'Foreign' });
     const local = await createTask(db, { projectId, label: 'Local' });
-    await expect(service.createEdge(projectId, {
+    await expect(
+      service.createEdge(projectId, {
         fromTaskId: foreign.id,
         toTaskId: local.id,
-      }),).rejects.toThrow(InvalidCanvasError);
+      }),
+    ).rejects.toThrow(InvalidCanvasError);
   });
 
   it('requires label for new nodes', async () => {
     const service = createService();
-    await expect(service.putLayout(projectId, {
+    await expect(
+      service.putLayout(projectId, {
         nodes: [{ x: 1, y: 2 }],
         edges: [],
-      }),).rejects.toThrow(InvalidCanvasError);
+      }),
+    ).rejects.toThrow(InvalidCanvasError);
   });
 
   it('listEdges returns edges with from/to/label for a project (#29)', async () => {
@@ -196,7 +210,14 @@ describe('canvasService', () => {
 
     const edges = await service.listEdges(projectId);
     expect(edges).toEqual([
-      expect.objectContaining({ id: edge?.id, from_type: 'task', from_id: a.id, to_type: 'task', to_id: b.id, label: 'blocks' }),
+      expect.objectContaining({
+        id: edge?.id,
+        from_type: 'task',
+        from_id: a.id,
+        to_type: 'task',
+        to_id: b.id,
+        label: 'blocks',
+      }),
     ]);
   });
 

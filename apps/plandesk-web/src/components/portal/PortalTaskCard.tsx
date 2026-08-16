@@ -22,11 +22,7 @@ function formatDueDate(iso: string): string {
 
 export function PortalTaskCard({ task }: PortalTaskCardProps) {
   return (
-    <Card
-      data-task-id={task.id}
-      data-task-status={task.status}
-      className="gap-0 p-3 shadow-sm"
-    >
+    <Card data-task-id={task.id} data-task-status={task.status} className="gap-0 p-3 shadow-sm">
       <div className="mb-2">
         {isTaskStatus(task.status) ? (
           <StatusChip status={task.status} className="pointer-events-none" tabIndex={-1} />

@@ -1,11 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import {
-  exportProject,
-  setSyncRemote,
-  type Db,
-} from '@plandesk/db';
+import { exportProject, setSyncRemote, type Db } from '@plandesk/db';
 import { readCliConfig } from './config.js';
 import {
   buildConfigJson,
@@ -84,12 +80,17 @@ export function resolvePromoteServerUrl(
     return normalizeServerUrl(global.server);
   }
   if (config === undefined) {
-    throw new SyncConfigError('Missing .plandesk/config.json. Run plandesk connect or plandesk login first.');
+    throw new SyncConfigError(
+      'Missing .plandesk/config.json. Run plandesk connect or plandesk login first.',
+    );
   }
   throw new SyncConfigError('serverUrl is required in .plandesk/config.json for promote.');
 }
 
-async function runPromotePush(db: Db, options: PushOptions & { toOrgId: string }): Promise<PromotePushResult> {
+async function runPromotePush(
+  db: Db,
+  options: PushOptions & { toOrgId: string },
+): Promise<PromotePushResult> {
   const localProjectId = resolveProjectId({
     repoDir: options.repoDir,
     projectId: options.projectId,
@@ -132,9 +133,7 @@ async function runPromotePush(db: Db, options: PushOptions & { toOrgId: string }
     } catch {
       // ignore non-JSON error bodies
     }
-    throw new PromotePushError(
-      `promote failed with HTTP ${String(response.status)}${detail}`,
-    );
+    throw new PromotePushError(`promote failed with HTTP ${String(response.status)}${detail}`);
   }
 
   const payload = (await response.json()) as { globalProjectId?: string };

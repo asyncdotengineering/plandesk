@@ -12,10 +12,7 @@ import {
 import { serializeFolder, type SerializedFolder } from '../serialize.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
-import {
-  FOLDER_REPARENT_CYCLE_MESSAGE,
-  wouldCreateFolderReparentCycle,
-} from './folder-cycle.js';
+import { FOLDER_REPARENT_CYCLE_MESSAGE, wouldCreateFolderReparentCycle } from './folder-cycle.js';
 
 export type FolderServiceDeps = OrgScopedDeps & {
   db: Db;
@@ -171,10 +168,7 @@ export function createFolderService(deps: FolderServiceDeps) {
       return serializeFolder(folder);
     },
 
-    async delete(
-      id: string,
-      options?: { reparentTo?: string | null },
-    ): Promise<boolean> {
+    async delete(id: string, options?: { reparentTo?: string | null }): Promise<boolean> {
       assertPermission(deps, 'document', 'delete');
       const existing = await dbGetFolder(db, id);
       if (!existing) {

@@ -1,7 +1,4 @@
-import {
-  InvalidRevisionQueryError,
-  type RevisionService,
-} from '@plandesk/api';
+import { InvalidRevisionQueryError, type RevisionService } from '@plandesk/api';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createListRevisionsHandler(

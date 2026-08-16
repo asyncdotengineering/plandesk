@@ -363,7 +363,11 @@ describe('runConnect', () => {
       const repoDir = makeRepo(projectName);
       // Simulate a prior connection to a different server that left a token.
       mkdirSync(join(repoDir, '.plandesk'), { recursive: true });
-      writeFileSync(join(repoDir, '.plandesk', 'token'), 'plandesk_mcp_stale_from_old_server\n', 'utf8');
+      writeFileSync(
+        join(repoDir, '.plandesk', 'token'),
+        'plandesk_mcp_stale_from_old_server\n',
+        'utf8',
+      );
 
       await runConnect({
         repoDir,
@@ -582,8 +586,16 @@ describe('runConnect --to hosted (BA4b-3)', () => {
     const db = await createDb(':memory:');
     await migrate(db);
     const org = { id: randomUUID(), name: 'Hosted Connect Org' };
-    const projectA = await createProjectInOrg(db, { name: 'hosted-board', orgId: org.id, workspaceId: DEFAULT_WORKSPACE_ID });
-    const projectB = await createProjectInOrg(db, { name: 'other-board', orgId: org.id, workspaceId: DEFAULT_WORKSPACE_ID });
+    const projectA = await createProjectInOrg(db, {
+      name: 'hosted-board',
+      orgId: org.id,
+      workspaceId: DEFAULT_WORKSPACE_ID,
+    });
+    const projectB = await createProjectInOrg(db, {
+      name: 'other-board',
+      orgId: org.id,
+      workspaceId: DEFAULT_WORKSPACE_ID,
+    });
     await createTask(db, { projectId: projectA.id, label: 'A task', status: 'todo' });
     await createTask(db, { projectId: projectB.id, label: 'B task', status: 'todo' });
 
@@ -933,7 +945,7 @@ describe('CLI connect/disconnect', () => {
     const db = await createDb(':memory:');
     await migrate(db);
     const project = await createProject(db, { name: 'cli-connect' });
-        const services = createServices({ db, orgId: project.orgId });
+    const services = createServices({ db, orgId: project.orgId });
     const mcpApp = createMcpApp({ services });
     const app = createApp({ db, services, mcp: mcpApp });
     const server = createServer((req, res) => {

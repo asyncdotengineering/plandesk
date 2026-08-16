@@ -1,8 +1,4 @@
-import {
-  SORTABLE_FIELDS,
-  type SortableField,
-  type SortSpec,
-} from '@plandesk/db/saved-view-config';
+import { SORTABLE_FIELDS, type SortableField, type SortSpec } from '@plandesk/db/saved-view-config';
 import {
   taskPriorityOrder,
   taskStatuses,

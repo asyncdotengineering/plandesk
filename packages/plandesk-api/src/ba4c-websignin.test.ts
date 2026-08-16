@@ -10,11 +10,7 @@ import { getBaOrg, listBaOrgs } from './test-helpers.js';
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
-import {
-  createDb,
-  migrate,
-  type Db,
-} from '@plandesk/db';
+import { createDb, migrate, type Db } from '@plandesk/db';
 import type { Hono } from 'hono';
 import {
   createBetterAuth,
@@ -188,9 +184,7 @@ describe('BA4c personal org provision on better-auth GitHub sign-in', () => {
     const secondSession = await (await auth.$context).internalAdapter.createSession(userId);
     expect(secondSession).not.toBeNull();
     expect(await countMembers(auth, userId)).toBe(1);
-    expect(await listMemberOrgs(auth, userId)).toEqual([
-      { organizationId: orgId, role: 'owner' },
-    ]);
+    expect(await listMemberOrgs(auth, userId)).toEqual([{ organizationId: orgId, role: 'owner' }]);
 
     // Direct call is also idempotent.
     await expect(provisionPersonalOrgIfNeeded(auth, db, userId)).resolves.toEqual({
@@ -306,9 +300,12 @@ describe('BA4c personal org provision on better-auth GitHub sign-in', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((input: string | URL | Request) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
         if (url === 'https://github.com/login/oauth/access_token') {
-          return Promise.resolve(jsonResponse({ access_token: 'github-token', token_type: 'bearer' }));
+          return Promise.resolve(
+            jsonResponse({ access_token: 'github-token', token_type: 'bearer' }),
+          );
         }
         if (url === 'https://api.github.com/user') {
           return Promise.resolve(

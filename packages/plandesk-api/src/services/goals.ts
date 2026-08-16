@@ -276,7 +276,12 @@ export function evaluateEvidence(
   evidence: VerificationEvidence,
 ): { green: boolean; detail?: string; unmatched: string[]; unmet: string[] } {
   if (surface.kind !== evidence.kind) {
-    return { green: false, detail: `Expected evidence kind ${surface.kind}`, unmatched: [], unmet: [] };
+    return {
+      green: false,
+      detail: `Expected evidence kind ${surface.kind}`,
+      unmatched: [],
+      unmet: [],
+    };
   }
 
   if (surface.kind === 'gate_command' && evidence.kind === 'gate_command') {
@@ -321,7 +326,12 @@ export function evaluateEvidence(
     return { green: false, detail: 'approved_by is required', unmatched: [], unmet: [] };
   }
 
-  return { green: false, detail: `Expected evidence kind ${surface.kind}`, unmatched: [], unmet: [] };
+  return {
+    green: false,
+    detail: `Expected evidence kind ${surface.kind}`,
+    unmatched: [],
+    unmet: [],
+  };
 }
 
 function acceptanceBlockMarker(goalId: string): string {
@@ -414,9 +424,7 @@ export function createGoalService(deps: GoalServiceDeps) {
       }
 
       if (input.name !== undefined && input.name !== null) {
-        const duplicate = (await listGoals(db, projectId)).some(
-          (goal) => goal.name === input.name,
-        );
+        const duplicate = (await listGoals(db, projectId)).some((goal) => goal.name === input.name);
         if (duplicate) {
           throw new DuplicateGoalNameError(input.name);
         }
@@ -436,7 +444,6 @@ export function createGoalService(deps: GoalServiceDeps) {
           budget: input.budget,
         }),
       );
-
 
       return serializeGoal(goal);
     },
@@ -624,9 +631,7 @@ export function createGoalService(deps: GoalServiceDeps) {
       }
 
       const updateInput =
-        input.verificationSurface === undefined
-          ? input
-          : { ...input, verificationSurface };
+        input.verificationSurface === undefined ? input : { ...input, verificationSurface };
       const goal = await withTransaction(db, async (tx) => updateGoal(tx, goalId, updateInput));
       if (!goal) {
         return undefined;
@@ -727,7 +732,7 @@ export function createGoalService(deps: GoalServiceDeps) {
         if (!goal) {
           return undefined;
         }
-  
+
         return serializeGoal(goal);
       }
 
@@ -761,7 +766,7 @@ export function createGoalService(deps: GoalServiceDeps) {
         if (!goal) {
           return undefined;
         }
-  
+
         return serializeGoal(goal);
       }
 
@@ -787,7 +792,6 @@ export function createGoalService(deps: GoalServiceDeps) {
       if (!goal) {
         return undefined;
       }
-
 
       return serializeGoal(goal);
     },

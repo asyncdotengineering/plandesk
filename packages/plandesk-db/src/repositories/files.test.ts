@@ -90,7 +90,13 @@ describe('files repository', () => {
     await createFile(db, { id: b, projectId, filename: 'b.png', mime: 'image/png', size: 1 });
     const other = (await createProject(db, { name: 'Other' })).id;
     const c = hashOf(Buffer.from('c', 'utf8'));
-    await createFile(db, { id: c, projectId: other, filename: 'c.png', mime: 'image/png', size: 1 });
+    await createFile(db, {
+      id: c,
+      projectId: other,
+      filename: 'c.png',
+      mime: 'image/png',
+      size: 1,
+    });
 
     expect(await listFilesByProject(db, projectId)).toHaveLength(2);
     expect(await listFilesByProject(db, other)).toHaveLength(1);

@@ -4,10 +4,7 @@ import type { Db } from '@plandesk/db';
 import { runWithAuthContext } from '../auth-context.js';
 import { orgRoleToPermissionSet } from '../permissions.js';
 import type { FileService } from '../services/files.js';
-import {
-  fileAuthorizedByCredential,
-  verifyFrameCredential,
-} from '../services/frame-credential.js';
+import { fileAuthorizedByCredential, verifyFrameCredential } from '../services/frame-credential.js';
 import type { StorageAdapter } from '../storage/adapter.js';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -28,10 +25,7 @@ function sanitizeFilenameForHeader(filename: string): string {
     .replace(/"/g, '\\"');
 }
 
-function fileResponseHeaders(
-  mime: string,
-  filename: string,
-): Record<string, string> {
+function fileResponseHeaders(mime: string, filename: string): Record<string, string> {
   const headers: Record<string, string> = {
     'X-Content-Type-Options': 'nosniff',
   };

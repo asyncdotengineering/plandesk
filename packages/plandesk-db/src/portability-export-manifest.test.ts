@@ -27,7 +27,9 @@ const fixturePath = join(
 );
 
 function loadGoldenExportFixture(): ReturnType<typeof canonicalizeExportForComparison> {
-  const raw = JSON.parse(readFileSync(fixturePath, 'utf8')) as import('./portability.js').PlandeskExport;
+  const raw = JSON.parse(
+    readFileSync(fixturePath, 'utf8'),
+  ) as import('./portability.js').PlandeskExport;
   return canonicalizeExportForComparison(raw);
 }
 

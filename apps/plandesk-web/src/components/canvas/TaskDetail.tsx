@@ -7,10 +7,7 @@ import { Label } from '@/components/ui/label';
 import { StatusMenu } from '../board/StatusChip.js';
 import { CommentsPanel } from '../docs/CommentsPanel.js';
 import { RichTextEditor, type RichTextEditorHandle } from '../editor/RichTextEditor.js';
-import {
-  documentsByLinkedTask,
-  flattenDocumentTree,
-} from '../docs/DocumentsPanel.js';
+import { documentsByLinkedTask, flattenDocumentTree } from '../docs/DocumentsPanel.js';
 import { useDocuments } from '../../lib/queries.js';
 import type { SerializedTag, TaskStatus } from '../../lib/api.js';
 import type { TaskNodeData } from './canvas-map.js';
@@ -184,7 +181,11 @@ export function TaskDetail({
             />
           </dd>
           <dt className="text-muted-foreground">Assignee</dt>
-          <dd>{editing ? null : <span className="text-[var(--text-2)]">{data.assignee ?? 'Unassigned'}</span>}</dd>
+          <dd>
+            {editing ? null : (
+              <span className="text-[var(--text-2)]">{data.assignee ?? 'Unassigned'}</span>
+            )}
+          </dd>
           <dt className="text-muted-foreground">Due</dt>
           <dd>
             {editing ? null : (
@@ -195,9 +196,7 @@ export function TaskDetail({
           </dd>
           {linkedDocs.length > 0 ? (
             <>
-              <dt className="text-muted-foreground">
-                {linkedDocs.length === 1 ? 'Doc' : 'Docs'}
-              </dt>
+              <dt className="text-muted-foreground">{linkedDocs.length === 1 ? 'Doc' : 'Docs'}</dt>
               <dd className="flex flex-col gap-1">
                 {linkedDocs.map((doc) => (
                   <Link
@@ -217,7 +216,10 @@ export function TaskDetail({
 
         {editing ? (
           <>
-            <Label htmlFor={`task-assignee-${taskId}`} className="mt-3 mb-1 block text-muted-foreground">
+            <Label
+              htmlFor={`task-assignee-${taskId}`}
+              className="mt-3 mb-1 block text-muted-foreground"
+            >
               Assignee
             </Label>
             <Input
@@ -275,7 +277,11 @@ export function TaskDetail({
                     className="inline-flex items-center gap-1 rounded-full border bg-secondary px-2 py-0.5 text-xs font-medium"
                   >
                     {tag.color !== null ? (
-                      <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+                      <span
+                        aria-hidden
+                        className="size-1.5 rounded-full"
+                        style={{ backgroundColor: tag.color }}
+                      />
                     ) : null}
                     {tag.name}
                     {editing ? (

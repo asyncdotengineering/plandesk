@@ -267,9 +267,25 @@ describe('canvas routes', () => {
 
     const res = await app.request(`/api/v1/projects/${project.id}/edges`);
     expect(res.status).toBe(200);
-    const edges = await parseJson<Array<{ id: string; from_type: string; from_id: string; to_type: string; to_id: string; label: string | null }>>(res);
+    const edges = await parseJson<
+      Array<{
+        id: string;
+        from_type: string;
+        from_id: string;
+        to_type: string;
+        to_id: string;
+        label: string | null;
+      }>
+    >(res);
     expect(edges).toEqual([
-      expect.objectContaining({ id: edge.id, from_type: 'task', from_id: taskA.id, to_type: 'task', to_id: taskB.id, label: 'blocks' }),
+      expect.objectContaining({
+        id: edge.id,
+        from_type: 'task',
+        from_id: taskA.id,
+        to_type: 'task',
+        to_id: taskB.id,
+        label: 'blocks',
+      }),
     ]);
   });
 
@@ -320,8 +336,20 @@ describe('canvas routes', () => {
     });
 
     const docGet = await parseJson<{
-      links: Array<{ type: string; id: string; title: string; label: string | null; edge_id: string }>;
-      backlinks: Array<{ type: string; id: string; title: string; label: string | null; edge_id: string }>;
+      links: Array<{
+        type: string;
+        id: string;
+        title: string;
+        label: string | null;
+        edge_id: string;
+      }>;
+      backlinks: Array<{
+        type: string;
+        id: string;
+        title: string;
+        label: string | null;
+        edge_id: string;
+      }>;
     }>(await app.request(`/api/v1/documents/${doc.id}`));
     expect(docGet.backlinks).toEqual([
       {

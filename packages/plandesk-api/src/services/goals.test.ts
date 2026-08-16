@@ -87,7 +87,7 @@ describe('goalService', () => {
     db = await createDb(':memory:');
     await migrate(db);
   });
-    let projectId = '';
+  let projectId = '';
   let orgId = '';
 
   function createService() {
@@ -97,7 +97,10 @@ describe('goalService', () => {
 
   async function markAllCycleTasksDone(goalId: string) {
     for (const task of (await listTasks(db, projectId)).filter((row) => row.goalId === goalId)) {
-      await db.$client.execute({ sql: 'UPDATE tasks SET status = ? WHERE id = ?', args: ['done', task.id] });
+      await db.$client.execute({
+        sql: 'UPDATE tasks SET status = ? WHERE id = ?',
+        args: ['done', task.id],
+      });
     }
   }
 
@@ -150,19 +153,21 @@ describe('goalService', () => {
   it('rejects duplicate short names within one project', async () => {
     const service = createService();
     await service.create(projectId, { objective: 'First', name: 'shared' });
-    await expect(service.create(projectId, { objective: 'Second', name: 'shared' })).rejects.toThrow(
-      DuplicateGoalNameError,
-    );
+    await expect(
+      service.create(projectId, { objective: 'Second', name: 'shared' }),
+    ).rejects.toThrow(DuplicateGoalNameError);
   });
 
   it('rejects invalid verification_surface on create and update', async () => {
     const service = createService();
-    await expect(service.create(projectId, { objective: 'Bad', verificationSurface: 'pnpm validate' }),).rejects.toThrow(InvalidVerificationSurfaceError);
+    await expect(
+      service.create(projectId, { objective: 'Bad', verificationSurface: 'pnpm validate' }),
+    ).rejects.toThrow(InvalidVerificationSurfaceError);
 
     const goal = await service.create(projectId, { objective: 'Ok' });
-    await expect(service.update(goal?.id ?? '', { verificationSurface: '{not json' })).rejects.toThrow(
-      InvalidVerificationSurfaceError,
-    );
+    await expect(
+      service.update(goal?.id ?? '', { verificationSurface: '{not json' }),
+    ).rejects.toThrow(InvalidVerificationSurfaceError);
   });
 
   it('returns undefined when creating a goal for a missing project', async () => {
@@ -174,15 +179,27 @@ describe('goalService', () => {
 
   it('rejects invalid status on create', async () => {
     const service = createService();
-    await expect(service.create(projectId, { objective: 'Bad', status: 'bogus' as 'active' }),).rejects.toThrow(InvalidGoalStatusError);
+    await expect(
+      service.create(projectId, { objective: 'Bad', status: 'bogus' as 'active' }),
+    ).rejects.toThrow(InvalidGoalStatusError);
   });
 
   it('gets a goal with cycle_tasks', async () => {
     const service = createService();
     const goal = await createGoal(db, { projectId, objective: 'Cycle' });
     const otherGoal = await createGoal(db, { projectId, objective: 'Other' });
-    const task = await createTask(db, { projectId, goalId: goal.id, label: 'Child', status: 'todo' });
-    await createTask(db, { projectId, goalId: otherGoal.id, label: 'Other goal child', status: 'todo' });
+    const task = await createTask(db, {
+      projectId,
+      goalId: goal.id,
+      label: 'Child',
+      status: 'todo',
+    });
+    await createTask(db, {
+      projectId,
+      goalId: otherGoal.id,
+      label: 'Other goal child',
+      status: 'todo',
+    });
 
     const fetched = await service.get(goal.id);
     expect(fetched?.objective).toBe('Cycle');
@@ -236,8 +253,18 @@ describe('goalService', () => {
   it('complete blocks until all cycle-tasks are done', async () => {
     const service = createService();
     const goal = await createGoal(db, { projectId, objective: 'Finish line', status: 'active' });
-    const open = await createTask(db, { projectId, goalId: goal.id, label: 'Open', status: 'todo' });
-    const done = await createTask(db, { projectId, goalId: goal.id, label: 'Done', status: 'done' });
+    const open = await createTask(db, {
+      projectId,
+      goalId: goal.id,
+      label: 'Open',
+      status: 'todo',
+    });
+    const done = await createTask(db, {
+      projectId,
+      goalId: goal.id,
+      label: 'Done',
+      status: 'done',
+    });
 
     await expect(service.complete(goal.id)).rejects.toThrow(GoalCompletionBlockedError);
     try {
@@ -250,8 +277,16 @@ describe('goalService', () => {
     }
 
     const otherGoal = await createGoal(db, { projectId, objective: 'Other', status: 'active' });
-    await createTask(db, { projectId, goalId: otherGoal.id, label: 'Other goal open', status: 'todo' });
-    await db.$client.execute({ sql: 'UPDATE tasks SET status = ? WHERE id = ?', args: ['done', open.id] });
+    await createTask(db, {
+      projectId,
+      goalId: otherGoal.id,
+      label: 'Other goal open',
+      status: 'todo',
+    });
+    await db.$client.execute({
+      sql: 'UPDATE tasks SET status = ? WHERE id = ?',
+      args: ['done', open.id],
+    });
 
     const completed = await service.complete(goal.id);
     expect(completed?.status).toBe('complete');
@@ -295,15 +330,23 @@ describe('goalService', () => {
     const blockedAgain = await service.complete(goal.id, { kind: 'gate_command', exit_code: 1 });
     expect(blockedAgain?.status).toBe('blocked');
     expect(
-      (await listTasks(db, projectId)).filter((task) => task.goalId === goal.id && task.status === 'scope'),
+      (await listTasks(db, projectId)).filter(
+        (task) => task.goalId === goal.id && task.status === 'scope',
+      ),
     ).toHaveLength(1);
 
-    await db.$client.execute({ sql: 'UPDATE goals SET status = ? WHERE id = ?', args: ['active', goal.id] });
+    await db.$client.execute({
+      sql: 'UPDATE goals SET status = ? WHERE id = ?',
+      args: ['active', goal.id],
+    });
     await markAllCycleTasksDone(goal.id);
     for (const task of (await listTasks(db, projectId)).filter(
       (row) => row.goalId === goal.id && row.status === 'scope',
     )) {
-      await db.$client.execute({ sql: 'UPDATE tasks SET status = ? WHERE id = ?', args: ['done', task.id] });
+      await db.$client.execute({
+        sql: 'UPDATE tasks SET status = ? WHERE id = ?',
+        args: ['done', task.id],
+      });
     }
     const completed = await service.complete(goal.id, { kind: 'gate_command', exit_code: 0 });
     expect(completed?.status).toBe('complete');
@@ -336,7 +379,9 @@ describe('goalService', () => {
     const after = (await listTasks(db, projectId)).find((task) => task.id === blocker?.id);
     expect(after?.status).toBe('done');
     expect(
-      (await listTasks(db, projectId)).filter((task) => task.goalId === goal.id && task.status === 'scope'),
+      (await listTasks(db, projectId)).filter(
+        (task) => task.goalId === goal.id && task.status === 'scope',
+      ),
     ).toHaveLength(0);
   });
 
@@ -356,7 +401,10 @@ describe('goalService', () => {
     });
     expect(partial?.status).toBe('blocked');
 
-    await db.$client.execute({ sql: 'UPDATE goals SET status = ? WHERE id = ?', args: ['active', goal.id] });
+    await db.$client.execute({
+      sql: 'UPDATE goals SET status = ? WHERE id = ?',
+      args: ['active', goal.id],
+    });
     await markAllCycleTasksDone(goal.id);
     const full = await service.complete(goal.id, {
       kind: 'acceptance_checklist',
@@ -463,7 +511,9 @@ describe('goalService', () => {
     });
     await createTask(db, { projectId, goalId: goal.id, label: 'Done child', status: 'done' });
 
-    await expect(service.complete(goal.id, { kind: 'human_sign_off', approved_by: 'alice' }),).rejects.toThrow(GoalVerificationRequiredError);
+    await expect(
+      service.complete(goal.id, { kind: 'human_sign_off', approved_by: 'alice' }),
+    ).rejects.toThrow(GoalVerificationRequiredError);
   });
 
   it('returns undefined for missing goals on lifecycle methods', async () => {
@@ -492,7 +542,12 @@ describe('goalService', () => {
   it('invoke returns first frontier task for an active goal with todos', async () => {
     const service = createService();
     const goal = await createGoal(db, { projectId, objective: 'Work', status: 'active' });
-    const first = await createTask(db, { projectId, goalId: goal.id, label: 'First', status: 'todo' });
+    const first = await createTask(db, {
+      projectId,
+      goalId: goal.id,
+      label: 'First',
+      status: 'todo',
+    });
     await createTask(db, { projectId, goalId: goal.id, label: 'Second', status: 'todo' });
 
     const result = await service.invoke(goal.id);

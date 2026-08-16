@@ -509,9 +509,7 @@ async function main() {
   log(`machine: ${results.machine}`);
 
   const allPass =
-    cold.ms <= TARGETS.coldStartMs &&
-    mcp.p95 <= TARGETS.mcpP95Ms &&
-    exportImport.lossless;
+    cold.ms <= TARGETS.coldStartMs && mcp.p95 <= TARGETS.mcpP95Ms && exportImport.lossless;
 
   if (!allPass) {
     log('');

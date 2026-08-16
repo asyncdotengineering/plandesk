@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createDb, createProjectInDefaultOrg as createProject, migrate, upsertSubmission , type Db} from '@plandesk/db';
+import {
+  createDb,
+  createProjectInDefaultOrg as createProject,
+  migrate,
+  upsertSubmission,
+  type Db,
+} from '@plandesk/db';
 import { createApp } from '../server.js';
 import { createServices, type Services } from '../services/index.js';
 import { parseJson } from '../test-helpers.js';
@@ -67,9 +73,7 @@ describe('submissions routes', () => {
     expect(acceptedRes.status).toBe(200);
     expect(await parseJson(acceptedRes)).toEqual([]);
 
-    const invalidRes = await app.request(
-      `/api/v1/projects/${project.id}/submissions?status=bogus`,
-    );
+    const invalidRes = await app.request(`/api/v1/projects/${project.id}/submissions?status=bogus`);
     expect(invalidRes.status).toBe(400);
   });
 

@@ -159,11 +159,7 @@ export function DocumentEditor({
       />
 
       {projectId !== undefined ? (
-        <DocumentLinks
-          projectId={projectId}
-          document={document}
-          editable={mode === 'editor'}
-        />
+        <DocumentLinks projectId={projectId} document={document} editable={mode === 'editor'} />
       ) : null}
 
       {onDelete !== undefined ? (

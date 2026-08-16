@@ -64,10 +64,10 @@ no access control.
 
 Two safe shapes:
 
-| | Bind | Who can reach it | Authentication |
-| --- | --- | --- | --- |
-| **Local board** | `127.0.0.1` | this machine only, no proxy | none needed — loopback is the boundary |
-| **Served board** | `0.0.0.0` | proxy or network | better-auth, and `PLANDESK_AUTH_PASSWORD` |
+|                  | Bind        | Who can reach it            | Authentication                            |
+| ---------------- | ----------- | --------------------------- | ----------------------------------------- |
+| **Local board**  | `127.0.0.1` | this machine only, no proxy | none needed — loopback is the boundary    |
+| **Served board** | `0.0.0.0`   | proxy or network            | better-auth, and `PLANDESK_AUTH_PASSWORD` |
 
 The compose file already does the right thing: `PLANDESK_HOST` defaults to `0.0.0.0`, and the
 container's network isolation — not a loopback bind — is what keeps the port private.
@@ -85,16 +85,16 @@ container's network isolation — not a loopback bind — is what keeps the port
 
 ## Environment variables
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `PLANDESK_DB_URL` | (unset → local file) | libSQL/Turso URL for the server's database |
-| `PLANDESK_DB_TOKEN` | (unset) | Auth token for a remote libSQL DB (**secret**) |
-| `PLANDESK_HOST` | `0.0.0.0` | Bind address |
-| `PLANDESK_PORT` | `7526` | Bind port |
-| `PLANDESK_AUTH_PASSWORD` | (unset) | HTTP basic-auth password (**secret**) |
-| `PLANDESK_STORAGE` | `local` | `local` (blobs in DB) or `s3` |
-| `PLANDESK_S3_*` | (unset) | S3 credentials when `PLANDESK_STORAGE=s3` |
-| `PLANDESK_GITHUB_CLIENT_ID` / `_SECRET` / `_CALLBACK_URL` | (unset) | GitHub OAuth (all-or-nothing; omit for no GitHub sign-in) |
+| Variable                                                  | Default              | Purpose                                                   |
+| --------------------------------------------------------- | -------------------- | --------------------------------------------------------- |
+| `PLANDESK_DB_URL`                                         | (unset → local file) | libSQL/Turso URL for the server's database                |
+| `PLANDESK_DB_TOKEN`                                       | (unset)              | Auth token for a remote libSQL DB (**secret**)            |
+| `PLANDESK_HOST`                                           | `0.0.0.0`            | Bind address                                              |
+| `PLANDESK_PORT`                                           | `7526`               | Bind port                                                 |
+| `PLANDESK_AUTH_PASSWORD`                                  | (unset)              | HTTP basic-auth password (**secret**)                     |
+| `PLANDESK_STORAGE`                                        | `local`              | `local` (blobs in DB) or `s3`                             |
+| `PLANDESK_S3_*`                                           | (unset)              | S3 credentials when `PLANDESK_STORAGE=s3`                 |
+| `PLANDESK_GITHUB_CLIENT_ID` / `_SECRET` / `_CALLBACK_URL` | (unset)              | GitHub OAuth (all-or-nothing; omit for no GitHub sign-in) |
 
 ## Next
 
