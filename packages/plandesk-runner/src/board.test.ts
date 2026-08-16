@@ -222,6 +222,67 @@ describe('createBoardClient', () => {
     expect(calls[0]?.headers[AGENT_RUN_HEADER]).toBe('run-1');
   });
 
+  it('lists every task via GET /projects/:id/tasks (there is no single-task GET route)', async () => {
+    const { impl, calls } = makeFetch([
+      { method: 'GET', path: '/api/v1/projects/proj-1/tasks', body: [TASK] },
+    ]);
+    const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: impl });
+
+    const tasks = await board.listTasks();
+
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]).toMatchObject({ id: 'task-1', status: 'todo', lane: 'auto' });
+    expect(calls[0]).toMatchObject({ method: 'GET', path: '/api/v1/projects/proj-1/tasks' });
+    expect(calls[0]?.headers['Authorization']).toBe(`Bearer ${AGENT_KEY}`);
+  });
+
+  it('raises BoardError naming the array element when a listed task is malformed', async () => {
+    const { impl } = makeFetch([
+      { method: 'GET', path: '/api/v1/projects/proj-1/tasks', body: [{ id: 'task-1' }] },
+    ]);
+    const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: impl });
+
+    await expect(board.listTasks()).rejects.toMatchObject({
+      name: 'BoardError',
+      field: 'tasks[0].project_id',
+    });
+  });
+
+  it('lists agent runs via GET /projects/:id/agent-runs, newest first, trimming events', async () => {
+    const { impl, calls } = makeFetch([
+      {
+        method: 'GET',
+        path: '/api/v1/projects/proj-1/agent-runs',
+        body: [
+          {
+            id: 'run-2',
+            project_id: 'proj-1',
+            status: 'running',
+            label: 'task task-1: Write the thing',
+            started_at: '2026-01-02T00:00:00.000Z',
+            completed_at: null,
+            events: [{ id: 'ev-1', message: 'heartbeat', created_at: '2026-01-02T00:00:01.000Z' }],
+          },
+        ],
+      },
+    ]);
+    const board = createBoardClient(makeConfig(), 'proj-1', { fetchImpl: impl });
+
+    const runs = await board.listRuns();
+
+    expect(runs).toEqual([
+      {
+        id: 'run-2',
+        project_id: 'proj-1',
+        status: 'running',
+        label: 'task task-1: Write the thing',
+        started_at: '2026-01-02T00:00:00.000Z',
+        completed_at: null,
+      },
+    ]);
+    expect(calls[0]).toMatchObject({ method: 'GET', path: '/api/v1/projects/proj-1/agent-runs' });
+  });
+
   it('reads the linked task document, mapping 404 to null', async () => {
     const found = makeFetch([
       { method: 'GET', path: '/api/v1/tasks/task-1/document', body: { id: 'doc-1', project_id: 'proj-1', title: 'Spec', body: 'The body', status_line: 'Draft' } },

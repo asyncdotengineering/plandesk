@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RunnerConfig } from './config.js';
-import type { BoardClient, BoardDocument, BoardProject, BoardTask, ClaimResult } from './board.js';
+import type { BoardAgentRun, BoardClient, BoardDocument, BoardProject, BoardTask, ClaimResult } from './board.js';
 import {
   applyOutcome,
   decideOutcome,
@@ -124,6 +124,8 @@ class StubBoard implements BoardClient {
   projectResult: BoardProject = { id: 'proj-1', name: 'Fixture', repo_url: null };
   docResult: BoardDocument | null = null;
   projectError: Error | undefined;
+  listTasksResult: BoardTask[] = [];
+  listRunsResult: BoardAgentRun[] = [];
 
   constructor(task: BoardTask | null, options: { claim?: ClaimResult } = {}) {
     this.nextTaskResult = task;
@@ -184,6 +186,16 @@ class StubBoard implements BoardClient {
   taskDocument(taskId: string): Promise<BoardDocument | null> {
     this.calls.push(`taskDocument:${taskId}`);
     return Promise.resolve(this.docResult);
+  }
+
+  listTasks(): Promise<BoardTask[]> {
+    this.calls.push('listTasks');
+    return Promise.resolve(this.listTasksResult);
+  }
+
+  listRuns(): Promise<BoardAgentRun[]> {
+    this.calls.push('listRuns');
+    return Promise.resolve(this.listRunsResult);
   }
 }
 
@@ -630,6 +642,45 @@ describe('runOnce', () => {
 });
 
 describe('runLoop', () => {
+  it('reconciles an orphaned attempt before the first poll — settle, then claim', async () => {
+    const workdir = makeTempDir('plandesk-loop-startup-');
+    const orphanDir = join(workdir, 'worktrees', 'task-1');
+    mkdirSync(orphanDir, { recursive: true });
+    const board = new StubBoard(null); // the loop itself stays idle
+    board.listTasksResult = [makeTask({ status: 'in_progress' })];
+    board.listRunsResult = [
+      {
+        id: 'run-9',
+        project_id: 'proj-1',
+        status: 'running',
+        label: 'task task-1: Frobnicate the widget',
+        started_at: new Date().toISOString(),
+        completed_at: null,
+      },
+    ];
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const controller = new AbortController();
+    const stop = setTimeout(() => {
+      controller.abort();
+    }, 25);
+
+    await runLoop(makeConfig(workdir, { pollMs: 5 }), board, controller.signal);
+    clearTimeout(stop);
+
+    // Call-order proof, not a source read: every reconcile write happened
+    // before the loop's first poll.
+    const firstPoll = board.calls.indexOf('nextTask');
+    expect(firstPoll).toBeGreaterThan(0);
+    expect(board.calls[0]).toBe('listTasks');
+    expect(board.calls.indexOf('recordProgress')).toBeLessThan(firstPoll);
+    expect(board.calls.indexOf('setTaskStatus:todo')).toBeLessThan(firstPoll);
+    expect(board.statuses).toEqual([{ taskId: 'task-1', status: 'todo', runId: 'run-9' }]);
+    // The orphan is reported to the operator and the worktree is retained.
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('reconcile'));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('task-1'));
+    expect(existsSync(orphanDir)).toBe(true);
+  });
+
   it('polls until the signal aborts, sleeping pollMs between passes', async () => {
     const board = new StubBoard(null);
     const config = makeConfig(makeTempDir('plandesk-loop-poll-'), { pollMs: 5 });

@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { loadConfig, readEnv, redact, CONFIG_PATH_ENV, type RunnerConfig } from './config.js';
+import { scanOrphans } from './reconcile.js';
 import {
   describeExclusion,
   findFactoryWorkersDir,
@@ -31,6 +32,12 @@ export interface DoctorWorkerResolution {
   excluded: Exclusion[];
 }
 
+/** One orphaned-attempt worktree row — reported, never settled. */
+export interface DoctorOrphan {
+  taskId: string;
+  worktreeDir: string;
+}
+
 export interface DoctorReport {
   /** Config file path that was loaded (as passed, or the env/default location). */
   configPath: string;
@@ -45,6 +52,10 @@ export interface DoctorReport {
   workers: WorkerFile[];
   /** Worker resolution against the loaded config; undefined when no workers dir was found. */
   resolution: DoctorWorkerResolution | undefined;
+  /** Orphaned attempt worktrees under the config workdir — a scan only; doctor settles nothing. */
+  orphans: DoctorOrphan[];
+  /** Set when the orphan scan itself failed; the report still prints. */
+  orphanScanError: string | undefined;
 }
 
 export interface DoctorOptions {
@@ -105,6 +116,22 @@ async function resolveWorkerResolution(
 }
 
 /**
+ * Scan for orphaned attempt worktrees without ever settling anything: the
+ * disk inventory only ({@link scanOrphans} touches neither the board nor a
+ * mutation), so doctor cannot release, flip, or delete — a reconcile belongs
+ * to the loop's startup path, not to a diagnostic.
+ */
+async function scanOrphansForReport(
+  config: RunnerConfig,
+): Promise<{ orphans: DoctorOrphan[]; orphanScanError: string | undefined }> {
+  try {
+    return { orphans: await scanOrphans(config), orphanScanError: undefined };
+  } catch (error) {
+    return { orphans: [], orphanScanError: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/**
  * Collect everything `plandesk-runner doctor` prints: the redacted config, a
  * board reachability ping (unauthenticated — any HTTP response counts as
  * reachable), and one row per worker declaration file with its
@@ -134,6 +161,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   const workers = listWorkerFiles(workersDir ?? join(cwd, '.agents', 'factory', 'workers'));
   const resolution =
     workersDir === undefined ? undefined : await resolveWorkerResolution(workersDir, config, workers);
+  const orphanScan = await scanOrphansForReport(config);
 
   return {
     configPath,
@@ -144,6 +172,8 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     workersSearchedFrom: cwd,
     workers,
     resolution,
+    orphans: orphanScan.orphans,
+    orphanScanError: orphanScan.orphanScanError,
   };
 }
 
@@ -193,6 +223,24 @@ function workerRows(report: DoctorReport): string[] {
   return lines;
 }
 
+function orphanRows(report: DoctorReport): string[] {
+  if (report.orphanScanError !== undefined) {
+    return [
+      `orphan scan under ${join(report.config.workdir, 'worktrees')} failed: ${report.orphanScanError}`,
+    ];
+  }
+  if (report.orphans.length === 0) {
+    return [`no orphaned attempt worktrees under ${join(report.config.workdir, 'worktrees')}`];
+  }
+  const lines = [
+    `orphans (${String(report.orphans.length)}) under ${join(report.config.workdir, 'worktrees')} — reported only, nothing settled:`,
+  ];
+  for (const orphan of report.orphans) {
+    lines.push(`  ${orphan.taskId}  ${orphan.worktreeDir}`);
+  }
+  return lines;
+}
+
 /** Render the doctor report as the text `plandesk-runner doctor` prints. */
 export function formatDoctorReport(report: DoctorReport): string {
   const boardLine = report.board.reachable
@@ -209,6 +257,8 @@ export function formatDoctorReport(report: DoctorReport): string {
     boardLine,
     '',
     ...workerRows(report),
+    '',
+    ...orphanRows(report),
   ];
   return lines.join('\n');
 }

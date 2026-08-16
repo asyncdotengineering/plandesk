@@ -6,6 +6,7 @@ import { buildEnv, readBoundedFile, runHeadless, spawn, substitutePlaceholders }
 import type { SpawnResult } from './spawn.js';
 import { pickWorker, resolveWorkers, type Worker } from './workers.js';
 import { retainOrRemove, ensureRepo, prepareWorktree, resolveBaseCommit, type Worktree } from './worktree.js';
+import { reconcile } from './reconcile.js';
 
 /**
  * The poll-claim-dispatch-settle cycle — the slice that joins config, board,
@@ -486,17 +487,40 @@ function sleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
 }
 
 /**
- * Drive {@link runOnce} until `signal` aborts: poll, settle, sleep
- * `config.pollMs` between passes (the sleep aborts with the signal, so
- * shutdown never waits out a poll). One slot — the next pass starts only
- * after the previous attempt fully settles. Errors from a pass propagate and
- * end the loop loudly; a supervisor owns restarts.
+ * Settle attempts orphaned by a previous runner process, logging one line
+ * per orphan for the operator. {@link reconcile} never throws and never
+ * deletes anything, so this can only report — a broken orphan (or an
+ * unreadable workdir) degrades to a line here, never to a failed start.
+ */
+function settleStartupOrphans(config: RunnerConfig, board: BoardClient): Promise<void> {
+  return reconcile(board, config).then((orphans) => {
+    for (const orphan of orphans) {
+      console.log(
+        `plandesk-runner reconcile: ${orphan.taskId} ${orphan.action} — ${orphan.detail}`,
+      );
+    }
+  });
+}
+
+/**
+ * Drive {@link runOnce} until `signal` aborts: reconcile the previous
+ * process's orphaned attempts **before the first poll** (a restarted runner
+ * owns nothing — any `in_progress` task with a worktree under this workdir
+ * was abandoned by a crash and must be released back to `todo` before this
+ * process starts claiming work), then poll, settle, sleep `config.pollMs`
+ * between passes (the sleep aborts with the signal, so shutdown never waits
+ * out a poll). One slot — the next pass starts only after the previous
+ * attempt fully settles. Errors from a pass propagate and end the loop
+ * loudly; a supervisor owns restarts.
  */
 export async function runLoop(
   config: RunnerConfig,
   board: BoardClient,
   signal?: AbortSignal,
 ): Promise<void> {
+  if (!signal?.aborted) {
+    await settleStartupOrphans(config, board);
+  }
   for (;;) {
     if (signal?.aborted) {
       return;

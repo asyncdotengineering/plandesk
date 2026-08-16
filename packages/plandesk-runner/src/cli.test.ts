@@ -30,7 +30,10 @@ function makeFixtureRepo(): string {
   tempDirs.push(dir);
   const configPath = join(dir, 'runner.toml');
   // Port 1 on loopback: refused instantly, so doctor's board ping fails fast.
-  writeFileSync(configPath, 'board_url = "http://127.0.0.1:1"\nagent_key = "sk-cli"\npoll_ms = 5\n');
+  writeFileSync(
+    configPath,
+    `board_url = "http://127.0.0.1:1"\nagent_key = "sk-cli"\npoll_ms = 5\nworkdir = "${join(dir, 'work')}"\n`,
+  );
   const workersDir = join(dir, '.agents', 'factory', 'workers');
   mkdirSync(workersDir, { recursive: true });
   writeFileSync(join(workersDir, 'pi.md'), '---\ntype: worker\n---\n');

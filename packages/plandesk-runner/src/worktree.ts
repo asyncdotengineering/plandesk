@@ -316,7 +316,7 @@ export async function prepareWorktree(
 }
 
 /** One `git worktree list --porcelain -z` record. */
-interface WorktreeEntry {
+export interface WorktreeEntry {
   /** Absolute path as git itself reports it. */
   path: string;
   /** Full HEAD oid when advertised. */
@@ -328,9 +328,10 @@ interface WorktreeEntry {
 /**
  * List registered worktrees of `repoDir`, parsing git's own `-z` porcelain
  * (ported from factory internal/worker/git.go `listGitWorktrees`). The paths
- * reported are git's own, which is what removal must use.
+ * reported are git's own, which is what removal must use — and what
+ * reconciliation matches on-disk directories against (`./reconcile.ts`).
  */
-async function listWorktrees(repoDir: string): Promise<WorktreeEntry[]> {
+export async function listWorktrees(repoDir: string): Promise<WorktreeEntry[]> {
   const stdout = await runGit(['worktree', 'list', '--porcelain', '-z'], repoDir);
   const entries: WorktreeEntry[] = [];
   let current: WorktreeEntry | undefined;
@@ -376,7 +377,7 @@ function realpathOrSelf(path: string): string {
  * paths (e.g. `/private/tmp` where the caller built `/tmp`), so both sides
  * are realpath-resolved before comparing.
  */
-function samePath(a: string, b: string): boolean {
+export function samePath(a: string, b: string): boolean {
   return realpathOrSelf(a) === realpathOrSelf(b) || resolve(realpathOrSelf(a)) === resolve(realpathOrSelf(b));
 }
 

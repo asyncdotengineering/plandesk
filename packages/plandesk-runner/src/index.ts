@@ -68,3 +68,4 @@ export {
   type MainOptions,
   type ParsedCommand,
 } from './cli.js';
+export { reconcile, scanOrphans, type Orphan } from './reconcile.js';

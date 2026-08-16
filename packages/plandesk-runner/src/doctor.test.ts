@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AGENT_KEY_ENV, CONFIG_PATH_ENV } from './config.js';
 import { formatDoctorReport, runDoctor } from './doctor.js';
@@ -49,7 +49,10 @@ function makeTempDir(prefix: string): string {
 function makeFixture(boardUrl: string): { configPath: string; workersDir: string } {
   const dir = makeTempDir('plandesk-runner-doctor-');
   const configPath = join(dir, 'runner.toml');
-  writeFileSync(configPath, `board_url = "${boardUrl}"\nagent_key = "sk-doctor-key-abcdefgh"\n`);
+  writeFileSync(
+    configPath,
+    `board_url = "${boardUrl}"\nagent_key = "sk-doctor-key-abcdefgh"\nworkdir = "${join(dir, 'work')}"\n`,
+  );
   const workersDir = join(dir, '.agents', 'factory', 'workers');
   mkdirSync(workersDir, { recursive: true });
   writeFileSync(join(workersDir, 'pi.md'), '---\ntype: worker\n---\n');
@@ -67,7 +70,7 @@ function makeFullFixture(
   const configPath = join(dir, 'runner.toml');
   writeFileSync(
     configPath,
-    `board_url = "${boardUrl}"\nagent_key = "sk-doctor-key-abcdefgh"${workersLine}`,
+    `board_url = "${boardUrl}"\nagent_key = "sk-doctor-key-abcdefgh"${workersLine}workdir = "${join(dir, 'work')}"\n`,
   );
   const workersDir = join(dir, '.agents', 'factory', 'workers');
   mkdirSync(workersDir, { recursive: true });
@@ -135,7 +138,10 @@ describe('runDoctor', () => {
     const boardUrl = await startLocalBoard();
     const dir = makeTempDir('plandesk-runner-noworkers-');
     const configPath = join(dir, 'runner.toml');
-    writeFileSync(configPath, `board_url = "${boardUrl}"\nagent_key = "sk-doctor-key-abcdefgh"\n`);
+    writeFileSync(
+      configPath,
+      `board_url = "${boardUrl}"\nagent_key = "sk-doctor-key-abcdefgh"\nworkdir = "${join(dir, 'work')}"\n`,
+    );
 
     const report = await runDoctor({ configPath, cwd: dir, timeoutMs: 2000 });
 
@@ -168,11 +174,33 @@ describe('runDoctor', () => {
     expect(report.resolution?.excluded[1]).toEqual({ worker: 'cursor', reason: 'no-headless-key' });
   });
 
+  it('reports the orphan set without settling anything', async () => {
+    const boardUrl = await startLocalBoard();
+    const { configPath, workersDir } = makeFixture(boardUrl);
+    const orphanDir = join(dirname(configPath), 'work', 'worktrees', 'task-1');
+    mkdirSync(orphanDir, { recursive: true });
+
+    const report = await runDoctor({ configPath, workersDir, timeoutMs: 2000 });
+
+    expect(report.orphanScanError).toBeUndefined();
+    expect(report.orphans).toEqual([{ taskId: 'task-1', worktreeDir: orphanDir }]);
+    const text = formatDoctorReport(report);
+    expect(text).toContain('orphans (1)');
+    expect(text).toContain('nothing settled');
+    expect(text).toContain('task-1');
+    // Doctor never held a board credential beyond the unauthenticated ping —
+    // structurally incapable of settling anything.
+    expect(existsSync(orphanDir)).toBe(true);
+  });
+
   it('does not throw when the usable set ends up empty', async () => {
     const boardUrl = await startLocalBoard();
     const dir = makeTempDir('plandesk-runner-doctor-');
     const configPath = join(dir, 'runner.toml');
-    writeFileSync(configPath, `board_url = "${boardUrl}"\nagent_key = "sk-doctor-key-abcdefgh"\n`);
+    writeFileSync(
+      configPath,
+      `board_url = "${boardUrl}"\nagent_key = "sk-doctor-key-abcdefgh"\nworkdir = "${join(dir, 'work')}"\n`,
+    );
     const workersDir = join(dir, '.agents', 'factory', 'workers');
     mkdirSync(workersDir, { recursive: true });
     writeFileSync(

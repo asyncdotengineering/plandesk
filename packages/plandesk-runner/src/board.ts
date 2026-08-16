@@ -156,6 +156,18 @@ export interface BoardClient {
   completeRun(runId: string, status: 'completed' | 'failed'): Promise<void>;
   /** The document linked to a task, or null when the task has none. */
   taskDocument(taskId: string): Promise<BoardDocument | null>;
+  /**
+   * Every task on the bound project (`GET /projects/:id/tasks`, the bare
+   * `serializeTask` array). There is no single-task GET route, so reads of
+   * one task by id resolve through this list.
+   */
+  listTasks(): Promise<BoardTask[]>;
+  /**
+   * Every agent run on the bound project (`GET /projects/:id/agent-runs`),
+   * newest first — the service sorts by started_at desc, id desc. The wire
+   * rows carry an `events` array the runner does not read; it is trimmed.
+   */
+  listRuns(): Promise<BoardAgentRun[]>;
 }
 
 function requireString(source: Record<string, unknown>, key: string, field: string): string {
@@ -212,6 +224,28 @@ function parseTask(raw: unknown, field: string): BoardTask {
     lane: optionalString(source, 'lane', wrap('lane')),
     severity: optionalString(source, 'severity', wrap('severity')),
     description: optionalString(source, 'description', wrap('description')),
+  };
+}
+
+/** Parse a wire agent run: the fields the runner reads, validated and copied. */
+function parseAgentRun(raw: unknown, field: string): BoardAgentRun {
+  if (typeof raw !== 'object' || raw === null) {
+    throw new BoardError(
+      field,
+      'GET',
+      '',
+      `board response field ${field} must be an object — got ${JSON.stringify(raw)}`,
+    );
+  }
+  const source = raw as Record<string, unknown>;
+  const wrap = (key: string): string => `${field}.${key}`;
+  return {
+    id: requireString(source, 'id', wrap('id')),
+    project_id: requireString(source, 'project_id', wrap('project_id')),
+    status: requireString(source, 'status', wrap('status')),
+    label: optionalString(source, 'label', wrap('label')),
+    started_at: requireString(source, 'started_at', wrap('started_at')),
+    completed_at: optionalString(source, 'completed_at', wrap('completed_at')),
   };
 }
 
@@ -380,14 +414,7 @@ export function createBoardClient(
         path,
         body: label === undefined ? {} : { label },
       });
-      return {
-        id: requireString(body, 'id', 'id'),
-        project_id: requireString(body, 'project_id', 'project_id'),
-        status: requireString(body, 'status', 'status'),
-        label: optionalString(body, 'label', 'label'),
-        started_at: requireString(body, 'started_at', 'started_at'),
-        completed_at: optionalString(body, 'completed_at', 'completed_at'),
-      };
+      return parseAgentRun(body, 'agent_run');
     },
 
     async recordProgress(runId: string, message: string): Promise<void> {
@@ -422,6 +449,34 @@ export function createBoardClient(
         body: requireString(source, 'body', 'body'),
         status_line: optionalString(source, 'status_line', 'status_line'),
       };
+    },
+
+    async listTasks(): Promise<BoardTask[]> {
+      const path = `/projects/${encodedProjectId}/tasks`;
+      const parsed = await request({ method: 'GET', path });
+      if (!Array.isArray(parsed)) {
+        throw new BoardError(
+          'tasks',
+          'GET',
+          path,
+          `board response for ${path} must be an array — got ${JSON.stringify(parsed).slice(0, 100)}`,
+        );
+      }
+      return parsed.map((entry, index) => parseTask(entry, `tasks[${String(index)}]`));
+    },
+
+    async listRuns(): Promise<BoardAgentRun[]> {
+      const path = `/projects/${encodedProjectId}/agent-runs`;
+      const parsed = await request({ method: 'GET', path });
+      if (!Array.isArray(parsed)) {
+        throw new BoardError(
+          'agent_runs',
+          'GET',
+          path,
+          `board response for ${path} must be an array — got ${JSON.stringify(parsed).slice(0, 100)}`,
+        );
+      }
+      return parsed.map((entry, index) => parseAgentRun(entry, `agent_runs[${String(index)}]`));
     },
   };
 }
