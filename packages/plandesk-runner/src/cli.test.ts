@@ -30,7 +30,7 @@ function makeFixtureRepo(): string {
   tempDirs.push(dir);
   const configPath = join(dir, 'runner.toml');
   // Port 1 on loopback: refused instantly, so doctor's board ping fails fast.
-  writeFileSync(configPath, 'board_url = "http://127.0.0.1:1"\nagent_key = "sk-cli"\n');
+  writeFileSync(configPath, 'board_url = "http://127.0.0.1:1"\nagent_key = "sk-cli"\npoll_ms = 5\n');
   const workersDir = join(dir, '.agents', 'factory', 'workers');
   mkdirSync(workersDir, { recursive: true });
   writeFileSync(join(workersDir, 'pi.md'), '---\ntype: worker\n---\n');
@@ -61,6 +61,23 @@ describe('parseArgs', () => {
     });
   });
 
+  it('parses --project as a binding for the loop and once commands', () => {
+    expect(parseArgs(['--once', '--project', 'proj-9'])).toEqual({
+      command: 'once',
+      configPath: undefined,
+      projectId: 'proj-9',
+    });
+    expect(parseArgs(['--project=proj-9'])).toEqual({
+      command: 'loop',
+      configPath: undefined,
+      projectId: 'proj-9',
+    });
+  });
+
+  it('throws UsageError for --project without a value', () => {
+    expect(() => parseArgs(['--project'])).toThrow(UsageError);
+  });
+
   it('throws UsageError for unknown arguments', () => {
     expect(() => parseArgs(['frobnicate'])).toThrow(UsageError);
     expect(() => parseArgs(['--warp'])).toThrow(UsageError);
@@ -69,14 +86,71 @@ describe('parseArgs', () => {
 });
 
 describe('main', () => {
-  it('bare invocation prints a loop stub message and exits 0', async () => {
-    await expect(main([])).resolves.toBe(0);
-    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('not implemented'));
+  it('bare invocation without a project binding exits 2 with usage', async () => {
+    const dir = makeFixtureRepo();
+
+    const code = await main(['--config', join(dir, 'runner.toml')]);
+
+    expect(code).toBe(2);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('--project'));
   });
 
-  it('--once prints a stub message and exits 0', async () => {
-    await expect(main(['--once'])).resolves.toBe(0);
-    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('--once'));
+  it('--once with a bound project runs one pass against the board and exits 0 on idle', async () => {
+    const dir = makeFixtureRepo();
+    let polls = 0;
+    const fetchImpl: typeof fetch = (input) => {
+      polls += 1;
+      const url = input instanceof URL ? input.href : typeof input === 'string' ? input : input.url;
+      expect(url).toContain('/api/v1/projects/proj-1/next-task');
+      return Promise.resolve(
+        new Response(JSON.stringify({ next_task: null, reason: 'no_tasks', blocked: [] }), {
+          status: 200,
+        }),
+      );
+    };
+
+    const code = await main(['--once', '--project', 'proj-1', '--config', join(dir, 'runner.toml')], {
+      fetchImpl,
+    });
+
+    expect(code).toBe(0);
+    expect(polls).toBe(1);
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('idle'));
+  });
+
+  it('bare invocation with a bound project runs the poll loop until the signal aborts', async () => {
+    const dir = makeFixtureRepo();
+    let polls = 0;
+    const fetchImpl: typeof fetch = () => {
+      polls += 1;
+      return Promise.resolve(
+        new Response(JSON.stringify({ next_task: null, reason: 'no_tasks', blocked: [] }), {
+          status: 200,
+        }),
+      );
+    };
+    const controller = new AbortController();
+    const stop = setTimeout(() => {
+      controller.abort();
+    }, 25);
+
+    const code = await main(['--config', join(dir, 'runner.toml'), '--project', 'proj-1'], {
+      fetchImpl,
+      signal: controller.signal,
+    });
+    clearTimeout(stop);
+
+    expect(code).toBe(0);
+    expect(polls).toBeGreaterThanOrEqual(2);
+  });
+
+  it('--once exits 1 with a board error when the board is unreachable', async () => {
+    const dir = makeFixtureRepo(); // board_url is a refused loopback port
+
+    const code = await main(['--once', '--project', 'proj-1', '--config', join(dir, 'runner.toml')]);
+
+    expect(code).toBe(1);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('board'));
   });
 
   it('doctor runs against a fixture config, prints, and exits 0', async () => {

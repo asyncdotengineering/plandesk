@@ -17,6 +17,33 @@ export {
   type DoctorWorkerResolution,
 } from './doctor.js';
 export {
+  AGENT_RUN_HEADER,
+  BoardError,
+  createBoardClient,
+  type AgentRunStatus,
+  type BoardAgentRun,
+  type BoardClient,
+  type BoardClientOptions,
+  type BoardDocument,
+  type BoardProject,
+  type BoardTask,
+  type ClaimResult,
+  type TaskLane,
+  type TaskStatus,
+} from './board.js';
+export {
+  applyOutcome,
+  decideOutcome,
+  extractGateCommand,
+  needsInputPath,
+  renderBrief,
+  runGate,
+  runLoop,
+  runOnce,
+  type BoardMutation,
+  type Outcome,
+} from './loop.js';
+export {
   describeExclusion,
   findFactoryWorkersDir,
   listWorkerFiles,
@@ -32,4 +59,12 @@ export {
   type WorkerFrontmatter,
   type WorkerResolution,
 } from './workers.js';
-export { main, parseArgs, usageText, UsageError, type ParsedCommand } from './cli.js';
+export {
+  main,
+  parseArgs,
+  usageText,
+  UsageError,
+  PROJECT_ID_ENV,
+  type MainOptions,
+  type ParsedCommand,
+} from './cli.js';
