@@ -2,7 +2,7 @@
   "name": "@plandesk/runner",
   "version": "0.1.0",
   "type": "module",
-  "description": "Plan Desk runner — the machine-side agent that polls a Plan Desk board and executes dispatched work. This package currently ships config loading, redaction, and the doctor command; the poll/claim loop lands in later tasks.",
+  "description": "Plan Desk runner — the machine-side agent that polls a Plan Desk board and executes dispatched work. This package currently ships config loading, redaction, worker resolution (declare-then-probe), and the doctor command; the poll/claim loop lands in later tasks.",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -26,7 +26,8 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "smol-toml": "^1.6.1"
+    "smol-toml": "^1.6.1",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@types/node": "25.9.2",

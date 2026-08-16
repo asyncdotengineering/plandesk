@@ -14,6 +14,22 @@ export {
   type DoctorBoardResult,
   type DoctorOptions,
   type DoctorReport,
+  type DoctorWorkerResolution,
 } from './doctor.js';
-export { findFactoryWorkersDir, listWorkerFiles, type WorkerFile } from './workers.js';
+export {
+  describeExclusion,
+  findFactoryWorkersDir,
+  listWorkerFiles,
+  NoUsableWorkersError,
+  parseWorkerFrontmatter,
+  pickWorker,
+  resolveWorkers,
+  resolveWorkersIn,
+  type Exclusion,
+  type ResolveWorkersOptions,
+  type Worker,
+  type WorkerFile,
+  type WorkerFrontmatter,
+  type WorkerResolution,
+} from './workers.js';
 export { main, parseArgs, usageText, UsageError, type ParsedCommand } from './cli.js';

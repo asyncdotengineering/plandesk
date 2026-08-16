@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AGENT_KEY_ENV, CONFIG_PATH_ENV } from './config.js';
 import { formatDoctorReport, runDoctor } from './doctor.js';
+import type { DoctorReport } from './doctor.js';
 
 const tempDirs: string[] = [];
 let server: Server | undefined;
@@ -53,6 +54,36 @@ function makeFixture(boardUrl: string): { configPath: string; workersDir: string
   mkdirSync(workersDir, { recursive: true });
   writeFileSync(join(workersDir, 'pi.md'), '---\ntype: worker\n---\n');
   writeFileSync(join(workersDir, 'codex.md'), '---\ntype: worker\n---\n');
+  return { configPath, workersDir };
+}
+
+/** A fixture whose workers carry full headless declarations, so resolution runs. */
+function makeFullFixture(
+  boardUrl: string,
+  configWorkers: string[] = [],
+): { configPath: string; workersDir: string } {
+  const dir = makeTempDir('plandesk-runner-doctor-');
+  const workersLine = configWorkers.length > 0 ? `\nworkers = [${configWorkers.map((w) => `"${w}"`).join(', ')}]\n` : '\n';
+  const configPath = join(dir, 'runner.toml');
+  writeFileSync(
+    configPath,
+    `board_url = "${boardUrl}"\nagent_key = "sk-doctor-key-abcdefgh"${workersLine}`,
+  );
+  const workersDir = join(dir, '.agents', 'factory', 'workers');
+  mkdirSync(workersDir, { recursive: true });
+  writeFileSync(
+    join(workersDir, 'pi.md'),
+    '---\ntype: worker\nprobe: "true"\nversion: echo pi-9.9\nheadless: pi --print {prompt_file}\n---\n',
+  );
+  writeFileSync(
+    join(workersDir, 'codex.md'),
+    '---\ntype: worker\nprobe: "true"\nheadless: codex exec {prompt_file} -o {result_file}\n---\n',
+  );
+  // Declared but never headless-capable: stays valid interactively, excluded here.
+  writeFileSync(
+    join(workersDir, 'cursor.md'),
+    '---\ntype: worker\nprobe: "true"\ncommand: cursor-agent -p {prompt_file}\n---\n',
+  );
   return { configPath, workersDir };
 }
 
@@ -110,7 +141,50 @@ describe('runDoctor', () => {
 
     expect(report.workersDir).toBeUndefined();
     expect(report.workers).toEqual([]);
+    expect(report.resolution).toBeUndefined();
     expect(formatDoctorReport(report)).toContain('no .agents/factory/workers directory found');
+  });
+
+  it('reports probe failures without throwing and shows the resulting usable set', async () => {
+    const boardUrl = await startLocalBoard();
+    const { configPath, workersDir } = makeFullFixture(boardUrl);
+    // Overwrite codex's probe so it fails loudly while pi stays ready.
+    writeFileSync(
+      join(workersDir, 'codex.md'),
+      '---\ntype: worker\nprobe: echo doctor-boom >&2; exit 4\nheadless: codex exec {prompt_file}\n---\n',
+    );
+
+    const report = await runDoctor({ configPath, workersDir, timeoutMs: 2000 });
+
+    expect(report.resolution?.usable.map((worker) => worker.name)).toEqual(['pi']);
+    expect(report.resolution?.excluded.map((exclusion) => exclusion.worker)).toEqual([
+      'codex',
+      'cursor',
+    ]);
+    expect(report.resolution?.excluded[0]?.reason).toBe('probe-failed');
+    if (report.resolution?.excluded[0]?.reason === 'probe-failed') {
+      expect(report.resolution.excluded[0].stderr).toContain('doctor-boom');
+    }
+    expect(report.resolution?.excluded[1]).toEqual({ worker: 'cursor', reason: 'no-headless-key' });
+  });
+
+  it('does not throw when the usable set ends up empty', async () => {
+    const boardUrl = await startLocalBoard();
+    const dir = makeTempDir('plandesk-runner-doctor-');
+    const configPath = join(dir, 'runner.toml');
+    writeFileSync(configPath, `board_url = "${boardUrl}"\nagent_key = "sk-doctor-key-abcdefgh"\n`);
+    const workersDir = join(dir, '.agents', 'factory', 'workers');
+    mkdirSync(workersDir, { recursive: true });
+    writeFileSync(
+      join(workersDir, 'pi.md'),
+      '---\ntype: worker\nprobe: exit 1\nheadless: pi --print {prompt_file}\n---\n',
+    );
+
+    const report = await runDoctor({ configPath, workersDir, timeoutMs: 2000 });
+
+    expect(report.resolution?.usable).toEqual([]);
+    expect(report.resolution?.excluded[0]?.reason).toBe('probe-failed');
+    expect(formatDoctorReport(report)).toContain('usable (0): (none)');
   });
 });
 
@@ -129,5 +203,38 @@ describe('formatDoctorReport', () => {
     expect(text).toContain('pi');
     expect(text).toContain(workersDir);
     expect(text).not.toContain('sk-doctor-key-abcdefgh');
+  });
+
+  it('prints repo-declared / config-enabled / probe-ready per worker, then the usable set', async () => {
+    const boardUrl = await startLocalBoard();
+    const { configPath, workersDir } = makeFullFixture(boardUrl);
+
+    const report = await runDoctor({ configPath, workersDir, timeoutMs: 2000 });
+    const text = formatDoctorReport(report);
+
+    expect(report.resolution?.usable.map((worker) => worker.name)).toEqual(['codex', 'pi']);
+    expect(text).toContain(
+      `  ${'codex'.padEnd(16)} repo-declared=yes config-enabled=yes probe-ready=yes`,
+    );
+    expect(text).toContain(
+      `  ${'pi'.padEnd(16)} repo-declared=yes config-enabled=yes probe-ready=yes version=pi-9.9`,
+    );
+    expect(text).toContain(
+      `  ${'cursor'.padEnd(16)} repo-declared=yes config-enabled=yes probe-ready=n/a — excluded: no headless key in its worker file`,
+    );
+    expect(text).toContain('usable (2): codex, pi');
+  });
+
+  it('marks a config-enabled worker the repo does not declare as repo-declared=no', async () => {
+    const boardUrl = await startLocalBoard();
+    const { configPath, workersDir } = makeFullFixture(boardUrl, ['pi', 'ghost']);
+
+    const report: DoctorReport = await runDoctor({ configPath, workersDir, timeoutMs: 2000 });
+    const text = formatDoctorReport(report);
+
+    expect(text).toContain(
+      `  ${'ghost'.padEnd(16)} repo-declared=no config-enabled=yes probe-ready=n/a — not declared by this repository`,
+    );
+    expect(report.resolution?.enabledButNotDeclared).toEqual(['ghost']);
   });
 });
