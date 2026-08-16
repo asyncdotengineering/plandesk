@@ -374,6 +374,22 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/debug@4.1.13)(@types/node@25.9.2)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(lightningcss@1.32.0)(tsx@4.22.4)
 
+  packages/plandesk-runner:
+    dependencies:
+      smol-toml:
+        specifier: ^1.6.1
+        version: 1.6.1
+    devDependencies:
+      '@types/node':
+        specifier: 25.9.2
+        version: 25.9.2
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/debug@4.1.13)(@types/node@25.9.2)(jiti@2.7.0)(jsdom@29.1.1(@noble/hashes@2.2.0))(lightningcss@1.32.0)(tsx@4.22.4)
+
   packages/plandesk-worker:
     dependencies:
       '@plandesk/api':

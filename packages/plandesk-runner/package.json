@@ -1,0 +1,50 @@
+{
+  "name": "@plandesk/runner",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Plan Desk runner — the machine-side agent that polls a Plan Desk board and executes dispatched work. This package currently ships config loading, redaction, and the doctor command; the poll/claim loop lands in later tasks.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "plandesk-runner": "./bin/plandesk-runner"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "!dist/**/*.test.js",
+    "!dist/**/*.test.d.ts",
+    "!dist/**/*.map"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "smol-toml": "^1.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "25.9.2",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.6"
+  },
+  "license": "MIT",
+  "author": "asyncdotengineering",
+  "homepage": "https://plandesk.asyncdot.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asyncdotengineering/plandesk.git",
+    "directory": "packages/plandesk-runner"
+  },
+  "keywords": [
+    "plan-desk",
+    "runner",
+    "agent",
+    "factory"
+  ]
+}
