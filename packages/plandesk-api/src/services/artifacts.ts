@@ -3,6 +3,7 @@ import {
   createEdge,
   deleteEdgeByEndpoints,
   getArtifact as dbGetArtifact,
+  getFolderByProjectAndId,
   getLatestRevisionId,
   getPrototypeByProjectAndId,
   listArtifactsByProject as dbListArtifactsByProject,
@@ -57,6 +58,8 @@ export type CreateArtifactInput = {
   content?: string;
   /** Optional prototype parent. Must belong to the same project; kind must be html. */
   prototypeId?: string | null;
+  /** Folder placement in the document tree. Null = unfiled. Not allowed on a screen. */
+  folderId?: string | null;
 };
 
 export type UpdateArtifactInput = {
@@ -64,6 +67,7 @@ export type UpdateArtifactInput = {
   kind?: ArtifactKind;
   content?: string;
   prototypeId?: string | null;
+  folderId?: string | null;
   x?: number | null;
   y?: number | null;
 };
@@ -109,6 +113,37 @@ async function resolvePrototypeForWrite(
   return prototypeId;
 }
 
+/**
+ * Validate a requested folder placement.
+ *
+ * A screen is laid out from its prototype's link graph, so filing one would give
+ * it two homes that can disagree. Refuse the pair rather than silently dropping
+ * one half of it.
+ */
+async function resolveFolderForWrite(
+  db: Db,
+  projectId: string,
+  folderId: string | null | undefined,
+  prototypeId: string | null | undefined,
+): Promise<string | null | undefined> {
+  if (folderId === undefined) {
+    return undefined;
+  }
+  if (folderId === null) {
+    return null;
+  }
+  if (typeof prototypeId === 'string') {
+    throw new InvalidArtifactError('folder_id cannot be set on a prototype screen');
+  }
+  const folder = await getFolderByProjectAndId(db, projectId, folderId);
+  if (!folder) {
+    throw new InvalidArtifactError(
+      'folder_id does not belong to this project (unknown or cross-project)',
+    );
+  }
+  return folderId;
+}
+
 async function resolveRevisionId(db: Db, artifact: Artifact): Promise<string> {
   const latest = await getLatestRevisionId(db, artifact.projectId, 'artifact', artifact.id);
   // Inferred: until the first versioned write, key remounts on updated_at.
@@ -148,6 +183,7 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
       assertNonEmptyTitle(input.title);
       const kind = input.kind ?? 'markdown';
       const prototypeId = await resolvePrototypeForWrite(db, projectId, input.prototypeId, kind);
+      const folderId = await resolveFolderForWrite(db, projectId, input.folderId, prototypeId);
 
       // Refuse before insert so a rejected screen never lands in storage.
       if (typeof prototypeId === 'string') {
@@ -161,6 +197,7 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
           kind,
           content: input.content,
           ...(prototypeId !== undefined ? { prototypeId } : {}),
+          ...(folderId !== undefined ? { folderId } : {}),
         });
 
         if (typeof prototypeId === 'string') {
@@ -239,6 +276,15 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
         // clearing is fine for any kind
       }
 
+      // Validate the post-update pair: filing an artifact that is (or becomes) a
+      // screen is refused, same rule as create.
+      const nextFolderId = await resolveFolderForWrite(
+        db,
+        existing.projectId,
+        input.folderId,
+        nextPrototypeId,
+      );
+
       const nextContent = input.content !== undefined ? input.content : existing.content;
 
       // Refuse before write when the post-update artifact is a screen.
@@ -259,6 +305,7 @@ export function createArtifactService(deps: ArtifactServiceDeps) {
 
       const artifact = await withTransaction(db, async (tx) => {
         const updated = await dbUpdateArtifact(tx, id, {
+          ...(nextFolderId !== undefined ? { folderId: nextFolderId } : {}),
           ...(input.title !== undefined ? { title: input.title } : {}),
           ...(input.kind !== undefined ? { kind: input.kind } : {}),
           ...(input.content !== undefined ? { content: input.content } : {}),

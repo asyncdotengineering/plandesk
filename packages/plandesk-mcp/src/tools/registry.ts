@@ -321,6 +321,14 @@ export const createArtifactInputSchema = z.object({
     .describe(
       "Attach this artifact as a screen on a prototype. Requires kind 'html'. Must belong to the same project.",
     ),
+  folder_id: z
+    .string()
+    .uuid()
+    .nullable()
+    .optional()
+    .describe(
+      'File this artifact in a document folder so it sits beside the documents it belongs with. Omit or null for unfiled. Must belong to the same project. Not allowed together with prototype_id — a screen is laid out from its prototype, not filed.',
+    ),
 });
 
 export const getArtifactInputSchema = z.object({
@@ -359,6 +367,14 @@ export const updateArtifactInputSchema = z.object({
     .optional()
     .describe(
       "Set or clear the parent prototype. Requires kind 'html' when set. Must belong to the same project. Do not send x/y — layout is system-owned.",
+    ),
+  folder_id: z
+    .string()
+    .uuid()
+    .nullable()
+    .optional()
+    .describe(
+      'Move this artifact to a document folder, or pass null to unfile it. Must belong to the same project. Not allowed on a prototype screen.',
     ),
 });
 

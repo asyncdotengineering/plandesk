@@ -11,6 +11,7 @@ export type NewArtifact = {
   kind?: ArtifactKind;
   content?: string;
   prototypeId?: string | null;
+  folderId?: string | null;
   x?: number | null;
   y?: number | null;
   id?: string;
@@ -21,6 +22,7 @@ export type ArtifactUpdate = {
   kind?: ArtifactKind;
   content?: string;
   prototypeId?: string | null;
+  folderId?: string | null;
   x?: number | null;
   y?: number | null;
 };
@@ -37,6 +39,7 @@ export async function createArtifact(db: DbClient, input: NewArtifact): Promise<
       kind: input.kind ?? 'markdown',
       content: input.content ?? '',
       prototypeId: input.prototypeId ?? null,
+      folderId: input.folderId ?? null,
       x: input.x ?? null,
       y: input.y ?? null,
       createdAt: now,

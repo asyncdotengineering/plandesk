@@ -1,0 +1,1 @@
+ALTER TABLE `artifacts` ADD `folder_id` text REFERENCES folders(id);

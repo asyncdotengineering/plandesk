@@ -658,6 +658,7 @@ export function emitArtifactsImport(ctx: ImportContext): void {
         kind: artifact.kind,
         content: artifact.content,
         prototypeId: remapId(ctx.prototypeIdMap, artifact.prototype_id ?? null),
+        folderId: remapId(ctx.folderIdMap, artifact.folder_id ?? null),
         x: artifact.x ?? null,
         y: artifact.y ?? null,
         createdAt: ctx.now,

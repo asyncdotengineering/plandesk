@@ -20,6 +20,7 @@ export function createCreateArtifactHandler(
   file_path?: string;
   kind?: ArtifactKind;
   prototype_id?: string;
+  folder_id?: string | null;
 }) => Promise<ToolResult> {
   return async (args) => {
     if (!xorPresent(args.content, args.file_path)) {
@@ -45,6 +46,7 @@ export function createCreateArtifactHandler(
         content,
         kind: args.kind,
         ...(args.prototype_id !== undefined ? { prototypeId: args.prototype_id } : {}),
+        ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
       });
       if (!artifact) {
         return toolNotFound();

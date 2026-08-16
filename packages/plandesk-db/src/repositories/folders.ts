@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
-import { documents, folders } from '../schema.js';
+import { artifacts, documents, folders } from '../schema.js';
 
 export type Folder = typeof folders.$inferSelect;
 
@@ -104,6 +104,19 @@ export async function moveDocumentsToFolder(
     .update(documents)
     .set({ folderId: newFolderId })
     .where(eq(documents.folderId, folderId))
+    .run();
+  return result.rowsAffected;
+}
+
+export async function moveArtifactsToFolder(
+  db: DbClient,
+  folderId: string,
+  newFolderId: string | null,
+): Promise<number> {
+  const result = await db
+    .update(artifacts)
+    .set({ folderId: newFolderId })
+    .where(eq(artifacts.folderId, folderId))
     .run();
   return result.rowsAffected;
 }

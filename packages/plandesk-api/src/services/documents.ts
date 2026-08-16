@@ -16,6 +16,7 @@ import {
   isSqliteBusy,
   retryOnSqliteBusy,
   TransactionRollback,
+  listArtifactsByProject as dbListArtifactsByProject,
   listDocuments as dbListDocuments,
   listEdges as dbListEdges,
   listEdgesByEndpoint,
@@ -115,8 +116,24 @@ export type FolderTreeNode = Omit<SerializedDocumentFolderTree['folders'][number
   folders: FolderTreeNode[];
 };
 
+/**
+ * A filed artifact as it appears in the document tree.
+ *
+ * Additive: `documents` keeps its shape and its existing consumers. An artifact
+ * arrives here only when it is filed and is not a prototype screen — a screen
+ * belongs to its prototype canvas, which lays it out from the link graph.
+ */
+export type FiledArtifact = {
+  id: string;
+  title: string;
+  kind: 'markdown' | 'html';
+  folder_id: string | null;
+  updated_at: string;
+};
+
 export type DocumentFolderTree = {
   folders: FolderTreeNode[];
+  artifacts: FiledArtifact[];
   documents: SerializedDocument[];
 };
 
@@ -366,8 +383,19 @@ export function createDocumentService(deps: DocumentServiceDeps) {
         return out;
       }
 
+      const artifacts = (await dbListArtifactsByProject(db, projectId))
+        .filter((artifact) => artifact.prototypeId === null)
+        .map((artifact) => ({
+          id: artifact.id,
+          title: artifact.title,
+          kind: artifact.kind,
+          folder_id: artifact.folderId,
+          updated_at: artifact.updatedAt.toISOString(),
+        }));
+
       return {
         folders: await hydrateFolders(tree.folders),
+        artifacts,
         documents: await hydrateDocuments(),
       };
     },

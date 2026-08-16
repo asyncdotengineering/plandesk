@@ -131,6 +131,7 @@ type PortableSnapshot = {
     kind: string;
     content: string;
     prototype_name: string | null;
+    folder_name: string | null;
     x: number | null;
     y: number | null;
   }>;
@@ -345,6 +346,10 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
           artifact.prototype_id === null || artifact.prototype_id === undefined
             ? null
             : (prototypeNameById.get(artifact.prototype_id) ?? artifact.prototype_id),
+        folder_name:
+          artifact.folder_id === null || artifact.folder_id === undefined
+            ? null
+            : (folderNameById.get(artifact.folder_id) ?? artifact.folder_id),
         x: artifact.x ?? null,
         y: artifact.y ?? null,
       })),
@@ -472,6 +477,16 @@ async function buildFullyPopulatedProject(db: Db): Promise<string> {
     prototypeId: prototype.id,
     x: 11.5,
     y: 22.5,
+  });
+
+  // A second artifact, filed rather than attached to a prototype: the two
+  // placements are mutually exclusive, so one artifact cannot cover both columns.
+  await createArtifact(db, {
+    projectId: project.id,
+    title: 'DISTINCT-filed-artifact-title',
+    kind: 'markdown',
+    content: 'DISTINCT-filed-artifact-content',
+    folderId: childFolder.id,
   });
 
   await createComment(db, {

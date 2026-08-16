@@ -5,6 +5,7 @@ import {
   getFolder as dbGetFolder,
   listFolders as dbListFolders,
   moveDocumentsToFolder,
+  moveArtifactsToFolder,
   reparentChildFolders,
   updateFolder as dbUpdateFolder,
   type Db,
@@ -199,10 +200,13 @@ export function createFolderService(deps: FolderServiceDeps) {
         target = existing.parentFolderId;
       }
 
-      // Never orphan: child folders and contained documents move to target.
+      // Never orphan: child folders, documents and filed artifacts move to
+      // target. An artifact left pointing at a deleted folder row is invisible
+      // in every tree read, which is worse than refusing the delete.
       await withTransaction(db, async (tx) => {
         await reparentChildFolders(tx, id, target);
         await moveDocumentsToFolder(tx, id, target);
+        await moveArtifactsToFolder(tx, id, target);
         await dbDeleteFolder(tx, id);
       });
 

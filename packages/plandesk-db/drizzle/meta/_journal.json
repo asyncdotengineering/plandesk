@@ -141,6 +141,13 @@
       "when": 1785753594862,
       "tag": "0019_current_goal_id",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1786889915393,
+      "tag": "0020_elite_shiva",
+      "breakpoints": true
     }
   ]
 }

@@ -476,6 +476,10 @@ export const artifacts = sqliteTable('artifacts', {
   content: text('content').notNull().default(''),
   // Nullable: reports/RFCs have no prototype. Set ⇒ this is a screen ⇒ kind must be html.
   prototypeId: text('prototype_id').references(() => prototypes.id),
+  // Nullable = unfiled, matching documents. Lets a rendered page be filed beside
+  // the documents it belongs with. A screen (prototype_id set) is laid out from
+  // the link graph and is never filed, so the two are mutually exclusive.
+  folderId: text('folder_id').references(() => folders.id),
   // Position within the prototype's plane; system-owned (canvas layout), not agent-writable.
   x: real('x'),
   y: real('y'),

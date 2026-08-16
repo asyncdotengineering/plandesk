@@ -202,6 +202,9 @@ export type PlandeskExportArtifact = {
   updated_at?: string;
   // Optional for backward compatibility with exports written before prototypes existed.
   prototype_id?: string | null;
+  // Optional for backward compatibility with exports written before artifacts
+  // could be filed in the document tree.
+  folder_id?: string | null;
   x?: number | null;
   y?: number | null;
 };

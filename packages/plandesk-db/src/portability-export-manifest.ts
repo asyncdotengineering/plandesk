@@ -615,13 +615,14 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
       created_at: artifact.createdAt.toISOString(),
       updated_at: artifact.updatedAt.toISOString(),
       prototype_id: artifact.prototypeId,
+      folder_id: artifact.folderId,
       x: artifact.x,
       y: artifact.y,
     }),
     import: { order: 130, preallocateIds: preallocateArtifactIds, emit: emitArtifactsImport },
     portability: {
       drizzleTable: artifacts,
-      roundTrippedColumns: ['title', 'kind', 'content', 'prototype_id', 'x', 'y'],
+      roundTrippedColumns: ['title', 'kind', 'content', 'prototype_id', 'folder_id', 'x', 'y'],
       columnExclusions: {
         id: 'Remapped on import',
         project_id: 'Implied by nesting under the imported project',

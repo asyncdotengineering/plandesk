@@ -32,6 +32,7 @@ type CreateArtifactBody = {
   kind?: (typeof artifactKinds)[number];
   content?: string;
   prototype_id?: string | null;
+  folder_id?: string | null;
 };
 
 type UpdateArtifactBody = {
@@ -39,6 +40,7 @@ type UpdateArtifactBody = {
   kind?: (typeof artifactKinds)[number];
   content?: string;
   prototype_id?: string | null;
+  folder_id?: string | null;
   x?: number | null;
   y?: number | null;
 };
@@ -126,6 +128,7 @@ export function createArtifactsRouter(
         kind: body.kind,
         content: body.content,
         ...(body.prototype_id !== undefined ? { prototypeId: body.prototype_id } : {}),
+        ...(body.folder_id !== undefined ? { folderId: body.folder_id } : {}),
       });
 
       if (!artifact) {
@@ -334,6 +337,7 @@ export function createArtifactsRouter(
         ...(body.kind !== undefined ? { kind: body.kind } : {}),
         ...(body.content !== undefined ? { content: body.content } : {}),
         ...(body.prototype_id !== undefined ? { prototypeId: body.prototype_id } : {}),
+        ...(body.folder_id !== undefined ? { folderId: body.folder_id } : {}),
         ...(body.x !== undefined ? { x: body.x } : {}),
         ...(body.y !== undefined ? { y: body.y } : {}),
       });

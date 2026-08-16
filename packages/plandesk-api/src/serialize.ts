@@ -280,6 +280,8 @@ export type SerializedArtifact = {
   kind: Artifact['kind'];
   content: string;
   prototype_id: string | null;
+  /** Folder placement in the document tree. Null = unfiled. Always null for a screen. */
+  folder_id: string | null;
   x: number | null;
   y: number | null;
   /** Newest revision id when history exists; otherwise updated_at ISO (cache-bust / anchor key). */
@@ -303,6 +305,7 @@ export function serializeArtifact(artifact: Artifact, revisionId: string): Seria
     kind: artifact.kind,
     content: artifact.content,
     prototype_id: artifact.prototypeId,
+    folder_id: artifact.folderId,
     x: artifact.x,
     y: artifact.y,
     revision_id: revisionId,

@@ -20,6 +20,7 @@ export function createUpdateArtifactHandler(
   file_path?: string;
   kind?: ArtifactKind;
   prototype_id?: string | null;
+  folder_id?: string | null;
 }) => Promise<ToolResult> {
   return async (args) => {
     const hasContent = typeof args.content === 'string';
@@ -49,6 +50,7 @@ export function createUpdateArtifactHandler(
         ...(content !== undefined ? { content } : {}),
         ...(args.kind !== undefined ? { kind: args.kind } : {}),
         ...(args.prototype_id !== undefined ? { prototypeId: args.prototype_id } : {}),
+        ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
       });
       if (!artifact) {
         return toolNotFound();
