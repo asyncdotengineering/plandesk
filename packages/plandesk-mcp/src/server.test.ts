@@ -12,9 +12,11 @@ import {
 } from '@plandesk/api';
 import {
   createDb,
+  createArtifact,
   createEdge,
   createProjectInDefaultOrg as createProject,
   createDocument,
+  createPrototype,
   createComment,
   listEdges,
   listTasks,
@@ -1748,6 +1750,103 @@ describe('createMcpApp', () => {
           ) as { edges: Array<{ id: string }> }
         ).edges;
         expect(after.map((e) => e.id)).toEqual([edgeDocId]);
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it('list_edges and get_document survive artifact and prototype endpoints (#53)', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const taskA = await createTask(db, { projectId, label: 'A' });
+        const taskB = await createTask(db, { projectId, label: 'B' });
+        const docA = await createDocument(db, { projectId, title: 'Spec A' });
+        const docB = await createDocument(db, { projectId, title: 'Spec B' });
+        const artifact = await createArtifact(db, {
+          projectId,
+          title: 'Screen',
+          kind: 'html',
+          content: '<main></main>',
+        });
+        const prototype = await createPrototype(db, {
+          projectId,
+          name: 'Checkout',
+          viewportWidth: 390,
+          viewportHeight: 844,
+        });
+
+        // Every combination the writer can produce, including the two the read
+        // schema used to reject. create_edge is the writer under test for the
+        // artifact/prototype pair: the narrow input enum refused them outright.
+        const combinations = [
+          { from: ['task', taskA.id], to: ['task', taskB.id], label: 'blocks' },
+          { from: ['document', docA.id], to: ['task', taskA.id], label: 'documents' },
+          { from: ['document', docA.id], to: ['document', docB.id], label: 'references' },
+          { from: ['artifact', artifact.id], to: ['document', docA.id], label: 'references' },
+          { from: ['document', docA.id], to: ['prototype', prototype.id], label: 'documents' },
+        ] as const;
+
+        const createdIds: string[] = [];
+        for (const combination of combinations) {
+          const result = await client.callTool({
+            name: 'create_edge',
+            arguments: {
+              project_id: projectId,
+              from_type: combination.from[0],
+              from_id: combination.from[1],
+              to_type: combination.to[0],
+              to_id: combination.to[1],
+              label: combination.label,
+            },
+          });
+          const text = (result.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+          // An input- or output-schema rejection arrives as text, not a throw.
+          expect(text).not.toMatch(/MCP error/);
+          expect(result.isError).not.toBe(true);
+          createdIds.push((JSON.parse(text) as { edge: { id: string } }).edge.id);
+        }
+
+        const listed = await client.callTool({
+          name: 'list_edges',
+          arguments: { project_id: projectId },
+        });
+        const listedText =
+          (listed.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+        expect(listedText).not.toMatch(/MCP error/);
+        const edges = (
+          JSON.parse(listedText) as {
+            edges: Array<{ id: string; from_type: string; to_type: string }>;
+          }
+        ).edges;
+        expect(edges.map((edge) => edge.id).sort()).toEqual([...createdIds].sort());
+        expect(edges.map((edge) => `${edge.from_type}->${edge.to_type}`).sort()).toEqual(
+          [
+            'artifact->document',
+            'document->document',
+            'document->prototype',
+            'document->task',
+            'task->task',
+          ].sort(),
+        );
+
+        // Same enum feeds get_document's links/backlinks, so the artifact and
+        // prototype endpoints took that read down too.
+        const fetched = await client.callTool({
+          name: 'get_document',
+          arguments: { document_id: docA.id },
+        });
+        const fetchedText =
+          (fetched.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}';
+        expect(fetchedText).not.toMatch(/MCP error/);
+        const document = parseDocumentResult(fetched);
+        expect((document.links ?? []).map((link) => link.type).sort()).toEqual([
+          'document',
+          'prototype',
+          'task',
+        ]);
+        expect((document.backlinks ?? []).map((link) => link.type)).toEqual(['artifact']);
       } finally {
         await client.close();
       }

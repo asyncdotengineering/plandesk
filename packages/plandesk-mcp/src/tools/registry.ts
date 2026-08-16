@@ -5,6 +5,7 @@ import {
   isValidCommitRef,
   isValidFolderPath,
   isValidRepoUrl,
+  linkEntityTypes,
   MAX_COMMIT_REFS,
   shareSubmissionStatuses,
   taskKinds,
@@ -38,7 +39,12 @@ const NOTE_BODY_DESCRIPTION =
 const LINK_TO_DESCRIPTION =
   "Task or document id(s) this document should link to. Accepts a single id or a list; each adds an outgoing link from this document (label 'documents' for a task target, 'references' for a document target). Read these links back — each carries its own edge_id — via get_document.";
 
-const LINK_ENTITY_TYPE = z.enum(['task', 'document']);
+// Derived, never restated. A local copy read 'task' | 'document' while the
+// writer produced artifact and prototype endpoints too, so one prototype screen
+// made list_edges and get_document fail output validation for a whole project.
+const LINK_ENTITY_TYPE = z.enum(linkEntityTypes);
+
+const LINK_ENTITY_TYPE_LIST = linkEntityTypes.map((type) => `'${type}'`).join(', ');
 
 const TAGS_SET_DESCRIPTION =
   'Tag names to set on the task. Replaces the FULL tag set; tags that do not exist yet in the project are auto-created by name. Pass [] to remove all tags.';
@@ -389,23 +395,21 @@ export const attachFileInputSchema = z.object({
 export const createEdgeInputSchema = z.object({
   project_id: z.string().uuid(),
   from_type: LINK_ENTITY_TYPE.optional().describe(
-    "Entity type of the edge's from endpoint: 'task' or 'document'. Required with from_id for typed edges.",
+    `Entity type of the edge's from endpoint: ${LINK_ENTITY_TYPE_LIST}. Required with from_id for typed edges.`,
   ),
   from_id: z
     .string()
     .uuid()
     .optional()
-    .describe(
-      'Id of the from endpoint (task or document). Required with from_type for typed edges.',
-    ),
+    .describe('Id of the from endpoint. Required with from_type for typed edges.'),
   to_type: LINK_ENTITY_TYPE.optional().describe(
-    "Entity type of the edge's to endpoint: 'task' or 'document'. Required with to_id for typed edges.",
+    `Entity type of the edge's to endpoint: ${LINK_ENTITY_TYPE_LIST}. Required with to_id for typed edges.`,
   ),
   to_id: z
     .string()
     .uuid()
     .optional()
-    .describe('Id of the to endpoint (task or document). Required with to_type for typed edges.'),
+    .describe('Id of the to endpoint. Required with to_type for typed edges.'),
   from_task_id: z
     .string()
     .uuid()

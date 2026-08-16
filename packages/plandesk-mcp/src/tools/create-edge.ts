@@ -1,12 +1,13 @@
 import type { CanvasService } from '@plandesk/api';
 import { InvalidCanvasError } from '@plandesk/api';
+import type { LinkEntityType } from '@plandesk/db';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export type CreateEdgeArgs = {
   project_id: string;
-  from_type?: 'task' | 'document';
+  from_type?: LinkEntityType;
   from_id?: string;
-  to_type?: 'task' | 'document';
+  to_type?: LinkEntityType;
   to_id?: string;
   /** Legacy task-shaped fields — still accepted and mapped to type `task`. */
   from_task_id?: string;

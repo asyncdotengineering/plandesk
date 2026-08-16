@@ -485,7 +485,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Create Edge',
       description:
-        "Create a directed edge between any two entities via from_type/from_id/to_type/to_id (entity types: 'task' or 'document'). Legacy from_task_id/to_task_id still accepted and map to type task. Prefer the label vocabulary: blocks, depends_on, unblocks, feeds, clarifies, enables, supports, documents, references, supersedes, extends.",
+        "Create a directed edge between any two entities via from_type/from_id/to_type/to_id (entity types: 'task', 'document', 'artifact', 'prototype'). Legacy from_task_id/to_task_id still accepted and map to type task. Prefer the label vocabulary: blocks, depends_on, unblocks, feeds, clarifies, enables, supports, documents, references, supersedes, extends.",
       inputSchema: createEdgeInputSchema.shape,
       outputSchema: createEdgeOutputSchema,
     },
