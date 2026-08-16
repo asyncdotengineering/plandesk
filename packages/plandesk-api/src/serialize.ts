@@ -294,6 +294,11 @@ export type SerializedArtifactSummary = {
   id: string;
   title: string;
   kind: Artifact['kind'];
+  /** Folder placement in the document tree. Null = unfiled. */
+  folder_id: string | null;
+  /** Set ⇒ this is a prototype screen, which belongs to the canvas, not the tree. */
+  prototype_id: string | null;
+  revision_id: string;
   updated_at: string;
 };
 
@@ -319,6 +324,11 @@ export function serializeArtifactSummary(artifact: Artifact): SerializedArtifact
     id: artifact.id,
     title: artifact.title,
     kind: artifact.kind,
+    folder_id: artifact.folderId,
+    prototype_id: artifact.prototypeId,
+    // The frame URL is cache-busted on this; a summary without it cannot build
+    // a render src without a second round trip per artifact.
+    revision_id: artifact.updatedAt.toISOString(),
     updated_at: artifact.updatedAt.toISOString(),
   };
 }

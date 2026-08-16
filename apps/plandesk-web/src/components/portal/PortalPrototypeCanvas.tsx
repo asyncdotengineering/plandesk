@@ -38,6 +38,8 @@ export function portalPrototypeToCanvas(
       kind: screen.kind === 'html' ? 'html' : 'markdown',
       content: screen.content,
       prototype_id: prototype.id,
+      // A screen is never filed; it belongs to the prototype canvas.
+      folder_id: null,
       x: screen.x,
       y: screen.y,
       revision_id: screen.revision_id,

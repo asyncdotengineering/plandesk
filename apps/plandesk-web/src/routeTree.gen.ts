@@ -32,6 +32,7 @@ import { Route as PShareTokenPrototypesIndexRouteImport } from './routes/p.$shar
 import { Route as ProjectsIdPrototypesPrototypeIdRouteImport } from './routes/projects.$id.prototypes.$prototypeId'
 import { Route as ProjectsIdNotesNoteIdRouteImport } from './routes/projects.$id.notes.$noteId'
 import { Route as ProjectsIdDocumentsDocIdRouteImport } from './routes/projects.$id.documents.$docId'
+import { Route as ProjectsIdArtifactsArtifactIdRouteImport } from './routes/projects.$id.artifacts.$artifactId'
 import { Route as PShareTokenPrototypesPrototypeIdRouteImport } from './routes/p.$shareToken.prototypes.$prototypeId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -154,6 +155,12 @@ const ProjectsIdDocumentsDocIdRoute =
     path: '/projects/$id/documents/$docId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ProjectsIdArtifactsArtifactIdRoute =
+  ProjectsIdArtifactsArtifactIdRouteImport.update({
+    id: '/projects/$id/artifacts/$artifactId',
+    path: '/projects/$id/artifacts/$artifactId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PShareTokenPrototypesPrototypeIdRoute =
   PShareTokenPrototypesPrototypeIdRouteImport.update({
     id: '/$prototypeId',
@@ -179,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/projects/$id/overview': typeof ProjectsIdOverviewRoute
   '/p/$shareToken/': typeof PShareTokenIndexRoute
   '/p/$shareToken/prototypes/$prototypeId': typeof PShareTokenPrototypesPrototypeIdRoute
+  '/projects/$id/artifacts/$artifactId': typeof ProjectsIdArtifactsArtifactIdRoute
   '/projects/$id/documents/$docId': typeof ProjectsIdDocumentsDocIdRoute
   '/projects/$id/notes/$noteId': typeof ProjectsIdNotesNoteIdRoute
   '/projects/$id/prototypes/$prototypeId': typeof ProjectsIdPrototypesPrototypeIdRoute
@@ -202,6 +210,7 @@ export interface FileRoutesByTo {
   '/projects/$id/overview': typeof ProjectsIdOverviewRoute
   '/p/$shareToken': typeof PShareTokenIndexRoute
   '/p/$shareToken/prototypes/$prototypeId': typeof PShareTokenPrototypesPrototypeIdRoute
+  '/projects/$id/artifacts/$artifactId': typeof ProjectsIdArtifactsArtifactIdRoute
   '/projects/$id/documents/$docId': typeof ProjectsIdDocumentsDocIdRoute
   '/projects/$id/notes/$noteId': typeof ProjectsIdNotesNoteIdRoute
   '/projects/$id/prototypes/$prototypeId': typeof ProjectsIdPrototypesPrototypeIdRoute
@@ -229,6 +238,7 @@ export interface FileRoutesById {
   '/projects/$id/overview': typeof ProjectsIdOverviewRoute
   '/p/$shareToken/': typeof PShareTokenIndexRoute
   '/p/$shareToken/prototypes/$prototypeId': typeof PShareTokenPrototypesPrototypeIdRoute
+  '/projects/$id/artifacts/$artifactId': typeof ProjectsIdArtifactsArtifactIdRoute
   '/projects/$id/documents/$docId': typeof ProjectsIdDocumentsDocIdRoute
   '/projects/$id/notes/$noteId': typeof ProjectsIdNotesNoteIdRoute
   '/projects/$id/prototypes/$prototypeId': typeof ProjectsIdPrototypesPrototypeIdRoute
@@ -257,6 +267,7 @@ export interface FileRouteTypes {
     | '/projects/$id/overview'
     | '/p/$shareToken/'
     | '/p/$shareToken/prototypes/$prototypeId'
+    | '/projects/$id/artifacts/$artifactId'
     | '/projects/$id/documents/$docId'
     | '/projects/$id/notes/$noteId'
     | '/projects/$id/prototypes/$prototypeId'
@@ -280,6 +291,7 @@ export interface FileRouteTypes {
     | '/projects/$id/overview'
     | '/p/$shareToken'
     | '/p/$shareToken/prototypes/$prototypeId'
+    | '/projects/$id/artifacts/$artifactId'
     | '/projects/$id/documents/$docId'
     | '/projects/$id/notes/$noteId'
     | '/projects/$id/prototypes/$prototypeId'
@@ -306,6 +318,7 @@ export interface FileRouteTypes {
     | '/projects/$id/overview'
     | '/p/$shareToken/'
     | '/p/$shareToken/prototypes/$prototypeId'
+    | '/projects/$id/artifacts/$artifactId'
     | '/projects/$id/documents/$docId'
     | '/projects/$id/notes/$noteId'
     | '/projects/$id/prototypes/$prototypeId'
@@ -330,6 +343,7 @@ export interface RootRouteChildren {
   ProjectsIdListRoute: typeof ProjectsIdListRoute
   ProjectsIdNotesRoute: typeof ProjectsIdNotesRouteWithChildren
   ProjectsIdOverviewRoute: typeof ProjectsIdOverviewRoute
+  ProjectsIdArtifactsArtifactIdRoute: typeof ProjectsIdArtifactsArtifactIdRoute
   ProjectsIdDocumentsDocIdRoute: typeof ProjectsIdDocumentsDocIdRoute
   ProjectsIdPrototypesPrototypeIdRoute: typeof ProjectsIdPrototypesPrototypeIdRoute
   ProjectsIdDocumentsIndexRoute: typeof ProjectsIdDocumentsIndexRoute
@@ -499,6 +513,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsIdDocumentsDocIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects/$id/artifacts/$artifactId': {
+      id: '/projects/$id/artifacts/$artifactId'
+      path: '/projects/$id/artifacts/$artifactId'
+      fullPath: '/projects/$id/artifacts/$artifactId'
+      preLoaderRoute: typeof ProjectsIdArtifactsArtifactIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/p/$shareToken/prototypes/$prototypeId': {
       id: '/p/$shareToken/prototypes/$prototypeId'
       path: '/$prototypeId'
@@ -567,6 +588,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsIdListRoute: ProjectsIdListRoute,
   ProjectsIdNotesRoute: ProjectsIdNotesRouteWithChildren,
   ProjectsIdOverviewRoute: ProjectsIdOverviewRoute,
+  ProjectsIdArtifactsArtifactIdRoute: ProjectsIdArtifactsArtifactIdRoute,
   ProjectsIdDocumentsDocIdRoute: ProjectsIdDocumentsDocIdRoute,
   ProjectsIdPrototypesPrototypeIdRoute: ProjectsIdPrototypesPrototypeIdRoute,
   ProjectsIdDocumentsIndexRoute: ProjectsIdDocumentsIndexRoute,

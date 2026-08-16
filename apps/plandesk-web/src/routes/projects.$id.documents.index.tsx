@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { DocumentsPanel } from '../components/docs/DocumentsPanel.js';
-import { useDocuments, useFolders, useProject, useTasks } from '../lib/queries.js';
+import { useArtifacts, useDocuments, useFolders, useProject, useTasks } from '../lib/queries.js';
 
 function ProjectDocumentsPage() {
   const { id } = Route.useParams();
@@ -12,6 +12,7 @@ function ProjectDocumentsPage() {
   } = useDocuments(id);
   const { data: folders, isLoading: foldersLoading, isError: foldersError } = useFolders(id);
   const { data: tasks } = useTasks(id);
+  const { data: artifacts } = useArtifacts(id);
 
   if (isLoading || documentsLoading || foldersLoading) {
     return <p className="text-sm text-muted-foreground">Loading documents…</p>;
@@ -44,6 +45,7 @@ function ProjectDocumentsPage() {
         documents={documents ?? []}
         folders={folders ?? []}
         tasks={tasks ?? []}
+        artifacts={artifacts ?? []}
       />
     </div>
   );

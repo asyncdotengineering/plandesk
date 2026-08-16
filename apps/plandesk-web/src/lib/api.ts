@@ -312,6 +312,11 @@ export type SerializedArtifactSummary = {
   id: string;
   title: string;
   kind: 'markdown' | 'html';
+  /** Folder placement in the document tree. Null = unfiled. */
+  folder_id: string | null;
+  /** Set ⇒ a prototype screen, which belongs to the canvas and not the tree. */
+  prototype_id: string | null;
+  revision_id: string;
   updated_at: string;
 };
 
@@ -323,6 +328,8 @@ export type SerializedArtifact = {
   kind: 'markdown' | 'html';
   content: string;
   prototype_id: string | null;
+  /** Folder placement in the document tree. Null = unfiled. */
+  folder_id: string | null;
   x: number | null;
   y: number | null;
   revision_id: string;

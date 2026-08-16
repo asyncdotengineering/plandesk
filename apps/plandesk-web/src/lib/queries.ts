@@ -40,6 +40,7 @@ import {
   listFolders,
   listGoals,
   listNotes,
+  getArtifact,
   listArtifacts,
   listPrototypes,
   getPrototype,
@@ -112,6 +113,7 @@ export const queryKeys = {
   document: (id: string) => ['documents', id] as const,
   folders: (projectId: string) => ['projects', projectId, 'folders'] as const,
   artifacts: (projectId: string) => ['projects', projectId, 'artifacts'] as const,
+  artifact: (id: string) => ['artifacts', id] as const,
   prototypes: (projectId: string) => ['projects', projectId, 'prototypes'] as const,
   prototype: (id: string) => ['prototypes', id] as const,
   notes: (projectId: string) => ['projects', projectId, 'notes'] as const,
@@ -304,6 +306,14 @@ export function useArtifacts(projectId: string) {
   return useQuery({
     queryKey: queryKeys.artifacts(projectId),
     queryFn: () => listArtifacts(projectId),
+    ...liveQueryOptions,
+  });
+}
+
+export function useArtifact(id: string) {
+  return useQuery({
+    queryKey: queryKeys.artifact(id),
+    queryFn: () => getArtifact(id),
     ...liveQueryOptions,
   });
 }

@@ -57,6 +57,11 @@ describe('artifacts routes', () => {
       id: created.id,
       title: 'RFC draft',
       kind: 'markdown',
+      // Placement travels on the summary so the document tree can file an
+      // artifact and exclude a prototype screen without a read per row.
+      folder_id: null,
+      prototype_id: null,
+      revision_id: created.updated_at,
       updated_at: created.updated_at,
     });
 

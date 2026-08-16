@@ -9,9 +9,11 @@ import {
   FileTextIcon,
   FolderIcon,
   FolderPlusIcon,
+  LayoutTemplateIcon,
   MoreVerticalIcon,
 } from 'lucide-react';
 import type {
+  SerializedArtifactSummary,
   SerializedDocumentTree,
   SerializedEntityLink,
   SerializedFolder,
@@ -63,6 +65,8 @@ export type DocumentsPanelProps = {
   documents: SerializedDocumentTree[];
   folders: SerializedFolder[];
   tasks?: SerializedTask[];
+  /** Project artifacts. Filed ones appear as pages; screens belong to the canvas. */
+  artifacts?: SerializedArtifactSummary[];
 };
 
 type FlatDocument = {
@@ -397,7 +401,13 @@ function defaultExpandedIds(folders: SerializedFolder[]): Set<string> {
   return new Set([UNFILED_FOLDER_KEY, ...folders.map((folder) => folder.id)]);
 }
 
-export function DocumentsPanel({ projectId, documents, folders, tasks = [] }: DocumentsPanelProps) {
+export function DocumentsPanel({
+  projectId,
+  documents,
+  folders,
+  tasks = [],
+  artifacts = [],
+}: DocumentsPanelProps) {
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newDocOpen, setNewDocOpen] = useState(false);
   const [folderToRename, setFolderToRename] = useState<SerializedFolder | null>(null);
@@ -405,6 +415,11 @@ export function DocumentsPanel({ projectId, documents, folders, tasks = [] }: Do
   const [docToMove, setDocToMove] = useState<FlatDocument | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<SerializedFolder | null>(null);
   const [docToDelete, setDocToDelete] = useState<FlatDocument | null>(null);
+  // Screens belong to the prototype canvas, which lays them out from the link
+  // graph; only a filed page appears here.
+  const filedArtifacts = artifacts.filter((artifact) => artifact.prototype_id === null);
+  const folderNameById = new Map(folders.map((folder) => [folder.id, folder.name]));
+
   const [newDocTitle, setNewDocTitle] = useState('');
   const [newDocTask, setNewDocTask] = useState<string>(ROOT_VALUE);
   const [newDocFolderId, setNewDocFolderId] = useState<string | null>(null);
@@ -1109,6 +1124,36 @@ export function DocumentsPanel({ projectId, documents, folders, tasks = [] }: Do
                     {statusText(doc.status_line)}
                   </span>
                 ) : null}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {filedArtifacts.length > 0 ? (
+        <div className="mb-6" data-testid="filed-artifacts">
+          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <LayoutTemplateIcon className="size-3.5" /> Pages
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {filedArtifacts.map((artifact) => (
+              <Link
+                key={artifact.id}
+                to="/projects/$id/artifacts/$artifactId"
+                params={{ id: projectId, artifactId: artifact.id }}
+                data-testid={`artifact-row-${artifact.id}`}
+                className="group flex flex-col gap-1.5 rounded-lg border bg-card p-3 transition-colors hover:border-[var(--border-strong)] hover:bg-accent"
+              >
+                <LayoutTemplateIcon className="size-4 text-muted-foreground" />
+                <span className="line-clamp-2 text-[13px] font-medium leading-snug">
+                  {artifact.title}
+                </span>
+                <span className="truncate text-[11px] text-muted-foreground">
+                  Page
+                  {folderNameById.get(artifact.folder_id ?? '') === undefined
+                    ? ''
+                    : ` · ${folderNameById.get(artifact.folder_id ?? '') ?? ''}`}
+                </span>
               </Link>
             ))}
           </div>

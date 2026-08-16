@@ -5,6 +5,7 @@ import { useRegisterFrame } from './FrameRegistryContext.js';
 import { useScreenCommentsStore } from './ScreenCommentsContext.js';
 import { useScreenDiagnostics, useScreenDiagnosticsStore } from './ScreenDiagnosticsContext.js';
 import { ScreenMoveCopyMenu } from './ScreenMoveCopyMenu.js';
+import { artifactRenderSrc } from '../../lib/artifact-frame.js';
 
 export type ScreenNodeData = {
   artifactId: string;
@@ -22,13 +23,6 @@ export type ScreenNodeData = {
   readOnly?: boolean;
   [key: string]: unknown;
 };
-
-function artifactRenderSrc(artifactId: string, revisionId: string, frameToken?: string): string {
-  if (frameToken !== undefined && frameToken !== '') {
-    return `/api/v1/artifacts/${artifactId}/render?token=${encodeURIComponent(frameToken)}&v=${encodeURIComponent(revisionId)}`;
-  }
-  return `/api/v1/artifacts/${artifactId}/render?v=${encodeURIComponent(revisionId)}`;
-}
 
 /**
  * Prototype screen node: fixed to the prototype viewport size. Mounts a
