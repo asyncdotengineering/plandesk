@@ -13,19 +13,37 @@
 //   node scripts/sync-skill-doc.mjs           # rewrite the page
 //   node scripts/sync-skill-doc.mjs --check   # fail if it is stale (CI gate)
 //
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const docPath = join(root, 'apps/docs/src/content/docs/connecting-agents/skill.md');
 
-const { PLANDESK_SKILL_TEMPLATE } = await import(
-  join(root, 'packages/plandesk-cli/dist/skill-template.js')
-).catch(() => {
-  console.error('sync-skill-doc: build @plandesk/cli first (pnpm build)');
+// Read the template from source, not from a build artifact. This script used
+// to import PLANDESK_SKILL_TEMPLATE from `plandesk-cli/dist/skill-template.js`;
+// commit 6603a86 ("ship the conventions skill as a file, not a compiled
+// string") deleted that module, and the gate failed with a misleading "build
+// @plandesk/cli first" for every run afterwards. Reading the source removes
+// the build dependency, so this can never fail for build-order reasons again.
+//
+// `copy-templates.mjs` vendors `.agents/` into `dist/templates/` verbatim, so
+// the source file and the shipped one are the same bytes. The relative path
+// mirrors PLANDESK_SKILL_TEMPLATE_PATH in
+// `packages/plandesk-cli/src/connect-artifacts.ts`.
+const SKILL_TEMPLATE_PATH = 'skills/plandesk/SKILL.md';
+const templatePath = join(root, '.agents', SKILL_TEMPLATE_PATH);
+
+if (!existsSync(templatePath)) {
+  console.error(
+    `sync-skill-doc: template not found at ${templatePath}\n` +
+      '  If it moved, update SKILL_TEMPLATE_PATH here and PLANDESK_SKILL_TEMPLATE_PATH\n' +
+      '  in packages/plandesk-cli/src/connect-artifacts.ts together.',
+  );
   process.exit(1);
-});
+}
+
+const PLANDESK_SKILL_TEMPLATE = readFileSync(templatePath, 'utf8');
 
 /** The template carries its own skill frontmatter; the docs page has Astro's. */
 function templateBody(text) {
@@ -51,7 +69,7 @@ if (process.argv.includes('--check')) {
   if (current !== expected) {
     console.error(
       'sync-skill-doc: apps/docs/.../connecting-agents/skill.md is stale.\n' +
-        '  It must match PLANDESK_SKILL_TEMPLATE — run: node scripts/sync-skill-doc.mjs',
+        `  It must match .agents/${SKILL_TEMPLATE_PATH} — run: node scripts/sync-skill-doc.mjs`,
     );
     process.exit(1);
   }
