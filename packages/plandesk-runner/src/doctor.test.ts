@@ -50,11 +50,19 @@ function requestUrl(input: Parameters<typeof fetch>[0]): string {
   return input instanceof URL ? input.href : typeof input === 'string' ? input : input.url;
 }
 
-function writeDoctorToml(text: string): string {
+/**
+ * A fully hermetic doctor fixture. `workersDir` and `workdir` must be temp
+ * paths: without them runDoctor resolves this repository's real
+ * `.agents/factory/workers` and shells out to every worker's probe, which turns
+ * a unit test into a multi-second subprocess run that times out under load.
+ */
+function makeAuthFixture(text: string): { configPath: string; workersDir: string } {
   const dir = makeTempDir('plandesk-runner-doctor-auth-');
+  const workersDir = join(dir, '.agents', 'factory', 'workers');
+  mkdirSync(workersDir, { recursive: true });
   const configPath = join(dir, 'runner.toml');
-  writeFileSync(configPath, text);
-  return configPath;
+  writeFileSync(configPath, `${text}workdir = "${join(dir, 'work')}"\n`);
+  return { configPath, workersDir };
 }
 
 function makeFixture(boardUrl: string): { configPath: string; workersDir: string } {
@@ -278,9 +286,12 @@ describe('formatDoctorReport', () => {
   });
 
   it('reports the loopback auth mode when the agent key is empty', async () => {
-    const path = writeDoctorToml('board_url = "https://board.example.com"\nagent_key = ""\n');
+    const { configPath, workersDir } = makeAuthFixture(
+      'board_url = "https://board.example.com"\nagent_key = ""\n',
+    );
     const report = await runDoctor({
-      configPath: path,
+      configPath,
+      workersDir,
       fetchImpl: () => Promise.resolve(new Response('{}', { status: 200 })),
     });
     expect(report.board.authMode).toBe('loopback');
@@ -288,10 +299,13 @@ describe('formatDoctorReport', () => {
   });
 
   it('reports the bearer auth mode and an authenticated probe when a key is set', async () => {
-    const path = writeDoctorToml('board_url = "https://board.example.com"\nagent_key = "sk-doctor"\n');
+    const { configPath, workersDir } = makeAuthFixture(
+      'board_url = "https://board.example.com"\nagent_key = "sk-doctor"\n',
+    );
     const seen: string[] = [];
     const report = await runDoctor({
-      configPath: path,
+      configPath,
+      workersDir,
       fetchImpl: (input) => {
         seen.push(requestUrl(input));
         return Promise.resolve(new Response('[]', { status: 200 }));
@@ -303,9 +317,12 @@ describe('formatDoctorReport', () => {
   });
 
   it('reports authenticated=false when the credential is rejected', async () => {
-    const path = writeDoctorToml('board_url = "https://board.example.com"\nagent_key = "sk-bad"\n');
+    const { configPath, workersDir } = makeAuthFixture(
+      'board_url = "https://board.example.com"\nagent_key = "sk-bad"\n',
+    );
     const report = await runDoctor({
-      configPath: path,
+      configPath,
+      workersDir,
       fetchImpl: (input) =>
         Promise.resolve(
           new Response('{}', { status: requestUrl(input).includes('/api/v1/projects') ? 401 : 200 }),
