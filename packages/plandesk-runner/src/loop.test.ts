@@ -79,6 +79,7 @@ function makeTask(overrides: Partial<BoardTask> = {}): BoardTask {
     lane: 'auto',
     severity: null,
     description: 'Make the widget frob.\n\ngate: node -e "process.exit(0)"',
+    assignee: null,
     ...overrides,
   };
 }
@@ -693,7 +694,11 @@ describe('runLoop', () => {
     clearTimeout(stop);
 
     expect(board.calls.length).toBeGreaterThanOrEqual(2);
-    expect(board.calls.every((call) => call === 'nextTask')).toBe(true);
+    // Startup reconciliation reads the board once for stranded tasks; every
+    // call after that belongs to the poll.
+    expect(board.calls.filter((call) => call !== 'listTasks').every((c) => c === 'nextTask')).toBe(
+      true,
+    );
   });
 
   it('returns immediately when the signal is already aborted', async () => {

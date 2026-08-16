@@ -35,8 +35,12 @@ import { GitError, listWorktrees, samePath, type WorktreeEntry } from './worktre
 export interface Orphan {
   /** The task id as recoverable from disk: the worktree directory's name. */
   taskId: string;
-  /** Absolute path of the retained worktree, `<workdir>/worktrees/<taskId>`. */
-  worktreeDir: string;
+  /**
+   * Absolute path of the retained worktree, `<workdir>/worktrees/<taskId>`.
+   * Null when the attempt died before one existed — those are found on the
+   * board rather than on disk.
+   */
+  worktreeDir: string | null;
   /**
    * The task's status as read from the board — durable evidence at scan
    * time, not the post-reconcile value. Null when the task no longer exists
@@ -233,8 +237,8 @@ async function reconcileOne(
     // write needs an agent run to attribute to (agent-key task writes carry
     // x-plandesk-agent-run-id naming a running run), and the interrupted
     // attempt's own run is still running on the board: the crash completed
-    // nothing. POST /projects/:id/agent-runs does not exist as a route, so
-    // no fresh run is ever opened here.
+    // nothing. Reusing it keeps the interruption on the run that owns the
+    // work, rather than opening a second run for the same attempt.
     const run = (await board.listRuns()).find(isInterruptedAttemptRun(taskId));
     if (run === undefined) {
       return {
@@ -313,5 +317,89 @@ export async function reconcile(board: BoardClient, config: RunnerConfig): Promi
   for (const candidate of scanned) {
     orphans.push(await reconcileOne(board, config, candidate));
   }
+  orphans.push(...(await reconcileStranded(board, config, orphans)));
   return orphans;
+}
+
+/**
+ * Tasks this runner claimed whose attempt died **before** `prepareWorktree`
+ * ran — a clone that failed, an unreachable board, a full disk. The disk scan
+ * cannot see them because there is no directory to find, so without this
+ * sweep they stay `in_progress` forever: a mistyped `repo_url` would strand
+ * every task its project dispatches, one at a time, permanently.
+ *
+ * Only tasks assigned to THIS runner are settled. A task claimed by another
+ * runner may have a live process working it, and stealing it is worse than
+ * leaving it; an unassigned `in_progress` task was not claimed here either.
+ *
+ * A run is opened only when there is something to narrate — this is the one
+ * place reconcile starts a run, and an empty sweep must stay silent.
+ */
+async function reconcileStranded(
+  board: BoardClient,
+  config: RunnerConfig,
+  fromDisk: readonly Orphan[],
+): Promise<Orphan[]> {
+  let tasks: BoardTask[];
+  try {
+    tasks = await board.listTasks();
+  } catch {
+    // The board is the thing that failed. There is no provable stranded set,
+    // so settle nothing and let the runner start.
+    return [];
+  }
+
+  const settledFromDisk = new Set(fromDisk.map((orphan) => orphan.taskId));
+  const stranded = tasks.filter(
+    (task) =>
+      task.status === 'in_progress' &&
+      task.assignee === config.name &&
+      !settledFromDisk.has(task.id),
+  );
+  if (stranded.length === 0) {
+    return [];
+  }
+
+  let run: BoardAgentRun;
+  try {
+    run = await board.startRun(`reconcile: release ${String(stranded.length)} stranded task(s)`);
+  } catch (error) {
+    return stranded.map((task) => ({
+      taskId: task.id,
+      worktreeDir: null,
+      boardStatus: task.status,
+      action: 'unresolvable' as const,
+      detail: `task is in_progress with no worktree, but no agent run could be opened to attribute the release to: ${errorDetail(error)}`,
+    }));
+  }
+
+  const released: Orphan[] = [];
+  for (const task of stranded) {
+    const explanation =
+      `task was claimed by ${config.name} but its attempt left no worktree under ` +
+      `${join(config.workdir, 'worktrees')} — it failed before one was prepared`;
+    try {
+      await board.recordProgress(run.id, `${explanation}; returning it to todo`).catch(() => {
+        // The status flip is what frees the task; a lost event must not block it.
+      });
+      await board.setTaskStatus(task.id, 'todo', run.id);
+      released.push({
+        taskId: task.id,
+        worktreeDir: null,
+        boardStatus: task.status,
+        action: 'returned-to-todo',
+        detail: `${explanation}; returned to todo`,
+      });
+    } catch (error) {
+      released.push({
+        taskId: task.id,
+        worktreeDir: null,
+        boardStatus: task.status,
+        action: 'unresolvable',
+        detail: `${explanation}; the release write failed: ${errorDetail(error)}`,
+      });
+    }
+  }
+  await board.completeRun(run.id, 'completed').catch(() => undefined);
+  return released;
 }

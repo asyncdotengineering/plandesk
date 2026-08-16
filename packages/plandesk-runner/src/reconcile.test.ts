@@ -60,6 +60,7 @@ function makeTask(overrides: Partial<BoardTask> = {}): BoardTask {
     lane: 'auto',
     severity: null,
     description: 'Make the widget frob.',
+    assignee: null,
     ...overrides,
   };
 }
@@ -433,6 +434,74 @@ describe('reconcile', () => {
     await expect(reconcile(board, makeConfig(makeTempDir('plandesk-reconcile-')))).resolves.toEqual(
       [],
     );
-    expect(board.calls).toEqual([]);
+    // The board-side sweep still runs with no worktrees on disk — that is the
+    // case it exists for — but it settles nothing and opens no run.
+    expect(board.calls).toEqual(['listTasks']);
+    expect(board.statuses).toEqual([]);
+  });
+});
+
+describe('reconcile — tasks that never reached a worktree', () => {
+  it('returns an in_progress task claimed by THIS runner with no worktree to todo', async () => {
+    const workdir = makeTempDir('plandesk-reconcile-stranded-');
+    const config = makeConfig(workdir);
+    const board = new StubBoard();
+    board.listTasksBehaviors = [
+      [makeTask({ id: 'stranded-1', status: 'in_progress', assignee: config.name })],
+    ];
+
+    const orphans = await reconcile(board, config);
+
+    const stranded = orphans.find((orphan) => orphan.taskId === 'stranded-1');
+    expect(stranded?.action).toBe('returned-to-todo');
+    expect(stranded?.worktreeDir).toBeNull();
+    expect(board.statuses).toContainEqual(
+      expect.objectContaining({ taskId: 'stranded-1', status: 'todo' }),
+    );
+  });
+
+  it('never touches an in_progress task claimed by a DIFFERENT runner', async () => {
+    const workdir = makeTempDir('plandesk-reconcile-other-');
+    const config = makeConfig(workdir);
+    const board = new StubBoard();
+    board.listTasksBehaviors = [
+      [
+        makeTask({ id: 'theirs', status: 'in_progress', assignee: 'some-other-runner' }),
+        makeTask({ id: 'unclaimed', status: 'in_progress', assignee: null }),
+      ],
+    ];
+
+    const orphans = await reconcile(board, config);
+
+    // A live runner may be mid-attempt on it; stealing the task is worse than
+    // leaving it, so neither a foreign assignee nor an absent one is settled.
+    expect(orphans.map((orphan) => orphan.taskId)).not.toContain('theirs');
+    expect(orphans.map((orphan) => orphan.taskId)).not.toContain('unclaimed');
+    expect(board.statuses).toEqual([]);
+  });
+
+  it('does not settle a stranded task twice when the disk scan already covered it', async () => {
+    const workdir = makeTempDir('plandesk-reconcile-nodouble-');
+    const config = makeConfig(workdir);
+    mkdirSync(join(workdir, 'worktrees', 'task-1'), { recursive: true });
+    const board = new StubBoard();
+    board.listRunsResult = [makeRun()];
+    board.listTasksBehaviors = [
+      [makeTask({ id: 'task-1', status: 'in_progress', assignee: config.name })],
+    ];
+
+    const orphans = await reconcile(board, config);
+
+    expect(orphans.filter((orphan) => orphan.taskId === 'task-1')).toHaveLength(1);
+    expect(board.statuses.filter((entry) => entry.taskId === 'task-1')).toHaveLength(1);
+  });
+
+  it('does not throw when the board fails during the sweep', async () => {
+    const workdir = makeTempDir('plandesk-reconcile-boardfail-');
+    const config = makeConfig(workdir);
+    const board = new StubBoard();
+    board.listTasksBehaviors = [new Error('board unreachable')];
+
+    await expect(reconcile(board, config)).resolves.toBeInstanceOf(Array);
   });
 });

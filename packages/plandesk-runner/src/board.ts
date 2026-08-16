@@ -54,6 +54,8 @@ export interface BoardTask {
   lane: string | null;
   severity: string | null;
   description: string | null;
+  /** Runner or agent that claimed it. `claimTask` writes the claimer's ref here. */
+  assignee: string | null;
 }
 
 /** The project the runner is bound to — `serializeProject` wire shape, trimmed. */
@@ -158,8 +160,8 @@ export interface BoardClient {
   taskDocument(taskId: string): Promise<BoardDocument | null>;
   /**
    * Every task on the bound project (`GET /projects/:id/tasks`, the bare
-   * `serializeTask` array). There is no single-task GET route, so reads of
-   * one task by id resolve through this list.
+   * `serializeTask` array). Reads of one task by id resolve through this
+   * list; the runner never needs a single-task GET.
    */
   listTasks(): Promise<BoardTask[]>;
   /**
@@ -224,6 +226,7 @@ function parseTask(raw: unknown, field: string): BoardTask {
     lane: optionalString(source, 'lane', wrap('lane')),
     severity: optionalString(source, 'severity', wrap('severity')),
     description: optionalString(source, 'description', wrap('description')),
+    assignee: optionalString(source, 'assignee', wrap('assignee')),
   };
 }
 
