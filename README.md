@@ -24,7 +24,7 @@ tools over the same data. One plan, two readers, one audit trail.
 </div>
 
 <p align="center">
-  <img src=".github/assets/board.png" alt="A Plan Desk board with tasks in Scope, Todo, In Progress and Done" width="100%">
+  <img src=".github/assets/board.png" alt="A Plan Desk board with tasks in Scope, Todo, In Progress, Done and Backlog" width="100%">
 </p>
 
 <p align="center">
@@ -90,8 +90,8 @@ _It runs on your machine. It stays on your machine unless you say otherwise._
 
 |                                                                                                         |                                                                                                                 |
 | :-----------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------: |
-| <img src=".github/assets/flow.png" alt="Flow canvas with dependency edges and an agent activity panel"> | <img src=".github/assets/goals.png" alt="A goal with its acceptance checklist, stop condition and constraints"> |
-|              **Flow** — dependencies as a graph, with every agent run recorded beside it.               |             **Goals** — a contract with an acceptance checklist, a stop condition, and boundaries.              |
+| <img src=".github/assets/flow.png" alt="Flow canvas with dependency edges and an agent activity panel"> | <img src=".github/assets/goals.png" alt="A goal with its verification surface, stop condition and constraints"> |
+|              **Flow** — dependencies as a graph, with every agent run recorded beside it.               |              **Goals** — a contract with a verification surface, a stop condition, and boundaries.              |
 |      <img src=".github/assets/documents.png" alt="A design document with an open review comment">       |       <img src=".github/assets/prototypes.png" alt="Prototype screens on a canvas with review comments">        |
 |           **Documents** — the spec on the node, with review comments from people and agents.            |                      **Prototypes** — HTML screens, linked into a flow, open for comment.                       |
 
