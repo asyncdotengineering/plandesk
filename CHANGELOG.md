@@ -2,15 +2,11 @@
 
 All notable changes to Plan Desk are documented here.
 
-## [Unreleased]
-
-### Added
-
-- **`@plandesk/runner`** — the machine-side agent that polls a board, claims one actionable task, briefs a headless coding-agent CLI, runs the task's gate command, and writes the outcome back. It judges a result from an exit code rather than from the worker's account of its own work. Unreleased and at `0.1.0`.
-
 ## [3.4.0] — 2026-08-20
 
 ### Added
+
+- **`@plandesk/runner` 0.1.0** — the machine-side agent that polls a board, claims one actionable task, briefs a headless coding-agent CLI, runs the task's gate command, and writes the outcome back. It judges a result from an exit code rather than from the worker's account of its own work. Versioned independently at `0.1.0`: it shares no code with the other packages, and one proven worker family with a single slot is what `0.1.0` says.
 
 - **Mermaid diagrams render in document bodies.** A ` ```mermaid ` fence written by an agent survived storage but showed as a plain code block, so the diagram existed in the document and nobody could see it.
 
