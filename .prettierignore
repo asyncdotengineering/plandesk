@@ -25,3 +25,7 @@ packages/plandesk-db/vendor/
 .agents/
 .plandesk/skill.md
 apps/docs/src/content/docs/connecting-agents/skill.md
+
+# Agent-authored session handoff, regenerated every standdown. Formatting it
+# would put `prettier --check` at the mercy of whatever the last run wrote.
+.plandesk/standdown.md

@@ -89,12 +89,12 @@ The gate is one command, because it is exec'd as argv rather than through a shel
 
 Outcome is decided in this order, and nothing else participates:
 
-| condition                                          | outcome                                              |
-| -------------------------------------------------- | ---------------------------------------------------- |
-| `.plandesk/NEEDS_INPUT.md` exists in the worktree  | `needs_input` → task to `scope`                      |
-| worker exit ≠ 0                                    | `failed` (the gate is **not** run) → task to `todo`  |
-| gate exit 0                                        | `done`                                               |
-| gate exit ≠ 0                                      | `failed` → task to `todo`                            |
+| condition                                         | outcome                                             |
+| ------------------------------------------------- | --------------------------------------------------- |
+| `.plandesk/NEEDS_INPUT.md` exists in the worktree | `needs_input` → task to `scope`                     |
+| worker exit ≠ 0                                   | `failed` (the gate is **not** run) → task to `todo` |
+| gate exit 0                                       | `done`                                              |
+| gate exit ≠ 0                                     | `failed` → task to `todo`                           |
 
 On `done`, the [lane](/reference/factory/) decides what happens next: `auto` closes the task, while `approve` and `full` leave it `in_progress` with a progress event saying it awaits a human.
 

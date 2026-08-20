@@ -17,6 +17,8 @@ playwright/.cache/
 .handoff/
 sprints/
 plandesk-manager-notes.md
+# Per-session standdown handoff, rewritten every run — never a tracked file.
+.plandesk/standdown.md
 *-manager-notes.md
 *-implementation-notes.md
 *-scratchpad.md

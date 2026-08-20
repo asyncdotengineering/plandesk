@@ -14,7 +14,8 @@ export function resolveGoalChoice(
   // to "no goals", never crash the board render.
   const activeGoals = Array.isArray(goals) ? goals.filter((goal) => goal.status === 'active') : [];
   const current = activeGoals.find((goal) => goal.id === currentGoalId);
-  const defaultGoalId = current?.id ?? (activeGoals.length === 1 ? (activeGoals[0]?.id ?? null) : null);
+  const defaultGoalId =
+    current?.id ?? (activeGoals.length === 1 ? (activeGoals[0]?.id ?? null) : null);
   return {
     activeGoals,
     defaultGoalId,

@@ -591,7 +591,10 @@ describe('create dialog goal selection', () => {
   }
 
   it('requires choosing a goal when several are active and none is current', async () => {
-    stubBoardFetch({ goals: [makeGoal('goal-1', 'first'), makeGoal('goal-2', 'second')], currentGoalId: null });
+    stubBoardFetch({
+      goals: [makeGoal('goal-1', 'first'), makeGoal('goal-2', 'second')],
+      currentGoalId: null,
+    });
     await renderBoard([]);
     await openCreateDialog();
 
@@ -605,7 +608,10 @@ describe('create dialog goal selection', () => {
   });
 
   it('sends the current goal as goal_id when it is preselected', async () => {
-    stubBoardFetch({ goals: [makeGoal('goal-1', 'first'), makeGoal('goal-2', 'second')], currentGoalId: 'goal-2' });
+    stubBoardFetch({
+      goals: [makeGoal('goal-1', 'first'), makeGoal('goal-2', 'second')],
+      currentGoalId: 'goal-2',
+    });
     await renderBoard([]);
     await openCreateDialog();
 
@@ -620,9 +626,7 @@ describe('create dialog goal selection', () => {
     fireEvent.click(create);
 
     await waitFor(() => {
-      const post = vi
-        .mocked(fetch)
-        .mock.calls.find(([, init]) => (init)?.method === 'POST');
+      const post = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'POST');
       expect(post).toBeTruthy();
       const body = JSON.parse((post?.[1] as RequestInit).body as string) as {
         label: string;
@@ -643,9 +647,7 @@ describe('create dialog goal selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
 
     await waitFor(() => {
-      const post = vi
-        .mocked(fetch)
-        .mock.calls.find(([, init]) => (init)?.method === 'POST');
+      const post = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'POST');
       expect(post).toBeTruthy();
       const body = JSON.parse((post?.[1] as RequestInit).body as string) as Record<string, unknown>;
       expect('goal_id' in body).toBe(false);

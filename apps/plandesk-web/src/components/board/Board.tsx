@@ -183,7 +183,12 @@ export function Board({
   }) => {
     const tags = input.lane !== 'none' ? [`${LANE_TAG_PREFIX}${input.lane}`] : undefined;
     createTask.mutate(
-      { label: input.label, status: input.status, tags, ...(input.goal_id !== undefined && { goal_id: input.goal_id }) },
+      {
+        label: input.label,
+        status: input.status,
+        tags,
+        ...(input.goal_id !== undefined && { goal_id: input.goal_id }),
+      },
       {
         onSuccess: () => {
           toast(`Task created in ${columnLabels[input.status]}`);
