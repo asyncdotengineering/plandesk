@@ -1,11 +1,30 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { Link, createFileRoute } from '@tanstack/react-router';
+import { ArrowLeftIcon } from 'lucide-react';
 import { PrototypeCanvas } from '../components/prototypes/PrototypeCanvas.js';
 
+/**
+ * Chromeless canvas route — no sidebar, no breadcrumb topbar, no content
+ * padding (see `isCanvasPath` in __root.tsx). The back link below is the way
+ * out that the breadcrumb used to carry.
+ */
 function ProjectPrototypeCanvasPage() {
-  const { prototypeId } = Route.useParams();
+  const { id, prototypeId } = Route.useParams();
   return (
-    <div className="h-full min-h-0">
-      <PrototypeCanvas prototypeId={prototypeId} />
+    <div className="h-screen min-h-0 w-screen overflow-hidden">
+      <PrototypeCanvas
+        prototypeId={prototypeId}
+        backSlot={
+          <Link
+            to="/projects/$id/prototypes"
+            params={{ id }}
+            aria-label="Back to prototypes"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <ArrowLeftIcon className="size-3.5" />
+            Prototypes
+          </Link>
+        }
+      />
     </div>
   );
 }

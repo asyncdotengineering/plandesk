@@ -9,6 +9,7 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  useViewport,
   type Edge,
   type Node,
 } from '@xyflow/react';
@@ -33,7 +34,7 @@ import { FrameRegistryProvider, useFrameRegistry } from './FrameRegistryContext.
 import { resolveNavigate } from './navigate-target.js';
 import { PrototypeChrome } from './PrototypeChrome.js';
 import { PrototypeCommentsRail } from './PrototypeCommentsRail.js';
-import { ScreenCommentsProvider } from './ScreenCommentsContext.js';
+import { ScreenCommentsProvider, usePendingAnchor } from './ScreenCommentsContext.js';
 import { ScreenDiagnosticsProvider, useDiagnosticsSnapshot } from './ScreenDiagnosticsContext.js';
 import { ScreenNode, type ScreenNodeData } from './ScreenNode.js';
 import { BoundaryMarkerNode, type BoundaryMarkerData } from './BoundaryMarkerNode.js';
@@ -141,66 +142,80 @@ export function prototypeToFlow(
   return { nodes, edges };
 }
 
-function ZoomControls() {
+/**
+ * One cluster for every viewport control. Zoom sat bottom-left and Auto layout
+ * top-right — the same class of tool in two treatments, with the zoom level
+ * shown nowhere.
+ */
+function CanvasControls({ onRelayout }: { onRelayout: (() => void) | null }) {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
-  return (
-    <Panel position="bottom-left">
-      <div className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Zoom in"
-          onClick={() => {
-            void zoomIn({ duration: 200 });
-          }}
-        >
-          <Plus />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Zoom out"
-          onClick={() => {
-            void zoomOut({ duration: 200 });
-          }}
-        >
-          <Minus />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Fit view"
-          onClick={() => {
-            void fitView({ padding: 0.2, duration: 300 });
-          }}
-        >
-          <Maximize />
-        </Button>
-      </div>
-    </Panel>
-  );
-}
-
-function RelayoutPanel({ onRelayout }: { onRelayout: () => void }) {
+  const { zoom } = useViewport();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const { fitView } = useReactFlow();
   return (
     <>
-      <Panel position="top-right">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          data-relayout
-          onClick={() => {
-            setConfirmOpen(true);
-          }}
-        >
-          <LayoutDashboard /> Auto layout
-        </Button>
+      <Panel position="bottom-left">
+        <div className="flex items-center gap-0.5 rounded-xl border border-border bg-card/85 p-1 shadow-sm backdrop-blur-md">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Zoom out"
+            onClick={() => {
+              void zoomOut({ duration: 200 });
+            }}
+          >
+            <Minus />
+          </Button>
+          <button
+            type="button"
+            data-zoom-level
+            aria-label="Fit view"
+            className="min-w-12 rounded-md px-1 text-center text-xs font-medium text-muted-foreground tabular-nums hover:bg-accent hover:text-foreground"
+            onClick={() => {
+              void fitView({ padding: 0.2, duration: 300 });
+            }}
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Zoom in"
+            onClick={() => {
+              void zoomIn({ duration: 200 });
+            }}
+          >
+            <Plus />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Fit to screen"
+            onClick={() => {
+              void fitView({ padding: 0.2, duration: 300 });
+            }}
+          >
+            <Maximize />
+          </Button>
+          {onRelayout !== null ? (
+            <>
+              <span aria-hidden className="mx-0.5 h-5 w-px bg-border" />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                data-relayout
+                onClick={() => {
+                  setConfirmOpen(true);
+                }}
+              >
+                <LayoutDashboard /> Auto layout
+              </Button>
+            </>
+          ) : null}
+        </div>
       </Panel>
       <ConfirmDialog
         open={confirmOpen}
@@ -209,7 +224,7 @@ function RelayoutPanel({ onRelayout }: { onRelayout: () => void }) {
         description="Auto-layout repositions every screen. Your manual arrangement will be replaced. Continue?"
         confirmLabel="Continue"
         onConfirm={() => {
-          onRelayout();
+          onRelayout?.();
           void fitView({ padding: 0.2, duration: 300 });
           setConfirmOpen(false);
         }}
@@ -220,6 +235,8 @@ function RelayoutPanel({ onRelayout }: { onRelayout: () => void }) {
 
 type PrototypeCanvasOptions = {
   prototype?: SerializedPrototypeWithScreens;
+  /** Route-owned back link — the canvas is chromeless, so this is the way out. */
+  backSlot?: ReactNode;
   readOnly?: boolean;
   guestModes?: readonly CanvasMode[];
   frameToken?: string;
@@ -233,6 +250,7 @@ function PrototypeCanvasInner({
   guestModes,
   frameToken,
   commentTargetForArtifact,
+  backSlot,
 }: { prototypeId: string } & PrototypeCanvasOptions) {
   const {
     data: fetchedPrototype,
@@ -243,6 +261,7 @@ function PrototypeCanvasInner({
   const patchArtifact = usePatchArtifact(prototypeId);
   const { acceptedCount, lastAccepted, setNavigateHandler } = useFrameRegistry();
   const { mode } = useCanvasMode();
+  const pendingAnchor = usePendingAnchor();
   const diagnosticsSnapshot = useDiagnosticsSnapshot();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<ScreenNodeData | BoundaryMarkerData>>(
     [],
@@ -383,9 +402,12 @@ function PrototypeCanvasInner({
     (node): node is Node<ScreenNodeData> => node.type === 'screenFrame',
   );
 
+  const commentsEnabled = guestModes?.includes('comment') !== false;
+  const railOpen = commentsEnabled && (mode === 'comment' || pendingAnchor !== null);
+
   return (
     <div
-      className="flex h-full min-h-0 flex-col"
+      className="relative flex h-full min-h-0 w-full"
       data-prototype-canvas
       data-prototype-id={prototypeId}
       data-canvas-mode={mode}
@@ -395,58 +417,71 @@ function PrototypeCanvasInner({
       data-viewport-height={prototype.viewport_height}
       data-diagnostic-total={diagnosticTotal}
       data-runtime-diagnostics={JSON.stringify(diagnosticsSnapshot)}
+      data-comments-rail-open={railOpen ? 'true' : 'false'}
     >
-      <PrototypeChrome
-        prototypeId={prototype.id}
-        name={prototype.name}
-        coverage={prototype.coverage}
-        readOnly={readOnly}
-        {...(guestModes !== undefined ? { modes: guestModes } : {})}
-      />
-      <div className="flex min-h-0 flex-1">
-        <div className="relative min-h-0 min-w-0 flex-1">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            {...(!readOnly ? { onNodeDragStop: handleNodeDragStop } : {})}
-            nodeTypes={nodeTypes}
-            onlyRenderVisibleElements
-            minZoom={0.05}
-            maxZoom={2}
-            defaultViewport={{ x: 40, y: 40, zoom: 0.45 }}
-            panOnDrag
-            panActivationKeyCode="Space"
-            nodesDraggable={!readOnly && mode === 'arrange'}
-            elementsSelectable
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
-            <MiniMap pannable zoomable className="!bg-card" />
-            <ZoomControls />
-            {!readOnly ? <RelayoutPanel onRelayout={handleRelayout} /> : null}
-            {guestModes?.includes('comment') !== false ? (
-              <CommentPinsLayer
-                projectId={prototype.project_id}
-                screens={screenNodes.map((n) => ({
-                  artifactId: n.data.artifactId,
-                  position: n.position,
-                  revisionId: n.data.revisionId,
-                }))}
-              />
-            ) : null}
-          </ReactFlow>
-        </div>
-        {guestModes?.includes('comment') !== false ? (
-          <PrototypeCommentsRail
-            projectId={prototype.project_id}
-            defaultArtifactId={screenNodes[0]?.data.artifactId ?? null}
-            commentTargetForArtifact={commentTargetForArtifact}
-            canManage={!readOnly}
-          />
-        ) : null}
+      {/* A ground a shade off the frames, so a screen reads as an object on a
+          canvas rather than as the page itself. */}
+      <div className="relative min-h-0 min-w-0 flex-1 bg-muted/40">
+        <ReactFlow
+          style={{ background: 'transparent' }}
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          {...(!readOnly ? { onNodeDragStop: handleNodeDragStop } : {})}
+          nodeTypes={nodeTypes}
+          onlyRenderVisibleElements
+          minZoom={0.05}
+          maxZoom={2}
+          defaultViewport={{ x: 40, y: 96, zoom: 0.45 }}
+          panOnDrag
+          panActivationKeyCode="Space"
+          nodesDraggable={!readOnly && mode === 'arrange'}
+          elementsSelectable
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+          {screenNodes.length > 3 ? (
+            <MiniMap
+              pannable
+              zoomable
+              className="!rounded-xl !border !border-border !bg-card/70 !shadow-sm !backdrop-blur-md"
+              style={{ width: 148, height: 104 }}
+              bgColor="transparent"
+              maskColor="color-mix(in srgb, var(--muted) 55%, transparent)"
+              maskStrokeColor="var(--border)"
+              nodeClassName="fill-muted-foreground/50"
+            />
+          ) : null}
+          <CanvasControls onRelayout={readOnly ? null : handleRelayout} />
+          {commentsEnabled ? (
+            <CommentPinsLayer
+              projectId={prototype.project_id}
+              screens={screenNodes.map((n) => ({
+                artifactId: n.data.artifactId,
+                position: n.position,
+                revisionId: n.data.revisionId,
+              }))}
+            />
+          ) : null}
+        </ReactFlow>
+        <PrototypeChrome
+          prototypeId={prototype.id}
+          name={prototype.name}
+          coverage={prototype.coverage}
+          readOnly={readOnly}
+          {...(guestModes !== undefined ? { modes: guestModes } : {})}
+          {...(backSlot !== undefined ? { backSlot } : {})}
+        />
       </div>
+      {railOpen ? (
+        <PrototypeCommentsRail
+          projectId={prototype.project_id}
+          defaultArtifactId={screenNodes[0]?.data.artifactId ?? null}
+          commentTargetForArtifact={commentTargetForArtifact}
+          canManage={!readOnly}
+        />
+      ) : null}
     </div>
   );
 }
@@ -478,6 +513,7 @@ export function PrototypeCanvas({
   guestModes,
   frameToken,
   commentTargetForArtifact,
+  backSlot,
 }: { prototypeId: string } & PrototypeCanvasOptions) {
   const initialMode = guestModes?.[0];
   return (
@@ -489,6 +525,7 @@ export function PrototypeCanvas({
         guestModes={guestModes}
         frameToken={frameToken}
         commentTargetForArtifact={commentTargetForArtifact}
+        backSlot={backSlot}
       />
     </PrototypeProviders>
   );

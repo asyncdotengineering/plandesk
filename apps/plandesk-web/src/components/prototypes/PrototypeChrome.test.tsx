@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { requestUrl } from '../../test-utils.js';
 import { CanvasModeProvider } from './CanvasModeContext.js';
 import { FrameRegistryProvider } from './FrameRegistryContext.js';
-import { PrototypeChrome } from './PrototypeChrome';
+import { PrototypeChrome, coverageLabel } from './PrototypeChrome';
 import { ScreenCommentsProvider } from './ScreenCommentsContext.js';
 import { ScreenDiagnosticsProvider } from './ScreenDiagnosticsContext.js';
 
@@ -68,7 +68,7 @@ describe('PrototypeChrome', () => {
     expect(chrome?.getAttribute('data-canvas-mode')).toBe('interact');
   });
 
-  it('shows named missing screens on the coverage line', () => {
+  it('shows named missing screens once the coverage badge is opened', () => {
     render(
       <ScreenDiagnosticsProvider>
         <ScreenCommentsProvider>
@@ -93,7 +93,26 @@ describe('PrototypeChrome', () => {
         </ScreenCommentsProvider>
       </ScreenDiagnosticsProvider>,
     );
-    expect(screen.getByText(/missing C/)).toBeTruthy();
+    expect(document.querySelector('[data-coverage-detail]')).toBeNull();
+    expect(screen.getByRole('button', { name: /flow coverage/i }).textContent).toContain('2/3');
+
+    fireEvent.click(screen.getByRole('button', { name: /flow coverage/i }));
+    expect(screen.getByText('C')).toBeTruthy();
+  });
+
+  it('counts screens rather than printing a 4/0 fraction when nothing is planned', () => {
+    expect(
+      coverageLabel({
+        parseable: true,
+        parse_error: null,
+        planned: [],
+        built: ['A', 'B', 'C', 'D'],
+        missing: [],
+        unplanned: ['A', 'B', 'C', 'D'],
+        states_unverified: [],
+        unplanned_note: null,
+      }),
+    ).toBe('4 screens');
   });
 
   it('says unparseable when the flow document has no screens table', () => {
@@ -121,6 +140,29 @@ describe('PrototypeChrome', () => {
         </ScreenCommentsProvider>
       </ScreenDiagnosticsProvider>,
     );
-    expect(screen.getByText(/unparseable/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /flow coverage/i }).textContent).toContain(
+      'Flow unparseable',
+    );
+    fireEvent.click(screen.getByRole('button', { name: /flow coverage/i }));
+    expect(screen.getByText(/no screens table found/i)).toBeTruthy();
+  });
+
+  it('renders a route-supplied back link', () => {
+    render(
+      <ScreenDiagnosticsProvider>
+        <ScreenCommentsProvider>
+          <FrameRegistryProvider>
+            <CanvasModeProvider>
+              <PrototypeChrome
+                prototypeId="proto-1"
+                name="Checkout"
+                backSlot={<a href="/projects/p1/prototypes">Prototypes</a>}
+              />
+            </CanvasModeProvider>
+          </FrameRegistryProvider>
+        </ScreenCommentsProvider>
+      </ScreenDiagnosticsProvider>,
+    );
+    expect(screen.getByRole('link', { name: 'Prototypes' })).toBeTruthy();
   });
 });

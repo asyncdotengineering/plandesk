@@ -2,6 +2,18 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- **The prototype canvas fills the window.** It rendered as a page inside the app shell, so a 244px sidebar, a 48px breadcrumb topbar, 24px of content padding and a permanently-open 288px comments rail left the artwork under half of a 1440×900 screen — and none of that chrome steers a canvas.
+
+  The canvas route now renders outside the shell, on both the authoring path and the client share portal. Nothing was removed, only re-homed: a floating bar carries a back link, the prototype name, the mode selector, coverage and Share; one bottom-left cluster carries zoom, the zoom level, fit and Auto layout, which had been split between two corners in two treatments with the zoom level shown nowhere.
+
+  The comments rail follows Comment mode instead of standing open. It was mounting a full composer — Bold, Italic, H2, List, Table, Image, Attach selection — beside "No comments yet", spending a fifth of the window on a comment nobody was writing.
+
+  Flow coverage collapses to a badge that opens on click. The line ran to a paragraph of screen titles across the header, and read `4/0 planned` when the flow document planned nothing — a fraction claiming four of zero. With nothing planned it now counts screens.
+
 ## [3.4.0] — 2026-08-20
 
 ### Added

@@ -53,7 +53,11 @@ export function PrototypeCommentsRail({
   }
 
   return (
-    <div className="h-full min-h-0" data-prototype-comments-rail data-artifact-id={target.id}>
+    <div
+      className="h-full min-h-0 shrink-0"
+      data-prototype-comments-rail
+      data-artifact-id={target.id}
+    >
       <CommentsPanel
         target={target}
         embedded={false}

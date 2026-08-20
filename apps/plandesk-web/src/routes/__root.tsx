@@ -250,6 +250,27 @@ function isRootless(pathname: string): boolean {
   return ROOTLESS_PATHS.includes(pathname);
 }
 
+/**
+ * A prototype canvas owns the whole viewport, the way a Figma file does.
+ *
+ * Rendered inside the shell it kept a 244px sidebar, a 48px breadcrumb topbar
+ * and 24px of `.content` padding, none of which steers a canvas — together with
+ * the always-open comments rail that left the artwork under half the window on
+ * a 1440×900 screen. The canvas draws its own floating chrome instead, back
+ * link included, so nothing here is lost — only re-homed.
+ *
+ * Covers both the authoring route (`/projects/:id/prototypes/:prototypeId`) and
+ * the client share portal (`/p/:shareToken/prototypes/:prototypeId`).
+ */
+export function isCanvasPath(pathname: string): boolean {
+  const segments = pathname.split('/').filter((segment) => segment.length > 0);
+  const root = segments[0];
+  if (root !== 'projects' && root !== 'p') {
+    return false;
+  }
+  return segments.length === 4 && segments[2] === 'prototypes';
+}
+
 function AppShell({ showAccount }: { showAccount: boolean }) {
   return (
     <div className="app">
@@ -279,12 +300,28 @@ function RootLayout() {
   // AuthGate, so a signed-out invitee reaches it instead of the sign-in wall.
   const isInvite = location.pathname.startsWith(INVITE_PATH_PREFIX);
   const isLanding = isRootless(location.pathname);
+  const isCanvas = isCanvasPath(location.pathname);
   const shell = <AppShell showAccount={!isPortal} />;
 
   if (isInvite) {
     return (
       <CommandMenuProvider>
         <Outlet />
+      </CommandMenuProvider>
+    );
+  }
+  // Chromeless before the portal branch: a shared canvas is a canvas too.
+  if (isCanvas) {
+    return (
+      <CommandMenuProvider>
+        {isPortal ? (
+          <Outlet />
+        ) : (
+          <AuthGate>
+            <Outlet />
+          </AuthGate>
+        )}
+        <Toaster />
       </CommandMenuProvider>
     );
   }

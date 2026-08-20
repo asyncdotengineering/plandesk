@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
+import { ArrowLeftIcon } from 'lucide-react';
 import { PortalPrototypeCanvas } from '@/components/portal/PortalPrototypeCanvas.js';
 import { PortalShareGate } from '@/components/portal/PortalShareGate.js';
 
@@ -23,8 +24,19 @@ function PortalPrototypePage() {
           );
         }
         return (
-          <main className="h-[calc(100vh-1px)] min-h-[32rem]">
+          <main className="h-screen min-h-[32rem] w-screen overflow-hidden">
             <PortalPrototypeCanvas
+              backSlot={
+                <Link
+                  to="/p/$shareToken/prototypes"
+                  params={{ shareToken }}
+                  aria-label="Back to prototypes"
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <ArrowLeftIcon className="size-3.5" />
+                  Prototypes
+                </Link>
+              }
               prototype={prototype}
               projectId={view.project.id}
               shareToken={shareToken}

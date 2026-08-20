@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { FlowCoverage, SerializedPrototypeWithScreens } from '@/lib/api.js';
 import type { ClientViewPrototype } from '@/lib/portal.js';
 import { PrototypeCanvas } from '../prototypes/PrototypeCanvas.js';
@@ -64,16 +65,19 @@ export function PortalPrototypeCanvas({
   shareToken,
   sessionToken,
   canComment,
+  backSlot,
 }: {
   prototype: ClientViewPrototype;
   projectId: string;
   shareToken: string;
   sessionToken: string;
   canComment: boolean;
+  backSlot?: ReactNode;
 }) {
   return (
     <PrototypeCanvas
       prototypeId={prototype.id}
+      backSlot={backSlot}
       prototype={portalPrototypeToCanvas(prototype, projectId)}
       readOnly
       guestModes={canComment ? ['interact', 'comment'] : ['interact']}
