@@ -4,6 +4,14 @@ All notable changes to Plan Desk are documented here.
 
 ## [3.5.0] — 2026-08-21
 
+### Fixed
+
+- **`npm install @plandesk/cli` no longer hangs forever.** `npm i -g @plandesk/cli@latest` — the documented way in — spun at 100% CPU indefinitely and never completed. It reproduces on 3.4.0, which is already published, so every consumer install was affected from the moment the trigger appeared upstream.
+
+  Nothing in Plan Desk changed to cause it. `@better-auth/api-key@1.6.23` declares two peers that cannot both be satisfied once the registry moves: `@better-auth/core` at `^1.6.23`, which now floats onto `1.7.1`, and `better-call` pinned exactly at `1.3.7`, while `@better-auth/core@1.7.1` pins `better-call` at `1.4.0`. npm's `placeDep` oscillates between the two `better-call` versions and never settles. pnpm was immune, and so was CI, because the lockfile pins the whole set — which is exactly why a workspace gate could stay green while every consumer install was broken.
+
+  `@plandesk/api` now depends on `@better-auth/core` at an exact `1.6.23`, so the published manifest carries the constraint npm needs rather than leaving it to a caret range in a transitive peer.
+
 ### Added
 
 - **Preview mode — walk a prototype instead of reading its graph.** The canvas answers how screens connect. It never answered what the thing is like to use, so a flow built to be reviewed could only be reviewed as a node diagram.
