@@ -95,6 +95,31 @@ fetches from the network — the `sourceUrl` in the manifest is provenance only.
 
 Both are also available on the canvas as the **Move / Copy** control on a screen.
 
+## Preview
+
+**Preview** on the canvas opens one screen at a time, filling the window, with clicks
+following the flow's `plandesk://` links. It answers what the thing is like to use, which
+the canvas — a graph of how screens connect — never did.
+
+Preview is a route, not a canvas state:
+
+```
+/projects/<project>/prototypes/<prototype>/present/<screen>
+/p/<share-token>/prototypes/<prototype>/present/<screen>
+```
+
+The screen is named in the URL. Send that link and the reviewer opens on the screen you
+meant; a refresh keeps their place instead of dropping them back on the canvas. `‹` and `›`
+step through the flow's screens in order, and **Exit** returns to the canvas.
+
+A screen scales down to fit the window and never scales up past 1:1. A prototype declares
+one viewport for every screen it holds, and that viewport routinely exceeds the display it
+is reviewed on — cropping would hide the part the reviewer was sent to look at.
+
+Preview walks one prototype. A link that leaves the flow says so rather than stranding the
+reviewer on a screen the controls cannot step back from; open that destination on the
+canvas instead.
+
 ## Review
 
 Open a prototype in **Comment** mode, select a region, and leave a note. Comments attach to
