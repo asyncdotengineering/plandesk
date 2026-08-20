@@ -66,6 +66,7 @@ export function PortalPrototypeCanvas({
   sessionToken,
   canComment,
   backSlot,
+  onPresent,
 }: {
   prototype: ClientViewPrototype;
   projectId: string;
@@ -73,11 +74,13 @@ export function PortalPrototypeCanvas({
   sessionToken: string;
   canComment: boolean;
   backSlot?: ReactNode;
+  onPresent?: (screenId: string) => void;
 }) {
   return (
     <PrototypeCanvas
       prototypeId={prototype.id}
       backSlot={backSlot}
+      onPresent={onPresent}
       prototype={portalPrototypeToCanvas(prototype, projectId)}
       readOnly
       guestModes={canComment ? ['interact', 'comment'] : ['interact']}

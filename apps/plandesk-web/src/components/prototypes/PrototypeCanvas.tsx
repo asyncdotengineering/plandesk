@@ -237,6 +237,8 @@ type PrototypeCanvasOptions = {
   prototype?: SerializedPrototypeWithScreens;
   /** Route-owned back link — the canvas is chromeless, so this is the way out. */
   backSlot?: ReactNode;
+  /** Route-owned: enter preview mode on the given screen. */
+  onPresent?: (screenId: string) => void;
   readOnly?: boolean;
   guestModes?: readonly CanvasMode[];
   frameToken?: string;
@@ -251,6 +253,7 @@ function PrototypeCanvasInner({
   frameToken,
   commentTargetForArtifact,
   backSlot,
+  onPresent,
 }: { prototypeId: string } & PrototypeCanvasOptions) {
   const {
     data: fetchedPrototype,
@@ -402,6 +405,13 @@ function PrototypeCanvasInner({
     (node): node is Node<ScreenNodeData> => node.type === 'screenFrame',
   );
 
+  const firstScreenId = screenNodes[0]?.data.artifactId;
+  const presentFirstScreen =
+    onPresent !== undefined && firstScreenId !== undefined
+      ? () => {
+          onPresent(firstScreenId);
+        }
+      : undefined;
   const commentsEnabled = guestModes?.includes('comment') !== false;
   const railOpen = commentsEnabled && (mode === 'comment' || pendingAnchor !== null);
 
@@ -472,6 +482,7 @@ function PrototypeCanvasInner({
           readOnly={readOnly}
           {...(guestModes !== undefined ? { modes: guestModes } : {})}
           {...(backSlot !== undefined ? { backSlot } : {})}
+          onPresent={presentFirstScreen}
         />
       </div>
       {railOpen ? (
@@ -514,6 +525,7 @@ export function PrototypeCanvas({
   frameToken,
   commentTargetForArtifact,
   backSlot,
+  onPresent,
 }: { prototypeId: string } & PrototypeCanvasOptions) {
   const initialMode = guestModes?.[0];
   return (
@@ -526,6 +538,7 @@ export function PrototypeCanvas({
         frameToken={frameToken}
         commentTargetForArtifact={commentTargetForArtifact}
         backSlot={backSlot}
+        onPresent={onPresent}
       />
     </PrototypeProviders>
   );

@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from '@tanstack/react-router';
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { ArrowLeftIcon } from 'lucide-react';
 import { PrototypeCanvas } from '../components/prototypes/PrototypeCanvas.js';
 
@@ -9,10 +9,17 @@ import { PrototypeCanvas } from '../components/prototypes/PrototypeCanvas.js';
  */
 function ProjectPrototypeCanvasPage() {
   const { id, prototypeId } = Route.useParams();
+  const navigate = useNavigate();
   return (
     <div className="h-screen min-h-0 w-screen overflow-hidden">
       <PrototypeCanvas
         prototypeId={prototypeId}
+        onPresent={(screenId) => {
+          void navigate({
+            to: '/projects/$id/prototypes/$prototypeId/present/$screenId',
+            params: { id, prototypeId, screenId },
+          });
+        }}
         backSlot={
           <Link
             to="/projects/$id/prototypes"

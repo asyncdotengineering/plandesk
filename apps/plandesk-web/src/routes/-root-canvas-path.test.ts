@@ -14,6 +14,11 @@ describe('isCanvasPath', () => {
     expect(isCanvasPath('/p/share-token/prototypes/proto-9')).toBe(true);
   });
 
+  it('claims preview mode, which is a whole-window surface too', () => {
+    expect(isCanvasPath('/projects/proj-1/prototypes/proto-9/present/screen-3')).toBe(true);
+    expect(isCanvasPath('/p/share-token/prototypes/proto-9/present/screen-3')).toBe(true);
+  });
+
   it('leaves the prototype list inside the shell', () => {
     expect(isCanvasPath('/projects/proj-1/prototypes')).toBe(false);
     expect(isCanvasPath('/p/share-token/prototypes')).toBe(false);

@@ -4,6 +4,16 @@ All notable changes to Plan Desk are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Preview mode — walk a prototype instead of reading its graph.** The canvas answers how screens connect. It never answered what the thing is like to use, so a flow built to be reviewed could only be reviewed as a node diagram.
+
+  **Preview** on the canvas opens one screen at a time, filling the window, with clicks following the flow's `plandesk://` links. It is a route, not a canvas state: `…/prototypes/:prototypeId/present/:screenId`, mirrored on the client share portal. The screen is named in the URL, so a walkthrough is something you can send — a reviewer opens the link on the screen you meant — and a refresh keeps your place instead of dropping you back on the canvas.
+
+  A screen scales down to fit the window and never scales up past 1:1. A prototype declares one viewport for every screen it holds, and that viewport routinely exceeds the display it is reviewed on; cropping would hide exactly the part the reviewer was sent to look at, and magnifying would stop showing the design under review.
+
+  Frames keep the sandbox they use on the canvas — `allow-scripts`, never `allow-same-origin`, under the same artifact CSP. Preview walks one prototype: a link that leaves the flow says so rather than stranding the reviewer on a screen the controls cannot step back from.
+
 ### Changed
 
 - **The prototype canvas fills the window.** It rendered as a page inside the app shell, so a 244px sidebar, a 48px breadcrumb topbar, 24px of content padding and a permanently-open 288px comments rail left the artwork under half of a 1440×900 screen — and none of that chrome steers a canvas.

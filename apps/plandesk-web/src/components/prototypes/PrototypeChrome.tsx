@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon, PlayIcon } from 'lucide-react';
 import { ShareButton } from '@/components/share/ShareButton';
 import type { FlowCoverage } from '@/lib/api.js';
 import { CANVAS_MODES, modeLabel, type CanvasMode } from './canvas-mode.js';
@@ -23,6 +23,7 @@ export function PrototypeChrome({
   readOnly = false,
   modes = CANVAS_MODES,
   backSlot,
+  onPresent,
 }: {
   prototypeId: string;
   name: string;
@@ -30,9 +31,11 @@ export function PrototypeChrome({
   readOnly?: boolean;
   modes?: readonly CanvasMode[];
   backSlot?: ReactNode;
+  /** Route-owned: walk the flow from this screen in preview mode. */
+  onPresent?: (() => void) | undefined;
 }) {
   const { mode, setMode } = useCanvasMode();
-  const showTrailing = coverage !== undefined || !readOnly;
+  const showTrailing = coverage !== undefined || onPresent !== undefined || !readOnly;
 
   return (
     <header
@@ -56,6 +59,18 @@ export function PrototypeChrome({
         {showTrailing ? (
           <div className={`pointer-events-auto flex shrink-0 items-center gap-1 p-1 ${CLUSTER}`}>
             {coverage !== undefined ? <CoverageBadge coverage={coverage} /> : null}
+            {onPresent !== undefined ? (
+              <button
+                type="button"
+                data-present-enter
+                aria-label="Preview prototype"
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium hover:bg-accent"
+                onClick={onPresent}
+              >
+                <PlayIcon className="size-3.5" />
+                Preview
+              </button>
+            ) : null}
             {readOnly ? null : <ShareButton resource={{ kind: 'prototype', id: prototypeId }} />}
           </div>
         ) : null}

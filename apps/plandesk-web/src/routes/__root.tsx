@@ -259,8 +259,10 @@ function isRootless(pathname: string): boolean {
  * a 1440×900 screen. The canvas draws its own floating chrome instead, back
  * link included, so nothing here is lost — only re-homed.
  *
- * Covers both the authoring route (`/projects/:id/prototypes/:prototypeId`) and
- * the client share portal (`/p/:shareToken/prototypes/:prototypeId`).
+ * Covers the authoring route (`/projects/:id/prototypes/:prototypeId`), the
+ * client share portal (`/p/:shareToken/prototypes/:prototypeId`), and preview
+ * mode under either (`…/present/:screenId`), which is a whole-window surface
+ * for the same reason.
  */
 export function isCanvasPath(pathname: string): boolean {
   const segments = pathname.split('/').filter((segment) => segment.length > 0);
@@ -268,7 +270,13 @@ export function isCanvasPath(pathname: string): boolean {
   if (root !== 'projects' && root !== 'p') {
     return false;
   }
-  return segments.length === 4 && segments[2] === 'prototypes';
+  if (segments[2] !== 'prototypes') {
+    return false;
+  }
+  if (segments.length === 4) {
+    return true;
+  }
+  return segments.length === 6 && segments[4] === 'present';
 }
 
 function AppShell({ showAccount }: { showAccount: boolean }) {

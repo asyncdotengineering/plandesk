@@ -1,10 +1,11 @@
-import { Link, createFileRoute } from '@tanstack/react-router';
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { ArrowLeftIcon } from 'lucide-react';
 import { PortalPrototypeCanvas } from '@/components/portal/PortalPrototypeCanvas.js';
 import { PortalShareGate } from '@/components/portal/PortalShareGate.js';
 
 function PortalPrototypePage() {
   const { shareToken, prototypeId } = Route.useParams();
+  const navigate = useNavigate();
   return (
     <PortalShareGate shareToken={shareToken}>
       {(view, sessionToken) => {
@@ -26,6 +27,12 @@ function PortalPrototypePage() {
         return (
           <main className="h-screen min-h-[32rem] w-screen overflow-hidden">
             <PortalPrototypeCanvas
+              onPresent={(screenId) => {
+                void navigate({
+                  to: '/p/$shareToken/prototypes/$prototypeId/present/$screenId',
+                  params: { shareToken, prototypeId, screenId },
+                });
+              }}
               backSlot={
                 <Link
                   to="/p/$shareToken/prototypes"

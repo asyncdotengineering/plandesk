@@ -34,6 +34,8 @@ import { Route as ProjectsIdNotesNoteIdRouteImport } from './routes/projects.$id
 import { Route as ProjectsIdDocumentsDocIdRouteImport } from './routes/projects.$id.documents.$docId'
 import { Route as ProjectsIdArtifactsArtifactIdRouteImport } from './routes/projects.$id.artifacts.$artifactId'
 import { Route as PShareTokenPrototypesPrototypeIdRouteImport } from './routes/p.$shareToken.prototypes.$prototypeId'
+import { Route as ProjectsIdPrototypesPrototypeIdPresentScreenIdRouteImport } from './routes/projects.$id.prototypes.$prototypeId_.present.$screenId'
+import { Route as PShareTokenPrototypesPrototypeIdPresentScreenIdRouteImport } from './routes/p.$shareToken.prototypes.$prototypeId_.present.$screenId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -167,6 +169,18 @@ const PShareTokenPrototypesPrototypeIdRoute =
     path: '/$prototypeId',
     getParentRoute: () => PShareTokenPrototypesRoute,
   } as any)
+const ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute =
+  ProjectsIdPrototypesPrototypeIdPresentScreenIdRouteImport.update({
+    id: '/projects/$id/prototypes/$prototypeId_/present/$screenId',
+    path: '/projects/$id/prototypes/$prototypeId/present/$screenId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PShareTokenPrototypesPrototypeIdPresentScreenIdRoute =
+  PShareTokenPrototypesPrototypeIdPresentScreenIdRouteImport.update({
+    id: '/$prototypeId_/present/$screenId',
+    path: '/$prototypeId/present/$screenId',
+    getParentRoute: () => PShareTokenPrototypesRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -194,6 +208,8 @@ export interface FileRoutesByFullPath {
   '/projects/$id/documents/': typeof ProjectsIdDocumentsIndexRoute
   '/projects/$id/notes/': typeof ProjectsIdNotesIndexRoute
   '/projects/$id/prototypes/': typeof ProjectsIdPrototypesIndexRoute
+  '/p/$shareToken/prototypes/$prototypeId/present/$screenId': typeof PShareTokenPrototypesPrototypeIdPresentScreenIdRoute
+  '/projects/$id/prototypes/$prototypeId/present/$screenId': typeof ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -218,6 +234,8 @@ export interface FileRoutesByTo {
   '/projects/$id/documents': typeof ProjectsIdDocumentsIndexRoute
   '/projects/$id/notes': typeof ProjectsIdNotesIndexRoute
   '/projects/$id/prototypes': typeof ProjectsIdPrototypesIndexRoute
+  '/p/$shareToken/prototypes/$prototypeId/present/$screenId': typeof PShareTokenPrototypesPrototypeIdPresentScreenIdRoute
+  '/projects/$id/prototypes/$prototypeId/present/$screenId': typeof ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -246,6 +264,8 @@ export interface FileRoutesById {
   '/projects/$id/documents/': typeof ProjectsIdDocumentsIndexRoute
   '/projects/$id/notes/': typeof ProjectsIdNotesIndexRoute
   '/projects/$id/prototypes/': typeof ProjectsIdPrototypesIndexRoute
+  '/p/$shareToken/prototypes/$prototypeId_/present/$screenId': typeof PShareTokenPrototypesPrototypeIdPresentScreenIdRoute
+  '/projects/$id/prototypes/$prototypeId_/present/$screenId': typeof ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -275,6 +295,8 @@ export interface FileRouteTypes {
     | '/projects/$id/documents/'
     | '/projects/$id/notes/'
     | '/projects/$id/prototypes/'
+    | '/p/$shareToken/prototypes/$prototypeId/present/$screenId'
+    | '/projects/$id/prototypes/$prototypeId/present/$screenId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -299,6 +321,8 @@ export interface FileRouteTypes {
     | '/projects/$id/documents'
     | '/projects/$id/notes'
     | '/projects/$id/prototypes'
+    | '/p/$shareToken/prototypes/$prototypeId/present/$screenId'
+    | '/projects/$id/prototypes/$prototypeId/present/$screenId'
   id:
     | '__root__'
     | '/'
@@ -326,6 +350,8 @@ export interface FileRouteTypes {
     | '/projects/$id/documents/'
     | '/projects/$id/notes/'
     | '/projects/$id/prototypes/'
+    | '/p/$shareToken/prototypes/$prototypeId_/present/$screenId'
+    | '/projects/$id/prototypes/$prototypeId_/present/$screenId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -348,6 +374,7 @@ export interface RootRouteChildren {
   ProjectsIdPrototypesPrototypeIdRoute: typeof ProjectsIdPrototypesPrototypeIdRoute
   ProjectsIdDocumentsIndexRoute: typeof ProjectsIdDocumentsIndexRoute
   ProjectsIdPrototypesIndexRoute: typeof ProjectsIdPrototypesIndexRoute
+  ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute: typeof ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -527,17 +554,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PShareTokenPrototypesPrototypeIdRouteImport
       parentRoute: typeof PShareTokenPrototypesRoute
     }
+    '/projects/$id/prototypes/$prototypeId_/present/$screenId': {
+      id: '/projects/$id/prototypes/$prototypeId_/present/$screenId'
+      path: '/projects/$id/prototypes/$prototypeId/present/$screenId'
+      fullPath: '/projects/$id/prototypes/$prototypeId/present/$screenId'
+      preLoaderRoute: typeof ProjectsIdPrototypesPrototypeIdPresentScreenIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/p/$shareToken/prototypes/$prototypeId_/present/$screenId': {
+      id: '/p/$shareToken/prototypes/$prototypeId_/present/$screenId'
+      path: '/$prototypeId/present/$screenId'
+      fullPath: '/p/$shareToken/prototypes/$prototypeId/present/$screenId'
+      preLoaderRoute: typeof PShareTokenPrototypesPrototypeIdPresentScreenIdRouteImport
+      parentRoute: typeof PShareTokenPrototypesRoute
+    }
   }
 }
 
 interface PShareTokenPrototypesRouteChildren {
   PShareTokenPrototypesPrototypeIdRoute: typeof PShareTokenPrototypesPrototypeIdRoute
   PShareTokenPrototypesIndexRoute: typeof PShareTokenPrototypesIndexRoute
+  PShareTokenPrototypesPrototypeIdPresentScreenIdRoute: typeof PShareTokenPrototypesPrototypeIdPresentScreenIdRoute
 }
 
 const PShareTokenPrototypesRouteChildren: PShareTokenPrototypesRouteChildren = {
   PShareTokenPrototypesPrototypeIdRoute: PShareTokenPrototypesPrototypeIdRoute,
   PShareTokenPrototypesIndexRoute: PShareTokenPrototypesIndexRoute,
+  PShareTokenPrototypesPrototypeIdPresentScreenIdRoute:
+    PShareTokenPrototypesPrototypeIdPresentScreenIdRoute,
 }
 
 const PShareTokenPrototypesRouteWithChildren =
@@ -593,6 +637,8 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsIdPrototypesPrototypeIdRoute: ProjectsIdPrototypesPrototypeIdRoute,
   ProjectsIdDocumentsIndexRoute: ProjectsIdDocumentsIndexRoute,
   ProjectsIdPrototypesIndexRoute: ProjectsIdPrototypesIndexRoute,
+  ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute:
+    ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
