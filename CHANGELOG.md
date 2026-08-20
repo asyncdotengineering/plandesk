@@ -6,6 +6,12 @@ All notable changes to Plan Desk are documented here.
 
 ### Added
 
+- **`@plandesk/runner`** — the machine-side agent that polls a board, claims one actionable task, briefs a headless coding-agent CLI, runs the task's gate command, and writes the outcome back. It judges a result from an exit code rather than from the worker's account of its own work. Unreleased and at `0.1.0`.
+
+## [3.4.0] — 2026-08-20
+
+### Added
+
 - **Mermaid diagrams render in document bodies.** A ` ```mermaid ` fence written by an agent survived storage but showed as a plain code block, so the diagram existed in the document and nobody could see it.
 
   Storage was never the gap. Tiptap already parsed `<pre><code class="language-mermaid">` into a code block carrying `language: 'mermaid'` and serialised it back byte-identical, and the document sanitizer already kept the class. Only the rendering was missing. So there is no migration, no schema change, and no risk to an existing document — the diagrams were always there.
@@ -26,9 +32,13 @@ All notable changes to Plan Desk are documented here.
 
 - **A runner can open and close an agent run over HTTP.** `POST /api/v1/projects/:id/agent-runs` and `PATCH /api/v1/agent-runs/:id`. Only list and record-progress were reachable over REST, so a remote runner could append to a run it had no way to create.
 
-- **`@plandesk/runner`** — the machine-side agent that polls a board, claims one actionable task, briefs a headless coding-agent CLI, runs the task's gate command, and writes the outcome back. It judges a result from an exit code rather than from the worker's account of its own work. Unreleased and at `0.1.0`.
-
 ### Fixed
+
+- **The board can create a task when the project has several active goals.** The create dialog and the canvas quick-add posted without a `goal_id`; on a project with more than one active goal and no current goal, the server (correctly) refused to pick one, and the UI swallowed the 400 — the dialog just did nothing.
+
+  The dialog now offers a Goal select when more than one goal is active, defaulting to the project's current goal, and the canvas quick-add asks only when the choice is genuinely ambiguous. `serializeProject` exposes `current_goal_id` so clients can default sensibly. A failed create now shows the server's message as a toast, so no create failure is silent again. The server still refuses to guess — the UI supplies the choice.
+
+- **Long agent-run summaries stay inside the activity panel.** Radix ScrollArea wraps viewport content in a `display: table` div, so the Agents activity list sized itself to its content and long run summaries were cut off mid-word at the window edge.
 
 - **`list_edges` and `get_document` no longer fail on a project that has ever used a prototype or linked an artifact.** The MCP layer kept its own copy of the entity vocabulary reading `task | document`, while the writer produced `artifact` and `prototype` endpoints too. The tool schema rejected the whole response, so five edges out of 1,437 made the other 1,432 unreadable, and the failure named Zod enum internals rather than the cause.
 
