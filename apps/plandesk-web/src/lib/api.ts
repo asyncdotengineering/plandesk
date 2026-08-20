@@ -91,6 +91,8 @@ export type SerializedProject = {
   folder_path: string | null;
   /** The workspace (better-auth team) the project belongs to. */
   workspace_id: string;
+  /** The active goal task creation and get_next_task default to; null when unset. */
+  current_goal_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -447,6 +449,21 @@ export class ApiError extends Error {
     super(`API error ${String(status)}: ${body}`);
     this.name = 'ApiError';
   }
+}
+
+export function apiErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    try {
+      const parsed = JSON.parse(error.body) as { message?: unknown };
+      if (typeof parsed.message === 'string' && parsed.message !== '') {
+        return parsed.message;
+      }
+    } catch {
+      // Body is not JSON — fall through to the raw body.
+    }
+    return error.body === '' ? error.message : error.body;
+  }
+  return error instanceof Error ? error.message : 'Request failed';
 }
 
 const BASE = '/api/v1';

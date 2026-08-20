@@ -22,16 +22,27 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { LayoutDashboard, Maximize, Minus, Plus, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { DEFAULT_EDGE_LABEL, type TaskEdgeLabel } from '../../lib/api.js';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { apiErrorMessage, DEFAULT_EDGE_LABEL, type TaskEdgeLabel } from '../../lib/api.js';
+import { goalOptionLabel, resolveGoalChoice } from '../../lib/goal-choice.js';
 import {
   useCanvas,
   useCreateTask,
   useDeleteEdge,
   useDeleteTask,
   useDocuments,
+  useGoals,
   usePatchTask,
+  useProject,
   useTags,
 } from '../../lib/queries.js';
 import { ConfirmDialog } from '../docs/ConfirmDialog.js';
@@ -60,12 +71,18 @@ type FlowCanvasProps = {
 function AddTaskPanel({ projectId }: { projectId: string }) {
   const { screenToFlowPosition } = useReactFlow();
   const createTask = useCreateTask(projectId);
+  const { data: project } = useProject(projectId);
+  const { data: goals } = useGoals(projectId);
   const [label, setLabel] = useState('');
+  const [goalId, setGoalId] = useState('');
+
+  const goalChoice = resolveGoalChoice(goals, project?.current_goal_id ?? null);
+  const goalMissing = goalChoice.requiresChoice && goalId === '';
 
   const handleSubmit = (event: SubmitEvent) => {
     event.preventDefault();
     const trimmed = label.trim();
-    if (trimmed === '') {
+    if (trimmed === '' || goalMissing) {
       return;
     }
     const center = screenToFlowPosition({
@@ -78,10 +95,14 @@ function AddTaskPanel({ projectId }: { projectId: string }) {
         status: 'todo',
         x: center.x,
         y: center.y,
+        ...(goalChoice.requiresChoice && { goal_id: goalId }),
       },
       {
         onSuccess: () => {
           setLabel('');
+        },
+        onError: (error) => {
+          toast.error(apiErrorMessage(error));
         },
       },
     );
@@ -103,7 +124,30 @@ function AddTaskPanel({ projectId }: { projectId: string }) {
           aria-label="New task name"
           className="h-7 w-40 border-transparent bg-transparent text-[12.5px] shadow-none focus-visible:border-[var(--border-strong)]"
         />
-        <Button type="submit" size="sm" disabled={createTask.isPending || label.trim() === ''}>
+        {goalChoice.requiresChoice ? (
+          <Select
+            value={goalId}
+            onValueChange={(value) => {
+              setGoalId(value);
+            }}
+          >
+            <SelectTrigger aria-label="Goal" className="h-7 w-36 text-[12.5px]">
+              <SelectValue placeholder="Choose a goal…" />
+            </SelectTrigger>
+            <SelectContent>
+              {goalChoice.activeGoals.map((goal) => (
+                <SelectItem key={goal.id} value={goal.id}>
+                  {goalOptionLabel(goal)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+        <Button
+          type="submit"
+          size="sm"
+          disabled={createTask.isPending || label.trim() === '' || goalMissing}
+        >
           {createTask.isPending ? (
             'Adding…'
           ) : (

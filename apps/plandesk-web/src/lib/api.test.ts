@@ -36,6 +36,7 @@ const sampleProject: SerializedProject = {
   repo_url: null,
   folder_path: null,
   workspace_id: 'ws-1',
+  current_goal_id: null,
   created_at: '2026-06-07T00:00:00.000Z',
   updated_at: '2026-06-07T00:00:00.000Z',
 };

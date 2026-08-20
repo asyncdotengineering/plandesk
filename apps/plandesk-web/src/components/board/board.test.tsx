@@ -2,14 +2,21 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from 'sonner';
 import {
   createTask,
   deleteTask,
   patchProject,
   patchTask,
+  type SerializedGoal,
   type SerializedTag,
   type SerializedTask,
 } from '../../lib/api.js';
+
+vi.mock('sonner', () => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }),
+  Toaster: () => null,
+}));
 import { Board } from './Board.js';
 import { filterTasksByAnyTag, groupTasksByStatus, resolveDropStatus } from './board-utils.js';
 import { statusFromDragEnd } from './useBoardDnd.js';
@@ -489,5 +496,183 @@ describe('patchProject', () => {
     const [, calledInit] = vi.mocked(fetch).mock.calls[0] ?? [];
     expect(calledInit?.method).toBe('PATCH');
     expect(calledInit?.body).toBe(JSON.stringify({ name: 'Renamed' }));
+  });
+});
+
+describe('create dialog goal selection', () => {
+  function makeGoal(id: string, name: string | null): SerializedGoal {
+    return {
+      id,
+      project_id: projectId,
+      name,
+      objective: `Objective for ${id}`,
+      status: 'active',
+      verification_surface: null,
+      constraints: null,
+      boundaries: null,
+      iteration_policy: null,
+      stop_condition: null,
+      budget: null,
+      last_verification: null,
+      created_at: '2026-06-07T00:00:00.000Z',
+      updated_at: '2026-06-07T00:00:00.000Z',
+    };
+  }
+
+  function stubBoardFetch(options: {
+    goals: SerializedGoal[];
+    currentGoalId: string | null;
+    createFailureBody?: string;
+  }) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+        if (typeof path === 'string' && path.includes('/goals')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(options.goals),
+          });
+        }
+        if (typeof path === 'string' && path.endsWith(`/projects/${projectId}`)) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({
+                id: projectId,
+                name: 'Test project',
+                description: null,
+                owner_id: null,
+                overview_document_id: null,
+                repo_url: null,
+                folder_path: null,
+                workspace_id: 'ws-1',
+                current_goal_id: options.currentGoalId,
+                created_at: '2026-06-07T00:00:00.000Z',
+                updated_at: '2026-06-07T00:00:00.000Z',
+                summary: { scope: 0, todo: 0, in_progress: 0, done: 0, backlog: 0 },
+              }),
+          });
+        }
+        if (typeof path === 'string' && path.includes('/tasks') && init?.method === 'POST') {
+          if (options.createFailureBody !== undefined) {
+            return Promise.resolve({
+              ok: false,
+              status: 400,
+              text: () => Promise.resolve(options.createFailureBody),
+            });
+          }
+          const rawBody = init.body;
+          const body = JSON.parse(typeof rawBody === 'string' ? rawBody : '') as {
+            label: string;
+            status: SerializedTask['status'];
+          };
+          return Promise.resolve({
+            ok: true,
+            status: 201,
+            json: () => Promise.resolve(makeTask('new-task', body.label, body.status)),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve([]),
+        });
+      }),
+    );
+  }
+
+  async function openCreateDialog() {
+    fireEvent.click(screen.getByLabelText('Add task to Todo'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Task')).toBeTruthy();
+    });
+  }
+
+  it('requires choosing a goal when several are active and none is current', async () => {
+    stubBoardFetch({ goals: [makeGoal('goal-1', 'first'), makeGoal('goal-2', 'second')], currentGoalId: null });
+    await renderBoard([]);
+    await openCreateDialog();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Goal')).toBeTruthy();
+    });
+    fireEvent.change(screen.getByLabelText('Task'), { target: { value: 'Pick me a goal' } });
+
+    const create = screen.getByRole('button', { name: 'Create task' });
+    expect(create.hasAttribute('disabled')).toBe(true);
+  });
+
+  it('sends the current goal as goal_id when it is preselected', async () => {
+    stubBoardFetch({ goals: [makeGoal('goal-1', 'first'), makeGoal('goal-2', 'second')], currentGoalId: 'goal-2' });
+    await renderBoard([]);
+    await openCreateDialog();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Goal')).toBeTruthy();
+    });
+    fireEvent.change(screen.getByLabelText('Task'), { target: { value: 'Current goal task' } });
+    const create = screen.getByRole('button', { name: 'Create task' });
+    await waitFor(() => {
+      expect(create.hasAttribute('disabled')).toBe(false);
+    });
+    fireEvent.click(create);
+
+    await waitFor(() => {
+      const post = vi
+        .mocked(fetch)
+        .mock.calls.find(([, init]) => (init)?.method === 'POST');
+      expect(post).toBeTruthy();
+      const body = JSON.parse((post?.[1] as RequestInit).body as string) as {
+        label: string;
+        goal_id?: string;
+      };
+      expect(body.goal_id).toBe('goal-2');
+      expect(body.label).toBe('Current goal task');
+    });
+  });
+
+  it('omits goal_id and hides the picker when a single goal is active', async () => {
+    stubBoardFetch({ goals: [makeGoal('goal-1', 'only')], currentGoalId: null });
+    await renderBoard([]);
+    await openCreateDialog();
+
+    expect(screen.queryByLabelText('Goal')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Task'), { target: { value: 'Single goal task' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
+
+    await waitFor(() => {
+      const post = vi
+        .mocked(fetch)
+        .mock.calls.find(([, init]) => (init)?.method === 'POST');
+      expect(post).toBeTruthy();
+      const body = JSON.parse((post?.[1] as RequestInit).body as string) as Record<string, unknown>;
+      expect('goal_id' in body).toBe(false);
+    });
+  });
+
+  it('surfaces the server message in a toast when create fails', async () => {
+    stubBoardFetch({
+      goals: [makeGoal('goal-1', 'first'), makeGoal('goal-2', 'second')],
+      currentGoalId: 'goal-2',
+      createFailureBody: JSON.stringify({
+        error: 'invalid_argument',
+        message: 'Multiple active goals: pick one.',
+      }),
+    });
+    await renderBoard([]);
+    await openCreateDialog();
+
+    fireEvent.change(screen.getByLabelText('Task'), { target: { value: 'Doomed task' } });
+    const create = screen.getByRole('button', { name: 'Create task' });
+    await waitFor(() => {
+      expect(create.hasAttribute('disabled')).toBe(false);
+    });
+    fireEvent.click(create);
+
+    await waitFor(() => {
+      expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Multiple active goals: pick one.');
+    });
   });
 });

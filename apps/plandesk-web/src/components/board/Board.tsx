@@ -30,17 +30,22 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  apiErrorMessage,
   type PatchTaskInput,
+  type SerializedGoal,
   type SerializedTag,
   type SerializedTask,
   type TaskStatus,
   taskStatuses,
 } from '../../lib/api.js';
+import { goalOptionLabel, resolveGoalChoice } from '../../lib/goal-choice.js';
 import {
   useCreateTask,
   useDeleteTask,
   useDocuments,
+  useGoals,
   usePatchTask,
+  useProject,
   useTags,
 } from '../../lib/queries.js';
 import { documentsByLinkedTask, taskIdsWithLinkedDocuments } from '../docs/DocumentsPanel.js';
@@ -84,6 +89,13 @@ export function Board({
 }: BoardProps) {
   const { data: projectTags } = useTags(projectId);
   const { data: documents } = useDocuments(projectId);
+  const { data: project } = useProject(projectId);
+  const { data: goals } = useGoals(projectId);
+
+  const goalChoice = useMemo(
+    () => resolveGoalChoice(goals, project?.current_goal_id ?? null),
+    [goals, project],
+  );
 
   const linkedDocTaskIds = useMemo(() => taskIdsWithLinkedDocuments(documents ?? []), [documents]);
   const linkedDocsByTask = useMemo(() => documentsByLinkedTask(documents ?? []), [documents]);
@@ -163,14 +175,22 @@ export function Board({
     );
   };
 
-  const handleCreate = (input: { label: string; status: TaskStatus; lane: LaneOption }) => {
+  const handleCreate = (input: {
+    label: string;
+    status: TaskStatus;
+    lane: LaneOption;
+    goal_id?: string;
+  }) => {
     const tags = input.lane !== 'none' ? [`${LANE_TAG_PREFIX}${input.lane}`] : undefined;
     createTask.mutate(
-      { label: input.label, status: input.status, tags },
+      { label: input.label, status: input.status, tags, ...(input.goal_id !== undefined && { goal_id: input.goal_id }) },
       {
         onSuccess: () => {
           toast(`Task created in ${columnLabels[input.status]}`);
           setCreateForStatus(null);
+        },
+        onError: (error) => {
+          toast.error(apiErrorMessage(error));
         },
       },
     );
@@ -301,6 +321,8 @@ export function Board({
         open={createForStatus !== null}
         status={createForStatus ?? 'todo'}
         isCreating={createTask.isPending}
+        activeGoals={goalChoice.activeGoals}
+        defaultGoalId={goalChoice.defaultGoalId}
         onClose={() => {
           setCreateForStatus(null);
         }}
@@ -352,14 +374,30 @@ type CreateTaskDialogProps = {
   open: boolean;
   status: TaskStatus;
   isCreating: boolean;
+  activeGoals: SerializedGoal[];
+  defaultGoalId: string | null;
   onClose: () => void;
-  onCreate: (input: { label: string; status: TaskStatus; lane: LaneOption }) => void;
+  onCreate: (input: {
+    label: string;
+    status: TaskStatus;
+    lane: LaneOption;
+    goal_id?: string;
+  }) => void;
 };
 
-function CreateTaskDialog({ open, status, isCreating, onClose, onCreate }: CreateTaskDialogProps) {
+function CreateTaskDialog({
+  open,
+  status,
+  isCreating,
+  activeGoals,
+  defaultGoalId,
+  onClose,
+  onCreate,
+}: CreateTaskDialogProps) {
   const [label, setLabel] = useState('');
   const [taskStatus, setTaskStatus] = useState<TaskStatus>(status);
   const [lane, setLane] = useState<LaneOption>('none');
+  const [goalId, setGoalId] = useState('');
 
   // Re-seed the form whenever the dialog opens (possibly for a new column).
   useEffect(() => {
@@ -369,6 +407,16 @@ function CreateTaskDialog({ open, status, isCreating, onClose, onCreate }: Creat
       setLane('none');
     }
   }, [open, status]);
+
+  // Seeded separately: the goals query may resolve after the dialog opened.
+  useEffect(() => {
+    if (open) {
+      setGoalId(defaultGoalId ?? '');
+    }
+  }, [open, defaultGoalId]);
+
+  const showGoalSelect = activeGoals.length > 1;
+  const goalMissing = showGoalSelect && goalId === '';
 
   return (
     <Dialog
@@ -438,6 +486,28 @@ function CreateTaskDialog({ open, status, isCreating, onClose, onCreate }: Creat
               </Select>
             </div>
           </div>
+          {showGoalSelect ? (
+            <div className="grid gap-1.5">
+              <Label htmlFor="new-task-goal">Goal</Label>
+              <Select
+                value={goalId}
+                onValueChange={(value) => {
+                  setGoalId(value);
+                }}
+              >
+                <SelectTrigger id="new-task-goal" className="w-full">
+                  <SelectValue placeholder="Choose a goal…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeGoals.map((goal) => (
+                    <SelectItem key={goal.id} value={goal.id}>
+                      {goalOptionLabel(goal)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
@@ -445,9 +515,14 @@ function CreateTaskDialog({ open, status, isCreating, onClose, onCreate }: Creat
           </Button>
           <Button
             type="button"
-            disabled={label.trim() === '' || isCreating}
+            disabled={label.trim() === '' || goalMissing || isCreating}
             onClick={() => {
-              onCreate({ label: label.trim(), status: taskStatus, lane });
+              onCreate({
+                label: label.trim(),
+                status: taskStatus,
+                lane,
+                ...(showGoalSelect && { goal_id: goalId }),
+              });
             }}
           >
             {isCreating ? 'Creating…' : 'Create task'}
