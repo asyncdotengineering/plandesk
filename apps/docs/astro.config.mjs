@@ -90,6 +90,7 @@ export default defineConfig({
             { slug: 'reference/prototypes' },
             { slug: 'reference/how-the-factory-works' },
             { slug: 'reference/factory' },
+            { slug: 'reference/runner' },
             { slug: 'reference/api' },
             { slug: 'reference/architecture' },
             { slug: 'reference/workspaces' },
