@@ -9,7 +9,8 @@
     "test:browser": "playwright test",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "dev": "vite"
+    "dev": "vite",
+    "test:responsive": "playwright test browser-tests/responsive.spec.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
