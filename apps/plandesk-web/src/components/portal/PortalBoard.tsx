@@ -77,14 +77,19 @@ export function PortalBoard({ tasks }: PortalBoardProps) {
   }
 
   return (
-    <div className="flex items-start gap-3 overflow-x-auto" data-portal-board>
+    <div
+      className="flex snap-x snap-mandatory items-start gap-3 overflow-x-auto md:snap-none"
+      data-portal-board
+    >
       {statuses.map((status) => {
         const columnTasks = grouped.get(status) ?? [];
         return (
           <div
             key={status}
             data-portal-column={status}
-            className="flex min-w-[180px] flex-1 flex-col rounded-lg border border-border bg-muted/40"
+            // Same idiom as the authoring board: one column per screen with a
+            // peek, rather than four columns squeezed to 180px each.
+            className="flex w-[82vw] shrink-0 snap-start flex-col rounded-lg border border-border bg-muted/40 md:w-auto md:min-w-[180px] md:flex-1"
           >
             <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
               <span className="flex items-center gap-1.5 text-xs font-semibold">

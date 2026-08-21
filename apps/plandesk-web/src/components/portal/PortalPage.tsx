@@ -79,7 +79,7 @@ export function PortalPage({
   }
 
   return (
-    <article data-portal-view className="mx-auto max-w-5xl px-5 py-6 pb-16">
+    <article data-portal-view className="mx-auto max-w-5xl px-4 py-6 pb-16 sm:px-5">
       <header className="mb-6">
         <div className="mb-2 flex flex-wrap items-start gap-3">
           <h1 className="flex-1 text-2xl font-bold tracking-tight">{view.project.name}</h1>
