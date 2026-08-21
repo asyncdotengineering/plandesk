@@ -11,6 +11,7 @@ export default defineConfig({
         'Local-first, self-hostable planning workspace — canvas, docs-on-nodes, tasks, board, and MCP for agent workflows.',
       logo: { src: './src/assets/logo.svg' },
       customCss: ['./src/styles/docs-theme.css'],
+      routeMiddleware: './src/routeData.ts',
       head: [
         {
           tag: 'script',
@@ -100,10 +101,9 @@ export default defineConfig({
             { slug: 'reference/validation-metrics' },
           ],
         },
-        {
-          label: 'Blog',
-          items: [{ slug: 'blog/beta-launch' }],
-        },
+        // The blog is a link, not a docs section: posts are listed on /blog/,
+        // outside the manual's structure.
+        { label: 'Blog', link: '/blog/' },
       ],
     }),
   ],

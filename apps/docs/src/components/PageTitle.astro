@@ -1,6 +1,13 @@
 ---
 import Default from '@astrojs/starlight/components/PageTitle.astro';
 
+// Blog posts get a dateline and a way back to the index instead of the docs
+// sidebar, which the route middleware removes for them.
+const route = Astro.locals.starlightRoute;
+const postDate = route.id.startsWith('blog/')
+  ? ((route.entry.data as { date?: Date }).date ?? null)
+  : null;
+
 // Raw markdown URL for the current page (served by src/pages/[...slug].md.ts).
 const path = Astro.url.pathname.replace(/\/+$/, '');
 const mdPath = path ? `${path}.md` : '/llms.txt';
@@ -9,6 +16,18 @@ const ask = `Read ${absolute} and help me understand and use it.`;
 const chatgpt = `https://chatgpt.com/?hl=en&q=${encodeURIComponent(ask)}`;
 const claude = `https://claude.ai/new?q=${encodeURIComponent(ask)}`;
 ---
+
+{
+  postDate && (
+    <p class="pd-dateline">
+      <a href="/blog/">← Blog</a>
+      <span aria-hidden="true">·</span>
+      <time datetime={postDate.toISOString()}>
+        {postDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+      </time>
+    </p>
+  )
+}
 
 <div class="pd-title-row">
   <Default />
@@ -65,6 +84,21 @@ const claude = `https://claude.ai/new?q=${encodeURIComponent(ask)}`;
 </script>
 
 <style>
+  .pd-dateline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 0.75rem;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sl-color-gray-4);
+  }
+  .pd-dateline a {
+    color: var(--sl-color-text-accent);
+    text-decoration: none;
+  }
   .pd-title-row {
     display: flex;
     align-items: flex-start;

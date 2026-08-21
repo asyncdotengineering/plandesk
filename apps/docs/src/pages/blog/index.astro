@@ -1,0 +1,114 @@
+---
+import { getCollection } from 'astro:content';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+
+// The blog has its own index, separate from the docs sidebar: posts are dated
+// entries in reverse-chronological order, not a section of the manual.
+const posts = (await getCollection('docs', ({ id, data }) => id.startsWith('blog/') && !!data.date))
+  .sort((a, b) => b.data.date!.getTime() - a.data.date!.getTime())
+  .map((post) => ({
+    href: `/${post.id}/`,
+    title: post.data.title,
+    description: post.data.description,
+    date: post.data.date!,
+  }));
+
+const format = (date: Date) =>
+  date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'Blog',
+    description: 'Design notes, launch logs, and what we learned shipping Plan Desk.',
+    template: 'splash',
+    tableOfContents: false,
+    // The hero replaces the docs page title, which would otherwise offer a
+    // "Copy as Markdown" link to a source file this page does not have.
+    hero: {
+      title: 'Blog',
+      tagline: 'Design notes, launch logs, and what broke on the way to shipping.',
+    },
+    prev: false,
+    next: false,
+  }}
+  hasSidebar={false}
+>
+  <div class="pd-blog not-content">
+    {
+      posts.length === 0 ? (
+        <p class="pd-blog-empty">No posts yet.</p>
+      ) : (
+        <ul class="pd-post-list">
+          {posts.map((post) => (
+            <li class="pd-post">
+              <time datetime={post.date.toISOString()}>{format(post.date)}</time>
+              <h2>
+                <a href={post.href}>{post.title}</a>
+              </h2>
+              {post.description && <p>{post.description}</p>}
+              <a class="pd-post-more" href={post.href}>
+                Read the post <span aria-hidden="true">→</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </div>
+</StarlightPage>
+
+<style>
+  /* Pulled up under the splash hero, which carries the title and tagline. */
+  .pd-blog {
+    margin-top: -1rem;
+    padding-bottom: 2rem;
+  }
+  .pd-post-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .pd-post {
+    padding: 2.25rem 0;
+    border-top: 1px solid var(--sl-color-hairline);
+  }
+  .pd-post time {
+    display: block;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--sl-color-gray-4);
+  }
+  .pd-post h2 {
+    margin: 0.5rem 0 0;
+    font-size: var(--sl-text-2xl);
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+  }
+  .pd-post h2 a {
+    color: var(--sl-color-white);
+    text-decoration: none;
+  }
+  .pd-post h2 a:hover {
+    color: var(--sl-color-text-accent);
+  }
+  .pd-post p {
+    margin: 0.7rem 0 0;
+    color: var(--sl-color-gray-3);
+  }
+  .pd-post-more {
+    display: inline-block;
+    margin-top: 0.9rem;
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    color: var(--sl-color-text-accent);
+    text-decoration: none;
+  }
+  .pd-blog-empty {
+    padding: 2rem 0;
+    color: var(--sl-color-gray-3);
+  }
+</style>

@@ -104,3 +104,23 @@ h1#_top {
 .sl-markdown-content td {
   border-color: var(--sl-color-hairline);
 }
+
+/*
+ * Blog pages (/blog/ and every post) render without the docs sidebar. Starlight
+ * widens sidebar-less pages to 67.5rem, which is a layout width, not a reading
+ * measure — a post set at it runs past 110 characters a line. Scoping the
+ * override to the content pane leaves the header, which reads the same custom
+ * property, at the full width.
+ */
+html:not([data-has-sidebar]) .main-pane {
+  --sl-content-width: 46rem;
+}
+
+/*
+ * The blog index hero has no image, so it must not reserve Starlight's 4fr
+ * image column — the tagline would wrap at half the measure of the posts below.
+ */
+html:not([data-has-sidebar]) .hero {
+  grid-template-columns: 100%;
+  padding-block: clamp(2rem, 6vmin, 3.5rem);
+}
