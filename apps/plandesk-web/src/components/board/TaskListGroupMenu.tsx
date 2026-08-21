@@ -92,7 +92,7 @@ export function TaskListGroupMenu({ specs, onChange }: TaskListGroupMenuProps) {
           role="dialog"
           aria-label="Group levels"
           data-group-panel
-          className="absolute right-0 z-20 mt-1 w-80 rounded-md border bg-popover p-2 text-popover-foreground shadow-md"
+          className="absolute right-0 z-20 mt-1 w-[min(20rem,calc(100vw-2rem))] rounded-md border bg-popover p-2 text-popover-foreground shadow-md"
         >
           <p className="px-1 py-1.5 text-xs font-medium">Group levels</p>
           <div className="my-1 h-px bg-border" />

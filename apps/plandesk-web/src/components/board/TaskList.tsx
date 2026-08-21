@@ -20,6 +20,7 @@ import {
   type SerializedView,
   type TaskStatus,
 } from '../../lib/api.js';
+import { useIsMobile } from '../../lib/breakpoints.js';
 import { useDocuments, useGoals, usePatchTask, useTags } from '../../lib/queries.js';
 import { documentsByLinkedTask } from '../docs/DocumentsPanel.js';
 import { BlockedIndicator } from './BlockedIndicator.js';
@@ -221,6 +222,9 @@ export function TaskList({
     drawerTaskId !== null ? tasks.find((task) => task.id === drawerTaskId) : undefined;
   const tagNames = (projectTags ?? []).map((tag) => tag.name);
   const columnOrder = LIST_COLUMNS.filter((column) => visibleColumns.has(column));
+  // A different tree, not a restyled one, so this reads the breakpoint rather
+  // than rendering both and hiding one — a list can run to hundreds of rows.
+  const isPhone = useIsMobile();
 
   const handleExport = (format: ExportFormat) => {
     void (async () => {
@@ -388,47 +392,59 @@ export function TaskList({
               {TAG_COUNT_NOTE}
             </p>
           ) : null}
-          <table className="w-full min-w-[720px] border-collapse text-sm" data-task-list>
-            <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
-              <tr>
-                {columnOrder.map((column) => (
-                  <th
-                    key={column}
-                    scope="col"
-                    data-list-column={column}
-                    className="border-b border-border px-3 py-2 text-left text-xs font-medium text-muted-foreground"
-                  >
-                    {LIST_COLUMN_LABELS[column]}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {groupedTasks === null
-                ? sortedTasks.map((task) => (
-                    <TaskListRow
-                      key={task.id}
-                      task={task}
-                      columnOrder={columnOrder}
-                      goalById={goalById}
-                      onOpen={openTask}
-                    />
-                  ))
-                : groupedTasks.map((group) => (
-                    <GroupRows
-                      key={group.id}
-                      group={group}
-                      depth={0}
-                      columnCount={columnOrder.length}
-                      columnOrder={columnOrder}
-                      goalById={goalById}
-                      collapsedGroupIds={collapsedGroupIds}
-                      onToggleCollapsed={toggleGroupCollapsed}
-                      onOpenTask={openTask}
-                    />
+          {isPhone ? (
+            <TaskCardList
+              groupedTasks={groupedTasks}
+              sortedTasks={sortedTasks}
+              columnOrder={columnOrder}
+              goalById={goalById}
+              collapsedGroupIds={collapsedGroupIds}
+              onToggleCollapsed={toggleGroupCollapsed}
+              onOpenTask={openTask}
+            />
+          ) : (
+            <table className="w-full min-w-[720px] border-collapse text-sm" data-task-list>
+              <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+                <tr>
+                  {columnOrder.map((column) => (
+                    <th
+                      key={column}
+                      scope="col"
+                      data-list-column={column}
+                      className="border-b border-border px-3 py-2 text-left text-xs font-medium text-muted-foreground"
+                    >
+                      {LIST_COLUMN_LABELS[column]}
+                    </th>
                   ))}
-            </tbody>
-          </table>
+                </tr>
+              </thead>
+              <tbody>
+                {groupedTasks === null
+                  ? sortedTasks.map((task) => (
+                      <TaskListRow
+                        key={task.id}
+                        task={task}
+                        columnOrder={columnOrder}
+                        goalById={goalById}
+                        onOpen={openTask}
+                      />
+                    ))
+                  : groupedTasks.map((group) => (
+                      <GroupRows
+                        key={group.id}
+                        group={group}
+                        depth={0}
+                        columnCount={columnOrder.length}
+                        columnOrder={columnOrder}
+                        goalById={goalById}
+                        collapsedGroupIds={collapsedGroupIds}
+                        onToggleCollapsed={toggleGroupCollapsed}
+                        onOpenTask={openTask}
+                      />
+                    ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 
@@ -487,6 +503,173 @@ function TaskListRow({
         </td>
       ))}
     </tr>
+  );
+}
+
+/**
+ * The narrow presentation of the same rows.
+ *
+ * Field values come from `TaskListCell`, the renderer the table also uses, so a
+ * column's formatting never forks between the two presentations.
+ */
+function TaskCardList({
+  groupedTasks,
+  sortedTasks,
+  columnOrder,
+  goalById,
+  collapsedGroupIds,
+  onToggleCollapsed,
+  onOpenTask,
+}: {
+  groupedTasks: GroupNode[] | null;
+  sortedTasks: SerializedTask[];
+  columnOrder: ListColumnId[];
+  goalById: Map<string, string>;
+  collapsedGroupIds: Set<string>;
+  onToggleCollapsed: (groupId: string) => void;
+  onOpenTask: (taskId: string) => void;
+}) {
+  return (
+    <div data-task-cards>
+      {groupedTasks === null
+        ? sortedTasks.map((task) => (
+            <TaskRowCard
+              key={task.id}
+              task={task}
+              columnOrder={columnOrder}
+              goalById={goalById}
+              onOpen={onOpenTask}
+            />
+          ))
+        : groupedTasks.map((group) => (
+            <GroupCards
+              key={group.id}
+              group={group}
+              depth={0}
+              columnOrder={columnOrder}
+              goalById={goalById}
+              collapsedGroupIds={collapsedGroupIds}
+              onToggleCollapsed={onToggleCollapsed}
+              onOpenTask={onOpenTask}
+            />
+          ))}
+    </div>
+  );
+}
+
+function GroupCards({
+  group,
+  depth,
+  columnOrder,
+  goalById,
+  collapsedGroupIds,
+  onToggleCollapsed,
+  onOpenTask,
+}: {
+  group: GroupNode;
+  depth: number;
+  columnOrder: ListColumnId[];
+  goalById: Map<string, string>;
+  collapsedGroupIds: Set<string>;
+  onToggleCollapsed: (groupId: string) => void;
+  onOpenTask: (taskId: string) => void;
+}) {
+  const collapsed = collapsedGroupIds.has(group.id);
+  const Chevron = collapsed ? ChevronRightIcon : ChevronDownIcon;
+  const aggregateText = group.aggregates.map((entry) => formatAggregate(entry)).join(' · ');
+
+  return (
+    <Fragment>
+      <button
+        type="button"
+        data-group-id={group.id}
+        data-group-field={group.field}
+        data-group-depth={depth}
+        data-group-collapsed={collapsed ? 'true' : 'false'}
+        data-group-toggle={group.id}
+        aria-expanded={!collapsed}
+        aria-label={`${collapsed ? 'Expand' : 'Collapse'} group ${groupHeaderLabel(group, goalById)}`}
+        className="flex w-full items-center gap-2 border-b border-border bg-muted/50 py-2.5 pr-3 text-left text-xs font-medium"
+        style={{ paddingLeft: `${String(depth * 12 + 12)}px` }}
+        onClick={() => {
+          onToggleCollapsed(group.id);
+        }}
+      >
+        <Chevron className="size-3.5 shrink-0 text-muted-foreground" />
+        <span data-group-label className="min-w-0 truncate">
+          {groupHeaderLabel(group, goalById)}
+        </span>
+        <span data-group-aggregates className="ml-auto shrink-0 font-normal text-muted-foreground">
+          {aggregateText}
+        </span>
+      </button>
+      {collapsed
+        ? null
+        : group.children !== null
+          ? group.children.map((child) => (
+              <GroupCards
+                key={child.id}
+                group={child}
+                depth={depth + 1}
+                columnOrder={columnOrder}
+                goalById={goalById}
+                collapsedGroupIds={collapsedGroupIds}
+                onToggleCollapsed={onToggleCollapsed}
+                onOpenTask={onOpenTask}
+              />
+            ))
+          : group.tasks.map((task) => (
+              <TaskRowCard
+                key={task.id}
+                task={task}
+                columnOrder={columnOrder}
+                goalById={goalById}
+                onOpen={onOpenTask}
+              />
+            ))}
+    </Fragment>
+  );
+}
+
+function TaskRowCard({
+  task,
+  columnOrder,
+  goalById,
+  onOpen,
+}: {
+  task: SerializedTask;
+  columnOrder: ListColumnId[];
+  goalById: Map<string, string>;
+  onOpen: (taskId: string) => void;
+}) {
+  const showsLabel = columnOrder.includes('label');
+  const detailColumns = columnOrder.filter((column) => column !== 'label');
+
+  return (
+    <button
+      type="button"
+      data-task-id={task.id}
+      className="flex w-full flex-col items-start gap-1.5 border-b border-border/60 px-3 py-3 text-left"
+      onClick={() => {
+        onOpen(task.id);
+      }}
+    >
+      {showsLabel ? (
+        <span data-list-cell="label" className="text-[13px] leading-snug">
+          <TaskListCell task={task} column="label" goalById={goalById} />
+        </span>
+      ) : null}
+      {detailColumns.length > 0 ? (
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          {detailColumns.map((column) => (
+            <span key={column} data-list-cell={column} className="inline-flex items-center gap-1.5">
+              <span className="sr-only">{LIST_COLUMN_LABELS[column]}</span>
+              <TaskListCell task={task} column={column} goalById={goalById} />
+            </span>
+          ))}
+        </span>
+      ) : null}
+    </button>
   );
 }
 

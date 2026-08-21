@@ -285,6 +285,22 @@ for (const viewport of VIEWPORTS) {
   });
 }
 
+test.describe('task list presentation', () => {
+  const listRoute = ROUTES.find((route) => route.name === 'list') as Route;
+
+  test('reflows to cards on a phone and stays a table on desktop', async ({ page }) => {
+    // A seven-column table cannot be made legible at 390px, so the narrow
+    // presentation is a different tree rather than a restyled one.
+    await openRoute(page, listRoute, VIEWPORTS[0] as Viewport);
+    await expect(page.locator('[data-task-cards]')).toBeVisible();
+    await expect(page.locator('[data-task-list]')).toBeHidden();
+
+    await openRoute(page, listRoute, VIEWPORTS[2] as Viewport);
+    await expect(page.locator('[data-task-list]')).toBeVisible();
+    await expect(page.locator('[data-task-cards]')).toBeHidden();
+  });
+});
+
 test.describe('drawer behaviour', () => {
   test('the drawer opens, navigates and closes itself', async ({ page }) => {
     await openRoute(page, ROUTES[1] as Route, VIEWPORTS[0] as Viewport);

@@ -126,8 +126,16 @@ function ephemeralPort(): Promise<number> {
   });
 }
 
+// A cold `plandesk serve` boot against a fresh data dir is not fast, and these
+// specs run several suites plus a dev server on the same box. The old 5s budget
+// turned a slow boot into a suite-wide abort; a genuinely dead server still
+// fails with the same message, just later, so the longer budget hides nothing.
+const HEALTH_TIMEOUT_MS = 30_000;
+const HEALTH_POLL_MS = 200;
+
 async function waitForHealth(baseUrl: string): Promise<void> {
-  for (let i = 0; i < 50; i += 1) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < HEALTH_TIMEOUT_MS) {
     try {
       const response = await fetch(`${baseUrl}/api/v1/health`);
       if (response.ok) {
@@ -139,9 +147,11 @@ async function waitForHealth(baseUrl: string): Promise<void> {
     } catch {
       // not ready yet
     }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, HEALTH_POLL_MS));
   }
-  throw new Error(`harness server did not become ready on ${baseUrl}`);
+  throw new Error(
+    `harness server did not become ready on ${baseUrl} after ${String(Date.now() - startedAt)}ms`,
+  );
 }
 
 function runPlandesk(args: string[]): Promise<void> {
