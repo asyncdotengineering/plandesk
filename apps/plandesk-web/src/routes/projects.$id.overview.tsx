@@ -208,7 +208,7 @@ function ProjectOverviewPage() {
             ) : (
               <button
                 type="button"
-                className="text-foreground hover:underline"
+                className="touch-target text-foreground hover:underline"
                 onClick={() => {
                   setEditingOwner(true);
                 }}

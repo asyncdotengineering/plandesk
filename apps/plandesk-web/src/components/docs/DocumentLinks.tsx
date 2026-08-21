@@ -145,7 +145,9 @@ function LinkEntryRow({
           variant="ghost"
           size="icon-xs"
           aria-label={`Remove link to ${entry.title}`}
-          className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          // Hover reveals nothing on a touch screen, so below the desktop breakpoint
+          // this control is simply present.
+          className="shrink-0 opacity-100 transition-opacity focus-visible:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
           disabled={busy === true}
           onClick={onRemove}
         >

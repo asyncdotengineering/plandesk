@@ -220,3 +220,32 @@
   background-color: var(--comment-highlight);
   border-radius: 2px;
 }
+
+/* Touch target floor.
+   WCAG 2.5.8 asks for 44x44 of hit area. Growing the controls themselves would
+   change a design that is deliberately compact, so an invisible pseudo-element
+   carries the area instead: the button still LOOKS 24px, and a finger still
+   gets 44px. It centres on the control and never shrinks it, so a control that
+   is already wide keeps its own width and gains only height.
+
+   Desktop keeps the compact targets — a mouse pointer is one pixel. */
+@media (max-width: 1023px) {
+  .touch-target {
+    position: relative;
+    /* The AA floor on the box itself. The pseudo-element below adds comfort on
+       top of it; this is the part the standard will not go under. */
+    min-width: 24px;
+    min-height: 24px;
+  }
+  .touch-target::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 100%;
+    height: 100%;
+    min-width: 44px;
+    min-height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}

@@ -285,6 +285,129 @@ for (const viewport of VIEWPORTS) {
   });
 }
 
+/**
+ * WCAG 2.5.8 Target Size (Minimum), AA.
+ *
+ * The rule is not a blanket 44px. A target conforms if it offers 44x44 of
+ * reachable area, OR if it is at least 24x24 and no neighbouring target's 24px
+ * circle overlaps its own. Encoding only the 44 would demand the design grow
+ * controls the standard is content to leave compact — and would flag things
+ * that are genuinely fine to hit.
+ */
+const COMFORTABLE_TARGET = 44;
+const MIN_TOUCH_TARGET = 24;
+
+const INTERACTIVE =
+  'button, a[href], [role="button"], [role="radio"], select, input:not([type="hidden"])';
+
+/**
+ * Measures the EFFECTIVE hit area, not the layout box.
+ *
+ * A control may be visually small and still comfortable to hit if it carries an
+ * expanded pseudo-element, and `getBoundingClientRect` cannot see that. Probing
+ * `elementFromPoint` at the corners of the target square sees what a finger
+ * sees — and also catches the opposite failure, where two controls are close
+ * enough that the square lands on the neighbour.
+ */
+async function touchTargetOffenders(page: Page): Promise<string[]> {
+  return page.evaluate(
+    ({ min, comfortable, selector }) => {
+      const half = comfortable / 2;
+      const offenders: string[] = [];
+      for (const el of Array.from(document.querySelectorAll<HTMLElement>(selector))) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+          continue;
+        }
+        // Outside the viewport, not undersized. A kanban strip and a wide table
+        // scroll horizontally, so most of their controls sit off-screen at any
+        // moment; elementFromPoint answers null out there and would report every
+        // one of them as unreachable.
+        if (
+          rect.right <= 0 ||
+          rect.bottom <= 0 ||
+          rect.left >= window.innerWidth ||
+          rect.top >= window.innerHeight
+        ) {
+          continue;
+        }
+        const style = getComputedStyle(el);
+        if (style.visibility === 'hidden') {
+          continue;
+        }
+        // WCAG 2.5.8 exempts targets rendered inline in a block of text. A link
+        // in a sentence cannot be given 44px of height without wrecking the
+        // typography around it, and the standard says so.
+        if (style.display === 'inline') {
+          continue;
+        }
+        if (rect.width >= comfortable && rect.height >= comfortable) {
+          continue;
+        }
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const probes: [number, number][] = [
+          [cx - half + 1, cy - half + 1],
+          [cx + half - 1, cy - half + 1],
+          [cx - half + 1, cy + half - 1],
+          [cx + half - 1, cy + half - 1],
+        ];
+        const reaches = probes.every(([x, y]) => {
+          if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) {
+            return false;
+          }
+          const hit = document.elementFromPoint(x, y);
+          return hit !== null && (hit === el || el.contains(hit) || hit.contains(el));
+        });
+        if (reaches) {
+          continue;
+        }
+        // Fall back to the spacing exception: at least `min` in both axes, and
+        // far enough from every other target that their circles do not meet.
+        const bigEnough = rect.width >= min && rect.height >= min;
+        const wellSpaced =
+          bigEnough &&
+          Array.from(document.querySelectorAll<HTMLElement>(selector)).every((other) => {
+            if (other === el || el.contains(other) || other.contains(el)) {
+              return true;
+            }
+            const o = other.getBoundingClientRect();
+            if (o.width === 0 || o.height === 0) {
+              return true;
+            }
+            const dx = o.left + o.width / 2 - cx;
+            const dy = o.top + o.height / 2 - cy;
+            return Math.sqrt(dx * dx + dy * dy) >= min;
+          });
+        if (!wellSpaced) {
+          const label = el.getAttribute('aria-label') ?? (el.textContent ?? '').trim().slice(0, 24);
+          offenders.push(
+            `${el.tagName.toLowerCase()}[${label}] ${String(Math.round(rect.width))}x${String(Math.round(rect.height))} .${el.className.toString().slice(0, 60)}`,
+          );
+        }
+      }
+      return offenders;
+    },
+    { min: MIN_TOUCH_TARGET, comfortable: COMFORTABLE_TARGET, selector: INTERACTIVE },
+  );
+}
+
+test.describe('touch targets', () => {
+  const TARGET_ROUTES = ['overview', 'board', 'list', 'documents', 'goals', 'prototypes'];
+
+  for (const name of TARGET_ROUTES) {
+    test(`${name} controls are reachable by finger`, async ({ page }) => {
+      const route = ROUTES.find((candidate) => candidate.name === name) as Route;
+      await openRoute(page, route, VIEWPORTS[0] as Viewport);
+      const offenders = await touchTargetOffenders(page);
+      expect(
+        offenders,
+        `phone ${name}: ${String(offenders.length)} control(s) fail WCAG 2.5.8 AA (neither ${String(COMFORTABLE_TARGET)}px reachable nor ${String(MIN_TOUCH_TARGET)}px with clear spacing)\n  ${offenders.join('\n  ')}`,
+      ).toEqual([]);
+    });
+  }
+});
+
 test.describe('task list presentation', () => {
   const listRoute = ROUTES.find((route) => route.name === 'list') as Route;
 

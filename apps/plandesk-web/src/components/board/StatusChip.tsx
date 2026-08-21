@@ -22,7 +22,9 @@ export const statusTokenVars = {
 
 const statusChipClasses = cn(
   badgeVariants({ variant: 'secondary' }),
-  'border-transparent gap-1.5 px-2 py-0.5 text-[10.5px] font-medium leading-none',
+  // touch-target only where the chip is interactive; the 17px-tall pill is the
+  // status MENU on a card, and it is one of the most-used controls on the board.
+  'touch-target border-transparent gap-1.5 px-2 py-0.5 text-[10.5px] font-medium leading-none',
 );
 
 export function StatusChip({

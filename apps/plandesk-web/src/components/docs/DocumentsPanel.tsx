@@ -35,6 +35,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -314,7 +315,8 @@ function RowKebab({ label, children }: { label: string; children: ReactNode }) {
           variant="ghost"
           size="icon-sm"
           aria-label={label}
-          className="shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+          // Hover reveals nothing on a touch screen.
+          className="shrink-0 opacity-100 transition-opacity focus-visible:opacity-100 data-[state=open]:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
         >
           <MoreVerticalIcon />
         </Button>
@@ -1203,11 +1205,12 @@ export function DocumentsPanel({
           >
             <button
               type="button"
-              className={
+              className={cn(
+                'touch-target',
                 navFolderId === null
                   ? 'font-medium text-foreground'
-                  : 'hover:text-foreground hover:underline'
-              }
+                  : 'hover:text-foreground hover:underline',
+              )}
               onClick={() => {
                 setNavFolderId(null);
               }}
@@ -1219,11 +1222,12 @@ export function DocumentsPanel({
                 <ChevronRightIcon className="size-3 opacity-60" aria-hidden />
                 <button
                   type="button"
-                  className={
+                  className={cn(
+                    'touch-target',
                     crumb.id === navFolderId
                       ? 'font-medium text-foreground'
-                      : 'hover:text-foreground hover:underline'
-                  }
+                      : 'hover:text-foreground hover:underline',
+                  )}
                   onClick={() => {
                     setNavFolderId(crumb.id);
                   }}
