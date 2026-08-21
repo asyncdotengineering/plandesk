@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -284,7 +285,16 @@ export function Board({
           setActiveTaskId(null);
         }}
       >
-        <div className="min-h-0 flex-1 overflow-x-auto pb-2">
+        {/* Snap is off while a card is in hand: dnd-kit auto-scrolls this strip
+            to reach a neighbouring column, and mandatory snapping fights that
+            scroll back to the column the drag started from. */}
+        <div
+          data-board-strip
+          className={cn(
+            'min-h-0 flex-1 overflow-x-auto pb-2',
+            activeTaskId === null && 'snap-x snap-mandatory md:snap-none',
+          )}
+        >
           <div className="flex h-full items-start gap-3.5">
             {boardColumnOrder.map((status) => (
               <BoardColumn

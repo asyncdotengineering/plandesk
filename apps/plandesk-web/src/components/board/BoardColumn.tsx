@@ -55,7 +55,10 @@ export function BoardColumn({
       ref={setNodeRef}
       data-board-column={status}
       className={cn(
-        'flex w-[274px] flex-shrink-0 flex-col rounded-lg transition-colors',
+        // Below the tablet breakpoint a column takes almost the whole screen
+        // and snaps, so a swipe moves one column at a time. The 14vw left over
+        // is the peek that tells you another column is there.
+        'flex w-[86vw] flex-shrink-0 snap-start flex-col rounded-lg transition-colors md:w-[274px]',
         isDropTarget && 'bg-muted/50 ring-2 ring-ring/30',
       )}
     >

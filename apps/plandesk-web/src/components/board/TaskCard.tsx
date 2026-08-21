@@ -212,7 +212,9 @@ export function TaskCardPreview({
 }) {
   const lane = laneFromTags(task.tags);
   return (
-    <Card className="w-[258px] gap-0 rounded-lg px-2.5 py-2.5 shadow-[var(--shadow-pop)]">
+    // The drag preview must match the card it lifted off, which is the width of
+    // its column — 86vw on a phone, the fixed track at tablet and up.
+    <Card className="w-[86vw] gap-0 rounded-lg px-2.5 py-2.5 shadow-[var(--shadow-pop)] md:w-[258px]">
       <p className="mb-2 mr-6 text-[13px] font-medium leading-snug">{task.label}</p>
       <div className="flex flex-wrap items-center gap-1.5">
         <StatusChip status={task.status} tabIndex={-1} />
