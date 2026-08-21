@@ -66,7 +66,7 @@ each time.
 
 Three of those are worth the argument.
 
-### Step 1 is where the human gate actually lives
+### Pull: where the human gate actually lives
 
 `scope` means awaiting release. `todo` means on the floor. `get_next_task` never
 returns `scope` or `backlog`, so a task a person has not released is not
@@ -75,7 +75,7 @@ returns `scope` or `backlog`, so a task a person has not released is not
 That matters more than it sounds. A gate enforced by the tool holds. A gate
 enforced by a line in a prompt holds until the context is full.
 
-### Step 3 exists because green-at-start proves nothing
+### Red gate: green-at-start proves nothing
 
 A loop whose success condition is already true at turn zero will report success
 and change nothing. It is the most common false positive in agent work, and it is
@@ -85,7 +85,7 @@ So the supervisor must watch the check fail before it dispatches. If it cannot
 make it fail, it does not have a task; it has a hypothesis, and the task goes back
 to `scope` with a comment saying so.
 
-### Step 5 is why we stopped reading worker summaries
+### Prove: why we stopped reading worker summaries
 
 A worker's report is intent, not fact. Ours reports a status, a list of claims, and
 a question if it is blocked:
