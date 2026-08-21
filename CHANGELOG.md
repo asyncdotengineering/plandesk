@@ -2,6 +2,28 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [3.6.0] — 2026-08-21
+
+### Added
+
+- **The board works on a phone.** Plan Desk was built for a desktop and only ever ran well on one. The shell was a fixed `244px 1fr` grid, so on a 390px phone the sidebar took 62% of the screen and left about 146px for whatever you came to read. Across 124 components there were seventeen responsive rules in total, and every dense surface — the kanban, the task table, the flow canvas, the document editor — assumed at least a thousand pixels.
+
+  Every surface now adapts across three regimes: phone below 768px, tablet to 1023px, desktop above it and unchanged. The sidebar becomes an off-canvas drawer, the kanban snaps one column to a screen, the task table reflows into stacked cards, side rails move into sheets, and the flow and prototype canvases take the whole viewport.
+
+- **Touch parity, not just touch tolerance.** Every action you can take with a mouse you can take with a finger. Press and hold a card to drag it between columns; drag a node on the flow canvas or a screen on a prototype; pinch to zoom; draw an annotation on an image. Each of those was walked on a real device, with the resulting change read back through the API rather than judged by eye.
+
+  The board could not previously be scrolled at all on a phone. `PointerSensor` fires for touch, so a 6px drag threshold turned every attempt to scroll into a card pickup, and the card itself set `touch-action: none` across its whole surface. Mouse and touch need opposite activation rules, and one sensor cannot express both.
+
+- **Controls sized for a finger.** Interactive controls meet WCAG 2.5.8 Target Size (Minimum) on touch layouts — 44×44 of reachable area, or 24×24 with clear spacing, with the standard's exception for links inside a sentence. The control still looks the size the design intends; an invisible pseudo-element carries the extra area. Two affordances that only appeared on hover, and so were unreachable on a touch screen, are simply present there.
+
+### Fixed
+
+- **A document title could not be edited on a phone.** In Edit mode the title field sat beside an action cluster wider than the row, and collapsed to a single character. It takes the full width now, with the actions on their own line.
+
+- **Bottom-anchored controls sat under mobile Safari's toolbar.** The app shell, the prototype canvas, preview mode and the document page measured `100vh`, which on mobile Safari includes the collapsing toolbar. They use `100dvh`, so the sidebar footer, the preview bar and the last rows of a long document are reachable.
+
+- **Two layout containers sized themselves to their content instead of the viewport.** The shell's main column was a grid with no explicit column track, so it stretched to its widest child — 925px inside a 390px viewport on a document page — which defeated the scroll container that was supposed to handle the overflow.
+
 ## [3.5.0] — 2026-08-21
 
 ### Fixed
