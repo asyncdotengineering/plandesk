@@ -28,13 +28,13 @@ type MenuProps = {
 function SuggestionMenu({ items, selected, onHover }: MenuProps) {
   if (items.length === 0) {
     return (
-      <div className="w-64 rounded-lg border bg-popover p-2 text-[12.5px] text-muted-foreground shadow-lg">
+      <div className="w-[min(16rem,calc(100vw-2rem))] rounded-lg border bg-popover p-2 text-[12.5px] text-muted-foreground shadow-lg">
         No results
       </div>
     );
   }
   return (
-    <div className="max-h-72 w-64 overflow-y-auto rounded-lg border bg-popover p-1 shadow-lg">
+    <div className="max-h-72 w-[min(16rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border bg-popover p-1 shadow-lg">
       {items.map((item, index) => (
         <div
           key={`${item.title}-${String(index)}`}

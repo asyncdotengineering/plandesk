@@ -81,7 +81,10 @@ export function DocumentEditor({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2">
+      {/* The action cluster is shrink-0 and wider than a phone row, so beside it
+          the flex-1 title compressed to a single character and the document
+          title could not be edited at all. Actions take their own row instead. */}
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start">
         {mode === 'editor' ? (
           <Input
             type="text"
@@ -91,12 +94,12 @@ export function DocumentEditor({
               autosave.notifyChange();
             }}
             aria-label="Document title"
-            className="h-auto flex-1 border-0 border-b border-border bg-transparent px-0 py-1 text-2xl font-semibold tracking-tight shadow-none focus-visible:border-ring focus-visible:ring-0"
+            className="h-auto min-w-0 flex-1 border-0 border-b border-border bg-transparent px-0 py-1 text-2xl font-semibold tracking-tight shadow-none focus-visible:border-ring focus-visible:ring-0"
           />
         ) : (
-          <h1 className="flex-1 text-2xl font-semibold tracking-tight">{title}</h1>
+          <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight">{title}</h1>
         )}
-        <div className="flex shrink-0 items-center gap-3 pt-1.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-3 sm:pt-1.5">
           {mode === 'editor' ? <SaveStatusIndicator status={saveStatus} /> : null}
           <ContentHistoryButton
             projectId={document.project_id}

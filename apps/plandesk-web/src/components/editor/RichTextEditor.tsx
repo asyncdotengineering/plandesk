@@ -739,7 +739,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
           <div
             role="dialog"
             aria-label="Add comment"
-            className="w-80 rounded-lg border bg-popover p-2.5 text-popover-foreground shadow-lg"
+            className="w-[min(20rem,calc(100vw-2rem))] rounded-lg border bg-popover p-2.5 text-popover-foreground shadow-lg"
             style={{
               position: 'fixed',
               top: commentDraft.top + 8,
@@ -805,7 +805,13 @@ function RichTextToolbar({ editor }: { editor: ToolbarEditor }) {
     );
 
   return (
-    <div role="toolbar" aria-label="Formatting" className="mb-2 flex flex-wrap gap-2">
+    // One scrolling row on a phone. Wrapping put twelve controls on three rows
+    // and took about a third of the writing area before a word was typed.
+    <div
+      role="toolbar"
+      aria-label="Formatting"
+      className="mb-2 flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-x-visible md:pb-0"
+    >
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleBold().run()}

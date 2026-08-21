@@ -6,6 +6,7 @@ import { CommentsPanel } from '../components/docs/CommentsPanel.js';
 import { DocumentEditor, type DocumentEditorMode } from '../components/docs/DocumentEditor.js';
 import { flattenDocumentTree } from '../components/docs/DocumentsPanel.js';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useIsTouchLayout } from '../lib/breakpoints.js';
 import {
   useConvertDocumentBullets,
   useCreateComment,
@@ -27,6 +28,7 @@ function DocumentPage() {
   const createComment = useCreateComment({ type: 'document', id: docId });
   const convertBullets = useConvertDocumentBullets(id);
   const [mode, setMode] = useState<DocumentEditorMode>('reader');
+  const commentsBeside = !useIsTouchLayout();
   // A brand-new / empty document opens in Edit so you can start writing; an
   // existing document opens read-first. Runs once when the doc first loads.
   const modeInitialized = useRef(false);
@@ -69,7 +71,9 @@ function DocumentPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-6rem)] min-h-0 gap-6">
+    // dvh, not vh: mobile Safari's collapsing toolbar is inside 100vh, so the
+    // last rows of a document sit under it and cannot be scrolled to.
+    <div className="flex h-[calc(100dvh-6rem)] min-h-0 gap-6">
       <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto pr-2">
         <div className="flex items-center justify-between gap-3">
           <Link
@@ -148,8 +152,16 @@ function DocumentPage() {
             );
           }}
         />
+
+        {/* Below the desktop breakpoint the rail has no room beside the prose,
+            so comments follow the document in the same scroll column. This is
+            the presentation CommentsPanel already supports; a sheet would be a
+            third one. */}
+        {commentsBeside ? null : (
+          <CommentsPanel target={{ type: 'document', id: docId }} embedded />
+        )}
       </div>
-      <CommentsPanel target={{ type: 'document', id: docId }} />
+      {commentsBeside ? <CommentsPanel target={{ type: 'document', id: docId }} /> : null}
     </div>
   );
 }
