@@ -78,7 +78,12 @@ export function TaskNode({ id, data, selected }: NodeProps<Node<TaskNodeData>>) 
           />
         ) : (
           <button
-            className="nodrag flex-1 text-left text-[12.5px] font-semibold leading-snug"
+            // Deliberately NOT `nodrag`. The title spans the node, and `nodrag`
+            // filters the drag out at d3-drag's filter, which left only the
+            // ~10px padding ring grabbable — fine for a mouse, unhittable by
+            // finger. `nodeDragThreshold` on the canvas separates the tap that
+            // renames from the drag that moves.
+            className="flex-1 text-left text-[12.5px] font-semibold leading-snug"
             type="button"
             onClick={() => {
               setEditing(true);

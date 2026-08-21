@@ -99,7 +99,11 @@ export function TaskDetail({
   return (
     <aside
       aria-label="Task details"
-      className="absolute right-2 top-2 z-30 flex max-h-[calc(100%-1rem)] w-[340px] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-pop)]"
+      // Bottom-anchored below the desktop breakpoint, where a floating 340px
+      // card would cover most of the canvas and collide with the top-right
+      // panel. Deliberately not a modal Sheet: inspecting a node while looking
+      // at the graph is the point, and a modal would block the canvas.
+      className="absolute inset-x-2 bottom-2 z-30 flex max-h-[55%] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-pop)] lg:inset-x-auto lg:right-2 lg:top-2 lg:bottom-auto lg:max-h-[calc(100%-1rem)] lg:w-[340px]"
     >
       <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
         <StatusMenu

@@ -55,6 +55,7 @@ import {
 } from './canvas-map.js';
 import { LabeledEdge } from './LabeledEdge.js';
 import { layoutNodes } from './layout.js';
+import { useIsTouchLayout } from '../../lib/breakpoints.js';
 import { TaskDetail } from './TaskDetail.js';
 import { registerTaskNodeCallbacks, TaskNode } from './TaskNode.js';
 import { useCanvasSync } from './useCanvasSync.js';
@@ -122,7 +123,7 @@ function AddTaskPanel({ projectId }: { projectId: string }) {
           }}
           placeholder="New task name"
           aria-label="New task name"
-          className="h-7 w-40 border-transparent bg-transparent text-[12.5px] shadow-none focus-visible:border-[var(--border-strong)]"
+          className="h-7 w-[38vw] border-transparent bg-transparent text-[12.5px] shadow-none focus-visible:border-[var(--border-strong)] md:w-40"
         />
         {goalChoice.requiresChoice ? (
           <Select
@@ -164,19 +165,26 @@ function AddTaskPanel({ projectId }: { projectId: string }) {
 function ArrangePanel({ onArrange }: { onArrange: () => void }) {
   const { fitView } = useReactFlow();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const compact = useIsTouchLayout();
 
   return (
     <>
-      <Panel position="top-right">
+      {/* Bottom-right on a narrow canvas: at 390px this button and the
+          top-left add-task form overlap, and the form is the one that has to
+          stay reachable. Bottom-right is the only free corner — zoom holds
+          bottom-left. */}
+      <Panel position={compact ? 'bottom-right' : 'top-right'}>
         <Button
           type="button"
           variant="outline"
           size="sm"
+          data-arrange-panel
           onClick={() => {
             setConfirmOpen(true);
           }}
         >
-          <LayoutDashboard /> Auto layout
+          <LayoutDashboard />
+          <span className={compact ? 'sr-only' : undefined}>Auto layout</span>
         </Button>
       </Panel>
       <ConfirmDialog
@@ -554,6 +562,9 @@ export function FlowCanvas({ projectId }: FlowCanvasProps) {
           onSelectionChange={handleSelectionChange}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+          // Above d3-drag's 1px default so a finger tap on a node's title is
+          // read as a tap and not as a one-pixel drag.
+          nodeDragThreshold={4}
           fitView
         >
           <Background
