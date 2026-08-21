@@ -169,14 +169,19 @@ function NavRow({ entry, id }: { entry: NavEntry; id: string }) {
   );
 }
 
-export function Sidebar() {
+/**
+ * `persistent` marks the copy that lives in the `.app` grid at desktop width.
+ * The drawer renders the same component without it, so `shell.css` can hide one
+ * and not the other.
+ */
+export function Sidebar({ persistent = false }: { persistent?: boolean }) {
   const params = useParams({ strict: false });
   const id = params.id;
   const { setOpen } = useCommandMenu();
   const navigate = useNavigate();
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" {...(persistent ? { 'data-app-sidebar': '' } : {})}>
       <Link to="/" className="ws" aria-label="Plan Desk home">
         <div className="ws-badge">P</div>
         <span className="ws-name">Plan Desk</span>

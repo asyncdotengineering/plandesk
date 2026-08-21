@@ -2,14 +2,58 @@
 
 .app {
   display: grid;
-  grid-template-columns: 244px 1fr;
+  /* Single column below the desktop breakpoint: the sidebar leaves the grid and
+     becomes an off-canvas drawer. A fixed 244px track took 62% of a 390px phone
+     and left the content ~146px wide. */
+  grid-template-columns: minmax(0, 1fr);
   /* Explicit full-height row: without it the single implicit row is auto-sized
      to .main's content, so short pages (e.g. the fixed-height Flow canvas)
      collapse and leave dead space below. minmax(0,1fr) fills the viewport and
      still lets .content scroll tall pages. */
   grid-template-rows: minmax(0, 1fr);
   height: 100vh;
+  /* dvh tracks mobile Safari's collapsing toolbar; 100vh alone puts the sidebar
+     footer and any bottom-anchored control underneath it. */
+  height: 100dvh;
   overflow: hidden;
+}
+
+/* The persistent aside exists only at desktop. The drawer renders the same
+   Sidebar through a portal outside .app, so it is unaffected by this rule. */
+.sidebar[data-app-sidebar] {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .app {
+    grid-template-columns: 244px minmax(0, 1fr);
+  }
+
+  .sidebar[data-app-sidebar] {
+    display: flex;
+  }
+}
+
+/* Opens the navigation drawer. Desktop has the persistent aside instead. */
+.topbar-trigger {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin-left: -6px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--muted-foreground);
+}
+.topbar-trigger:hover {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+@media (min-width: 1024px) {
+  .topbar-trigger {
+    display: none;
+  }
 }
 
 /* sidebar */
@@ -232,6 +276,11 @@ kbd {
 .main {
   display: grid;
   grid-template-rows: auto 1fr;
+  /* Explicit column for the same reason as the row: the implicit one is
+     auto-sized, so a wide child stretched .content past the viewport (925px
+     inside 390px on a document page) and .content's own overflow:auto never
+     got the chance to scroll it. */
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   /* min-height:0 lets the 1fr .content shrink to the viewport and become the
      scroll container; without it min-height:auto grows past 100vh and the
@@ -255,6 +304,31 @@ kbd {
   gap: 7px;
   font-size: 13px;
   color: var(--muted-foreground);
+  /* The trail is one line. Without this the flex items wrap and a three-crumb
+     path turns the 48px topbar into three rows on a phone. */
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.crumb > * {
+  flex: none;
+}
+/* Only the leaf may shrink, so a long record title ellipsises instead of
+   pushing the path it belongs to off screen. */
+.crumb > :last-child {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 767px) {
+  /* Drop the workspace crumb and its separator. It is the least useful segment
+     on a phone and the drawer carries the workspace switcher already. */
+  .crumb > :nth-child(1),
+  .crumb > :nth-child(2) {
+    display: none;
+  }
 }
 .crumb b {
   color: var(--foreground);
@@ -296,4 +370,10 @@ kbd {
   min-height: 0;
   overflow: auto;
   padding: 1.5rem;
+}
+
+@media (max-width: 767px) {
+  .content {
+    padding: 1rem;
+  }
 }

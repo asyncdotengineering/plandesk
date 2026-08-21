@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react';
 import { Link, Outlet, createRootRoute, useLocation, useParams } from '@tanstack/react-router';
+import { MenuIcon } from 'lucide-react';
 import { AccountMenu } from '../components/auth/AccountMenu.js';
 import { AuthGate } from '../components/auth/AuthGate.js';
 import { CommandMenu, CommandMenuProvider } from '../components/layout/CommandMenu.js';
 import { Sidebar } from '../components/layout/Sidebar.js';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { Toaster } from '@/components/ui/sonner';
 import { useActiveWorkspace } from '../lib/auth.js';
 import { useDocument, useNote, useProject, usePrototype } from '../lib/queries.js';
@@ -279,12 +282,52 @@ export function isCanvasPath(pathname: string): boolean {
   return segments.length === 6 && segments[4] === 'present';
 }
 
+/**
+ * Below 1024px the sidebar leaves the grid and becomes an off-canvas drawer.
+ * Both copies render the same `Sidebar`; only the persistent one carries
+ * `data-app-sidebar`, which is what `shell.css` hides and the responsive
+ * harness asserts on. The drawer portals outside `.app`, so the media query
+ * that hides the aside never reaches it.
+ */
 function AppShell({ showAccount }: { showAccount: boolean }) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const location = useLocation();
+
+  // A nav drawer that survives navigation leaves the user staring at the page
+  // they just left, with the menu still covering the one they asked for.
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [location.pathname]);
+
   return (
     <div className="app">
-      <Sidebar />
+      <Sidebar persistent />
+      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <SheetContent
+          side="left"
+          data-sidebar-drawer
+          className="w-[min(320px,85vw)] gap-0 p-0 sm:max-w-none"
+        >
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
+          <SheetDescription className="sr-only">
+            Switch workspace or project and move between views.
+          </SheetDescription>
+          <Sidebar />
+        </SheetContent>
+      </Sheet>
       <div className="main">
         <header className="topbar">
+          <button
+            type="button"
+            data-sidebar-trigger
+            className="topbar-trigger"
+            aria-label="Open navigation"
+            onClick={() => {
+              setDrawerOpen(true);
+            }}
+          >
+            <MenuIcon width={18} height={18} />
+          </button>
           <nav className="crumb">
             <Crumb />
           </nav>
