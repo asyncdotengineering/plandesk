@@ -170,7 +170,7 @@ export function TaskDetail({
           <h3 className="mb-3 text-[15px] font-semibold leading-snug">{data.label}</h3>
         )}
 
-        <dl className="grid grid-cols-[80px_1fr] gap-y-2 py-1 text-[12.5px]">
+        <dl className="grid grid-cols-1 gap-y-2 py-1 text-[12.5px] sm:grid-cols-[80px_1fr]">
           <dt className="text-muted-foreground">Status</dt>
           <dd>
             <StatusMenu

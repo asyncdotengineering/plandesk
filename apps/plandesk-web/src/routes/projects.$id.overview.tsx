@@ -221,7 +221,10 @@ function ProjectOverviewPage() {
             <span className="text-muted-foreground">Overview</span>
             <select
               aria-label="Overview document"
-              className="h-8 max-w-xs rounded-md border bg-background px-2 text-sm"
+              // min-w-0 lets it actually shrink: a bare max-w-xs is a ceiling,
+              // not a floor, and a form control's intrinsic min-width keeps it
+              // 320px wide next to its label on a 390px screen.
+              className="h-8 min-w-0 max-w-xs flex-1 rounded-md border bg-background px-2 text-sm"
               value={project.overview_document_id ?? ''}
               onChange={(event) => {
                 const value = event.target.value;

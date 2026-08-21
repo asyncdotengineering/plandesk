@@ -65,7 +65,7 @@ export function TaskDrawer({
         side="right"
         aria-label="Task details"
         showCloseButton={false}
-        className="w-[75vw] gap-0 p-0 sm:max-w-[75vw]"
+        className="w-[92vw] gap-0 p-0 sm:w-[75vw] sm:max-w-[75vw]"
       >
         <SheetTitle className="sr-only">Task details</SheetTitle>
         <SheetDescription className="sr-only">View and edit the task.</SheetDescription>
@@ -221,7 +221,7 @@ function TaskDrawerBody({
           <EntityTimestamps createdAt={task.created_at} updatedAt={task.updated_at} />
         </div>
 
-        <dl className="grid grid-cols-[92px_1fr] gap-y-2 py-1 text-[12.5px]">
+        <dl className="grid grid-cols-1 gap-y-2 py-1 text-[12.5px] sm:grid-cols-[92px_1fr]">
           <dt className="text-muted-foreground">Status</dt>
           <dd>
             <StatusMenu status={task.status} onChange={onChangeStatus} />

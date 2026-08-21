@@ -200,8 +200,12 @@ export function GoalsPanel({ projectId }: GoalsPanelProps) {
       {goalList.length === 0 ? (
         <p className="text-sm text-muted-foreground">No goals yet. Create one above.</p>
       ) : (
-        <div className="flex min-h-0 flex-1 gap-6">
-          <ul className="m-0 w-64 shrink-0 list-none space-y-2.5 p-0">
+        <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
+          {/* Two panes only where two panes fit. A 256px list against a 390px
+              screen leaves 134px for the detail, which pushes its own content
+              off the right edge, so below the desktop breakpoint the list sits
+              above the detail instead. */}
+          <ul className="m-0 w-full shrink-0 list-none space-y-2.5 p-0 lg:w-64">
             {goalList.map((goal: SerializedGoal) => (
               <li key={goal.id}>
                 <button

@@ -98,7 +98,8 @@ function formatGoalError(error: unknown): string {
 
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-[minmax(0,140px)_1fr] gap-x-4 gap-y-1 text-sm">
+    // A 140px label column against a 390px screen leaves nothing for the value.
+    <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm md:grid-cols-[minmax(0,140px)_1fr]">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="m-0 text-foreground">{value}</dd>
     </div>
