@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import { FileTextIcon, MoreHorizontalIcon } from 'lucide-react';
-import { type MouseEvent, type PointerEvent, useRef } from 'react';
+import { type MouseEvent, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -28,8 +28,9 @@ type TaskCardProps = {
 };
 
 // A drag and a click both terminate on the card; only treat it as an open when
-// the pointer barely moved between press and release (matches the PointerSensor
-// activation distance, so a real drag never opens the drawer).
+// the pointer barely moved between press and release (matches the MouseSensor
+// activation distance, so a real drag never opens the drawer). A touch tap
+// records no start point and falls through to open, which is what a tap means.
 const DRAG_CLICK_TOLERANCE_PX = 6;
 
 export function TaskCard({
@@ -61,9 +62,9 @@ export function TaskCard({
     onOpen();
   };
 
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+  const handleMouseDown = (event: MouseEvent<HTMLDivElement>) => {
     pointerDown.current = { x: event.clientX, y: event.clientY };
-    listeners?.onPointerDown?.(event);
+    listeners?.onMouseDown?.(event);
   };
 
   return (
@@ -72,12 +73,19 @@ export function TaskCard({
       data-task-id={task.id}
       data-task-status={task.status}
       onClick={handleClick}
-      onPointerDown={handlePointerDown}
+      onMouseDown={handleMouseDown}
+      onTouchStart={(event) => {
+        listeners?.onTouchStart?.(event);
+      }}
       onKeyDown={(event) => {
         listeners?.onKeyDown?.(event);
       }}
       {...attributes}
-      style={{ touchAction: 'none' }}
+      // `none` here disabled scrolling over every card, which on a phone is
+      // most of the board. TouchSensor holds the gesture with a non-passive
+      // touchmove listener once the press-and-hold activates, so the browser
+      // only needs to be told to skip the double-tap-zoom delay.
+      style={{ touchAction: 'manipulation' }}
       className={cn(
         'group relative w-full cursor-pointer gap-0 rounded-lg px-2.5 py-2.5 shadow-[var(--shadow)] transition',
         'hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-pop)]',
@@ -92,7 +100,10 @@ export function TaskCard({
               variant="ghost"
               size="icon-xs"
               aria-label="Task actions"
-              onPointerDown={(event) => {
+              onMouseDown={(event) => {
+                event.stopPropagation();
+              }}
+              onTouchStart={(event) => {
                 event.stopPropagation();
               }}
               onClick={(event) => {

@@ -3,7 +3,8 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -117,8 +118,14 @@ export function Board({
   const { handleDragEnd } = useBoardDnd({ projectId, tasks });
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  // Two sensors, not one PointerSensor, because the two inputs need opposite
+  // constraints. A mouse should drag as soon as it moves; a finger must not,
+  // or every attempt to scroll the board picks up the card underneath it.
+  // Press-and-hold is the gesture that distinguishes them, and PointerSensor
+  // cannot express one activation rule for mouse and another for touch.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
     useSensor(KeyboardSensor),
   );
   const activeTask =
