@@ -68,7 +68,7 @@ export function PrototypeChrome({
                 onClick={onPresent}
               >
                 <PlayIcon className="size-3.5" />
-                Preview
+                <span className="hidden sm:inline">Preview</span>
               </button>
             ) : null}
             {readOnly ? null : <ShareButton resource={{ kind: 'prototype', id: prototypeId }} />}
@@ -76,15 +76,20 @@ export function PrototypeChrome({
         ) : null}
       </div>
 
-      <div
-        role="radiogroup"
-        aria-label="Canvas mode"
-        data-mode-selector
-        className={`pointer-events-auto absolute top-3 left-1/2 flex -translate-x-1/2 gap-0.5 p-1 ${CLUSTER}`}
-      >
-        {modes.map((option) => (
-          <ModeButton key={option} mode={option} selected={mode === option} onSelect={setMode} />
-        ))}
+      {/* Its own row below `md`. Absolutely centred, the selector sat on top of
+          both the name on its left and Share on its right at 390px — three
+          clusters cannot share one row that narrow. */}
+      <div className="mt-2 flex md:mt-0">
+        <div
+          role="radiogroup"
+          aria-label="Canvas mode"
+          data-mode-selector
+          className={`pointer-events-auto flex gap-0.5 p-1 md:absolute md:top-3 md:left-1/2 md:-translate-x-1/2 ${CLUSTER}`}
+        >
+          {modes.map((option) => (
+            <ModeButton key={option} mode={option} selected={mode === option} onSelect={setMode} />
+          ))}
+        </div>
       </div>
     </header>
   );
@@ -150,7 +155,7 @@ function CoverageBadge({ coverage }: { coverage: FlowCoverage }) {
           />
           <div
             data-coverage-detail
-            className="absolute top-full right-0 z-20 mt-2 w-72 rounded-xl border border-border bg-card p-3 text-[12px] shadow-lg"
+            className="absolute top-full right-0 z-20 mt-2 w-[min(18rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card p-3 text-[12px] shadow-lg"
           >
             <CoverageDetail coverage={coverage} />
           </div>

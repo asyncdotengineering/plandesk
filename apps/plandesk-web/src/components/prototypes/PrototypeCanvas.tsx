@@ -33,8 +33,14 @@ import { CommentPinsLayer } from './CommentPins.js';
 import { FrameRegistryProvider, useFrameRegistry } from './FrameRegistryContext.js';
 import { resolveNavigate } from './navigate-target.js';
 import { PrototypeChrome } from './PrototypeChrome.js';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { useIsTouchLayout } from '../../lib/breakpoints.js';
 import { PrototypeCommentsRail } from './PrototypeCommentsRail.js';
-import { ScreenCommentsProvider, usePendingAnchor } from './ScreenCommentsContext.js';
+import {
+  ScreenCommentsProvider,
+  usePendingAnchor,
+  useScreenCommentsStore,
+} from './ScreenCommentsContext.js';
 import { ScreenDiagnosticsProvider, useDiagnosticsSnapshot } from './ScreenDiagnosticsContext.js';
 import { ScreenNode, type ScreenNodeData } from './ScreenNode.js';
 import { BoundaryMarkerNode, type BoundaryMarkerData } from './BoundaryMarkerNode.js';
@@ -211,7 +217,9 @@ function CanvasControls({ onRelayout }: { onRelayout: (() => void) | null }) {
                   setConfirmOpen(true);
                 }}
               >
-                <LayoutDashboard /> Auto layout
+                <LayoutDashboard />
+                {/* The label is what pushes this bar past the screen at 390px. */}
+                <span className="hidden sm:inline">Auto layout</span>
               </Button>
             </>
           ) : null}
@@ -263,8 +271,12 @@ function PrototypeCanvasInner({
   const prototype = suppliedPrototype ?? fetchedPrototype;
   const patchArtifact = usePatchArtifact(prototypeId);
   const { acceptedCount, lastAccepted, setNavigateHandler } = useFrameRegistry();
-  const { mode } = useCanvasMode();
+  const { mode, setMode } = useCanvasMode();
   const pendingAnchor = usePendingAnchor();
+  const commentsStore = useScreenCommentsStore();
+  // Declared with the other hooks: this component early-returns for the
+  // loading, error and not-found states well before the rail is rendered.
+  const railInSheet = useIsTouchLayout();
   const diagnosticsSnapshot = useDiagnosticsSnapshot();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<ScreenNodeData | BoundaryMarkerData>>(
     [],
@@ -485,7 +497,38 @@ function PrototypeCanvasInner({
           onPresent={presentFirstScreen}
         />
       </div>
-      {railOpen ? (
+      {/* A 288px rail beside a 390px canvas leaves nothing to comment on, so
+          below the desktop breakpoint the same rail rides in a bottom sheet. */}
+      {railOpen && railInSheet ? (
+        <Sheet
+          open
+          onOpenChange={(next) => {
+            if (next) {
+              return;
+            }
+            // Both conditions that hold the rail open have to go, or dismissing
+            // the sheet with a pin still pending would reopen it immediately.
+            commentsStore.setPending(null);
+            setMode('interact');
+          }}
+        >
+          <SheetContent side="bottom" data-comments-sheet className="h-[65dvh] gap-0 p-0 pt-2">
+            <SheetTitle className="sr-only">Screen comments</SheetTitle>
+            <SheetDescription className="sr-only">
+              Comments left on the screens of this prototype.
+            </SheetDescription>
+            <div className="min-h-0 flex-1 overflow-hidden px-4 pb-4">
+              <PrototypeCommentsRail
+                projectId={prototype.project_id}
+                defaultArtifactId={screenNodes[0]?.data.artifactId ?? null}
+                commentTargetForArtifact={commentTargetForArtifact}
+                canManage={!readOnly}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      ) : null}
+      {railOpen && !railInSheet ? (
         <PrototypeCommentsRail
           projectId={prototype.project_id}
           defaultArtifactId={screenNodes[0]?.data.artifactId ?? null}

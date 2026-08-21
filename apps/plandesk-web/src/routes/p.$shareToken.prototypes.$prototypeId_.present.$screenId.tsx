@@ -19,7 +19,7 @@ function PortalPresentPage() {
           return <p className="p-6 text-sm text-muted-foreground">Prototype not found.</p>;
         }
         return (
-          <div className="h-screen w-screen overflow-hidden">
+          <div className="h-dvh w-screen overflow-hidden">
             <PresentStage
               prototype={portalPrototypeToCanvas(prototype, view.project.id)}
               screenId={screenId}

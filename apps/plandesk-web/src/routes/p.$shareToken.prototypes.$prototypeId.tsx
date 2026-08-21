@@ -25,7 +25,7 @@ function PortalPrototypePage() {
           );
         }
         return (
-          <main className="h-screen min-h-[32rem] w-screen overflow-hidden">
+          <main className="h-dvh min-h-[32rem] w-screen overflow-hidden">
             <PortalPrototypeCanvas
               onPresent={(screenId) => {
                 void navigate({

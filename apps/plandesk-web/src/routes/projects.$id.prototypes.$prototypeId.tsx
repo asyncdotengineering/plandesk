@@ -11,7 +11,7 @@ function ProjectPrototypeCanvasPage() {
   const { id, prototypeId } = Route.useParams();
   const navigate = useNavigate();
   return (
-    <div className="h-screen min-h-0 w-screen overflow-hidden">
+    <div className="h-dvh min-h-0 w-screen overflow-hidden">
       <PrototypeCanvas
         prototypeId={prototypeId}
         onPresent={(screenId) => {
