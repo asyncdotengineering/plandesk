@@ -18,6 +18,7 @@ import {
   listProjects,
   listPrototypes,
   listTasks,
+  searchWorkspace,
   patchDocument,
   patchProject,
   patchTask,
@@ -489,5 +490,27 @@ describe('api client', () => {
     mockFetch(sampleTask);
     await restoreRevision('rev-1');
     expectFetchCall('/api/v1/revisions/rev-1/restore', { method: 'POST' });
+  });
+});
+
+describe('searchWorkspace', () => {
+  it('does not send workspace scope when projectId is set', async () => {
+    mockFetch({ documents: [], tasks: [], notes: [] });
+    await searchWorkspace('quokka', { projectId: 'proj-1', workspaceId: 'ws-1' });
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [calledPath, calledInit] = vi.mocked(fetch).mock.calls[0] ?? [];
+    expect(calledPath).toBeDefined();
+    const path =
+      typeof calledPath === 'string'
+        ? calledPath
+        : calledPath instanceof URL
+          ? calledPath.toString()
+          : (calledPath as Request).url;
+    expect(path).toContain('/api/v1/search?');
+    expect(path).toContain('project_id=proj-1');
+    expect(path).not.toContain('workspace_id');
+    const headers = new Headers(calledInit?.headers);
+    expect(headers.get('x-plandesk-workspace-id')).toBeNull();
   });
 });

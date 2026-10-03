@@ -104,7 +104,13 @@ const ROUTES: Route[] = [
     ready: '[data-present-stage]',
   },
   // The first thing a client sees when they open a share link on a phone.
-  { name: 'portal join gate', path: (s) => `/p/${s.shareToken}`, chrome: 'shell' },
+  // A guest holds a share token, not a membership: no org chrome, ever.
+  {
+    name: 'portal join gate',
+    path: (s) => `/p/${s.shareToken}`,
+    chrome: 'chromeless',
+    ready: 'input',
+  },
   {
     name: 'portal canvas',
     path: (s) => `/p/${s.shareToken}/prototypes/${s.prototypeId}`,
@@ -258,6 +264,11 @@ for (const viewport of VIEWPORTS) {
 
         await expectNoDocumentOverflow(page, label);
 
+        if (route.chrome === 'chromeless') {
+          await expect(page.locator('[data-app-sidebar]'), `${label}: no app sidebar`).toHaveCount(
+            0,
+          );
+        }
         if (route.chrome === 'shell') {
           if (!isDesktop) {
             await expectContentOwnsViewport(page, label);

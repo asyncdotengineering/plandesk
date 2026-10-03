@@ -93,12 +93,12 @@ function ChevronRight() {
   );
 }
 
-/** Leading crumb: the active workspace, linking to the landing to switch workspace/org. */
+/** Leading crumb: the active workspace, linking to its project list. */
 function WorkspaceCrumb() {
   const active = useActiveWorkspace();
   const name = active?.name ?? 'Workspaces';
   return (
-    <Link to="/" title="Switch workspace">
+    <Link to="/projects" title="All projects in this workspace">
       {name}
     </Link>
   );
@@ -289,7 +289,7 @@ export function isCanvasPath(pathname: string): boolean {
  * harness asserts on. The drawer portals outside `.app`, so the media query
  * that hides the aside never reaches it.
  */
-function AppShell({ showAccount }: { showAccount: boolean }) {
+function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
 
@@ -332,7 +332,7 @@ function AppShell({ showAccount }: { showAccount: boolean }) {
             <Crumb />
           </nav>
           <div className="spacer" />
-          {showAccount ? <AccountMenu /> : null}
+          <AccountMenu />
         </header>
         <main className="content">
           <Outlet />
@@ -352,7 +352,7 @@ function RootLayout() {
   const isInvite = location.pathname.startsWith(INVITE_PATH_PREFIX);
   const isLanding = isRootless(location.pathname);
   const isCanvas = isCanvasPath(location.pathname);
-  const shell = <AppShell showAccount={!isPortal} />;
+  const shell = <AppShell />;
 
   if (isInvite) {
     return (
@@ -377,7 +377,12 @@ function RootLayout() {
     );
   }
   if (isPortal) {
-    return <CommandMenuProvider>{shell}</CommandMenuProvider>;
+    return (
+      <CommandMenuProvider>
+        <Outlet />
+        <Toaster />
+      </CommandMenuProvider>
+    );
   }
   // The landing still needs the AuthGate (signed-out → SignInPage) but no AppShell.
   if (isLanding) {

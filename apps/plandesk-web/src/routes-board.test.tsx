@@ -36,6 +36,7 @@ describe('ProjectBoardPage', () => {
         return jsonResponse({
           id: 'proj-1',
           name: 'Test Project',
+          workspace_id: 'ws-1',
           description: null,
           summary: { scope: 0, todo: 0, in_progress: 0, done: 0, backlog: 0 },
           created_at: '2026-06-07T00:00:00.000Z',

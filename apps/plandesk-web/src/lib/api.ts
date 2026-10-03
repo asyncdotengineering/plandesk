@@ -364,17 +364,19 @@ export function searchWorkspace(
   opts: { projectId?: string; workspaceId?: string; limit?: number } = {},
 ): Promise<SearchResults> {
   const params = new URLSearchParams({ q: query });
-  if (opts.projectId !== undefined) {
-    params.set('project_id', opts.projectId);
+  const projectId = opts.projectId;
+  const scopedByProject = projectId !== undefined;
+  if (scopedByProject) {
+    params.set('project_id', projectId);
   }
-  if (opts.workspaceId !== undefined) {
+  if (!scopedByProject && opts.workspaceId !== undefined) {
     params.set('workspace_id', opts.workspaceId);
   }
   if (opts.limit !== undefined) {
     params.set('limit', String(opts.limit));
   }
   const headers = new Headers();
-  if (opts.workspaceId !== undefined) {
+  if (!scopedByProject && opts.workspaceId !== undefined) {
     headers.set('x-plandesk-workspace-id', opts.workspaceId);
   }
   return request(`/search?${params.toString()}`, { headers });
@@ -1087,7 +1089,7 @@ export async function setActiveWorkspace(teamId: string): Promise<void> {
   try {
     await postTeamEndpoint('set-active-team', { teamId });
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) return;
+    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return;
     throw error;
   }
 }

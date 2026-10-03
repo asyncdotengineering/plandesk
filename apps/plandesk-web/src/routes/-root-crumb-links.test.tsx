@@ -69,7 +69,7 @@ afterEach(() => {
 });
 
 describe('breadcrumb link targets', () => {
-  it('workspace crumb links to / (workspace landing)', async () => {
+  it('workspace crumb links to the project list for the active workspace', async () => {
     renderBoard();
 
     await waitFor(() => {
@@ -77,7 +77,8 @@ describe('breadcrumb link targets', () => {
     });
 
     const workspaceCrumb = screen.getByRole('link', { name: 'General' });
-    expect(workspaceCrumb.getAttribute('href')).toBe('/');
+    expect(workspaceCrumb.getAttribute('href')).toBe('/projects');
+    expect(workspaceCrumb.getAttribute('title')).toBe('All projects in this workspace');
   });
 
   // The assertion this test exists for is that the crumb goes *into* the project

@@ -14,6 +14,7 @@ import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as SettingsWorkspacesRouteImport } from './routes/settings.workspaces'
 import { Route as SettingsMembersRouteImport } from './routes/settings.members'
 import { Route as SettingsMcpRouteImport } from './routes/settings.mcp'
+import { Route as ProjectsIdRouteImport } from './routes/projects.$id'
 import { Route as PShareTokenRouteImport } from './routes/p.$shareToken'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
 import { Route as PShareTokenIndexRouteImport } from './routes/p.$shareToken.index'
@@ -62,6 +63,11 @@ const SettingsMcpRoute = SettingsMcpRouteImport.update({
   path: '/settings/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectsIdRoute = ProjectsIdRouteImport.update({
+  id: '/projects/$id',
+  path: '/projects/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PShareTokenRoute = PShareTokenRouteImport.update({
   id: '/p/$shareToken',
   path: '/p/$shareToken',
@@ -78,39 +84,39 @@ const PShareTokenIndexRoute = PShareTokenIndexRouteImport.update({
   getParentRoute: () => PShareTokenRoute,
 } as any)
 const ProjectsIdOverviewRoute = ProjectsIdOverviewRouteImport.update({
-  id: '/projects/$id/overview',
-  path: '/projects/$id/overview',
-  getParentRoute: () => rootRouteImport,
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => ProjectsIdRoute,
 } as any)
 const ProjectsIdNotesRoute = ProjectsIdNotesRouteImport.update({
-  id: '/projects/$id/notes',
-  path: '/projects/$id/notes',
-  getParentRoute: () => rootRouteImport,
+  id: '/notes',
+  path: '/notes',
+  getParentRoute: () => ProjectsIdRoute,
 } as any)
 const ProjectsIdListRoute = ProjectsIdListRouteImport.update({
-  id: '/projects/$id/list',
-  path: '/projects/$id/list',
-  getParentRoute: () => rootRouteImport,
+  id: '/list',
+  path: '/list',
+  getParentRoute: () => ProjectsIdRoute,
 } as any)
 const ProjectsIdInboxRoute = ProjectsIdInboxRouteImport.update({
-  id: '/projects/$id/inbox',
-  path: '/projects/$id/inbox',
-  getParentRoute: () => rootRouteImport,
+  id: '/inbox',
+  path: '/inbox',
+  getParentRoute: () => ProjectsIdRoute,
 } as any)
 const ProjectsIdGoalsRoute = ProjectsIdGoalsRouteImport.update({
-  id: '/projects/$id/goals',
-  path: '/projects/$id/goals',
-  getParentRoute: () => rootRouteImport,
+  id: '/goals',
+  path: '/goals',
+  getParentRoute: () => ProjectsIdRoute,
 } as any)
 const ProjectsIdFlowRoute = ProjectsIdFlowRouteImport.update({
-  id: '/projects/$id/flow',
-  path: '/projects/$id/flow',
-  getParentRoute: () => rootRouteImport,
+  id: '/flow',
+  path: '/flow',
+  getParentRoute: () => ProjectsIdRoute,
 } as any)
 const ProjectsIdBoardRoute = ProjectsIdBoardRouteImport.update({
-  id: '/projects/$id/board',
-  path: '/projects/$id/board',
-  getParentRoute: () => rootRouteImport,
+  id: '/board',
+  path: '/board',
+  getParentRoute: () => ProjectsIdRoute,
 } as any)
 const PShareTokenPrototypesRoute = PShareTokenPrototypesRouteImport.update({
   id: '/prototypes',
@@ -119,9 +125,9 @@ const PShareTokenPrototypesRoute = PShareTokenPrototypesRouteImport.update({
 } as any)
 const ProjectsIdPrototypesIndexRoute =
   ProjectsIdPrototypesIndexRouteImport.update({
-    id: '/projects/$id/prototypes/',
-    path: '/projects/$id/prototypes/',
-    getParentRoute: () => rootRouteImport,
+    id: '/prototypes/',
+    path: '/prototypes/',
+    getParentRoute: () => ProjectsIdRoute,
   } as any)
 const ProjectsIdNotesIndexRoute = ProjectsIdNotesIndexRouteImport.update({
   id: '/',
@@ -130,9 +136,9 @@ const ProjectsIdNotesIndexRoute = ProjectsIdNotesIndexRouteImport.update({
 } as any)
 const ProjectsIdDocumentsIndexRoute =
   ProjectsIdDocumentsIndexRouteImport.update({
-    id: '/projects/$id/documents/',
-    path: '/projects/$id/documents/',
-    getParentRoute: () => rootRouteImport,
+    id: '/documents/',
+    path: '/documents/',
+    getParentRoute: () => ProjectsIdRoute,
   } as any)
 const PShareTokenPrototypesIndexRoute =
   PShareTokenPrototypesIndexRouteImport.update({
@@ -142,9 +148,9 @@ const PShareTokenPrototypesIndexRoute =
   } as any)
 const ProjectsIdPrototypesPrototypeIdRoute =
   ProjectsIdPrototypesPrototypeIdRouteImport.update({
-    id: '/projects/$id/prototypes/$prototypeId',
-    path: '/projects/$id/prototypes/$prototypeId',
-    getParentRoute: () => rootRouteImport,
+    id: '/prototypes/$prototypeId',
+    path: '/prototypes/$prototypeId',
+    getParentRoute: () => ProjectsIdRoute,
   } as any)
 const ProjectsIdNotesNoteIdRoute = ProjectsIdNotesNoteIdRouteImport.update({
   id: '/$noteId',
@@ -153,15 +159,15 @@ const ProjectsIdNotesNoteIdRoute = ProjectsIdNotesNoteIdRouteImport.update({
 } as any)
 const ProjectsIdDocumentsDocIdRoute =
   ProjectsIdDocumentsDocIdRouteImport.update({
-    id: '/projects/$id/documents/$docId',
-    path: '/projects/$id/documents/$docId',
-    getParentRoute: () => rootRouteImport,
+    id: '/documents/$docId',
+    path: '/documents/$docId',
+    getParentRoute: () => ProjectsIdRoute,
   } as any)
 const ProjectsIdArtifactsArtifactIdRoute =
   ProjectsIdArtifactsArtifactIdRouteImport.update({
-    id: '/projects/$id/artifacts/$artifactId',
-    path: '/projects/$id/artifacts/$artifactId',
-    getParentRoute: () => rootRouteImport,
+    id: '/artifacts/$artifactId',
+    path: '/artifacts/$artifactId',
+    getParentRoute: () => ProjectsIdRoute,
   } as any)
 const PShareTokenPrototypesPrototypeIdRoute =
   PShareTokenPrototypesPrototypeIdRouteImport.update({
@@ -171,9 +177,9 @@ const PShareTokenPrototypesPrototypeIdRoute =
   } as any)
 const ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute =
   ProjectsIdPrototypesPrototypeIdPresentScreenIdRouteImport.update({
-    id: '/projects/$id/prototypes/$prototypeId_/present/$screenId',
-    path: '/projects/$id/prototypes/$prototypeId/present/$screenId',
-    getParentRoute: () => rootRouteImport,
+    id: '/prototypes/$prototypeId_/present/$screenId',
+    path: '/prototypes/$prototypeId/present/$screenId',
+    getParentRoute: () => ProjectsIdRoute,
   } as any)
 const PShareTokenPrototypesPrototypeIdPresentScreenIdRoute =
   PShareTokenPrototypesPrototypeIdPresentScreenIdRouteImport.update({
@@ -186,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/p/$shareToken': typeof PShareTokenRouteWithChildren
+  '/projects/$id': typeof ProjectsIdRouteWithChildren
   '/settings/mcp': typeof SettingsMcpRoute
   '/settings/members': typeof SettingsMembersRoute
   '/settings/workspaces': typeof SettingsWorkspacesRoute
@@ -214,6 +221,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/projects/$id': typeof ProjectsIdRouteWithChildren
   '/settings/mcp': typeof SettingsMcpRoute
   '/settings/members': typeof SettingsMembersRoute
   '/settings/workspaces': typeof SettingsWorkspacesRoute
@@ -242,6 +250,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
   '/p/$shareToken': typeof PShareTokenRouteWithChildren
+  '/projects/$id': typeof ProjectsIdRouteWithChildren
   '/settings/mcp': typeof SettingsMcpRoute
   '/settings/members': typeof SettingsMembersRoute
   '/settings/workspaces': typeof SettingsWorkspacesRoute
@@ -273,6 +282,7 @@ export interface FileRouteTypes {
     | '/'
     | '/invite/$invitationId'
     | '/p/$shareToken'
+    | '/projects/$id'
     | '/settings/mcp'
     | '/settings/members'
     | '/settings/workspaces'
@@ -301,6 +311,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/invite/$invitationId'
+    | '/projects/$id'
     | '/settings/mcp'
     | '/settings/members'
     | '/settings/workspaces'
@@ -328,6 +339,7 @@ export interface FileRouteTypes {
     | '/'
     | '/invite/$invitationId'
     | '/p/$shareToken'
+    | '/projects/$id'
     | '/settings/mcp'
     | '/settings/members'
     | '/settings/workspaces'
@@ -358,23 +370,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
   PShareTokenRoute: typeof PShareTokenRouteWithChildren
+  ProjectsIdRoute: typeof ProjectsIdRouteWithChildren
   SettingsMcpRoute: typeof SettingsMcpRoute
   SettingsMembersRoute: typeof SettingsMembersRoute
   SettingsWorkspacesRoute: typeof SettingsWorkspacesRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
-  ProjectsIdBoardRoute: typeof ProjectsIdBoardRoute
-  ProjectsIdFlowRoute: typeof ProjectsIdFlowRoute
-  ProjectsIdGoalsRoute: typeof ProjectsIdGoalsRoute
-  ProjectsIdInboxRoute: typeof ProjectsIdInboxRoute
-  ProjectsIdListRoute: typeof ProjectsIdListRoute
-  ProjectsIdNotesRoute: typeof ProjectsIdNotesRouteWithChildren
-  ProjectsIdOverviewRoute: typeof ProjectsIdOverviewRoute
-  ProjectsIdArtifactsArtifactIdRoute: typeof ProjectsIdArtifactsArtifactIdRoute
-  ProjectsIdDocumentsDocIdRoute: typeof ProjectsIdDocumentsDocIdRoute
-  ProjectsIdPrototypesPrototypeIdRoute: typeof ProjectsIdPrototypesPrototypeIdRoute
-  ProjectsIdDocumentsIndexRoute: typeof ProjectsIdDocumentsIndexRoute
-  ProjectsIdPrototypesIndexRoute: typeof ProjectsIdPrototypesIndexRoute
-  ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute: typeof ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -414,6 +414,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsMcpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects/$id': {
+      id: '/projects/$id'
+      path: '/projects/$id'
+      fullPath: '/projects/$id'
+      preLoaderRoute: typeof ProjectsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/p/$shareToken': {
       id: '/p/$shareToken'
       path: '/p/$shareToken'
@@ -437,52 +444,52 @@ declare module '@tanstack/react-router' {
     }
     '/projects/$id/overview': {
       id: '/projects/$id/overview'
-      path: '/projects/$id/overview'
+      path: '/overview'
       fullPath: '/projects/$id/overview'
       preLoaderRoute: typeof ProjectsIdOverviewRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectsIdRoute
     }
     '/projects/$id/notes': {
       id: '/projects/$id/notes'
-      path: '/projects/$id/notes'
+      path: '/notes'
       fullPath: '/projects/$id/notes'
       preLoaderRoute: typeof ProjectsIdNotesRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectsIdRoute
     }
     '/projects/$id/list': {
       id: '/projects/$id/list'
-      path: '/projects/$id/list'
+      path: '/list'
       fullPath: '/projects/$id/list'
       preLoaderRoute: typeof ProjectsIdListRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectsIdRoute
     }
     '/projects/$id/inbox': {
       id: '/projects/$id/inbox'
-      path: '/projects/$id/inbox'
+      path: '/inbox'
       fullPath: '/projects/$id/inbox'
       preLoaderRoute: typeof ProjectsIdInboxRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectsIdRoute
     }
     '/projects/$id/goals': {
       id: '/projects/$id/goals'
-      path: '/projects/$id/goals'
+      path: '/goals'
       fullPath: '/projects/$id/goals'
       preLoaderRoute: typeof ProjectsIdGoalsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectsIdRoute
     }
     '/projects/$id/flow': {
       id: '/projects/$id/flow'
-      path: '/projects/$id/flow'
+      path: '/flow'
       fullPath: '/projects/$id/flow'
       preLoaderRoute: typeof ProjectsIdFlowRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectsIdRoute
     }
     '/projects/$id/board': {
       id: '/projects/$id/board'
-      path: '/projects/$id/board'
+      path: '/board'
       fullPath: '/projects/$id/board'
       preLoaderRoute: typeof ProjectsIdBoardRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectsIdRoute
     }
     '/p/$shareToken/prototypes': {
       id: '/p/$shareToken/prototypes'
@@ -493,10 +500,10 @@ declare module '@tanstack/react-router' {
     }
     '/projects/$id/prototypes/': {
       id: '/projects/$id/prototypes/'
-      path: '/projects/$id/prototypes'
+      path: '/prototypes'
       fullPath: '/projects/$id/prototypes/'
       preLoaderRoute: typeof ProjectsIdPrototypesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectsIdRoute
     }
     '/projects/$id/notes/': {
       id: '/projects/$id/notes/'
@@ -507,10 +514,10 @@ declare module '@tanstack/react-router' {
     }
     '/projects/$id/documents/': {
       id: '/projects/$id/documents/'
-      path: '/projects/$id/documents'
+      path: '/documents'
       fullPath: '/projects/$id/documents/'
       preLoaderRoute: typeof ProjectsIdDocumentsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectsIdRoute
     }
     '/p/$shareToken/prototypes/': {
       id: '/p/$shareToken/prototypes/'
@@ -521,10 +528,10 @@ declare module '@tanstack/react-router' {
     }
     '/projects/$id/prototypes/$prototypeId': {
       id: '/projects/$id/prototypes/$prototypeId'
-      path: '/projects/$id/prototypes/$prototypeId'
+      path: '/prototypes/$prototypeId'
       fullPath: '/projects/$id/prototypes/$prototypeId'
       preLoaderRoute: typeof ProjectsIdPrototypesPrototypeIdRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectsIdRoute
     }
     '/projects/$id/notes/$noteId': {
       id: '/projects/$id/notes/$noteId'
@@ -535,17 +542,17 @@ declare module '@tanstack/react-router' {
     }
     '/projects/$id/documents/$docId': {
       id: '/projects/$id/documents/$docId'
-      path: '/projects/$id/documents/$docId'
+      path: '/documents/$docId'
       fullPath: '/projects/$id/documents/$docId'
       preLoaderRoute: typeof ProjectsIdDocumentsDocIdRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectsIdRoute
     }
     '/projects/$id/artifacts/$artifactId': {
       id: '/projects/$id/artifacts/$artifactId'
-      path: '/projects/$id/artifacts/$artifactId'
+      path: '/artifacts/$artifactId'
       fullPath: '/projects/$id/artifacts/$artifactId'
       preLoaderRoute: typeof ProjectsIdArtifactsArtifactIdRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectsIdRoute
     }
     '/p/$shareToken/prototypes/$prototypeId': {
       id: '/p/$shareToken/prototypes/$prototypeId'
@@ -556,10 +563,10 @@ declare module '@tanstack/react-router' {
     }
     '/projects/$id/prototypes/$prototypeId_/present/$screenId': {
       id: '/projects/$id/prototypes/$prototypeId_/present/$screenId'
-      path: '/projects/$id/prototypes/$prototypeId/present/$screenId'
+      path: '/prototypes/$prototypeId/present/$screenId'
       fullPath: '/projects/$id/prototypes/$prototypeId/present/$screenId'
       preLoaderRoute: typeof ProjectsIdPrototypesPrototypeIdPresentScreenIdRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectsIdRoute
     }
     '/p/$shareToken/prototypes/$prototypeId_/present/$screenId': {
       id: '/p/$shareToken/prototypes/$prototypeId_/present/$screenId'
@@ -617,14 +624,23 @@ const ProjectsIdNotesRouteWithChildren = ProjectsIdNotesRoute._addFileChildren(
   ProjectsIdNotesRouteChildren,
 )
 
-const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  InviteInvitationIdRoute: InviteInvitationIdRoute,
-  PShareTokenRoute: PShareTokenRouteWithChildren,
-  SettingsMcpRoute: SettingsMcpRoute,
-  SettingsMembersRoute: SettingsMembersRoute,
-  SettingsWorkspacesRoute: SettingsWorkspacesRoute,
-  ProjectsIndexRoute: ProjectsIndexRoute,
+interface ProjectsIdRouteChildren {
+  ProjectsIdBoardRoute: typeof ProjectsIdBoardRoute
+  ProjectsIdFlowRoute: typeof ProjectsIdFlowRoute
+  ProjectsIdGoalsRoute: typeof ProjectsIdGoalsRoute
+  ProjectsIdInboxRoute: typeof ProjectsIdInboxRoute
+  ProjectsIdListRoute: typeof ProjectsIdListRoute
+  ProjectsIdNotesRoute: typeof ProjectsIdNotesRouteWithChildren
+  ProjectsIdOverviewRoute: typeof ProjectsIdOverviewRoute
+  ProjectsIdArtifactsArtifactIdRoute: typeof ProjectsIdArtifactsArtifactIdRoute
+  ProjectsIdDocumentsDocIdRoute: typeof ProjectsIdDocumentsDocIdRoute
+  ProjectsIdPrototypesPrototypeIdRoute: typeof ProjectsIdPrototypesPrototypeIdRoute
+  ProjectsIdDocumentsIndexRoute: typeof ProjectsIdDocumentsIndexRoute
+  ProjectsIdPrototypesIndexRoute: typeof ProjectsIdPrototypesIndexRoute
+  ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute: typeof ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute
+}
+
+const ProjectsIdRouteChildren: ProjectsIdRouteChildren = {
   ProjectsIdBoardRoute: ProjectsIdBoardRoute,
   ProjectsIdFlowRoute: ProjectsIdFlowRoute,
   ProjectsIdGoalsRoute: ProjectsIdGoalsRoute,
@@ -639,6 +655,21 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsIdPrototypesIndexRoute: ProjectsIdPrototypesIndexRoute,
   ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute:
     ProjectsIdPrototypesPrototypeIdPresentScreenIdRoute,
+}
+
+const ProjectsIdRouteWithChildren = ProjectsIdRoute._addFileChildren(
+  ProjectsIdRouteChildren,
+)
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  InviteInvitationIdRoute: InviteInvitationIdRoute,
+  PShareTokenRoute: PShareTokenRouteWithChildren,
+  ProjectsIdRoute: ProjectsIdRouteWithChildren,
+  SettingsMcpRoute: SettingsMcpRoute,
+  SettingsMembersRoute: SettingsMembersRoute,
+  SettingsWorkspacesRoute: SettingsWorkspacesRoute,
+  ProjectsIndexRoute: ProjectsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

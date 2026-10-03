@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { liveQueryOptions } from './events.js';
 import { authSessionKey, workspacesKey } from './auth.js';
+import { ApiError } from './api.js';
 import {
   completeGoal,
   createCliToken,
@@ -87,6 +88,7 @@ import {
   type PatchTaskInput,
   type PatchViewInput,
   type PutCanvasInput,
+  type SerializedProjectDetail,
   type SubmissionStatus,
   type TaskStatus,
   type TriageSubmissionInput,
@@ -144,7 +146,7 @@ export function useCreateProject() {
 }
 
 export function useProject(id: string) {
-  return useQuery({
+  return useQuery<SerializedProjectDetail, ApiError>({
     queryKey: queryKeys.project(id),
     queryFn: () => getProject(id),
     ...liveQueryOptions,
