@@ -56,6 +56,12 @@ export {
 } from './write-actor.js';
 export { resolveWriteActor, type OrgScopedDeps } from './services/org-scope.js';
 export {
+  localOwner,
+  localPrincipal,
+  PrincipalUnresolvedError,
+  type Principal,
+} from './principal.js';
+export {
   applyAgentKeyPermissionCeiling,
   createScopedAgentKey,
   createWorkspaceScopedAgentKey,

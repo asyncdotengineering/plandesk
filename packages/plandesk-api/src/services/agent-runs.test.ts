@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createAgentRun,
@@ -22,7 +23,7 @@ describe('agentRunService', () => {
   });
 
   function createService() {
-    return createAgentRunService({ db, orgId });
+    return createAgentRunService({ db, principal: localOwner(orgId) });
   }
 
   it('starts a run', async () => {

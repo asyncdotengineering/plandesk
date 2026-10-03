@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
@@ -44,7 +45,7 @@ describe('portal prototype access', () => {
       content: '<p>visible</p>',
       prototypeId: prototype.id,
     });
-    const shares = createShareService({ db, orgId: project.orgId });
+    const shares = createShareService({ db, principal: localOwner(project.orgId) });
     const share = await shares.createResourceShare(
       { resource: { kind: 'prototype', ids: [prototype.id] } },
       'http://localhost',
@@ -109,7 +110,7 @@ describe('portal prototype access', () => {
       prototypeId: prototypeB.id,
     });
 
-    const shares = createShareService({ db, orgId: projectA.orgId });
+    const shares = createShareService({ db, principal: localOwner(projectA.orgId) });
     const share = await shares.createResourceShare(
       {
         resource: { kind: 'prototype', ids: [prototypeA.id] },
@@ -170,7 +171,7 @@ describe('portal prototype access', () => {
       prototypeId: prototype.id,
     });
 
-    const shares = createShareService({ db, orgId: project.orgId });
+    const shares = createShareService({ db, principal: localOwner(project.orgId) });
     const share = await shares.createResourceShare(
       {
         resource: { kind: 'prototype', ids: [prototype.id] },

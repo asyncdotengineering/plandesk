@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
 import { getRequestListener } from '@hono/node-server';
-import { createApp, createServices } from '@plandesk/api';
+import { createApp, createServices, localOwner } from '@plandesk/api';
 import {
   DEFAULT_ORG_ID,
   createDb,
@@ -29,7 +29,7 @@ async function withMcpServer(
   });
   const token = '';
 
-  const services = createServices({ db, orgId: project.orgId });
+  const services = createServices({ db, principal: localOwner(project.orgId) });
   const mcpApp = createMcpApp({ services });
   const app = createApp({ db, services, mcp: mcpApp });
 
@@ -190,7 +190,7 @@ describe('MCP loopback workspace scoping via in-process server', () => {
     const projectA = await createProject(db, { name: 'Project A', workspaceId: wsA });
     await createProject(db, { name: 'Project B', workspaceId: wsB });
 
-    const services = createServices({ db, orgId: DEFAULT_ORG_ID });
+    const services = createServices({ db, principal: localOwner(DEFAULT_ORG_ID) });
     const mcpApp = createMcpApp({ services });
     const app = createApp({ db, services, mcp: mcpApp, bindHost: '127.0.0.1' });
 

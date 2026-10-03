@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { describe, expect, it } from 'vitest';
 import {
   createProjectInDefaultOrg as createProject,
@@ -249,7 +250,7 @@ describe('views routes', () => {
     });
 
     const { createViewService } = await import('../services/views.js');
-    const viewServiceA = createViewService({ db, orgId: orgA.id });
+    const viewServiceA = createViewService({ db, principal: localOwner(orgA.id) });
     const view = await viewServiceA.create(projectA.id, {
       name: 'Secret view',
       config: NON_TRIVIAL_SAVED_VIEW_CONFIG,

@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createComment,
@@ -30,7 +31,7 @@ describe('commentService', () => {
   let submissionId = '';
 
   function createService() {
-    return createCommentService({ db, orgId });
+    return createCommentService({ db, principal: localOwner(orgId) });
   }
 
   beforeEach(async () => {

@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
@@ -29,11 +30,11 @@ describe('prototype folder + flow document', () => {
   });
 
   function prototypes() {
-    return createPrototypeService({ db, orgId });
+    return createPrototypeService({ db, principal: localOwner(orgId) });
   }
 
   function artifacts() {
-    return createArtifactService({ db, orgId });
+    return createArtifactService({ db, principal: localOwner(orgId) });
   }
 
   it('creates exactly one folder and one flow document edged to the prototype', async () => {

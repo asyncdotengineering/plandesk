@@ -20,6 +20,7 @@ import {
   createBetterAuth,
   createOrgOwnerKey,
   createServices,
+  localOwner,
   runBetterAuthMigrations,
   type BetterAuthInstance,
 } from '@plandesk/api';
@@ -151,7 +152,7 @@ async function withTestServer(
   const db = await createDb(':memory:');
   await migrate(db);
   const project = await createProject(db, { name: 'connect-repo' });
-  const services = createServices({ db, orgId: project.orgId });
+  const services = createServices({ db, principal: localOwner(project.orgId) });
   const mcpApp = createMcpApp({ services });
   const app = createApp({ db, services, mcp: mcpApp });
 
@@ -755,7 +756,7 @@ describe('runConnect --to hosted (BA4b-3)', () => {
     await runBetterAuthMigrations(auth);
     await ensureLocalBetterAuthOrganization(db, auth);
 
-    const services = createServices({ db, orgId: project.orgId });
+    const services = createServices({ db, principal: localOwner(project.orgId) });
     const mcpApp = createMcpApp({ services });
     const app = createApp({
       db,
@@ -834,7 +835,7 @@ describe('runConnect --to hosted (BA4b-3)', () => {
     await runBetterAuthMigrations(auth);
     await ensureLocalBetterAuthOrganization(db, auth);
 
-    const services = createServices({ db, orgId: DEFAULT_ORG_ID });
+    const services = createServices({ db, principal: localOwner(DEFAULT_ORG_ID) });
     const app = createApp({
       db,
       services,
@@ -945,7 +946,7 @@ describe('CLI connect/disconnect', () => {
     const db = await createDb(':memory:');
     await migrate(db);
     const project = await createProject(db, { name: 'cli-connect' });
-    const services = createServices({ db, orgId: project.orgId });
+    const services = createServices({ db, principal: localOwner(project.orgId) });
     const mcpApp = createMcpApp({ services });
     const app = createApp({ db, services, mcp: mcpApp });
     const server = createServer((req, res) => {

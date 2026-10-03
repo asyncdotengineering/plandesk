@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { createServices } from '@plandesk/api';
+import { createServices, localOwner } from '@plandesk/api';
 import { createDb, createProject, insertRevision, migrate } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createListRevisionsHandler } from './list-revisions.js';
@@ -46,7 +46,7 @@ describe('MCP revision tools', () => {
       author: 'human:user-a',
     });
 
-    const servicesB = createServices({ db, orgId: ORG_B });
+    const servicesB = createServices({ db, principal: localOwner(ORG_B) });
     const list = createListRevisionsHandler(servicesB.revisionService);
     const get = serviceTool(
       ({ revision_id }: { revision_id: string }) => servicesB.revisionService.get(revision_id),

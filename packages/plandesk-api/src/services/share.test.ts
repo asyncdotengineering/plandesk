@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_ORG_ID,
@@ -43,7 +44,7 @@ describe('shareService', () => {
   });
 
   function createService() {
-    return createShareService({ db, orgId });
+    return createShareService({ db, principal: localOwner(orgId) });
   }
 
   it('creates a share and returns the raw token once', async () => {
@@ -429,7 +430,7 @@ describe('shareService', () => {
   });
 
   it('cascade deletes shares when a project is deleted', async () => {
-    const projectService = createProjectService({ db, orgId });
+    const projectService = createProjectService({ db, principal: localOwner(orgId) });
     const shareService = createService();
     const project = await createProject(db, { name: 'Cascade shares' });
     await shareService.createShare(project.id, { audienceName: 'Gone', mode: 'invite' });
@@ -440,13 +441,13 @@ describe('shareService', () => {
   });
 
   it('cascade deletes pulled submissions when a project is deleted', async () => {
-    const projectService = createProjectService({ db, orgId });
+    const projectService = createProjectService({ db, principal: localOwner(orgId) });
     const project = await createProject(db, { name: 'Cascade submissions' });
-    const taskService = createTaskService({ db, orgId });
+    const taskService = createTaskService({ db, principal: localOwner(orgId) });
     const syncService = createSyncService({
       db,
       taskService,
-      orgId,
+      principal: localOwner(orgId),
     });
 
     await upsertSubmission(db, {

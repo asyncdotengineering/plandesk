@@ -1,3 +1,4 @@
+import { localOwner, localPrincipal } from '../principal.js';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -45,7 +46,7 @@ describe('taskService', () => {
   let orgId = '';
 
   function createService() {
-    return createTaskService({ db, orgId });
+    return createTaskService({ db, principal: localOwner(orgId) });
   }
 
   beforeEach(async () => {
@@ -229,7 +230,7 @@ describe('taskService', () => {
   });
 
   it('creates a task', async () => {
-    const service = createTaskService({ db, orgId });
+    const service = createTaskService({ db, principal: localOwner(orgId) });
 
     const created = await service.create(projectId, {
       label: 'New task',
@@ -367,7 +368,7 @@ describe('taskService', () => {
   });
 
   it('updates a task successfully', async () => {
-    const service = createTaskService({ db, orgId });
+    const service = createTaskService({ db, principal: localOwner(orgId) });
     const created = await createTask(db, { projectId, label: 'Emit', status: 'todo' });
 
     const updated = await service.update(created.id, { status: 'done' });
@@ -1017,7 +1018,10 @@ describe('taskService', () => {
   });
 
   it('claim with a foreign org scope returns not-claimed (tenancy)', async () => {
-    const foreign = createTaskService({ db, orgId: '00000000-0000-4000-8000-00000000ffff' });
+    const foreign = createTaskService({
+      db,
+      principal: localOwner('00000000-0000-4000-8000-00000000ffff'),
+    });
     const created = await createTask(db, { projectId, label: 'A-only', status: 'todo' });
 
     const result = await foreign.claim(created.id, 'agent-b');
@@ -1039,8 +1043,15 @@ describe.each([
   let projectId = '';
   let orgId = '';
 
-  function createService(actor?: Parameters<typeof createTaskService>[0]['actor']) {
-    return createTaskService({ db, orgId, ...(actor !== undefined ? { actor } : {}) });
+  function createService(
+    actor?:
+      | { kind: 'human'; userId: string }
+      | { kind: 'agent'; runId: string }
+      | { kind: 'system' },
+  ) {
+    const principal =
+      actor !== undefined ? localPrincipal(orgId, 'owner', actor) : localOwner(orgId);
+    return createTaskService({ db, principal });
   }
 
   beforeEach(async () => {
@@ -1135,8 +1146,8 @@ describe.each([
     });
     await new Promise((resolve) => setTimeout(resolve, 5));
 
-    const serviceA = createTaskService({ db: dbA, orgId: raceOrgId });
-    const serviceB = createTaskService({ db: dbB, orgId: raceOrgId });
+    const serviceA = createTaskService({ db: dbA, principal: localOwner(raceOrgId) });
+    const serviceB = createTaskService({ db: dbB, principal: localOwner(raceOrgId) });
     const [a, b] = await Promise.all([
       serviceA.update(task.id, { label: 'Winner A', description: 'a' }),
       serviceB.update(task.id, { label: 'Winner B', description: 'b' }),

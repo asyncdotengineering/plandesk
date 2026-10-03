@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -29,45 +30,51 @@ describe('prototype canvas share', () => {
   });
 
   function shares() {
-    return createShareService({ db, orgId });
+    return createShareService({ db, principal: localOwner(orgId) });
   }
 
   it('exposes the shared prototype screens and links and nothing else', async () => {
     await createTask(db, { projectId, label: 'Secret task' });
     await createDocument(db, { projectId, title: 'Secret doc', body: 'nope' });
 
-    const proto = await createPrototypeService({ db, orgId }).create(projectId, {
-      name: 'Checkout',
-      viewportWidth: 390,
-      viewportHeight: 844,
-    });
+    const proto = await createPrototypeService({ db, principal: localOwner(orgId) }).create(
+      projectId,
+      {
+        name: 'Checkout',
+        viewportWidth: 390,
+        viewportHeight: 844,
+      },
+    );
     expect(proto).toBeDefined();
     if (!proto) {
       return;
     }
-    const other = await createPrototypeService({ db, orgId }).create(projectId, {
-      name: 'Other flow',
-      viewportWidth: 390,
-      viewportHeight: 844,
-    });
+    const other = await createPrototypeService({ db, principal: localOwner(orgId) }).create(
+      projectId,
+      {
+        name: 'Other flow',
+        viewportWidth: 390,
+        viewportHeight: 844,
+      },
+    );
     expect(other).toBeDefined();
     if (!other) {
       return;
     }
 
-    await createArtifactService({ db, orgId }).create(projectId, {
+    await createArtifactService({ db, principal: localOwner(orgId) }).create(projectId, {
       title: 'Home',
       kind: 'html',
       content: '<a href="plandesk://artifact/Pay">go</a>',
       prototypeId: proto.id,
     });
-    await createArtifactService({ db, orgId }).create(projectId, {
+    await createArtifactService({ db, principal: localOwner(orgId) }).create(projectId, {
       title: 'Pay',
       kind: 'html',
       content: '<p>pay</p>',
       prototypeId: proto.id,
     });
-    await createArtifactService({ db, orgId }).create(projectId, {
+    await createArtifactService({ db, principal: localOwner(orgId) }).create(projectId, {
       title: 'Other screen',
       kind: 'html',
       content: '<p>x</p>',
@@ -107,12 +114,12 @@ describe('prototype canvas share', () => {
   });
 
   it('a share naming two prototypes exposes both under one link', async () => {
-    const a = await createPrototypeService({ db, orgId }).create(projectId, {
+    const a = await createPrototypeService({ db, principal: localOwner(orgId) }).create(projectId, {
       name: 'A',
       viewportWidth: 390,
       viewportHeight: 844,
     });
-    const b = await createPrototypeService({ db, orgId }).create(projectId, {
+    const b = await createPrototypeService({ db, principal: localOwner(orgId) }).create(projectId, {
       name: 'B',
       viewportWidth: 1024,
       viewportHeight: 768,
@@ -143,11 +150,14 @@ describe('prototype canvas share', () => {
   });
 
   it('REVERT-PROOF: revoking the share kills access', async () => {
-    const proto = await createPrototypeService({ db, orgId }).create(projectId, {
-      name: 'Flow',
-      viewportWidth: 390,
-      viewportHeight: 844,
-    });
+    const proto = await createPrototypeService({ db, principal: localOwner(orgId) }).create(
+      projectId,
+      {
+        name: 'Flow',
+        viewportWidth: 390,
+        viewportHeight: 844,
+      },
+    );
     expect(proto).toBeDefined();
     if (!proto) {
       return;

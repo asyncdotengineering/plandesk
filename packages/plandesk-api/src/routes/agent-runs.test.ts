@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { describe, expect, it } from 'vitest';
 import { createServices } from '../services/index.js';
 import { createTestApp, parseJson } from '../test-helpers.js';
@@ -21,7 +22,7 @@ type AgentRunResponse = {
 describe('agent-runs routes', () => {
   it('GET /projects/:id/agent-runs returns runs with nested events', async () => {
     const { app, db, orgId } = await createTestApp();
-    const { agentRunService } = createServices({ db, orgId });
+    const { agentRunService } = createServices({ db, principal: localOwner(orgId) });
 
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
@@ -71,7 +72,7 @@ describe('agent-runs routes', () => {
 
   it('GET /projects/:id/agent-runs honors limit and offset', async () => {
     const { app, db, orgId } = await createTestApp();
-    const { agentRunService } = createServices({ db, orgId });
+    const { agentRunService } = createServices({ db, principal: localOwner(orgId) });
     const projectRes = await app.request('/api/v1/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -103,7 +104,7 @@ describe('agent-runs routes', () => {
 
   it('POST /agent-runs/:id/progress records an event on a running run', async () => {
     const { app, db, orgId } = await createTestApp();
-    const { agentRunService } = createServices({ db, orgId });
+    const { agentRunService } = createServices({ db, principal: localOwner(orgId) });
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
         method: 'POST',
@@ -147,7 +148,7 @@ describe('agent-runs routes', () => {
 
   it('POST /agent-runs/:id/progress returns 400 for a missing message', async () => {
     const { app, db, orgId } = await createTestApp();
-    const { agentRunService } = createServices({ db, orgId });
+    const { agentRunService } = createServices({ db, principal: localOwner(orgId) });
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
         method: 'POST',
@@ -170,7 +171,7 @@ describe('agent-runs routes', () => {
 
   it('POST /agent-runs/:id/progress returns 400 for a completed run', async () => {
     const { app, db, orgId } = await createTestApp();
-    const { agentRunService } = createServices({ db, orgId });
+    const { agentRunService } = createServices({ db, principal: localOwner(orgId) });
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
         method: 'POST',
@@ -273,7 +274,7 @@ describe('agent-runs routes', () => {
 
   it('PATCH /agent-runs/:id completes a running run', async () => {
     const { app, db, orgId } = await createTestApp();
-    const { agentRunService } = createServices({ db, orgId });
+    const { agentRunService } = createServices({ db, principal: localOwner(orgId) });
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
         method: 'POST',
@@ -299,7 +300,7 @@ describe('agent-runs routes', () => {
 
   it('PATCH /agent-runs/:id accepts failed', async () => {
     const { app, db, orgId } = await createTestApp();
-    const { agentRunService } = createServices({ db, orgId });
+    const { agentRunService } = createServices({ db, principal: localOwner(orgId) });
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
         method: 'POST',
@@ -323,7 +324,7 @@ describe('agent-runs routes', () => {
 
   it('PATCH /agent-runs/:id returns 400 for a status outside the terminal pair', async () => {
     const { app, db, orgId } = await createTestApp();
-    const { agentRunService } = createServices({ db, orgId });
+    const { agentRunService } = createServices({ db, principal: localOwner(orgId) });
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
         method: 'POST',
@@ -366,7 +367,7 @@ describe('agent-runs routes', () => {
 
   it('PATCH /agent-runs/:id returns 400 for an already-completed run', async () => {
     const { app, db, orgId } = await createTestApp();
-    const { agentRunService } = createServices({ db, orgId });
+    const { agentRunService } = createServices({ db, principal: localOwner(orgId) });
     const project = await parseJson<{ id: string }>(
       await app.request('/api/v1/projects', {
         method: 'POST',

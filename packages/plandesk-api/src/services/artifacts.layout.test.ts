@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
@@ -22,8 +23,8 @@ describe('artifactService auto-layout on screen create', () => {
   });
 
   it('assigns x/y in navigation order without the client sending coordinates', async () => {
-    const prototypes = createPrototypeService({ db, orgId });
-    const artifacts = createArtifactService({ db, orgId });
+    const prototypes = createPrototypeService({ db, principal: localOwner(orgId) });
+    const artifacts = createArtifactService({ db, principal: localOwner(orgId) });
     const proto = await prototypes.create(projectId, {
       name: 'Flow',
       viewportWidth: 390,

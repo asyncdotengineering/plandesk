@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
@@ -288,7 +289,7 @@ describe('frame auth (render token + share credential)', () => {
       prototypeId: proto.id,
     });
 
-    const shares = createShareService({ db, orgId: project.orgId });
+    const shares = createShareService({ db, principal: localOwner(project.orgId) });
     const minted = await shares.createResourceShare(
       { resource: { kind: 'prototype', ids: [proto.id] }, expiresAt: null },
       'http://localhost',

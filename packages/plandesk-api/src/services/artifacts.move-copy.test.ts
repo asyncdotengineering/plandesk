@@ -9,6 +9,7 @@ import {
   migrate,
   type Db,
 } from '@plandesk/db';
+import { localOwner } from '../principal.js';
 import { createArtifactService, InvalidArtifactError } from './artifacts.js';
 import { createPrototypeService } from './prototypes.js';
 
@@ -31,11 +32,11 @@ describe('artifactService moveScreen / copyScreen', () => {
   });
 
   function artifacts(oid = orgId) {
-    return createArtifactService({ db, orgId: oid });
+    return createArtifactService({ db, principal: localOwner(oid) });
   }
 
   function prototypes(oid = orgId) {
-    return createPrototypeService({ db, orgId: oid });
+    return createPrototypeService({ db, principal: localOwner(oid) });
   }
 
   async function twoProtos() {

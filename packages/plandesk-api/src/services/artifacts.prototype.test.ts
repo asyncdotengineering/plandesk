@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
@@ -22,11 +23,11 @@ describe('artifactService prototype_id', () => {
   });
 
   function artifacts() {
-    return createArtifactService({ db, orgId });
+    return createArtifactService({ db, principal: localOwner(orgId) });
   }
 
   function prototypes() {
-    return createPrototypeService({ db, orgId });
+    return createPrototypeService({ db, principal: localOwner(orgId) });
   }
 
   it('create_artifact with no prototype_id behaves exactly as today for markdown', async () => {
@@ -113,11 +114,14 @@ describe('artifactService prototype_id', () => {
 
   it('refuses a prototype_id belonging to another project', async () => {
     const other = await createProject(db, { name: 'Other' });
-    const foreign = await createPrototypeService({ db, orgId: other.orgId }).create(other.id, {
-      name: 'Foreign',
-      viewportWidth: 390,
-      viewportHeight: 844,
-    });
+    const foreign = await createPrototypeService({ db, principal: localOwner(other.orgId) }).create(
+      other.id,
+      {
+        name: 'Foreign',
+        viewportWidth: 390,
+        viewportHeight: 844,
+      },
+    );
     expect(foreign).toBeDefined();
     if (!foreign) {
       return;
@@ -155,11 +159,14 @@ describe('artifactService prototype_id', () => {
     }
 
     const other = await createProject(db, { name: 'Other' });
-    const foreign = await createPrototypeService({ db, orgId: other.orgId }).create(other.id, {
-      name: 'Foreign',
-      viewportWidth: 1024,
-      viewportHeight: 768,
-    });
+    const foreign = await createPrototypeService({ db, principal: localOwner(other.orgId) }).create(
+      other.id,
+      {
+        name: 'Foreign',
+        viewportWidth: 1024,
+        viewportHeight: 768,
+      },
+    );
     expect(foreign).toBeDefined();
     if (!foreign) {
       return;

@@ -7,6 +7,7 @@ import {
   type Db,
 } from '@plandesk/db';
 import { createApp } from '../server.js';
+import { localOwner } from '../principal.js';
 import { createServices, type Services } from '../services/index.js';
 import { parseJson } from '../test-helpers.js';
 
@@ -14,7 +15,7 @@ async function createTestAppWithServices() {
   const db = await createDb(':memory:');
   await migrate(db);
   const project = await createProject(db, { name: '__seed__' });
-  const services: Services = createServices({ db, orgId: project.orgId });
+  const services: Services = createServices({ db, principal: localOwner(project.orgId) });
   const app = createApp({ db, services });
   return { app, db, services };
 }

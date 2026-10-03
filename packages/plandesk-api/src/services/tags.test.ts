@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { describe, expect, it } from 'vitest';
 import {
   createDb,
@@ -13,8 +14,8 @@ async function setup() {
   await migrate(db);
   const project = await createProject(db, { name: 'Tags' });
   const orgId = project.orgId;
-  const tagService = createTagService({ db, orgId });
-  const taskService = createTaskService({ db, orgId });
+  const tagService = createTagService({ db, principal: localOwner(orgId) });
+  const taskService = createTaskService({ db, principal: localOwner(orgId) });
   return { db, tagService, taskService, projectId: project.id };
 }
 

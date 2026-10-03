@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
@@ -16,7 +17,7 @@ describe('blocked state on list (derived prerequisites)', () => {
   let orgId = '';
 
   function createService() {
-    return createTaskService({ db, orgId });
+    return createTaskService({ db, principal: localOwner(orgId) });
   }
 
   beforeEach(async () => {

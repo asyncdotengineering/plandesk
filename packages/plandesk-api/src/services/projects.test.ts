@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   DEFAULT_ORG_ID,
@@ -78,7 +79,7 @@ describe('projectService', () => {
       await runBetterAuthMigrations(auth);
       await ensureLocalBetterAuthOrganization(db, auth);
     }
-    return createProjectService({ db, orgId, auth });
+    return createProjectService({ db, principal: localOwner(orgId), auth });
   }
 
   async function createWorkspaceBoundService() {
@@ -94,7 +95,7 @@ describe('projectService', () => {
     await ensureLocalBetterAuthOrganization(db, auth);
     const workspace = await createTeamForOrg(auth, orgId, 'Bound workspace');
     return {
-      service: createProjectService({ db, orgId, auth }),
+      service: createProjectService({ db, principal: localOwner(orgId), auth }),
       workspaceId: workspace.id,
     };
   }
@@ -253,7 +254,7 @@ describe('projectService', () => {
     await service.update(home.id, { overviewDocumentId: doc.id });
 
     const otherOrgId = '00000000-0000-4000-8000-00000000bbbb';
-    const foreignService = createProjectService({ db, orgId: otherOrgId });
+    const foreignService = createProjectService({ db, principal: localOwner(otherOrgId) });
 
     expect(await foreignService.get(home.id)).toBeUndefined();
     expect(
@@ -567,7 +568,7 @@ describe('projectService', () => {
       }
     }
 
-    const taskService = createTaskService({ db, orgId });
+    const taskService = createTaskService({ db, principal: localOwner(orgId) });
     const next = await taskService.nextActionable(project.id);
     expect(next?.reason).toBe('ok');
     expect(next?.next_task?.goal_id).toBe(targetGoal.id);
@@ -642,7 +643,7 @@ describe('projectService', () => {
         }
       }
 
-      const taskService = createTaskService({ db, orgId });
+      const taskService = createTaskService({ db, principal: localOwner(orgId) });
       const next = await taskService.nextActionable(project.id);
       expect(next?.reason).toBe('ok');
       expect(next?.next_task?.goal_id).toBe(active.id);
@@ -668,7 +669,7 @@ describe('projectService', () => {
     const task = await getTask(db, result.key_to_id.a as string);
     expect(task?.goalId).not.toBe(complete.id);
 
-    const taskService = createTaskService({ db, orgId });
+    const taskService = createTaskService({ db, principal: localOwner(orgId) });
     const next = await taskService.nextActionable(project.id);
     expect(next?.reason).toBe('ok');
     expect(next?.next_task?.goal_id).toBe(task?.goalId);

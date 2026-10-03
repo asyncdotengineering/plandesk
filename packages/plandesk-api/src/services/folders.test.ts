@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
@@ -21,11 +22,11 @@ describe('folderService', () => {
   let orgId = '';
 
   function createService() {
-    return createFolderService({ db, orgId });
+    return createFolderService({ db, principal: localOwner(orgId) });
   }
 
   function createDocService() {
-    return createDocumentService({ db, orgId });
+    return createDocumentService({ db, principal: localOwner(orgId) });
   }
 
   beforeEach(async () => {

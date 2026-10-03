@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_ORG_ID,
@@ -51,8 +52,8 @@ describe('syncService', () => {
   });
 
   function createService() {
-    const taskService = createTaskService({ db, orgId });
-    return createSyncService({ db, taskService, orgId });
+    const taskService = createTaskService({ db, principal: localOwner(orgId) });
+    return createSyncService({ db, taskService, principal: localOwner(orgId) });
   }
 
   async function seedSubmission(projectId: string) {

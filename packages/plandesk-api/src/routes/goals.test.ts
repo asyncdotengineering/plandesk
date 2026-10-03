@@ -7,6 +7,7 @@ import {
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createApp } from '../server.js';
+import { localOwner } from '../principal.js';
 import { createServices } from '../services/index.js';
 import { parseJson, readStringCell } from '../test-helpers.js';
 
@@ -14,7 +15,7 @@ async function createTestApp() {
   const db = await createDb(':memory:');
   await migrate(db);
   const seed = await createProject(db, { name: '__seed__' });
-  const services = createServices({ db, orgId: seed.orgId });
+  const services = createServices({ db, principal: localOwner(seed.orgId) });
   const app = createApp({ db, services });
   return { app, db, services };
 }

@@ -9,6 +9,7 @@ import {
   createBetterAuth,
   runBetterAuthMigrations,
   ensureLocalBetterAuthOrganization,
+  localOwner,
 } from '@plandesk/api';
 import {
   createDb,
@@ -65,7 +66,7 @@ async function withMcpServer(
   const { existsSync } = await import('node:fs');
   const services = createServices({
     db,
-    orgId: project.orgId,
+    principal: localOwner(project.orgId),
     auth,
     referenceCheckFs: { pathExists: existsSync, folderExists: existsSync },
   });

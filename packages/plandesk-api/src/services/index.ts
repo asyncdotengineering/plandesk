@@ -23,14 +23,15 @@ import { createSearchService, type SearchService } from './search.js';
 import { maxRevisionsFromEnv } from './revision-capture.js';
 import { createReferenceCheckService, type ReferenceCheckService } from './reference-check.js';
 import type { ReferenceCheckFs } from '@plandesk/db';
+import type { Principal } from '../principal.js';
 
 export type ServicesDeps = {
   db: Db;
   storage?: StorageAdapter;
   /** Node-only filesystem probes for reference checks; omit on Workers. */
   referenceCheckFs?: ReferenceCheckFs | null;
-  /** Fixed org scope for unit tests; production request path uses auth context. */
-  orgId?: string;
+  /** Explicit in-process caller when request auth context is absent. */
+  principal?: Principal;
   /** better-auth instance for workspace resolution (project creation). */
   auth?: BetterAuthInstance;
   /**
@@ -67,7 +68,7 @@ export type Services = {
 export function createServices(deps: ServicesDeps): Services {
   const maxRevisions =
     deps.maxRevisions !== undefined ? deps.maxRevisions : maxRevisionsFromEnv(process.env);
-  const scoped = { db: deps.db, orgId: deps.orgId, auth: deps.auth };
+  const scoped = { db: deps.db, principal: deps.principal, auth: deps.auth };
   const versioned = { ...scoped, maxRevisions };
   const storage = deps.storage ?? createStorageAdapter({ db: deps.db });
   const projectService = createProjectService(scoped);

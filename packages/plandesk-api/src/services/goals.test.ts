@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
@@ -91,8 +92,8 @@ describe('goalService', () => {
   let orgId = '';
 
   function createService() {
-    const taskService = createTaskService({ db, orgId });
-    return createGoalService({ db, orgId, taskService });
+    const taskService = createTaskService({ db, principal: localOwner(orgId) });
+    return createGoalService({ db, principal: localOwner(orgId), taskService });
   }
 
   async function markAllCycleTasksDone(goalId: string) {

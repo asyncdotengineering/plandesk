@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
@@ -27,12 +28,13 @@ describe('artifact revisions', () => {
   });
 
   function services(maxRevisions: number | null = null) {
-    const taskService = createTaskService({ db, orgId, maxRevisions });
-    const documentService = createDocumentService({ db, orgId, maxRevisions, taskService });
-    const artifactService = createArtifactService({ db, orgId, maxRevisions });
+    const principal = localOwner(orgId);
+    const taskService = createTaskService({ db, principal, maxRevisions });
+    const documentService = createDocumentService({ db, principal, maxRevisions, taskService });
+    const artifactService = createArtifactService({ db, principal, maxRevisions });
     const revisionService = createRevisionService({
       db,
-      orgId,
+      principal,
       taskService,
       documentService,
       artifactService,
@@ -75,11 +77,14 @@ describe('artifact revisions', () => {
 
   it('restore re-runs link extraction so prototype_links match restored markup', async () => {
     const { artifactService, revisionService } = services();
-    const proto = await createPrototypeService({ db, orgId }).create(projectId, {
-      name: 'Flow',
-      viewportWidth: 390,
-      viewportHeight: 844,
-    });
+    const proto = await createPrototypeService({ db, principal: localOwner(orgId) }).create(
+      projectId,
+      {
+        name: 'Flow',
+        viewportWidth: 390,
+        viewportHeight: 844,
+      },
+    );
     expect(proto).toBeDefined();
     if (!proto) return;
 

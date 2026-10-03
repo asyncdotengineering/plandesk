@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { describe, expect, it } from 'vitest';
 import { createDb, createProject, migrate, NON_TRIVIAL_SAVED_VIEW_CONFIG } from '@plandesk/db';
 import { createViewService, InvalidViewError } from './views.js';
@@ -22,8 +23,8 @@ describe('view service', () => {
       workspaceId: WS_B,
     });
 
-    const serviceA = createViewService({ db, orgId: ORG_A });
-    const serviceB = createViewService({ db, orgId: ORG_B });
+    const serviceA = createViewService({ db, principal: localOwner(ORG_A) });
+    const serviceB = createViewService({ db, principal: localOwner(ORG_B) });
 
     const created = await serviceA.create(projectA.id, {
       name: 'Secret',
@@ -61,7 +62,7 @@ describe('view service', () => {
       orgId: ORG_A,
       workspaceId: WS_A,
     });
-    const service = createViewService({ db, orgId: ORG_A });
+    const service = createViewService({ db, principal: localOwner(ORG_A) });
 
     await expect(
       service.create(project.id, {

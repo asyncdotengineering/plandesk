@@ -9,6 +9,7 @@ import {
   createBetterAuth,
   createOrgOwnerKey,
   createServices,
+  localOwner,
   runBetterAuthMigrations,
   type BetterAuthInstance,
 } from '@plandesk/api';
@@ -258,7 +259,7 @@ describe('CLI push/pull', () => {
     const token = tokenMatch?.[0] ?? '';
 
     const { db } = await openWorkspace(dataDir);
-    const { shareService } = createServices({ db, orgId });
+    const { shareService } = createServices({ db, principal: localOwner(orgId) });
     const shares = (await shareService.listShares(projectId)) ?? [];
     expect(shares).toHaveLength(1);
     expect(shares[0]?.audience_name).toBe('Acme Corp');
@@ -305,7 +306,7 @@ describe('CLI push/pull', () => {
     await migrate(hostedDb);
     const org = { id: DEFAULT_ORG_ID, name: 'Personal' };
     const project = await createProject(hostedDb, { name: 'Hosted collab' });
-    const services = createServices({ db: hostedDb, orgId: org.id });
+    const services = createServices({ db: hostedDb, principal: localOwner(org.id) });
     const hostedApp = createApp({ db: hostedDb, services, bindHost: '127.0.0.1' });
     const requestListener = getRequestListener(hostedApp.fetch);
     const server = createServer((request, response) => {

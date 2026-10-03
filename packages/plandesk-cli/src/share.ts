@@ -1,6 +1,6 @@
 import type { Db } from '@plandesk/db';
 import { DEFAULT_ORG_ID } from '@plandesk/db';
-import { createServices } from '@plandesk/api';
+import { createServices, localOwner } from '@plandesk/api';
 import { resolveProjectId } from './project-resolve.js';
 
 export type ShareCreateOptions = {
@@ -66,7 +66,7 @@ export async function runShareCreate(
       : undefined;
   const mode = options.public ? 'public' : 'invite';
 
-  const { shareService } = createServices({ db, orgId: DEFAULT_ORG_ID });
+  const { shareService } = createServices({ db, principal: localOwner(DEFAULT_ORG_ID) });
   const created = await shareService.createShare(projectId, {
     audienceName: options.audienceName,
     mode,

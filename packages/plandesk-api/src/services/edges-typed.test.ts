@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
@@ -35,7 +36,7 @@ describe('typed edge service', () => {
   });
 
   function service() {
-    return createCanvasService({ db, orgId });
+    return createCanvasService({ db, principal: localOwner(orgId) });
   }
 
   it('task→task edge writes typed columns only', async () => {

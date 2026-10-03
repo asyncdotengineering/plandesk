@@ -8,6 +8,7 @@ import {
   migrate,
   type Db,
 } from '@plandesk/db';
+import { localOwner } from '../principal.js';
 import { createServices } from '../services/index.js';
 
 type Services = ReturnType<typeof createServices>;
@@ -21,7 +22,7 @@ beforeEach(async () => {
   await migrate(db);
   const project = await createProject(db, { name: 'Filed artifacts' });
   projectId = project.id;
-  services = createServices({ db, orgId: project.orgId });
+  services = createServices({ db, principal: localOwner(project.orgId) });
 });
 
 describe('artifacts in the document tree', () => {

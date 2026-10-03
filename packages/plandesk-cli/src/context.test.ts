@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getRequestListener } from '@hono/node-server';
-import { createApp, createServices } from '@plandesk/api';
+import { createApp, createServices, localOwner } from '@plandesk/api';
 import {
   createDb,
   createProjectInDefaultOrg as createProject,
@@ -26,7 +26,7 @@ async function withTestServer(
   const db = await createDb(':memory:');
   await migrate(db);
   const project = await createProject(db, { name: 'Context project' });
-  const services = createServices({ db, orgId: project.orgId });
+  const services = createServices({ db, principal: localOwner(project.orgId) });
   const app = createApp({ db, services });
 
   const server: Server = createServer((req, res) => {

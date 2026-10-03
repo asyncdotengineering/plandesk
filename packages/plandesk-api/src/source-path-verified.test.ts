@@ -1,3 +1,4 @@
+import { localOwner } from './principal.js';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -51,7 +52,7 @@ describe('source_path, verified_*, and reference-check', () => {
     await ensureLocalBetterAuthOrganization(db, auth);
     const services = createServices({
       db,
-      orgId: DEFAULT_ORG_ID,
+      principal: localOwner(DEFAULT_ORG_ID),
       auth,
       referenceCheckFs: { pathExists: existsSync, folderExists: existsSync },
     });

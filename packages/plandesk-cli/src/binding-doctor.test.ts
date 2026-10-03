@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getRequestListener } from '@hono/node-server';
-import { createApp, createServices } from '@plandesk/api';
+import { createApp, createServices, localOwner } from '@plandesk/api';
 import { createDb, createProjectInDefaultOrg as createProject, migrate } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { buildConfigJson } from './connect-artifacts.js';
@@ -18,7 +18,7 @@ async function withBoundRepo(
   const db = await createDb(':memory:');
   await migrate(db);
   const project = await createProject(db, { name: 'binding-doctor-repo' });
-  const services = createServices({ db, orgId: project.orgId });
+  const services = createServices({ db, principal: localOwner(project.orgId) });
   const mcpApp = createMcpApp({ services });
   const app = createApp({ db, services, mcp: mcpApp, dataDir });
 

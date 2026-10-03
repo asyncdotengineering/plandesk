@@ -5,7 +5,7 @@ import {
   migrate,
   type Db,
 } from '@plandesk/db';
-import { createServices } from '@plandesk/api';
+import { createServices, localOwner } from '@plandesk/api';
 import { createCreatePrototypeHandler } from './create-prototype.js';
 import { createUpdatePrototypeHandler } from './update-prototype.js';
 import { createCreateArtifactHandler } from './create-artifact.js';
@@ -25,7 +25,7 @@ describe('prototype MCP tools', () => {
   });
 
   it('create → list → get with screens → update', async () => {
-    const services = createServices({ db, orgId });
+    const services = createServices({ db, principal: localOwner(orgId) });
     const create = createCreatePrototypeHandler(services.prototypeService);
     const list = serviceTool(
       ({ project_id }: { project_id: string }) => services.prototypeService.list(project_id),
@@ -79,7 +79,7 @@ describe('prototype MCP tools', () => {
   });
 
   it('refuses markdown screen and cross-project prototype_id', async () => {
-    const services = createServices({ db, orgId });
+    const services = createServices({ db, principal: localOwner(orgId) });
     const create = createCreatePrototypeHandler(services.prototypeService);
     const createArtifact = createCreateArtifactHandler(services.artifactService);
 
@@ -105,7 +105,7 @@ describe('prototype MCP tools', () => {
     expect(markdown.isError).toBe(true);
 
     const other = await createProject(db, { name: 'Other' });
-    const foreignServices = createServices({ db, orgId: other.orgId });
+    const foreignServices = createServices({ db, principal: localOwner(other.orgId) });
     const foreign = await createCreatePrototypeHandler(foreignServices.prototypeService)({
       project_id: other.id,
       name: 'Foreign',
@@ -129,7 +129,7 @@ describe('prototype MCP tools', () => {
   });
 
   it('get_artifact serializes a prototype-less markdown report with null prototype_id, x, y', async () => {
-    const services = createServices({ db, orgId });
+    const services = createServices({ db, principal: localOwner(orgId) });
     const createArtifact = createCreateArtifactHandler(services.artifactService);
     const getArtifact = serviceTool(
       ({ artifact_id }: { artifact_id: string }) => services.artifactService.get(artifact_id),

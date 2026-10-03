@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
@@ -23,7 +24,7 @@ describe('prototypeService', () => {
   });
 
   function service() {
-    return createPrototypeService({ db, orgId });
+    return createPrototypeService({ db, principal: localOwner(orgId) });
   }
 
   it('create → list → get round-trips with screens', async () => {
@@ -44,7 +45,7 @@ describe('prototypeService', () => {
     expect(listed).toHaveLength(1);
     expect(listed?.[0]?.id).toBe(created.id);
 
-    await createArtifactService({ db, orgId }).create(projectId, {
+    await createArtifactService({ db, principal: localOwner(orgId) }).create(projectId, {
       title: 'Cart',
       kind: 'html',
       content: '<html></html>',

@@ -99,10 +99,13 @@ describe('resolveWriteActorFromAuthContext', () => {
 });
 
 describe('resolveWriteActor via OrgScopedDeps', () => {
-  it('uses injected actor in unit tests', () => {
+  it('uses principal actor in unit tests', () => {
     const actor = resolveWriteActor({
-      orgId: 'org-1',
-      actor: { kind: 'human', userId: 'injected' },
+      principal: {
+        orgId: 'org-1',
+        permission: orgRoleToPermissionSet('owner'),
+        actor: { kind: 'human', userId: 'injected' },
+      },
     });
     expect(actor).toEqual({ kind: 'human', userId: 'injected' });
   });

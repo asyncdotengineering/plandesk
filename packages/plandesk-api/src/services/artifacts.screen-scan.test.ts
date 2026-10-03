@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -24,11 +25,14 @@ describe('screen content scan on write', () => {
     const project = await createProjectDefault(db, { name: 'Scan project' });
     projectId = project.id;
     orgId = project.orgId;
-    const proto = await createPrototypeService({ db, orgId }).create(projectId, {
-      name: 'Flow',
-      viewportWidth: 390,
-      viewportHeight: 844,
-    });
+    const proto = await createPrototypeService({ db, principal: localOwner(orgId) }).create(
+      projectId,
+      {
+        name: 'Flow',
+        viewportWidth: 390,
+        viewportHeight: 844,
+      },
+    );
     expect(proto).toBeDefined();
     if (!proto) {
       throw new Error('prototype required');
@@ -37,7 +41,7 @@ describe('screen content scan on write', () => {
   });
 
   function artifacts() {
-    return createArtifactService({ db, orgId });
+    return createArtifactService({ db, principal: localOwner(orgId) });
   }
 
   it('writes three plandesk://artifact/ links as three rows; rewrite to two leaves two', async () => {
@@ -90,11 +94,14 @@ describe('screen content scan on write', () => {
   });
 
   it('resolves a title to the same-prototype screen when another prototype also has one', async () => {
-    const other = await createPrototypeService({ db, orgId }).create(projectId, {
-      name: 'Other flow',
-      viewportWidth: 390,
-      viewportHeight: 844,
-    });
+    const other = await createPrototypeService({ db, principal: localOwner(orgId) }).create(
+      projectId,
+      {
+        name: 'Other flow',
+        viewportWidth: 390,
+        viewportHeight: 844,
+      },
+    );
     expect(other).toBeDefined();
     if (!other) {
       return;
@@ -285,7 +292,7 @@ describe('screen content scan on write', () => {
       return;
     }
 
-    const got = await createPrototypeService({ db, orgId }).get(protoId);
+    const got = await createPrototypeService({ db, principal: localOwner(orgId) }).get(protoId);
     expect(got?.screens.map((s) => s.title).sort()).toEqual(['From', 'Next']);
     expect(got?.links).toHaveLength(1);
     expect(got?.links[0]).toMatchObject({
@@ -303,11 +310,14 @@ describe('screen content scan on write', () => {
       orgId: otherOrgId,
       workspaceId: otherWorkspaceId,
     });
-    const protoB = await createPrototypeService({ db, orgId: otherOrgId }).create(projectB.id, {
-      name: 'B flow',
-      viewportWidth: 390,
-      viewportHeight: 844,
-    });
+    const protoB = await createPrototypeService({ db, principal: localOwner(otherOrgId) }).create(
+      projectB.id,
+      {
+        name: 'B flow',
+        viewportWidth: 390,
+        viewportHeight: 844,
+      },
+    );
     expect(protoB).toBeDefined();
     if (!protoB) {
       return;
@@ -324,16 +334,21 @@ describe('screen content scan on write', () => {
     ).rejects.toThrow(/cross-project|does not belong/i);
 
     // Org A cannot GET org B's prototype (links included).
-    const leaked = await createPrototypeService({ db, orgId }).get(protoB.id);
+    const leaked = await createPrototypeService({ db, principal: localOwner(orgId) }).get(
+      protoB.id,
+    );
     expect(leaked).toBeUndefined();
 
     // Org B screen UUID used as a title/id target from org A does not resolve across orgs.
-    const screenB = await createArtifactService({ db, orgId: otherOrgId }).create(projectB.id, {
-      title: 'Secret',
-      kind: 'html',
-      content: '<p>org-b-secret</p>',
-      prototypeId: protoB.id,
-    });
+    const screenB = await createArtifactService({ db, principal: localOwner(otherOrgId) }).create(
+      projectB.id,
+      {
+        title: 'Secret',
+        kind: 'html',
+        content: '<p>org-b-secret</p>',
+        prototypeId: protoB.id,
+      },
+    );
     expect(screenB).toBeDefined();
     if (!screenB) {
       return;

@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { describe, expect, it } from 'vitest';
 import {
   captureRevision,
@@ -108,7 +109,7 @@ describe('PLANDESK_MAX_REVISIONS retention', () => {
 
   it('REVERT-PROOF: with cap=3, a fourth write leaves exactly three and the oldest is gone', async () => {
     const { db, project, task, orgId } = await setup();
-    const service = createTaskService({ db, orgId, maxRevisions: 3 });
+    const service = createTaskService({ db, principal: localOwner(orgId), maxRevisions: 3 });
 
     await service.update(task.id, { description: 'v1' });
     await service.update(task.id, { description: 'v2' });
@@ -134,7 +135,7 @@ describe('PLANDESK_MAX_REVISIONS retention', () => {
 
   it('REVERT-PROOF: eviction is scoped per target', async () => {
     const { db, project, task, other, orgId } = await setup();
-    const service = createTaskService({ db, orgId, maxRevisions: 2 });
+    const service = createTaskService({ db, principal: localOwner(orgId), maxRevisions: 2 });
 
     await service.update(other.id, { description: 'other-v1' });
     await service.update(other.id, { description: 'other-v2' });
@@ -158,7 +159,7 @@ describe('PLANDESK_MAX_REVISIONS retention', () => {
 
   it('unset keeps every revision across ten writes', async () => {
     const { db, project, task, orgId } = await setup();
-    const service = createTaskService({ db, orgId });
+    const service = createTaskService({ db, principal: localOwner(orgId) });
     for (let i = 1; i <= 10; i += 1) {
       await service.update(task.id, { description: `v${String(i)}` });
     }
@@ -170,7 +171,7 @@ describe('PLANDESK_MAX_REVISIONS retention', () => {
     expect(maxRevisionsFromEnv({ PLANDESK_MAX_REVISIONS: '-1' })).toBeNull();
     const service = createTaskService({
       db,
-      orgId,
+      principal: localOwner(orgId),
       maxRevisions: maxRevisionsFromEnv({ PLANDESK_MAX_REVISIONS: '-1' }),
     });
     for (let i = 1; i <= 10; i += 1) {

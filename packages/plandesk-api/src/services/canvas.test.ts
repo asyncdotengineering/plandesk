@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
@@ -22,7 +23,7 @@ describe('canvasService', () => {
   let orgId = '';
 
   function createService() {
-    return createCanvasService({ db, orgId });
+    return createCanvasService({ db, principal: localOwner(orgId) });
   }
 
   beforeEach(async () => {
@@ -157,7 +158,7 @@ describe('canvasService', () => {
   });
 
   it('createEdge adds an edge', async () => {
-    const service = createCanvasService({ db, orgId });
+    const service = createCanvasService({ db, principal: localOwner(orgId) });
     const a = await createTask(db, { projectId, label: 'A' });
     const b = await createTask(db, { projectId, label: 'B' });
 

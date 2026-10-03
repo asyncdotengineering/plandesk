@@ -1,3 +1,4 @@
+import { localOwner, localPrincipal } from '../principal.js';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,11 +23,7 @@ import {
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { ensureHtmlBody } from '../markdown.js';
 import { PermissionDeniedError } from '../permissions.js';
-import {
-  createDocumentService,
-  InvalidDocumentError,
-  type DocumentServiceDeps,
-} from './documents.js';
+import { createDocumentService, InvalidDocumentError } from './documents.js';
 import { createTaskService } from './tasks.js';
 
 describe('documentService', () => {
@@ -39,9 +36,11 @@ describe('documentService', () => {
   let projectId = '';
   let orgId = '';
 
-  function createService(extra?: Omit<DocumentServiceDeps, 'db' | 'orgId' | 'taskService'>) {
-    const taskService = createTaskService({ db, orgId, ...extra });
-    return createDocumentService({ db, orgId, taskService, ...extra });
+  function createService(extra?: { permission?: import('../permissions.js').PermissionSet }) {
+    const principal =
+      extra?.permission !== undefined ? localPrincipal(orgId, extra.permission) : localOwner(orgId);
+    const taskService = createTaskService({ db, principal });
+    return createDocumentService({ db, principal, taskService });
   }
 
   beforeEach(async () => {
@@ -224,7 +223,7 @@ describe('documentService', () => {
 
     const foreignService = createDocumentService({
       db,
-      orgId: '00000000-0000-4000-8000-00000000ffff',
+      principal: localOwner('00000000-0000-4000-8000-00000000ffff'),
     });
     expect(await foreignService.listBacklinks('task', task.id)).toBeUndefined();
     expect(await foreignService.listBacklinks('document', secret.id)).toBeUndefined();
@@ -563,7 +562,7 @@ describe('documentService', () => {
   describe('convertBullets', () => {
     it('lands created tasks on the active goal and get_next_task sees them once released (revert-proof)', async () => {
       const service = createService();
-      const taskService = createTaskService({ db, orgId });
+      const taskService = createTaskService({ db, principal: localOwner(orgId) });
       const complete = await createGoal(db, {
         projectId,
         objective: 'Old cycle',
@@ -743,10 +742,10 @@ describe('documentService', () => {
 
       const foreign = createDocumentService({
         db,
-        orgId: '00000000-0000-4000-8000-00000000ffff',
+        principal: localOwner('00000000-0000-4000-8000-00000000ffff'),
         taskService: createTaskService({
           db,
-          orgId: '00000000-0000-4000-8000-00000000ffff',
+          principal: localOwner('00000000-0000-4000-8000-00000000ffff'),
         }),
       });
       expect(await foreign.convertBullets(document.id, ['Leak'])).toBeUndefined();
@@ -766,8 +765,16 @@ describe.each([
   let projectId = '';
   let orgId = '';
 
-  function createService(actor?: Parameters<typeof createDocumentService>[0]['actor']) {
-    return createDocumentService({ db, orgId, ...(actor !== undefined ? { actor } : {}) });
+  function createService(
+    actor?:
+      | { kind: 'human'; userId: string }
+      | { kind: 'agent'; runId: string }
+      | { kind: 'system' },
+  ) {
+    const principal =
+      actor !== undefined ? localPrincipal(orgId, 'owner', actor) : localOwner(orgId);
+    const taskService = createTaskService({ db, principal });
+    return createDocumentService({ db, principal, taskService });
   }
 
   beforeEach(async () => {
@@ -858,8 +865,17 @@ describe.each([
     });
     await new Promise((resolve) => setTimeout(resolve, 5));
 
-    const serviceA = createDocumentService({ db: dbA, orgId: raceOrgId });
-    const serviceB = createDocumentService({ db: dbB, orgId: raceOrgId });
+    const principal = localOwner(raceOrgId);
+    const serviceA = createDocumentService({
+      db: dbA,
+      principal,
+      taskService: createTaskService({ db: dbA, principal }),
+    });
+    const serviceB = createDocumentService({
+      db: dbB,
+      principal,
+      taskService: createTaskService({ db: dbB, principal }),
+    });
     const [a, b] = await Promise.all([
       serviceA.update(document.id, { title: 'Winner A', body: 'a' }),
       serviceB.update(document.id, { title: 'Winner B', body: 'b' }),

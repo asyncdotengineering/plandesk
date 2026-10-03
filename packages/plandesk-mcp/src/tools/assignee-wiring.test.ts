@@ -6,7 +6,7 @@ import {
   migrate,
   type Db,
 } from '@plandesk/db';
-import { createServices } from '@plandesk/api';
+import { createServices, localOwner } from '@plandesk/api';
 import { createCreateTaskHandler } from './create-task.js';
 import { createUpdateTaskHandler } from './update-task.js';
 import { serviceToolPayload } from './service-tool.js';
@@ -58,7 +58,7 @@ describe('MCP assignee wiring (closes create/update gap)', () => {
   });
 
   it('create_task / update_task round-trip assignee; null clears; claim overwrites human', async () => {
-    const services = createServices({ db, orgId });
+    const services = createServices({ db, principal: localOwner(orgId) });
     const create = createCreateTaskHandler(services.taskService);
     const update = createUpdateTaskHandler(services.taskService);
     const claim = serviceToolPayload(

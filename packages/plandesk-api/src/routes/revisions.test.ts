@@ -1,3 +1,4 @@
+import { localOwner, localPrincipal } from '../principal.js';
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
@@ -158,13 +159,11 @@ describe('revisions routes', () => {
     const project = await createProjectInDefaultOrg(db, { name: 'History' });
     const alice = createTaskService({
       db,
-      orgId: project.orgId,
-      actor: { kind: 'human', userId: 'alice' },
+      principal: localPrincipal(project.orgId, 'owner', { kind: 'human', userId: 'alice' }),
     });
     const bob = createTaskService({
       db,
-      orgId: project.orgId,
-      actor: { kind: 'human', userId: 'bob' },
+      principal: localPrincipal(project.orgId, 'owner', { kind: 'human', userId: 'bob' }),
     });
     const task = await createTask(db, { projectId: project.id, label: 'Card', description: 'v0' });
 
@@ -197,7 +196,7 @@ describe('revisions routes', () => {
   it('fetches one revision with its full snapshot', async () => {
     const { app, db } = await createTestApp();
     const project = await createProjectInDefaultOrg(db, { name: 'Fetch' });
-    const taskService = createTaskService({ db, orgId: project.orgId });
+    const taskService = createTaskService({ db, principal: localOwner(project.orgId) });
     const task = await createTask(db, {
       projectId: project.id,
       label: 'Card',
@@ -310,7 +309,7 @@ describe('revisions routes', () => {
   it('diffing against current compares the newest revision snapshot to the live row', async () => {
     const { app, db } = await createTestApp();
     const project = await createProjectInDefaultOrg(db, { name: 'Current' });
-    const taskService = createTaskService({ db, orgId: project.orgId });
+    const taskService = createTaskService({ db, principal: localOwner(project.orgId) });
     const task = await createTask(db, { projectId: project.id, label: 'Live', description: 'v0' });
     await taskService.update(task.id, { description: 'v1' });
 
@@ -378,7 +377,7 @@ describe('revisions routes', () => {
   it('document status_line appears snake_cased on the wire', async () => {
     const { app, db } = await createTestApp();
     const project = await createProjectInDefaultOrg(db, { name: 'Snake' });
-    const docService = createDocumentService({ db, orgId: project.orgId });
+    const docService = createDocumentService({ db, principal: localOwner(project.orgId) });
     const document = await createDocument(db, {
       projectId: project.id,
       title: 'Doc',
@@ -410,7 +409,7 @@ describe('revisions routes', () => {
   it('restoring an older revision makes the live row match its versioned fields', async () => {
     const { app, db } = await createTestApp();
     const project = await createProjectInDefaultOrg(db, { name: 'Restore match' });
-    const taskService = createTaskService({ db, orgId: project.orgId });
+    const taskService = createTaskService({ db, principal: localOwner(project.orgId) });
     const task = await createTask(db, {
       projectId: project.id,
       label: 'Original',
@@ -449,7 +448,7 @@ describe('revisions routes', () => {
   it('REVERT-PROOF: restoring produces a new revision; restoring twice returns to the first state with three revisions', async () => {
     const { app, db } = await createTestApp();
     const project = await createProjectInDefaultOrg(db, { name: 'Append-only' });
-    const taskService = createTaskService({ db, orgId: project.orgId });
+    const taskService = createTaskService({ db, principal: localOwner(project.orgId) });
     const task = await createTask(db, {
       projectId: project.id,
       label: 'Card',
@@ -509,7 +508,7 @@ describe('revisions routes', () => {
   it('REVERT-PROOF: restore leaves status, assignee and position untouched', async () => {
     const { app, db } = await createTestApp();
     const project = await createProjectInDefaultOrg(db, { name: 'Not revert' });
-    const taskService = createTaskService({ db, orgId: project.orgId });
+    const taskService = createTaskService({ db, principal: localOwner(project.orgId) });
     const task = await createTask(db, {
       projectId: project.id,
       label: 'Parked',

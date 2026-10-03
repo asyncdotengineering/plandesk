@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
@@ -164,7 +165,7 @@ async function createTestAppWithServices() {
   const db = await createDb(':memory:');
   await migrate(db);
   const org = { id: DEFAULT_ORG_ID, name: 'Personal' };
-  const services = createServices({ db, orgId: org.id });
+  const services = createServices({ db, principal: localOwner(org.id) });
   return { app: createApp({ db, services }), db, services, orgId: org.id };
 }
 

@@ -1,3 +1,4 @@
+import { localOwner } from '../principal.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
@@ -22,7 +23,7 @@ describe('noteService', () => {
   });
 
   function createService() {
-    return createNoteService({ db, orgId });
+    return createNoteService({ db, principal: localOwner(orgId) });
   }
 
   it('creates a note', async () => {
