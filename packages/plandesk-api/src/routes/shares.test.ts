@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { makeSignature } from 'better-auth/crypto';
 import {
   DEFAULT_ORG_ID,
@@ -290,6 +290,50 @@ describe('shares routes', () => {
     const md = await app.request(mdPath);
     expect(md.status).toBe(200);
     expect(await md.text()).toContain('Shareable task');
+  });
+
+  describe('how far a share link reaches', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('builds the link on PLANDESK_BASE_URL when the operator set one', async () => {
+      vi.stubEnv('PLANDESK_BASE_URL', 'https://board.example.com/');
+      const { app, db } = await createTestAppWithServices();
+      const project = await createProject(db, { name: 'Public origin' });
+      const task = await createTask(db, { projectId: project.id, label: 'Reachable' });
+
+      const res = await app.request(`/api/v1/tasks/${task.id}/share`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      expect(res.status).toBe(201);
+      const json = (await res.json()) as {
+        url: string;
+        markdown_url: string;
+        reachable_from: string;
+      };
+      expect(json.url.startsWith('https://board.example.com/p/')).toBe(true);
+      expect(json.markdown_url.startsWith('https://board.example.com/api/v1/share/')).toBe(true);
+      expect(json.reachable_from).toBe('network');
+    });
+
+    it('says a loopback link only works on this machine', async () => {
+      vi.stubEnv('PLANDESK_BASE_URL', '');
+      const { app, db } = await createTestAppWithServices();
+      const project = await createProject(db, { name: 'Loopback origin' });
+      const task = await createTask(db, { projectId: project.id, label: 'Local only' });
+
+      const res = await app.request(`http://127.0.0.1:7526/api/v1/tasks/${task.id}/share`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const json = (await res.json()) as { url: string; reachable_from: string };
+      expect(json.url.startsWith('http://127.0.0.1:7526/p/')).toBe(true);
+      expect(json.reachable_from).toBe('this_machine');
+    });
   });
 
   it('POST /documents/:id/share supports never-expiring links; 404s a missing resource; 400s a bad TTL', async () => {

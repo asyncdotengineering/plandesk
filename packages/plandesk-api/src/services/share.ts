@@ -1,3 +1,4 @@
+import { reachOf, type Reach } from '../public-origin.js';
 import {
   countRecentSubmissionsByParticipant,
   createComment,
@@ -137,6 +138,8 @@ export type ResourceShareResult = {
   url: string;
   markdownUrl: string;
   expiresAt: string | null;
+  /** A loopback link resolves only on the host running the server. */
+  reachableFrom: Reach;
 };
 
 export type ResourceMarkdownResult =
@@ -728,6 +731,7 @@ export function createShareService(deps: ShareServiceDeps) {
         url: `${origin}/p/${token}`,
         markdownUrl: `${origin}/api/v1/share/${token}.md`,
         expiresAt: share.expiresAt?.toISOString() ?? null,
+        reachableFrom: reachOf(origin),
       };
     },
 

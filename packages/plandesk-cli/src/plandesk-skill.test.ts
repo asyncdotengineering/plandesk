@@ -25,3 +25,35 @@ describe('PLANDESK_SKILL_TEMPLATE task creation section', () => {
     expect(taskCreationSection).toMatch(/no internal RFC\/PRD\/ticket references/i);
   });
 });
+
+function section(heading: string, next: string): string {
+  const after = PLANDESK_SKILL_TEMPLATE.split(`## ${heading}\n`)[1];
+  if (after === undefined) {
+    throw new Error(`missing ${heading} section`);
+  }
+  return after.split(`## ${next}\n`)[0] ?? '';
+}
+
+// An agent working only from this file must get each call right the first
+// time; the parameter names are not guessable from the neighbouring tools.
+describe('PLANDESK_SKILL_TEMPLATE carries real tool signatures', () => {
+  it('states the agent-run lifecycle signatures', () => {
+    const runs = section('Agent runs', 'Never do');
+    expect(runs).toContain('start_agent_run(project_id, label?)');
+    expect(runs).toContain('record_agent_progress(run_id, message)');
+    expect(runs).toContain("complete_agent_run(run_id, status: 'completed' | 'failed')");
+  });
+
+  it('shows add_comment by target, on a task as well as a document', () => {
+    const comments = section('Comments', 'Reviewing files (the CLI previewer)');
+    expect(comments).toContain('add_comment(target_type, target_id, body, passage?)');
+    expect(comments).toMatch(/target_type: 'task'/);
+  });
+
+  it('says how far a share link reaches and that it is a bearer URL', () => {
+    const sharing = section('Sharing', 'Prototypes');
+    expect(sharing).toContain('reachable_from');
+    expect(sharing).toContain('PLANDESK_BASE_URL');
+    expect(sharing).toMatch(/bearer/i);
+  });
+});

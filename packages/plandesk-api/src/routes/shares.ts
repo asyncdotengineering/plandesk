@@ -1,5 +1,6 @@
 import { invalidArgument, invalidRequest } from './errors.js';
 import { type Context, Hono } from 'hono';
+import { resolvePublicOrigin } from '../public-origin.js';
 import type { ShareResourceRef, ShareService } from '../services/share.js';
 
 const EXPIRES_MS: Record<'24h' | '7d', number> = {
@@ -34,7 +35,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
     if (body.submit !== undefined && typeof body.submit !== 'boolean') {
       return invalidArgument(c, 'submit', 'submit must be a boolean');
     }
-    const origin = new URL(c.req.url).origin;
+    const origin = resolvePublicOrigin(c.req.url);
     const resource: ShareResourceRef =
       kind === 'prototype' ? { kind: 'prototype', ids: [id] } : { kind, id };
     const result = await shareService.createResourceShare(
@@ -49,7 +50,12 @@ export function createSharesRouter(shareService: ShareService): Hono {
       return c.json({ error: 'not_found' }, 404);
     }
     return c.json(
-      { url: result.url, markdown_url: result.markdownUrl, expires_at: result.expiresAt },
+      {
+        url: result.url,
+        markdown_url: result.markdownUrl,
+        expires_at: result.expiresAt,
+        reachable_from: result.reachableFrom,
+      },
       201,
     );
   };
@@ -83,7 +89,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
       );
     }
     const mode = body.mode === 'public' ? 'public' : 'invite';
-    const origin = new URL(c.req.url).origin;
+    const origin = resolvePublicOrigin(c.req.url);
     const result = await shareService.createWorkspaceShare(
       workspaceId,
       {
@@ -108,7 +114,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
       return c.notFound();
     }
     const token = raw.slice(0, -'.md'.length);
-    const origin = new URL(c.req.url).origin;
+    const origin = resolvePublicOrigin(c.req.url);
 
     const result = await shareService.getResourceMarkdown(token, origin);
     if (result.status === 'not_found') {

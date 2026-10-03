@@ -142,12 +142,8 @@ export {
 export { InvalidPrototypeError } from './services/prototypes.js';
 export { InvalidNoteError } from './services/notes.js';
 export { InvalidArtifactError } from './services/artifacts.js';
-export {
-  HTML_ARTIFACT_SHIM,
-  htmlArtifactCsp,
-  resolveRenderOrigin,
-  wrapHtmlArtifactForRender,
-} from './html-artifact.js';
+export { HTML_ARTIFACT_SHIM, htmlArtifactCsp, wrapHtmlArtifactForRender } from './html-artifact.js';
+export { reachOf, resolvePublicOrigin, type Reach } from './public-origin.js';
 export {
   buildTextAnchor,
   offsetsToRange,

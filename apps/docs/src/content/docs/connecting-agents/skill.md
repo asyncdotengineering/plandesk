@@ -244,14 +244,25 @@ The board is only useful when it matches reality. Two standing rules:
 
 ## Comments
 
-People leave comments on documents in the UI to give you feedback or direction.
+People leave comments on documents, tasks, and notes in the UI to give you
+feedback or direction. Every comment tool addresses its target by type and id:
+
+```
+list_comments(project_id, target_type?, target_id?, include_resolved?)
+add_comment(target_type, target_id, body, passage?)
+resolve_comment(comment_id)
+```
+
+`target_type` is one of `'document' | 'task' | 'note' | 'submission'`.
 
 - At the start of a session, and after finishing a task, pull open feedback with
-  `list_comments` (by `project_id`, optionally one `document_id`). By default you
-  get unresolved comments.
+  `list_comments` (by `project_id`; narrow to one item with `target_type` +
+  `target_id`). By default you get unresolved comments.
 - Address each comment, then `resolve_comment` to close the loop — resolving
   updates the commenter's UI live.
-- Use `add_comment` to leave a suggestion or question on a document for a person.
+- Use `add_comment` to leave a suggestion or question for a person — on a
+  document (`target_type: 'document'`), or on a task for a gate decision or a
+  progress note (`target_type: 'task'`, `target_id: <task id>`).
 - People can also annotate **files you wrote** (not just workspace documents) — see
   the next section. Pull those with `list_artifact_comments` (by `project_id` +
   `artifact_id`), address them, and `resolve_comment` the same way.
@@ -290,10 +301,19 @@ kept in the workspace (not a file on disk).
 
 - `create_share_link` hands a delegated worker or sub-agent full context for one
   task or document without giving it MCP access: pass exactly one of `task_id`/
-  `document_id`, get back `{ url, markdown_url, expires_at }`. Put
+  `document_id`, get back `{ url, markdown_url, expires_at, reachable_from }`. Put
   `Context: <markdown_url>` in the worker's brief instead of pasting context —
   `markdown_url` returns the resource as agent-ready Markdown with linked docs
   inlined and embedded images fetchable.
+- **Check `reachable_from` before handing the link on.** `this_machine` means the
+  URL is on loopback (`127.0.0.1`) and resolves only on the host running
+  `plandesk serve` — fine for a worker CLI running locally, useless to a cloud
+  agent, a container without host networking, or a person on another device.
+  For those, paste the Markdown into the brief instead, or run the server with
+  `PLANDESK_BASE_URL` set to an address they can reach (links are then built on
+  it and report `network`).
+- A share link is an unauthenticated **bearer URL**: anyone holding it can read
+  the shared resource until it expires. Widening its reach widens that exposure.
 - `expires` defaults to `24h`; pass `never` only when the link truly needs to
   outlive a session — it stays public to anyone who has it.
 
@@ -344,7 +364,15 @@ loop live in `.agents/skills/plandesk-prototype/SKILL.md` (and its
 this section is the scheme and surface, not a second copy of those rules.
 
 ## Agent runs
-1. Start a run at the beginning of any multi-step Plan Desk operation.
+
+```
+start_agent_run(project_id, label?)                         → { agent_run: { id, … } }
+record_agent_progress(run_id, message)
+complete_agent_run(run_id, status: 'completed' | 'failed')
+```
+
+1. Start a run at the beginning of any multi-step Plan Desk operation; keep the
+   returned `agent_run.id` — it is the `run_id` for the other two.
 2. Record progress after each meaningful unit of work (not every tool call).
 3. Complete or fail the run before the session ends — never leave one open.
 

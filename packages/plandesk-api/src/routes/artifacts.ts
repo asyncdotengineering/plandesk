@@ -7,11 +7,8 @@ import {
   type Db,
 } from '@plandesk/db';
 import { tryGetAuthContext } from '../auth-context.js';
-import {
-  htmlArtifactCsp,
-  resolveRenderOrigin,
-  wrapHtmlArtifactForRender,
-} from '../html-artifact.js';
+import { htmlArtifactCsp, wrapHtmlArtifactForRender } from '../html-artifact.js';
+import { resolvePublicOrigin } from '../public-origin.js';
 import {
   ExternalReferenceError,
   InvalidArtifactError,
@@ -275,7 +272,7 @@ export function createArtifactsRouter(
   router.get('/artifacts/:id/render', async (c) => {
     const artifactId = c.req.param('id');
     const rawToken = c.req.query('token');
-    const origin = resolveRenderOrigin(c.req.url);
+    const origin = resolvePublicOrigin(c.req.url);
 
     let content: string;
     let credential: FrameCredential | undefined;

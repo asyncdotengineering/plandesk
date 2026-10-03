@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  HTML_ARTIFACT_SHIM,
-  htmlArtifactCsp,
-  resolveRenderOrigin,
-  wrapHtmlArtifactForRender,
-} from './html-artifact.js';
+import { HTML_ARTIFACT_SHIM, htmlArtifactCsp, wrapHtmlArtifactForRender } from './html-artifact.js';
 
 describe('htmlArtifactCsp', () => {
   it('begins with the sandbox directive and names the origin in img-src and script-src', () => {
@@ -15,26 +10,6 @@ describe('htmlArtifactCsp', () => {
     expect(csp).toContain("connect-src 'none'");
     expect(csp).toContain("form-action 'none'");
     expect(csp).not.toContain("'self'");
-  });
-});
-
-describe('resolveRenderOrigin', () => {
-  it('prefers PLANDESK_BASE_URL when set, stripping a trailing slash', () => {
-    expect(
-      resolveRenderOrigin(
-        'http://request.example/api/v1/artifacts/x/render',
-        'https://configured.example/',
-      ),
-    ).toBe('https://configured.example');
-  });
-
-  it('falls back to the request URL origin when env base is unset or blank', () => {
-    expect(resolveRenderOrigin('http://127.0.0.1:7526/api/v1/artifacts/x/render', undefined)).toBe(
-      'http://127.0.0.1:7526',
-    );
-    expect(resolveRenderOrigin('http://127.0.0.1:7526/api/v1/artifacts/x/render', '  ')).toBe(
-      'http://127.0.0.1:7526',
-    );
   });
 });
 

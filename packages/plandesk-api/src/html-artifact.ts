@@ -34,33 +34,6 @@ export function htmlArtifactCsp(origin: string): string {
   );
 }
 
-/**
- * Resolve the origin named in the CSP.
- *
- * Prefers `PLANDESK_BASE_URL` when set (deployment-configured, not
- * attacker-controllable). Otherwise uses the request URL's origin.
- *
- * Host-header hazard: when `PLANDESK_BASE_URL` is unset, the request origin
- * derives from `Host`. A poisoned Host would name an attacker origin in
- * `img-src` / `script-src`. Hosted deployments already require
- * `PLANDESK_BASE_URL` for better-auth; local loopback serves are not
- * remotely reachable. Cross-tenant content access is gated separately by
- * org-scoped `artifactService.get` — a poisoned CSP cannot return another
- * org's bytes.
- */
-export function resolveRenderOrigin(
-  requestUrl: string,
-  envBaseUrl: string | undefined = typeof process !== 'undefined'
-    ? process.env.PLANDESK_BASE_URL
-    : undefined,
-): string {
-  const fromEnv = envBaseUrl?.trim();
-  if (fromEnv !== undefined && fromEnv.length > 0) {
-    return fromEnv.replace(/\/$/, '');
-  }
-  return new URL(requestUrl).origin;
-}
-
 function escapeHtmlAttr(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }

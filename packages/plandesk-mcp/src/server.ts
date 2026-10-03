@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import { tryGetAuthContext, type Services } from '@plandesk/api';
+import { resolvePublicOrigin, tryGetAuthContext, type Services } from '@plandesk/api';
 import { createAddCommentHandler } from './tools/add-comment.js';
 import { createAddArtifactCommentHandler } from './tools/add-artifact-comment.js';
 import { createAttachFileHandler } from './tools/attach-file.js';
@@ -538,7 +538,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Create Share Link',
       description:
-        'Mint a public, hash-token share link scoped to a single task, document, or prototype, with a Markdown URL (`markdown_url`) a worker can `curl` for full context — put "Context: <markdown_url>" in a worker brief instead of pasting. Exactly one of task_id/document_id/prototype_id is required. expires defaults to 24h; never means the link does not expire.',
+        "Mint a public, hash-token share link scoped to a single task, document, or prototype, with a Markdown URL (`markdown_url`) a worker can `curl` for full context — put \"Context: <markdown_url>\" in a worker brief instead of pasting. Exactly one of task_id/document_id/prototype_id is required. expires defaults to 24h; never means the link does not expire. The result carries reachable_from: 'this_machine' means a loopback URL only the host running plandesk serve can open (paste the context instead for a remote worker); 'network' means it is built on PLANDESK_BASE_URL. The link is an unauthenticated bearer URL.",
       inputSchema: createShareLinkInputSchema,
     },
     createCreateShareLinkHandler(services.shareService, () => origin),
@@ -548,7 +548,8 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     'start_agent_run',
     {
       title: 'Start Agent Run',
-      description: 'Begin an external agent session',
+      description:
+        'Begin an external agent session. Takes project_id and an optional label; returns { agent_run: { id } } — that id is the run_id for record_agent_progress and complete_agent_run.',
       inputSchema: startAgentRunInputSchema,
     },
     createStartAgentRunHandler(services.agentRunService),
@@ -558,7 +559,8 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     'record_agent_progress',
     {
       title: 'Record Agent Progress',
-      description: 'Append a progress event to an agent run',
+      description:
+        'Append a progress event to an agent run. Takes run_id (from start_agent_run) and message (the progress text).',
       inputSchema: recordAgentProgressInputSchema,
     },
     createRecordAgentProgressHandler(services.agentRunService),
@@ -568,7 +570,8 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     'complete_agent_run',
     {
       title: 'Complete Agent Run',
-      description: 'Close an agent run with completed or failed status',
+      description:
+        "Close an agent run. Takes run_id and status: 'completed' | 'failed'. There is no summary field — record the summary as a final record_agent_progress message first.",
       inputSchema: completeAgentRunInputSchema,
     },
     createCompleteAgentRunHandler(services.agentRunService),
@@ -795,7 +798,8 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     'list_comments',
     {
       title: 'List Comments',
-      description: 'List unresolved comments for a project or a document, task, or note',
+      description:
+        "List unresolved comments for a project; narrow to one item with target_type ('document' | 'task' | 'note' | 'submission') and target_id. Pass include_resolved: true for resolved ones too.",
       inputSchema: listCommentsInputSchema,
       annotations: { readOnlyHint: true },
     },
@@ -806,7 +810,8 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     'add_comment',
     {
       title: 'Add Comment',
-      description: 'Leave a suggestion on a document, task, or note',
+      description:
+        "Leave a comment on one item, addressed by target_type ('document' | 'task' | 'note' | 'submission') and target_id — e.g. a gate decision on a task: { target_type: 'task', target_id: <task id>, body }. passage optionally anchors it to quoted text.",
       inputSchema: addCommentInputSchema,
     },
     createAddCommentHandler(services.commentService),
@@ -901,7 +906,7 @@ export function createMcpApp(deps: McpAppDeps): Hono {
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });
-    const origin = new URL(c.req.url).origin;
+    const origin = resolvePublicOrigin(c.req.url);
     const server = createMcpServer(deps.services, origin, deps.bindHost ?? '127.0.0.1');
     await server.connect(transport);
     return transport.handleRequest(c.req.raw);

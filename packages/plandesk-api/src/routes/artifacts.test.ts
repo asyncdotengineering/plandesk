@@ -5,7 +5,8 @@ import {
   createProject,
   createProjectInDefaultOrg as createProjectDefault,
 } from '@plandesk/db';
-import { HTML_ARTIFACT_SHIM, htmlArtifactCsp, resolveRenderOrigin } from '../html-artifact.js';
+import { HTML_ARTIFACT_SHIM, htmlArtifactCsp } from '../html-artifact.js';
+import { resolvePublicOrigin } from '../public-origin.js';
 import { createTestApp, parseJson } from '../test-helpers.js';
 
 type ArtifactResponse = {
@@ -187,7 +188,7 @@ describe('GET /artifacts/:id/render', () => {
       const csp = res.headers.get('Content-Security-Policy') ?? '';
       expect(csp).toContain('https://boards.example');
       expect(csp).not.toContain('127.0.0.1');
-      expect(resolveRenderOrigin('http://127.0.0.1:9/x', 'https://boards.example/')).toBe(
+      expect(resolvePublicOrigin('http://127.0.0.1:9/x', 'https://boards.example/')).toBe(
         'https://boards.example',
       );
     } finally {

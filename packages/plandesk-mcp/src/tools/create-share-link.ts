@@ -47,6 +47,7 @@ export function createCreateShareLinkHandler(
       url: result.url,
       markdown_url: result.markdownUrl,
       expires_at: result.expiresAt,
+      reachable_from: result.reachableFrom,
     });
   };
 }

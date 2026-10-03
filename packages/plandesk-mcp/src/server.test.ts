@@ -1212,6 +1212,9 @@ describe('createMcpApp', () => {
         share: { url: string; markdown_url: string; expires_at: string | null };
       };
       expect(payload.share.url).toMatch(new RegExp(`^${baseUrl}/p/`));
+      // The test server listens on loopback: the caller must be told the link
+      // cannot leave this machine.
+      expect((payload.share as { reachable_from?: string }).reachable_from).toBe('this_machine');
       expect(payload.share.markdown_url).toMatch(new RegExp(`^${baseUrl}/api/v1/share/.+\\.md$`));
       expect(payload.share.expires_at).toBeTruthy();
 
