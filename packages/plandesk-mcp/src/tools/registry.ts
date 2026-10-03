@@ -1,18 +1,20 @@
 import { z } from 'zod';
+import { commitRefsField, dueDateField, verifiedAtField, verifiedRefField } from '@plandesk/api';
 import {
   artifactKinds,
+  commentTargetTypesForComments,
   goalStatuses,
-  isValidCommitRef,
   isValidRepoRelativePath,
   isValidRepoUrl,
   linkEntityTypes,
-  MAX_COMMIT_REFS,
+  revisionTargetTypesForList,
   shareSubmissionStatuses,
   taskKinds,
   taskLanes,
   taskPriorities,
   taskSeverities,
   taskStatuses,
+  terminalAgentRunStatuses,
 } from '@plandesk/db';
 
 const repoUrlSchema = z
@@ -52,19 +54,11 @@ const TAGS_SET_DESCRIPTION =
 const COMMIT_REFS_DESCRIPTION =
   'Hex commit SHAs (7–40 chars, case-insensitive; stored lowercase) that shipped this task. At most 50. Replaces the FULL array; pass null to clear. Omit on update to leave unchanged.';
 
-const COMMIT_REFS_FIELD = z
-  .array(z.string().refine(isValidCommitRef, { message: 'invalid commit_ref' }))
-  .max(MAX_COMMIT_REFS)
-  .nullable()
-  .optional()
-  .describe(COMMIT_REFS_DESCRIPTION);
+const COMMIT_REFS_FIELD = commitRefsField.describe(COMMIT_REFS_DESCRIPTION);
 
-const DUE_DATE_FIELD = z
-  .string()
-  .refine((value) => !Number.isNaN(new Date(value).getTime()), { message: 'invalid due_date' })
-  .nullable()
-  .optional()
-  .describe('Due date (ISO 8601 string). Pass null to clear on update.');
+const DUE_DATE_FIELD = dueDateField.describe(
+  'Due date (ISO 8601 string). Pass null to clear on update.',
+);
 
 const SOURCE_PATH_FIELD = z
   .string()
@@ -75,21 +69,13 @@ const SOURCE_PATH_FIELD = z
     'Repo-relative path to the file this document mirrors. Pass null to clear. Never absolute and never contains .. segments.',
   );
 
-const VERIFIED_AT_FIELD = z
-  .string()
-  .refine((value) => !Number.isNaN(new Date(value).getTime()), { message: 'invalid verified_at' })
-  .nullable()
-  .optional()
-  .describe(
-    'When this item was last verified against reality (ISO 8601). Explicit only — ordinary edits do not change it.',
-  );
+const VERIFIED_AT_FIELD = verifiedAtField.describe(
+  'When this item was last verified against reality (ISO 8601). Explicit only — ordinary edits do not change it.',
+);
 
-const VERIFIED_REF_FIELD = z
-  .string()
-  .min(1)
-  .nullable()
-  .optional()
-  .describe('Commit SHA or short ref recorded with verified_at. Requires verified_at when set.');
+const VERIFIED_REF_FIELD = verifiedRefField.describe(
+  'Commit SHA or short ref recorded with verified_at. Requires verified_at when set.',
+);
 
 const TAGS_FILTER_DESCRIPTION =
   'Optional tag-name filter with OR semantics: a task matches if it carries ANY of the given tags.';
@@ -565,7 +551,12 @@ export const recordAgentProgressInputSchema = z.strictObject({
 
 export const completeAgentRunInputSchema = z.strictObject({
   run_id: z.string().uuid(),
-  status: z.enum(['completed', 'failed']),
+  status: z.enum(
+    terminalAgentRunStatuses as [
+      (typeof terminalAgentRunStatuses)[number],
+      ...(typeof terminalAgentRunStatuses)[number][],
+    ],
+  ),
 });
 
 export const scaffoldProjectFromPlanInputSchema = z.strictObject({
@@ -803,7 +794,12 @@ export const listViewsInputSchema = z.strictObject({
 
 export const listRevisionsInputSchema = z.strictObject({
   project_id: z.string().uuid(),
-  target_type: z.enum(['task', 'document']),
+  target_type: z.enum(
+    revisionTargetTypesForList as [
+      (typeof revisionTargetTypesForList)[number],
+      ...(typeof revisionTargetTypesForList)[number][],
+    ],
+  ),
   target_id: z.string().uuid(),
 });
 
@@ -813,13 +809,25 @@ export const getRevisionInputSchema = z.strictObject({
 
 export const listCommentsInputSchema = z.strictObject({
   project_id: z.string().uuid(),
-  target_type: z.enum(['document', 'task', 'note', 'submission']).optional(),
+  target_type: z
+    .enum(
+      commentTargetTypesForComments as [
+        (typeof commentTargetTypesForComments)[number],
+        ...(typeof commentTargetTypesForComments)[number][],
+      ],
+    )
+    .optional(),
   target_id: z.string().uuid().optional(),
   include_resolved: z.boolean().optional(),
 });
 
 export const addCommentInputSchema = z.strictObject({
-  target_type: z.enum(['document', 'task', 'note', 'submission']),
+  target_type: z.enum(
+    commentTargetTypesForComments as [
+      (typeof commentTargetTypesForComments)[number],
+      ...(typeof commentTargetTypesForComments)[number][],
+    ],
+  ),
   target_id: z.string().uuid(),
   body: z.string().min(1),
   passage: z.string().optional(),

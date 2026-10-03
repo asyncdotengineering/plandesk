@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { taskLanes } from '@plandesk/db/vocabulary';
 import {
   apiErrorMessage,
   type PatchTaskInput,
@@ -79,7 +80,7 @@ type BoardProps = {
   onOpenTaskIdChange?: ((taskId: string | null) => void) | undefined;
 };
 
-const LANE_OPTIONS = ['none', 'auto', 'approve', 'full'] as const;
+const LANE_OPTIONS = ['none', ...taskLanes] as const;
 type LaneOption = (typeof LANE_OPTIONS)[number];
 
 export function Board({

@@ -13,6 +13,8 @@
 
 export type CanvasMode = 'arrange' | 'interact' | 'comment';
 
+export const canvasModes: readonly CanvasMode[] = ['arrange', 'interact', 'comment'];
+
 /**
  * Minimum selector shape for frame→shell selection messages.
  * Inferred: text uses quote+context+offsets; point uses click coords.

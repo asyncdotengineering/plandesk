@@ -7,10 +7,11 @@
  */
 import { makeSignature } from 'better-auth/crypto';
 import type { BetterAuthInstance } from './better-auth.js';
+import { orgRoles } from '@plandesk/db/vocabulary';
 import { ensureDefaultTeamForOrg } from './identity.js';
 
-export const INVITATION_ROLES = ['owner', 'admin', 'member'] as const;
-export type InvitationRole = (typeof INVITATION_ROLES)[number];
+export const INVITATION_ROLES = orgRoles;
+export type InvitationRole = (typeof orgRoles)[number];
 
 export function isInvitationRole(value: string): value is InvitationRole {
   return (INVITATION_ROLES as readonly string[]).includes(value);

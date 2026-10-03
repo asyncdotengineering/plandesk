@@ -11,13 +11,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { taskSeverities } from '@plandesk/db/vocabulary';
 import { useCreateTask } from '../../lib/queries.js';
 
 type FileIssueProps = {
   projectId: string;
 };
-
-const SEVERITY_OPTIONS = ['low', 'medium', 'high'] as const;
 
 function buildDescription(body: string, severity: string): string | undefined {
   const trimmedBody = body.trim();
@@ -147,7 +146,7 @@ export function FileIssue({ projectId }: FileIssueProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">—</SelectItem>
-                {SEVERITY_OPTIONS.map((option) => (
+                {taskSeverities.map((option) => (
                   <SelectItem key={option} value={option}>
                     {option}
                   </SelectItem>

@@ -2,6 +2,9 @@ import { Hono } from 'hono';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { resolvePublicOrigin, tryGetAuthContext, type Services } from '@plandesk/api';
+import { linkEntityTypes } from '@plandesk/db/vocabulary';
+
+const LINK_ENTITY_TYPE_LIST = linkEntityTypes.map((type) => `'${type}'`).join(', ');
 import { createAddCommentHandler } from './tools/add-comment.js';
 import { createAddArtifactCommentHandler } from './tools/add-artifact-comment.js';
 import { createAttachFileHandler } from './tools/attach-file.js';
@@ -484,8 +487,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     'create_edge',
     {
       title: 'Create Edge',
-      description:
-        "Create a directed edge between any two entities via from_type/from_id/to_type/to_id (entity types: 'task', 'document', 'artifact', 'prototype'). Legacy from_task_id/to_task_id still accepted and map to type task. Prefer the label vocabulary: blocks, depends_on, unblocks, feeds, clarifies, enables, supports, documents, references, supersedes, extends.",
+      description: `Create a directed edge between any two entities via from_type/from_id/to_type/to_id (entity types: ${LINK_ENTITY_TYPE_LIST}). Legacy from_task_id/to_task_id still accepted and map to type task. Prefer the label vocabulary: blocks, depends_on, unblocks, feeds, clarifies, enables, supports, documents, references, supersedes, extends.`,
       inputSchema: createEdgeInputSchema,
       outputSchema: createEdgeOutputSchema,
     },

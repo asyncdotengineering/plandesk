@@ -20,6 +20,7 @@ import {
   submitIssue,
   type PortalSubmission,
 } from '../../lib/portal.js';
+import { taskSeverities } from '@plandesk/db/vocabulary';
 
 type SubmitIssueProps = {
   shareToken: string;
@@ -30,8 +31,6 @@ type SubmitIssueProps = {
   onSubmitted: (submission: PortalSubmission) => void;
   onUnauthorized: () => void;
 };
-
-const SEVERITY_OPTIONS = ['low', 'medium', 'high'] as const;
 
 export function SubmitIssue({
   shareToken,
@@ -210,7 +209,7 @@ export function SubmitIssue({
                   )}
                 >
                   <option value="">—</option>
-                  {SEVERITY_OPTIONS.map((option) => (
+                  {taskSeverities.map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>

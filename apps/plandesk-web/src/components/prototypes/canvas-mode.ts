@@ -1,7 +1,8 @@
-/** Shell-owned canvas gesture mode. Mirrors the shim's CanvasMode union. */
-export type CanvasMode = 'arrange' | 'interact' | 'comment';
+import { canvasModes, type CanvasMode } from '@plandesk/api';
 
-export const CANVAS_MODES: readonly CanvasMode[] = ['arrange', 'interact', 'comment'] as const;
+export type { CanvasMode };
+
+export const CANVAS_MODES = canvasModes;
 
 /** Arrange is the default so screen bodies are layoutable (frames eat events otherwise). */
 export const DEFAULT_CANVAS_MODE: CanvasMode = 'arrange';

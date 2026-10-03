@@ -112,6 +112,9 @@ describe('GoalDetail', () => {
         {
           verified_at: null,
           verified_ref: null,
+          kind: 'build',
+          lane: null,
+          severity: null,
           id: 'task-1',
           project_id: projectId,
           goal_id: humanSignOffGoal.id,

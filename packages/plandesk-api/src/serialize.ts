@@ -59,6 +59,8 @@ export function emptyTaskStatusSummary(): TaskStatusSummary {
   return Object.fromEntries(taskStatuses.map((status) => [status, 0])) as TaskStatusSummary;
 }
 
+export type SerializedProject = ReturnType<typeof serializeProject>;
+
 export function serializeProject(project: Project) {
   return {
     id: project.id,
@@ -74,6 +76,8 @@ export function serializeProject(project: Project) {
     updated_at: project.updatedAt.toISOString(),
   };
 }
+
+export type SerializedProjectDetail = ReturnType<typeof serializeProjectDetail>;
 
 export function serializeProjectDetail(project: Project, summary: TaskStatusSummary) {
   return {
@@ -146,6 +150,8 @@ function parseLastVerification(raw: string | null) {
   }
 }
 
+export type SerializedGoal = ReturnType<typeof serializeGoal>;
+
 export function serializeGoal(goal: Goal) {
   return {
     id: goal.id,
@@ -193,6 +199,12 @@ export function serializeTask(task: Task, tags?: Tag[], waitingOn?: string[]) {
 
 export type SerializedTask = ReturnType<typeof serializeTask>;
 export type SerializedTaskSummary = Pick<SerializedTask, 'id' | 'label' | 'status'>;
+
+export type CanvasResponse = {
+  nodes: SerializedTask[];
+  edges: SerializedEdge[];
+  layout: unknown;
+};
 
 export function serializeTaskSummary(task: Task): SerializedTaskSummary {
   return {
@@ -562,6 +574,8 @@ export function buildFolderTree(
   };
 }
 
+export type SerializedEdge = ReturnType<typeof serializeEdge>;
+
 export function serializeEdge(edge: Edge) {
   return {
     id: edge.id,
@@ -576,6 +590,18 @@ export function serializeEdge(edge: Edge) {
     created_at: edge.createdAt.toISOString(),
   };
 }
+
+export type SerializedAgentRun = ReturnType<typeof serializeAgentRun>;
+
+export type SerializedAgentRunEvent = {
+  id: string;
+  message: string;
+  created_at: string;
+};
+
+export type SerializedAgentRunWithEvents = SerializedAgentRun & {
+  events: SerializedAgentRunEvent[];
+};
 
 export function serializeAgentRun(run: AgentRun) {
   return {

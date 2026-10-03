@@ -39,6 +39,39 @@ export const taskPriorityOrder: Record<TaskPriority, number> = {
 export const goalStatuses = ['active', 'paused', 'complete', 'blocked'] as const;
 export type GoalStatus = (typeof goalStatuses)[number];
 
+export const agentRunStatuses = ['running', 'completed', 'failed'] as const;
+export type AgentRunStatus = (typeof agentRunStatuses)[number];
+
+/** Terminal agent-run statuses — derived from agentRunStatuses, not restated. */
+export const terminalAgentRunStatuses = agentRunStatuses.filter(
+  (status): status is Exclude<AgentRunStatus, 'running'> => status !== 'running',
+);
+
+export const commentTargetTypes = ['document', 'task', 'note', 'submission', 'artifact'] as const;
+export type CommentTargetType = (typeof commentTargetTypes)[number];
+
+/** Comment surfaces that are not artifact-scoped (artifact uses its own route). */
+export const commentTargetTypesForComments = commentTargetTypes.filter(
+  (type): type is Exclude<CommentTargetType, 'artifact'> => type !== 'artifact',
+);
+
+export const revisionTargetTypes = ['task', 'document', 'artifact'] as const;
+export type RevisionTargetType = (typeof revisionTargetTypes)[number];
+
+/** Revision list surfaces that omit artifact (listed separately today). */
+export const revisionTargetTypesForList = revisionTargetTypes.filter(
+  (type): type is 'task' | 'document' => type !== 'artifact',
+);
+
+export const orgRoles = ['owner', 'admin', 'member'] as const;
+export type OrgRole = (typeof orgRoles)[number];
+
+export const shareSubmissionStatuses = ['pending', 'accepted', 'rejected'] as const;
+export type ShareSubmissionStatus = (typeof shareSubmissionStatuses)[number];
+
+export const artifactKinds = ['markdown', 'html'] as const;
+export type ArtifactKind = (typeof artifactKinds)[number];
+
 /** Polymorphic edge endpoint kinds for authored links. */
 export const linkEntityTypes = ['task', 'document', 'artifact', 'prototype'] as const;
 export type LinkEntityType = (typeof linkEntityTypes)[number];

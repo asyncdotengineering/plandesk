@@ -12,6 +12,8 @@ import { CommentsPanel, commentHasContent } from './CommentsPanel.js';
 
 const openComment: SerializedComment = {
   id: 'cmt-1',
+  target_type: 'document',
+  target_id: 'doc-1',
   document_id: 'doc-1',
   passage: '§1 intro',
   anchor: null,
@@ -22,6 +24,8 @@ const openComment: SerializedComment = {
 
 const resolvedComment: SerializedComment = {
   id: 'cmt-2',
+  target_type: 'document',
+  target_id: 'doc-1',
   document_id: 'doc-1',
   passage: null,
   anchor: null,

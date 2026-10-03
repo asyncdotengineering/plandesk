@@ -5,8 +5,39 @@
 // Imported *and* re-exported: `export … from` alone re-exports without binding
 // the names locally, and SerializedTask below refers to TaskPriority in this
 // module's own scope.
+import type {
+  CanvasResponse,
+  FlowCoverage,
+  SerializedAgentRunEvent,
+  SerializedAgentRunWithEvents,
+  SerializedArtifact,
+  SerializedArtifactSummary,
+  SerializedComment,
+  SerializedDocument,
+  SerializedDocumentTree,
+  SerializedEdge,
+  SerializedEntityLink,
+  SerializedFolder,
+  SerializedGoal,
+  SerializedNote,
+  SerializedProject,
+  SerializedProjectDetail,
+  SerializedPrototype,
+  SerializedPrototypeBoundaryLink,
+  SerializedPrototypeLink,
+  SerializedPrototypeWithScreens,
+  SerializedRevision,
+  SerializedRevisionMeta,
+  SerializedTag,
+  SerializedTask,
+  SerializedView,
+  TaskStatusSummary,
+} from '@plandesk/api';
 import type { SavedViewConfig } from '@plandesk/db/saved-view-config';
 import {
+  goalStatuses,
+  orgRoles as invitationOrgRoles,
+  shareSubmissionStatuses,
   taskStatuses,
   taskPriorities,
   taskPriorityOrder,
@@ -17,6 +48,11 @@ import {
   DEFAULT_EDGE_LABEL,
   isTaskEdgeLabel,
   isDocumentEdgeLabel,
+  type ArtifactKind,
+  type CommentTargetType,
+  type GoalStatus,
+  type RevisionTargetType,
+  type ShareSubmissionStatus,
   type TaskStatus,
   type TaskPriority,
   type LinkEntityType,
@@ -44,18 +80,48 @@ export type {
   TaskEdgeLabel,
   DocumentEdgeLabel,
   EdgeLabel,
+  ArtifactKind,
+  CommentTargetType,
+  GoalStatus,
+  RevisionTargetType,
 };
 export type { SavedViewConfig };
+export type { ShareSubmissionStatus };
+export type SubmissionStatus = ShareSubmissionStatus;
 
-export type SerializedView = {
-  id: string;
-  project_id: string;
-  name: string;
-  config: SavedViewConfig;
-  position: number;
-  created_at: string;
-  updated_at: string;
+export { goalStatuses, shareSubmissionStatuses as submissionStatuses };
+
+export type {
+  CanvasResponse,
+  FlowCoverage,
+  SerializedView,
+  SerializedProject,
+  SerializedProjectDetail,
+  SerializedTag,
+  SerializedTask,
+  SerializedEdge,
+  SerializedEntityLink,
+  SerializedDocument,
+  SerializedFolder,
+  SerializedDocumentTree,
+  SerializedNote,
+  SerializedArtifactSummary,
+  SerializedArtifact,
+  SerializedPrototype,
+  SerializedPrototypeLink,
+  SerializedPrototypeBoundaryLink,
+  SerializedPrototypeWithScreens,
+  SerializedComment,
+  SerializedGoal,
+  SerializedRevisionMeta,
+  SerializedRevision,
+  TaskStatusSummary,
 };
+
+export type SerializedAgentRun = SerializedAgentRunWithEvents;
+export type { SerializedAgentRunEvent };
+
+export type SerializedLastVerification = NonNullable<SerializedGoal['last_verification']>;
 
 export type CreateViewInput = {
   name: string;
@@ -75,125 +141,9 @@ export type PatchViewInput = {
 // canvas came to reject labels the database happily stores.
 export const DEFAULT_DOCUMENT_EDGE_LABEL: DocumentEdgeLabel = 'documents';
 
-export type TaskStatusSummary = Record<TaskStatus, number>;
-
-/** Mirrors the org role ladder the API enforces (low → high). */
+/** Workspace permission ladder (distinct from better-auth orgRoles in @plandesk/db). */
 export const orgRoles = ['viewer', 'commenter', 'editor', 'manager', 'owner'] as const;
 export type OrgRole = (typeof orgRoles)[number];
-
-export type SerializedProject = {
-  id: string;
-  name: string;
-  description: string | null;
-  owner_id: string | null;
-  overview_document_id: string | null;
-  repo_url: string | null;
-  folder_path: string | null;
-  /** The workspace (better-auth team) the project belongs to. */
-  workspace_id: string;
-  /** The active goal task creation and get_next_task default to; null when unset. */
-  current_goal_id: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type SerializedProjectDetail = SerializedProject & {
-  summary: TaskStatusSummary;
-};
-
-export type SerializedTag = {
-  id: string;
-  project_id: string;
-  name: string;
-  color: string | null;
-  created_at: string;
-};
-
-export type SerializedTask = {
-  id: string;
-  project_id: string;
-  goal_id: string | null;
-  label: string;
-  status: TaskStatus;
-  priority: TaskPriority | null;
-  lane?: string | null;
-  severity?: string | null;
-  description: string | null;
-  x: number;
-  y: number;
-  assignee: string | null;
-  due_date: string | null;
-  commit_refs: string[];
-  verified_at: string | null;
-  verified_ref: string | null;
-  created_at: string;
-  updated_at: string;
-  // Present on task endpoints; canvas nodes omit it.
-  tags?: SerializedTag[];
-  // Derived on list: unfinished prerequisite task ids from sequencing edges.
-  blocked?: boolean;
-  waiting_on?: string[];
-};
-
-export type SerializedEdge = {
-  id: string;
-  project_id: string;
-  from_type: LinkEntityType;
-  from_id: string;
-  to_type: LinkEntityType;
-  to_id: string;
-  label: string | null;
-  arrow_direction: string | null;
-  style: string | null;
-  created_at: string;
-};
-
-/** One graph neighbour of a document (or a task, via the backlinks read path). */
-export type SerializedEntityLink = {
-  type: LinkEntityType;
-  id: string;
-  title: string;
-  label: string | null;
-  edge_id: string;
-};
-
-export type SerializedDocument = {
-  id: string;
-  project_id: string;
-  title: string;
-  body: string | null;
-  status_line: string | null;
-  parent_id: string | null;
-  folder_id: string | null;
-  source_path: string | null;
-  verified_at: string | null;
-  verified_ref: string | null;
-  /** Outgoing edges from this document. */
-  links: SerializedEntityLink[];
-  /** Incoming edges to this document. */
-  backlinks: SerializedEntityLink[];
-  created_at: string;
-  updated_at: string;
-};
-
-export type SerializedFolder = {
-  id: string;
-  project_id: string;
-  name: string;
-  parent_folder_id: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type SerializedDocumentTree = SerializedDocument & {
-  children: SerializedDocumentTree[];
-};
-
-export type CanvasResponse = {
-  nodes: SerializedTask[];
-  edges: SerializedEdge[];
-  layout: unknown;
-};
 
 export type PutCanvasInput = {
   nodes: Array<{ id?: string; x: number; y: number; label?: string }>;
@@ -297,96 +247,9 @@ export type PatchFolderInput = {
   parent_folder_id?: string | null;
 };
 
-export type SerializedNote = {
-  id: string;
-  project_id: string;
-  title: string;
-  body: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-/** Summary row from GET /projects/:id/artifacts — enough for the link picker. */
-export type SerializedArtifactSummary = {
-  id: string;
-  title: string;
-  kind: 'markdown' | 'html';
-  /** Folder placement in the document tree. Null = unfiled. */
-  folder_id: string | null;
-  /** Set ⇒ a prototype screen, which belongs to the canvas and not the tree. */
-  prototype_id: string | null;
-  revision_id: string;
-  updated_at: string;
-};
-
-/** Full artifact from GET /artifacts/:id or nested under a prototype. */
-export type SerializedArtifact = {
-  id: string;
-  project_id: string;
-  title: string;
-  kind: 'markdown' | 'html';
-  content: string;
-  prototype_id: string | null;
-  /** Folder placement in the document tree. Null = unfiled. */
-  folder_id: string | null;
-  x: number | null;
-  y: number | null;
-  revision_id: string;
-  created_at: string;
-  updated_at: string;
-};
-
-export type SerializedPrototype = {
-  id: string;
-  project_id: string;
-  name: string;
-  viewport_width: number;
-  viewport_height: number;
-  folder_id: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type SerializedPrototypeLink = {
-  id: string;
-  project_id: string;
-  from_artifact_id: string;
-  to_artifact_id: string | null;
-  raw_target: string;
-};
-
-export type SerializedPrototypeBoundaryLink = {
-  direction: 'exit' | 'arrive';
-  link_id: string;
-  local_artifact_id: string;
-  foreign_artifact_id: string;
-  foreign_title: string;
-  foreign_prototype_id: string;
-  foreign_prototype_name: string;
-  raw_target: string;
-};
-
-export type FlowCoverage = {
-  parseable: boolean;
-  parse_error: string | null;
-  planned: string[];
-  built: string[];
-  missing: string[];
-  unplanned: string[];
-  states_unverified: { screen: string; states: string[] }[];
-  unplanned_note: string | null;
-};
-
-export type SerializedPrototypeWithScreens = SerializedPrototype & {
-  screens: SerializedArtifact[];
-  links: SerializedPrototypeLink[];
-  boundary_links: SerializedPrototypeBoundaryLink[];
-  coverage: FlowCoverage;
-};
-
 export type PatchArtifactInput = {
   title?: string;
-  kind?: 'markdown' | 'html';
+  kind?: ArtifactKind;
   content?: string;
   prototype_id?: string | null;
   x?: number | null;
@@ -403,21 +266,8 @@ export type PatchNoteInput = {
   body?: string | null;
 };
 
-export type SerializedComment = {
-  id: string;
-  document_id: string | null;
-  target_type?: string;
-  target_id?: string;
-  passage: string | null;
-  anchor: string | null;
-  body: string;
-  resolved: boolean;
-  created_at: string;
-};
-
-export type CommentTargetType = 'document' | 'task' | 'note' | 'submission' | 'artifact';
 export type CommentTarget =
-  | { type: 'document' | 'task' | 'note' | 'submission'; id: string }
+  | { type: Exclude<CommentTargetType, 'artifact'>; id: string }
   | { type: 'artifact'; id: string; projectId: string }
   | { type: 'portal-artifact'; id: string; shareToken: string; sessionToken: string };
 
@@ -627,23 +477,6 @@ export function patchTask(id: string, input: PatchTaskInput): Promise<Serialized
 export function deleteTask(id: string): Promise<void> {
   return request(`/tasks/${id}`, { method: 'DELETE' });
 }
-
-/** Target kinds that carry content history (authored fields only). */
-export type RevisionTargetType = 'task' | 'document' | 'artifact';
-
-/** Metadata-only list row — no snapshot (panel opens cheaply). */
-export type SerializedRevisionMeta = {
-  id: string;
-  author: string;
-  changed_fields: string[];
-  created_at: string;
-};
-
-export type SerializedRevision = SerializedRevisionMeta & {
-  target_type: RevisionTargetType;
-  target_id: string;
-  snapshot: Record<string, unknown>;
-};
 
 export type RevisionDiffHunk = {
   old_start: number;
@@ -1003,7 +836,9 @@ export function createCliToken(name?: string): Promise<CreateCliTokenResponse> {
 }
 
 /** Invite roles the dashboard may mint (owner bootstrap is CLI-only). */
-export const inviteRoles = ['admin', 'member'] as const;
+export const inviteRoles = invitationOrgRoles.filter(
+  (role): role is 'admin' | 'member' => role !== 'owner',
+);
 export type InviteRole = (typeof inviteRoles)[number];
 
 export type SerializedOrgMember = {
@@ -1072,28 +907,9 @@ export function acceptInvitation(invitationId: string): Promise<AcceptInvitation
   return request(`/invitations/${invitationId}/accept`, { method: 'POST' });
 }
 
-export type SerializedAgentRunEvent = {
-  id: string;
-  message: string;
-  created_at: string;
-};
-
-export type SerializedAgentRun = {
-  id: string;
-  project_id: string;
-  status: 'running' | 'completed' | 'failed';
-  label: string | null;
-  started_at: string;
-  completed_at: string | null;
-  events: SerializedAgentRunEvent[];
-};
-
 export function listAgentRuns(projectId: string): Promise<SerializedAgentRun[]> {
   return request(`/projects/${projectId}/agent-runs`);
 }
-
-export const submissionStatuses = ['pending', 'accepted', 'rejected'] as const;
-export type SubmissionStatus = (typeof submissionStatuses)[number];
 
 export type SerializedSubmission = {
   id: string;
@@ -1131,33 +947,6 @@ export function triageSubmission(
 ): Promise<SerializedSubmission> {
   return request(`/submissions/${id}/triage`, { method: 'POST', body: JSON.stringify(input) });
 }
-
-export const goalStatuses = ['active', 'paused', 'complete', 'blocked'] as const;
-export type GoalStatus = (typeof goalStatuses)[number];
-
-export type SerializedLastVerification = {
-  at: string;
-  green: boolean;
-  kind: string | null;
-  detail?: string;
-};
-
-export type SerializedGoal = {
-  id: string;
-  project_id: string;
-  name: string | null;
-  objective: string;
-  status: GoalStatus;
-  verification_surface: string | null;
-  constraints: string | null;
-  boundaries: string | null;
-  iteration_policy: string | null;
-  stop_condition: string | null;
-  budget: string | null;
-  last_verification: SerializedLastVerification | null;
-  created_at: string;
-  updated_at: string;
-};
 
 export type SerializedGoalDetail = SerializedGoal & {
   cycle_tasks: SerializedTask[];

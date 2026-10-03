@@ -39,6 +39,9 @@ vi.mock('@/components/share/ShareButton', () => ({
 const baseTask: SerializedTask = {
   verified_at: null,
   verified_ref: null,
+  kind: 'build',
+  lane: null,
+  severity: null,
   id: '00000000-0000-4000-8000-000000000001',
   project_id: 'proj-1',
   goal_id: 'goal-1',

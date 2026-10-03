@@ -148,7 +148,7 @@ function memberships(task: SerializedTask, field: GroupableField): Membership[] 
     }
     case 'severity': {
       const severity = task.severity ?? null;
-      if (severity === null || severity === '') {
+      if (severity === null) {
         return [{ key: EMPTY_SENTINEL, value: null }];
       }
       return [{ key: severity, value: severity }];

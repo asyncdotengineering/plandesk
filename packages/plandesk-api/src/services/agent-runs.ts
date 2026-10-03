@@ -5,6 +5,7 @@ import {
   listAgentRunEvents,
   listAgentRuns,
   updateAgentRunStatus,
+  terminalAgentRunStatuses,
   type AgentRunStatus,
   type Db,
 } from '@plandesk/db';
@@ -23,7 +24,7 @@ export class InvalidAgentRunError extends Error {
   }
 }
 
-const terminalStatuses = new Set<AgentRunStatus>(['completed', 'failed']);
+const terminalStatuses = new Set<AgentRunStatus>(terminalAgentRunStatuses);
 
 export function createAgentRunService(deps: AgentRunServiceDeps) {
   const { db } = deps;

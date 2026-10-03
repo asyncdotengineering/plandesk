@@ -60,6 +60,9 @@ const sampleDiff: RevisionFieldDiff[] = [
 const restoredTask: SerializedTask = {
   verified_at: null,
   verified_ref: null,
+  kind: 'build',
+  lane: null,
+  severity: null,
   id: taskId,
   project_id: projectId,
   goal_id: 'goal-1',

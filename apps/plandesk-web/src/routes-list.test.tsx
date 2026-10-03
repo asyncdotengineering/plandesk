@@ -34,6 +34,9 @@ function makeTask(
   return {
     verified_at: null,
     verified_ref: null,
+    kind: 'build',
+    lane: null,
+    severity: null,
     id,
     project_id: projectId,
     goal_id: 'goal-1',

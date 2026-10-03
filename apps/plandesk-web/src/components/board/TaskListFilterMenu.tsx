@@ -1,6 +1,7 @@
 import { FilterIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { taskLanes } from '@plandesk/db/vocabulary';
 import { taskPriorities, taskStatuses } from '../../lib/api.js';
 import {
   FILTER_OPERATOR_LABELS,
@@ -16,8 +17,6 @@ import {
   type FilterOperator,
   type FilterableField,
 } from './task-filter.js';
-
-const LANE_VALUES = ['auto', 'approve', 'full'] as const;
 
 type TaskListFilterMenuProps = {
   root: FilterNode | null;
@@ -209,7 +208,7 @@ function FilterValueInput({
           onChange(event.target.value);
         }}
       >
-        {LANE_VALUES.map((lane) => (
+        {taskLanes.map((lane) => (
           <option key={lane} value={lane}>
             {lane}
           </option>

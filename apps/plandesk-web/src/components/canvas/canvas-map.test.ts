@@ -14,6 +14,9 @@ import {
 const sampleTask: SerializedTask = {
   verified_at: null,
   verified_ref: null,
+  kind: 'build',
+  lane: null,
+  severity: null,
   id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   project_id: 'proj-1',
   goal_id: 'goal-1',

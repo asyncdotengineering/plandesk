@@ -35,6 +35,21 @@ export {
   type TaskLane,
   type TaskSeverity,
   type GoalStatus,
+  agentRunStatuses,
+  terminalAgentRunStatuses,
+  commentTargetTypes,
+  commentTargetTypesForComments,
+  revisionTargetTypes,
+  revisionTargetTypesForList,
+  orgRoles,
+  shareSubmissionStatuses,
+  artifactKinds,
+  type AgentRunStatus,
+  type CommentTargetType,
+  type RevisionTargetType,
+  type OrgRole,
+  type ShareSubmissionStatus,
+  type ArtifactKind,
   type LinkEntityType,
   type TaskEdgeLabel,
   type DocumentEdgeLabel,
@@ -49,22 +64,15 @@ import {
   taskSeverities,
   goalStatuses,
   linkEntityTypes,
+  shareSubmissionStatuses,
+  artifactKinds,
+  commentTargetTypes,
+  revisionTargetTypes,
+  agentRunStatuses,
 } from './vocabulary.js';
-
-export const agentRunStatuses = ['running', 'completed', 'failed'] as const;
-export type AgentRunStatus = (typeof agentRunStatuses)[number];
-
-export const commentTargetTypes = ['document', 'task', 'note', 'submission', 'artifact'] as const;
-export type CommentTargetType = (typeof commentTargetTypes)[number];
-
-export const revisionTargetTypes = ['task', 'document', 'artifact'] as const;
-export type RevisionTargetType = (typeof revisionTargetTypes)[number];
 
 // Edge relationship labels now live in ./vocabulary.ts (re-exported above), split
 // into taskEdgeLabels and documentEdgeLabels. The column stays free text.
-
-export const orgRoles = ['owner', 'admin', 'member'] as const;
-export type OrgRole = (typeof orgRoles)[number];
 
 /** Stable id for the single local better-auth organization (loopback owner). */
 export const DEFAULT_ORG_ID = '00000000-0000-4000-8000-0000000000a1';
@@ -417,9 +425,6 @@ export const guestSessions = sqliteTable(
   (table) => [uniqueIndex('guest_sessions_token_hash_unique').on(table.tokenHash)],
 );
 
-export const shareSubmissionStatuses = ['pending', 'accepted', 'rejected'] as const;
-export type ShareSubmissionStatus = (typeof shareSubmissionStatuses)[number];
-
 export const shareSubmissions = sqliteTable('share_submissions', {
   id: text('id').primaryKey(),
   projectId: text('project_id')
@@ -444,9 +449,6 @@ export const syncState = sqliteTable('sync_state', {
   pullCursor: text('pull_cursor'),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 });
-
-export const artifactKinds = ['markdown', 'html'] as const;
-export type ArtifactKind = (typeof artifactKinds)[number];
 
 /**
  * Named flow of screens with a declared viewport. Flat (no nesting).

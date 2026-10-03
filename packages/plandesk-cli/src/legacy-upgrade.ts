@@ -22,6 +22,7 @@ import {
   type PlandeskExportTask,
   type TaskStatus,
 } from '@plandesk/db';
+import { agentRunStatuses, taskStatuses } from '@plandesk/db/vocabulary';
 import {
   createBetterAuth,
   createTeamForOrg,
@@ -66,8 +67,8 @@ export type LegacyUpgradeResult =
 type SqlValue = null | number | string | bigint | ArrayBuffer | Uint8Array;
 type SqlRow = Record<string, SqlValue>;
 
-const TASK_STATUSES = new Set<string>(['scope', 'todo', 'in_progress', 'done', 'backlog']);
-const AGENT_RUN_STATUSES = new Set<string>(['running', 'completed', 'failed']);
+const TASK_STATUSES = new Set<string>(taskStatuses);
+const AGENT_RUN_STATUSES = new Set<string>(agentRunStatuses);
 
 function asString(value: SqlValue | undefined): string {
   if (value === null || value === undefined) {

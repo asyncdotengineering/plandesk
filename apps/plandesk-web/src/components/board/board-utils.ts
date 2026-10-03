@@ -5,7 +5,7 @@ import {
   type TaskStatus,
 } from '../../lib/api.js';
 
-export const boardColumnOrder: TaskStatus[] = ['scope', 'todo', 'in_progress', 'done', 'backlog'];
+export const boardColumnOrder: TaskStatus[] = [...taskStatuses];
 
 export const columnLabels: Record<TaskStatus, string> = {
   scope: 'Scope',

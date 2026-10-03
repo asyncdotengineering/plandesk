@@ -149,9 +149,52 @@ export { reachOf, resolvePublicOrigin, type Reach } from './public-origin.js';
 export {
   buildTextAnchor,
   offsetsToRange,
+  canvasModes,
   type AnnotationSelector,
   type CanvasMode,
 } from './html-frame-shim.js';
+export {
+  dueDateField,
+  commitRefsField,
+  verifiedAtField,
+  verifiedRefField,
+  tagsField,
+  taskMutableZodFields,
+} from './task-fields.js';
+export type {
+  PaginationParams,
+  TaskStatusSummary,
+  SerializedTag,
+  SerializedView,
+  SerializedProject,
+  SerializedProjectDetail,
+  SerializedTask,
+  SerializedTaskSummary,
+  SerializedEdge,
+  SerializedEntityLink,
+  SerializedDocument,
+  SerializedDocumentTree,
+  SerializedNote,
+  SerializedArtifact,
+  SerializedArtifactSummary,
+  SerializedPrototype,
+  SerializedPrototypeLink,
+  SerializedPrototypeBoundaryLink,
+  SerializedPrototypeWithScreens,
+  FlowCoverage,
+  SerializedComment,
+  SerializedFolder,
+  SerializedFolderTree,
+  SerializedDocumentFolderTree,
+  SerializedToken,
+  SerializedRevisionMeta,
+  SerializedRevision,
+  SerializedGoal,
+  SerializedAgentRun,
+  SerializedAgentRunEvent,
+  SerializedAgentRunWithEvents,
+  CanvasResponse,
+} from './serialize.js';
 export { InvalidTagError } from './services/tags.js';
 export { InvalidViewError } from './services/views.js';
 export { InvalidCommentError } from './services/comments.js';
