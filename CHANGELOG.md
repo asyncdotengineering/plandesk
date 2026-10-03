@@ -2,6 +2,38 @@
 
 All notable changes to Plan Desk are documented here.
 
+## [4.0.0] — 2026-10-03
+
+A major release because three surfaces are removed and every write path now rejects input it cannot honour. Everything else is additive. The board migrates in place on the next `plandesk serve` (migrations 0021–0024); see [Upgrading → 3.x → 4.0.0](https://plandesk.asyncdot.com/reference/upgrading/#the-3x--400-upgrade).
+
+### Breaking
+
+- **Arguments the server cannot honour are rejected, not dropped.** MCP tools were registered with a bare zod shape, which the SDK wraps in a non-strict object, so an unknown argument was stripped and the call reported success (`create_task` dropped `commit_refs`; `scaffold_project_from_plan` once dropped `goal_id`). Every MCP input schema is now strict, and REST `POST /projects/:id/tasks` and `PATCH /tasks/:id` answer 400 naming the unknown key. Fields a sibling tool already accepted were added where they were missing (`create_task.commit_refs`/`due_date`, `create_document.status_line`, `update_document.parent_id`, `create_edge.arrow_direction`, scaffold task fields). REST `PATCH /tasks/:id` now forwards `assignee` and `due_date`, which the canvas panel sent and the route lost.
+- **`sync_pull` and `plandesk pull` are gone.** They talked to `@plandesk/sync-server`, removed in 1.x; no server answered, and `sync_pull` always replied "not promoted". The `sync_remotes` table is dropped.
+- **`plandesk legacy-upgrade` is retired.** Anyone still on a 0.20.x board runs `npx @plandesk/cli@3.6.0 legacy-upgrade` once, then upgrades normally.
+
+### Added
+
+- **A task can belong to no goal.** `goal_id: null` detaches a task over MCP and REST, and creates one with no goal. Omitting `goal_id` still attaches to the current goal, and the create response now says how it resolved (`goal_resolution`). With no active goal, new work gets no goal and no placeholder "General" goal is created; `get_next_task` serves goal-less todos.
+- **Search reads bodies.** Document, note and task bodies are indexed (SQLite FTS5, trigram), so paths like `docs/foo-bar.md` match as typed. Results rank title hits first and carry an excerpt, in MCP `search`, REST `/search` and the command menu.
+- **Documents can say which repo file they mirror, and when anything was last verified.** `source_path` on documents; `verified_at`/`verified_ref` on documents and tasks, set only explicitly. `check_references` (MCP) and `GET /projects/:id/reference-check` report mirrored files that no longer exist. The disk is probed only on a loopback server; elsewhere the answer is `unknown`.
+- **Share links say how far they reach.** They are built on `PLANDESK_BASE_URL` when set, and carry `reachable_from: this_machine | network`.
+- **Skills install with `npx skills add asyncdotengineering/plandesk`.** Copies `connect` vendors into a repo are marked `metadata.internal: true`, so a connected public repo does not appear to publish them. The heaviest skills load their conditional material on demand.
+
+### Fixed
+
+- **A project link sets its workspace.** Opening `/projects/:id` in another workspace made the breadcrumb, switchers and search describe the old one. The project's own workspace now becomes active; a project you cannot read shows a not-found page at once instead of three retries.
+- **Share links no longer show org chrome to guests.** `/p/<token>` rendered inside the app shell, exposing the org sidebar and switchers.
+- **The workspace breadcrumb opens the project list**, not the workspace picker.
+- **Unknown `/api` paths answer 404**, not `405 Allow: GET`, under `plandesk serve`.
+- **`plandesk-groom-task` frontmatter is valid YAML**, so strict skill loaders stop dropping it.
+- **Factory run state has one path** (`.agents/factory/runs/`), and `metrics.jsonl` is tracked, as the factory contract always said.
+- **In-process callers can no longer act as owner by default.** A service with no request context and no explicit principal now throws instead of assuming owner.
+
+### Removed
+
+- About 4,000 lines with no live caller: GitHub OAuth helpers left behind when better-auth took over sign-in, the sync client, the legacy upgrader, a one-release hook migration, and unreferenced symbols. Every vocabulary now has one owner, and MCP tools register from one table.
+
 ## [3.6.0] — 2026-08-21
 
 ### Added

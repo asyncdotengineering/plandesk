@@ -8,6 +8,7 @@ Plan Desk ships as one npm package: `@plandesk/cli` contains the CLI, the server
 There are three kinds of upgrade on this page:
 
 - **[Routine upgrade](#routine-upgrade)** — same schema, most releases: update the package, restart the server, migrations run automatically. Your data is untouched.
+- **[The 3.x → 4.0.0 upgrade](#the-3x--400-upgrade)** — the board migrates automatically and in place. It is a major version because MCP and REST now reject arguments they cannot honour, and `sync_pull`, `plandesk pull` and `plandesk legacy-upgrade` are removed.
 - **[The 1.x → 2.0.0 upgrade](#the-1x--200-upgrade-one-link-shape)** — your board migrates **automatically and in place**, and the web UI and CLI need nothing from you. It is a major version because `linked_task_id` was removed from the API and MCP payloads, so it breaks anything _you_ wrote that read that field.
 - **[The 0.20.0 → better-auth upgrade](#the-020x--better-auth-upgrade-breaking)** — a one-time **breaking** migration for anyone on 0.20.0 or earlier. The database schema was reset (no in-place migration) and the board moved to a machine-global default. Read that section before you upgrade past 0.20.0.
 
@@ -17,7 +18,8 @@ If you don't know which applies, run `plandesk --version`:
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `0.20.x` or earlier | [The 0.20.0 upgrade](#the-020x--better-auth-upgrade-breaking) first — your data does not carry forward on its own        |
 | `1.x`               | [The 1.x → 2.0.0 upgrade](#the-1x--200-upgrade-one-link-shape) — automatic, but read it if you built anything on the API |
-| `2.x`               | [Routine upgrade](#routine-upgrade)                                                                                      |
+| `2.x`               | [Routine upgrade](#routine-upgrade), then the 3.x → 4.0.0 note below                                                     |
+| `3.x`               | [The 3.x → 4.0.0 upgrade](#the-3x--400-upgrade) — automatic migration; read it if you call MCP tools or the REST API     |
 
 ## Routine upgrade
 
@@ -77,6 +79,22 @@ plandesk doctor --repo .
 ```
 
 Checks the workspace DB, the binding, the token, and that the MCP server lists its tools.
+
+## The 3.x → 4.0.0 upgrade
+
+The same three steps as a [routine upgrade](#routine-upgrade). The board migrates in place when the new server boots: a task's goal becomes optional, a full-text search index is built from existing bodies, and documents and tasks gain verification fields. Take a backup first (stop the server before copying the file):
+
+```bash
+cp ~/.plandesk/workspace.db ~/plandesk-backup-3x.db
+npm i -g @plandesk/cli@latest
+plandesk serve          # migrations 0021–0024 run here
+```
+
+### What breaks
+
+- **MCP tools and REST task routes reject unknown arguments.** A call that sent a field the server never handled used to succeed and silently drop it; it now fails with the field named. Remove the field, or use the tool that accepts it.
+- **`sync_pull` (MCP) and `plandesk pull` are removed**, and the `sync_remotes` table is dropped. They depended on a server retired in 1.x and never returned data.
+- **`plandesk legacy-upgrade` is removed.** If you still have a 0.20.x board, run `npx @plandesk/cli@3.6.0 legacy-upgrade` before upgrading (see below).
 
 ## The 1.x → 2.0.0 upgrade (one link shape)
 
