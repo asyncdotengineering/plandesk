@@ -7,21 +7,13 @@ import {
   InvalidTaskLaneError,
   InvalidTaskSeverityError,
   UnstoredColumnError,
-  isTaskStatus,
-  isTaskKind,
-  isTaskPriority,
-  isTaskLane,
-  isTaskSeverity,
   isValidCommitRefs,
   normalizeCommitRefs,
 } from '@plandesk/db';
 import type { TaskService } from '../services/tasks.js';
 import { InvalidCommitRefsError } from '../services/tasks.js';
 import { InvalidTagError } from '../services/tags.js';
-
-export function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === 'string');
-}
+import { parseDueDate, patchTaskBodySchema, zodValidationField } from './task-route-schemas.js';
 
 export function createTasksRouter(taskService: TaskService): Hono {
   const router = new Hono();
@@ -36,53 +28,26 @@ export function createTasksRouter(taskService: TaskService): Hono {
   });
 
   router.patch('/tasks/:id', async (c) => {
-    const body = await c.req.json<{
-      status?: string;
-      kind?: string;
-      priority?: string | null;
-      lane?: string | null;
-      severity?: string | null;
-      label?: string;
-      description?: string | null;
-      x?: number;
-      y?: number;
-      tags?: unknown;
-      commit_refs?: unknown;
-    }>();
-
-    if (body.status !== undefined && !isTaskStatus(body.status)) {
-      return invalidArgument(c, 'status', 'status must be a valid task status');
+    const raw = await c.req.json<unknown>();
+    const parsed = patchTaskBodySchema.safeParse(raw);
+    if (!parsed.success) {
+      const { field, message } = zodValidationField(parsed.error);
+      return invalidArgument(c, field, message);
     }
-
-    if (body.kind !== undefined && !isTaskKind(body.kind)) {
-      return invalidArgument(c, 'kind', 'kind must be a valid task kind');
-    }
-
-    if (body.priority !== undefined && body.priority !== null && !isTaskPriority(body.priority)) {
-      return invalidArgument(c, 'priority', 'priority must be a valid task priority');
-    }
-
-    if (body.lane !== undefined && body.lane !== null && !isTaskLane(body.lane)) {
-      return invalidArgument(c, 'lane', 'lane must be a valid task lane');
-    }
-    if (body.severity !== undefined && body.severity !== null && !isTaskSeverity(body.severity)) {
-      return invalidArgument(c, 'severity', 'severity must be a valid task severity');
-    }
-
-    if (body.tags !== undefined && !isStringArray(body.tags)) {
-      return invalidArgument(c, 'tags', 'tags must be an array of strings');
-    }
+    const body = parsed.data;
 
     let commitRefs: string[] | null | undefined;
     if (body.commit_refs === undefined) {
       commitRefs = undefined;
     } else if (body.commit_refs === null) {
       commitRefs = null;
-    } else if (isStringArray(body.commit_refs) && isValidCommitRefs(body.commit_refs)) {
+    } else if (isValidCommitRefs(body.commit_refs)) {
       commitRefs = normalizeCommitRefs(body.commit_refs);
     } else {
-      return invalidArgument(c, 'commit_refs', 'commit_refs must be an array of strings');
+      return invalidArgument(c, 'commit_refs', 'commit_refs must be an array of valid hex SHAs');
     }
+
+    const dueDate = parseDueDate(body.due_date);
 
     try {
       const task = await taskService.update(c.req.param('id'), {
@@ -95,6 +60,8 @@ export function createTasksRouter(taskService: TaskService): Hono {
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.x !== undefined ? { x: body.x } : {}),
         ...(body.y !== undefined ? { y: body.y } : {}),
+        ...(body.assignee !== undefined ? { assignee: body.assignee } : {}),
+        ...(dueDate !== undefined ? { dueDate } : {}),
         ...(body.tags !== undefined ? { tags: body.tags } : {}),
         ...(commitRefs !== undefined ? { commitRefs } : {}),
       });

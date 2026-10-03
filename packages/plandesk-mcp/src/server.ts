@@ -152,7 +152,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'List Projects',
       description: 'List all accessible projects',
-      inputSchema: listProjectsInputSchema.shape,
+      inputSchema: listProjectsInputSchema,
       annotations: { readOnlyHint: true },
     },
     createListProjectsHandler(services.projectService),
@@ -163,7 +163,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Get Project',
       description: 'Get project detail with task status summary',
-      inputSchema: getProjectInputSchema.shape,
+      inputSchema: getProjectInputSchema,
       annotations: { readOnlyHint: true },
     },
     createGetProjectHandler(services.projectService),
@@ -174,7 +174,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Create Project',
       description: 'Create a new project',
-      inputSchema: createProjectInputSchema.shape,
+      inputSchema: createProjectInputSchema,
     },
     createCreateProjectHandler(services.projectService),
   );
@@ -185,7 +185,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Update Project',
       description:
         'Update project name, description, repo_url, or folder_path. Pass null for repo_url or folder_path to clear them.',
-      inputSchema: updateProjectInputSchema.shape,
+      inputSchema: updateProjectInputSchema,
     },
     createUpdateProjectHandler(services.projectService),
   );
@@ -196,7 +196,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Create Task',
       description:
         'Create a canvas node and task row. `lane` and `severity` are typed execution fields; optional `tags` sets task tags by name, auto-creating missing project tags.',
-      inputSchema: createTaskInputSchema.shape,
+      inputSchema: createTaskInputSchema,
     },
     createCreateTaskHandler(services.taskService),
   );
@@ -207,7 +207,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Update Task',
       description:
         'Update task status, label, description, position, goal, typed lane/severity fields, tags, or commit_refs. `goal_id` reassigns the task to a different goal in the same project, preserving its edges, comments, and documents. `tags` REPLACES the full tag set (auto-creating tags by name that do not exist yet; [] clears all tags); omit it to leave tags unchanged. `commit_refs` REPLACES the full array of hex SHAs (case-insensitive, stored lowercase; max 50; pass null to clear); omit to leave unchanged.',
-      inputSchema: updateTaskInputSchema.shape,
+      inputSchema: updateTaskInputSchema,
     },
     createUpdateTaskHandler(services.taskService),
   );
@@ -218,7 +218,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Create Document',
       description:
         'Create a document with optional links and optional folder_id to file it on create (no follow-up move). Pass link_to as a single id or a list of task/document ids to wire document→target edges. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
-      inputSchema: createDocumentInputSchema.shape,
+      inputSchema: createDocumentInputSchema,
     },
     createCreateDocumentHandler(
       services.documentService,
@@ -233,7 +233,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Update Document',
       description:
         'Update document title, body, status line, folder, or links. Pass folder_id to move the document into a folder (the MCP equivalent of dragging a row onto a folder in the UI), or null to file it under Unfiled at the project root. Pass link_to as a single id or list of task/document ids to add outgoing document→target edges. Write the body as well-structured Markdown (headings, lists, blank lines); it is rendered as rich text.',
-      inputSchema: updateDocumentInputSchema.shape,
+      inputSchema: updateDocumentInputSchema,
     },
     createUpdateDocumentHandler(
       services.documentService,
@@ -248,7 +248,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Get Document',
       description:
         'Get a document by id, including derived links (outgoing) and backlinks (incoming) so related specs and tasks can be walked without a second query. Each link/backlink entry carries an `edge_id` — pass it to delete_edge to remove that one relationship.',
-      inputSchema: getDocumentInputSchema.shape,
+      inputSchema: getDocumentInputSchema,
       outputSchema: getDocumentOutputSchema,
       annotations: { readOnlyHint: true },
     },
@@ -261,7 +261,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'List Documents',
       description:
         'List documents for a project with every document in the top-level documents array. The recursive folders array contains metadata-only nodes with id, name, parent_folder_id, doc_count, and nested folders; it never embeds document bodies. Pass folder_id to return only that folder’s documents. Returns summary fields by default; pass verbose: true to include bodies.',
-      inputSchema: listDocumentsInputSchema.shape,
+      inputSchema: listDocumentsInputSchema,
       annotations: { readOnlyHint: true },
     },
     createListDocumentsHandler(services.documentService),
@@ -273,7 +273,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Create Folder',
       description:
         'Create a document folder, optionally nested under a parent folder via parent_folder_id (omit for project root). Folders organize documents; documents reference them via folder_id at create or move time.',
-      inputSchema: createFolderInputSchema.shape,
+      inputSchema: createFolderInputSchema,
     },
     createCreateFolderHandler(services.folderService),
   );
@@ -284,7 +284,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Update Folder',
       description:
         'Rename a folder or re-parent it (pass parent_folder_id null to move it to the project root). Re-parenting that would create a cycle is rejected.',
-      inputSchema: updateFolderInputSchema.shape,
+      inputSchema: updateFolderInputSchema,
     },
     createUpdateFolderHandler(services.folderService),
   );
@@ -295,7 +295,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Delete Folder',
       description:
         "Delete a folder without orphaning contents. By default documents and sub-folders move to the deleted folder's parent (Unfiled when it was at the project root). Pass reparent_to null for Unfiled, or a folder id to move contents there.",
-      inputSchema: deleteFolderInputSchema.shape,
+      inputSchema: deleteFolderInputSchema,
     },
     createDeleteFolderHandler(services.folderService),
   );
@@ -306,7 +306,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Move Documents',
       description:
         'Move many documents into a folder in one call (or to Unfiled when folder_id is null). Not atomic: each document_id is attempted independently and the result lists `moved` ids plus per-item `failed` entries — a missing, foreign, or invalid id does not roll back the rest.',
-      inputSchema: moveDocumentsInputSchema.shape,
+      inputSchema: moveDocumentsInputSchema,
     },
     createMoveDocumentsHandler(services.documentService),
   );
@@ -317,7 +317,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Create Prototype',
       description:
         'Create a named prototype flow with a declared viewport. Viewport presets (guidance, not an enum): 390×844 phone, 1024×768 tablet, 1440×900 desktop — free values are allowed. Screens are HTML artifacts attached via create_artifact with prototype_id.',
-      inputSchema: createPrototypeInputSchema.shape,
+      inputSchema: createPrototypeInputSchema,
     },
     createCreatePrototypeHandler(services.prototypeService),
   );
@@ -327,7 +327,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'List Prototypes',
       description: 'List prototypes for a project (id, name, viewport, timestamps).',
-      inputSchema: listPrototypesInputSchema.shape,
+      inputSchema: listPrototypesInputSchema,
       annotations: { readOnlyHint: true },
     },
     createListPrototypesHandler(services.prototypeService),
@@ -339,7 +339,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Get Prototype',
       description:
         'Get a prototype by id, including its screens (HTML artifacts with that prototype_id).',
-      inputSchema: getPrototypeInputSchema.shape,
+      inputSchema: getPrototypeInputSchema,
       annotations: { readOnlyHint: true },
     },
     createGetPrototypeHandler(services.prototypeService),
@@ -351,7 +351,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Update Prototype',
       description:
         'Rename a prototype or change its viewport. Viewport presets (guidance): 390×844 phone, 1024×768 tablet, 1440×900 desktop.',
-      inputSchema: updatePrototypeInputSchema.shape,
+      inputSchema: updatePrototypeInputSchema,
     },
     createUpdatePrototypeHandler(services.prototypeService),
   );
@@ -362,7 +362,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Create Note',
       description:
         'Create a free-form project note. Notes are working notes scoped to the project (findings, context, anything worth referring back to) — not formal documents. Write the body as well-structured Markdown; it is rendered as rich text.',
-      inputSchema: createNoteInputSchema.shape,
+      inputSchema: createNoteInputSchema,
     },
     createCreateNoteHandler(services.noteService),
   );
@@ -373,7 +373,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Update Note',
       description:
         'Update a project note title or body. Write the body as well-structured Markdown; it is rendered as rich text.',
-      inputSchema: updateNoteInputSchema.shape,
+      inputSchema: updateNoteInputSchema,
     },
     createUpdateNoteHandler(services.noteService),
   );
@@ -383,7 +383,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Get Note',
       description: 'Get a project note by id',
-      inputSchema: getNoteInputSchema.shape,
+      inputSchema: getNoteInputSchema,
       annotations: { readOnlyHint: true },
     },
     createGetNoteHandler(services.noteService),
@@ -394,7 +394,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'List Notes',
       description: 'List the working notes for a project',
-      inputSchema: listNotesInputSchema.shape,
+      inputSchema: listNotesInputSchema,
       annotations: { readOnlyHint: true },
     },
     createListNotesHandler(services.noteService),
@@ -406,7 +406,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Search',
       description:
         'Search documents, tasks, and notes by title or label within the active workspace (or a single project). Body text is not searched.',
-      inputSchema: searchInputSchema.shape,
+      inputSchema: searchInputSchema,
       annotations: { readOnlyHint: true },
     },
     createSearchHandler(services.searchService),
@@ -418,7 +418,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Create Artifact',
       description:
         "Create an agent-produced deliverable (report, RFC, HTML diagram) stored in the workspace. Pass optional prototype_id (same project) with kind 'html' to attach it as a screen — markdown screens are refused. Do not send x/y; layout is system-owned. Humans can annotate via the CLI previewer; the returned artifact_id is exactly the id used by list_artifact_comments and add_artifact_comment.",
-      inputSchema: createArtifactInputSchema.shape,
+      inputSchema: createArtifactInputSchema,
     },
     createCreateArtifactHandler(services.artifactService, filePathDeps),
   );
@@ -429,7 +429,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Get Artifact',
       description:
         'Get a stored artifact by id, including its full content. Use after list_artifact_comments to read human feedback before revising with update_artifact.',
-      inputSchema: getArtifactInputSchema.shape,
+      inputSchema: getArtifactInputSchema,
       annotations: { readOnlyHint: true },
     },
     createGetArtifactHandler(services.artifactService),
@@ -440,8 +440,8 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Update Artifact',
       description:
-        'Revise a stored artifact (title, content, or kind). Use after reading artifact comments to incorporate human annotations.',
-      inputSchema: updateArtifactInputSchema.shape,
+        'Revise a stored artifact (title, content, or kind). Use after reading artifact comments to incorporate human annotations. Screen x/y layout is system-owned — use move_screen or the canvas API instead of sending x or y.',
+      inputSchema: updateArtifactInputSchema,
     },
     createUpdateArtifactHandler(services.artifactService, filePathDeps),
   );
@@ -452,7 +452,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Move Screen',
       description:
         'Move an html screen to another prototype in the same project. Keeps the artifact id and comments; re-resolves derived links in the destination. Does not rewrite markup.',
-      inputSchema: moveScreenInputSchema.shape,
+      inputSchema: moveScreenInputSchema,
     },
     createMoveScreenHandler(services.artifactService),
   );
@@ -463,7 +463,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Copy Screen',
       description:
         'Copy an html screen into another prototype. New artifact id, same content, comments do not travel. Title links resolve in the destination prototype.',
-      inputSchema: copyScreenInputSchema.shape,
+      inputSchema: copyScreenInputSchema,
     },
     createCopyScreenHandler(services.artifactService),
   );
@@ -474,7 +474,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'List Artifacts',
       description:
         'List artifact summaries for a project (id, title, kind, updated_at). Artifacts are agent deliverables humans annotate via the previewer.',
-      inputSchema: listArtifactsInputSchema.shape,
+      inputSchema: listArtifactsInputSchema,
       annotations: { readOnlyHint: true },
     },
     createListArtifactsHandler(services.artifactService),
@@ -486,7 +486,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Create Edge',
       description:
         "Create a directed edge between any two entities via from_type/from_id/to_type/to_id (entity types: 'task', 'document', 'artifact', 'prototype'). Legacy from_task_id/to_task_id still accepted and map to type task. Prefer the label vocabulary: blocks, depends_on, unblocks, feeds, clarifies, enables, supports, documents, references, supersedes, extends.",
-      inputSchema: createEdgeInputSchema.shape,
+      inputSchema: createEdgeInputSchema,
       outputSchema: createEdgeOutputSchema,
     },
     createCreateEdgeHandler(services.canvasService),
@@ -498,7 +498,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'List Edges',
       description:
         'List edges for a project with typed endpoints (id, from_type, from_id, to_type, to_id, label). Use this to inspect the graph before pruning a stale edge with delete_edge — each edge `id` here is exactly the edge_id delete_edge takes.',
-      inputSchema: listEdgesInputSchema.shape,
+      inputSchema: listEdgesInputSchema,
       outputSchema: listEdgesOutputSchema,
       annotations: { readOnlyHint: true },
     },
@@ -511,7 +511,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Delete Edge',
       description:
         "Remove one edge by id (the edge_id from a get_document links/backlinks entry or list_edges). Only the addressed edge is deleted; sibling edges on the same entity stay intact. Updates get_next_task's blocked/waiting_on computation immediately for task-graph edges.",
-      inputSchema: deleteEdgeInputSchema.shape,
+      inputSchema: deleteEdgeInputSchema,
       annotations: {
         destructiveHint: true,
         // Re-deleting an already-removed edge is a no-op (returns not_found);
@@ -528,7 +528,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Attach File',
       description:
         'Upload a file (image today) and get back a short URL. Embed the returned `url` in a task, document, or comment body as `![alt](url)` instead of inlining base64 — keeps bodies lean. mime defaults to image/png. On loopback, `file_path` reads from disk only when the path resolves under a project repo root registered in this workspace (`folder_path`); otherwise use `content_base64`.',
-      inputSchema: attachFileInputSchema.shape,
+      inputSchema: attachFileInputSchema,
     },
     createAttachFileHandler(services.fileService, filePathDeps),
   );
@@ -539,7 +539,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Create Share Link',
       description:
         'Mint a public, hash-token share link scoped to a single task, document, or prototype, with a Markdown URL (`markdown_url`) a worker can `curl` for full context — put "Context: <markdown_url>" in a worker brief instead of pasting. Exactly one of task_id/document_id/prototype_id is required. expires defaults to 24h; never means the link does not expire.',
-      inputSchema: createShareLinkInputSchema.shape,
+      inputSchema: createShareLinkInputSchema,
     },
     createCreateShareLinkHandler(services.shareService, () => origin),
   );
@@ -549,7 +549,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Start Agent Run',
       description: 'Begin an external agent session',
-      inputSchema: startAgentRunInputSchema.shape,
+      inputSchema: startAgentRunInputSchema,
     },
     createStartAgentRunHandler(services.agentRunService),
   );
@@ -559,7 +559,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Record Agent Progress',
       description: 'Append a progress event to an agent run',
-      inputSchema: recordAgentProgressInputSchema.shape,
+      inputSchema: recordAgentProgressInputSchema,
     },
     createRecordAgentProgressHandler(services.agentRunService),
   );
@@ -569,7 +569,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Complete Agent Run',
       description: 'Close an agent run with completed or failed status',
-      inputSchema: completeAgentRunInputSchema.shape,
+      inputSchema: completeAgentRunInputSchema,
     },
     createCompleteAgentRunHandler(services.agentRunService),
   );
@@ -580,7 +580,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Scaffold Project From Plan',
       description:
         'Scaffold tasks, dependency edges, and linked documents in one atomic call — into a new project, or into an existing one when project_id is given (e.g. the repo-bound project). Each document may take link_to as a single plan key or a list of task/document keys (resolved via key_to_id); give documents a key to reference them from other documents.',
-      inputSchema: scaffoldProjectFromPlanInputSchema.shape,
+      inputSchema: scaffoldProjectFromPlanInputSchema,
     },
     createScaffoldProjectFromPlanHandler(
       services.projectService,
@@ -595,7 +595,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Create Goal',
       description:
         'Create a goal for a project with an optional short unique name, objective, and contract fields',
-      inputSchema: createGoalInputSchema.shape,
+      inputSchema: createGoalInputSchema,
     },
     createCreateGoalHandler(services.goalService),
   );
@@ -605,7 +605,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Get Goal',
       description: 'Get a goal by ID including its cycle-tasks',
-      inputSchema: getGoalInputSchema.shape,
+      inputSchema: getGoalInputSchema,
       annotations: { readOnlyHint: true },
     },
     createGetGoalHandler(services.goalService),
@@ -616,7 +616,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'List Goals',
       description: 'List all goals for a project',
-      inputSchema: listGoalsInputSchema.shape,
+      inputSchema: listGoalsInputSchema,
       annotations: { readOnlyHint: true },
     },
     createListGoalsHandler(services.goalService),
@@ -627,8 +627,8 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Update Goal',
       description:
-        "Edit an existing goal's name, objective, or contract fields (verification_surface, constraints, boundaries, iteration_policy, stop_condition, budget). Does not detach the goal's cycle-tasks. Omit a field to leave it unchanged.",
-      inputSchema: updateGoalInputSchema.shape,
+        "Edit an existing goal's name, objective, or contract fields (verification_surface, constraints, boundaries, iteration_policy, stop_condition, budget). Does not detach the goal's cycle-tasks. Omit a field to leave it unchanged. Goal lifecycle status is not writable here — use pause_goal, resume_goal, or complete_goal instead.",
+      inputSchema: updateGoalInputSchema,
     },
     createUpdateGoalHandler(services.goalService),
   );
@@ -639,7 +639,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Set Current Goal',
       description:
         'Point the project current_goal_id at this active goal so get_next_task resolves here when goal_id is omitted.',
-      inputSchema: setCurrentGoalInputSchema.shape,
+      inputSchema: setCurrentGoalInputSchema,
     },
     createSetCurrentGoalHandler(services.goalService),
   );
@@ -650,7 +650,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Invoke Goal',
       description:
         'Begin working a goal: sets current_goal_id, checks the task graph for cycles, and returns the first frontier todo. Fails with no_todo_tasks when tasks are still in scope (release scope → todo explicitly — this tool does not self-release). Other active goals remain active; warnings explain how get_next_task resolves.',
-      inputSchema: goalLifecycleInputSchema.shape,
+      inputSchema: goalLifecycleInputSchema,
     },
     createInvokeGoalHandler(services.goalService),
   );
@@ -660,7 +660,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Pause Goal',
       description: 'Pause an active goal',
-      inputSchema: goalLifecycleInputSchema.shape,
+      inputSchema: goalLifecycleInputSchema,
     },
     createPauseGoalHandler(services.goalService),
   );
@@ -670,7 +670,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Resume Goal',
       description: 'Resume a paused goal',
-      inputSchema: goalLifecycleInputSchema.shape,
+      inputSchema: goalLifecycleInputSchema,
     },
     createResumeGoalHandler(services.goalService),
   );
@@ -681,7 +681,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Complete Goal',
       description:
         'Mark a goal complete when every cycle-task is done and verification evidence is green. Submit evidence matching the goal verification_surface; red evidence blocks the goal and files a remediation task.',
-      inputSchema: completeGoalInputSchema.shape,
+      inputSchema: completeGoalInputSchema,
     },
     createCompleteGoalHandler(services.goalService),
   );
@@ -692,7 +692,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Get Next Task',
       description:
         'Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id or project-scoped goal name). When both are omitted: resolves via current_goal_id, then the sole active goal, then ambiguous_goal — never unions active goals. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.',
-      inputSchema: getNextTaskInputSchema.shape,
+      inputSchema: getNextTaskInputSchema,
       annotations: { readOnlyHint: true },
     },
     createGetNextTaskHandler(services.taskService),
@@ -704,7 +704,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Claim Task',
       description:
         'Atomically claim a todo task for an agent (status → in_progress, assignee = agent_ref). Exactly one concurrent claim wins; losers get claimed: false.',
-      inputSchema: claimTaskInputSchema.shape,
+      inputSchema: claimTaskInputSchema,
     },
     createClaimTaskHandler(services.taskService),
   );
@@ -715,7 +715,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Get Task Graph',
       description:
         'Return the task dependency graph with prerequisite fan-in, depth, roots, detected cycles, and the tasks actionable if every scope task were released. Optionally scope to one goal.',
-      inputSchema: getTaskGraphInputSchema.shape,
+      inputSchema: getTaskGraphInputSchema,
       annotations: { readOnlyHint: true },
     },
     createGetTaskGraphHandler(services.taskService),
@@ -726,7 +726,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Get Task',
       description: 'Get a single task by ID including its current status, label, and description',
-      inputSchema: getTaskInputSchema.shape,
+      inputSchema: getTaskInputSchema,
       annotations: { readOnlyHint: true },
     },
     createGetTaskHandler(services.taskService),
@@ -738,7 +738,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'List Tasks',
       description:
         'List all tasks for a project, optionally filtered by status, typed lane/severity, and/or tags. The `tags` filter uses OR semantics: a task matches if it carries ANY of the given tag names. Use this to reconcile the board against reality. Returns summary fields by default; pass verbose: true to include descriptions.',
-      inputSchema: listTasksInputSchema.shape,
+      inputSchema: listTasksInputSchema,
       annotations: { readOnlyHint: true },
     },
     createListTasksHandler(services.taskService),
@@ -749,7 +749,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'List Tags',
       description: 'List the tags of a project (name, optional color) for labeling tasks',
-      inputSchema: listTagsInputSchema.shape,
+      inputSchema: listTagsInputSchema,
       annotations: { readOnlyHint: true },
     },
     createListTagsHandler(services.tagService),
@@ -761,7 +761,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'List Views',
       description:
         'List saved named views for a project (name + config). Views are human-authored named queries — agents consume them via this read-only tool; there is no create/update/delete view tool.',
-      inputSchema: listViewsInputSchema.shape,
+      inputSchema: listViewsInputSchema,
       annotations: { readOnlyHint: true },
     },
     createListViewsHandler(services.viewService),
@@ -773,7 +773,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'List Revisions',
       description:
         'List content-history metadata for a task or document (id, author, changed fields, timestamp). Newest first. Does not include snapshot bodies — use get_revision for those.',
-      inputSchema: listRevisionsInputSchema.shape,
+      inputSchema: listRevisionsInputSchema,
       annotations: { readOnlyHint: true },
     },
     createListRevisionsHandler(services.revisionService),
@@ -785,7 +785,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Get Revision',
       description:
         'Get one content-history revision including its full prior-state snapshot. Read-only — there is no restore tool over MCP.',
-      inputSchema: getRevisionInputSchema.shape,
+      inputSchema: getRevisionInputSchema,
       annotations: { readOnlyHint: true },
     },
     createGetRevisionHandler(services.revisionService),
@@ -796,7 +796,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'List Comments',
       description: 'List unresolved comments for a project or a document, task, or note',
-      inputSchema: listCommentsInputSchema.shape,
+      inputSchema: listCommentsInputSchema,
       annotations: { readOnlyHint: true },
     },
     createListCommentsHandler(services.commentService),
@@ -807,7 +807,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Add Comment',
       description: 'Leave a suggestion on a document, task, or note',
-      inputSchema: addCommentInputSchema.shape,
+      inputSchema: addCommentInputSchema,
     },
     createAddCommentHandler(services.commentService),
   );
@@ -817,7 +817,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'List Artifact Comments',
       description: 'List annotations on a file artifact for a project.',
-      inputSchema: listArtifactCommentsInputSchema.shape,
+      inputSchema: listArtifactCommentsInputSchema,
       annotations: { readOnlyHint: true },
     },
     createListArtifactCommentsHandler(services.commentService),
@@ -829,7 +829,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       title: 'Add Artifact Comment',
       description:
         'Create an annotation on a file artifact (previewed via `plandesk <file>`). artifact_id is the file identity; anchor is the W3C selector JSON.',
-      inputSchema: addArtifactCommentInputSchema.shape,
+      inputSchema: addArtifactCommentInputSchema,
     },
     createAddArtifactCommentHandler(services.commentService),
   );
@@ -839,7 +839,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Resolve Comment',
       description: 'Mark document feedback as addressed',
-      inputSchema: resolveCommentInputSchema.shape,
+      inputSchema: resolveCommentInputSchema,
     },
     createResolveCommentHandler(services.commentService),
   );
@@ -849,7 +849,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Sync Pull',
       description: 'Pull participant submissions into the local triage inbox',
-      inputSchema: syncPullInputSchema.shape,
+      inputSchema: syncPullInputSchema,
     },
     createSyncPullHandler(services.syncService),
   );
@@ -859,7 +859,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'List Submissions',
       description: 'List pulled participant submissions for triage',
-      inputSchema: listSubmissionsInputSchema.shape,
+      inputSchema: listSubmissionsInputSchema,
       annotations: { readOnlyHint: true },
     },
     createListSubmissionsHandler(
@@ -873,7 +873,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Triage Submission',
       description: 'Accept or reject a participant submission',
-      inputSchema: triageSubmissionInputSchema.shape,
+      inputSchema: triageSubmissionInputSchema,
     },
     createTriageSubmissionHandler(services.syncService),
   );

@@ -1,4 +1,9 @@
-import { InvalidGoalReferenceError, InvalidTagError, type TaskService } from '@plandesk/api';
+import {
+  InvalidCommitRefsError,
+  InvalidGoalReferenceError,
+  InvalidTagError,
+  type TaskService,
+} from '@plandesk/api';
 import {
   InvalidTaskKindError,
   InvalidTaskLaneError,
@@ -30,6 +35,8 @@ export function createCreateTaskHandler(
   assignee?: string | null;
   goal_id?: string;
   tags?: string[];
+  commit_refs?: string[] | null;
+  due_date?: string | null;
 }) => Promise<ToolResult> {
   return async (args) => {
     try {
@@ -46,6 +53,10 @@ export function createCreateTaskHandler(
         ...(args.assignee !== undefined ? { assignee: args.assignee } : {}),
         ...(args.goal_id !== undefined ? { goalId: args.goal_id } : {}),
         ...(args.tags !== undefined ? { tags: args.tags } : {}),
+        ...(args.commit_refs !== undefined ? { commitRefs: args.commit_refs } : {}),
+        ...(args.due_date !== undefined
+          ? { dueDate: args.due_date === null ? null : new Date(args.due_date) }
+          : {}),
       });
       if (!task) {
         return toolNotFound();
@@ -60,6 +71,7 @@ export function createCreateTaskHandler(
         error instanceof InvalidTaskSeverityError ||
         error instanceof InvalidTagError ||
         error instanceof InvalidGoalReferenceError ||
+        error instanceof InvalidCommitRefsError ||
         error instanceof UnstoredColumnError
       ) {
         return toolInvalidArgument(error.message);

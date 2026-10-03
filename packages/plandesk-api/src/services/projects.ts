@@ -31,11 +31,23 @@ import {
   getProject as dbGetProject,
   getProjectInOrg,
   InvalidTaskStatusError,
+  InvalidTaskKindError,
+  InvalidTaskPriorityError,
+  InvalidTaskLaneError,
+  InvalidTaskSeverityError,
   isTaskStatus,
+  isTaskKind,
+  isTaskPriority,
+  isTaskLane,
+  isTaskSeverity,
+  createTag,
+  getTagByName,
+  setTaskTags,
   listAgentRuns,
   listEdges,
   listProjects as dbListProjects,
   listTasks,
+  listTagsForTask,
   updateDocument,
   updateProject as dbUpdateProject,
   getDocumentByProjectAndId,
@@ -45,12 +57,17 @@ import {
   type Document,
   type Edge,
   type Task,
+  type TaskKind,
+  type TaskLane,
+  type TaskPriority,
+  type TaskSeverity,
   type TaskStatus,
 } from '@plandesk/db';
 import { ensureWikiLinkEdges, prepareDocumentBody } from '../document-wiki-links.js';
 import { ensureDefaultTeamForOrg, getTeamInOrg } from '../identity.js';
 import type { BetterAuthInstance } from '../better-auth.js';
 import { InvalidGoalReferenceError } from './tasks.js';
+import { normalizeTagName } from './tags.js';
 import {
   emptyTaskStatusSummary,
   serializeDocument,
@@ -82,7 +99,13 @@ export type ScaffoldTaskInput = {
   key: string;
   label: string;
   status?: TaskStatus;
+  kind?: TaskKind;
+  priority?: TaskPriority | null;
+  lane?: TaskLane | null;
+  severity?: TaskSeverity | null;
   description?: string | null;
+  assignee?: string | null;
+  tags?: string[];
   /** Overrides the call-level goalId for this task. */
   goalId?: string;
   x?: number;
@@ -145,6 +168,18 @@ function validateScaffoldInput(input: ScaffoldPlanInput): void {
     keys.add(task.key);
     if (task.status !== undefined && !isTaskStatus(task.status)) {
       throw new InvalidTaskStatusError(task.status);
+    }
+    if (task.kind !== undefined && !isTaskKind(task.kind)) {
+      throw new InvalidTaskKindError(task.kind);
+    }
+    if (task.priority !== undefined && task.priority !== null && !isTaskPriority(task.priority)) {
+      throw new InvalidTaskPriorityError(task.priority);
+    }
+    if (task.lane !== undefined && task.lane !== null && !isTaskLane(task.lane)) {
+      throw new InvalidTaskLaneError(task.lane);
+    }
+    if (task.severity !== undefined && task.severity !== null && !isTaskSeverity(task.severity)) {
+      throw new InvalidTaskSeverityError(task.severity);
     }
   }
 
@@ -592,10 +627,30 @@ export function createProjectService(deps: ProjectServiceDeps) {
             goalId: taskGoalId,
             label: taskInput.label,
             status: taskInput.status,
+            kind: taskInput.kind,
+            priority: taskInput.priority,
+            lane: taskInput.lane,
+            severity: taskInput.severity,
             description: taskInput.description,
+            assignee: taskInput.assignee,
             x,
             y,
           });
+          if (taskInput.tags !== undefined && taskInput.tags.length > 0) {
+            const tagIds: string[] = [];
+            const seen = new Set<string>();
+            for (const raw of taskInput.tags) {
+              const name = normalizeTagName(raw);
+              if (seen.has(name)) {
+                continue;
+              }
+              seen.add(name);
+              const existing = await getTagByName(tx, projectId, name);
+              const tag = existing ?? (await createTag(tx, { projectId, name }));
+              tagIds.push(tag.id);
+            }
+            await setTaskTags(tx, task.id, tagIds);
+          }
           keyToId.set(taskInput.key, task.id);
           taskRows.push(task);
         }
@@ -697,9 +752,13 @@ export function createProjectService(deps: ProjectServiceDeps) {
         return serializeDocument(document, { links, backlinks });
       });
 
+      const serializedTasks = await Promise.all(
+        taskRows.map(async (task) => serializeTask(task, await listTagsForTask(db, task.id))),
+      );
+
       return {
         project: serializeProject(project),
-        tasks: taskRows.map((task) => serializeTask(task)),
+        tasks: serializedTasks,
         edges: edgeRows.map(serializeEdge),
         documents,
         key_to_id: Object.fromEntries(keyToId),

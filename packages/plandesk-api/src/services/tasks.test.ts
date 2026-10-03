@@ -577,6 +577,12 @@ describe('taskService', () => {
 
   it('commit_refs: set, replace (not append), clear with null, omit leaves unchanged; never-written is []', async () => {
     const service = createService();
+    const atCreate = await service.create(projectId, {
+      label: 'At create',
+      commitRefs: ['d40e44a'],
+    });
+    expect(atCreate?.commit_refs).toEqual(['d40e44a']);
+
     const created = await service.create(projectId, { label: 'Ship it' });
     expect(created?.commit_refs).toEqual([]);
     expect(Array.isArray(created?.commit_refs)).toBe(true);

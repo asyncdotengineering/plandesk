@@ -35,6 +35,8 @@ export type NewTask = {
   y?: number;
   assignee?: string | null;
   dueDate?: Date | null;
+  /** JSON text of a string[], or null. */
+  commitRefs?: string | null;
   id?: string;
 };
 
@@ -177,6 +179,7 @@ export async function createTask(db: DbClient, input: NewTask): Promise<Task> {
       y: input.y ?? 0,
       assignee: input.assignee ?? null,
       dueDate: input.dueDate ?? null,
+      commitRefs: input.commitRefs ?? null,
       createdAt: now,
       updatedAt: now,
     })

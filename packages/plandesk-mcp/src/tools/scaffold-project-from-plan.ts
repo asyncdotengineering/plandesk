@@ -1,6 +1,23 @@
 import type { CanvasService, DocumentService, ProjectService } from '@plandesk/api';
-import { InvalidCanvasError, InvalidGoalReferenceError, InvalidScaffoldError } from '@plandesk/api';
-import { AmbiguousActiveGoalsError, InvalidTaskStatusError, type TaskStatus } from '@plandesk/db';
+import {
+  InvalidCanvasError,
+  InvalidGoalReferenceError,
+  InvalidScaffoldError,
+  InvalidTagError,
+} from '@plandesk/api';
+import {
+  AmbiguousActiveGoalsError,
+  InvalidTaskKindError,
+  InvalidTaskLaneError,
+  InvalidTaskPriorityError,
+  InvalidTaskSeverityError,
+  InvalidTaskStatusError,
+  type TaskKind,
+  type TaskLane,
+  type TaskPriority,
+  type TaskSeverity,
+  type TaskStatus,
+} from '@plandesk/db';
 import { defaultLinkLabel, normalizeLinkTo, type LinkEntityKind } from './link-to.js';
 import { toolInvalidArgument, toolSuccess, type ToolResult } from './result.js';
 
@@ -18,6 +35,12 @@ type ScaffoldArgs = {
     goal_id?: string;
     x?: number;
     y?: number;
+    kind?: string;
+    priority?: string | null;
+    lane?: string | null;
+    severity?: string | null;
+    tags?: string[];
+    assignee?: string | null;
   }>;
   edges?: Array<{
     from: string;
@@ -85,6 +108,16 @@ export function createScaffoldProjectFromPlanHandler(
           ...(task.goal_id !== undefined ? { goalId: task.goal_id } : {}),
           ...(task.x !== undefined ? { x: task.x } : {}),
           ...(task.y !== undefined ? { y: task.y } : {}),
+          ...(task.kind !== undefined ? { kind: task.kind as TaskKind } : {}),
+          ...(task.priority !== undefined
+            ? { priority: task.priority as TaskPriority | null }
+            : {}),
+          ...(task.lane !== undefined ? { lane: task.lane as TaskLane | null } : {}),
+          ...(task.severity !== undefined
+            ? { severity: task.severity as TaskSeverity | null }
+            : {}),
+          ...(task.tags !== undefined ? { tags: task.tags } : {}),
+          ...(task.assignee !== undefined ? { assignee: task.assignee } : {}),
         })),
         ...(args.edges !== undefined
           ? {
@@ -172,6 +205,11 @@ export function createScaffoldProjectFromPlanHandler(
         error instanceof InvalidGoalReferenceError ||
         error instanceof AmbiguousActiveGoalsError ||
         error instanceof InvalidTaskStatusError ||
+        error instanceof InvalidTaskKindError ||
+        error instanceof InvalidTaskPriorityError ||
+        error instanceof InvalidTaskLaneError ||
+        error instanceof InvalidTaskSeverityError ||
+        error instanceof InvalidTagError ||
         error instanceof InvalidCanvasError
       ) {
         return toolInvalidArgument(error.message);

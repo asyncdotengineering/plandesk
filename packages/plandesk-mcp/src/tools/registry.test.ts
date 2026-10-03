@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import * as registry from './registry.js';
 import {
   addCommentInputSchema,
   createGoalInputSchema,
@@ -266,7 +268,7 @@ describe('tool registry tag schemas', () => {
     expect(updateTaskInputSchema.safeParse({ task_id: TASK_ID, tags: [1] }).success).toBe(false);
   });
 
-  it('update_task accepts commit_refs as hex SHAs (case-insensitive, max 50); create_task does not', () => {
+  it('update_task accepts commit_refs as hex SHAs (case-insensitive, max 50)', () => {
     expect(
       updateTaskInputSchema.safeParse({
         task_id: TASK_ID,
@@ -292,7 +294,6 @@ describe('tool registry tag schemas', () => {
         commit_refs: [...fifty, 'aaaaaaa'],
       }).success,
     ).toBe(false);
-    expect('commit_refs' in createTaskInputSchema.shape).toBe(false);
   });
 
   it('get_next_task accepts an optional goal_id filter', () => {
@@ -409,5 +410,25 @@ describe('tool registry tag schemas', () => {
     expect(
       listCommentsInputSchema.safeParse({ project_id: PROJECT_ID, target_id: DOC_ID }).success,
     ).toBe(true);
+  });
+});
+
+describe('every MCP input schema rejects arguments it cannot honour', () => {
+  // The SDK strips unknown keys from a non-strict object while advertising
+  // additionalProperties:false, so a dropped argument reports success. A schema
+  // added without strictness would silently reintroduce that.
+  const inputSchemas = Object.entries(registry).filter(
+    ([name, value]) => name.endsWith('InputSchema') && value instanceof z.ZodType,
+  ) as [string, z.ZodTypeAny][];
+
+  it('finds the input schemas', () => {
+    expect(inputSchemas.length).toBeGreaterThan(50);
+  });
+
+  it.each(inputSchemas)('%s reports an unknown key', (_name, schema) => {
+    const result = schema.safeParse({ __not_a_field: 1 });
+    expect(result.success).toBe(false);
+    const codes = result.success ? [] : result.error.issues.map((issue) => issue.code);
+    expect(codes).toContain('unrecognized_keys');
   });
 });

@@ -50,7 +50,21 @@ const TAGS_SET_DESCRIPTION =
   'Tag names to set on the task. Replaces the FULL tag set; tags that do not exist yet in the project are auto-created by name. Pass [] to remove all tags.';
 
 const COMMIT_REFS_DESCRIPTION =
-  'Hex commit SHAs (7–40 chars, case-insensitive; stored lowercase) that shipped this task. At most 50. Replaces the FULL array; pass null to clear. Omit to leave unchanged. Not accepted on create_task — a task has no commit at creation.';
+  'Hex commit SHAs (7–40 chars, case-insensitive; stored lowercase) that shipped this task. At most 50. Replaces the FULL array; pass null to clear. Omit on update to leave unchanged.';
+
+const COMMIT_REFS_FIELD = z
+  .array(z.string().refine(isValidCommitRef, { message: 'invalid commit_ref' }))
+  .max(MAX_COMMIT_REFS)
+  .nullable()
+  .optional()
+  .describe(COMMIT_REFS_DESCRIPTION);
+
+const DUE_DATE_FIELD = z
+  .string()
+  .refine((value) => !Number.isNaN(new Date(value).getTime()), { message: 'invalid due_date' })
+  .nullable()
+  .optional()
+  .describe('Due date (ISO 8601 string). Pass null to clear on update.');
 
 const TAGS_FILTER_DESCRIPTION =
   'Optional tag-name filter with OR semantics: a task matches if it carries ANY of the given tags.';
@@ -61,9 +75,9 @@ const VERBOSE_DESCRIPTION =
 const TASK_DESCRIPTION_GUIDANCE =
   "Non-trivial tasks need build-contract depth (see .plandesk/skill.md's Task creation conventions): Problem, Action Items, Interfaces (concrete signatures/types/API/CLI this task touches, named exactly), Pseudocode (control flow for anything non-obvious), Validation contract (the test/command/observable outcome that proves it done), and References. No internal RFC/PRD/ticket references embedded in the text — the task must be executable without re-reading a parent doc.";
 
-export const listProjectsInputSchema = z.object({});
+export const listProjectsInputSchema = z.strictObject({});
 
-export const createProjectInputSchema = z.object({
+export const createProjectInputSchema = z.strictObject({
   name: z.string().min(1),
   description: z.string().optional(),
   workspace_id: z
@@ -78,7 +92,7 @@ export const createProjectInputSchema = z.object({
   folder_path: folderPathSchema,
 });
 
-export const updateProjectInputSchema = z.object({
+export const updateProjectInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   name: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
@@ -88,11 +102,11 @@ export const updateProjectInputSchema = z.object({
   folder_path: folderPathSchema,
 });
 
-export const getProjectInputSchema = z.object({
+export const getProjectInputSchema = z.strictObject({
   project_id: z.string().uuid(),
 });
 
-export const createTaskInputSchema = z.object({
+export const createTaskInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   label: z.string().min(1),
   status: z.enum(taskStatuses).optional(),
@@ -112,9 +126,11 @@ export const createTaskInputSchema = z.object({
       'Goal this task belongs to (a cycle within the goal). Omit to attach to the project default goal.',
     ),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_SET_DESCRIPTION),
+  commit_refs: COMMIT_REFS_FIELD,
+  due_date: DUE_DATE_FIELD,
 });
 
-export const updateTaskInputSchema = z.object({
+export const updateTaskInputSchema = z.strictObject({
   task_id: z.string().uuid(),
   status: z.enum(taskStatuses).optional(),
   kind: z.enum(taskKinds).optional(),
@@ -134,15 +150,11 @@ export const updateTaskInputSchema = z.object({
       'Reassign the task to a different goal in the same project. Omit to leave it unchanged.',
     ),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_SET_DESCRIPTION),
-  commit_refs: z
-    .array(z.string().refine(isValidCommitRef, { message: 'invalid commit_ref' }))
-    .max(MAX_COMMIT_REFS)
-    .nullable()
-    .optional()
-    .describe(COMMIT_REFS_DESCRIPTION),
+  commit_refs: COMMIT_REFS_FIELD,
+  due_date: DUE_DATE_FIELD,
 });
 
-export const createDocumentInputSchema = z.object({
+export const createDocumentInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   title: z.string().min(1),
   body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
@@ -151,6 +163,7 @@ export const createDocumentInputSchema = z.object({
     .optional()
     .describe(LINK_TO_DESCRIPTION),
   parent_id: z.string().uuid().optional(),
+  status_line: z.string().optional(),
   folder_id: z
     .string()
     .uuid()
@@ -158,11 +171,12 @@ export const createDocumentInputSchema = z.object({
     .describe('Folder to place the document in on create. Omit for Unfiled (project root).'),
 });
 
-export const updateDocumentInputSchema = z.object({
+export const updateDocumentInputSchema = z.strictObject({
   document_id: z.string().uuid(),
   title: z.string().optional(),
   body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
   status_line: z.string().optional(),
+  parent_id: z.string().uuid().nullable().optional(),
   link_to: z
     .union([z.string().uuid(), z.array(z.string().uuid())])
     .optional()
@@ -177,11 +191,11 @@ export const updateDocumentInputSchema = z.object({
     ),
 });
 
-export const getDocumentInputSchema = z.object({
+export const getDocumentInputSchema = z.strictObject({
   document_id: z.string().uuid(),
 });
 
-export const listDocumentsInputSchema = z.object({
+export const listDocumentsInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   folder_id: z
     .string()
@@ -191,7 +205,7 @@ export const listDocumentsInputSchema = z.object({
   verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
-export const createFolderInputSchema = z.object({
+export const createFolderInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   name: z.string().min(1),
   parent_folder_id: z
@@ -201,7 +215,7 @@ export const createFolderInputSchema = z.object({
     .describe('Parent folder for nesting. Omit to create the folder at the project root.'),
 });
 
-export const updateFolderInputSchema = z.object({
+export const updateFolderInputSchema = z.strictObject({
   folder_id: z.string().uuid(),
   name: z.string().min(1).optional(),
   parent_folder_id: z
@@ -214,7 +228,7 @@ export const updateFolderInputSchema = z.object({
     ),
 });
 
-export const deleteFolderInputSchema = z.object({
+export const deleteFolderInputSchema = z.strictObject({
   folder_id: z.string().uuid(),
   reparent_to: z
     .string()
@@ -226,7 +240,7 @@ export const deleteFolderInputSchema = z.object({
     ),
 });
 
-export const moveDocumentsInputSchema = z.object({
+export const moveDocumentsInputSchema = z.strictObject({
   document_ids: z
     .array(z.string().uuid())
     .min(1)
@@ -240,28 +254,28 @@ export const moveDocumentsInputSchema = z.object({
     ),
 });
 
-export const createNoteInputSchema = z.object({
+export const createNoteInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   title: z.string().min(1),
   body: z.string().optional().describe(NOTE_BODY_DESCRIPTION),
 });
 
-export const updateNoteInputSchema = z.object({
+export const updateNoteInputSchema = z.strictObject({
   note_id: z.string().uuid(),
   title: z.string().min(1).optional(),
   body: z.string().optional().describe(NOTE_BODY_DESCRIPTION),
 });
 
-export const getNoteInputSchema = z.object({
+export const getNoteInputSchema = z.strictObject({
   note_id: z.string().uuid(),
 });
 
-export const listNotesInputSchema = z.object({
+export const listNotesInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
-export const createShareLinkInputSchema = z.object({
+export const createShareLinkInputSchema = z.strictObject({
   task_id: z.string().uuid().optional(),
   document_id: z.string().uuid().optional(),
   prototype_id: z.string().uuid().optional(),
@@ -277,29 +291,29 @@ const ARTIFACT_CONTENT_DESCRIPTION =
 const PROTOTYPE_VIEWPORT_DESCRIPTION =
   'Viewport size in CSS pixels. Presets (guidance, not an enum): 390×844 phone, 1024×768 tablet, 1440×900 desktop. Free values are allowed.';
 
-export const createPrototypeInputSchema = z.object({
+export const createPrototypeInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   name: z.string().min(1),
   viewport_width: z.number().positive().describe(PROTOTYPE_VIEWPORT_DESCRIPTION),
   viewport_height: z.number().positive().describe(PROTOTYPE_VIEWPORT_DESCRIPTION),
 });
 
-export const listPrototypesInputSchema = z.object({
+export const listPrototypesInputSchema = z.strictObject({
   project_id: z.string().uuid(),
 });
 
-export const getPrototypeInputSchema = z.object({
+export const getPrototypeInputSchema = z.strictObject({
   prototype_id: z.string().uuid(),
 });
 
-export const updatePrototypeInputSchema = z.object({
+export const updatePrototypeInputSchema = z.strictObject({
   prototype_id: z.string().uuid(),
   name: z.string().min(1).optional(),
   viewport_width: z.number().positive().optional().describe(PROTOTYPE_VIEWPORT_DESCRIPTION),
   viewport_height: z.number().positive().optional().describe(PROTOTYPE_VIEWPORT_DESCRIPTION),
 });
 
-export const createArtifactInputSchema = z.object({
+export const createArtifactInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   title: z.string().min(1),
   content: z
@@ -331,21 +345,21 @@ export const createArtifactInputSchema = z.object({
     ),
 });
 
-export const getArtifactInputSchema = z.object({
+export const getArtifactInputSchema = z.strictObject({
   artifact_id: z.string().uuid(),
 });
 
-export const moveScreenInputSchema = z.object({
-  artifact_id: z.string().uuid(),
-  prototype_id: z.string().uuid().describe('Destination prototype in the same project.'),
-});
-
-export const copyScreenInputSchema = z.object({
+export const moveScreenInputSchema = z.strictObject({
   artifact_id: z.string().uuid(),
   prototype_id: z.string().uuid().describe('Destination prototype in the same project.'),
 });
 
-export const updateArtifactInputSchema = z.object({
+export const copyScreenInputSchema = z.strictObject({
+  artifact_id: z.string().uuid(),
+  prototype_id: z.string().uuid().describe('Destination prototype in the same project.'),
+});
+
+export const updateArtifactInputSchema = z.strictObject({
   artifact_id: z.string().uuid(),
   title: z.string().min(1).optional(),
   content: z
@@ -378,11 +392,11 @@ export const updateArtifactInputSchema = z.object({
     ),
 });
 
-export const listArtifactsInputSchema = z.object({
+export const listArtifactsInputSchema = z.strictObject({
   project_id: z.string().uuid(),
 });
 
-export const attachFileInputSchema = z.object({
+export const attachFileInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   filename: z
     .string()
@@ -408,7 +422,7 @@ export const attachFileInputSchema = z.object({
     .describe('Defaults to image/png or a guess from the filename.'),
 });
 
-export const createEdgeInputSchema = z.object({
+export const createEdgeInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   from_type: LINK_ENTITY_TYPE.optional().describe(
     `Entity type of the edge's from endpoint: ${LINK_ENTITY_TYPE_LIST}. Required with from_id for typed edges.`,
@@ -438,13 +452,14 @@ export const createEdgeInputSchema = z.object({
     .describe('Legacy task-shaped to. Still accepted; maps to to_type=task, to_id=<value>.'),
   label: z.string().optional(),
   style: z.string().optional(),
+  arrow_direction: z.string().nullable().optional(),
 });
 
-export const listEdgesInputSchema = z.object({
+export const listEdgesInputSchema = z.strictObject({
   project_id: z.string().uuid(),
 });
 
-export const deleteEdgeInputSchema = z.object({
+export const deleteEdgeInputSchema = z.strictObject({
   edge_id: z
     .string()
     .uuid()
@@ -498,22 +513,22 @@ export const getDocumentOutputSchema = { document: z.object(documentOutputShape)
 export const listEdgesOutputSchema = { edges: z.array(z.object(edgeOutputShape)) };
 export const createEdgeOutputSchema = { edge: z.object(edgeOutputShape) };
 
-export const startAgentRunInputSchema = z.object({
+export const startAgentRunInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   label: z.string().optional(),
 });
 
-export const recordAgentProgressInputSchema = z.object({
+export const recordAgentProgressInputSchema = z.strictObject({
   run_id: z.string().uuid(),
   message: z.string().min(1),
 });
 
-export const completeAgentRunInputSchema = z.object({
+export const completeAgentRunInputSchema = z.strictObject({
   run_id: z.string().uuid(),
   status: z.enum(['completed', 'failed']),
 });
 
-export const scaffoldProjectFromPlanInputSchema = z.object({
+export const scaffoldProjectFromPlanInputSchema = z.strictObject({
   workspace_id: z
     .string()
     .optional()
@@ -543,75 +558,87 @@ export const scaffoldProjectFromPlanInputSchema = z.object({
     ),
   tasks: z
     .array(
-      z.object({
-        key: z.string().min(1),
-        label: z.string().min(1),
-        status: z.enum(taskStatuses).optional(),
-        description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
-        goal_id: z
-          .string()
-          .uuid()
-          .optional()
-          .describe(
-            'Goal for this task. Overrides the call-level goal_id when both are set. Must belong to the target project.',
-          ),
-        x: z.number().optional(),
-        y: z.number().optional(),
-      }),
+      z
+        .object({
+          key: z.string().min(1),
+          label: z.string().min(1),
+          status: z.enum(taskStatuses).optional(),
+          kind: z.enum(taskKinds).optional(),
+          priority: z.enum(taskPriorities).nullable().optional(),
+          lane: z.enum(taskLanes).nullable().optional(),
+          severity: z.enum(taskSeverities).nullable().optional(),
+          description: z.string().optional().describe(TASK_DESCRIPTION_GUIDANCE),
+          goal_id: z
+            .string()
+            .uuid()
+            .optional()
+            .describe(
+              'Goal for this task. Overrides the call-level goal_id when both are set. Must belong to the target project.',
+            ),
+          x: z.number().optional(),
+          y: z.number().optional(),
+          tags: z.array(z.string().min(1)).optional().describe(TAGS_SET_DESCRIPTION),
+          assignee: z.string().min(1).nullable().optional(),
+        })
+        .strict(),
     )
     .min(1),
   edges: z
     .array(
-      z.object({
-        from: z.string().min(1),
-        to: z.string().min(1),
-        label: z.string().optional(),
-        style: z.string().optional(),
-      }),
+      z
+        .object({
+          from: z.string().min(1),
+          to: z.string().min(1),
+          label: z.string().optional(),
+          style: z.string().optional(),
+        })
+        .strict(),
     )
     .optional(),
   documents: z
     .array(
-      z.object({
-        key: z
-          .string()
-          .min(1)
-          .optional()
-          .describe(
-            'Stable key for this document so other documents can link_to it in the same plan. Resolved into key_to_id alongside task keys.',
-          ),
-        title: z.string().min(1),
-        body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
-        status_line: z.string().optional(),
-        link_to: z
-          .union([z.string().min(1), z.array(z.string().min(1))])
-          .optional()
-          .describe(
-            'Task or document plan key(s) to link. Accepts a single key or a list; resolved through key_to_id. A single string remains accepted for backward compatibility.',
-          ),
-      }),
+      z
+        .object({
+          key: z
+            .string()
+            .min(1)
+            .optional()
+            .describe(
+              'Stable key for this document so other documents can link_to it in the same plan. Resolved into key_to_id alongside task keys.',
+            ),
+          title: z.string().min(1),
+          body: z.string().optional().describe(DOCUMENT_BODY_DESCRIPTION),
+          status_line: z.string().optional(),
+          link_to: z
+            .union([z.string().min(1), z.array(z.string().min(1))])
+            .optional()
+            .describe(
+              'Task or document plan key(s) to link. Accepts a single key or a list; resolved through key_to_id. A single string remains accepted for backward compatibility.',
+            ),
+        })
+        .strict(),
     )
     .optional(),
 });
 
 const verificationEvidenceSchema = z.discriminatedUnion('kind', [
-  z.object({
+  z.strictObject({
     kind: z.literal('gate_command'),
     exit_code: z.number(),
     command: z.string().optional(),
     detail: z.string().optional(),
   }),
-  z.object({
+  z.strictObject({
     kind: z.literal('acceptance_checklist'),
     checked: z.array(z.string()),
   }),
-  z.object({
+  z.strictObject({
     kind: z.literal('human_sign_off'),
     approved_by: z.string(),
   }),
 ]);
 
-export const createGoalInputSchema = z.object({
+export const createGoalInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   name: z.string().min(1).nullable().optional(),
   objective: z.string().min(1),
@@ -635,7 +662,7 @@ export const createGoalInputSchema = z.object({
   status: z.enum(goalStatuses).optional(),
 });
 
-export const updateGoalInputSchema = z.object({
+export const updateGoalInputSchema = z.strictObject({
   goal_id: z.string().uuid(),
   name: z.string().min(1).nullable().optional(),
   objective: z.string().min(1).optional(),
@@ -655,16 +682,16 @@ export const updateGoalInputSchema = z.object({
   budget: z.string().optional(),
 });
 
-export const getGoalInputSchema = z.object({
+export const getGoalInputSchema = z.strictObject({
   goal_id: z.string().uuid(),
   verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
-export const listGoalsInputSchema = z.object({
+export const listGoalsInputSchema = z.strictObject({
   project_id: z.string().uuid(),
 });
 
-export const goalLifecycleInputSchema = z.object({
+export const goalLifecycleInputSchema = z.strictObject({
   goal_id: z.string().uuid(),
 });
 
@@ -674,7 +701,7 @@ export const completeGoalInputSchema = goalLifecycleInputSchema.extend({
   evidence: verificationEvidenceSchema.optional(),
 });
 
-export const getNextTaskInputSchema = z.object({
+export const getNextTaskInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   goal_id: z
     .string()
@@ -692,7 +719,7 @@ export const getNextTaskInputSchema = z.object({
   verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
-export const getTaskGraphInputSchema = z.object({
+export const getTaskGraphInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   goal_id: z
     .string()
@@ -701,7 +728,7 @@ export const getTaskGraphInputSchema = z.object({
     .describe('Scope the graph to one goal. Omit for the whole project.'),
 });
 
-export const claimTaskInputSchema = z.object({
+export const claimTaskInputSchema = z.strictObject({
   task_id: z.string().uuid(),
   agent_ref: z
     .string()
@@ -709,11 +736,11 @@ export const claimTaskInputSchema = z.object({
     .describe('Identifier for the agent claiming the task (stored as assignee).'),
 });
 
-export const getTaskInputSchema = z.object({
+export const getTaskInputSchema = z.strictObject({
   task_id: z.string().uuid(),
 });
 
-export const listTasksInputSchema = z.object({
+export const listTasksInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   status: z.enum(taskStatuses).optional(),
   kind: z.enum(taskKinds).optional(),
@@ -724,39 +751,39 @@ export const listTasksInputSchema = z.object({
   verbose: z.boolean().optional().describe(VERBOSE_DESCRIPTION),
 });
 
-export const listTagsInputSchema = z.object({
+export const listTagsInputSchema = z.strictObject({
   project_id: z.string().uuid(),
 });
 
-export const listViewsInputSchema = z.object({
+export const listViewsInputSchema = z.strictObject({
   project_id: z.string().uuid(),
 });
 
-export const listRevisionsInputSchema = z.object({
+export const listRevisionsInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   target_type: z.enum(['task', 'document']),
   target_id: z.string().uuid(),
 });
 
-export const getRevisionInputSchema = z.object({
+export const getRevisionInputSchema = z.strictObject({
   revision_id: z.string().uuid(),
 });
 
-export const listCommentsInputSchema = z.object({
+export const listCommentsInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   target_type: z.enum(['document', 'task', 'note', 'submission']).optional(),
   target_id: z.string().uuid().optional(),
   include_resolved: z.boolean().optional(),
 });
 
-export const addCommentInputSchema = z.object({
+export const addCommentInputSchema = z.strictObject({
   target_type: z.enum(['document', 'task', 'note', 'submission']),
   target_id: z.string().uuid(),
   body: z.string().min(1),
   passage: z.string().optional(),
 });
 
-export const addArtifactCommentInputSchema = z.object({
+export const addArtifactCommentInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   artifact_id: z.string().min(1),
   body: z.string().min(1),
@@ -764,26 +791,26 @@ export const addArtifactCommentInputSchema = z.object({
   anchor: z.string().optional(),
 });
 
-export const listArtifactCommentsInputSchema = z.object({
+export const listArtifactCommentsInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   artifact_id: z.string().min(1),
   include_resolved: z.boolean().optional(),
 });
 
-export const resolveCommentInputSchema = z.object({
+export const resolveCommentInputSchema = z.strictObject({
   comment_id: z.string().uuid(),
 });
 
-export const syncPullInputSchema = z.object({
+export const syncPullInputSchema = z.strictObject({
   project_id: z.string().uuid(),
 });
 
-export const listSubmissionsInputSchema = z.object({
+export const listSubmissionsInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   status: z.enum(shareSubmissionStatuses).optional(),
 });
 
-export const triageSubmissionInputSchema = z.object({
+export const triageSubmissionInputSchema = z.strictObject({
   submission_id: z.string().uuid(),
   action: z.enum(['accept', 'reject']),
   as_task: z
@@ -791,9 +818,10 @@ export const triageSubmissionInputSchema = z.object({
       label: z.string().optional(),
       description: z.string().optional(),
     })
+    .strict()
     .optional()
     .describe(
-      'Draft for a new task created on accept. Accepted submissions always land in `scope` — the human-only scope->todo release is structural, so status is not caller-settable here.',
+      'Draft for a new task created on accept. Accepted submissions always land in `scope` — the human-only scope->todo release is structural, so `status` is not accepted (do not send it).',
     ),
   link_task_id: z
     .string()
@@ -804,7 +832,7 @@ export const triageSubmissionInputSchema = z.object({
     ),
 });
 
-export const searchInputSchema = z.object({
+export const searchInputSchema = z.strictObject({
   query: z.string().min(1).describe('Title/label substring to match (documents, tasks, notes).'),
   project_id: z.string().uuid().optional().describe('Limit search to one project.'),
   workspace_id: z

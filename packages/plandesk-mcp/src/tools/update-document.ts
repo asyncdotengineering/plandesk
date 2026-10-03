@@ -10,6 +10,7 @@ export type UpdateDocumentArgs = {
   status_line?: string;
   /** Task or document id(s) to ensure as outgoing links. Single string or list. */
   link_to?: string | string[];
+  parent_id?: string | null;
   folder_id?: string | null;
 };
 
@@ -46,6 +47,7 @@ export function createUpdateDocumentHandler(
         ...(args.title !== undefined ? { title: args.title } : {}),
         ...(args.body !== undefined ? { body: args.body } : {}),
         ...(args.status_line !== undefined ? { statusLine: args.status_line } : {}),
+        ...(args.parent_id !== undefined ? { parentId: args.parent_id } : {}),
         ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
       });
       if (!document) {

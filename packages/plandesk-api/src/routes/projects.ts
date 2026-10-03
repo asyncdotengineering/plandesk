@@ -8,11 +8,6 @@ import {
   InvalidTaskStatusError,
   InvalidTaskSeverityError,
   UnstoredColumnError,
-  isTaskKind,
-  isTaskLane,
-  isTaskPriority,
-  isTaskSeverity,
-  isTaskStatus,
   isValidFolderPath,
   isValidRegisteredRepoRoot,
   isValidRepoUrl,
@@ -23,9 +18,18 @@ import {
   InvalidExportRequestError,
   type ProjectExportService,
 } from '../services/project-export.js';
-import { InvalidGoalReferenceError, type TaskService } from '../services/tasks.js';
+import {
+  InvalidCommitRefsError,
+  InvalidGoalReferenceError,
+  type TaskService,
+} from '../services/tasks.js';
 import { InvalidTagError } from '../services/tags.js';
-import { isStringArray } from './tasks.js';
+import {
+  createProjectTaskBodySchema,
+  parseDueDate,
+  zodValidationField,
+} from './task-route-schemas.js';
+import { isValidCommitRefs, normalizeCommitRefs } from '@plandesk/db';
 import { parsePaginationParams } from '../serialize.js';
 import { WorkspaceNotFoundError } from '../services/scope.js';
 
@@ -226,58 +230,26 @@ export function createProjectsRouter(
   });
 
   router.post('/projects/:id/tasks', async (c) => {
-    const body = await c.req.json<{
-      label?: string;
-      status?: string;
-      kind?: string;
-      priority?: string | null;
-      lane?: string | null;
-      severity?: string | null;
-      description?: string | null;
-      x?: number;
-      y?: number;
-      assignee?: string | null;
-      due_date?: string | null;
-      goal_id?: string;
-      tags?: unknown;
-    }>();
-
-    if (typeof body.label !== 'string' || body.label.trim() === '') {
-      return invalidArgument(c, 'label', 'label is required and must be a non-empty string');
+    const raw = await c.req.json<unknown>();
+    const parsed = createProjectTaskBodySchema.safeParse(raw);
+    if (!parsed.success) {
+      const { field, message } = zodValidationField(parsed.error);
+      return invalidArgument(c, field, message);
     }
+    const body = parsed.data;
 
-    if (body.status !== undefined && !isTaskStatus(body.status)) {
-      return invalidArgument(c, 'status', 'status must be a valid task status');
+    let commitRefs: string[] | null | undefined;
+    if (body.commit_refs === undefined) {
+      commitRefs = undefined;
+    } else if (body.commit_refs === null) {
+      commitRefs = null;
+    } else if (isValidCommitRefs(body.commit_refs)) {
+      commitRefs = normalizeCommitRefs(body.commit_refs);
+    } else {
+      return invalidArgument(c, 'commit_refs', 'commit_refs must be an array of valid hex SHAs');
     }
 
-    if (body.kind !== undefined && !isTaskKind(body.kind)) {
-      return invalidArgument(c, 'kind', 'kind must be a valid task kind');
-    }
-
-    if (body.priority !== undefined && body.priority !== null && !isTaskPriority(body.priority)) {
-      return invalidArgument(c, 'priority', 'priority must be a valid task priority');
-    }
-
-    if (body.lane !== undefined && body.lane !== null && !isTaskLane(body.lane)) {
-      return invalidArgument(c, 'lane', 'lane must be a valid task lane');
-    }
-    if (body.severity !== undefined && body.severity !== null && !isTaskSeverity(body.severity)) {
-      return invalidArgument(c, 'severity', 'severity must be a valid task severity');
-    }
-
-    if (body.tags !== undefined && !isStringArray(body.tags)) {
-      return invalidArgument(c, 'tags', 'tags must be an array of strings');
-    }
-
-    let dueDate: Date | null | undefined;
-    if (body.due_date !== undefined && body.due_date !== null) {
-      dueDate = new Date(body.due_date);
-      if (Number.isNaN(dueDate.getTime())) {
-        return invalidArgument(c, 'due_date', 'due_date must be a valid date');
-      }
-    } else if (body.due_date === null) {
-      dueDate = null;
-    }
+    const dueDate = parseDueDate(body.due_date);
 
     try {
       const task = await taskService.create(c.req.param('id'), {
@@ -294,6 +266,7 @@ export function createProjectsRouter(
         ...(dueDate !== undefined ? { dueDate } : {}),
         ...(body.goal_id !== undefined ? { goalId: body.goal_id } : {}),
         ...(body.tags !== undefined ? { tags: body.tags } : {}),
+        ...(commitRefs !== undefined ? { commitRefs } : {}),
       });
 
       if (!task) {
@@ -310,6 +283,7 @@ export function createProjectsRouter(
         error instanceof InvalidTaskSeverityError ||
         error instanceof InvalidTagError ||
         error instanceof InvalidGoalReferenceError ||
+        error instanceof InvalidCommitRefsError ||
         error instanceof AmbiguousActiveGoalsError ||
         error instanceof UnstoredColumnError
       ) {

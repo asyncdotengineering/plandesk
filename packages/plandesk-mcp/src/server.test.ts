@@ -3116,4 +3116,185 @@ describe('createMcpApp', () => {
       }
     });
   });
+
+  describe('strict MCP inputs (s1)', () => {
+    function toolErrorText(result: unknown): string {
+      const content = (result as { content?: Array<{ type: string; text?: string }> }).content;
+      return content?.[0]?.type === 'text' ? (content[0].text ?? '') : '';
+    }
+
+    it('create_task with commit_refs round-trips through get_task', async () => {
+      await withMcpServer(async ({ baseUrl, projectId }) => {
+        const client = await connectClient(baseUrl);
+        const created = await client.callTool({
+          name: 'create_task',
+          arguments: {
+            project_id: projectId,
+            label: 'Shipped at create',
+            commit_refs: ['d40e44a'],
+          },
+        });
+        expect(created.isError).not.toBe(true);
+        const createdPayload = JSON.parse(
+          (created.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { task: { id: string; commit_refs: string[] } };
+        expect(createdPayload.task.commit_refs).toEqual(['d40e44a']);
+
+        const got = await client.callTool({
+          name: 'get_task',
+          arguments: { task_id: createdPayload.task.id },
+        });
+        const gotPayload = JSON.parse(
+          (got.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { task: { commit_refs: string[] } };
+        expect(gotPayload.task.commit_refs).toEqual(['d40e44a']);
+        await client.close();
+      });
+    });
+
+    it('rejects unknown arguments with isError naming the key', async () => {
+      await withMcpServer(async ({ baseUrl, projectId, db }) => {
+        const client = await connectClient(baseUrl);
+
+        const createUnknown = await client.callTool({
+          name: 'create_task',
+          arguments: {
+            project_id: projectId,
+            label: 'x',
+            totally_unknown_field: 1,
+          },
+        });
+        expect(createUnknown.isError).toBe(true);
+        expect(toolErrorText(createUnknown)).toMatch(/totally_unknown_field/i);
+
+        const task = await createTask(db, { projectId, label: 'Patch me' });
+        const updateUnknown = await client.callTool({
+          name: 'update_task',
+          arguments: { task_id: task.id, not_a_real_field: true },
+        });
+        expect(updateUnknown.isError).toBe(true);
+        expect(toolErrorText(updateUnknown)).toMatch(/not_a_real_field/i);
+
+        const scaffoldUnknown = await client.callTool({
+          name: 'scaffold_project_from_plan',
+          arguments: {
+            name: 'Strict scaffold',
+            tasks: [{ key: 'a', label: 'A', mystery_scaffold_field: 9 }],
+          },
+        });
+        expect(scaffoldUnknown.isError).toBe(true);
+        expect(toolErrorText(scaffoldUnknown)).toMatch(/mystery_scaffold_field/i);
+
+        await client.close();
+      });
+    });
+
+    it('create_task / update_task due_date round-trip', async () => {
+      await withMcpServer(async ({ baseUrl, projectId, db }) => {
+        const client = await connectClient(baseUrl);
+        const due = '2026-12-01T00:00:00.000Z';
+        const created = await client.callTool({
+          name: 'create_task',
+          arguments: { project_id: projectId, label: 'Due at create', due_date: due },
+        });
+        expect(created.isError).not.toBe(true);
+        expect(
+          (
+            JSON.parse(
+              (created.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+            ) as { task: { due_date: string | null } }
+          ).task.due_date,
+        ).toBe(due);
+        const task = await createTask(db, { projectId, label: 'Due on update' });
+        const updated = await client.callTool({
+          name: 'update_task',
+          arguments: { task_id: task.id, due_date: due },
+        });
+        expect(updated.isError).not.toBe(true);
+        expect(
+          (
+            JSON.parse(
+              (updated.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+            ) as { task: { due_date: string | null } }
+          ).task.due_date,
+        ).toBe(due);
+        await client.close();
+      });
+    });
+
+    it('create_document.status_line and update_document.parent_id round-trip', async () => {
+      await withMcpServer(async ({ baseUrl, projectId, db }) => {
+        const client = await connectClient(baseUrl);
+        const docCreated = await client.callTool({
+          name: 'create_document',
+          arguments: {
+            project_id: projectId,
+            title: 'Status doc',
+            status_line: 'Drafting',
+          },
+        });
+        expect(docCreated.isError).not.toBe(true);
+        expect(
+          (
+            JSON.parse(
+              (docCreated.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+            ) as { document: { status_line: string | null } }
+          ).document.status_line,
+        ).toBe('Drafting');
+
+        const parentDoc = await createDocument(db, {
+          projectId,
+          title: 'Parent',
+        });
+        const childDoc = await client.callTool({
+          name: 'create_document',
+          arguments: { project_id: projectId, title: 'Child' },
+        });
+        const childId = (
+          JSON.parse(
+            (childDoc.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+          ) as { document: { id: string } }
+        ).document.id;
+        const docUpdated = await client.callTool({
+          name: 'update_document',
+          arguments: { document_id: childId, parent_id: parentDoc.id },
+        });
+        expect(docUpdated.isError).not.toBe(true);
+        expect(
+          (
+            JSON.parse(
+              (docUpdated.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+            ) as { document: { parent_id: string | null } }
+          ).document.parent_id,
+        ).toBe(parentDoc.id);
+        await client.close();
+      });
+    });
+
+    it('create_edge.arrow_direction round-trip', async () => {
+      await withMcpServer(async ({ baseUrl, projectId, db }) => {
+        const client = await connectClient(baseUrl);
+        const edgeTaskA = await createTask(db, { projectId, label: 'Edge A' });
+        const edgeTaskB = await createTask(db, { projectId, label: 'Edge B' });
+        const edgeCreated = await client.callTool({
+          name: 'create_edge',
+          arguments: {
+            project_id: projectId,
+            from_task_id: edgeTaskA.id,
+            to_task_id: edgeTaskB.id,
+            arrow_direction: 'forward',
+          },
+        });
+        expect(edgeCreated.isError).not.toBe(true);
+        expect(
+          (
+            JSON.parse(
+              (edgeCreated.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+            ) as { edge: { arrow_direction: string | null } }
+          ).edge.arrow_direction,
+        ).toBe('forward');
+        await client.close();
+      });
+    });
+  });
 });

@@ -95,6 +95,44 @@ describe('task member routes', () => {
     expect(absent.status).toBe(404);
   });
 
+  it('PATCH /tasks/:id persists assignee and due_date', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Patch fields' });
+    const task = await createTask(db, { projectId: project.id, label: 'Editable' });
+    const due = '2026-11-15T12:00:00.000Z';
+
+    const res = await app.request(`/api/v1/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ assignee: 'human-owner', due_date: due }),
+    });
+    expect(res.status).toBe(200);
+    const body = await parseJson<TaskResponse>(res);
+    expect(body.assignee).toBe('human-owner');
+    expect(body.due_date).toBe(due);
+
+    const reread = await parseJson<TaskResponse>(await app.request(`/api/v1/tasks/${task.id}`));
+    expect(reread.assignee).toBe('human-owner');
+    expect(reread.due_date).toBe(due);
+  });
+
+  it('PATCH /tasks/:id returns 400 naming an unknown body key', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Strict patch' });
+    const task = await createTask(db, { projectId: project.id, label: 'Guarded' });
+
+    const res = await app.request(`/api/v1/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ bogus: 1 }),
+    });
+    expect(res.status).toBe(400);
+    expect(await parseJson<{ error: string; field: string }>(res)).toMatchObject({
+      error: 'invalid_argument',
+      field: 'bogus',
+    });
+  });
+
   it('the SPA fallback does not turn an unknown API path into a 405', async () => {
     // `plandesk serve` mounts the web shell on the same app. Its fallback is a
     // fallback, not a resource: it must not make every path "support GET".

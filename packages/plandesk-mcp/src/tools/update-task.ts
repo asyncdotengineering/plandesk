@@ -36,6 +36,7 @@ export function createUpdateTaskHandler(
   goal_id?: string;
   tags?: string[];
   commit_refs?: string[] | null;
+  due_date?: string | null;
 }) => Promise<ToolResult> {
   return async (args) => {
     try {
@@ -53,6 +54,9 @@ export function createUpdateTaskHandler(
         ...(args.goal_id !== undefined ? { goalId: args.goal_id } : {}),
         ...(args.tags !== undefined ? { tags: args.tags } : {}),
         ...(args.commit_refs !== undefined ? { commitRefs: args.commit_refs } : {}),
+        ...(args.due_date !== undefined
+          ? { dueDate: args.due_date === null ? null : new Date(args.due_date) }
+          : {}),
       });
       if (!task) {
         return toolNotFound();

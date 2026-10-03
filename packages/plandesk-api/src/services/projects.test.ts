@@ -394,6 +394,30 @@ describe('projectService', () => {
       to_id: result.key_to_id.b,
       label: 'blocks',
     });
+    const rich = await service.scaffoldFromPlan({
+      name: 'Rich scaffold',
+      tasks: [
+        {
+          key: 'rich',
+          label: 'Rich task',
+          kind: 'build',
+          priority: 'high',
+          lane: 'auto',
+          severity: 'high',
+          tags: ['s1-tag'],
+          assignee: 'agent-alpha',
+        },
+      ],
+    });
+    expect(rich.tasks[0]).toMatchObject({
+      kind: 'build',
+      priority: 'high',
+      lane: 'auto',
+      severity: 'high',
+      tags: [{ name: 's1-tag' }],
+      assignee: 'agent-alpha',
+    });
+
     expect(result.documents[0]).toMatchObject({
       title: 'Spec',
       links: [

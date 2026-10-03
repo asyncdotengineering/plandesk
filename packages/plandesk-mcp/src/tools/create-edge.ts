@@ -14,6 +14,7 @@ export type CreateEdgeArgs = {
   to_task_id?: string;
   label?: string;
   style?: string;
+  arrow_direction?: string | null;
 };
 
 export function createCreateEdgeHandler(
@@ -30,6 +31,7 @@ export function createCreateEdgeHandler(
         ...(args.to_task_id !== undefined ? { toTaskId: args.to_task_id } : {}),
         ...(args.label !== undefined ? { label: args.label } : {}),
         ...(args.style !== undefined ? { style: args.style } : {}),
+        ...(args.arrow_direction !== undefined ? { arrowDirection: args.arrow_direction } : {}),
       });
       if (!edge) {
         return toolNotFound();

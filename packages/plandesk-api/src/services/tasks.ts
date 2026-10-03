@@ -313,6 +313,7 @@ export type CreateTaskInput = {
   assignee?: string | null;
   dueDate?: Date | null;
   goalId?: string;
+  commitRefs?: string[] | null;
   // Sets the task's tags by name; names without an existing tag are auto-created.
   tags?: string[];
 };
@@ -328,6 +329,8 @@ export type UpdateTaskInput = {
   description?: string | null;
   x?: number;
   y?: number;
+  assignee?: string | null;
+  dueDate?: Date | null;
   goalId?: string;
   // Replaces the task's FULL tag set by name; names without an existing tag are
   // auto-created. Pass [] to clear all tags. Omit to leave tags unchanged.
@@ -504,7 +507,23 @@ export function createTaskService(deps: TaskServiceDeps) {
         throw new InvalidGoalReferenceError(input.goalId);
       }
 
+      if (input.commitRefs !== undefined && input.commitRefs !== null) {
+        if (!isValidCommitRefs(input.commitRefs)) {
+          throw new InvalidCommitRefsError();
+        }
+      }
+
+      const normalizedCreateCommitRefs =
+        input.commitRefs === undefined
+          ? undefined
+          : input.commitRefs === null
+            ? null
+            : normalizeCommitRefs(input.commitRefs);
+
       await assertTaskCreateSchema(db);
+      if (normalizedCreateCommitRefs !== undefined) {
+        await assertTableStoresColumns(db, 'tasks', ['commit_refs']);
+      }
       const { task, tags } = await withTransaction(db, async (tx) => {
         const goalId = input.goalId ?? (await resolveGoalForNewWork(tx, projectId)).id;
         const row = await createTask(tx, {
@@ -521,6 +540,14 @@ export function createTaskService(deps: TaskServiceDeps) {
           y: input.y,
           assignee: input.assignee,
           dueDate: input.dueDate,
+          ...(normalizedCreateCommitRefs !== undefined
+            ? {
+                commitRefs:
+                  normalizedCreateCommitRefs === null
+                    ? null
+                    : JSON.stringify(normalizedCreateCommitRefs),
+              }
+            : {}),
         });
         if (input.tags !== undefined) {
           await setTaskTags(tx, row.id, await resolveTagIdsByName(tx, projectId, input.tags));
