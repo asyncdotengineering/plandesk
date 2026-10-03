@@ -1,4 +1,4 @@
-import { canvasModes, type CanvasMode } from '@plandesk/api';
+import { canvasModes, type CanvasMode } from '@plandesk/db/vocabulary';
 
 export type { CanvasMode };
 

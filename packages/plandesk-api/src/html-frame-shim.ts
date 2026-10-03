@@ -11,9 +11,7 @@
  */
 /* eslint-disable no-var, @typescript-eslint/no-unused-vars, @typescript-eslint/no-unnecessary-condition, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-base-to-string */
 
-export type CanvasMode = 'arrange' | 'interact' | 'comment';
-
-export const canvasModes: readonly CanvasMode[] = ['arrange', 'interact', 'comment'];
+export { canvasModes, type CanvasMode } from '@plandesk/db/vocabulary';
 
 /**
  * Minimum selector shape for frame→shell selection messages.

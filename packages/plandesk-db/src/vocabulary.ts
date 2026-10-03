@@ -117,3 +117,7 @@ export function isTaskEdgeLabel(label: string): label is TaskEdgeLabel {
 export function isDocumentEdgeLabel(label: string): label is DocumentEdgeLabel {
   return (documentEdgeLabels as readonly string[]).includes(label);
 }
+
+/** Interaction modes of the prototype canvas, shared by the frame shim and the web canvas. */
+export const canvasModes = ['arrange', 'interact', 'comment'] as const;
+export type CanvasMode = (typeof canvasModes)[number];
