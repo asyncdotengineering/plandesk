@@ -22,6 +22,10 @@
     "./saved-view-config": {
       "types": "./dist/saved-view-config.d.ts",
       "import": "./dist/saved-view-config.js"
+    },
+    "./view-eval": {
+      "types": "./dist/view-eval.d.ts",
+      "import": "./dist/view-eval.js"
     }
   },
   "files": [

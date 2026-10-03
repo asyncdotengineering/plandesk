@@ -1,5 +1,22 @@
 import type { SavedViewConfig } from '@plandesk/db';
-import { applyViewOrder, isNonemptyText, type ExportTask } from './view-eval.js';
+import {
+  filterTasks,
+  groupTasks,
+  sortTasks,
+  type GroupNode,
+  type ViewTask,
+} from '@plandesk/db/view-eval';
+
+export type ExportTask = ViewTask & {
+  id: string;
+  description: string | null;
+};
+
+type ExportRow = { groupLabel: string | null; task: ExportTask };
+
+function isNonemptyText(value: string | null | undefined): value is string {
+  return value !== null && value !== undefined && value !== '';
+}
 
 const COLUMN_HEADERS: Record<string, string> = {
   label: 'Label',
@@ -73,6 +90,30 @@ function resolveColumns(visibleColumns: string[]): string[] {
   return known;
 }
 
+/** Depth-first walk of the list view's group tree; leaf tasks arrive already sorted. */
+function flattenGroups(
+  groups: GroupNode<ExportTask>[],
+  path: string[],
+  goalLabels: ReadonlyMap<string, string>,
+  out: ExportRow[],
+): void {
+  for (const group of groups) {
+    const label =
+      group.field === 'goal_id' && group.value !== null
+        ? (goalLabels.get(group.value) ?? group.value)
+        : group.label;
+    const nextPath = [...path, label];
+    if (group.children !== null) {
+      flattenGroups(group.children, nextPath, goalLabels, out);
+      continue;
+    }
+    const groupLabel = nextPath.join(' / ');
+    for (const task of group.tasks) {
+      out.push({ groupLabel, task });
+    }
+  }
+}
+
 /**
  * Build a rectangular table from tasks + SavedViewConfig.
  * When grouping is active, a leading Group column is included.
@@ -83,12 +124,16 @@ export function buildExportTable(
   goalLabels: ReadonlyMap<string, string> = new Map(),
 ): ExportTable {
   const columns = resolveColumns(view.visibleColumns);
-  const ordered = applyViewOrder(tasks, {
-    filter: view.filter,
-    sort: view.sort,
-    group: view.group,
-    goalLabels,
-  });
+  const filtered = filterTasks(tasks, view.filter);
+  const ordered: ExportRow[] = [];
+  if (view.group === null) {
+    for (const task of sortTasks(filtered, view.sort)) {
+      ordered.push({ groupLabel: null, task });
+    }
+  } else {
+    const groups = groupTasks(filtered, view.group, { sort: view.sort, aggregates: [] });
+    flattenGroups(groups, [], goalLabels, ordered);
+  }
   const grouped = view.group !== null;
   const headers = [
     ...(grouped ? [GROUP_HEADER] : []),

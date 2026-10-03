@@ -1,9 +1,4 @@
-import {
-  taskStatuses,
-  type SerializedTag,
-  type SerializedTask,
-  type TaskStatus,
-} from '../../lib/api.js';
+import { taskStatuses, type SerializedTask, type TaskStatus } from '../../lib/api.js';
 
 export const boardColumnOrder: TaskStatus[] = [...taskStatuses];
 
@@ -27,18 +22,7 @@ export function groupTasksByStatus(tasks: SerializedTask[]): Record<TaskStatus, 
   return grouped;
 }
 
-export const LANE_TAG_PREFIX = 'lane:';
-
-// Legacy fallback: lane is the typed `task.lane` column; older tasks may still
-// carry a `lane:<value>` tag, surfaced separately from tag chips.
-export function laneFromTags(tags: SerializedTag[] | undefined): string | undefined {
-  for (const tag of tags ?? []) {
-    if (tag.name.startsWith(LANE_TAG_PREFIX)) {
-      return tag.name.slice(LANE_TAG_PREFIX.length);
-    }
-  }
-  return undefined;
-}
+export { laneFromTags, LANE_TAG_PREFIX } from '@plandesk/db/view-eval';
 
 // Multi-tag filter uses OR semantics: a task matches when it carries ANY of
 // the selected tags. An empty selection shows every task.

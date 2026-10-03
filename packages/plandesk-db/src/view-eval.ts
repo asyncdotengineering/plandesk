@@ -1,51 +1,67 @@
 /**
- * Server-side SavedViewConfig evaluation for report export.
- * Semantics mirror the web list view (filter → group → sort within leaves).
+ * Saved-view evaluation (filter → group → sort within leaves), shared by the
+ * web list view and the server report export so both show the same rows.
+ *
+ * **This module must never import drizzle, node:*, or anything else that cannot
+ * run in a browser.** It is published as the `@plandesk/db/view-eval` subpath.
  */
+import type {
+  FilterableField,
+  FilterNode,
+  FilterOperator,
+  GroupableField,
+  GroupSpecs,
+  SortableField,
+  SortSpec,
+} from './saved-view-config.js';
 import {
   taskPriorityOrder,
   taskStatuses,
-  type FilterableField,
-  type FilterNode,
-  type FilterOperator,
-  type GroupableField,
-  type GroupSpec,
-  type GroupSpecs,
-  type SortableField,
-  type SortSpec,
   type TaskPriority,
   type TaskStatus,
-} from '@plandesk/db';
+} from './vocabulary.js';
 
-export const LANE_TAG_PREFIX = 'lane:';
-
-export type ExportTask = {
-  id: string;
+/** The task fields a saved view reads. Callers pass any richer task shape. */
+export type ViewTask = {
   label: string;
-  status: string;
-  priority: string | null;
+  status: TaskStatus;
+  priority: TaskPriority | null;
   lane?: string | null;
   severity?: string | null;
-  description: string | null;
   assignee: string | null;
   due_date: string | null;
   created_at: string;
   updated_at: string;
   goal_id: string | null;
-  tags?: Array<{ name: string }>;
+  tags?: ReadonlyArray<{ name: string }>;
   blocked?: boolean;
 };
 
-const STATUS_ORDER: Record<string, number> = Object.fromEntries(
+export const LANE_TAG_PREFIX = 'lane:';
+
+/** Lane carried as a `lane:<value>` tag (legacy form of the typed `lane` column). */
+export function laneFromTags(
+  tags: ReadonlyArray<{ name: string }> | undefined,
+): string | undefined {
+  for (const tag of tags ?? []) {
+    if (tag.name.startsWith(LANE_TAG_PREFIX)) {
+      return tag.name.slice(LANE_TAG_PREFIX.length);
+    }
+  }
+  return undefined;
+}
+
+/** The typed column wins; the `lane:` tag is the fallback. */
+function taskLane(task: ViewTask): string | undefined {
+  return task.lane ?? laneFromTags(task.tags);
+}
+
+const STATUS_ORDER: Record<TaskStatus, number> = Object.fromEntries(
   taskStatuses.map((status, index) => [status, index]),
-);
+) as Record<TaskStatus, number>;
 
 function isEmptyText(value: string | null | undefined): boolean {
   return value === null || value === undefined || value === '';
-}
-
-export function isNonemptyText(value: string | null | undefined): value is string {
-  return value !== null && value !== undefined && value !== '';
 }
 
 function asString(value: unknown): string {
@@ -58,22 +74,15 @@ function asString(value: unknown): string {
   return '';
 }
 
-function tagNames(task: ExportTask): string[] {
+// ── Filter ──────────────────────────────────────────────────────────────────
+
+function tagNames(task: ViewTask): string[] {
   return (task.tags ?? [])
     .map((tag) => tag.name)
     .filter((name) => !name.startsWith(LANE_TAG_PREFIX));
 }
 
-function laneFromTags(tags: Array<{ name: string }> | undefined): string | undefined {
-  for (const tag of tags ?? []) {
-    if (tag.name.startsWith(LANE_TAG_PREFIX)) {
-      return tag.name.slice(LANE_TAG_PREFIX.length);
-    }
-  }
-  return undefined;
-}
-
-function fieldIsEmpty(task: ExportTask, field: FilterableField): boolean {
+function fieldIsEmpty(task: ViewTask, field: FilterableField): boolean {
   switch (field) {
     case 'label':
       return isEmptyText(task.label);
@@ -86,7 +95,7 @@ function fieldIsEmpty(task: ExportTask, field: FilterableField): boolean {
     case 'tags':
       return tagNames(task).length === 0;
     case 'lane':
-      return laneFromTags(task.tags) === undefined;
+      return taskLane(task) === undefined;
     case 'due_date':
       return task.due_date === null;
     case 'created_at':
@@ -100,7 +109,7 @@ function fieldIsEmpty(task: ExportTask, field: FilterableField): boolean {
   }
 }
 
-function textValue(task: ExportTask, field: FilterableField): string | null {
+function textValue(task: ViewTask, field: FilterableField): string | null {
   switch (field) {
     case 'label':
       return task.label;
@@ -111,7 +120,7 @@ function textValue(task: ExportTask, field: FilterableField): string | null {
     case 'assignee':
       return task.assignee;
     case 'lane':
-      return laneFromTags(task.tags) ?? null;
+      return taskLane(task) ?? null;
     case 'goal_id':
       return task.goal_id;
     case 'blocked':
@@ -139,7 +148,7 @@ function parseDateMs(value: string | null | undefined): number | null {
 }
 
 function applyCondition(
-  task: ExportTask,
+  task: ViewTask,
   field: FilterableField,
   operator: FilterOperator,
   value: unknown,
@@ -194,7 +203,12 @@ function applyCondition(
   }
 }
 
-export function evaluateFilter(task: ExportTask, node: FilterNode): boolean {
+/**
+ * Evaluate a filter tree against one task.
+ * Empty AND group: matches everything (mid-construction UX).
+ * Empty OR group: matches nothing (`[].some` is false).
+ */
+export function evaluateFilter(task: ViewTask, node: FilterNode): boolean {
   if (node.kind === 'group') {
     if (node.children.length === 0) {
       return node.op === 'and';
@@ -207,12 +221,15 @@ export function evaluateFilter(task: ExportTask, node: FilterNode): boolean {
   return applyCondition(task, node.field, node.operator, node.value);
 }
 
-export function filterTasks(tasks: ExportTask[], root: FilterNode | null): ExportTask[] {
+/** Filter tasks by a root node. `null` means no filter (pass-through). */
+export function filterTasks<T extends ViewTask>(tasks: T[], root: FilterNode | null): T[] {
   if (root === null) {
     return tasks.slice();
   }
   return tasks.filter((task) => evaluateFilter(task, root));
 }
+
+// ── Sort ────────────────────────────────────────────────────────────────────
 
 function compareNullableNumber(a: number | null, b: number | null): number {
   const aNull = a === null;
@@ -230,19 +247,17 @@ function compareNullableNumber(a: number | null, b: number | null): number {
 }
 
 function fieldKey(
-  task: ExportTask,
+  task: ViewTask,
   field: SortableField,
 ): { kind: 'number'; value: number | null } | { kind: 'text'; value: string | null } {
   switch (field) {
     case 'status':
-      return { kind: 'number', value: STATUS_ORDER[task.status] ?? Number.MAX_SAFE_INTEGER };
-    case 'priority': {
-      const priority = task.priority as TaskPriority | null;
+      return { kind: 'number', value: STATUS_ORDER[task.status] };
+    case 'priority':
       return {
         kind: 'number',
-        value: priority === null ? null : taskPriorityOrder[priority],
+        value: task.priority === null ? null : taskPriorityOrder[task.priority],
       };
-    }
     case 'label':
       return { kind: 'text', value: isEmptyText(task.label) ? null : task.label };
     case 'assignee':
@@ -260,8 +275,8 @@ function fieldKey(
 }
 
 function compareField(
-  a: ExportTask,
-  b: ExportTask,
+  a: ViewTask,
+  b: ViewTask,
   field: SortableField,
   collator: Intl.Collator,
 ): number {
@@ -286,7 +301,12 @@ function compareField(
   return collator.compare(left.value as string, right.value as string);
 }
 
-export function sortTasks(tasks: ExportTask[], specs: SortSpec[]): ExportTask[] {
+/**
+ * Stable multi-level sort. Specs apply in array order (primary → tiebreakers).
+ * Null/empty values sort last in ascending order and are never dropped.
+ * Equal rows keep their input relative order.
+ */
+export function sortTasks<T extends ViewTask>(tasks: T[], specs: SortSpec[]): T[] {
   if (specs.length === 0 || tasks.length < 2) {
     return tasks.slice();
   }
@@ -306,6 +326,52 @@ export function sortTasks(tasks: ExportTask[], specs: SortSpec[]): ExportTask[] 
 
   return decorated.map((entry) => entry.task);
 }
+
+// ── Group ───────────────────────────────────────────────────────────────────
+
+export type AggregateOp =
+  | 'count'
+  | 'count_non_empty'
+  | 'percent_of_parent'
+  | 'done_total'
+  | 'earliest'
+  | 'latest';
+
+export type AggregateField =
+  | 'label'
+  | 'status'
+  | 'assignee'
+  | 'priority'
+  | 'due_date'
+  | 'created_at'
+  | 'updated_at'
+  | 'goal_id'
+  | 'tag'
+  | 'blocked';
+
+export type AggregateSpec = {
+  field: AggregateField;
+  op: AggregateOp;
+};
+
+export type AggregateResult = {
+  field: AggregateField;
+  op: AggregateOp;
+  /** Counts and percent (0–100). Dates as ISO strings. Null when no value. */
+  value: number | string | null;
+};
+
+export type GroupNode<T extends ViewTask = ViewTask> = {
+  /** Stable path key for collapse state, e.g. `goal_id:g1/status:todo`. */
+  id: string;
+  field: GroupableField;
+  /** Canonical group value; `null` is the empty/"No <field>" bucket. */
+  value: string | null;
+  label: string;
+  tasks: T[];
+  children: GroupNode<T>[] | null;
+  aggregates: AggregateResult[];
+};
 
 const EMPTY_SENTINEL = '__empty__';
 
@@ -330,32 +396,25 @@ function emptyLabel(field: GroupableField): string {
   }
 }
 
-function displayLabel(
-  field: GroupableField,
-  value: string | null,
-  goalLabels: ReadonlyMap<string, string>,
-): string {
+function displayLabel(field: GroupableField, value: string | null): string {
   if (value === null) {
     return emptyLabel(field);
   }
   if (field === 'blocked') {
     return value === 'true' ? 'Blocked' : 'Not blocked';
   }
-  if (field === 'goal_id') {
-    return goalLabels.get(value) ?? value;
-  }
   return value;
 }
 
 type Membership = { key: string; value: string | null };
 
-function memberships(task: ExportTask, field: GroupableField): Membership[] {
+function memberships(task: ViewTask, field: GroupableField): Membership[] {
   switch (field) {
     case 'status':
       return [{ key: task.status, value: task.status }];
     case 'goal_id': {
       const goalId = task.goal_id;
-      if (!isNonemptyText(goalId)) {
+      if (goalId === null || goalId === '') {
         return [{ key: EMPTY_SENTINEL, value: null }];
       }
       return [{ key: goalId, value: goalId }];
@@ -374,7 +433,7 @@ function memberships(task: ExportTask, field: GroupableField): Membership[] {
         : [{ key: priority, value: priority }];
     }
     case 'lane': {
-      const lane = task.lane ?? laneFromTags(task.tags) ?? null;
+      const lane = taskLane(task) ?? null;
       if (lane === null || lane === '') {
         return [{ key: EMPTY_SENTINEL, value: null }];
       }
@@ -382,7 +441,7 @@ function memberships(task: ExportTask, field: GroupableField): Membership[] {
     }
     case 'severity': {
       const severity = task.severity ?? null;
-      if (severity === null || severity === '') {
+      if (severity === null) {
         return [{ key: EMPTY_SENTINEL, value: null }];
       }
       return [{ key: severity, value: severity }];
@@ -412,10 +471,11 @@ function compareNonEmptyGroupValues(
 ): number {
   switch (field) {
     case 'status':
-      return (STATUS_ORDER[a as TaskStatus] ?? 0) - (STATUS_ORDER[b as TaskStatus] ?? 0);
+      return STATUS_ORDER[a as TaskStatus] - STATUS_ORDER[b as TaskStatus];
     case 'priority':
       return taskPriorityOrder[a as TaskPriority] - taskPriorityOrder[b as TaskPriority];
     case 'blocked':
+      // asc: Not blocked (false) before Blocked (true)
       return a === b ? 0 : a === 'false' ? -1 : 1;
     case 'goal_id':
     case 'lane':
@@ -426,27 +486,133 @@ function compareNonEmptyGroupValues(
   }
 }
 
-export type FlattenedExportRow = {
-  groupLabel: string | null;
-  task: ExportTask;
+function fieldNonEmpty(task: ViewTask, field: AggregateField): boolean {
+  switch (field) {
+    case 'label':
+      return !isEmptyText(task.label);
+    case 'status':
+      return true;
+    case 'assignee':
+      return !isEmptyText(task.assignee);
+    case 'priority':
+      return task.priority !== null;
+    case 'due_date':
+      return task.due_date !== null;
+    case 'created_at':
+      return !isEmptyText(task.created_at);
+    case 'updated_at':
+      return !isEmptyText(task.updated_at);
+    case 'goal_id':
+      return !isEmptyText(task.goal_id);
+    case 'tag':
+      return (task.tags ?? []).length > 0;
+    case 'blocked':
+      return task.blocked !== undefined;
+  }
+}
+
+function dateValue(task: ViewTask, field: AggregateField): number | null {
+  let iso: string | null = null;
+  switch (field) {
+    case 'due_date':
+      iso = task.due_date;
+      break;
+    case 'created_at':
+      iso = task.created_at;
+      break;
+    case 'updated_at':
+      iso = task.updated_at;
+      break;
+    default:
+      return null;
+  }
+  if (iso === null) {
+    return null;
+  }
+  const ms = Date.parse(iso);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function computeAggregates(
+  tasks: ViewTask[],
+  specs: AggregateSpec[],
+  parentCount: number,
+): AggregateResult[] {
+  return specs.map((spec) => {
+    switch (spec.op) {
+      case 'count':
+        return { field: spec.field, op: spec.op, value: tasks.length };
+      case 'count_non_empty':
+        return {
+          field: spec.field,
+          op: spec.op,
+          value: tasks.filter((task) => fieldNonEmpty(task, spec.field)).length,
+        };
+      case 'percent_of_parent': {
+        if (parentCount === 0) {
+          return { field: spec.field, op: spec.op, value: 0 };
+        }
+        return {
+          field: spec.field,
+          op: spec.op,
+          value: (tasks.length / parentCount) * 100,
+        };
+      }
+      case 'done_total': {
+        const done = tasks.filter((task) => task.status === 'done').length;
+        return {
+          field: spec.field,
+          op: spec.op,
+          value: `${String(done)}/${String(tasks.length)}`,
+        };
+      }
+      case 'earliest':
+      case 'latest': {
+        let bestMs: number | null = null;
+        let bestIso: string | null = null;
+        for (const task of tasks) {
+          const ms = dateValue(task, spec.field);
+          if (ms === null) {
+            continue;
+          }
+          const iso =
+            spec.field === 'due_date'
+              ? task.due_date
+              : spec.field === 'created_at'
+                ? task.created_at
+                : task.updated_at;
+          if (bestMs === null || (spec.op === 'earliest' ? ms < bestMs : ms > bestMs)) {
+            bestMs = ms;
+            bestIso = iso;
+          }
+        }
+        return { field: spec.field, op: spec.op, value: bestIso };
+      }
+    }
+  });
+}
+
+export type GroupTasksOptions = {
+  aggregates?: AggregateSpec[];
+  /** Applied to leaf task lists via `sortTasks` — never reimplemented here. */
+  sort?: SortSpec[];
 };
 
-function flattenGroupLevel(
-  tasks: ExportTask[],
+function groupLevel<T extends ViewTask>(
+  tasks: T[],
   specs: GroupSpecs,
   level: 0 | 1,
-  pathLabels: string[],
-  sortSpecs: SortSpec[],
-  goalLabels: ReadonlyMap<string, string>,
+  parentCount: number,
+  pathPrefix: string,
+  options: GroupTasksOptions,
   collator: Intl.Collator,
-  out: FlattenedExportRow[],
-): void {
-  const spec: GroupSpec | undefined = specs[level];
+): GroupNode<T>[] {
+  const spec = specs[level];
   if (spec === undefined) {
-    return;
+    return [];
   }
 
-  const buckets = new Map<string, { value: string | null; tasks: ExportTask[] }>();
+  const buckets = new Map<string, { value: string | null; tasks: T[] }>();
 
   for (const task of tasks) {
     for (const membership of memberships(task, spec.field)) {
@@ -466,6 +632,7 @@ function flattenGroupLevel(
   }));
 
   entries.sort((left, right) => {
+    // Empty/"No <field>" is always last, regardless of direction.
     if (left.value === null && right.value === null) {
       return 0;
     }
@@ -480,47 +647,39 @@ function flattenGroupLevel(
   });
 
   const hasChild = level === 0 && specs.length === 2;
+  const aggregateSpecs = options.aggregates ?? [{ field: 'label', op: 'count' }];
+  const sortSpecs = options.sort ?? [];
 
-  for (const entry of entries) {
-    const label = displayLabel(spec.field, entry.value, goalLabels);
-    const nextPath = [...pathLabels, label];
-    if (hasChild) {
-      flattenGroupLevel(entry.tasks, specs, 1, nextPath, sortSpecs, goalLabels, collator, out);
-    } else {
-      const leafTasks = sortTasks(entry.tasks, sortSpecs);
-      const groupLabel = nextPath.join(' / ');
-      for (const task of leafTasks) {
-        out.push({ groupLabel, task });
-      }
-    }
-  }
+  return entries.map((entry) => {
+    const idSuffix = `${spec.field}:${entry.key}`;
+    const id = pathPrefix === '' ? idSuffix : `${pathPrefix}/${idSuffix}`;
+    const children = hasChild
+      ? groupLevel(entry.tasks, specs, 1, entry.tasks.length, id, options, collator)
+      : null;
+    const leafTasks = children === null ? sortTasks(entry.tasks, sortSpecs) : entry.tasks;
+
+    return {
+      id,
+      field: spec.field,
+      value: entry.value,
+      label: displayLabel(spec.field, entry.value),
+      tasks: leafTasks,
+      children,
+      aggregates: computeAggregates(entry.tasks, aggregateSpecs, parentCount),
+    };
+  });
 }
 
 /**
- * Apply filter, then either flat-sort or group-flatten (with leaf sort).
- * Group label is null when grouping is inactive.
+ * Group tasks by one or two fields. Tag membership fans a task into every
+ * matching tag group. Null/empty values land in one "No <field>" group, last.
+ * Leaf task order comes from `sortTasks` when `options.sort` is provided.
  */
-export function applyViewOrder(
-  tasks: ExportTask[],
-  options: {
-    filter: FilterNode | null;
-    sort: SortSpec[];
-    group: GroupSpecs | null;
-    goalLabels?: ReadonlyMap<string, string>;
-  },
-): FlattenedExportRow[] {
-  const filtered = filterTasks(tasks, options.filter);
-  const goalLabels = options.goalLabels ?? new Map<string, string>();
-
-  if (options.group === null) {
-    return sortTasks(filtered, options.sort).map((task) => ({
-      groupLabel: null,
-      task,
-    }));
-  }
-
-  const out: FlattenedExportRow[] = [];
+export function groupTasks<T extends ViewTask>(
+  tasks: T[],
+  specs: GroupSpecs,
+  options: GroupTasksOptions = {},
+): GroupNode<T>[] {
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
-  flattenGroupLevel(filtered, options.group, 0, [], options.sort, goalLabels, collator, out);
-  return out;
+  return groupLevel(tasks, specs, 0, tasks.length, '', options, collator);
 }

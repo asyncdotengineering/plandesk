@@ -3,7 +3,9 @@ import { parse as parseCsv } from 'csv-parse/sync';
 import { describe, expect, it } from 'vitest';
 import {
   createProjectInDefaultOrg as createProject,
+  createTag,
   createTaskWithDefaultGoal,
+  setTaskTags,
   SAVED_VIEW_CONFIG_VERSION,
   type SavedViewConfig,
 } from '@plandesk/db';
@@ -218,6 +220,46 @@ describe('POST /projects/:id/export', () => {
     expect(records[0]?.Group).toBe('ada');
     expect(records[1]?.Group).toBe('bob');
     expect(records.some((row) => row.Label === 'Drop done')).toBe(false);
+  });
+
+  it('filters by lane from the typed column as well as the lane: tag, like the list view', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Lanes' });
+    await createTaskWithDefaultGoal(db, {
+      projectId: project.id,
+      label: 'Column full',
+      status: 'todo',
+      lane: 'full',
+    });
+    const tagged = await createTaskWithDefaultGoal(db, {
+      projectId: project.id,
+      label: 'Tag full',
+      status: 'todo',
+    });
+    const laneTag = await createTag(db, { projectId: project.id, name: 'lane:full' });
+    await setTaskTags(db, tagged.id, [laneTag.id]);
+    await createTaskWithDefaultGoal(db, {
+      projectId: project.id,
+      label: 'Column auto',
+      status: 'todo',
+      lane: 'auto',
+    });
+    await createTaskWithDefaultGoal(db, {
+      projectId: project.id,
+      label: 'No lane',
+      status: 'todo',
+    });
+
+    const view = baseView({
+      filter: { kind: 'condition', field: 'lane', operator: 'is', value: 'full' },
+      sort: [{ field: 'label', direction: 'asc' }],
+      visibleColumns: ['label'],
+    });
+
+    const res = await exportProject(app, project.id, { format: 'csv', view });
+    expect(res.status).toBe(200);
+    const records: Array<Record<string, string>> = parseCsv(await res.text(), { columns: true });
+    expect(records.map((row) => row.Label)).toEqual(['Column full', 'Tag full']);
   });
 
   it('XLSX contains the same extracted values as CSV for the same view', async () => {

@@ -7,8 +7,7 @@ import {
 } from '@plandesk/db';
 import { buildExportFilename, contentDispositionAttachment } from '../export/filename.js';
 import { CSV_CONTENT_TYPE, renderCsv, renderXlsx, XLSX_CONTENT_TYPE } from '../export/render.js';
-import { buildExportTable } from '../export/view-rows.js';
-import type { ExportTask } from '../export/view-eval.js';
+import { buildExportTable, type ExportTask } from '../export/view-rows.js';
 import { resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 import type { ProjectService } from './projects.js';
