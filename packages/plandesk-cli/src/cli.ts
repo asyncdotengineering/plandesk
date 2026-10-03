@@ -67,15 +67,8 @@ import {
   openWorkspace,
   WorkspaceNotFoundError,
 } from './workspace.js';
-import {
-  backfillDefaultTeams,
-  backfillProjectWorkspaces,
-  createBetterAuth,
-  InvalidShareError,
-  readServerEnv,
-  runBetterAuthMigrations,
-} from '@plandesk/api';
-import { createDb, migrate } from '@plandesk/db';
+import { createBetterAuth, InvalidShareError, prepareDatabase, readServerEnv } from '@plandesk/api';
+import { createDb } from '@plandesk/db';
 
 function reportCorruptDb(): number {
   process.stderr.write(`${CORRUPT_DB_HINT}\n`);
@@ -358,7 +351,6 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         }
         const dbToken = parsed.dbToken ?? cfg.values.dbToken;
         const db = await createDb(dbUrl, dbToken);
-        await migrate(db);
         const auth = createBetterAuth({
           client: db.$client,
           secret: cfg.values.authSecret ?? randomBytes(32).toString('base64url'),
@@ -366,18 +358,11 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
           github: cfg.values.github,
         });
         if (auth === undefined) throw new Error('Better-auth migrator secret was not created');
-        await runBetterAuthMigrations(auth);
-        // Backfill the workspace tier so existing orgs/projects land in a real
-        // team (a default 'General' team per org; every project's workspace_id
-        // set to it). Idempotent — mirrors init/serve. Without this an upgraded
-        // hosted board has projects pointing at a non-existent workspace.
-        const teamsBackfill = await backfillDefaultTeams(auth);
-        const projectsBackfill = await backfillProjectWorkspaces(db, auth);
+        const { applied } = await prepareDatabase(db, auth);
         process.stdout.write(
-          `Applied migrations to ${dbUrl}\n` +
-            `Backfilled ${String(teamsBackfill.teamsCreated)} default team(s) across ` +
-            `${String(teamsBackfill.orgsProcessed)} org(s); set workspace_id on ` +
-            `${String(projectsBackfill.projectsUpdated)} project(s).\n`,
+          applied.length > 0
+            ? `Applied ${String(applied.length)} migration(s) to ${dbUrl}:\n${applied.map((tag) => `  ${tag}\n`).join('')}`
+            : `${dbUrl} is already current.\n`,
         );
         return 0;
       } catch (err) {

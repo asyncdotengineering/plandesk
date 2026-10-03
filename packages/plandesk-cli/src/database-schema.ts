@@ -39,10 +39,6 @@ export async function listTables(db: Db): Promise<string[]> {
   return result.rows.map((row) => readStringCell(row.name, 'sqlite_master.name'));
 }
 
-export function missingRequiredTables(tables: readonly string[]): string[] {
-  return REQUIRED_TABLES.filter((table) => !tables.includes(table));
-}
-
 export async function hasMigrations(db: Db, tables?: readonly string[]): Promise<boolean> {
   const knownTables = tables ?? (await listTables(db));
   if (!knownTables.includes('__drizzle_migrations')) {

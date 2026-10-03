@@ -6,6 +6,11 @@ export {
   type BetterAuthInstance,
 } from './better-auth.js';
 export {
+  prepareDatabase,
+  SchemaLeaseHeldError,
+  type PrepareDatabaseOptions,
+} from './prepare-database.js';
+export {
   backfillDefaultTeams,
   backfillProjectWorkspaces,
   createTeamForOrg,

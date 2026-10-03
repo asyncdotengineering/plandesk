@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { getRequestListener } from '@hono/node-server';
@@ -7,13 +8,11 @@ import {
   createBetterAuth,
   createServices,
   createStorageAdapter,
-  ensureLocalBetterAuthOrganization,
-  backfillProjectWorkspaces,
   mountStatic,
+  prepareDatabase,
   readServerEnv,
-  runBetterAuthMigrations,
 } from '@plandesk/api';
-import { assertSchemaCurrent, createDb, migrate, type ReferenceCheckFs } from '@plandesk/db';
+import { createDb, type ReferenceCheckFs } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
 import { resolveServerConfig } from './config.js';
@@ -24,7 +23,6 @@ import {
   writeServerInfo,
 } from './connect-artifacts.js';
 import { ensureLocalBetterAuthSecret } from './init.js';
-import { listTables, missingRequiredTables } from './database-schema.js';
 import { backfillRepoFolderPathFromCwd } from './folder-path-backfill.js';
 
 export type ServeOptions = {
@@ -148,47 +146,32 @@ export async function startServer(
   // folded env > file, so this is the full precedence.
   const authPassword = options.authPassword ?? cfg.values.authPassword;
 
-  // Database: a remote libSQL URL (self-host/cloud) is opened as-is and NOT
-  // migrated at boot — the operator owns those migrations (REQ-8). No URL →
-  // local file SQLite, migrated and bootstrapped at boot (the local topology).
+  // Database: a remote libSQL URL (self-host/cloud) or, with no URL, the local
+  // file. Either way the server prepares it under the lease (prepareDatabase).
   const dbUrl = cfg.values.dbUrl;
+  const local = dbUrl === undefined;
   const dbPath = workspaceDbPath(dataDir);
   const dbDisplay = dbUrl ?? dbPath;
-  const db =
-    dbUrl !== undefined ? await createDb(dbUrl, cfg.values.dbToken) : await createDb(dbPath);
+  const db = local ? await createDb(dbPath) : await createDb(dbUrl, cfg.values.dbToken);
   const betterAuthBaseURL = cfg.values.baseUrl ?? resolveServeOrigin(host, options.port);
-  let betterAuthSecret = cfg.values.authSecret;
-  let auth: ReturnType<typeof createBetterAuth> | undefined;
-  if (dbUrl === undefined) {
-    betterAuthSecret ??= ensureLocalBetterAuthSecret(dataDir);
-    await migrate(db);
-    await assertSchemaCurrent(db);
-    auth = createBetterAuth({
-      client: db.$client,
-      secret: betterAuthSecret,
-      baseURL: betterAuthBaseURL,
-      github: cfg.values.github,
-    });
-    if (auth === undefined) throw new Error('Local better-auth secret was not created');
-    await runBetterAuthMigrations(auth);
-    await ensureLocalBetterAuthOrganization(db, auth);
-    await backfillProjectWorkspaces(db, auth);
-  } else {
-    const missingTables = missingRequiredTables(await listTables(db));
-    if (missingTables.length > 0) {
-      throw new Error(
-        `Remote database is missing required tables: ${missingTables.join(', ')}. ` +
-          `Run \`plandesk migrate --db ${dbUrl}\` first.`,
-      );
-    }
-    await assertSchemaCurrent(db);
-  }
+  const betterAuthSecret =
+    cfg.values.authSecret ?? (local ? ensureLocalBetterAuthSecret(dataDir) : undefined);
+  // A remote board without a secret serves no better-auth, but its tables are
+  // still prepared, so a throwaway secret drives the migrator.
+  const auth = createBetterAuth({
+    client: db.$client,
+    secret: betterAuthSecret ?? randomBytes(32).toString('base64url'),
+    baseURL: betterAuthBaseURL,
+    github: cfg.values.github,
+  });
+  if (auth === undefined) throw new Error('Better-auth migrator secret was not created');
+  await prepareDatabase(db, auth, { local });
 
   const storage = createStorageAdapter({ db, storage: cfg.values.storage });
   const referenceCheckFs = referenceCheckFsFor(host);
   const services = createServices({
     db,
-    auth,
+    auth: local ? auth : undefined,
     storage,
     ...(referenceCheckFs !== undefined ? { referenceCheckFs } : {}),
   });

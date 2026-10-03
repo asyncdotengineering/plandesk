@@ -27,7 +27,7 @@ import {
   validateServeBind,
 } from './serve.js';
 import { SERVER_CONFIG_FILENAME } from './config.js';
-import { createDb, migrate } from '@plandesk/db';
+import { createDb, getSchemaMigrationSummary, migrate } from '@plandesk/db';
 
 describe('parseArgs', () => {
   it('parses init with data-dir override', () => {
@@ -679,7 +679,7 @@ describe('startServer', () => {
     rmSync(dataDir, { recursive: true, force: true });
   });
 
-  it('fails before listening when a remote database has not been migrated', async () => {
+  it('prepares an unmigrated remote database at boot', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'plandesk-serve-remote-'));
     const remoteDb = join(dataDir, 'remote.db');
     writeFileSync(
@@ -688,9 +688,25 @@ describe('startServer', () => {
       'utf8',
     );
 
-    await expect(startServer({ port: 0, dataDir })).rejects.toThrow(
-      `Run \`plandesk migrate --db ${remoteDb}\` first.`,
+    const server = await startServer({ port: 0, dataDir });
+    servers.push(server);
+    if (!server.listening) {
+      await new Promise<void>((resolve) => server.once('listening', resolve));
+    }
+    const db = await createDb(remoteDb);
+    expect((await getSchemaMigrationSummary(db)).current).toBe(true);
+    const auth = await db.$client.execute(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('organization', 'apikey')",
     );
+    expect(auth.rows).toHaveLength(2);
+
+    await new Promise<void>((resolve) =>
+      server.close(() => {
+        resolve();
+      }),
+    );
+    servers.splice(servers.indexOf(server), 1);
+    db.$client.close();
     rmSync(dataDir, { recursive: true, force: true });
   });
 

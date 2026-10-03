@@ -24,7 +24,7 @@ import {
   EXPECTED_TABLES,
   hasMigrations,
   listTables,
-  missingRequiredTables,
+  REQUIRED_TABLES,
 } from './database-schema.js';
 
 export type DoctorReport = {
@@ -163,7 +163,7 @@ export async function runDoctor(
     try {
       const db = await createDb(config.values.dbUrl, config.values.dbToken);
       const tables = await listTables(db);
-      const missingTables = missingRequiredTables(tables);
+      const missingTables = REQUIRED_TABLES.filter((table) => !tables.includes(table));
       if (missingTables.length > 0) {
         issues.push(`missing tables: ${missingTables.join(', ')}`);
       }

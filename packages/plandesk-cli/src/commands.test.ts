@@ -6,6 +6,7 @@ import {
   createProjectInDefaultOrg as createProject,
   exportProject,
   getProject,
+  MIGRATIONS,
   PLANDESK_EXPORT_VERSION,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
@@ -549,7 +550,12 @@ describe('CLI export/import/doctor', () => {
       main(['node', 'plandesk', 'migrate', '--db', dbFile]),
     );
     expect(code).toBe(0);
-    expect(stdout).toContain('Applied migrations');
+    expect(stdout).toContain(`Applied ${String(MIGRATIONS.length)} migration(s) to ${dbFile}`);
+    for (const { tag } of MIGRATIONS) expect(stdout).toContain(tag);
+
+    const again = await captureIo(() => main(['node', 'plandesk', 'migrate', '--db', dbFile]));
+    expect(again.code).toBe(0);
+    expect(again.stdout).toContain(`${dbFile} is already current`);
 
     const db = await createDb(dbFile);
     const result = await db.$client.execute("SELECT name FROM sqlite_master WHERE type='table'");
