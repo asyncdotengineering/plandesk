@@ -17,7 +17,6 @@ import {
   insertFactorySentinelBlock,
   insertSentinelBlock,
   isPidAlive,
-  isServingExpectedBoard,
   mergeHooksJson,
   mergeMcpJson,
   parseConfigJson,
@@ -411,12 +410,6 @@ describe('connect artifacts', () => {
         const port = typeof address === 'object' && address !== null ? address.port : 0;
 
         expect(await fetchServedDataDir(`http://127.0.0.1:${String(port)}`)).toBe(dataDir);
-        expect(await isServingExpectedBoard(`http://127.0.0.1:${String(port)}`, dataDir)).toBe(
-          true,
-        );
-        expect(
-          await isServingExpectedBoard(`http://127.0.0.1:${String(port)}`, '/some/other/board'),
-        ).toBe(false);
       } finally {
         await closeAll();
         rmSync(dataDir, { recursive: true, force: true });

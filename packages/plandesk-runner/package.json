@@ -3,12 +3,6 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Plan Desk runner — the machine-side agent that polls a Plan Desk board and executes dispatched work: config loading, worker resolution (declare-then-probe), per-attempt worktrees, headless worker dispatch, and the poll-claim-dispatch-settle loop gated by each task's validation command.",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
   "bin": {
     "plandesk-runner": "./bin/plandesk-runner"
   },

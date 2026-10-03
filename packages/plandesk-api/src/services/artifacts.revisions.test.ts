@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createDb,
   createProjectInDefaultOrg as createProject,
-  listPrototypeLinksByFromArtifact,
   listRevisionsByTarget,
   migrate,
   type Db,
 } from '@plandesk/db';
+import { listPrototypeLinksByFromArtifact } from '@plandesk/db/testing';
 import { createArtifactService } from './artifacts.js';
 import { createDocumentService } from './documents.js';
 import { createPrototypeService } from './prototypes.js';

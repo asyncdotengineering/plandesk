@@ -19,7 +19,6 @@ vi.mock('sonner', () => ({
 }));
 import { Board } from './Board.js';
 import { filterTasksByAnyTag, groupTasksByStatus, resolveDropStatus } from './board-utils.js';
-import { statusFromDragEnd } from './useBoardDnd.js';
 
 const projectId = 'proj-1';
 
@@ -158,20 +157,6 @@ describe('board utils', () => {
     expect(resolveDropStatus('in_progress', tasksById)).toBe('in_progress');
     expect(resolveDropStatus('t2', tasksById)).toBe('done');
     expect(resolveDropStatus('missing', tasksById)).toBeUndefined();
-  });
-
-  it('statusFromDragEnd returns PATCH payload when column changes', () => {
-    const tasks = [makeTask('t1', 'Todo item', 'todo')];
-    const result = statusFromDragEnd({ active: { id: 't1' }, over: { id: 'done' } }, tasks);
-
-    expect(result).toEqual({ taskId: 't1', status: 'done' });
-  });
-
-  it('statusFromDragEnd returns null when status unchanged', () => {
-    const tasks = [makeTask('t1', 'Todo item', 'todo')];
-    const result = statusFromDragEnd({ active: { id: 't1' }, over: { id: 'todo' } }, tasks);
-
-    expect(result).toBeNull();
   });
 
   it('filterTasksByAnyTag uses OR semantics across selected tags', () => {

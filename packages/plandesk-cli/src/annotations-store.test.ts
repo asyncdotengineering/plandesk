@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { addAnnotation, isStale, listAnnotations, resolveAnnotation } from './annotations-store.js';
+import { addAnnotation, listAnnotations, resolveAnnotation } from './annotations-store.js';
 
 describe('annotation store', () => {
   const storeDirs: string[] = [];
@@ -59,15 +59,6 @@ describe('annotation store', () => {
   it('returns an empty list for an unknown file', () => {
     const storeDir = createStoreDir();
     expect(listAnnotations('/unknown/artifact.md', storeDir)).toEqual([]);
-  });
-
-  it('detects content changes after a write', () => {
-    const storeDir = createStoreDir();
-    const absPath = join(storeDir, 'artifact.md');
-    addAnnotation(absPath, 'original content', { body: 'Note' }, storeDir);
-
-    expect(isStale(absPath, 'original content', storeDir)).toBe(false);
-    expect(isStale(absPath, 'changed content', storeDir)).toBe(true);
   });
 
   it('rejects an empty annotation body', () => {

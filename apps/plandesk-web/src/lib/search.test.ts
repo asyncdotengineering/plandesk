@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  encodeColumnsParam,
-  encodeFilterParam,
-  encodeSortParam,
-  validateTaskFilterSearch,
-} from './search.js';
+import { validateTaskFilterSearch } from './search.js';
 
 describe('validateTaskFilterSearch', () => {
   it('keeps a valid status', () => {
@@ -66,24 +61,19 @@ describe('validateTaskFilterSearch', () => {
     });
   });
 
-  it('round-trips sort and columns through encode helpers', () => {
-    const sort = [
-      { field: 'priority' as const, direction: 'desc' as const },
-      { field: 'due_date' as const, direction: 'asc' as const },
-    ];
-    expect(encodeSortParam(sort)).toBe('priority:desc,due_date:asc');
+  it('parses comma-separated sort and columns params', () => {
     expect(
-      validateTaskFilterSearch({
-        sort: encodeSortParam(sort),
-        columns: encodeColumnsParam(['label', 'tags']),
-      }),
+      validateTaskFilterSearch({ sort: 'priority:desc,due_date:asc', columns: 'label,tags' }),
     ).toEqual({
-      sort,
+      sort: [
+        { field: 'priority', direction: 'desc' },
+        { field: 'due_date', direction: 'asc' },
+      ],
       columns: ['label', 'tags'],
     });
   });
 
-  it('parses and round-trips a nested filter JSON param', () => {
+  it('parses a nested filter JSON param', () => {
     const filter = {
       kind: 'group' as const,
       op: 'and' as const,
@@ -114,9 +104,7 @@ describe('validateTaskFilterSearch', () => {
         },
       ],
     };
-    const encoded = encodeFilterParam(filter);
-    expect(encoded).toBeTruthy();
-    expect(validateTaskFilterSearch({ filter: encoded })).toEqual({ filter });
+    expect(validateTaskFilterSearch({ filter: JSON.stringify(filter) })).toEqual({ filter });
     expect(validateTaskFilterSearch({ filter: 'not-json' })).toEqual({});
   });
 });

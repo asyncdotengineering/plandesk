@@ -83,10 +83,6 @@ export async function getRenderTokenByHash(
     .get();
 }
 
-export async function revokeRenderToken(db: DbClient, id: string): Promise<void> {
-  await db.update(renderTokens).set({ revokedAt: new Date() }).where(eq(renderTokens.id, id)).run();
-}
-
 export function parseRenderTokenPrototypeIds(row: RenderToken): string[] {
   const parsed: unknown = JSON.parse(row.prototypeIds);
   if (!Array.isArray(parsed)) {

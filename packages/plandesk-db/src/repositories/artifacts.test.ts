@@ -6,7 +6,6 @@ import {
   createArtifact,
   deleteArtifactsByProjectId,
   getArtifact,
-  getArtifactByProjectAndId,
   listArtifactsByProject,
   updateArtifact,
 } from './artifacts.js';
@@ -54,13 +53,6 @@ describe('artifacts repository', () => {
     const other = (await createProject(db, { name: 'Other' })).id;
     await createArtifact(db, { projectId: other, title: 'Elsewhere' });
     expect(await listArtifactsByProject(db, projectId)).toHaveLength(2);
-  });
-
-  it('scopes getArtifactByProjectAndId to the project', async () => {
-    const artifact = await createArtifact(db, { projectId, title: 'Scoped' });
-    expect((await getArtifactByProjectAndId(db, projectId, artifact.id))?.id).toBe(artifact.id);
-    const other = (await createProject(db, { name: 'Other' })).id;
-    expect(await getArtifactByProjectAndId(db, other, artifact.id)).toBeUndefined();
   });
 
   it('updates an artifact and bumps updated_at', async () => {

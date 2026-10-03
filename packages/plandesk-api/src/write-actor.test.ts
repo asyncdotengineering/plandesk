@@ -4,31 +4,16 @@ import { DEFAULT_AGENT_KEY_PERMISSIONS, DEFAULT_OWNER_KEY_PERMISSIONS } from './
 import { orgRoleToPermissionSet } from './permissions.js';
 import { resolveWriteActor } from './services/org-scope.js';
 import {
-  InvalidActorSerializationError,
-  parseActor,
   resolveWriteActorFromAuthContext,
   serializeActor,
   WriteActorUnresolvedError,
-  type WriteActor,
 } from './write-actor.js';
 
 describe('write-actor serialization', () => {
-  const variants: WriteActor[] = [
-    { kind: 'human', userId: 'user-abc' },
-    { kind: 'agent', runId: 'run-xyz' },
-    { kind: 'system' },
-  ];
-
-  it('round-trips every variant', () => {
-    for (const actor of variants) {
-      expect(parseActor(serializeActor(actor))).toEqual(actor);
-    }
-  });
-
-  it('rejects unparseable actor strings', () => {
-    expect(() => parseActor('bogus')).toThrow(InvalidActorSerializationError);
-    expect(() => parseActor('human:')).toThrow(InvalidActorSerializationError);
-    expect(() => parseActor('unknown:id')).toThrow(InvalidActorSerializationError);
+  it('writes the stored kind:id form for every variant', () => {
+    expect(serializeActor({ kind: 'human', userId: 'user-abc' })).toBe('human:user-abc');
+    expect(serializeActor({ kind: 'agent', runId: 'run-xyz' })).toBe('agent:run-xyz');
+    expect(serializeActor({ kind: 'system' })).toBe('system');
   });
 });
 

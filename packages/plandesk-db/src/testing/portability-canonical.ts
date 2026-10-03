@@ -1,4 +1,4 @@
-import type { PlandeskExport } from './portability.js';
+import type { PlandeskExport } from '../portability.js';
 import { FIXTURE_EXPORT_IDS } from './portability-fixture-seed.js';
 
 /**

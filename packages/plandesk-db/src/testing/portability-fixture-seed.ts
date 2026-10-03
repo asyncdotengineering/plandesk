@@ -1,24 +1,24 @@
 import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import type { Db } from './client.js';
-import { createAgentRunEvent } from './repositories/agent-run-events.js';
-import { createAgentRun, updateAgentRunStatus } from './repositories/agent-runs.js';
-import { createArtifact } from './repositories/artifacts.js';
-import { createComment } from './repositories/comments.js';
-import { createDocument, updateDocument } from './repositories/documents.js';
-import { createEdge } from './repositories/edges.js';
-import { createFile } from './repositories/files.js';
-import { createFolder } from './repositories/folders.js';
-import { createGoal } from './repositories/goals.js';
-import { createNote } from './repositories/notes.js';
-import { createPrototype } from './repositories/prototypes.js';
-import { updateProject } from './repositories/projects.js';
-import { createTag, setTaskTags } from './repositories/tags.js';
-import { createTask, updateTask } from './repositories/tasks.js';
-import { createView } from './repositories/views.js';
-import { NON_TRIVIAL_SAVED_VIEW_CONFIG } from './saved-view-config.js';
-import { artifacts, goals, tasks } from './schema.js';
-import { createProjectInDefaultOrg as createProject } from './testing.js';
+import type { Db } from '../client.js';
+import { createAgentRunEvent } from '../repositories/agent-run-events.js';
+import { createAgentRun, updateAgentRunStatus } from '../repositories/agent-runs.js';
+import { createArtifact } from '../repositories/artifacts.js';
+import { createComment } from '../repositories/comments.js';
+import { createDocument, updateDocument } from '../repositories/documents.js';
+import { createEdge } from '../repositories/edges.js';
+import { createFile } from '../repositories/files.js';
+import { createFolder } from '../repositories/folders.js';
+import { createGoal } from '../repositories/goals.js';
+import { createNote } from '../repositories/notes.js';
+import { createPrototype } from '../repositories/prototypes.js';
+import { updateProject } from '../repositories/projects.js';
+import { createTag, setTaskTags } from '../repositories/tags.js';
+import { createTask, updateTask } from '../repositories/tasks.js';
+import { createView } from '../repositories/views.js';
+import { NON_TRIVIAL_SAVED_VIEW_CONFIG } from '../saved-view-config.js';
+import { artifacts, goals, tasks } from '../schema.js';
+import { createProjectInDefaultOrg as createProject } from '../testing.js';
 
 /** Fixed timestamps so golden export JSON is byte-stable across runs. */
 const FIXTURE_ROW_STAMPS = {

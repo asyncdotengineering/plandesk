@@ -22,22 +22,6 @@ export type WorkspaceRootsResolver = () => Promise<string[]>;
 
 export const emptyWorkspaceRoots: WorkspaceRootsResolver = () => Promise.resolve([]);
 
-/** Walk up from startDir for a `.plandesk/` directory (same as CLI). */
-export function findPlandeskDir(startDir: string): string | undefined {
-  let dir = startDir;
-  for (;;) {
-    const candidate = join(dir, '.plandesk');
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-    const parent = dirname(dir);
-    if (parent === dir) {
-      return undefined;
-    }
-    dir = parent;
-  }
-}
-
 /**
  * Resolve `filePath` to an absolute path under one of the workspace's
  * registered project roots. Returns null on escape / missing binding — fail closed.

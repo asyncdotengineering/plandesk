@@ -21,5 +21,3 @@ export function createHealthRouter(dataDir?: string, db?: Db): Hono {
   });
   return router;
 }
-
-export const healthRouter = createHealthRouter();

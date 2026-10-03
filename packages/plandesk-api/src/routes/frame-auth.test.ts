@@ -12,10 +12,10 @@ import {
   getRenderTokenByHash,
   hashRenderToken,
   migrate,
-  revokeRenderToken,
   revokeShare,
   type Db,
 } from '@plandesk/db';
+import { revokeRenderToken } from '@plandesk/db/testing';
 import { createOrgOwnerKey } from '../agent-keys.js';
 import { createBetterAuth, runBetterAuthMigrations } from '../better-auth.js';
 import { createApp } from '../server.js';

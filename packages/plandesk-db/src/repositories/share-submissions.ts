@@ -6,20 +6,6 @@ import { shareSubmissions, type ShareSubmissionStatus } from '../schema.js';
 export type ShareSubmission = typeof shareSubmissions.$inferSelect;
 export type { ShareSubmissionStatus };
 
-export type UpsertSubmissionInput = {
-  id: string;
-  projectId: string;
-  hostedShareId: string;
-  participantName: string;
-  title: string;
-  body?: string | null;
-  severity?: string | null;
-  taskRef?: string | null;
-  status?: ShareSubmissionStatus;
-  createdAt: Date;
-  pulledAt: Date;
-};
-
 export type CreateGuestSubmissionInput = {
   projectId: string;
   hostedShareId: string;
@@ -29,31 +15,6 @@ export type CreateGuestSubmissionInput = {
   severity?: string | null;
   taskRef?: string | null;
 };
-
-export async function upsertSubmission(
-  db: DbClient,
-  input: UpsertSubmissionInput,
-): Promise<boolean> {
-  const result = await db
-    .insert(shareSubmissions)
-    .values({
-      id: input.id,
-      projectId: input.projectId,
-      hostedShareId: input.hostedShareId,
-      participantName: input.participantName,
-      title: input.title,
-      body: input.body ?? null,
-      severity: input.severity ?? null,
-      taskRef: input.taskRef ?? null,
-      status: input.status ?? 'pending',
-      createdAt: input.createdAt,
-      pulledAt: input.pulledAt,
-    })
-    .onConflictDoNothing()
-    .run();
-
-  return result.rowsAffected > 0;
-}
 
 /** Guest portal submit: insert a moderated pending row (same DB as owner triage). */
 export async function createGuestSubmission(

@@ -1,8 +1,8 @@
-import { type DragEndEvent, type UniqueIdentifier } from '@dnd-kit/core';
+import { type DragEndEvent } from '@dnd-kit/core';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
-import { type SerializedTask, type TaskStatus } from '../../lib/api.js';
+import { type SerializedTask } from '../../lib/api.js';
 import { queryKeys, usePatchTask } from '../../lib/queries.js';
 import { columnLabels, resolveDropStatus } from './board-utils.js';
 
@@ -73,26 +73,4 @@ export function useBoardDnd({ projectId, tasks }: UseBoardDndOptions) {
   );
 
   return { handleDragEnd, isUpdating: patchTask.isPending, updateError: patchTask.error };
-}
-
-// Only the active/over ids are read, so the param is typed to exactly that —
-// a real DragEndEvent satisfies it, and tests can pass minimal id-only objects.
-export function statusFromDragEnd(
-  event: { active: { id: UniqueIdentifier }; over: { id: UniqueIdentifier } | null },
-  tasks: SerializedTask[],
-): { taskId: string; status: TaskStatus } | null {
-  if (event.over === null) {
-    return null;
-  }
-  const taskId = String(event.active.id);
-  const tasksById = new Map(tasks.map((task) => [task.id, task]));
-  const task = tasksById.get(taskId);
-  if (task === undefined) {
-    return null;
-  }
-  const newStatus = resolveDropStatus(event.over.id, tasksById);
-  if (newStatus === undefined || newStatus === task.status) {
-    return null;
-  }
-  return { taskId, status: newStatus };
 }

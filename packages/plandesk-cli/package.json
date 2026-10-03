@@ -2,12 +2,6 @@
   "name": "@plandesk/cli",
   "version": "4.0.0",
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
   "bin": {
     "plandesk": "./bin/plandesk"
   },

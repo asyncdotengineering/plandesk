@@ -4,11 +4,11 @@ import {
   createDb,
   createProjectInDefaultOrg as createProject,
   listCommentsByTarget,
-  listPrototypeLinksByFromArtifact,
   listPrototypeLinksByProject,
   migrate,
   type Db,
 } from '@plandesk/db';
+import { listPrototypeLinksByFromArtifact } from '@plandesk/db/testing';
 import { localOwner } from '../principal.js';
 import { createArtifactService, InvalidArtifactError } from './artifacts.js';
 import { createPrototypeService } from './prototypes.js';

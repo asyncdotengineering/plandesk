@@ -3,9 +3,9 @@ import {
   createDb,
   createProjectInDefaultOrg as createProject,
   migrate,
-  upsertSubmission,
   type Db,
 } from '@plandesk/db';
+import { upsertSubmission } from '@plandesk/db/testing';
 import { createApp } from '../server.js';
 import { localOwner } from '../principal.js';
 import { createServices, type Services } from '../services/index.js';

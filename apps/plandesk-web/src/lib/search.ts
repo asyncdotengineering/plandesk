@@ -152,31 +152,6 @@ function parseColumnsParam(value: unknown): ListColumnId[] | undefined {
   return columns.length > 0 ? columns : undefined;
 }
 
-/** Serialize sort specs for a list-view search param. Omits when empty. */
-export function encodeSortParam(specs: SortSpec[]): string | undefined {
-  if (specs.length === 0) {
-    return undefined;
-  }
-  return specs.map((spec) => `${spec.field}:${spec.direction}`).join(',');
-}
-
-/** Serialize visible columns for a list-view search param. Omits when empty. */
-export function encodeColumnsParam(columns: Iterable<ListColumnId>): string | undefined {
-  const ids = [...columns];
-  if (ids.length === 0) {
-    return undefined;
-  }
-  return ids.join(',');
-}
-
-/** Serialize a filter tree for a list-view search param. Omits when null. */
-export function encodeFilterParam(node: FilterNode | null): string | undefined {
-  if (node === null) {
-    return undefined;
-  }
-  return JSON.stringify(node);
-}
-
 export function validateTaskFilterSearch(search: Record<string, unknown>): TaskFilterSearch {
   const result: TaskFilterSearch = {};
 

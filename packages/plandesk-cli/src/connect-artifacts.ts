@@ -150,19 +150,6 @@ export async function fetchServedDataDir(serverUrl: string): Promise<string | un
   }
 }
 
-/**
- * Verify identity, not just liveness (REQ-A3b): a 200 from a server does not
- * mean it is serving the board a caller expects — two boards can share the
- * same default port across different repos/machines.
- */
-export async function isServingExpectedBoard(
-  serverUrl: string,
-  expectedDataDir: string,
-): Promise<boolean> {
-  const served = await fetchServedDataDir(serverUrl);
-  return served === expectedDataDir;
-}
-
 export function buildMcpUrl(serverUrl: string): string {
   return `${normalizeServerUrl(serverUrl)}/mcp/`;
 }

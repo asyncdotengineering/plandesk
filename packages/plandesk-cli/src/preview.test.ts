@@ -8,7 +8,6 @@ import {
   HTML_ARTIFACT_CSP,
   MARKDOWN_ARTIFACT_CSP,
   annotationRequestHeaders,
-  computeSelector,
   htmlArtifactCsp,
   previewBackendBanner,
   renderChrome,
@@ -29,34 +28,6 @@ describe('preview helpers', () => {
     dirs.push(d);
     return d;
   }
-
-  it('computes text selectors with 32-character context', () => {
-    const body = `${'p'.repeat(40)}selected${'s'.repeat(40)}`;
-    expect(computeSelector(body, 'selected', 40)).toEqual({
-      exact: 'selected',
-      prefix: 'p'.repeat(32),
-      suffix: 's'.repeat(32),
-      start: 40,
-      end: 48,
-    });
-  });
-
-  it('computes text selectors at body boundaries', () => {
-    expect(computeSelector('first and last', 'first', 0)).toEqual({
-      exact: 'first',
-      prefix: '',
-      suffix: ' and last',
-      start: 0,
-      end: 5,
-    });
-    expect(computeSelector('first and last', 'last', 10)).toEqual({
-      exact: 'last',
-      prefix: 'first and ',
-      suffix: '',
-      start: 10,
-      end: 14,
-    });
-  });
 
   it('resolves only existing previewable files, tagging kind by extension', () => {
     const dir = tmp();

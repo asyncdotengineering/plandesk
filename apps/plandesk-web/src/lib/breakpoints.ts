@@ -24,16 +24,6 @@ export const BREAKPOINT_MIN_WIDTH = {
 const TABLET_QUERY = `(min-width: ${String(BREAKPOINT_MIN_WIDTH.tablet)}px)`;
 const DESKTOP_QUERY = `(min-width: ${String(BREAKPOINT_MIN_WIDTH.desktop)}px)`;
 
-export function breakpointFor(width: number): Breakpoint {
-  if (width >= BREAKPOINT_MIN_WIDTH.desktop) {
-    return 'desktop';
-  }
-  if (width >= BREAKPOINT_MIN_WIDTH.tablet) {
-    return 'tablet';
-  }
-  return 'phone';
-}
-
 function hasMatchMedia(): boolean {
   return typeof window !== 'undefined' && typeof window.matchMedia === 'function';
 }

@@ -1,7 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 export {
   createDb,
   withTransaction,
@@ -43,8 +39,33 @@ export * from './repositories/documents.js';
 export * from './repositories/folders.js';
 export * from './repositories/notes.js';
 export * from './repositories/files.js';
-export * from './libraries/index.js';
-export * from './prototype-links/index.js';
+export {
+  LIBRARY_MANIFEST,
+  LIBRARY_REF_PATTERN,
+  findLibraryByRef,
+  findLibraryEntry,
+  libraryVendorFilename,
+  parseLibraryRef,
+  type LibraryEntry,
+} from './libraries/manifest.js';
+export { hashLibraryBytes, libraryVendorPath, readLibraryBytes } from './libraries/bytes.js';
+export {
+  LibrarySha256MismatchError,
+  materialiseLibrary,
+  resolveLibrary,
+} from './libraries/resolve.js';
+export {
+  scanScreen,
+  isExternalUrl,
+  type ExternalRef,
+  type ExternalRefKind,
+  type ScanScreenResult,
+} from './prototype-links/scan.js';
+export {
+  resolveTarget,
+  rawTargetKey,
+  type ResolveTargetScreen,
+} from './prototype-links/resolve-target.js';
 export * from './repositories/artifacts.js';
 export * from './repositories/prototype-links.js';
 export * from './repositories/prototypes.js';
@@ -88,11 +109,3 @@ export {
   normalizeCommitRefs,
   parseCommitRefs,
 } from './commit-refs.js';
-
-export const version = (): string => {
-  // Lazy: module-level fileURLToPath(import.meta.url) breaks the Cloudflare
-  // Workers bundle. Resolve only when version() is actually called.
-  const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '../package.json');
-  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version: string };
-  return pkg.version;
-};

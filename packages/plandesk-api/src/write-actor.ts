@@ -12,13 +12,6 @@ export class WriteActorUnresolvedError extends Error {
   }
 }
 
-export class InvalidActorSerializationError extends Error {
-  constructor(value: string) {
-    super(`invalid actor serialization: ${value}`);
-    this.name = 'InvalidActorSerializationError';
-  }
-}
-
 export function serializeActor(actor: WriteActor): string {
   switch (actor.kind) {
     case 'human':
@@ -28,28 +21,6 @@ export function serializeActor(actor: WriteActor): string {
     case 'system':
       return 'system';
   }
-}
-
-export function parseActor(value: string): WriteActor {
-  if (value === 'system') {
-    return { kind: 'system' };
-  }
-  const colon = value.indexOf(':');
-  if (colon === -1) {
-    throw new InvalidActorSerializationError(value);
-  }
-  const kind = value.slice(0, colon);
-  const id = value.slice(colon + 1);
-  if (id.length === 0) {
-    throw new InvalidActorSerializationError(value);
-  }
-  if (kind === 'human') {
-    return { kind: 'human', userId: id };
-  }
-  if (kind === 'agent') {
-    return { kind: 'agent', runId: id };
-  }
-  throw new InvalidActorSerializationError(value);
 }
 
 /** Resolve the write actor for an org-bearing auth context. Never defaults to system. */

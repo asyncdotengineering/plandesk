@@ -5,9 +5,8 @@ import {
   createNote,
   createProjectInDefaultOrg as createProject,
   createTask,
-  upsertSubmission,
 } from '@plandesk/db';
-import { getOrCreateDefaultGoal } from '@plandesk/db/testing';
+import { getOrCreateDefaultGoal, upsertSubmission } from '@plandesk/db/testing';
 import { createTestApp, parseJson } from '../test-helpers.js';
 
 type CommentResponse = {

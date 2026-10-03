@@ -128,14 +128,3 @@ async function attachShareIfLive(
     share,
   };
 }
-
-export async function revokeGuestSession(db: DbClient, id: string): Promise<boolean> {
-  const now = new Date();
-  const rows = await db
-    .update(guestSessions)
-    .set({ revokedAt: now })
-    .where(and(eq(guestSessions.id, id), isNull(guestSessions.revokedAt)))
-    .returning()
-    .all();
-  return rows.length > 0;
-}

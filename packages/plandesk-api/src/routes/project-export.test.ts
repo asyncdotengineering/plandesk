@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { Readable } from 'node:stream';
 import { parse as parseCsv } from 'csv-parse/sync';
 import { describe, expect, it } from 'vitest';
 import {
@@ -10,9 +11,50 @@ import {
   type SavedViewConfig,
 } from '@plandesk/db';
 import { createTestApp } from '../test-helpers.js';
-import { readXlsxTable } from '../export/render.js';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
+
+/** String cells of the first sheet, header row first, for CSV parity. */
+async function readXlsxMatrix(bytes: Uint8Array): Promise<string[][]> {
+  const workbook = new (await import('exceljs')).default.Workbook();
+  // exceljs typings expect its own Buffer alias; Uint8Array is accepted at runtime.
+  await workbook.xlsx.read(Readable.from([bytes]));
+  const matrix: string[][] = [];
+  workbook.worksheets[0]?.eachRow((row) => {
+    const values = row.values;
+    // exceljs row.values is 1-indexed (index 0 unused).
+    matrix.push(
+      Array.isArray(values) ? values.slice(1).map((cell) => cellValueToString(cell)) : [],
+    );
+  });
+  return matrix;
+}
+
+function cellValueToString(cell: unknown): string {
+  if (cell === null || cell === undefined) {
+    return '';
+  }
+  if (typeof cell === 'string') {
+    return cell;
+  }
+  if (typeof cell === 'number' || typeof cell === 'boolean') {
+    return String(cell);
+  }
+  if (typeof cell === 'object') {
+    if ('text' in cell) {
+      const text = Reflect.get(cell, 'text');
+      return typeof text === 'string' ? text : '';
+    }
+    if ('result' in cell) {
+      const result = Reflect.get(cell, 'result');
+      if (typeof result === 'string' || typeof result === 'number' || typeof result === 'boolean') {
+        return String(result);
+      }
+      return '';
+    }
+  }
+  return '';
+}
 
 function baseView(overrides: Partial<SavedViewConfig> = {}): SavedViewConfig {
   return {
@@ -295,10 +337,7 @@ describe('POST /projects/:id/export', () => {
     const csvMatrix: string[][] = parseCsv(csvText, { relax_column_count: true });
 
     const xlsxBytes = new Uint8Array(await xlsxRes.arrayBuffer());
-    const xlsxTable = await readXlsxTable(xlsxBytes);
-    const xlsxMatrix = [xlsxTable.headers, ...xlsxTable.rows];
-
-    expect(xlsxMatrix).toEqual(csvMatrix);
+    expect(await readXlsxMatrix(xlsxBytes)).toEqual(csvMatrix);
   });
 
   it('filename carries the project name and the date', async () => {

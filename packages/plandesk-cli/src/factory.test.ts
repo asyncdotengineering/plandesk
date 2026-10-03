@@ -43,7 +43,7 @@ import {
   runFactoryInit,
   runFactorySync,
 } from './factory.js';
-import { templateExists } from './templates.js';
+import { readTemplate } from './templates.js';
 
 const tempDirs: string[] = [];
 
@@ -410,7 +410,7 @@ describe('template invariant', () => {
     expect(agentsPaths.length).toBeGreaterThan(0);
     for (const rel of agentsPaths) {
       const templateRel = rel.slice('.agents/'.length);
-      expect(templateExists(templateRel), `missing template for ${rel}`).toBe(true);
+      expect(() => readTemplate(templateRel), `missing template for ${rel}`).not.toThrow();
     }
   });
 });

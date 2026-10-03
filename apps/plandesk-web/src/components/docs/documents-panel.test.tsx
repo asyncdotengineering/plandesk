@@ -14,7 +14,6 @@ import {
   directDocumentCount,
   flattenDocumentTree,
   folderExpandStorageKey,
-  isDescendantFolder,
   loadExpandedFolderIds,
   saveExpandedFolderIds,
 } from './DocumentsPanel.js';
@@ -132,16 +131,6 @@ describe('panel helpers', () => {
     const folders = [makeFolder('f1', 'A', null), makeFolder('f2', 'B', 'f1')];
     expect(childFoldersOf(folders, null).map((folder) => folder.id)).toEqual(['f1']);
     expect(childFoldersOf(folders, 'f1').map((folder) => folder.id)).toEqual(['f2']);
-  });
-
-  it('isDescendantFolder walks the parent chain', () => {
-    const folders = [
-      makeFolder('f1', 'A', null),
-      makeFolder('f2', 'B', 'f1'),
-      makeFolder('f3', 'C', 'f2'),
-    ];
-    expect(isDescendantFolder(folders, 'f3', 'f1')).toBe(true);
-    expect(isDescendantFolder(folders, 'f1', 'f3')).toBe(false);
   });
 
   it('directDocumentCount counts only documents with that folder_id', () => {

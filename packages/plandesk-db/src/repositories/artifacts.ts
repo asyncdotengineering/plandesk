@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
 import { artifacts, type ArtifactKind } from '../schema.js';
 
@@ -67,18 +67,6 @@ export async function listArtifactsByPrototype(
   prototypeId: string,
 ): Promise<Artifact[]> {
   return db.select().from(artifacts).where(eq(artifacts.prototypeId, prototypeId)).all();
-}
-
-export async function getArtifactByProjectAndId(
-  db: DbClient,
-  projectId: string,
-  id: string,
-): Promise<Artifact | undefined> {
-  return db
-    .select()
-    .from(artifacts)
-    .where(and(eq(artifacts.projectId, projectId), eq(artifacts.id, id)))
-    .get();
 }
 
 export async function updateArtifact(

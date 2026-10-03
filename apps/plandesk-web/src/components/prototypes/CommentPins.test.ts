@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { computePinStyle } from './CommentPins.js';
+import { pinStyle } from './CommentPins.js';
 
-describe('computePinStyle', () => {
+describe('pinStyle', () => {
   it('places pin in screen space and counter-scales by 1/zoom', () => {
-    const at1 = computePinStyle(
+    const at1 = pinStyle(
       { x: 100, y: 200 },
       { x: 10, y: 20, width: 5, height: 5 },
       {
@@ -16,7 +16,7 @@ describe('computePinStyle', () => {
     expect(at1.top).toBe(220);
     expect(at1.transform).toBe('scale(1)');
 
-    const atHalf = computePinStyle(
+    const atHalf = pinStyle(
       { x: 100, y: 200 },
       { x: 10, y: 20, width: 5, height: 5 },
       { x: 0, y: 0, zoom: 0.5 },
@@ -27,7 +27,7 @@ describe('computePinStyle', () => {
   });
 
   it('applies viewport translation', () => {
-    const s = computePinStyle(
+    const s = pinStyle(
       { x: 0, y: 0 },
       { x: 10, y: 10, width: 0, height: 0 },
       {

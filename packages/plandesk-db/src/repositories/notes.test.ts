@@ -7,7 +7,6 @@ import {
   deleteNote,
   deleteNotesByProjectId,
   getNote,
-  getNoteByProjectAndId,
   listNotes,
   updateNote,
 } from './notes.js';
@@ -49,13 +48,6 @@ describe('notes repository', () => {
     const other = (await createProject(db, { name: 'Other' })).id;
     await createNote(db, { projectId: other, title: 'Elsewhere' });
     expect(await listNotes(db, projectId)).toHaveLength(2);
-  });
-
-  it('scopes getNoteByProjectAndId to the project', async () => {
-    const note = await createNote(db, { projectId, title: 'Scoped' });
-    expect((await getNoteByProjectAndId(db, projectId, note.id))?.id).toBe(note.id);
-    const other = (await createProject(db, { name: 'Other' })).id;
-    expect(await getNoteByProjectAndId(db, other, note.id)).toBeUndefined();
   });
 
   it('updates a note and bumps updated_at', async () => {

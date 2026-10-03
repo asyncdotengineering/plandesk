@@ -2,7 +2,6 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   BREAKPOINT_MIN_WIDTH,
-  breakpointFor,
   useBreakpoint,
   useIsMobile,
   useIsTouchLayout,
@@ -83,23 +82,7 @@ afterEach(() => {
   media = null;
 });
 
-describe('breakpointFor', () => {
-  it('names each regime at its own floor', () => {
-    expect(breakpointFor(0)).toBe('phone');
-    expect(breakpointFor(BREAKPOINT_MIN_WIDTH.tablet)).toBe('tablet');
-    expect(breakpointFor(BREAKPOINT_MIN_WIDTH.desktop)).toBe('desktop');
-  });
-
-  // The boundaries are the whole point: one pixel out and the hook disagrees
-  // with the Tailwind utilities, putting the drawer and the sidebar on screen
-  // together.
-  it('switches regime exactly on the Tailwind boundary', () => {
-    expect(breakpointFor(767)).toBe('phone');
-    expect(breakpointFor(768)).toBe('tablet');
-    expect(breakpointFor(1023)).toBe('tablet');
-    expect(breakpointFor(1024)).toBe('desktop');
-  });
-
+describe('BREAKPOINT_MIN_WIDTH', () => {
   it('mirrors the Tailwind md and lg defaults', () => {
     expect(BREAKPOINT_MIN_WIDTH.tablet).toBe(768);
     expect(BREAKPOINT_MIN_WIDTH.desktop).toBe(1024);

@@ -66,8 +66,3 @@ export function readTemplate(relativePath: string): string {
   cache.set(relativePath, content);
   return content;
 }
-
-/** True when a template file exists at the given relative path. */
-export function templateExists(relativePath: string): boolean {
-  return existsSync(resolveTemplatePath(relativePath));
-}

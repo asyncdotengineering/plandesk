@@ -7,10 +7,9 @@ import {
   getSubmission,
   listTasks,
   migrate,
-  upsertSubmission,
   type Db,
 } from '@plandesk/db';
-import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
+import { createTaskWithDefaultGoal as createTask, upsertSubmission } from '@plandesk/db/testing';
 import { createTaskService } from './tasks.js';
 import {
   createTriageService,

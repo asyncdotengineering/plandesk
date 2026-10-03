@@ -6,10 +6,10 @@ import {
   createProject,
   createProjectInDefaultOrg as createProjectDefault,
   getFile,
-  listPrototypeLinksByFromArtifact,
   migrate,
   type Db,
 } from '@plandesk/db';
+import { listPrototypeLinksByFromArtifact } from '@plandesk/db/testing';
 import { createArtifactService, ExternalReferenceError, UnknownLibraryError } from './artifacts.js';
 import { createPrototypeService } from './prototypes.js';
 

@@ -36,8 +36,6 @@ export {
   isInvitationRole,
   mintOwnerInvitation,
   mintSessionCookieHeader,
-  removeOrganizationMember,
-  updateOrganizationMemberRole,
   INVITATION_ROLES,
   type InvitationRole,
 } from './invitations.js';
@@ -60,10 +58,8 @@ export {
 } from './auth-context.js';
 export {
   serializeActor,
-  parseActor,
   resolveWriteActorFromAuthContext,
   WriteActorUnresolvedError,
-  InvalidActorSerializationError,
   type WriteActor,
 } from './write-actor.js';
 export { resolveWriteActor, type OrgScopedDeps } from './services/org-scope.js';
@@ -99,7 +95,6 @@ export {
   PermissionDeniedError,
   type PermissionSet,
 } from './permissions.js';
-export { healthRouter } from './routes/health.js';
 export { mountStatic } from './static.js';
 // Hosted (non-loopback) entry helpers — used by createHostedApp in
 // @plandesk/server, which wires this app together with the MCP app.
@@ -229,15 +224,3 @@ export {
   type TriageService,
 } from './services/triage.js';
 export type { DiffHunk } from './revision-diff.js';
-
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-export const version = (): string => {
-  // Lazy: module-level fileURLToPath(import.meta.url) breaks the Cloudflare
-  // Workers bundle. Resolve only when version() is actually called.
-  const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '../package.json');
-  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version: string };
-  return pkg.version;
-};

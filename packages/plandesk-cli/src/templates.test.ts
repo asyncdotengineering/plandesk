@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readTemplate, templateExists, templatesRoot } from './templates.js';
+import { readTemplate, templatesRoot } from './templates.js';
 
 describe('template resolution', () => {
   it('reads a plain template', () => {
@@ -11,12 +11,11 @@ describe('template resolution', () => {
   // init` crashed with ENOENT for every consumer while all local gates passed.
   // The build vendors it de-dotted; callers still ask for the real name.
   it('resolves a dotfile template under either spelling', () => {
-    expect(templateExists('factory/runs/.gitignore')).toBe(true);
     expect(readTemplate('factory/runs/.gitignore')).toContain('*');
   });
 
   it('reports a genuinely missing template as missing', () => {
-    expect(templateExists('factory/does-not-exist.md')).toBe(false);
+    expect(() => readTemplate('factory/does-not-exist.md')).toThrow();
   });
 
   it('resolves a root that exists', () => {

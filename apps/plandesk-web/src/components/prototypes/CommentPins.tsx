@@ -24,7 +24,8 @@ type PinView = {
   rect: FrameRect | null;
 };
 
-function pinStyle(
+/** Pin CSS in screen space, counter-scaled by 1/zoom so pins keep their size. */
+export function pinStyle(
   nodePos: { x: number; y: number },
   rect: FrameRect,
   viewport: { x: number; y: number; zoom: number },
@@ -258,20 +259,6 @@ export function CommentPinsLayer({
       </div>
     </Panel>
   );
-}
-
-/** Pure helper for pin CSS — unit-tested without React Flow. */
-export function computePinStyle(
-  nodePos: { x: number; y: number },
-  rect: FrameRect,
-  viewport: { x: number; y: number; zoom: number },
-): { left: number; top: number; transform: string } {
-  const style = pinStyle(nodePos, rect, viewport);
-  return {
-    left: style.left as number,
-    top: style.top as number,
-    transform: style.transform as string,
-  };
 }
 
 export type { SerializedComment };

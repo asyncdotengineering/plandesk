@@ -1,5 +1,3 @@
-import { Readable } from 'node:stream';
-
 /**
  * exceljs is ~1MB and only needed when someone asks for XLSX. Importing it
  * eagerly loads it into every module graph that touches export — which
@@ -37,55 +35,4 @@ export async function renderXlsx(table: ExportTable): Promise<Uint8Array> {
     return new Uint8Array(buffer);
   }
   return new Uint8Array(buffer);
-}
-
-/** Extract string cells from an XLSX buffer for parity assertions. */
-export async function readXlsxTable(bytes: Uint8Array): Promise<ExportTable> {
-  const workbook = new (await excel()).Workbook();
-  // exceljs typings expect its own Buffer alias; Uint8Array is accepted at runtime.
-  await workbook.xlsx.read(Readable.from([bytes]));
-  const sheet = workbook.worksheets[0];
-  if (sheet === undefined) {
-    return { headers: [], rows: [] };
-  }
-  const matrix: string[][] = [];
-  sheet.eachRow((row) => {
-    const values = row.values;
-    // exceljs row.values is 1-indexed (index 0 unused).
-    const cells = Array.isArray(values)
-      ? values.slice(1).map((cell) => cellValueToString(cell))
-      : [];
-    matrix.push(cells);
-  });
-  if (matrix.length === 0) {
-    return { headers: [], rows: [] };
-  }
-  const [headers = [], ...rows] = matrix;
-  return { headers, rows };
-}
-
-function cellValueToString(cell: unknown): string {
-  if (cell === null || cell === undefined) {
-    return '';
-  }
-  if (typeof cell === 'string') {
-    return cell;
-  }
-  if (typeof cell === 'number' || typeof cell === 'boolean') {
-    return String(cell);
-  }
-  if (typeof cell === 'object') {
-    if ('text' in cell) {
-      const text = Reflect.get(cell, 'text');
-      return typeof text === 'string' ? text : '';
-    }
-    if ('result' in cell) {
-      const result = Reflect.get(cell, 'result');
-      if (typeof result === 'string' || typeof result === 'number' || typeof result === 'boolean') {
-        return String(result);
-      }
-      return '';
-    }
-  }
-  return '';
 }

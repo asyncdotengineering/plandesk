@@ -10,10 +10,9 @@ import {
   getComment,
   listCommentsByTarget,
   migrate,
-  upsertSubmission,
   type Db,
 } from '@plandesk/db';
-import { getOrCreateDefaultGoal } from '@plandesk/db/testing';
+import { getOrCreateDefaultGoal, upsertSubmission } from '@plandesk/db/testing';
 import { createCommentService, InvalidCommentError } from './comments.js';
 
 describe('commentService', () => {

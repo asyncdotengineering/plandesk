@@ -12,11 +12,10 @@ import {
   listShares,
   listSubmissions,
   migrate,
-  upsertSubmission,
   parseSharePolicy,
   type Db,
 } from '@plandesk/db';
-import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
+import { createTaskWithDefaultGoal as createTask, upsertSubmission } from '@plandesk/db/testing';
 import { createProjectService } from './projects.js';
 import { createShareService, InvalidShareError, serializeShare } from './share.js';
 import { createTriageService } from './triage.js';

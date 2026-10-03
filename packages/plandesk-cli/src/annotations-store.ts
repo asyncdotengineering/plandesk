@@ -92,8 +92,3 @@ export function resolveAnnotation(absPath: string, id: string, storeDir?: string
   writeStore(store, storeDir);
   return true;
 }
-
-export function isStale(absPath: string, currentContent: string, storeDir?: string): boolean {
-  const store = readStore(absPath, storeDir);
-  return store !== undefined && store.contentHash !== computeContentHash(currentContent);
-}

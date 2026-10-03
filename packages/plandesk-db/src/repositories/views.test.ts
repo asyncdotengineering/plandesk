@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createDb, migrate } from '../index.js';
-import { NON_TRIVIAL_SAVED_VIEW_CONFIG } from '../saved-view-config.js';
+import { NON_TRIVIAL_SAVED_VIEW_CONFIG, parseSavedViewConfig } from '../saved-view-config.js';
 import { createProjectInDefaultOrg as createProject } from '../testing.js';
 import {
   createView,
@@ -9,7 +9,6 @@ import {
   getView,
   listViews,
   updateView,
-  viewConfig,
 } from './views.js';
 
 describe('views repository', () => {
@@ -42,7 +41,7 @@ describe('views repository', () => {
     if (reloaded === undefined) {
       throw new Error('expected reloaded view');
     }
-    expect(viewConfig(reloaded)).toEqual(NON_TRIVIAL_SAVED_VIEW_CONFIG);
+    expect(parseSavedViewConfig(reloaded.config)).toEqual(NON_TRIVIAL_SAVED_VIEW_CONFIG);
 
     const listed = await listViews(db, project.id);
     expect(listed.map((v) => v.name)).toEqual(['Blocked & urgent', 'By assignee']);
@@ -50,7 +49,7 @@ describe('views repository', () => {
     if (secondListed === undefined) {
       throw new Error('expected second listed view');
     }
-    expect(viewConfig(secondListed)).toEqual({
+    expect(parseSavedViewConfig(secondListed.config)).toEqual({
       version: 1,
       filter: null,
       sort: [{ field: 'assignee', direction: 'asc' }],

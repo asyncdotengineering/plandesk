@@ -352,12 +352,3 @@ export async function listMySubmissions(
 
   return (await response.json()) as PortalSubmission[];
 }
-
-export type PortalSerializedComment = {
-  id: string;
-  body: string;
-  passage: string | null;
-  anchor: string | null;
-  resolved: boolean;
-  created_at: string;
-};

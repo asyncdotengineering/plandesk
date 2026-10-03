@@ -216,44 +216,6 @@ export async function acceptOrganizationInvitation(
   };
 }
 
-/**
- * Remove a member via better-auth (enforces ≥1 owner). Used by tests / future routes.
- */
-export async function removeOrganizationMember(
-  auth: BetterAuthInstance,
-  opts: { memberIdOrEmail: string; organizationId: string; headers: Headers },
-): Promise<unknown> {
-  return callPluginApi(auth, 'removeMember', {
-    body: {
-      memberIdOrEmail: opts.memberIdOrEmail,
-      organizationId: opts.organizationId,
-    },
-    headers: opts.headers,
-  });
-}
-
-/**
- * Update a member role via better-auth (enforces ≥1 owner on demote).
- */
-export async function updateOrganizationMemberRole(
-  auth: BetterAuthInstance,
-  opts: {
-    memberId: string;
-    role: InvitationRole;
-    organizationId: string;
-    headers: Headers;
-  },
-): Promise<unknown> {
-  return callPluginApi(auth, 'updateMemberRole', {
-    body: {
-      memberId: opts.memberId,
-      role: opts.role,
-      organizationId: opts.organizationId,
-    },
-    headers: opts.headers,
-  });
-}
-
 /** Mint a signed better-auth session cookie header for an existing user. */
 export async function mintSessionCookieHeader(
   auth: BetterAuthInstance,

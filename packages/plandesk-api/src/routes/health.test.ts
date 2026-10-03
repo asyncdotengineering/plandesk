@@ -1,10 +1,10 @@
 import { createDb, migrate } from '@plandesk/db';
 import { describe, expect, it } from 'vitest';
-import { createHealthRouter, healthRouter } from './health.js';
+import { createHealthRouter } from './health.js';
 
 describe('createHealthRouter', () => {
   it('reports ok with no dataDir when none is configured (edge/remote topologies)', async () => {
-    const res = await healthRouter.request('/health');
+    const res = await createHealthRouter().request('/health');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
   });

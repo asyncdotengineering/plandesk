@@ -344,8 +344,6 @@ export type UpdateTaskInput = {
 
 export type GoalResolution = 'explicit' | 'current_goal' | 'none';
 
-export type SerializedCreateTask = SerializedTask & { goal_resolution: GoalResolution };
-
 export class InvalidCommitRefsError extends InvalidArgumentError {
   constructor() {
     super('Invalid commit_refs');

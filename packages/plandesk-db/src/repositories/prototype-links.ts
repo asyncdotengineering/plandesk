@@ -54,17 +54,6 @@ export async function listPrototypeLinksByProject(
   return db.select().from(prototypeLinks).where(eq(prototypeLinks.projectId, projectId)).all();
 }
 
-export async function listPrototypeLinksByFromArtifact(
-  db: DbClient,
-  fromArtifactId: string,
-): Promise<PrototypeLink[]> {
-  return db
-    .select()
-    .from(prototypeLinks)
-    .where(eq(prototypeLinks.fromArtifactId, fromArtifactId))
-    .all();
-}
-
 export async function listNullPrototypeLinksByProject(
   db: DbClient,
   projectId: string,

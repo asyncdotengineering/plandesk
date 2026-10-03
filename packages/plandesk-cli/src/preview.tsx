@@ -73,26 +73,6 @@ export type PreviewTarget = {
   rel: string;
 };
 
-export type TextSelector = {
-  exact: string;
-  prefix: string;
-  suffix: string;
-  start: number;
-  end: number;
-};
-
-/** Build a text-quote selector with short surrounding context. */
-export function computeSelector(bodyText: string, exact: string, start: number): TextSelector {
-  const end = start + exact.length;
-  return {
-    exact,
-    prefix: bodyText.slice(Math.max(0, start - 32), start),
-    suffix: bodyText.slice(end, end + 32),
-    start,
-    end,
-  };
-}
-
 /**
  * Thin constant wrapper around `htmlArtifactCsp` for the local CLI previewer
  * (loopback, no request URL at module load). Call sites that have a request

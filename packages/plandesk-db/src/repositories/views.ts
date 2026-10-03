@@ -94,8 +94,3 @@ export async function deleteViewsByProjectId(db: DbClient, projectId: string): P
   const result = await db.delete(views).where(eq(views.projectId, projectId)).run();
   return result.rowsAffected;
 }
-
-/** Parse the config column; throws InvalidSavedViewConfigError if corrupt. */
-export function viewConfig(view: View): SavedViewConfig {
-  return parseSavedViewConfig(view.config);
-}

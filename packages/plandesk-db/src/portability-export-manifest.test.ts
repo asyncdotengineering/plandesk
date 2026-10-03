@@ -8,7 +8,7 @@ import {
   assertGoldenExportFieldCoverage,
   canonicalizeExportForComparison,
   toPortableExportSnapshot,
-} from './portability-export-canonical.js';
+} from './testing/portability-canonical.js';
 import {
   _createExportAuxForTest,
   PLANDESK_EXPORT_TABLE_COLLECTIONS,
@@ -19,7 +19,7 @@ import { buildExportFromManifest, exportProject, importProject } from './portabi
 import {
   FIXTURE_EXPORT_IDS,
   seedDeterministicFullyPopulatedProject,
-} from './portability-fixture-seed.js';
+} from './testing/portability-fixture-seed.js';
 
 const fixturePath = join(
   dirname(fileURLToPath(import.meta.url)),

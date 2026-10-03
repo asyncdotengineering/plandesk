@@ -141,15 +141,6 @@ export function childFoldersOf(
   return folders.filter((folder) => folder.parent_folder_id === parentFolderId);
 }
 
-export function isDescendantFolder(
-  folders: SerializedFolder[],
-  candidateId: string,
-  ancestorId: string,
-): boolean {
-  const parentOf = folderParentLookup(folders);
-  return wouldCreateFolderReparentCycle(ancestorId, candidateId, parentOf);
-}
-
 function folderParentLookup(folders: SerializedFolder[]): (folderId: string) => string | null {
   const byId = new Map(folders.map((folder) => [folder.id, folder.parent_folder_id]));
   return (folderId) => byId.get(folderId) ?? null;

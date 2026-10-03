@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
 import { notes } from '../schema.js';
 
@@ -61,18 +61,6 @@ export async function listNotes(
     query = query.offset(options.offset);
   }
   return query.all();
-}
-
-export async function getNoteByProjectAndId(
-  db: DbClient,
-  projectId: string,
-  id: string,
-): Promise<Note | undefined> {
-  return db
-    .select()
-    .from(notes)
-    .where(and(eq(notes.projectId, projectId), eq(notes.id, id)))
-    .get();
 }
 
 export async function updateNote(

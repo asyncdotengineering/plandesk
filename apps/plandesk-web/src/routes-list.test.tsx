@@ -3,7 +3,6 @@ import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/rea
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedTask } from './lib/api.js';
-import { encodeFilterParam } from './lib/search.js';
 import { routeTree } from './routeTree.gen.js';
 
 const projectId = 'proj-1';
@@ -117,7 +116,7 @@ function openSortMenu() {
 }
 
 function laneFullTodoOrScopeFilter() {
-  return encodeFilterParam({
+  return JSON.stringify({
     kind: 'group',
     op: 'and',
     children: [
@@ -229,7 +228,7 @@ describe('Project list route', () => {
 
     const filter = laneFullTodoOrScopeFilter();
     const { router } = renderListAt(
-      `/projects/${projectId}/list?filter=${encodeURIComponent(filter ?? '')}`,
+      `/projects/${projectId}/list?filter=${encodeURIComponent(filter)}`,
     );
     await router.load();
 

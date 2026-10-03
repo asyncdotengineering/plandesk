@@ -8,7 +8,7 @@ import { exportProject, importProject } from './portability.js';
 import { createArtifact } from './repositories/artifacts.js';
 import { createPrototype } from './repositories/prototypes.js';
 import { createProjectInDefaultOrg as createProject } from './testing.js';
-import { toPortableExportSnapshot } from './portability-export-canonical.js';
+import { toPortableExportSnapshot } from './testing/portability-canonical.js';
 
 describe('prototypes file-backed export/import round-trip', () => {
   const dirs: string[] = [];

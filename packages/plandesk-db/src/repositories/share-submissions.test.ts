@@ -4,13 +4,13 @@ import { migrate } from '../migrate.js';
 import {
   createProjectInDefaultOrg as createProject,
   createTaskWithDefaultGoal as createTask,
+  upsertSubmission,
 } from '../testing.js';
 import {
   deleteShareSubmissionsByProjectId,
   getSubmission,
   listSubmissions,
   setSubmissionStatus,
-  upsertSubmission,
 } from './share-submissions.js';
 
 describe('share-submissions repository', () => {

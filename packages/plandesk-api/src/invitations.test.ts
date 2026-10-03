@@ -8,12 +8,7 @@ import {
   runBetterAuthMigrations,
   type BetterAuthInstance,
 } from './better-auth.js';
-import {
-  isAuthApiError,
-  mintOwnerInvitation,
-  removeOrganizationMember,
-  updateOrganizationMemberRole,
-} from './invitations.js';
+import { mintOwnerInvitation } from './invitations.js';
 import { ensureDefaultTeamForOrg, createTeamForOrg } from './identity.js';
 import { createApp } from './server.js';
 import { parseJson } from './test-helpers.js';
@@ -523,24 +518,28 @@ describe('organization invitations (BA3c)', () => {
       role: 'owner',
     });
 
-    const headers = new Headers();
-    headers.set('cookie', owner.cookie);
+    // Through better-auth's own HTTP surface: Plan Desk ships no wrapper for these.
+    const post = (path: string, body: Record<string, unknown>) =>
+      auth.handler(
+        new Request(`${TEST_BASE_URL}/api/auth/organization/${path}`, {
+          method: 'POST',
+          headers: {
+            cookie: owner.cookie,
+            origin: TEST_BASE_URL,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        }),
+      );
 
-    let removeErr: unknown;
-    try {
-      await removeOrganizationMember(auth, {
-        memberIdOrEmail: 'sole@example.com',
-        organizationId: orgId,
-        headers,
-      });
-    } catch (err) {
-      removeErr = err;
-    }
-    expect(removeErr).toBeDefined();
-    expect(isAuthApiError(removeErr)).toBe(true);
-    if (isAuthApiError(removeErr)) {
-      expect(removeErr.statusCode).toBeGreaterThanOrEqual(400);
-    }
+    const removeRes = await post('remove-member', {
+      memberIdOrEmail: 'sole@example.com',
+      organizationId: orgId,
+    });
+    expect(removeRes.status).toBe(400);
+    expect(await removeRes.json()).toMatchObject({
+      code: 'YOU_CANNOT_LEAVE_THE_ORGANIZATION_AS_THE_ONLY_OWNER',
+    });
 
     const adapter = (await auth.$context).adapter;
     const members = await adapter.findMany<BetterAuthMember>({
@@ -554,19 +553,12 @@ describe('organization invitations (BA3c)', () => {
     expect(sole).toBeDefined();
     if (sole === undefined) throw new Error('expected owner member');
 
-    let demoteErr: unknown;
-    try {
-      await updateOrganizationMemberRole(auth, {
-        memberId: sole.id,
-        role: 'member',
-        organizationId: orgId,
-        headers,
-      });
-    } catch (err) {
-      demoteErr = err;
-    }
-    expect(demoteErr).toBeDefined();
-    expect(isAuthApiError(demoteErr)).toBe(true);
+    const demoteRes = await post('update-member-role', {
+      memberId: sole.id,
+      role: 'member',
+      organizationId: orgId,
+    });
+    expect(demoteRes.status).toBe(400);
 
     const after = await adapter.findMany<BetterAuthMember>({
       model: 'member',
