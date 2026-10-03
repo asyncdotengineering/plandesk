@@ -12,21 +12,11 @@ buildable: reads the code it names, fills the description out to build-contract
 depth, assigns a lane, and adds the edges it implies. In place, on the record
 that already exists.
 
-The gap it fills: [scope-work](../plandesk-scope-work/SKILL.md) drafts tasks only at
-creation time, from whatever the source material happened to carry;
-[foreman](../plandesk-foreman/SKILL.md) grooms only as a prelude to dispatching. Neither
-can be pointed at the one-liner someone dropped on the board on a Tuesday. This
-can.
+Read `references/background.md` when asked why grooming is separate or never releases a task.
 
 **Lane: approve** — grooming rewrites what a task *means*, so the rewrite lands
 as a board diff with a comment recording what was inferred, and that comment is
 the gate's resolution surface.
-
-It never changes status, and that is a boundary of this skill rather than a
-statement about who may release: a groomer that released its own rewrite would
-be judging readiness against a description it just wrote, which is not a check.
-Who performs the `scope → todo` release is decided after this returns — see
-[lanes.md](../../factory/lanes.md).
 
 ## When to run this
 
@@ -45,10 +35,7 @@ Who performs the `scope → todo` release is decided after this returns — see
 | `filter` | `all scope`, `all todo`, or a goal name | every task in that set, thinnest first |
 | `text` | a one-line requirement | **create-then-groom**: one `create_task(status: "scope")`, then groom it |
 
-`text` mode creates exactly one task, in `scope`, and never dedups a batch — a
-pile of raw signal is [scope-work](../plandesk-scope-work/SKILL.md)'s job, not this one.
-Before creating, call `list_tasks` once: if the requirement is already on the
-board, say so and groom the existing task instead of adding a near-duplicate.
+Read `references/text-mode.md` when the input is a one-line requirement.
 
 ## Definition of Ready
 
@@ -86,57 +73,11 @@ the row is an opinion.
 
 ### kind: `decision`
 
-A decision task is **ready** when whoever owns the outcome can answer from the
-description alone — no session history, no author to ask.
-
-| field | ready when | not ready when |
-| --- | --- | --- |
-| **Question** | one question, answerable yes/no or by choosing among stated options | several questions bundled; a topic rather than a question |
-| **Why it is open** | what forces the choice — the constraint or conflict, and what breaks either way | "we should decide this"; no stated cost of deciding wrong |
-| **Options** | each with its cost, named concretely | one option; options that are not mutually exclusive |
-| **Recommendation** | a proposed answer with reasoning | absent — a question with no proposal is a fork the agent is dodging |
-| **Consequences** | what becomes true, and what it closes off | absent |
-| **References** | the tasks and documents waiting on this | a dangling mention |
-
-**Interfaces and Pseudocode are not required of a decision task.** A reader who
-knows only the build bar will otherwise apply it and mark every decision task
-not-ready forever.
-
-The validation contract is fixed for every decision task — grooming states it
-once rather than re-deriving it:
-
-> Done when a `Decision:` document exists in the project's `Decisions` folder
-> recording context, the call and its consequences; it is linked to this task;
-> and every task that referenced this question links to it.
-
-Grooming never invents an answer — a recommendation is a proposal for a human
-to disagree with, not a resolution.
-
-Failing any row is not ready. Name the row and the reason.
+Read `references/decision-tasks.md` when the task's `kind` is `decision`.
 
 ### Bugs: the root cause belongs in the task
 
-The Problem row's "a symptom with no located cause" is the rule for bugs, so
-state it plainly. A bug is ready when its Problem carries **either**:
-
-- **the located cause** — the file and function, and why it misbehaves; or
-- **a repro plus a boundary** — the steps that reproduce it and what has already
-  been ruled out.
-
-**Never a guess dressed as a cause.** A guessed cause is worse than an absent
-one: the worker inherits it as evidence and scopes the fix to it, so the real
-defect survives and now has a test pinned to the wrong explanation.
-
-Observed: *"clicking a task under a document's links does nothing."* Groomed
-from the symptom, that becomes "fix the link" — and the fix would have pointed
-at nothing, because the real cause was that the board's task drawer lived in
-component state and no task was addressable by URL at all. The cause changed
-what got built, not just where.
-
-**An investigation is a legitimate task**, not an ungroomed one. When the cause
-is unknown, the deliverable *is* the cause: the Validation contract is a
-reproduction and a written finding, not a fix. Split the fix into its own task
-once the cause is known — that second task is the one that carries it.
+Read `references/bug-tasks.md` when the task is a bug or an investigation.
 
 ## Procedure
 
@@ -147,19 +88,7 @@ once the cause is known — that second task is the one that carries it.
    keys that appear in the rewrite must exist — grep them first. An interface
    invented at the desk is one the worker discovers is wrong halfway through.
 
-   **Including names the task already carries.** A description you did not write
-   is not evidence that what it names exists. A field, constant or endpoint named
-   by an earlier author may be something *another task will build* rather than
-   something built — and when it is, the dependency is real and needs an **edge**,
-   not a mention.
-
-   Observed: a sort task named a `priority` field and its ordering constant, both
-   carried through grooming unchecked. Neither existed; the field was a separate
-   unstarted task with no edge to it. The worker dispatched against that task did
-   the only thing available — declared the vocabulary with no column behind it —
-   which is a workaround caused by grooming, not by the worker. **An unbuilt
-   dependency stated as fact is indistinguishable from a built one**, and the
-   cost lands on whoever is asked to build against it.
+   Read `references/grounding-inherited-names.md` when the description already names a field or endpoint.
 3. **Fill only what the source supports.** Extend from what the title,
    description, comments, linked documents and the code already say.
 4. **Mark what you inferred.** Anything derived rather than stated is prefixed
@@ -192,12 +121,7 @@ an open question, not a confident paragraph. `Inferred:` on anything derived.
 When the inference is load-bearing — it changes what gets built, not just how it
 is described — the row stays not-ready until a human confirms it.
 
-The **Non-goals** row is the containment for the same failure on the worker's
-side: an agent handed a task with no stated boundary expands into the adjacent
-surface it can imagine, and the expansion reads as diligence rather than drift.
-Stating what this task does not do — and where that work lives instead — is
-grooming's half of the fence; the WBS snapshot's "owned by later items — do not
-touch" line (protocol.md) is dispatch's half.
+Read `references/non-goals-containment.md` when a task has no stated boundary.
 
 ## Boundaries
 
@@ -215,25 +139,7 @@ touch" line (protocol.md) is dispatch's half.
 
 ## Contract (for callers / the autonomy loop)
 
-```
-groom(mode?: "task" | "filter" | "text", target?: string)
-  → for each task:
-      { task_id: string,
-        kind: "build" | "decision",
-        verdict: "ready" | "not-ready",
-        failing: string[],          // Definition of Ready rows that failed (per kind)
-        changed: string[],          // description fields rewritten
-        inferred: string[],         // claims the source did not state
-        open_questions: string[],   // decisions left to a human (not resolved here)
-        provenance: { sources: string[], reason: string } }
-```
-
-- `status` is never an output of this skill.
-- A run over an empty filter is a no-op — report "nothing to groom", do not
-  invent work.
-- Provenance uses the same `{ sources, reason }` shape recorded in
-  [scope-work](../plandesk-scope-work/SKILL.md), so a task's history reads the same
-  however it got onto the board.
+Read `references/contract.md` when calling this skill from the autonomy loop.
 
 ## References
 

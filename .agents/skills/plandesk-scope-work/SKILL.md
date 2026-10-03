@@ -75,14 +75,7 @@ Then, for every item in order:
    when it describes the same problem or outcome — not merely the same area.
    When unsure, prefer merging over creating a near-duplicate.
 
-   **A near-match that is already `done` is context, not noise.** The default
-   instinct is to discard it — it is not a duplicate, so it does not change the
-   decision. Read it anyway: how a comparable problem was investigated and
-   resolved is the most useful thing on the board for whoever picks this up, and
-   it is invisible to them unless you carry it. Cite it in the new task's
-   **References** as `Prior art: <label> — <what it established>`. This matters
-   most for the person with the least history, which is usually whoever is
-   newest or an agent with none at all.
+Read `references/prior-art.md` when a near-match is already `done`.
 2. **Decide exactly one outcome:**
    - `reject` — noise, already shipped, or out of scope. Leave the source
      untouched. For a submission, do not call `triage_submission` unless the
@@ -98,9 +91,7 @@ Then, for every item in order:
 3. **Comment the reasoning** — even for `reject` and `pending`, so the decision
    is traceable later.
 
-**Dedup precision.** If matching proves unreliable on real data, drop
-`accept-merge` to propose-only — a comment naming the suspected duplicate, the
-decision left `pending` — rather than raising autonomy. Widen only on evidence.
+Read `references/dedup-precision.md` when dedup matching proves unreliable.
 
 ## Mode `plan` — one thing to break down
 
@@ -113,21 +104,7 @@ scaffolding; a WBS on an unbounded ask produces a plan nobody can execute.
 
 ### 2. Build the WBS with real edges
 
-**If the source is a Plan Desk document that already carries a decomposition
-sketch, convert it — do not re-derive it.** A `Design:` document written by
-[plan-writer](../plandesk-plan-writer/SKILL.md) ends with a numbered sketch of the
-major pieces in landing order. That list *is* the WBS: read it with
-`get_document`, create one task per entry in the order given, and link each back
-to the source document.
-
-Re-deriving a decomposition someone already reasoned through is how a plan
-quietly becomes a different plan — the author's sequencing carried an argument,
-and rebuilding it from the prose loses whichever part of that argument you did
-not re-read. Split or merge an entry only when you can say why, and say so in
-the task.
-
-Everything below applies to entries that need work the sketch did not state, and
-to sources with no sketch at all.
+Read `references/convert-design-doc.md` when the source is a Plan Desk document with a decomposition sketch.
 
 Each node is one task-sized unit. For each, decide its dependencies and express
 them as edges (`blocks`, `depends_on`, `feeds`, `enables`, `unblocks`,
@@ -173,25 +150,7 @@ single addition.
 
 ### Decomposing a Goal
 
-A Goal is the durable contract a human hands over (`objective` +
-`verification_surface` + constraints). The human authors it; **the system owns
-cycle-sizing.** Output is cycle-sized tasks under that Goal, edge-sequenced,
-that together make the `verification_surface` pass.
-
-A task is cycle-sized when **one worker can take it start → proven-done in one
-coherent pass** — one red gate made green, verified, every changed line tracing
-to that task. If you cannot state a single checkable "done", or it would need
-more than one verify-and-integrate pass, split it. Prefer more small cycles over
-fewer large ones; the loop only stays unstuck when each step is genuinely one
-pass.
-
-Place these with `create_task` + `goal_id` and `create_edge` — not
-`scaffold_project_from_plan`, which stands up a new project on the default goal.
-
-**Refusal is not terminal.** A worker that finds a task too big to finish to the
-bar splits it into cycle-sized children under the same Goal, back in `scope`,
-and records why in a comment. A too-big task is a sizing miss to correct, never
-a dead end.
+Read `references/decomposing-a-goal.md` when the input is a Goal.
 
 ## Provenance — why each task exists
 
@@ -224,20 +183,11 @@ after this skill returns, by whoever [lanes.md](../../factory/lanes.md) says may
 make it. Do not start executing the plan you just scaffolded unless the human
 asked for that in the same request.
 
-Then offer the next step rather than taking it: if any task landed thinner than
-the Definition of Ready, say which, and offer
-[groom-task](../plandesk-groom-task/SKILL.md) to finish them. Offering beats doing here —
-grooming rewrites what a task means, and the human about to review this batch
-should choose whether that happens before or after they look at it.
+Read `references/offer-groom.md` when any task landed thinner than the Definition of Ready.
 
 ## Gotchas
 
-- `scaffold_project_from_plan` resolves `key`s, not IDs. Passing a real task ID
-  in `edges.from` fails the whole atomic call.
-- A brain-dump often contains both shapes — three unrelated bugs *and* one
-  initiative. Split the input and run both modes rather than forcing one.
-- `list_tasks(project_id)` without a status filter is what makes dedup work;
-  filtering to `scope` hides the duplicate that is already `done`.
+Read `references/gotchas.md` when `scaffold_project_from_plan` fails or a brain-dump mixes shapes.
 
 ## References
 

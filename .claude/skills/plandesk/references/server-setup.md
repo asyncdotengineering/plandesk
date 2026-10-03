@@ -1,0 +1,1 @@
+../../../../.agents/skills/plandesk/references/server-setup.md

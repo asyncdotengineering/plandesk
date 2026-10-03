@@ -13,56 +13,7 @@ shapes; if expected tools are missing, say so before proceeding.
 Never guess or hardcode a Plan Desk project, task, or document ID. Resolve the
 project as below; look up tasks/documents by name and use the returned ID.
 
-New to this repo? Run `plandesk onboard` for the full Plan Desk + Factory model
-(how the board works, the execution loop, delegation, and the MCP tools).
-
-### Server must be running (machine-global — not the harness)
-
-MCP tools talk to a **Plan Desk server on the user's machine** (`plandesk serve`).
-That process must outlive the agent session. **Do not** start it with the harness
-Shell tool's `run_in_background` — that ties the server to this chat and it dies
-when the session ends. Start it **globally on the machine**: a detached OS
-process the user (or a one-shot setup shell) owns.
-
-**Check first** (from the repo root):
-
-```bash
-curl -fsS "$(plandesk url)/api/v1/projects" >/dev/null 2>&1 \
-  && echo "Plan Desk server is up" \
-  || echo "No server — start one (below)"
-```
-
-`plandesk status` also reports whether a board on this machine is running (by
-PID liveness, not just a stale lock file).
-
-**If down, start detached** (survives after the agent's shell exits):
-
-```bash
-plandesk serve >>/tmp/plandesk.log 2>&1 &
-disown
-sleep 2
-curl -fsS "$(plandesk url)/api/v1/projects" >/dev/null 2>&1 \
-  && echo "server up" \
-  || (echo "not ready — check /tmp/plandesk.log"; tail -20 /tmp/plandesk.log)
-```
-
-Tell the user the server is running in the background and that **`plandesk serve`
-in a dedicated terminal** is better for day-to-day use (logs stay visible; no
-dependency on this session). There is no `plandesk start` — the command is
-**`plandesk serve`**.
-
-**First time on this machine** (before serve will work): `npm i -g @plandesk/cli@latest`
-(Node ≥ 20), then `plandesk init` (idempotent — creates `~/.plandesk` unless the
-repo already has a local `.plandesk/workspace.db`). Full walkthrough:
-`plandesk onboard`, or fetch `https://plandesk.asyncdot.com/start.md`.
-
-**Repo not bound yet?** After the server is up, run **`plandesk connect`** from
-the repo root — it writes `.plandesk/config.json` and wires MCP. That is setup,
-not planning; do not scaffold a second project if the repo is already bound.
-
-**MCP tools still missing after the server is up?** The MCP client loads tools at
-**session start** — ask the user to start a **new** agent session (or re-add the
-MCP server) once serve and connect are done.
+Read `references/server-setup.md` when the server may be down, the repo is unbound, or MCP tools are missing.
 
 ## Referring to board items
 
@@ -83,25 +34,6 @@ never `2bc337c1`. Ids are for tool calls; names are for people.
    name in the request.
 3. Single clear match → act directly. Multiple → show options and ask.
    None → say so and ask.
-
-## Standing up a plan
-
-When asked to plan a project, feature, or RFC from scratch, prefer the one-shot
-`scaffold_project_from_plan` tool over many separate calls: it creates the
-project, all tasks, their dependency edges, and linked spec documents in a
-single atomic call. Give each task (and any document you need to reference) a
-stable `key` (a slug you choose) and reference those keys in `edges`
-(`from`/`to`) and in a document's `link_to` (a single key or a list of
-task and document keys). The server resolves keys to real IDs and returns a
-`key_to_id` map covering both tasks and keyed documents.
-
-`scaffold_project_from_plan` works for both a new and an existing project: omit
-`project_id` and pass `name` to create a new one; pass `project_id` (e.g. the
-repo-bound project from `.plandesk/config.json`) to scaffold the whole plan
-atomically INTO that project. When the repo is already bound, pass
-`project_id` — creating a new project duplicates the bound one. Reach for the
-granular `create_task`/`create_edge`/`create_document` tools only for a
-one-off single addition, not for standing up a whole plan.
 
 ## Task creation
 - Labels: short, imperative, outcome-focused — "Verb Noun in Location".
@@ -134,6 +66,27 @@ one-off single addition, not for standing up a whole plan.
   updating/linking over duplicating.
 - Creating several tasks: space ~200 units apart, group related, place blockers
   above what they block.
+
+## Further reference
+
+## Standing up a plan
+
+When asked to plan a project, feature, or RFC from scratch, prefer the one-shot
+`scaffold_project_from_plan` tool over many separate calls: it creates the
+project, all tasks, their dependency edges, and linked spec documents in a
+single atomic call. Give each task (and any document you need to reference) a
+stable `key` (a slug you choose) and reference those keys in `edges`
+(`from`/`to`) and in a document's `link_to` (a single key or a list of
+task and document keys). The server resolves keys to real IDs and returns a
+`key_to_id` map covering both tasks and keyed documents.
+
+`scaffold_project_from_plan` works for both a new and an existing project: omit
+`project_id` and pass `name` to create a new one; pass `project_id` (e.g. the
+repo-bound project from `.plandesk/config.json`) to scaffold the whole plan
+atomically INTO that project. When the repo is already bound, pass
+`project_id` — creating a new project duplicates the bound one. Reach for the
+granular `create_task`/`create_edge`/`create_document` tools only for a
+one-off single addition, not for standing up a whole plan.
 
 ## Documents
 - Write bodies as well-structured Markdown — `##` headings, bullet lists,
@@ -263,33 +216,7 @@ resolve_comment(comment_id)
 
 ## Reviewing files (the CLI previewer)
 
-Beyond the workspace UI, a person can open any Markdown or HTML file you produced
-in a local previewer and annotate it:
-
-    plandesk <file.md>        # or: plandesk *.md, plandesk open <paths...>
-
-They highlight text and attach notes. In a connected repo those annotations are
-stored as `artifact` comments in this project's board, so you read and resolve
-them over MCP exactly like document comments — `list_artifact_comments` to pull,
-`resolve_comment` to close. This closes the "you write a file → the human marks it
-up → you fix it" loop on files, not just documents. When you finish a deliverable
-file, tell the person they can review it with `plandesk <that file>`.
-
-## Artifacts
-
-An artifact is a stored agent deliverable — a report, an RFC, an HTML diagram —
-kept in the workspace (not a file on disk).
-
-- `create_artifact` to store one (`title`, `content`, optional `kind`:
-  `markdown` or `html`); the returned `artifact_id` is exactly the id
-  `list_artifact_comments`/`add_artifact_comment` use, so a human's annotation
-  and your `update_artifact` revision close the loop without a file on disk.
-- `get_artifact` to read one back before revising; `list_artifacts` to check
-  what a project already has before creating a duplicate.
-- Prefer an artifact over a Note or Document when the deliverable is a finished
-  piece meant to be read and marked up (a report, a spec, a diagram) rather than
-  tracked plan state. `artifact_id` is opaque — pass through what `create_artifact`
-  or `list_artifact_comments` gave you, never construct it.
+Read `references/artifacts-and-review.md` when annotating files with `plandesk <file>` or storing an artifact.
 
 ## Sharing
 
@@ -340,22 +267,7 @@ screen.
 | `plandesk://file/<uuid>` | An attached project file (images). Never inline base64 |
 | `plandesk://lib/<name>@<version>` | Curated library from the manifest (mermaid, Chart.js). Outside the manifest is refused at write |
 
-Title resolution is what makes a copied flow wire itself to its own screens
-without rewriting markup. A link built by JavaScript at runtime still
-navigates but draws no line on the canvas.
-
-### Network is dead
-
-External scripts, stylesheets, fonts, and `fetch` are **blocked**, not
-degraded — a screen that reaches for a CDN renders broken. Everything is
-inline, an attached `plandesk://file/`, or a curated `plandesk://lib/`.
-
-### Authoring skill
-
-Flow-first conventions, mandatory unhappy paths, and the full authoring
-loop live in `.agents/skills/plandesk-prototype/SKILL.md` (and its
-`references/`). Read that skill when building or revising a prototype;
-this section is the scheme and surface, not a second copy of those rules.
+Read `references/prototypes.md` when linking screens by title or authoring them; authoring rules live in `.agents/skills/plandesk-prototype/SKILL.md`.
 
 ## Agent runs
 
@@ -385,5 +297,3 @@ form; these are the ones worth a hard, consolidated reminder:
   the work happens (see "Keeping the board true").
 - Inline large images as base64 in a document/task/comment body — `attach_file`
   and embed the returned `url` instead.
-
-

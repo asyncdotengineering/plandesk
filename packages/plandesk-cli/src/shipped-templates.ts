@@ -81,7 +81,29 @@ export type ShippedSkillName = (typeof SHIPPED_SKILL_NAMES)[number];
  * otherwise the SKILL.md a consumer receives points at files they do not have.
  */
 export const SHIPPED_SKILL_EXTRA_FILES: Partial<Record<ShippedSkillName, readonly string[]>> = {
+  plandesk: [
+    'references/artifacts-and-review.md',
+    'references/prototypes.md',
+    'references/server-setup.md',
+  ],
+  'plandesk-groom-task': [
+    'references/background.md',
+    'references/bug-tasks.md',
+    'references/contract.md',
+    'references/decision-tasks.md',
+    'references/grounding-inherited-names.md',
+    'references/non-goals-containment.md',
+    'references/text-mode.md',
+  ],
   'plandesk-prototype': ['references/libraries.md'],
+  'plandesk-scope-work': [
+    'references/convert-design-doc.md',
+    'references/decomposing-a-goal.md',
+    'references/dedup-precision.md',
+    'references/gotchas.md',
+    'references/offer-groom.md',
+    'references/prior-art.md',
+  ],
 };
 
 /** Every shipped file of a skill, relative to the skill directory. */

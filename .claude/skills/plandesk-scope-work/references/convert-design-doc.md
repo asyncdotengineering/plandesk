@@ -1,0 +1,1 @@
+../../../../.agents/skills/plandesk-scope-work/references/convert-design-doc.md
