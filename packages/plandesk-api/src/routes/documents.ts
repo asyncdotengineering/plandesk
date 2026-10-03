@@ -1,9 +1,9 @@
 import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
-import { InvalidDocumentError, type DocumentService } from '../services/documents.js';
+import type { DocumentService } from '../services/documents.js';
 import { parsePaginationParams } from '../serialize.js';
 import { isValidRepoRelativePath } from '@plandesk/db';
-import { InvalidVerificationError, parseVerificationInput } from '../verification-fields.js';
+import { parseVerificationInput } from '../verification-fields.js';
 
 type CreateDocumentBody = {
   title?: string;
@@ -52,27 +52,20 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
       }
     }
 
-    try {
-      const document = await documentService.create(c.req.param('id'), {
-        title: body.title,
-        body: body.body,
-        statusLine: body.status_line,
-        parentId: body.parent_id,
-        folderId: body.folder_id,
-        ...(body.source_path !== undefined ? { sourcePath: body.source_path } : {}),
-      });
+    const document = await documentService.create(c.req.param('id'), {
+      title: body.title,
+      body: body.body,
+      statusLine: body.status_line,
+      parentId: body.parent_id,
+      folderId: body.folder_id,
+      ...(body.source_path !== undefined ? { sourcePath: body.source_path } : {}),
+    });
 
-      if (!document) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-
-      return c.json(document, 201);
-    } catch (error) {
-      if (error instanceof InvalidDocumentError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    if (!document) {
+      return c.json({ error: 'not_found' }, 404);
     }
+
+    return c.json(document, 201);
   });
 
   router.get('/documents/:id', async (c) => {
@@ -92,44 +85,27 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
       }
     }
 
-    let verification;
-    try {
-      verification = parseVerificationInput({
-        verified_at: body.verified_at,
-        verified_ref: body.verified_ref,
-      });
-    } catch (error) {
-      if (error instanceof InvalidVerificationError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    const verification = parseVerificationInput({
+      verified_at: body.verified_at,
+      verified_ref: body.verified_ref,
+    });
+
+    const document = await documentService.update(c.req.param('id'), {
+      ...(body.title !== undefined ? { title: body.title } : {}),
+      ...(body.body !== undefined ? { body: body.body } : {}),
+      ...(body.status_line !== undefined ? { statusLine: body.status_line } : {}),
+      ...(body.parent_id !== undefined ? { parentId: body.parent_id } : {}),
+      ...(body.folder_id !== undefined ? { folderId: body.folder_id } : {}),
+      ...(body.source_path !== undefined ? { sourcePath: body.source_path } : {}),
+      ...(verification.verifiedAt !== undefined ? { verifiedAt: verification.verifiedAt } : {}),
+      ...(verification.verifiedRef !== undefined ? { verifiedRef: verification.verifiedRef } : {}),
+    });
+
+    if (!document) {
+      return c.json({ error: 'not_found' }, 404);
     }
 
-    try {
-      const document = await documentService.update(c.req.param('id'), {
-        ...(body.title !== undefined ? { title: body.title } : {}),
-        ...(body.body !== undefined ? { body: body.body } : {}),
-        ...(body.status_line !== undefined ? { statusLine: body.status_line } : {}),
-        ...(body.parent_id !== undefined ? { parentId: body.parent_id } : {}),
-        ...(body.folder_id !== undefined ? { folderId: body.folder_id } : {}),
-        ...(body.source_path !== undefined ? { sourcePath: body.source_path } : {}),
-        ...(verification.verifiedAt !== undefined ? { verifiedAt: verification.verifiedAt } : {}),
-        ...(verification.verifiedRef !== undefined
-          ? { verifiedRef: verification.verifiedRef }
-          : {}),
-      });
-
-      if (!document) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-
-      return c.json(document);
-    } catch (error) {
-      if (error instanceof InvalidDocumentError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
-    }
+    return c.json(document);
   });
 
   router.delete('/documents/:id', async (c) => {

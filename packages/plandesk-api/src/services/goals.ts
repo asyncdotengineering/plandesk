@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   withTransaction,
   createGoal,
   createTask,
@@ -48,14 +49,14 @@ export type InvokeGoalResult =
       ambiguous_goals?: Array<{ id: string; name: string | null; objective: string }>;
     };
 
-export class InvalidGoalTransitionError extends Error {
+export class InvalidGoalTransitionError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidGoalTransitionError';
   }
 }
 
-export class DuplicateGoalNameError extends Error {
+export class DuplicateGoalNameError extends InvalidArgumentError {
   constructor(name: string) {
     super(`Goal name already exists in this project: ${name}`);
     this.name = 'DuplicateGoalNameError';
@@ -72,7 +73,7 @@ export class GoalCompletionBlockedError extends Error {
   }
 }
 
-export class InvalidVerificationSurfaceError extends Error {
+export class InvalidVerificationSurfaceError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidVerificationSurfaceError';

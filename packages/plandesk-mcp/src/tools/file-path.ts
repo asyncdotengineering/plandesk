@@ -117,10 +117,6 @@ export async function readScopedFileBytes(
   return { ok: true, bytes: readFileSync(absolute), absolutePath: absolute };
 }
 
-export function filenameFromPath(filePath: string): string {
-  return basename(filePath);
-}
-
 /** Exactly one of `a` and `b` must be a non-empty string. */
 export function xorPresent(a: string | undefined, b: string | undefined): boolean {
   const hasA = typeof a === 'string' && a.length > 0;

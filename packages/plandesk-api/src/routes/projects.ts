@@ -1,28 +1,9 @@
 import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
-import {
-  InvalidTaskKindError,
-  InvalidTaskLaneError,
-  InvalidTaskPriorityError,
-  InvalidTaskStatusError,
-  InvalidTaskSeverityError,
-  UnstoredColumnError,
-  isValidRepoRelativePath,
-  isValidRegisteredRepoRoot,
-  isValidRepoUrl,
-} from '@plandesk/db';
+import { isValidRepoRelativePath, isValidRegisteredRepoRoot, isValidRepoUrl } from '@plandesk/db';
 import type { ProjectService } from '../services/projects.js';
-import { InvalidOverviewDocumentError } from '../services/projects.js';
-import {
-  InvalidExportRequestError,
-  type ProjectExportService,
-} from '../services/project-export.js';
-import {
-  InvalidCommitRefsError,
-  InvalidGoalReferenceError,
-  type TaskService,
-} from '../services/tasks.js';
-import { InvalidTagError } from '../services/tags.js';
+import type { ProjectExportService } from '../services/project-export.js';
+import type { TaskService } from '../services/tasks.js';
 import {
   createProjectTaskBodySchema,
   parseDueDate,
@@ -108,9 +89,6 @@ export function createProjectsRouter(
         // Carry the message: the common cause is a stale x-plandesk-workspace-id
         // binding, and a bare "not_found" reads as if the project were missing.
         return c.json({ error: 'not_found', message: error.message }, 404);
-      }
-      if (error instanceof InvalidOverviewDocumentError) {
-        return c.json({ error: 'invalid_argument', message: error.message }, 400);
       }
       throw error;
     }
@@ -216,18 +194,11 @@ export function createProjectsRouter(
       }
     }
 
-    try {
-      const project = await projectService.update(c.req.param('id'), contentPatch);
-      if (!project) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-      return c.json(project);
-    } catch (error) {
-      if (error instanceof InvalidOverviewDocumentError) {
-        return c.json({ error: 'invalid_argument', message: error.message }, 400);
-      }
-      throw error;
+    const project = await projectService.update(c.req.param('id'), contentPatch);
+    if (!project) {
+      return c.json({ error: 'not_found' }, 404);
     }
+    return c.json(project);
   });
 
   router.delete('/projects/:id', async (c) => {
@@ -260,88 +231,59 @@ export function createProjectsRouter(
 
     const dueDate = parseDueDate(body.due_date);
 
-    try {
-      const task = await taskService.create(c.req.param('id'), {
-        label: body.label,
-        ...(body.status !== undefined ? { status: body.status } : {}),
-        ...(body.kind !== undefined ? { kind: body.kind } : {}),
-        ...(body.priority !== undefined ? { priority: body.priority } : {}),
-        ...(body.lane !== undefined ? { lane: body.lane } : {}),
-        ...(body.severity !== undefined ? { severity: body.severity } : {}),
-        ...(body.description !== undefined ? { description: body.description } : {}),
-        ...(body.x !== undefined ? { x: body.x } : {}),
-        ...(body.y !== undefined ? { y: body.y } : {}),
-        ...(body.assignee !== undefined ? { assignee: body.assignee } : {}),
-        ...(dueDate !== undefined ? { dueDate } : {}),
-        ...(body.goal_id !== undefined ? { goalId: body.goal_id } : {}),
-        ...(body.tags !== undefined ? { tags: body.tags } : {}),
-        ...(commitRefs !== undefined ? { commitRefs } : {}),
-      });
+    const task = await taskService.create(c.req.param('id'), {
+      label: body.label,
+      ...(body.status !== undefined ? { status: body.status } : {}),
+      ...(body.kind !== undefined ? { kind: body.kind } : {}),
+      ...(body.priority !== undefined ? { priority: body.priority } : {}),
+      ...(body.lane !== undefined ? { lane: body.lane } : {}),
+      ...(body.severity !== undefined ? { severity: body.severity } : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.x !== undefined ? { x: body.x } : {}),
+      ...(body.y !== undefined ? { y: body.y } : {}),
+      ...(body.assignee !== undefined ? { assignee: body.assignee } : {}),
+      ...(dueDate !== undefined ? { dueDate } : {}),
+      ...(body.goal_id !== undefined ? { goalId: body.goal_id } : {}),
+      ...(body.tags !== undefined ? { tags: body.tags } : {}),
+      ...(commitRefs !== undefined ? { commitRefs } : {}),
+    });
 
-      if (!task) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-
-      return c.json(task, 201);
-    } catch (error) {
-      if (
-        error instanceof InvalidTaskStatusError ||
-        error instanceof InvalidTaskKindError ||
-        error instanceof InvalidTaskPriorityError ||
-        error instanceof InvalidTaskLaneError ||
-        error instanceof InvalidTaskSeverityError ||
-        error instanceof InvalidTagError ||
-        error instanceof InvalidGoalReferenceError ||
-        error instanceof InvalidCommitRefsError ||
-        error instanceof UnstoredColumnError
-      ) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    if (!task) {
+      return c.json({ error: 'not_found' }, 404);
     }
+
+    return c.json(task, 201);
   });
 
   router.get('/projects/:id/tasks', async (c) => {
-    try {
-      const pagination = parsePaginationParams(c.req.query('limit'), c.req.query('offset'));
-      if (pagination === 'invalid') {
-        return invalidRequest(c, 'limit and offset must be non-negative integers');
-      }
-      const status = c.req.query('status');
-      const kind = c.req.query('kind');
-      const priority = c.req.query('priority');
-      const lane = c.req.query('lane');
-      const severity = c.req.query('severity');
-      // Repeated ?tag= params filter with OR semantics (task matches if it has
-      // ANY of the given tags).
-      const tags = c.req.queries('tag');
-      const tasks = await taskService.listByProject(
-        c.req.param('id'),
-        {
-          status,
-          kind,
-          priority,
-          lane,
-          severity,
-          ...(tags !== undefined && tags.length > 0 ? { tags } : {}),
-        },
-        pagination,
-      );
-      if (!tasks) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-      return c.json(tasks);
-    } catch (error) {
-      if (
-        error instanceof InvalidTaskStatusError ||
-        error instanceof InvalidTaskKindError ||
-        error instanceof InvalidTaskPriorityError ||
-        error instanceof InvalidTagError
-      ) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    const pagination = parsePaginationParams(c.req.query('limit'), c.req.query('offset'));
+    if (pagination === 'invalid') {
+      return invalidRequest(c, 'limit and offset must be non-negative integers');
     }
+    const status = c.req.query('status');
+    const kind = c.req.query('kind');
+    const priority = c.req.query('priority');
+    const lane = c.req.query('lane');
+    const severity = c.req.query('severity');
+    // Repeated ?tag= params filter with OR semantics (task matches if it has
+    // ANY of the given tags).
+    const tags = c.req.queries('tag');
+    const tasks = await taskService.listByProject(
+      c.req.param('id'),
+      {
+        status,
+        kind,
+        priority,
+        lane,
+        severity,
+        ...(tags !== undefined && tags.length > 0 ? { tags } : {}),
+      },
+      pagination,
+    );
+    if (!tasks) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json(tasks);
   });
 
   router.get('/projects/:id/next-task', async (c) => {
@@ -362,24 +304,17 @@ export function createProjectsRouter(
     if (body.view === undefined) {
       return invalidArgument(c, 'view', 'view is required');
     }
-    try {
-      const result = await exportService.exportView(c.req.param('id'), {
-        format: body.format,
-        view: body.view,
-      });
-      if (result === undefined) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-      return c.body(new Uint8Array(result.body), 200, {
-        'Content-Type': result.contentType,
-        'Content-Disposition': result.contentDisposition,
-      });
-    } catch (error) {
-      if (error instanceof InvalidExportRequestError) {
-        return c.json({ error: 'invalid_argument', message: error.message }, 400);
-      }
-      throw error;
+    const result = await exportService.exportView(c.req.param('id'), {
+      format: body.format,
+      view: body.view,
+    });
+    if (result === undefined) {
+      return c.json({ error: 'not_found' }, 404);
     }
+    return c.body(new Uint8Array(result.body), 200, {
+      'Content-Type': result.contentType,
+      'Content-Disposition': result.contentDisposition,
+    });
   });
 
   return router;

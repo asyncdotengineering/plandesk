@@ -1,4 +1,5 @@
-export class InvalidVerificationError extends Error {
+import { InvalidArgumentError } from '@plandesk/db';
+export class InvalidVerificationError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidVerificationError';

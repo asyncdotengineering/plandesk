@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   withTransaction,
   claimTask,
   createTag,
@@ -72,7 +73,7 @@ import {
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
 import { normalizeTagName } from './tags.js';
 
-export class InvalidGoalReferenceError extends Error {
+export class InvalidGoalReferenceError extends InvalidArgumentError {
   constructor(goalId: string) {
     super(`Goal ${goalId} does not exist in this project`);
     this.name = 'InvalidGoalReferenceError';
@@ -345,7 +346,7 @@ export type GoalResolution = 'explicit' | 'current_goal' | 'none';
 
 export type SerializedCreateTask = SerializedTask & { goal_resolution: GoalResolution };
 
-export class InvalidCommitRefsError extends Error {
+export class InvalidCommitRefsError extends InvalidArgumentError {
   constructor() {
     super('Invalid commit_refs');
     this.name = 'InvalidCommitRefsError';

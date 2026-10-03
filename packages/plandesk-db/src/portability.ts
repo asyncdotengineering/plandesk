@@ -1,3 +1,4 @@
+import { InvalidArgumentError } from './invalid-argument.js';
 import type { DbClient } from './client.js';
 import {
   assembleExportFromManifest,
@@ -323,7 +324,7 @@ export type PlandeskExportInput = {
   artifacts?: PlandeskExportArtifact[];
 };
 
-export class InvalidExportVersionError extends Error {
+export class InvalidExportVersionError extends InvalidArgumentError {
   constructor(version: string) {
     super(
       `Unsupported export version: ${version}. This build reads ${SUPPORTED_EXPORT_VERSIONS.join(', ')}. A newer version means the file was written by a newer Plan Desk — upgrade to import it.`,

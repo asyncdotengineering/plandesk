@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   createView as dbCreateView,
   deleteView as dbDeleteView,
   getView as dbGetView,
@@ -29,7 +30,7 @@ export type UpdateViewInput = {
   position?: number;
 };
 
-export class InvalidViewError extends Error {
+export class InvalidViewError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidViewError';

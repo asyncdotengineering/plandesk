@@ -1,20 +1,9 @@
-import { invalidArgument, invalidRequest, notFound } from './errors.js';
+import { invalidArgument, notFound } from './errors.js';
 import { Hono } from 'hono';
-import {
-  InvalidTaskStatusError,
-  InvalidTaskKindError,
-  InvalidTaskPriorityError,
-  InvalidTaskLaneError,
-  InvalidTaskSeverityError,
-  UnstoredColumnError,
-  isValidCommitRefs,
-  normalizeCommitRefs,
-} from '@plandesk/db';
+import { isValidCommitRefs, normalizeCommitRefs } from '@plandesk/db';
 import type { TaskService } from '../services/tasks.js';
-import { InvalidCommitRefsError, InvalidGoalReferenceError } from '../services/tasks.js';
-import { InvalidTagError } from '../services/tags.js';
 import { parseDueDate, patchTaskBodySchema, zodValidationField } from './task-route-schemas.js';
-import { InvalidVerificationError, parseVerificationInput } from '../verification-fields.js';
+import { parseVerificationInput } from '../verification-fields.js';
 
 export function createTasksRouter(taskService: TaskService): Hono {
   const router = new Hono();
@@ -50,62 +39,35 @@ export function createTasksRouter(taskService: TaskService): Hono {
 
     const dueDate = parseDueDate(body.due_date);
 
-    let verification;
-    try {
-      verification = parseVerificationInput({
-        verified_at: body.verified_at,
-        verified_ref: body.verified_ref,
-      });
-    } catch (error) {
-      if (error instanceof InvalidVerificationError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    const verification = parseVerificationInput({
+      verified_at: body.verified_at,
+      verified_ref: body.verified_ref,
+    });
+
+    const task = await taskService.update(c.req.param('id'), {
+      ...(body.label !== undefined ? { label: body.label } : {}),
+      ...(body.status !== undefined ? { status: body.status } : {}),
+      ...(body.kind !== undefined ? { kind: body.kind } : {}),
+      ...(body.priority !== undefined ? { priority: body.priority } : {}),
+      ...(body.lane !== undefined ? { lane: body.lane } : {}),
+      ...(body.severity !== undefined ? { severity: body.severity } : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.x !== undefined ? { x: body.x } : {}),
+      ...(body.y !== undefined ? { y: body.y } : {}),
+      ...(body.assignee !== undefined ? { assignee: body.assignee } : {}),
+      ...(dueDate !== undefined ? { dueDate } : {}),
+      ...(body.goal_id !== undefined ? { goalId: body.goal_id } : {}),
+      ...(body.tags !== undefined ? { tags: body.tags } : {}),
+      ...(commitRefs !== undefined ? { commitRefs } : {}),
+      ...(verification.verifiedAt !== undefined ? { verifiedAt: verification.verifiedAt } : {}),
+      ...(verification.verifiedRef !== undefined ? { verifiedRef: verification.verifiedRef } : {}),
+    });
+
+    if (!task) {
+      return c.json({ error: 'not_found' }, 404);
     }
 
-    try {
-      const task = await taskService.update(c.req.param('id'), {
-        ...(body.label !== undefined ? { label: body.label } : {}),
-        ...(body.status !== undefined ? { status: body.status } : {}),
-        ...(body.kind !== undefined ? { kind: body.kind } : {}),
-        ...(body.priority !== undefined ? { priority: body.priority } : {}),
-        ...(body.lane !== undefined ? { lane: body.lane } : {}),
-        ...(body.severity !== undefined ? { severity: body.severity } : {}),
-        ...(body.description !== undefined ? { description: body.description } : {}),
-        ...(body.x !== undefined ? { x: body.x } : {}),
-        ...(body.y !== undefined ? { y: body.y } : {}),
-        ...(body.assignee !== undefined ? { assignee: body.assignee } : {}),
-        ...(dueDate !== undefined ? { dueDate } : {}),
-        ...(body.goal_id !== undefined ? { goalId: body.goal_id } : {}),
-        ...(body.tags !== undefined ? { tags: body.tags } : {}),
-        ...(commitRefs !== undefined ? { commitRefs } : {}),
-        ...(verification.verifiedAt !== undefined ? { verifiedAt: verification.verifiedAt } : {}),
-        ...(verification.verifiedRef !== undefined
-          ? { verifiedRef: verification.verifiedRef }
-          : {}),
-      });
-
-      if (!task) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-
-      return c.json(task);
-    } catch (error) {
-      if (
-        error instanceof InvalidTaskStatusError ||
-        error instanceof InvalidTaskKindError ||
-        error instanceof InvalidTaskPriorityError ||
-        error instanceof InvalidTaskLaneError ||
-        error instanceof InvalidTaskSeverityError ||
-        error instanceof InvalidTagError ||
-        error instanceof InvalidGoalReferenceError ||
-        error instanceof InvalidCommitRefsError ||
-        error instanceof UnstoredColumnError
-      ) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
-    }
+    return c.json(task);
   });
 
   router.delete('/tasks/:id', async (c) => {

@@ -1,7 +1,7 @@
+import { basename } from 'node:path';
 import { mimeFromFilename, type FileService } from '@plandesk/api';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 import {
-  filenameFromPath,
   readScopedFileBytes,
   emptyWorkspaceRoots,
   type WorkspaceRootsResolver,
@@ -40,7 +40,7 @@ export function createAttachFileHandler(
         return read.error;
       }
       bytes = read.bytes;
-      filename = args.filename ?? filenameFromPath(read.absolutePath);
+      filename = args.filename ?? basename(read.absolutePath);
       mime = args.mime ?? mimeFromFilename(filename);
     } else {
       if (typeof args.filename !== 'string' || args.filename.length === 0) {

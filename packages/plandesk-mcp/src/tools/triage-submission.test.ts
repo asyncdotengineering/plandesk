@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { InvalidTriageError, InvalidTriageInputError } from '@plandesk/api';
 import type { SyncService } from '@plandesk/api';
+import { toolHandler } from '../../../plandesk-api/test-support/mcp-tool-handlers.js';
 import { createTriageSubmissionHandler } from './triage-submission.js';
 
 const submission = {
@@ -42,7 +43,9 @@ describe('createTriageSubmissionHandler', () => {
 
   it('maps InvalidTriageInputError to a tool invalid_argument error', async () => {
     const triage = vi.fn().mockRejectedValue(new InvalidTriageInputError('mutually exclusive'));
-    const handler = createTriageSubmissionHandler(createMockSyncService(triage));
+    const handler = toolHandler('triage_submission', {
+      syncService: createMockSyncService(triage),
+    });
 
     const result = await handler({
       submission_id: 'sub-1',

@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   createComment,
   deleteComment as dbDeleteComment,
   getComment as dbGetComment,
@@ -38,7 +39,7 @@ export type UpdateCommentInput = {
   resolved?: boolean;
 };
 
-export class InvalidCommentError extends Error {
+export class InvalidCommentError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidCommentError';

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createServices, localOwner } from '@plandesk/api';
 import { createDb, createProject, insertRevision, migrate } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
-import { createListRevisionsHandler } from './list-revisions.js';
+import { toolHandler } from '../../../plandesk-api/test-support/mcp-tool-handlers.js';
 import { serviceTool } from './service-tool.js';
 
 const ORG_A = '00000000-0000-4000-8000-00000000aaaa';
@@ -47,7 +47,7 @@ describe('MCP revision tools', () => {
     });
 
     const servicesB = createServices({ db, principal: localOwner(ORG_B) });
-    const list = createListRevisionsHandler(servicesB.revisionService);
+    const list = toolHandler('list_revisions', servicesB);
     const get = serviceTool(
       ({ revision_id }: { revision_id: string }) => servicesB.revisionService.get(revision_id),
       'revision',

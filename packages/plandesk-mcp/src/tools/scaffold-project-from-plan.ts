@@ -1,17 +1,6 @@
 import type { CanvasService, DocumentService, ProjectService } from '@plandesk/api';
 import {
-  InvalidCanvasError,
-  InvalidGoalReferenceError,
-  InvalidScaffoldError,
-  InvalidTagError,
-} from '@plandesk/api';
-import {
   AmbiguousActiveGoalsError,
-  InvalidTaskKindError,
-  InvalidTaskLaneError,
-  InvalidTaskPriorityError,
-  InvalidTaskSeverityError,
-  InvalidTaskStatusError,
   type TaskKind,
   type TaskLane,
   type TaskPriority,
@@ -200,18 +189,7 @@ export function createScaffoldProjectFromPlanHandler(
         key_to_id: keyToId,
       });
     } catch (error) {
-      if (
-        error instanceof InvalidScaffoldError ||
-        error instanceof InvalidGoalReferenceError ||
-        error instanceof AmbiguousActiveGoalsError ||
-        error instanceof InvalidTaskStatusError ||
-        error instanceof InvalidTaskKindError ||
-        error instanceof InvalidTaskPriorityError ||
-        error instanceof InvalidTaskLaneError ||
-        error instanceof InvalidTaskSeverityError ||
-        error instanceof InvalidTagError ||
-        error instanceof InvalidCanvasError
-      ) {
+      if (error instanceof AmbiguousActiveGoalsError) {
         return toolInvalidArgument(error.message);
       }
       throw error;

@@ -1,10 +1,6 @@
 import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono, type Context } from 'hono';
-import {
-  InvalidCommentError,
-  type CommentService,
-  type CommentTarget,
-} from '../services/comments.js';
+import type { CommentService, CommentTarget } from '../services/comments.js';
 
 type CreateCommentBody = {
   body?: string;
@@ -35,24 +31,17 @@ async function handleCreateComment(
     return invalidArgument(c, 'body', 'body must be a string');
   }
 
-  try {
-    const comment = await commentService.create(target, {
-      body: body.body,
-      passage: body.passage,
-      anchor: body.anchor,
-    });
+  const comment = await commentService.create(target, {
+    body: body.body,
+    passage: body.passage,
+    anchor: body.anchor,
+  });
 
-    if (!comment) {
-      return c.json({ error: 'not_found' }, 404);
-    }
-
-    return c.json(comment, 201);
-  } catch (error) {
-    if (error instanceof InvalidCommentError) {
-      return invalidRequest(c, error.message);
-    }
-    throw error;
+  if (!comment) {
+    return c.json({ error: 'not_found' }, 404);
   }
+
+  return c.json(comment, 201);
 }
 
 async function handleListComments(
@@ -122,22 +111,15 @@ export function createCommentsRouter(commentService: CommentService): Hono {
     if (typeof body.body !== 'string' || typeof body.artifact_id !== 'string') {
       return invalidRequest(c, 'body and artifact_id are both required and must be strings');
     }
-    try {
-      const comment = await commentService.createForArtifact(c.req.param('id'), body.artifact_id, {
-        body: body.body,
-        passage: body.passage,
-        anchor: body.anchor,
-      });
-      if (!comment) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-      return c.json(comment, 201);
-    } catch (error) {
-      if (error instanceof InvalidCommentError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    const comment = await commentService.createForArtifact(c.req.param('id'), body.artifact_id, {
+      body: body.body,
+      passage: body.passage,
+      anchor: body.anchor,
+    });
+    if (!comment) {
+      return c.json({ error: 'not_found' }, 404);
     }
+    return c.json(comment, 201);
   });
 
   router.get('/projects/:id/artifact-comments', async (c) => {
@@ -158,23 +140,16 @@ export function createCommentsRouter(commentService: CommentService): Hono {
   router.patch('/comments/:id', async (c) => {
     const body = await c.req.json<UpdateCommentBody>();
 
-    try {
-      const comment = await commentService.update(c.req.param('id'), {
-        ...(body.body !== undefined ? { body: body.body } : {}),
-        ...(body.resolved !== undefined ? { resolved: body.resolved } : {}),
-      });
+    const comment = await commentService.update(c.req.param('id'), {
+      ...(body.body !== undefined ? { body: body.body } : {}),
+      ...(body.resolved !== undefined ? { resolved: body.resolved } : {}),
+    });
 
-      if (!comment) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-
-      return c.json(comment);
-    } catch (error) {
-      if (error instanceof InvalidCommentError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    if (!comment) {
+      return c.json({ error: 'not_found' }, 404);
     }
+
+    return c.json(comment);
   });
 
   router.delete('/comments/:id', async (c) => {

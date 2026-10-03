@@ -1,6 +1,6 @@
 import type { SyncService } from '@plandesk/api';
-import { InvalidTriageError, InvalidTriageInputError } from '@plandesk/api';
-import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
+import { InvalidTriageError } from '@plandesk/api';
+import { toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createTriageSubmissionHandler(
   syncService: SyncService,
@@ -25,9 +25,6 @@ export function createTriageSubmissionHandler(
       );
       return toolSuccess('submission', result);
     } catch (error) {
-      if (error instanceof InvalidTriageInputError) {
-        return toolInvalidArgument(error.message);
-      }
       if (error instanceof InvalidTriageError) {
         return toolNotFound();
       }

@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   InvalidSavedViewConfigError,
   listGoals,
   parseSavedViewConfig,
@@ -28,7 +29,7 @@ export type ProjectExportResult = {
   contentDisposition: string;
 };
 
-export class InvalidExportRequestError extends Error {
+export class InvalidExportRequestError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidExportRequestError';

@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   withTransaction,
   createDocument as dbCreateDocument,
   createEdge,
@@ -103,7 +104,7 @@ export type UpdateDocumentInput = {
   verifiedRef?: string | null;
 };
 
-export class InvalidDocumentError extends Error {
+export class InvalidDocumentError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidDocumentError';

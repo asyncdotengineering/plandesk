@@ -3,7 +3,6 @@ import { Hono } from 'hono';
 import {
   getProjectInOrg,
   importProject,
-  InvalidExportVersionError,
   PLANDESK_EXPORT_VERSION,
   type Db,
   type PlandeskExportInput,
@@ -455,16 +454,9 @@ export function createOrgsRouter(db: Db, options: OrgsRouterOptions = {}): Hono 
     if (typeof data.version !== 'string' || data.version !== PLANDESK_EXPORT_VERSION) {
       return invalidArgument(c, 'version', `version must be ${PLANDESK_EXPORT_VERSION}`);
     }
-    try {
-      // orgId always from authenticated path/context — never from the body.
-      const { projectId } = await importProject(db, data, { orgId });
-      return c.json({ globalProjectId: projectId }, 201);
-    } catch (err) {
-      if (err instanceof InvalidExportVersionError) {
-        return invalidRequest(c, err.message);
-      }
-      throw err;
-    }
+    // orgId always from authenticated path/context — never from the body.
+    const { projectId } = await importProject(db, data, { orgId });
+    return c.json({ globalProjectId: projectId }, 201);
   });
 
   return router;

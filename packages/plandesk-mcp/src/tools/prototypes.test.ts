@@ -6,9 +6,8 @@ import {
   type Db,
 } from '@plandesk/db';
 import { createServices, localOwner } from '@plandesk/api';
-import { createCreatePrototypeHandler } from './create-prototype.js';
+import { toolHandler } from '../../../plandesk-api/test-support/mcp-tool-handlers.js';
 import { createUpdatePrototypeHandler } from './update-prototype.js';
-import { createCreateArtifactHandler } from './create-artifact.js';
 import { serviceTool } from './service-tool.js';
 
 describe('prototype MCP tools', () => {
@@ -26,7 +25,7 @@ describe('prototype MCP tools', () => {
 
   it('create → list → get with screens → update', async () => {
     const services = createServices({ db, principal: localOwner(orgId) });
-    const create = createCreatePrototypeHandler(services.prototypeService);
+    const create = toolHandler('create_prototype', services);
     const list = serviceTool(
       ({ project_id }: { project_id: string }) => services.prototypeService.list(project_id),
       'prototypes',
@@ -36,7 +35,7 @@ describe('prototype MCP tools', () => {
       'prototype',
     );
     const update = createUpdatePrototypeHandler(services.prototypeService);
-    const createArtifact = createCreateArtifactHandler(services.artifactService);
+    const createArtifact = toolHandler('create_artifact', services);
 
     const created = await create({
       project_id: projectId,
@@ -80,8 +79,8 @@ describe('prototype MCP tools', () => {
 
   it('refuses markdown screen and cross-project prototype_id', async () => {
     const services = createServices({ db, principal: localOwner(orgId) });
-    const create = createCreatePrototypeHandler(services.prototypeService);
-    const createArtifact = createCreateArtifactHandler(services.artifactService);
+    const create = toolHandler('create_prototype', services);
+    const createArtifact = toolHandler('create_artifact', services);
 
     const created = await create({
       project_id: projectId,
@@ -106,7 +105,10 @@ describe('prototype MCP tools', () => {
 
     const other = await createProject(db, { name: 'Other' });
     const foreignServices = createServices({ db, principal: localOwner(other.orgId) });
-    const foreign = await createCreatePrototypeHandler(foreignServices.prototypeService)({
+    const foreign = await toolHandler(
+      'create_prototype',
+      foreignServices,
+    )({
       project_id: other.id,
       name: 'Foreign',
       viewport_width: 390,
@@ -130,7 +132,7 @@ describe('prototype MCP tools', () => {
 
   it('get_artifact serializes a prototype-less markdown report with null prototype_id, x, y', async () => {
     const services = createServices({ db, principal: localOwner(orgId) });
-    const createArtifact = createCreateArtifactHandler(services.artifactService);
+    const createArtifact = toolHandler('create_artifact', services);
     const getArtifact = serviceTool(
       ({ artifact_id }: { artifact_id: string }) => services.artifactService.get(artifact_id),
       'artifact',

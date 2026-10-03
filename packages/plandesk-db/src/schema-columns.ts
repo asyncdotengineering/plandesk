@@ -1,6 +1,7 @@
+import { InvalidArgumentError } from './invalid-argument.js';
 import type { Db } from './client.js';
 
-export class UnstoredColumnError extends Error {
+export class UnstoredColumnError extends InvalidArgumentError {
   constructor(
     public readonly table: string,
     public readonly columns: string[],

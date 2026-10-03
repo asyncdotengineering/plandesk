@@ -1,5 +1,4 @@
 import type { ArtifactService } from '@plandesk/api';
-import { InvalidArtifactError } from '@plandesk/api';
 import type { ArtifactKind } from '@plandesk/db';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 import { readScopedFileBytes, emptyWorkspaceRoots } from './file-path.js';
@@ -44,23 +43,16 @@ export function createUpdateArtifactHandler(
       content = read.bytes.toString('utf8');
     }
 
-    try {
-      const artifact = await artifactService.update(args.artifact_id, {
-        ...(args.title !== undefined ? { title: args.title } : {}),
-        ...(content !== undefined ? { content } : {}),
-        ...(args.kind !== undefined ? { kind: args.kind } : {}),
-        ...(args.prototype_id !== undefined ? { prototypeId: args.prototype_id } : {}),
-        ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
-      });
-      if (!artifact) {
-        return toolNotFound();
-      }
-      return toolSuccess('artifact', artifact);
-    } catch (error) {
-      if (error instanceof InvalidArtifactError) {
-        return toolInvalidArgument(error.message);
-      }
-      throw error;
+    const artifact = await artifactService.update(args.artifact_id, {
+      ...(args.title !== undefined ? { title: args.title } : {}),
+      ...(content !== undefined ? { content } : {}),
+      ...(args.kind !== undefined ? { kind: args.kind } : {}),
+      ...(args.prototype_id !== undefined ? { prototypeId: args.prototype_id } : {}),
+      ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
+    });
+    if (!artifact) {
+      return toolNotFound();
     }
+    return toolSuccess('artifact', artifact);
   };
 }

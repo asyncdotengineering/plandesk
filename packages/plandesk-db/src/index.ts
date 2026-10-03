@@ -14,6 +14,7 @@ export {
 export { isSqliteBusy, retryOnSqliteBusy } from './sqlite-errors.js';
 export { migrate } from './migrate.js';
 export { MIGRATIONS } from './migrations.generated.js';
+export { InvalidArgumentError } from './invalid-argument.js';
 export {
   SchemaDriftError,
   assertSchemaCurrent,

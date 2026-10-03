@@ -1,6 +1,6 @@
 import { invalidArgument } from './errors.js';
 import { Hono } from 'hono';
-import { InvalidViewError, type ViewService } from '../services/views.js';
+import type { ViewService } from '../services/views.js';
 
 type CreateViewBody = {
   name?: string;
@@ -45,22 +45,15 @@ export function createViewsRouter(viewService: ViewService): Hono {
       return invalidArgument(c, 'position', 'position must be a number');
     }
 
-    try {
-      const view = await viewService.create(c.req.param('id'), {
-        name: body.name,
-        config: body.config,
-        position: body.position,
-      });
-      if (!view) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-      return c.json(view, 201);
-    } catch (error) {
-      if (error instanceof InvalidViewError) {
-        return c.json({ error: 'invalid_argument', message: error.message }, 400);
-      }
-      throw error;
+    const view = await viewService.create(c.req.param('id'), {
+      name: body.name,
+      config: body.config,
+      position: body.position,
+    });
+    if (!view) {
+      return c.json({ error: 'not_found' }, 404);
     }
+    return c.json(view, 201);
   });
 
   router.patch('/views/:id', async (c) => {
@@ -69,22 +62,15 @@ export function createViewsRouter(viewService: ViewService): Hono {
       return invalidArgument(c, 'position', 'position must be a number');
     }
 
-    try {
-      const view = await viewService.update(c.req.param('id'), {
-        ...(body.name !== undefined ? { name: body.name } : {}),
-        ...(body.config !== undefined ? { config: body.config } : {}),
-        ...(body.position !== undefined ? { position: body.position } : {}),
-      });
-      if (!view) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-      return c.json(view);
-    } catch (error) {
-      if (error instanceof InvalidViewError) {
-        return c.json({ error: 'invalid_argument', message: error.message }, 400);
-      }
-      throw error;
+    const view = await viewService.update(c.req.param('id'), {
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.config !== undefined ? { config: body.config } : {}),
+      ...(body.position !== undefined ? { position: body.position } : {}),
+    });
+    if (!view) {
+      return c.json({ error: 'not_found' }, 404);
     }
+    return c.json(view);
   });
 
   router.delete('/views/:id', async (c) => {

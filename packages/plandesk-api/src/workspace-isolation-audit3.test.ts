@@ -29,11 +29,7 @@ import { createTeamForOrg } from './identity.js';
 import { createApp } from './server.js';
 import { createServices, type Services } from './services/index.js';
 import { parseJson } from './test-helpers.js';
-import {
-  createListCommentsHandler,
-  createListSubmissionsHandler,
-  toolHandler,
-} from '../test-support/mcp-tool-handlers.js';
+import { createListCommentsHandler, toolHandler } from '../test-support/mcp-tool-handlers.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
 const TEST_BASE_URL = 'http://localhost:3000';
@@ -549,10 +545,7 @@ describe('workspace-tier adversarial audit round 3', () => {
     });
     // This is the exact callback wired in createMcpServer. The missing await
     // makes every Promise compare unequal to undefined.
-    const handler = createListSubmissionsHandler(
-      f.services.syncService,
-      async (projectId: string) => (await f.services.projectService.get(projectId)) !== undefined,
-    );
+    const handler = toolHandler('list_submissions', f.services);
 
     const [workspaceResult, crossOrgResult] = await runWithAuthContext(workspaceKeyContext(f), () =>
       Promise.all([

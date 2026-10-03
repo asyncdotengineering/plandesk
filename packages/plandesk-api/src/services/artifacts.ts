@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   createArtifact as dbCreateArtifact,
   createEdge,
   deleteEdgeByEndpoints,
@@ -72,7 +73,7 @@ export type UpdateArtifactInput = {
   y?: number | null;
 };
 
-export class InvalidArtifactError extends Error {
+export class InvalidArtifactError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidArtifactError';

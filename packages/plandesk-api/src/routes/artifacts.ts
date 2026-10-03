@@ -1,4 +1,4 @@
-import { invalidArgument, invalidRequest } from './errors.js';
+import { invalidArgument } from './errors.js';
 import { Hono } from 'hono';
 import {
   artifactKinds,
@@ -11,7 +11,6 @@ import { htmlArtifactCsp, wrapHtmlArtifactForRender } from '../html-artifact.js'
 import { resolvePublicOrigin } from '../public-origin.js';
 import {
   ExternalReferenceError,
-  InvalidArtifactError,
   UnknownLibraryError,
   type ArtifactService,
 } from '../services/artifacts.js';
@@ -138,9 +137,6 @@ export function createArtifactsRouter(
       if (scan) {
         return scan;
       }
-      if (error instanceof InvalidArtifactError) {
-        return invalidRequest(c, error.message);
-      }
       throw error;
     }
   });
@@ -227,9 +223,6 @@ export function createArtifactsRouter(
       if (scan) {
         return scan;
       }
-      if (error instanceof InvalidArtifactError) {
-        return invalidRequest(c, error.message);
-      }
       throw error;
     }
   });
@@ -253,9 +246,6 @@ export function createArtifactsRouter(
       const scan = screenScanErrorResponse(c, error);
       if (scan) {
         return scan;
-      }
-      if (error instanceof InvalidArtifactError) {
-        return invalidRequest(c, error.message);
       }
       throw error;
     }
@@ -348,9 +338,6 @@ export function createArtifactsRouter(
       const scan = screenScanErrorResponse(c, error);
       if (scan) {
         return scan;
-      }
-      if (error instanceof InvalidArtifactError) {
-        return invalidRequest(c, error.message);
       }
       throw error;
     }

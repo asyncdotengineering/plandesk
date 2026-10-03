@@ -1,6 +1,6 @@
-import { invalidArgument, invalidRequest } from './errors.js';
+import { invalidArgument } from './errors.js';
 import { Hono } from 'hono';
-import { InvalidFolderError, type FolderService } from '../services/folders.js';
+import type { FolderService } from '../services/folders.js';
 
 type CreateFolderBody = {
   name?: string;
@@ -29,23 +29,16 @@ export function createFoldersRouter(folderService: FolderService): Hono {
       return invalidArgument(c, 'name', 'name is required and must be a non-empty string');
     }
 
-    try {
-      const folder = await folderService.create(c.req.param('id'), {
-        name: body.name,
-        parentFolderId: body.parent_folder_id,
-      });
+    const folder = await folderService.create(c.req.param('id'), {
+      name: body.name,
+      parentFolderId: body.parent_folder_id,
+    });
 
-      if (!folder) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-
-      return c.json(folder, 201);
-    } catch (error) {
-      if (error instanceof InvalidFolderError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    if (!folder) {
+      return c.json({ error: 'not_found' }, 404);
     }
+
+    return c.json(folder, 201);
   });
 
   router.get('/folders/:id', async (c) => {
@@ -59,23 +52,16 @@ export function createFoldersRouter(folderService: FolderService): Hono {
   router.patch('/folders/:id', async (c) => {
     const body = await c.req.json<UpdateFolderBody>();
 
-    try {
-      const folder = await folderService.update(c.req.param('id'), {
-        ...(body.name !== undefined ? { name: body.name } : {}),
-        ...(body.parent_folder_id !== undefined ? { parentFolderId: body.parent_folder_id } : {}),
-      });
+    const folder = await folderService.update(c.req.param('id'), {
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.parent_folder_id !== undefined ? { parentFolderId: body.parent_folder_id } : {}),
+    });
 
-      if (!folder) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-
-      return c.json(folder);
-    } catch (error) {
-      if (error instanceof InvalidFolderError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    if (!folder) {
+      return c.json({ error: 'not_found' }, 404);
     }
+
+    return c.json(folder);
   });
 
   router.delete('/folders/:id', async (c) => {

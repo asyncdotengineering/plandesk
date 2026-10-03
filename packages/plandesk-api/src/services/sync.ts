@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   getSubmission as dbGetSubmission,
   listSubmissions,
   setSubmissionStatus,
@@ -17,7 +18,7 @@ export class InvalidTriageError extends Error {
   }
 }
 
-export class InvalidTriageInputError extends Error {
+export class InvalidTriageInputError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidTriageInputError';

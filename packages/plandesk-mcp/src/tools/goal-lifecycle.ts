@@ -2,8 +2,6 @@ import {
   GoalCompletionBlockedError,
   GoalVerificationRequiredError,
   InvalidChecklistEvidenceError,
-  InvalidGoalTransitionError,
-  InvalidVerificationSurfaceError,
   type GoalService,
   type VerificationEvidence,
 } from '@plandesk/api';
@@ -33,12 +31,6 @@ async function handleLifecycle(
     }
     return toolSuccess('goal', goal);
   } catch (error) {
-    if (
-      error instanceof InvalidGoalTransitionError ||
-      error instanceof InvalidVerificationSurfaceError
-    ) {
-      return toolInvalidArgument(error.message);
-    }
     if (error instanceof GoalVerificationRequiredError) {
       return toolInvalidArgument('verification_required');
     }

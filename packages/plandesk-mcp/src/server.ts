@@ -18,7 +18,6 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
   const workspaceRoots = createWorkspaceRootsResolver(services.projectService);
   const ctx = {
     origin,
-    bindHost,
     filePathDeps: { bindHost, workspaceRoots },
   };
 

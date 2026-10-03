@@ -1,7 +1,6 @@
 import type { CanvasService } from '@plandesk/api';
-import { InvalidCanvasError } from '@plandesk/api';
 import type { LinkEntityType } from '@plandesk/db';
-import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
+import { toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export type CreateEdgeArgs = {
   project_id: string;
@@ -21,27 +20,20 @@ export function createCreateEdgeHandler(
   canvasService: CanvasService,
 ): (args: CreateEdgeArgs) => Promise<ToolResult> {
   return async (args) => {
-    try {
-      const edge = await canvasService.createEdge(args.project_id, {
-        ...(args.from_type !== undefined ? { fromType: args.from_type } : {}),
-        ...(args.from_id !== undefined ? { fromId: args.from_id } : {}),
-        ...(args.to_type !== undefined ? { toType: args.to_type } : {}),
-        ...(args.to_id !== undefined ? { toId: args.to_id } : {}),
-        ...(args.from_task_id !== undefined ? { fromTaskId: args.from_task_id } : {}),
-        ...(args.to_task_id !== undefined ? { toTaskId: args.to_task_id } : {}),
-        ...(args.label !== undefined ? { label: args.label } : {}),
-        ...(args.style !== undefined ? { style: args.style } : {}),
-        ...(args.arrow_direction !== undefined ? { arrowDirection: args.arrow_direction } : {}),
-      });
-      if (!edge) {
-        return toolNotFound();
-      }
-      return toolSuccess('edge', edge);
-    } catch (error) {
-      if (error instanceof InvalidCanvasError) {
-        return toolInvalidArgument(error.message);
-      }
-      throw error;
+    const edge = await canvasService.createEdge(args.project_id, {
+      ...(args.from_type !== undefined ? { fromType: args.from_type } : {}),
+      ...(args.from_id !== undefined ? { fromId: args.from_id } : {}),
+      ...(args.to_type !== undefined ? { toType: args.to_type } : {}),
+      ...(args.to_id !== undefined ? { toId: args.to_id } : {}),
+      ...(args.from_task_id !== undefined ? { fromTaskId: args.from_task_id } : {}),
+      ...(args.to_task_id !== undefined ? { toTaskId: args.to_task_id } : {}),
+      ...(args.label !== undefined ? { label: args.label } : {}),
+      ...(args.style !== undefined ? { style: args.style } : {}),
+      ...(args.arrow_direction !== undefined ? { arrowDirection: args.arrow_direction } : {}),
+    });
+    if (!edge) {
+      return toolNotFound();
     }
+    return toolSuccess('edge', edge);
   };
 }

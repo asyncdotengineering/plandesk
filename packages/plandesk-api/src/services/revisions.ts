@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   getArtifact,
   getDocument,
   getRevision as dbGetRevision,
@@ -44,7 +45,7 @@ export type RestoredEntity =
   | SerializedDocument
   | SerializedArtifact;
 
-export class InvalidRevisionQueryError extends Error {
+export class InvalidRevisionQueryError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidRevisionQueryError';

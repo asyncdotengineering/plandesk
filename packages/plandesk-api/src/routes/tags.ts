@@ -1,6 +1,6 @@
-import { invalidArgument, invalidRequest, notFound } from './errors.js';
+import { invalidArgument, notFound } from './errors.js';
 import { Hono } from 'hono';
-import { InvalidTagError, type TagService } from '../services/tags.js';
+import type { TagService } from '../services/tags.js';
 
 type CreateTagBody = {
   name?: string;
@@ -29,23 +29,16 @@ export function createTagsRouter(tagService: TagService): Hono {
       return invalidArgument(c, 'name', 'name is required and must be a non-empty string');
     }
 
-    try {
-      const tag = await tagService.create(c.req.param('id'), {
-        name: body.name,
-        color: body.color,
-      });
+    const tag = await tagService.create(c.req.param('id'), {
+      name: body.name,
+      color: body.color,
+    });
 
-      if (!tag) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-
-      return c.json(tag, 201);
-    } catch (error) {
-      if (error instanceof InvalidTagError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    if (!tag) {
+      return c.json({ error: 'not_found' }, 404);
     }
+
+    return c.json(tag, 201);
   });
 
   router.get('/tags/:id', async (c) => {
@@ -60,23 +53,16 @@ export function createTagsRouter(tagService: TagService): Hono {
   router.patch('/tags/:id', async (c) => {
     const body = await c.req.json<UpdateTagBody>();
 
-    try {
-      const tag = await tagService.update(c.req.param('id'), {
-        ...(body.name !== undefined ? { name: body.name } : {}),
-        ...(body.color !== undefined ? { color: body.color } : {}),
-      });
+    const tag = await tagService.update(c.req.param('id'), {
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.color !== undefined ? { color: body.color } : {}),
+    });
 
-      if (!tag) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-
-      return c.json(tag);
-    } catch (error) {
-      if (error instanceof InvalidTagError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    if (!tag) {
+      return c.json({ error: 'not_found' }, 404);
     }
+
+    return c.json(tag);
   });
 
   router.delete('/tags/:id', async (c) => {

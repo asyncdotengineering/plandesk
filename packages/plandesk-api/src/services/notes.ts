@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   createNote as dbCreateNote,
   deleteCommentsByTarget,
   deleteNote as dbDeleteNote,
@@ -26,7 +27,7 @@ export type UpdateNoteInput = {
   body?: string | null;
 };
 
-export class InvalidNoteError extends Error {
+export class InvalidNoteError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidNoteError';

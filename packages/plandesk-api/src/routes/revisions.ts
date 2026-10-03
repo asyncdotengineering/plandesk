@@ -1,6 +1,6 @@
 import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
-import { InvalidRevisionQueryError, type RevisionService } from '../services/revisions.js';
+import type { RevisionService } from '../services/revisions.js';
 
 export function createRevisionsRouter(revisionService: RevisionService): Hono {
   const router = new Hono();
@@ -11,18 +11,11 @@ export function createRevisionsRouter(revisionService: RevisionService): Hono {
     if (targetType === undefined || targetId === undefined) {
       return invalidRequest(c, 'target_type and target_id query parameters are both required');
     }
-    try {
-      const revisions = await revisionService.list(c.req.param('projectId'), targetType, targetId);
-      if (!revisions) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-      return c.json(revisions);
-    } catch (error) {
-      if (error instanceof InvalidRevisionQueryError) {
-        return c.json({ error: 'invalid_argument', message: error.message }, 400);
-      }
-      throw error;
+    const revisions = await revisionService.list(c.req.param('projectId'), targetType, targetId);
+    if (!revisions) {
+      return c.json({ error: 'not_found' }, 404);
     }
+    return c.json(revisions);
   });
 
   router.get('/revisions/:id', async (c) => {
@@ -38,18 +31,11 @@ export function createRevisionsRouter(revisionService: RevisionService): Hono {
     if (against === undefined) {
       return invalidArgument(c, 'against', 'against query parameter is required');
     }
-    try {
-      const diffs = await revisionService.diff(c.req.param('id'), against);
-      if (!diffs) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-      return c.json(diffs);
-    } catch (error) {
-      if (error instanceof InvalidRevisionQueryError) {
-        return c.json({ error: 'invalid_argument', message: error.message }, 400);
-      }
-      throw error;
+    const diffs = await revisionService.diff(c.req.param('id'), against);
+    if (!diffs) {
+      return c.json({ error: 'not_found' }, 404);
     }
+    return c.json(diffs);
   });
 
   router.post('/revisions/:id/restore', async (c) => {

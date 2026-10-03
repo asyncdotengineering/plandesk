@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   withTransaction,
   createEdge,
   createTask,
@@ -76,7 +77,7 @@ export type EdgeEndpointsInput = {
   toId: string;
 };
 
-export class InvalidCanvasError extends Error {
+export class InvalidCanvasError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidCanvasError';

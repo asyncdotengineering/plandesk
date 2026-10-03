@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   withTransaction,
   clearDocumentParentRefsByProject,
   clearFolderParentRefsByProject,
@@ -87,7 +88,7 @@ type SerializedProject = ReturnType<typeof serializeProject>;
 type SerializedTask = ReturnType<typeof serializeTask>;
 type SerializedEdge = ReturnType<typeof serializeEdge>;
 
-export class InvalidScaffoldError extends Error {
+export class InvalidScaffoldError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidScaffoldError';
@@ -301,7 +302,7 @@ export type UpdateProjectInput = {
   folderPath?: string | null;
 };
 
-export class InvalidOverviewDocumentError extends Error {
+export class InvalidOverviewDocumentError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidOverviewDocumentError';

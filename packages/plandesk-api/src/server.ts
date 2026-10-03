@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
-import { AmbiguousActiveGoalsError, type Db } from '@plandesk/db';
+import { AmbiguousActiveGoalsError, InvalidArgumentError, type Db } from '@plandesk/db';
 import {
   createAuthMiddleware,
   createOrgAuthMiddleware,
   createWriteGuardMiddleware,
 } from './auth.js';
-import { allowedMethodsForPath, invalidRequest } from './routes/errors.js';
+import { allowedMethodsForPath, invalidArgument, invalidRequest } from './routes/errors.js';
 import { createHealthRouter } from './routes/health.js';
 import { createAuthRouter } from './routes/auth.js';
 import type { GithubConfig } from './read-server-env.js';
@@ -132,6 +132,12 @@ export function createApp(deps: AppDeps): Hono {
     // caller's choice to make, never a server fault.
     if (err instanceof AmbiguousActiveGoalsError) {
       return invalidRequest(c, err.message);
+    }
+    // Every service validation error, current and future: no route catches its own.
+    if (err instanceof InvalidArgumentError) {
+      return err.field === undefined
+        ? invalidRequest(c, err.message)
+        : invalidArgument(c, err.field, err.message);
     }
     throw err;
   });

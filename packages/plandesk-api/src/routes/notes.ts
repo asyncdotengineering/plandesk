@@ -1,6 +1,6 @@
 import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
-import { InvalidNoteError, type NoteService } from '../services/notes.js';
+import type { NoteService } from '../services/notes.js';
 import { parsePaginationParams } from '../serialize.js';
 
 type CreateNoteBody = {
@@ -34,23 +34,16 @@ export function createNotesRouter(noteService: NoteService): Hono {
       return invalidArgument(c, 'title', 'title is required and must be a non-empty string');
     }
 
-    try {
-      const note = await noteService.create(c.req.param('id'), {
-        title: body.title,
-        body: body.body,
-      });
+    const note = await noteService.create(c.req.param('id'), {
+      title: body.title,
+      body: body.body,
+    });
 
-      if (!note) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-
-      return c.json(note, 201);
-    } catch (error) {
-      if (error instanceof InvalidNoteError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    if (!note) {
+      return c.json({ error: 'not_found' }, 404);
     }
+
+    return c.json(note, 201);
   });
 
   router.get('/notes/:id', async (c) => {
@@ -64,23 +57,16 @@ export function createNotesRouter(noteService: NoteService): Hono {
   router.patch('/notes/:id', async (c) => {
     const body = await c.req.json<UpdateNoteBody>();
 
-    try {
-      const note = await noteService.update(c.req.param('id'), {
-        ...(body.title !== undefined ? { title: body.title } : {}),
-        ...(body.body !== undefined ? { body: body.body } : {}),
-      });
+    const note = await noteService.update(c.req.param('id'), {
+      ...(body.title !== undefined ? { title: body.title } : {}),
+      ...(body.body !== undefined ? { body: body.body } : {}),
+    });
 
-      if (!note) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-
-      return c.json(note);
-    } catch (error) {
-      if (error instanceof InvalidNoteError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    if (!note) {
+      return c.json({ error: 'not_found' }, 404);
     }
+
+    return c.json(note);
   });
 
   router.delete('/notes/:id', async (c) => {

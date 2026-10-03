@@ -1,6 +1,6 @@
-import { invalidArgument, invalidRequest } from './errors.js';
+import { invalidArgument } from './errors.js';
 import { Hono } from 'hono';
-import { InvalidPrototypeError, type PrototypeService } from '../services/prototypes.js';
+import type { PrototypeService } from '../services/prototypes.js';
 
 type CreatePrototypeBody = {
   name?: string;
@@ -44,24 +44,17 @@ export function createPrototypesRouter(prototypeService: PrototypeService): Hono
       return invalidArgument(c, 'viewport_height', 'viewport_height must be a finite number');
     }
 
-    try {
-      const prototype = await prototypeService.create(c.req.param('id'), {
-        name: body.name,
-        viewportWidth: body.viewport_width,
-        viewportHeight: body.viewport_height,
-      });
+    const prototype = await prototypeService.create(c.req.param('id'), {
+      name: body.name,
+      viewportWidth: body.viewport_width,
+      viewportHeight: body.viewport_height,
+    });
 
-      if (!prototype) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-
-      return c.json(prototype, 201);
-    } catch (error) {
-      if (error instanceof InvalidPrototypeError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    if (!prototype) {
+      return c.json({ error: 'not_found' }, 404);
     }
+
+    return c.json(prototype, 201);
   });
 
   router.get('/prototypes/:id', async (c) => {
@@ -81,24 +74,17 @@ export function createPrototypesRouter(prototypeService: PrototypeService): Hono
       return invalidArgument(c, 'viewport_height', 'viewport_height must be a finite number');
     }
 
-    try {
-      const prototype = await prototypeService.update(c.req.param('id'), {
-        ...(body.name !== undefined ? { name: body.name } : {}),
-        ...(body.viewport_width !== undefined ? { viewportWidth: body.viewport_width } : {}),
-        ...(body.viewport_height !== undefined ? { viewportHeight: body.viewport_height } : {}),
-      });
+    const prototype = await prototypeService.update(c.req.param('id'), {
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.viewport_width !== undefined ? { viewportWidth: body.viewport_width } : {}),
+      ...(body.viewport_height !== undefined ? { viewportHeight: body.viewport_height } : {}),
+    });
 
-      if (!prototype) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-
-      return c.json(prototype);
-    } catch (error) {
-      if (error instanceof InvalidPrototypeError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    if (!prototype) {
+      return c.json({ error: 'not_found' }, 404);
     }
+
+    return c.json(prototype);
   });
 
   return router;

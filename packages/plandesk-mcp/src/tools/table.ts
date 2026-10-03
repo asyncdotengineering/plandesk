@@ -1,5 +1,7 @@
 import type { Services } from '@plandesk/api';
+import { InvalidArgumentError, type ShareSubmissionStatus } from '@plandesk/db';
 import { linkEntityTypes } from '@plandesk/db/vocabulary';
+import { toolInvalidArgument, type ToolResult } from './result.js';
 import { serviceTool, serviceToolPayload } from './service-tool.js';
 import {
   attachFileInputSchema,
@@ -75,21 +77,15 @@ import { createWorkspaceRootsResolver } from './workspace-roots.js';
 import { createCreateArtifactHandler } from './create-artifact.js';
 import { createUpdateArtifactHandler } from './update-artifact.js';
 import { createMoveScreenHandler, createCopyScreenHandler } from './move-copy-screen.js';
-import { createCompleteAgentRunHandler } from './complete-agent-run.js';
 import { createCreateDocumentHandler } from './create-document.js';
 import { createCreateEdgeHandler } from './create-edge.js';
 import { createCreateShareLinkHandler } from './create-share-link.js';
-import { createCreateFolderHandler } from './create-folder.js';
-import { createUpdateFolderHandler } from './update-folder.js';
-import { createDeleteFolderHandler } from './delete-folder.js';
 import { createMoveDocumentsHandler } from './move-documents.js';
 import { createCreatePrototypeHandler } from './create-prototype.js';
 import { createUpdatePrototypeHandler } from './update-prototype.js';
 import { createCreateProjectHandler } from './create-project.js';
 import { createUpdateProjectHandler } from './update-project.js';
 import { createCreateTaskHandler } from './create-task.js';
-import { createCreateNoteHandler } from './create-note.js';
-import { createUpdateNoteHandler } from './update-note.js';
 import { createListNotesHandler } from './list-notes.js';
 import { createCreateGoalHandler } from './create-goal.js';
 import { createGetGoalHandler } from './get-goal.js';
@@ -100,17 +96,10 @@ import {
   createResumeGoalHandler,
 } from './goal-lifecycle.js';
 import { createGetNextTaskHandler } from './get-next-task.js';
-import { createSetCurrentGoalHandler } from './set-current-goal.js';
 import { createInvokeGoalHandler } from './invoke-goal.js';
 import { createListTasksHandler } from './list-tasks.js';
-import { createListViewsHandler } from './list-views.js';
-import { createListRevisionsHandler } from './list-revisions.js';
 import { createListCommentsHandler } from './list-comments.js';
-import { createListArtifactCommentsHandler } from './list-artifact-comments.js';
 import { createListDocumentsHandler } from './list-documents.js';
-import { createListProjectsHandler } from './list-projects.js';
-import { createRecordAgentProgressHandler } from './record-agent-progress.js';
-import { createListSubmissionsHandler } from './list-submissions.js';
 import { createSearchHandler } from './search.js';
 import { createScaffoldProjectFromPlanHandler } from './scaffold-project-from-plan.js';
 import { createTriageSubmissionHandler } from './triage-submission.js';
@@ -121,7 +110,6 @@ const LINK_ENTITY_TYPE_LIST = linkEntityTypes.map((type) => `'${type}'`).join(',
 
 export type McpToolContext = {
   origin: string;
-  bindHost: string;
   filePathDeps: {
     bindHost: string;
     workspaceRoots: ReturnType<typeof createWorkspaceRootsResolver>;
@@ -138,14 +126,15 @@ export type McpToolDefinition = {
   handler: (services: Services, ctx: McpToolContext) => unknown;
 };
 
-export const TOOLS: McpToolDefinition[] = [
+const DEFINITIONS: McpToolDefinition[] = [
   {
     name: 'list_projects',
     title: 'List Projects',
     description: 'List all accessible projects',
     inputSchema: listProjectsInputSchema,
     annotations: { readOnlyHint: true },
-    handler: (services) => createListProjectsHandler(services.projectService),
+    handler: (services) =>
+      serviceToolPayload(async () => ({ projects: await services.projectService.list() })),
   },
   {
     name: 'get_project',
@@ -245,7 +234,17 @@ export const TOOLS: McpToolDefinition[] = [
     description:
       'Create a document folder, optionally nested under a parent folder via parent_folder_id (omit for project root). Folders organize documents; documents reference them via folder_id at create or move time.',
     inputSchema: createFolderInputSchema,
-    handler: (services) => createCreateFolderHandler(services.folderService),
+    handler: (services) =>
+      serviceTool(
+        (args: { project_id: string; name: string; parent_folder_id?: string }) =>
+          services.folderService.create(args.project_id, {
+            name: args.name,
+            ...(args.parent_folder_id !== undefined
+              ? { parentFolderId: args.parent_folder_id }
+              : {}),
+          }),
+        'folder',
+      ),
   },
   {
     name: 'update_folder',
@@ -253,7 +252,17 @@ export const TOOLS: McpToolDefinition[] = [
     description:
       'Rename a folder or re-parent it (pass parent_folder_id null to move it to the project root). Re-parenting that would create a cycle is rejected.',
     inputSchema: updateFolderInputSchema,
-    handler: (services) => createUpdateFolderHandler(services.folderService),
+    handler: (services) =>
+      serviceTool(
+        (args: { folder_id: string; name?: string; parent_folder_id?: string | null }) =>
+          services.folderService.update(args.folder_id, {
+            ...(args.name !== undefined ? { name: args.name } : {}),
+            ...(args.parent_folder_id !== undefined
+              ? { parentFolderId: args.parent_folder_id }
+              : {}),
+          }),
+        'folder',
+      ),
   },
   {
     name: 'delete_folder',
@@ -261,7 +270,16 @@ export const TOOLS: McpToolDefinition[] = [
     description:
       "Delete a folder without orphaning contents. By default documents and sub-folders move to the deleted folder's parent (Unfiled when it was at the project root). Pass reparent_to null for Unfiled, or a folder id to move contents there.",
     inputSchema: deleteFolderInputSchema,
-    handler: (services) => createDeleteFolderHandler(services.folderService),
+    handler: (services) =>
+      serviceTool(
+        (args: { folder_id: string; reparent_to?: string | null }) =>
+          services.folderService.delete(
+            args.folder_id,
+            args.reparent_to !== undefined ? { reparentTo: args.reparent_to } : undefined,
+          ),
+        'deleted',
+        () => true,
+      ),
   },
   {
     name: 'move_documents',
@@ -318,7 +336,15 @@ export const TOOLS: McpToolDefinition[] = [
     description:
       'Create a free-form project note. Notes are working notes scoped to the project (findings, context, anything worth referring back to) — not formal documents. Write the body as well-structured Markdown; it is rendered as rich text.',
     inputSchema: createNoteInputSchema,
-    handler: (services) => createCreateNoteHandler(services.noteService),
+    handler: (services) =>
+      serviceTool(
+        (args: { project_id: string; title: string; body?: string }) =>
+          services.noteService.create(args.project_id, {
+            title: args.title,
+            ...(args.body !== undefined ? { body: args.body } : {}),
+          }),
+        'note',
+      ),
   },
   {
     name: 'update_note',
@@ -326,7 +352,15 @@ export const TOOLS: McpToolDefinition[] = [
     description:
       'Update a project note title or body. Write the body as well-structured Markdown; it is rendered as rich text.',
     inputSchema: updateNoteInputSchema,
-    handler: (services) => createUpdateNoteHandler(services.noteService),
+    handler: (services) =>
+      serviceTool(
+        (args: { note_id: string; title?: string; body?: string }) =>
+          services.noteService.update(args.note_id, {
+            ...(args.title !== undefined ? { title: args.title } : {}),
+            ...(args.body !== undefined ? { body: args.body } : {}),
+          }),
+        'note',
+      ),
   },
   {
     name: 'get_note',
@@ -492,7 +526,12 @@ export const TOOLS: McpToolDefinition[] = [
     description:
       'Append a progress event to an agent run. Takes run_id (from start_agent_run) and message (the progress text).',
     inputSchema: recordAgentProgressInputSchema,
-    handler: (services) => createRecordAgentProgressHandler(services.agentRunService),
+    handler: (services) =>
+      serviceTool(
+        (args: { run_id: string; message: string }) =>
+          services.agentRunService.recordProgress(args.run_id, args.message),
+        'event',
+      ),
   },
   {
     name: 'complete_agent_run',
@@ -500,7 +539,12 @@ export const TOOLS: McpToolDefinition[] = [
     description:
       "Close an agent run. Takes run_id and status: 'completed' | 'failed'. There is no summary field — record the summary as a final record_agent_progress message first.",
     inputSchema: completeAgentRunInputSchema,
-    handler: (services) => createCompleteAgentRunHandler(services.agentRunService),
+    handler: (services) =>
+      serviceTool(
+        (args: { run_id: string; status: 'completed' | 'failed' }) =>
+          services.agentRunService.complete(args.run_id, args.status),
+        'agent_run',
+      ),
   },
   {
     name: 'scaffold_project_from_plan',
@@ -557,7 +601,10 @@ export const TOOLS: McpToolDefinition[] = [
     description:
       'Point the project current_goal_id at this active goal so get_next_task resolves here when goal_id is omitted.',
     inputSchema: setCurrentGoalInputSchema,
-    handler: (services) => createSetCurrentGoalHandler(services.goalService),
+    handler: (services) =>
+      serviceToolPayload(({ goal_id }: { goal_id: string }) =>
+        services.goalService.setCurrent(goal_id),
+      ),
   },
   {
     name: 'invoke_goal',
@@ -658,7 +705,17 @@ export const TOOLS: McpToolDefinition[] = [
       'List saved named views for a project (name + config). Views are human-authored named queries — agents consume them via this read-only tool; there is no create/update/delete view tool.',
     inputSchema: listViewsInputSchema,
     annotations: { readOnlyHint: true },
-    handler: (services) => createListViewsHandler(services.viewService),
+    handler: (services) =>
+      serviceTool(
+        async ({ project_id }: { project_id: string }) =>
+          (await services.viewService.list(project_id))?.map(({ id, name, config, position }) => ({
+            id,
+            name,
+            config,
+            position,
+          })),
+        'views',
+      ),
   },
   {
     name: 'list_revisions',
@@ -667,7 +724,12 @@ export const TOOLS: McpToolDefinition[] = [
       'List content-history metadata for a task or document (id, author, changed fields, timestamp). Newest first. Does not include snapshot bodies — use get_revision for those.',
     inputSchema: listRevisionsInputSchema,
     annotations: { readOnlyHint: true },
-    handler: (services) => createListRevisionsHandler(services.revisionService),
+    handler: (services) =>
+      serviceTool(
+        (args: { project_id: string; target_type: 'task' | 'document'; target_id: string }) =>
+          services.revisionService.list(args.project_id, args.target_type, args.target_id),
+        'revisions',
+      ),
   },
   {
     name: 'get_revision',
@@ -705,7 +767,14 @@ export const TOOLS: McpToolDefinition[] = [
     description: 'List annotations on a file artifact for a project.',
     inputSchema: listArtifactCommentsInputSchema,
     annotations: { readOnlyHint: true },
-    handler: (services) => createListArtifactCommentsHandler(services.commentService),
+    handler: (services) =>
+      serviceTool(
+        (args: { project_id: string; artifact_id: string; include_resolved?: boolean }) =>
+          services.commentService.listForArtifact(args.project_id, args.artifact_id, {
+            includeResolved: args.include_resolved ?? false,
+          }),
+        'comments',
+      ),
   },
   {
     name: 'add_artifact_comment',
@@ -746,9 +815,12 @@ export const TOOLS: McpToolDefinition[] = [
     inputSchema: listSubmissionsInputSchema,
     annotations: { readOnlyHint: true },
     handler: (services) =>
-      createListSubmissionsHandler(
-        services.syncService,
-        async (projectId) => (await services.projectService.get(projectId)) !== undefined,
+      serviceTool(
+        async (args: { project_id: string; status?: ShareSubmissionStatus }) =>
+          (await services.projectService.get(args.project_id)) === undefined
+            ? undefined
+            : services.syncService.listTriage(args.project_id, args.status),
+        'submissions',
       ),
   },
   {
@@ -759,3 +831,25 @@ export const TOOLS: McpToolDefinition[] = [
     handler: (services) => createTriageSubmissionHandler(services.syncService),
   },
 ];
+
+/**
+ * Every registered tool. A service validation error (`InvalidArgumentError`)
+ * becomes an `invalid_argument` result here, once — the server and the
+ * isolation audits both call these handlers, so no tool catches its own.
+ */
+export const TOOLS: McpToolDefinition[] = DEFINITIONS.map((tool) => ({
+  ...tool,
+  handler: (services, ctx) => {
+    const handle = tool.handler(services, ctx) as (...args: unknown[]) => Promise<ToolResult>;
+    return async (...args: unknown[]) => {
+      try {
+        return await handle(...args);
+      } catch (error) {
+        if (error instanceof InvalidArgumentError) {
+          return toolInvalidArgument(error.message);
+        }
+        throw error;
+      }
+    };
+  },
+}));

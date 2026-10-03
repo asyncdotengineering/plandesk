@@ -1,5 +1,4 @@
 import type { CanvasService, DocumentService, TaskService } from '@plandesk/api';
-import { InvalidCanvasError, InvalidDocumentError, InvalidVerificationError } from '@plandesk/api';
 import { parseVerificationInput } from '@plandesk/api';
 import { defaultLinkLabel, normalizeLinkTo, type LinkEntityKind } from './link-to.js';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
@@ -41,76 +40,55 @@ export function createUpdateDocumentHandler(
   taskService: TaskService,
 ): (args: UpdateDocumentArgs) => Promise<ToolResult> {
   return async (args) => {
-    try {
-      const existing = await documentService.get(args.document_id);
-      if (!existing) {
-        return toolNotFound();
-      }
-
-      let verification;
-      try {
-        verification = parseVerificationInput({
-          verified_at: args.verified_at,
-          verified_ref: args.verified_ref,
-        });
-      } catch (error) {
-        if (error instanceof InvalidVerificationError) {
-          return toolInvalidArgument(error.message);
-        }
-        throw error;
-      }
-
-      const document = await documentService.update(args.document_id, {
-        ...(args.title !== undefined ? { title: args.title } : {}),
-        ...(args.body !== undefined ? { body: args.body } : {}),
-        ...(args.status_line !== undefined ? { statusLine: args.status_line } : {}),
-        ...(args.parent_id !== undefined ? { parentId: args.parent_id } : {}),
-        ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
-        ...(args.source_path !== undefined ? { sourcePath: args.source_path } : {}),
-        ...(verification.verifiedAt !== undefined ? { verifiedAt: verification.verifiedAt } : {}),
-        ...(verification.verifiedRef !== undefined
-          ? { verifiedRef: verification.verifiedRef }
-          : {}),
-      });
-      if (!document) {
-        return toolNotFound();
-      }
-
-      const linkTargets = normalizeLinkTo(args.link_to);
-      if (linkTargets.length === 0) {
-        return toolSuccess('document', document);
-      }
-
-      const existingLinkIds = new Set(document.links.map((link: { id: string }) => link.id));
-
-      for (const id of linkTargets) {
-        if (existingLinkIds.has(id)) {
-          continue;
-        }
-        const type = await resolveEntityKind(taskService, documentService, document.project_id, id);
-        if (type === undefined) {
-          return toolInvalidArgument(`link_to target not found in project: ${id}`);
-        }
-        await canvasService.createEdge(document.project_id, {
-          fromType: 'document',
-          fromId: document.id,
-          toType: type,
-          toId: id,
-          label: defaultLinkLabel(type),
-        });
-      }
-
-      const hydrated = await documentService.get(document.id);
-      return toolSuccess('document', hydrated ?? document);
-    } catch (error) {
-      if (
-        error instanceof InvalidDocumentError ||
-        error instanceof InvalidCanvasError ||
-        error instanceof InvalidVerificationError
-      ) {
-        return toolInvalidArgument(error.message);
-      }
-      throw error;
+    const existing = await documentService.get(args.document_id);
+    if (!existing) {
+      return toolNotFound();
     }
+
+    const verification = parseVerificationInput({
+      verified_at: args.verified_at,
+      verified_ref: args.verified_ref,
+    });
+
+    const document = await documentService.update(args.document_id, {
+      ...(args.title !== undefined ? { title: args.title } : {}),
+      ...(args.body !== undefined ? { body: args.body } : {}),
+      ...(args.status_line !== undefined ? { statusLine: args.status_line } : {}),
+      ...(args.parent_id !== undefined ? { parentId: args.parent_id } : {}),
+      ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
+      ...(args.source_path !== undefined ? { sourcePath: args.source_path } : {}),
+      ...(verification.verifiedAt !== undefined ? { verifiedAt: verification.verifiedAt } : {}),
+      ...(verification.verifiedRef !== undefined ? { verifiedRef: verification.verifiedRef } : {}),
+    });
+    if (!document) {
+      return toolNotFound();
+    }
+
+    const linkTargets = normalizeLinkTo(args.link_to);
+    if (linkTargets.length === 0) {
+      return toolSuccess('document', document);
+    }
+
+    const existingLinkIds = new Set(document.links.map((link: { id: string }) => link.id));
+
+    for (const id of linkTargets) {
+      if (existingLinkIds.has(id)) {
+        continue;
+      }
+      const type = await resolveEntityKind(taskService, documentService, document.project_id, id);
+      if (type === undefined) {
+        return toolInvalidArgument(`link_to target not found in project: ${id}`);
+      }
+      await canvasService.createEdge(document.project_id, {
+        fromType: 'document',
+        fromId: document.id,
+        toType: type,
+        toId: id,
+        label: defaultLinkLabel(type),
+      });
+    }
+
+    const hydrated = await documentService.get(document.id);
+    return toolSuccess('document', hydrated ?? document);
   };
 }

@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   createAgentRun,
   createAgentRunEvent,
   getAgentRun,
@@ -17,7 +18,7 @@ export type AgentRunServiceDeps = OrgScopedDeps & {
   db: Db;
 };
 
-export class InvalidAgentRunError extends Error {
+export class InvalidAgentRunError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidAgentRunError';

@@ -1,6 +1,6 @@
 import { invalidArgument, invalidRequest, notFound } from './errors.js';
 import { Hono } from 'hono';
-import { InvalidAgentRunError, type AgentRunService } from '../services/agent-runs.js';
+import type { AgentRunService } from '../services/agent-runs.js';
 import { parsePaginationParams } from '../serialize.js';
 
 export function createAgentRunsRouter(agentRunService: AgentRunService): Hono {
@@ -48,18 +48,11 @@ export function createAgentRunsRouter(agentRunService: AgentRunService): Hono {
       return invalidArgument(c, 'status', "status must be 'completed' or 'failed'");
     }
 
-    try {
-      const run = await agentRunService.complete(c.req.param('id'), body.status);
-      if (!run) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-      return c.json(run);
-    } catch (error) {
-      if (error instanceof InvalidAgentRunError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    const run = await agentRunService.complete(c.req.param('id'), body.status);
+    if (!run) {
+      return c.json({ error: 'not_found' }, 404);
     }
+    return c.json(run);
   });
 
   router.post('/agent-runs/:id/progress', async (c) => {
@@ -68,18 +61,11 @@ export function createAgentRunsRouter(agentRunService: AgentRunService): Hono {
       return invalidArgument(c, 'message', 'message is required and must be a non-empty string');
     }
 
-    try {
-      const event = await agentRunService.recordProgress(c.req.param('id'), body.message);
-      if (!event) {
-        return c.json({ error: 'not_found' }, 404);
-      }
-      return c.json(event, 201);
-    } catch (error) {
-      if (error instanceof InvalidAgentRunError) {
-        return invalidRequest(c, error.message);
-      }
-      throw error;
+    const event = await agentRunService.recordProgress(c.req.param('id'), body.message);
+    if (!event) {
+      return c.json({ error: 'not_found' }, 404);
     }
+    return c.json(event, 201);
   });
 
   return router;

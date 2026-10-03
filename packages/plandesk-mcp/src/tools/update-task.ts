@@ -1,25 +1,6 @@
-import {
-  InvalidCommitRefsError,
-  InvalidGoalReferenceError,
-  InvalidTagError,
-  InvalidVerificationError,
-  parseVerificationInput,
-  type TaskService,
-} from '@plandesk/api';
-import {
-  InvalidTaskKindError,
-  InvalidTaskLaneError,
-  InvalidTaskPriorityError,
-  InvalidTaskStatusError,
-  InvalidTaskSeverityError,
-  UnstoredColumnError,
-  type TaskKind,
-  type TaskLane,
-  type TaskPriority,
-  type TaskSeverity,
-  type TaskStatus,
-} from '@plandesk/db';
-import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
+import { parseVerificationInput, type TaskService } from '@plandesk/api';
+import type { TaskKind, TaskLane, TaskPriority, TaskSeverity, TaskStatus } from '@plandesk/db';
+import { toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createUpdateTaskHandler(
   taskService: TaskService,
@@ -43,62 +24,34 @@ export function createUpdateTaskHandler(
   verified_ref?: string | null;
 }) => Promise<ToolResult> {
   return async (args) => {
-    try {
-      let verification;
-      try {
-        verification = parseVerificationInput({
-          verified_at: args.verified_at,
-          verified_ref: args.verified_ref,
-        });
-      } catch (error) {
-        if (error instanceof InvalidVerificationError) {
-          return toolInvalidArgument(error.message);
-        }
-        throw error;
-      }
+    const verification = parseVerificationInput({
+      verified_at: args.verified_at,
+      verified_ref: args.verified_ref,
+    });
 
-      const task = await taskService.update(args.task_id, {
-        ...(args.status !== undefined ? { status: args.status as TaskStatus } : {}),
-        ...(args.kind !== undefined ? { kind: args.kind as TaskKind } : {}),
-        ...(args.priority !== undefined ? { priority: args.priority as TaskPriority | null } : {}),
-        ...(args.lane !== undefined ? { lane: args.lane as TaskLane | null } : {}),
-        ...(args.severity !== undefined ? { severity: args.severity as TaskSeverity | null } : {}),
-        ...(args.label !== undefined ? { label: args.label } : {}),
-        ...(args.description !== undefined ? { description: args.description } : {}),
-        ...(args.x !== undefined ? { x: args.x } : {}),
-        ...(args.y !== undefined ? { y: args.y } : {}),
-        ...(args.assignee !== undefined ? { assignee: args.assignee } : {}),
-        ...(args.goal_id !== undefined ? { goalId: args.goal_id } : {}),
-        ...(args.tags !== undefined ? { tags: args.tags } : {}),
-        ...(args.commit_refs !== undefined ? { commitRefs: args.commit_refs } : {}),
-        ...(args.due_date !== undefined
-          ? { dueDate: args.due_date === null ? null : new Date(args.due_date) }
-          : {}),
-        ...(verification.verifiedAt !== undefined ? { verifiedAt: verification.verifiedAt } : {}),
-        ...(verification.verifiedRef !== undefined
-          ? { verifiedRef: verification.verifiedRef }
-          : {}),
-      });
-      if (!task) {
-        return toolNotFound();
-      }
-      return toolSuccess('task', task);
-    } catch (error) {
-      if (
-        error instanceof InvalidTaskStatusError ||
-        error instanceof InvalidTaskKindError ||
-        error instanceof InvalidTaskPriorityError ||
-        error instanceof InvalidTaskLaneError ||
-        error instanceof InvalidTaskSeverityError ||
-        error instanceof InvalidTagError ||
-        error instanceof InvalidGoalReferenceError ||
-        error instanceof InvalidCommitRefsError ||
-        error instanceof UnstoredColumnError ||
-        error instanceof InvalidVerificationError
-      ) {
-        return toolInvalidArgument(error.message);
-      }
-      throw error;
+    const task = await taskService.update(args.task_id, {
+      ...(args.status !== undefined ? { status: args.status as TaskStatus } : {}),
+      ...(args.kind !== undefined ? { kind: args.kind as TaskKind } : {}),
+      ...(args.priority !== undefined ? { priority: args.priority as TaskPriority | null } : {}),
+      ...(args.lane !== undefined ? { lane: args.lane as TaskLane | null } : {}),
+      ...(args.severity !== undefined ? { severity: args.severity as TaskSeverity | null } : {}),
+      ...(args.label !== undefined ? { label: args.label } : {}),
+      ...(args.description !== undefined ? { description: args.description } : {}),
+      ...(args.x !== undefined ? { x: args.x } : {}),
+      ...(args.y !== undefined ? { y: args.y } : {}),
+      ...(args.assignee !== undefined ? { assignee: args.assignee } : {}),
+      ...(args.goal_id !== undefined ? { goalId: args.goal_id } : {}),
+      ...(args.tags !== undefined ? { tags: args.tags } : {}),
+      ...(args.commit_refs !== undefined ? { commitRefs: args.commit_refs } : {}),
+      ...(args.due_date !== undefined
+        ? { dueDate: args.due_date === null ? null : new Date(args.due_date) }
+        : {}),
+      ...(verification.verifiedAt !== undefined ? { verifiedAt: verification.verifiedAt } : {}),
+      ...(verification.verifiedRef !== undefined ? { verifiedRef: verification.verifiedRef } : {}),
+    });
+    if (!task) {
+      return toolNotFound();
     }
+    return toolSuccess('task', task);
   };
 }

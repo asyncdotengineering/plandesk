@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   createTag as dbCreateTag,
   deleteTag as dbDeleteTag,
   getTag as dbGetTag,
@@ -25,7 +26,7 @@ export type UpdateTagInput = {
   color?: string | null;
 };
 
-export class InvalidTagError extends Error {
+export class InvalidTagError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidTagError';

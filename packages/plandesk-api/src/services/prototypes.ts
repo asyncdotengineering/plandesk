@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   createDocument,
   createEdge,
   createFolder,
@@ -49,7 +50,7 @@ export type UpdatePrototypeInput = {
   viewportHeight?: number;
 };
 
-export class InvalidPrototypeError extends Error {
+export class InvalidPrototypeError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidPrototypeError';

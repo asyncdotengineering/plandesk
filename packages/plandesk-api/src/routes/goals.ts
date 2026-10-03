@@ -1,13 +1,10 @@
-import { invalidArgument, invalidRequest } from './errors.js';
+import { invalidArgument } from './errors.js';
 import { Hono, type Context } from 'hono';
-import { InvalidGoalStatusError, isGoalStatus } from '@plandesk/db';
+import { isGoalStatus } from '@plandesk/db';
 import {
   GoalCompletionBlockedError,
   GoalVerificationRequiredError,
   InvalidChecklistEvidenceError,
-  DuplicateGoalNameError,
-  InvalidGoalTransitionError,
-  InvalidVerificationSurfaceError,
   type GoalService,
   type VerificationEvidence,
 } from '../services/goals.js';
@@ -64,15 +61,6 @@ function goalWriteResponse(goal: GoalWrite) {
 }
 
 function handleGoalError(c: Context, error: unknown) {
-  if (error instanceof InvalidGoalStatusError || error instanceof InvalidGoalTransitionError) {
-    return invalidRequest(c, error.message);
-  }
-  if (error instanceof InvalidVerificationSurfaceError) {
-    return invalidRequest(c, error.message);
-  }
-  if (error instanceof DuplicateGoalNameError) {
-    return invalidRequest(c, error.message);
-  }
   if (error instanceof GoalVerificationRequiredError) {
     return c.json(
       {

@@ -1,3 +1,4 @@
+import { InvalidArgumentError } from '../invalid-argument.js';
 import { randomUUID } from 'node:crypto';
 import { asc, eq } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
@@ -33,7 +34,7 @@ export type GoalUpdate = {
   lastVerification?: string | null;
 };
 
-export class InvalidGoalStatusError extends Error {
+export class InvalidGoalStatusError extends InvalidArgumentError {
   constructor(status: string) {
     super(`Invalid goal status: ${status}`);
     this.name = 'InvalidGoalStatusError';

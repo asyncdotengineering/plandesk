@@ -68,32 +68,23 @@ import {
   createAddArtifactCommentHandler,
   createAddCommentHandler,
   createAttachFileHandler,
-  createCompleteAgentRunHandler,
   createCompleteGoalHandler,
   createCreateArtifactHandler,
   createCreateDocumentHandler,
   createCreateEdgeHandler,
-  createCreateFolderHandler,
   createCreatePrototypeHandler,
   createCreateGoalHandler,
-  createCreateNoteHandler,
   createCreateProjectHandler,
   createCreateShareLinkHandler,
   createCreateTaskHandler,
   createGetGoalHandler,
   createGetNextTaskHandler,
-  createListArtifactCommentsHandler,
   createListCommentsHandler,
   createListDocumentsHandler,
   createListNotesHandler,
   createSearchHandler,
-  createListProjectsHandler,
-  createListSubmissionsHandler,
-  createListViewsHandler,
-  createListRevisionsHandler,
   createListTasksHandler,
   createPauseGoalHandler,
-  createRecordAgentProgressHandler,
   createResumeGoalHandler,
   createScaffoldProjectFromPlanHandler,
   createTriageSubmissionHandler,
@@ -101,14 +92,10 @@ import {
   createMoveScreenHandler,
   createCopyScreenHandler,
   createUpdateDocumentHandler,
-  createUpdateFolderHandler,
-  createDeleteFolderHandler,
   createMoveDocumentsHandler,
   createUpdatePrototypeHandler,
   createUpdateGoalHandler,
-  createSetCurrentGoalHandler,
   createInvokeGoalHandler,
-  createUpdateNoteHandler,
   createUpdateProjectHandler,
   createUpdateTaskHandler,
   toolHandler,
@@ -566,9 +553,7 @@ async function runMcpForeignSweep(
   const s = f.services;
   const before = await mutationSnapshot(f.db, target);
 
-  const listProjects = await runWithAuthContext(context, () =>
-    createListProjectsHandler(s.projectService)(),
-  );
+  const listProjects = await runWithAuthContext(context, () => toolHandler('list_projects', s)());
   const listed = (toolPayload(listProjects) as { projects: Array<{ id: string }> }).projects;
   expect(listed.map((project) => project.id).sort()).toEqual(expectedVisibleProjectIds.sort());
   expect(JSON.stringify(listProjects)).not.toContain(
@@ -647,7 +632,10 @@ async function runMcpForeignSweep(
     [
       'create_folder',
       () =>
-        createCreateFolderHandler(s.folderService)({
+        toolHandler(
+          'create_folder',
+          s,
+        )({
           project_id: target.project.id,
           name: 'escaped folder',
         }),
@@ -655,7 +643,10 @@ async function runMcpForeignSweep(
     [
       'update_folder',
       () =>
-        createUpdateFolderHandler(s.folderService)({
+        toolHandler(
+          'update_folder',
+          s,
+        )({
           folder_id: target.folder.id,
           name: 'escaped',
         }),
@@ -663,7 +654,10 @@ async function runMcpForeignSweep(
     [
       'delete_folder',
       () =>
-        createDeleteFolderHandler(s.folderService)({
+        toolHandler(
+          'delete_folder',
+          s,
+        )({
           folder_id: target.folder.id,
         }),
     ],
@@ -698,14 +692,17 @@ async function runMcpForeignSweep(
     [
       'create_note',
       () =>
-        createCreateNoteHandler(s.noteService)({
+        toolHandler(
+          'create_note',
+          s,
+        )({
           project_id: target.project.id,
           title: 'escaped note',
         }),
     ],
     [
       'update_note',
-      () => createUpdateNoteHandler(s.noteService)({ note_id: target.note.id, title: 'escaped' }),
+      () => toolHandler('update_note', s)({ note_id: target.note.id, title: 'escaped' }),
     ],
     ['get_note', () => toolHandler('get_note', s)({ note_id: target.note.id })],
     ['list_notes', () => createListNotesHandler(s.noteService)({ project_id: target.project.id })],
@@ -799,7 +796,10 @@ async function runMcpForeignSweep(
     [
       'record_agent_progress',
       () =>
-        createRecordAgentProgressHandler(s.agentRunService)({
+        toolHandler(
+          'record_agent_progress',
+          s,
+        )({
           run_id: target.progressRun.id,
           message: 'escaped progress',
         }),
@@ -807,7 +807,10 @@ async function runMcpForeignSweep(
     [
       'complete_agent_run',
       () =>
-        createCompleteAgentRunHandler(s.agentRunService)({
+        toolHandler(
+          'complete_agent_run',
+          s,
+        )({
           run_id: target.completeRun.id,
           status: 'completed',
         }),
@@ -841,7 +844,10 @@ async function runMcpForeignSweep(
     [
       'set_current_goal',
       () =>
-        createSetCurrentGoalHandler(s.goalService)({
+        toolHandler(
+          'set_current_goal',
+          s,
+        )({
           goal_id: target.activeGoal.id,
         }),
     ],
@@ -887,11 +893,14 @@ async function runMcpForeignSweep(
     ['get_task', () => toolHandler('get_task', s)({ task_id: target.task.id })],
     ['list_tasks', () => createListTasksHandler(s.taskService)({ project_id: target.project.id })],
     ['list_tags', () => toolHandler('list_tags', s)({ project_id: target.project.id })],
-    ['list_views', () => createListViewsHandler(s.viewService)({ project_id: target.project.id })],
+    ['list_views', () => toolHandler('list_views', s)({ project_id: target.project.id })],
     [
       'list_revisions',
       () =>
-        createListRevisionsHandler(s.revisionService)({
+        toolHandler(
+          'list_revisions',
+          s,
+        )({
           project_id: target.project.id,
           target_type: 'task',
           target_id: target.task.id,
@@ -914,7 +923,10 @@ async function runMcpForeignSweep(
     [
       'list_artifact_comments',
       () =>
-        createListArtifactCommentsHandler(s.commentService)({
+        toolHandler(
+          'list_artifact_comments',
+          s,
+        )({
           project_id: target.project.id,
           artifact_id: target.artifact.id,
         }),
@@ -935,11 +947,7 @@ async function runMcpForeignSweep(
     ],
     [
       'list_submissions',
-      () =>
-        createListSubmissionsHandler(
-          s.syncService,
-          async (projectId: string) => (await s.projectService.get(projectId)) !== undefined,
-        )({ project_id: target.project.id }),
+      () => toolHandler('list_submissions', s)({ project_id: target.project.id }),
     ],
     [
       'triage_submission',
@@ -1074,16 +1082,25 @@ describe('workspace-tier adversarial audit round 4', () => {
           to_id: f.foreignB.task.id,
           label: 'documents',
         }),
-        createCreateFolderHandler(f.services.folderService)({
+        toolHandler(
+          'create_folder',
+          f.services,
+        )({
           project_id: f.projectA.id,
           name: 'foreign parent folder ref',
           parent_folder_id: f.foreignB.folder.id,
         }),
-        createUpdateFolderHandler(f.services.folderService)({
+        toolHandler(
+          'update_folder',
+          f.services,
+        )({
           folder_id: folderA.id,
           parent_folder_id: f.foreignB.folder.id,
         }),
-        createDeleteFolderHandler(f.services.folderService)({
+        toolHandler(
+          'delete_folder',
+          f.services,
+        )({
           folder_id: folderA.id,
           reparent_to: f.foreignB.folder.id,
         }),

@@ -1,3 +1,4 @@
+import { InvalidArgumentError } from '../invalid-argument.js';
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
@@ -62,35 +63,35 @@ export type TaskUpdate = {
   verifiedRef?: string | null;
 };
 
-export class InvalidTaskStatusError extends Error {
+export class InvalidTaskStatusError extends InvalidArgumentError {
   constructor(status: string) {
     super(`Invalid task status: ${status}`);
     this.name = 'InvalidTaskStatusError';
   }
 }
 
-export class InvalidTaskKindError extends Error {
+export class InvalidTaskKindError extends InvalidArgumentError {
   constructor(kind: string) {
     super(`Invalid task kind: ${kind}`);
     this.name = 'InvalidTaskKindError';
   }
 }
 
-export class InvalidTaskPriorityError extends Error {
+export class InvalidTaskPriorityError extends InvalidArgumentError {
   constructor(priority: string) {
     super(`Invalid task priority: ${priority}`);
     this.name = 'InvalidTaskPriorityError';
   }
 }
 
-export class InvalidTaskLaneError extends Error {
+export class InvalidTaskLaneError extends InvalidArgumentError {
   constructor(lane: string) {
     super(`Invalid task lane: ${lane}`);
     this.name = 'InvalidTaskLaneError';
   }
 }
 
-export class InvalidTaskSeverityError extends Error {
+export class InvalidTaskSeverityError extends InvalidArgumentError {
   constructor(severity: string) {
     super(`Invalid task severity: ${severity}`);
     this.name = 'InvalidTaskSeverityError';

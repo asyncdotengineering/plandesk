@@ -1,4 +1,5 @@
 import {
+  InvalidArgumentError,
   withTransaction,
   createFolder as dbCreateFolder,
   deleteFolder as dbDeleteFolder,
@@ -29,7 +30,7 @@ export type UpdateFolderInput = {
   parentFolderId?: string | null;
 };
 
-export class InvalidFolderError extends Error {
+export class InvalidFolderError extends InvalidArgumentError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidFolderError';
