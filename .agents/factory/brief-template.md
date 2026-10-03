@@ -32,6 +32,11 @@ Engine-side notes — these never go into the brief:
   extra rows on the WBS snapshot — [brief.md](brief.md).
 - **No secrets, ever.** The share link is public to whoever holds it, and
   the worker's log reprints whatever the brief contains.
+- **Give the rule, not a number, for restructuring work.** A byte or line cap
+  on a prose split becomes the goal: a worker given "≤ 8 KB" moved
+  always-needed steps out of a skill and broke its numbering to hit it. State
+  what may move (e.g. "only content a run needs conditionally") and let the
+  size follow.
 
 ---8<--- copy everything below this line ---8<---
 
