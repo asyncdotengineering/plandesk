@@ -178,19 +178,25 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
 
   // Authored policy files under the owned subtree: created once, then owned and
   // edited by the user. `authoredFactoryFiles` is the shipped-content source of
-  // truth shared with `factory sync`; runs/.gitignore is static wiring, not
-  // synced policy. Shared-file index.md is handled separately (sentinel block).
-  const authored: Array<{ path: string; content: string }> = [
-    ...authoredFactoryFiles(repoDir),
-    { path: join(factoryDir, 'runs', '.gitignore'), content: buildRunsGitignore() },
-  ];
-  for (const file of authored) {
+  // truth shared with `factory sync`. Shared-file index.md is handled
+  // separately (sentinel block).
+  for (const file of authoredFactoryFiles(repoDir)) {
     artifacts.push({
       path: file.path,
       content: file.content,
       action: existsSync(file.path) ? 'skip' : 'create',
     });
   }
+
+  // runs/.gitignore is wiring, not policy: nobody authors it, so it refreshes on
+  // every init. A skip-if-exists copy would keep ignoring metrics.jsonl in every
+  // repo scaffolded before the ledger was tracked.
+  const runsGitignorePath = join(factoryDir, 'runs', '.gitignore');
+  artifacts.push({
+    path: runsGitignorePath,
+    content: buildRunsGitignore(),
+    action: existsSync(runsGitignorePath) ? 'update' : 'create',
+  });
 
   // Shared file: `.agents/index.md` — sentinel-block insert only. Regenerated
   // every run (never skip) so Plan Desk's map cannot go stale when another tool

@@ -68,8 +68,10 @@ author, skip to the next family.
 mechanics, never rank; a "default" written into a worker file is a second copy
 that drifts.
 
-The evidence behind the choice is `runs/metrics.jsonl` (tracked in git — it
-records worker, lane, verdicts and notes per cycle). Read it before assuming
+The evidence behind the choice is `.agents/factory/runs/metrics.jsonl` (tracked in git — it
+records worker, lane, verdicts and notes per cycle). The first cycle's ship
+step creates it; on a fresh scaffold it does not exist yet, which means no
+local evidence — use the default above until it does. Read it before assuming
 the preference still holds, revisit the default when another worker
 accumulates a clearly better clean-cycle record, and record a note when a
 worker surprises you in either direction.

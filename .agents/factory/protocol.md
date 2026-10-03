@@ -22,7 +22,7 @@ miss, so it goes first here and near the top of the brief:
 }
 ```
 
-Written to `runs/result-<task>.json`, before the worker finishes, whatever the
+Written to `.agents/factory/runs/result-<task>.json`, before the worker finishes, whatever the
 outcome. Three ways it is invalid, all treated as a failed dispatch:
 
 - **No file.** Absent means unfinished, regardless of what the process reported.
@@ -38,19 +38,19 @@ outcome. Three ways it is invalid, all treated as a failed dispatch:
    only the file's `command` template, with `{prompt_file}` and `{repo_path}`
    substituted.
    Which worker suits which task is data: [routing.md](routing.md).
-2. **Reset the task's `runs/` state, then capture the baseline.** A previous
+2. **Reset the task's `.agents/factory/runs/` state, then capture the baseline.** A previous
    attempt's result file is a loaded gun: the monitor treats
-   `runs/result-<task>.json` as the completion signal, so a stale one fires
+   `.agents/factory/runs/result-<task>.json` as the completion signal, so a stale one fires
    "done" the instant the new dispatch starts, for a worker that has not
-   begun. Move it aside — `mv runs/result-<task>.json
-   runs/result-<task>.attempt-N.json` — and rotate the log the same way: the
+   begun. Move it aside — `mv .agents/factory/runs/result-<task>.json
+   .agents/factory/runs/result-<task>.attempt-N.json` — and rotate the log the same way: the
    redirect is `>`, which overwrites, and a failed attempt's log is the
    evidence the failure analysis needs. Then record what the world looked
    like before the worker touched it: tee the red-gate run (factory.md step
-   3) with its per-package test counts to `runs/baseline-<task>.txt` —
+   3) with its per-package test counts to `.agents/factory/runs/baseline-<task>.txt` —
    verification diffs against exactly this file, and a baseline nobody
    captured is a check nobody can run.
-3. Write the brief to `runs/brief-<task>.md`, starting from
+3. Write the brief to `.agents/factory/runs/brief-<task>.md`, starting from
    [brief-template.md](brief-template.md) — copy it, substitute every
    placeholder, paste [workmanship.md](workmanship.md) in full where marked.
    A section dropped from a hand-built brief is the documented cause of runs
@@ -100,7 +100,7 @@ owns costs one line and prevents that.
 These four are not optional detail — a dispatch missing any of them is the
 common cause of a run that produces code but no verifiable result.
 
-- **Redirect all output.** Append `> runs/worker-<task>.log 2>&1` to every
+- **Redirect all output.** Append `> .agents/factory/runs/worker-<task>.log 2>&1` to every
   command. A worker's stdout is evidence: it is where a refusal, a missing
   credential, or an "unknown model id" appears. Without the redirect that
   evidence is lost and a failed dispatch looks identical to a silent one.
@@ -131,7 +131,7 @@ common cause of a run that produces code but no verifiable result.
   hangs.
 - **Completion is a file, not an exit code.** The harness signal fires when the
   wrapper process exits, which can happen while a child still writes, or after a
-  transient API error. Treat `runs/result-<task>.json` as the completion signal:
+  transient API error. Treat `.agents/factory/runs/result-<task>.json` as the completion signal:
   present and parseable means finished, absent means unfinished regardless of
   what the process reported. Say this in the brief in those words — the runs
   that omit the result file are the ones whose brief left it implicit.
@@ -156,7 +156,7 @@ while the leaf still runs all produce false "completed" signals. Watch the
 result file instead; use `Await` on the monitor shell (Cursor) or continue other
 supervisor work until the monitor emits a terminal line.
 
-The monitor watches `runs/result-<task>.json`, because that is the completion
+The monitor watches `.agents/factory/runs/result-<task>.json`, because that is the completion
 signal. It must emit a line for **every** terminal state, not just success:
 
 ```bash
@@ -165,13 +165,13 @@ signal. It must emit a line for **every** terminal state, not just success:
 LEAF_PID=<leaf-pid>
 
 while true; do
-  if [ -f runs/result-<task>.json ]; then
-    st=$(jq -r '.status // empty' runs/result-<task>.json 2>/dev/null)
+  if [ -f .agents/factory/runs/result-<task>.json ]; then
+    st=$(jq -r '.status // empty' .agents/factory/runs/result-<task>.json 2>/dev/null)
     if [ "$st" = "blocked" ]; then echo "BLOCKED <task>"; else echo "DONE <task> status=${st:-unknown}"; fi
     break
   fi
   if ! kill -0 "$LEAF_PID" 2>/dev/null; then
-    sz=$(wc -c < runs/worker-<task>.log 2>/dev/null || echo 0)
+    sz=$(wc -c < .agents/factory/runs/worker-<task>.log 2>/dev/null || echo 0)
     echo "EXIT <task> without result — log ${sz}B"; break
   fi
   sleep 60
@@ -234,8 +234,8 @@ the reason the previous slice is committed before the next one starts.
   ```
   git status --porcelain          # did anything change at all?
   stat -f '%Sm' -t '%H:%M:%S' <a file the result claims to have edited> \
-                              runs/result-<task>.json
-  # (BSD/macOS stat; on Linux: stat -c '%y' <file> runs/result-<task>.json)
+                              .agents/factory/runs/result-<task>.json
+  # (BSD/macOS stat; on Linux: stat -c '%y' <file> .agents/factory/runs/result-<task>.json)
   ```
 
   A file whose mtime predates the result was not written by that dispatch.
@@ -288,7 +288,7 @@ the reason the previous slice is committed before the next one starts.
 - **A green suite does not prove an assertion is covered.** A worker maps
   `satisfies_assertions` onto a claim by hand, so `pnpm test` exiting 0 says the
   suite passed — never that a test for REQ-N exists. Diff the per-package test
-  counts against the pre-dispatch baseline (`runs/baseline-<task>.txt`,
+  counts against the pre-dispatch baseline (`.agents/factory/runs/baseline-<task>.txt`,
   captured at dispatch step 2): a requirement whose package gained
   **zero** tests is unproven, whatever the proof file asserts. (Observed: a
   dispatch claimed REQ-5 — an entire new CLI command — satisfied by `tests`,

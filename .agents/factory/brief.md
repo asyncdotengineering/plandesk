@@ -1,8 +1,8 @@
 # Briefing a slice
 
 Optional companion for multi-slice dispatch. A slice is dispatched exactly as
-[protocol.md](protocol.md) specifies — brief to `runs/brief-<task>.md`, dispatch
-a probed worker from [workers/](workers/), receive `runs/result-<task>.json`,
+[protocol.md](protocol.md) specifies — brief to `.agents/factory/runs/brief-<task>.md`, dispatch
+a probed worker from [workers/](workers/), receive `.agents/factory/runs/result-<task>.json`,
 verify engine-side. This file records only what multi-slice work adds on top;
 it does not restate the dispatch or result contract.
 

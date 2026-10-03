@@ -41,7 +41,7 @@ instead of letting it drift to a draw. Operate the same way.
 precise terms: what "done" looks like, the assumptions you are making, the
 reading you picked if more than one existed. Then proceed on your best
 reading — do not wait for sign-off. Log the load-bearing assumption in
-`runs/<task>-implementation-notes.md`.
+`.agents/factory/runs/<task>-implementation-notes.md`.
 
 **1 — See the line (decompose before you act).** Before the first edit,
 break the goal into ordered, verifiable moves — each with a checkable
@@ -57,7 +57,7 @@ list is the spine the loop runs on.
   re-surfaced every turn. Mark a task `in_progress` when you start it and
   `completed` the moment its done-condition holds — not before.
 - **Delegated worker without harness tools** — drive
-  `runs/tasks-<task>.md`, a Backlog → Doing → Done ledger, updated in the
+  `.agents/factory/runs/tasks-<task>.md`, a Backlog → Doing → Done ledger, updated in the
   same step you do the work. After a compaction or resume, trust the ledger
   over recollection.
 
@@ -102,10 +102,10 @@ instead.
 
 ## Artifacts
 
-- **Task list** — harness tasks (lead) or `runs/tasks-<task>.md` (worker).
-- **`runs/<task>-implementation-notes.md`** — assumptions, decisions not
+- **Task list** — harness tasks (lead) or `.agents/factory/runs/tasks-<task>.md` (worker).
+- **`.agents/factory/runs/<task>-implementation-notes.md`** — assumptions, decisions not
   in the spec, deviations and why, root causes found.
-- **`runs/result-<task>.json`** — verification claims per [protocol.md](protocol.md);
+- **`.agents/factory/runs/result-<task>.json`** — verification claims per [protocol.md](protocol.md);
   write claims before flipping the task to done.
 
 ## Limits
@@ -119,7 +119,7 @@ Report once, when the list is at zero (or you are genuinely blocked):
 1. **Done** — one sentence: what shipped.
 2. **Changes** — key files and modules, and why.
 3. **Verification** — what you ran and the results.
-4. **Notes** — pointer to `runs/<task>-implementation-notes.md`; any
+4. **Notes** — pointer to `.agents/factory/runs/<task>-implementation-notes.md`; any
    blocker that truly required user input.
 
 Do not end with open questions or "let me know if you want me to continue."

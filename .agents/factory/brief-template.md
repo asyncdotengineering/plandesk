@@ -5,7 +5,7 @@ version: 1
 
 # Brief template
 
-The canonical form of `runs/brief-<task>.md` — the file a dispatched worker
+The canonical form of `.agents/factory/runs/brief-<task>.md` — the file a dispatched worker
 receives as its entire world. [protocol.md](protocol.md) defines the contract
 (five sections, what is frozen and what is live); this file makes writing one
 mechanical, so no section gets dropped by a supervisor reconstructing the shape
@@ -13,7 +13,7 @@ from memory. A dropped section — usually the result contract — is the
 documented cause of runs that produce code but no verifiable result.
 
 **How to use:** copy everything below the cut line into
-`runs/brief-<task>.md`, replace every `{PLACEHOLDER}`, paste
+`.agents/factory/runs/brief-<task>.md`, replace every `{PLACEHOLDER}`, paste
 [workmanship.md](workmanship.md) in full where marked, and delete nothing
 else.
 
@@ -43,7 +43,7 @@ restatement of them.}
 
 ## The result contract — read this first
 
-Write `runs/result-{TASK_ID}.json` before you finish, whatever the outcome:
+Write `.agents/factory/runs/result-{TASK_ID}.json` before you finish, whatever the outcome:
 
 ```json
 {

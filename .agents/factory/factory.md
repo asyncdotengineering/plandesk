@@ -44,7 +44,7 @@ them — [slicing.md](slicing.md), [brief.md](brief.md), [heartbeat.md](heartbea
    reasoning chain posted first (lanes.md names who may resolve; the posted
    comment is the human's override surface either way).
 8. **Ship** — only after the gate has cleared: append the cycle's line to
-   `runs/metrics.jsonl` (cost, duration, lane, worker, verdicts), flip the
+   `.agents/factory/runs/metrics.jsonl` (cost, duration, lane, worker, verdicts), flip the
    task to `done` atomically with the verification, commit that work item's
    diff — metrics line included — as one atomic commit (subject references
    the task), and call `record_agent_progress`.
@@ -112,8 +112,8 @@ human, what failed and why. Leave the board true.
   why work is stuck.
 - If a change balloons past its triaged complexity, the task goes back to
   `scope` with a comment explaining why.
-- `runs/` is transient machine state (gitignored) — **except
-  `runs/metrics.jsonl`, which is tracked.** The metrics ledger is the evidence
+- `.agents/factory/runs/` is transient machine state (gitignored) — **except
+  `.agents/factory/runs/metrics.jsonl`, which is tracked.** The metrics ledger is the evidence
   [routing.md](routing.md) picks the default IC by and [lanes.md](lanes.md)
   loosens gates by; evidence that evaporates with the machine can justify
   nothing, so it rides in each work item's commit (cycle step 8). Everything

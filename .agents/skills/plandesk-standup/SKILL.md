@@ -17,13 +17,13 @@ Use the first source that exists and is plausibly current (same branch, last
 
 1. **`.plandesk/standdown.md`** — written by [standdown](../plandesk-standdown/SKILL.md).
    Prefer this when present.
-2. **Session handoff** — `HANDOFF.md`, `runs/handoff*.md`, or a path the user
+2. **Session handoff** — `HANDOFF.md`, `.agents/factory/runs/handoff*.md`, or a path the user
    names. Skim only; do not treat stale release versions as current fact.
 3. **Reconstruct** when neither exists:
    - Git: `git log --oneline -15`, `git status`, branch name.
    - Board (MCP): resolve project per [plandesk](../plandesk/SKILL.md), then
      `list_tasks` by status and `get_next_task`.
-   - Optional: recent `runs/result-*.json` for verified claims from the last
+   - Optional: recent `.agents/factory/runs/result-*.json` for verified claims from the last
      dispatch.
 
 If sources disagree, say which you trust and why — do not merge silently.

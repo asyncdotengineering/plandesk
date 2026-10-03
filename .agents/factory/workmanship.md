@@ -104,7 +104,7 @@ blocked dispatch that names the wall beats a green one that hid it.
 
 ## The result contract
 
-Write `runs/result-<task>.json` before you finish, whatever the outcome:
+Write `.agents/factory/runs/result-<task>.json` before you finish, whatever the outcome:
 
 ```json
 {

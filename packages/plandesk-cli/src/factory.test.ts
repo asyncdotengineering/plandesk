@@ -1,3 +1,4 @@
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   existsSync,
@@ -29,6 +30,7 @@ import {
 } from './shipped-templates.js';
 import {
   WORKER_NAMES,
+  authoredFactoryFiles,
   buildAgentsIndexMarkdown,
   buildFactoryArtifacts,
   classifyAgentsPath,
@@ -360,6 +362,41 @@ describe('worker files', () => {
     expect(protocol).toContain('type: protocol');
     expect(protocol).toContain('runs/result-<task>.json');
     expect(protocol).toContain('Exit codes are authoritative');
+  });
+
+  it('a fresh scaffold tracks the metrics ledger and ignores the rest of runs/', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    execFileSync('git', ['init', '-q'], { cwd: repo });
+    runFactoryInit({ repoDir: repo });
+    const ignored = (rel: string): boolean =>
+      spawnSync('git', ['check-ignore', '-q', rel], { cwd: repo }).status === 0;
+    expect(ignored('.agents/factory/runs/metrics.jsonl')).toBe(false);
+    expect(ignored('.agents/factory/runs/worker-t1.log')).toBe(true);
+    expect(ignored('.agents/factory/runs/result-t1.json')).toBe(true);
+  });
+
+  it('re-init repairs a runs/.gitignore scaffolded before the ledger was tracked', () => {
+    const repo = makeTempDir('plandesk-factory-');
+    execFileSync('git', ['init', '-q'], { cwd: repo });
+    mkdirSync(join(repo, '.agents/factory/runs'), { recursive: true });
+    writeFileSync(join(repo, '.agents/factory/runs/.gitignore'), '*\n!.gitignore\n');
+    runFactoryInit({ repoDir: repo });
+    const status = spawnSync('git', ['check-ignore', '-q', '.agents/factory/runs/metrics.jsonl'], {
+      cwd: repo,
+    }).status;
+    expect(status).toBe(1);
+  });
+
+  it('no shipped doc names a runs/ path a worker would resolve from the repo root', () => {
+    // A worker's cwd is the repo root, so a bare `runs/` lands beside the real
+    // run directory as an untracked, unignored stray.
+    const repo = makeTempDir('plandesk-factory-');
+    const shipped = [
+      ...authoredFactoryFiles(repo).map((f) => ({ name: f.path, content: f.content })),
+      ...SHIPPED_TEMPLATES.map((t) => ({ name: t.relativePath, content: t.content })),
+    ];
+    const bare = shipped.filter((f) => /(?<![/.\w-])runs\//.test(f.content)).map((f) => f.name);
+    expect(bare).toEqual([]);
   });
 });
 

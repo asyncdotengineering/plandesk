@@ -71,7 +71,7 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
    small (one obvious edit, expected under a few minutes) and the user asked
    for inline work. The recipe:
 
-   1. Reset the task's `runs/` state and capture the baseline per
+   1. Reset the task's `.agents/factory/runs/` state and capture the baseline per
       [protocol.md](../../factory/protocol.md) dispatch step 2 — a stale
       result file fires the monitor instantly, and verification needs the
       pre-dispatch test counts to diff against.
@@ -79,7 +79,7 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
       its `command` template — flags come from [workers/](../../factory/workers/),
       never from memory.
    3. Append the log redirect the engine owns:
-      `> runs/worker-<task>.log 2>&1` (never put redirects in worker files).
+      `> .agents/factory/runs/worker-<task>.log 2>&1` (never put redirects in worker files).
    4. **Background through the harness** — `run_in_background: true` on the
       Shell/Bash tool. Never append `&` or wrap in `nohup … &`; that
       orphan-detaches, the harness fires a false "completed", and the real leaf
@@ -89,7 +89,7 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
       to watch later."
    6. **Do not poll the harness completion notification.** Wrapper exit is
       unreliable (orphan shell, transient API blip). The monitor watches
-      `runs/result-<task>.json`; use `Await` on the monitor shell when you are
+      `.agents/factory/runs/result-<task>.json`; use `Await` on the monitor shell when you are
       ready to verify, or continue other foreman work while it runs.
 
    **Stdin is per worker** — getting this wrong backgrounds a hang:
@@ -152,7 +152,7 @@ contract in [factory.md](../../factory/factory.md), dispatch and verification in
     clears — batching commits until the end of a run means a single later
     failure puts every earlier success at risk, and it breaks the 1:1 between
     history and board. Flip the task to `done` in the same step, call
-    `record_agent_progress`, and append the cycle to `runs/metrics.jsonl`
+    `record_agent_progress`, and append the cycle to `.agents/factory/runs/metrics.jsonl`
     (tracked — include it in the slice's commit).
 
 11. **Take the next slice, or stop.** Repeat from step 5 while the frontier has

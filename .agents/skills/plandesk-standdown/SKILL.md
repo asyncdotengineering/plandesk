@@ -73,7 +73,7 @@ for next. Name board items by label, not raw ids.
    - Note `get_next_task` if it would return something actionable.
 
 5. **Assemble** `.plandesk/standdown.md`. Deduplicate; prefer facts over
-   narrative. Reference paths (`runs/result-*.json`, PRDs, ADRs) instead of
+   narrative. Reference paths (`.agents/factory/runs/result-*.json`, PRDs, ADRs) instead of
    pasting them.
 
 6. **Say it once** to the user — the Shipped and Suggested next sections in

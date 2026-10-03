@@ -40,7 +40,7 @@ already watches; that is wasted work ([heartbeat.md](../../factory/heartbeat.md)
 
 | capability | Cursor | Claude Code | Codex | Pi | OpenCode |
 | --- | --- | --- | --- | --- | --- |
-| work-list scratchpad | `TaskCreate` / `TaskList` / `TaskUpdate` | same harness task tools | `runs/tasks-<task>.md` | `TaskCreate` (pi-loop fallback) or pi-tasks | session notes / plugin tasks |
+| work-list scratchpad | `TaskCreate` / `TaskList` / `TaskUpdate` | same harness task tools | `.agents/factory/runs/tasks-<task>.md` | `TaskCreate` (pi-loop fallback) or pi-tasks | session notes / plugin tasks |
 | background command | Shell `run_in_background` + `Await` | Bash `run_in_background` | background flag if present | `MonitorCreate` (pi-loop) | `/background` (monitor plugin) |
 | one-shot resume | backgrounded `sleep` sentinel (see Cursor specifics) | `ScheduleWakeup` | — (use external cron) | `schedule_loop_wakeup` / `LoopCreate` (extensions) | `ScheduleWakeup` (opencode-routines) |
 | recurring loop | — | `/loop` + `ScheduleWakeup` | `.codex/automations/*.toml` | `LoopCreate` / `/loop` (pi-loop) | `LoopCreate` / `/loop` (routines plugin) |
@@ -49,7 +49,7 @@ already watches; that is wasted work ([heartbeat.md](../../factory/heartbeat.md)
 **Common pattern that works everywhere:**
 
 1. **List on the harness** — `TaskCreate` one task per work item (lead session) or
-   `runs/tasks-<task>.md` (delegated worker). Add a meta task `timebox:state`
+   `.agents/factory/runs/tasks-<task>.md` (delegated worker). Add a meta task `timebox:state`
    holding box number, `box_start` epoch, and interval seconds.
 2. **Clock at boundaries** — after each item, read elapsed with `date +%s` against
    `box_start`. This is the universal fallback and always binds.
@@ -58,7 +58,7 @@ already watches; that is wasted work ([heartbeat.md](../../factory/heartbeat.md)
    a checkpoint — not to re-fire an expensive slash command verbatim.
 4. **Background through the harness** — dispatch workers with `run_in_background`
    (never `&` / `nohup`); completion is the **result file**
-   (`runs/result-<task>.json`), watched by the monitor armed at dispatch —
+   (`.agents/factory/runs/result-<task>.json`), watched by the monitor armed at dispatch —
    `Await` the monitor shell, and treat the harness's own exit notification as
    a hint only. See [protocol.md](../../factory/protocol.md).
 
@@ -125,7 +125,7 @@ loop:
     stop — the list is done; final report; disarm timer / ScheduleWakeup stop
   work(item)                       # the wrapped skill's own procedure, in full
   verify(item)                     # its own completion check — exit codes, not claims
-  TaskUpdate(item, completed)      # or mark Done in runs/tasks-*.md
+  TaskUpdate(item, completed)      # or mark Done in .agents/factory/runs/tasks-*.md
   commit/checkpoint(item)          # leave nothing half-applied
   if (date +%s) - box_start >= interval_seconds:
     checkpoint_report()            # see the template below — then KEEP GOING
@@ -137,7 +137,7 @@ loop:
 
 **Inside a box with a background dispatch:** background the worker per
 [protocol.md](../../factory/protocol.md), keep working on what you can in the
-foreground, and `Await` (or watch `runs/result-<task>.json`) for completion —
+foreground, and `Await` (or watch `.agents/factory/runs/result-<task>.json`) for completion —
 do not schedule timer polls for it. The box timer and the worker timer are
 independent; an expiring box still lets the in-flight item finish first.
 
@@ -191,7 +191,7 @@ still bind — see [lanes.md](../../factory/lanes.md) and
 ## Breaks
 
 After four boxes, take a longer checkpoint: re-read the work list (`TaskList` or
-`runs/tasks-*.md`) against what actually landed, drop items that are now moot,
+`.agents/factory/runs/tasks-*.md`) against what actually landed, drop items that are now moot,
 and say whether the remaining list still matches what the user wanted. Long runs
 drift — the plan made sense ninety minutes ago and the fourth box is where that
 is worth checking.

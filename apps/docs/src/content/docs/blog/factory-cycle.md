@@ -136,8 +136,8 @@ is stuck, to a person, without opening a terminal.
 triaged at — the "you said low-risk and you are touching 400 files" signal — the
 task goes back to `scope` with a comment. The supervisor is allowed to stop.
 
-**Metrics ride in the commit.** `runs/` is throwaway machine state, except
-`runs/metrics.jsonl`, which is tracked. Routing decisions and gate loosening are
+**Metrics ride in the commit.** `.agents/factory/runs/` is throwaway machine state, except
+`.agents/factory/runs/metrics.jsonl`, which is tracked. Routing decisions and gate loosening are
 supposed to be evidence-driven, and evidence that evaporates with the laptop can
 justify nothing.
 

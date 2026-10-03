@@ -51,7 +51,7 @@ Agent config written into global directories (`~/.claude`, `~/.codex`) leaks int
    ├─ lanes.md                 # risk lanes: which changes need which human gates (type: lanes)
    ├─ verifiers/
    │  └─ tests-pass.md         # example per-change check (type: verifier)
-   └─ runs/                    # transient machine state — gitignored
+   └─ runs/                    # transient machine state — gitignored, except metrics.jsonl
 .claude/skills/<name>/         # symlinks to .agents/skills/ — one per skill
 .claude/commands/factory.md    # generated adapter: /factory loads the contract
 .codex/commands/factory.md     # generated adapter (when a .codex/ setup is detected)
@@ -87,7 +87,7 @@ command: codex exec --full-auto < {prompt_file}
 - **`probe`** — exits 0 only if this worker is installed on this machine. The scaffold is portable: it never assumes a CLI exists; the supervisor probes at dispatch time and routes only to available workers.
 - **`command`** — an invocation template. The supervisor substitutes `{prompt_file}` with the brief path and runs it verbatim; flags are never re-derived from memory. Edit the template once per repo/machine as versions change.
 
-`protocol.md` defines the rest of the contract: briefs are written to `runs/brief-<task>.md`; the worker ends by writing `runs/result-<task>.json` (`status`, `claims` of commands run with exit codes, optional blocking `question`); the engine **re-runs the claimed commands** and treats exit codes as authoritative. A `done` with no claims — or a claim that doesn't reproduce — is a failed dispatch. Model output is metadata; no worker grades its own work.
+`protocol.md` defines the rest of the contract: briefs are written to `.agents/factory/runs/brief-<task>.md`; the worker ends by writing `.agents/factory/runs/result-<task>.json` (`status`, `claims` of commands run with exit codes, optional blocking `question`); the engine **re-runs the claimed commands** and treats exit codes as authoritative. A `done` with no claims — or a claim that doesn't reproduce — is a failed dispatch. Model output is metadata; no worker grades its own work.
 
 ## Running the board: `/plandesk-foreman`
 
@@ -247,7 +247,7 @@ In other words: the release gate is mechanism-enforced for _pulling_ work and co
 3. Confirm the gate is **red** before work starts (green-at-start proves nothing).
 4. Dispatch to a worker from `workers/` per `routing.md`; require proof.
 5. Read the diff; apply the task's lane from `lanes.md` (`auto` / `approve` / `full`).
-6. Flip the task `done` atomically, `record_agent_progress`, and append a line to `runs/metrics.jsonl`.
+6. Flip the task `done` atomically, `record_agent_progress`, and append a line to `.agents/factory/runs/metrics.jsonl`.
 7. When the frontier empties: run the goal's `verification_surface`, `complete_goal`, `complete_agent_run`.
 
 Humans steer from the board: releasing `scope` tasks, resolving `approve`-lane comments, and owning every merge.
