@@ -1,9 +1,7 @@
 import type { OrgRole } from '@plandesk/db';
-import { admin, member, owner, type statement } from './access-control.js';
+import { admin, member, owner } from './access-control.js';
 
 export type PermissionSet = Record<string, readonly string[]>;
-export type PermissionResource = keyof typeof statement;
-export type WorkAction = (typeof statement)['task'][number];
 
 const writeActions = new Set<string>(['create', 'update', 'delete']);
 

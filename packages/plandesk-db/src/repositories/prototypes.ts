@@ -83,11 +83,6 @@ export async function updatePrototype(
   return rows[0];
 }
 
-export async function deletePrototype(db: DbClient, id: string): Promise<boolean> {
-  const result = await db.delete(prototypes).where(eq(prototypes.id, id)).run();
-  return result.rowsAffected > 0;
-}
-
 export async function deletePrototypesByProjectId(
   db: DbClient,
   projectId: string,

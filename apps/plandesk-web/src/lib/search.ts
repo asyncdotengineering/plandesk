@@ -152,14 +152,6 @@ function parseColumnsParam(value: unknown): ListColumnId[] | undefined {
   return columns.length > 0 ? columns : undefined;
 }
 
-/** Serialize group specs for a list-view search param. Omits when empty. */
-export function encodeGroupParam(specs: GroupSpec[]): string | undefined {
-  if (specs.length === 0) {
-    return undefined;
-  }
-  return specs.map((spec) => `${spec.field}:${spec.direction}`).join(',');
-}
-
 /** Serialize sort specs for a list-view search param. Omits when empty. */
 export function encodeSortParam(specs: SortSpec[]): string | undefined {
   if (specs.length === 0) {

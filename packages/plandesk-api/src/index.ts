@@ -36,17 +36,7 @@ export {
   INVITATION_ROLES,
   type InvitationRole,
 } from './invitations.js';
-export {
-  authorizeUrl,
-  githubConfigFromEnv,
-  resolveGithubIdentity,
-  userRefFromGithubId,
-  GithubOAuthError,
-  type FetchLike,
-  type GithubConfig,
-  type GithubEnv,
-  type GithubIdentity,
-} from './github.js';
+export { githubConfigFromEnv, type GithubConfig, type GithubEnv } from './github.js';
 export { GUEST_SESSION_COOKIE, readGuestSessionCookie } from './session.js';
 export { createAuthRouter, type AuthRouterDeps } from './routes/auth.js';
 export {
@@ -54,7 +44,6 @@ export {
   tryGetAuthContext,
   getAuthContext,
   getOrgAuthContext,
-  ReadOnlyTokenError,
   type AuthContext,
 } from './auth-context.js';
 export {

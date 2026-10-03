@@ -4,7 +4,6 @@ import {
   findLibraryByRef,
   listArtifactsByProject,
   listNullPrototypeLinksByProject,
-  listPrototypeLinksByFromArtifact,
   materialiseLibrary,
   resolveTarget,
   scanScreen,
@@ -140,11 +139,4 @@ export async function reResolveNullTargets(db: DbClient, projectId: string): Pro
       await updatePrototypeLinkTarget(db, link.id, resolved);
     }
   }
-}
-
-export async function listLinksForArtifact(
-  db: DbClient,
-  artifactId: string,
-): Promise<PrototypeLink[]> {
-  return listPrototypeLinksByFromArtifact(db, artifactId);
 }

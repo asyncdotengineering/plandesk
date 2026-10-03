@@ -1,6 +1,5 @@
 import { DEFAULT_ORG_ID, DEFAULT_WORKSPACE_ID, updateProject, type Db } from '@plandesk/db';
 import type { BetterAuthInstance } from './better-auth.js';
-import type { GithubIdentity } from './github.js';
 import { getOrganizationById, type OrganizationSummary } from './organizations.js';
 
 const GITHUB_PROVIDER_ID = 'github';
@@ -51,16 +50,6 @@ type TeamMemberRow = {
   createdAt: Date;
 };
 
-export type IdentityOrganization = Pick<OrganizationRow, 'id' | 'name' | 'slug'> & {
-  role: string;
-};
-
-export function githubAccountIdFromUserRef(userRef: string): string | undefined {
-  if (!userRef.startsWith(GITHUB_USER_REF_PREFIX)) return undefined;
-  const accountId = userRef.slice(GITHUB_USER_REF_PREFIX.length);
-  return NUMERIC_GITHUB_ID.test(accountId) ? accountId : undefined;
-}
-
 export function userRefFromGithubAccountId(accountId: string): string {
   if (!NUMERIC_GITHUB_ID.test(accountId)) {
     throw new Error('GitHub account id must be numeric');
@@ -68,53 +57,6 @@ export function userRefFromGithubAccountId(accountId: string): string {
   return `${GITHUB_USER_REF_PREFIX}${accountId}`;
 }
 
-export async function resolveOrganizationsForGithubIdentity(
-  auth: BetterAuthInstance,
-  identity: GithubIdentity,
-): Promise<IdentityOrganization[]> {
-  const adapter = (await auth.$context).adapter;
-  const account = await adapter.findOne<AccountRow>({
-    model: 'account',
-    where: [
-      { field: 'providerId', value: GITHUB_PROVIDER_ID },
-      { field: 'accountId', value: String(identity.id) },
-    ],
-  });
-  if (account === null) return [];
-
-  const user = await adapter.findOne<UserRow>({
-    model: 'user',
-    where: [{ field: 'id', value: account.userId }],
-  });
-  if (user === null) throw new Error('GitHub account points to a missing user');
-
-  const members = await adapter.findMany<MemberRow>({
-    model: 'member',
-    where: [{ field: 'userId', value: user.id }],
-    sortBy: { field: 'createdAt', direction: 'asc' },
-  });
-
-  return Promise.all(
-    members.map(async (member) => {
-      const organization = await adapter.findOne<OrganizationRow>({
-        model: 'organization',
-        where: [{ field: 'id', value: member.organizationId }],
-      });
-      if (organization === null) throw new Error('Membership points to a missing organization');
-      return {
-        id: organization.id,
-        name: organization.name,
-        slug: organization.slug,
-        role: member.role,
-      };
-    }),
-  );
-}
-
-/**
- * Ensure the well-known local better-auth organization exists (user-less).
- * Idempotent. Used at serve boot for loopback owner-by-bind.
- */
 export async function createTeamForOrg(
   auth: BetterAuthInstance,
   organizationId: string,

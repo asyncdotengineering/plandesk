@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { OrgRole } from '@plandesk/db';
-import { hasAnyWritePermission, type PermissionSet } from './permissions.js';
+import type { PermissionSet } from './permissions.js';
 
 /**
  * Request-scoped auth. Middleware resolves org + effective permission once,
@@ -102,19 +102,4 @@ export function getOrgAuthContext(): OrgAuthContext {
 
 export function tryGetAuthContext(): AuthContext | undefined {
   return storage.getStore();
-}
-
-export class ReadOnlyTokenError extends Error {
-  constructor() {
-    super('read-only token cannot perform write operations');
-    this.name = 'ReadOnlyTokenError';
-  }
-}
-
-/** Reject pure read-only callers (empty permission set). Guests never write. */
-export function assertWriteAccess(): void {
-  const ctx = getAuthContext();
-  if (ctx.kind === 'guest' || !hasAnyWritePermission(ctx.permission)) {
-    throw new ReadOnlyTokenError();
-  }
 }

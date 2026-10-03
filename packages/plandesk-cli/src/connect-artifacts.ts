@@ -790,18 +790,3 @@ export function deleteServerInfo(plandeskDir: string): void {
 export function resolveEffectivePort(plandeskDir: string, defaultPort: number): number {
   return readServerInfo(plandeskDir)?.port ?? readWorkspaceJson(plandeskDir)?.port ?? defaultPort;
 }
-
-export function committedPaths(repoDir: string): string[] {
-  return [
-    `${repoDir}/.plandesk/config.json`,
-    `${repoDir}/.plandesk/skill.md`,
-    `${repoDir}/.claude/skills/plandesk/SKILL.md`,
-    `${repoDir}/.agents/skills/plandesk/SKILL.md`,
-    `${repoDir}/.claude/commands/plandesk.md`,
-    `${repoDir}/.mcp.json`,
-    `${repoDir}/CLAUDE.md`,
-    `${repoDir}/AGENTS.md`,
-    `${repoDir}/.codex/commands/plandesk.md`,
-    `${repoDir}/.gitignore`,
-  ];
-}

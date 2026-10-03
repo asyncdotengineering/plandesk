@@ -6,10 +6,6 @@ export const CANVAS_MODES: readonly CanvasMode[] = ['arrange', 'interact', 'comm
 /** Arrange is the default so screen bodies are layoutable (frames eat events otherwise). */
 export const DEFAULT_CANVAS_MODE: CanvasMode = 'arrange';
 
-export function isCanvasMode(value: unknown): value is CanvasMode {
-  return value === 'arrange' || value === 'interact' || value === 'comment';
-}
-
 export function modeLabel(mode: CanvasMode): string {
   switch (mode) {
     case 'arrange':

@@ -33,7 +33,6 @@ import { createRevisionsRouter } from './routes/revisions.js';
 import { createSearchRouter } from './routes/search.js';
 import { createServices, type Services } from './services/index.js';
 import { ProjectNotInOrgError, WorkspaceNotFoundError } from './services/scope.js';
-import { ReadOnlyTokenError } from './auth-context.js';
 import { PermissionDeniedError } from './permissions.js';
 
 export type AppDeps = {
@@ -125,7 +124,7 @@ export function createApp(deps: AppDeps): Hono {
     if (err instanceof WorkspaceNotFoundError) {
       return c.json({ error: 'not_found' }, 404);
     }
-    if (err instanceof ReadOnlyTokenError || err instanceof PermissionDeniedError) {
+    if (err instanceof PermissionDeniedError) {
       return c.json({ error: 'forbidden' }, 403);
     }
     throw err;

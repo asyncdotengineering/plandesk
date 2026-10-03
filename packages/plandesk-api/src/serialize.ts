@@ -596,20 +596,6 @@ export type SerializedToken = {
   revoked_at: string | null;
 };
 
-export function serializeToken(token: {
-  id: string;
-  name: string;
-  created_at: string;
-  revoked_at: string | null;
-}): SerializedToken {
-  return {
-    id: token.id,
-    name: token.name,
-    created_at: token.created_at,
-    revoked_at: token.revoked_at,
-  };
-}
-
 /** Wire-format field names for revision snapshots / changed_fields. */
 export function revisionFieldToWire(field: string): string {
   if (field === 'statusLine') {

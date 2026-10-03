@@ -61,9 +61,6 @@ importers:
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@dnd-kit/utilities':
-        specifier: ^3.2.2
-        version: 3.2.2(react@19.2.7)
       '@fontsource/geist-sans':
         specifier: ^5.2.5
         version: 5.2.5
@@ -136,9 +133,6 @@ importers:
       lucide-react:
         specifier: ^1.24.0
         version: 1.24.0(react@19.2.7)
-      marked:
-        specifier: ^18.0.5
-        version: 18.0.5
       mermaid:
         specifier: ^11.16.0
         version: 11.16.0

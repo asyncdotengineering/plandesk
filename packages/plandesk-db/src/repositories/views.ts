@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
 import {
   parseSavedViewConfig,
@@ -93,18 +93,6 @@ export async function deleteView(db: DbClient, id: string): Promise<boolean> {
 export async function deleteViewsByProjectId(db: DbClient, projectId: string): Promise<number> {
   const result = await db.delete(views).where(eq(views.projectId, projectId)).run();
   return result.rowsAffected;
-}
-
-export async function getViewInProject(
-  db: DbClient,
-  projectId: string,
-  id: string,
-): Promise<View | undefined> {
-  return db
-    .select()
-    .from(views)
-    .where(and(eq(views.projectId, projectId), eq(views.id, id)))
-    .get();
 }
 
 /** Parse the config column; throws InvalidSavedViewConfigError if corrupt. */

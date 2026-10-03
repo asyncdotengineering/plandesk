@@ -1,11 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, asc, eq } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
-import { commentTargetTypes, comments, type CommentTargetType } from '../schema.js';
-
-export function isCommentTargetType(value: string): value is CommentTargetType {
-  return (commentTargetTypes as readonly string[]).includes(value);
-}
+import { comments, type CommentTargetType } from '../schema.js';
 
 export type Comment = typeof comments.$inferSelect;
 

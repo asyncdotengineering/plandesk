@@ -14,7 +14,6 @@ import {
   createNote,
   createProject,
   createProjectView,
-  createTag,
   createTask,
   deleteWorkspace,
   getGoal,
@@ -25,14 +24,12 @@ import {
   deleteFolder,
   deleteNote,
   deleteProject,
-  deleteTag,
   deleteTask,
   deleteView,
   getCanvas,
   getDocument,
   getNote,
   getProject,
-  getTaskDocument,
   listAgentRuns,
   listOrgMembers,
   listComments,
@@ -51,7 +48,6 @@ import {
   listProjectViews,
   listSubmissions,
   listTags,
-  listTaskBacklinks,
   listTasks,
   listWorkspaceMembers,
   addWorkspaceMember,
@@ -59,12 +55,10 @@ import {
   moveProject,
   pauseGoal,
   patchComment,
-  patchGoal,
   patchDocument,
   patchFolder,
   patchNote,
   patchProject,
-  patchTag,
   patchTask,
   patchView,
   putCanvas,
@@ -81,17 +75,14 @@ import {
   type CreateFolderInput,
   type CreateNoteInput,
   type CreateProjectInput,
-  type CreateTagInput,
   type CreateTaskInput,
   type CreateViewInput,
   type PatchCommentInput,
   type PatchDocumentInput,
-  type PatchGoalInput,
   type PatchFolderInput,
   type PatchNoteInput,
   type PatchArtifactInput,
   type PatchProjectInput,
-  type PatchTagInput,
   type PatchTaskInput,
   type PatchViewInput,
   type PutCanvasInput,
@@ -122,8 +113,6 @@ export const queryKeys = {
     projectId !== undefined
       ? ([`${targetType}s`, targetId, 'comments', projectId] as const)
       : ([`${targetType}s`, targetId, 'comments'] as const),
-  taskDocument: (taskId: string) => ['tasks', taskId, 'document'] as const,
-  taskBacklinks: (taskId: string) => ['tasks', taskId, 'backlinks'] as const,
 
   agentRuns: (projectId: string) => ['projects', projectId, 'agent-runs'] as const,
   submissions: (projectId: string, status?: SubmissionStatus) =>
@@ -213,44 +202,6 @@ export function useTags(projectId: string) {
     queryKey: queryKeys.tags(projectId),
     queryFn: () => listTags(projectId),
     ...liveQueryOptions,
-  });
-}
-
-function invalidateTagQueries(queryClient: ReturnType<typeof useQueryClient>, projectId: string) {
-  void queryClient.invalidateQueries({ queryKey: queryKeys.tags(projectId) });
-  // renames/deletes change the tag chips embedded in task payloads
-  // Invalidate the tasks *prefix* (not `…/tasks/all`) so status-scoped lists
-  // (backlog, scope) the inbox reads are refetched — React Query matches by prefix.
-  void queryClient.invalidateQueries({ queryKey: queryKeys.tasksRoot(projectId) });
-}
-
-export function useCreateTag(projectId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: CreateTagInput) => createTag(projectId, input),
-    onSuccess: () => {
-      invalidateTagQueries(queryClient, projectId);
-    },
-  });
-}
-
-export function usePatchTag() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: PatchTagInput }) => patchTag(id, input),
-    onSuccess: (tag) => {
-      invalidateTagQueries(queryClient, tag.project_id);
-    },
-  });
-}
-
-export function useDeleteTag() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id }: { id: string; projectId: string }) => deleteTag(id),
-    onSuccess: (_result, { projectId }) => {
-      invalidateTagQueries(queryClient, projectId);
-    },
   });
 }
 
@@ -626,23 +577,6 @@ export function useDeleteEdge(projectId: string) {
   });
 }
 
-export function useTaskDocument(taskId: string) {
-  return useQuery({
-    queryKey: queryKeys.taskDocument(taskId),
-    queryFn: () => getTaskDocument(taskId),
-    ...liveQueryOptions,
-  });
-}
-
-export function useTaskBacklinks(taskId: string | undefined) {
-  return useQuery({
-    queryKey: queryKeys.taskBacklinks(taskId ?? ''),
-    queryFn: () => listTaskBacklinks(taskId as string),
-    enabled: taskId !== undefined && taskId.length > 0,
-    ...liveQueryOptions,
-  });
-}
-
 export function useCreateCliToken() {
   return useMutation({
     mutationFn: (name?: string) => createCliToken(name),
@@ -738,16 +672,6 @@ export function useCreateGoal(projectId: string) {
     mutationFn: (input: CreateGoalInput) => createGoal(projectId, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.goals(projectId) });
-    },
-  });
-}
-
-export function usePatchGoal(projectId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: PatchGoalInput }) => patchGoal(id, input),
-    onSuccess: (goal) => {
-      invalidateGoalQueries(queryClient, projectId, goal.id);
     },
   });
 }

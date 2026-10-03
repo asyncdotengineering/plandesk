@@ -243,16 +243,6 @@ export type PatchTaskInput = {
   commit_refs?: string[] | null;
 };
 
-export type CreateTagInput = {
-  name: string;
-  color?: string | null;
-};
-
-export type PatchTagInput = {
-  name?: string;
-  color?: string | null;
-};
-
 export type PatchProjectInput = {
   name?: string;
   description?: string | null;
@@ -723,23 +713,6 @@ export function listTags(projectId: string): Promise<SerializedTag[]> {
   return request(`/projects/${projectId}/tags`);
 }
 
-export function createTag(projectId: string, input: CreateTagInput): Promise<SerializedTag> {
-  return request(`/projects/${projectId}/tags`, {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-}
-
-// Renaming propagates to every task carrying the tag (single tag row).
-export function patchTag(id: string, input: PatchTagInput): Promise<SerializedTag> {
-  return request(`/tags/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
-}
-
-// Deleting a tag removes it from all its tasks (cascade on the join table).
-export function deleteTag(id: string): Promise<void> {
-  return request(`/tags/${id}`, { method: 'DELETE' });
-}
-
 export function patchProject(id: string, input: PatchProjectInput): Promise<SerializedProject> {
   return request(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
 }
@@ -975,14 +948,6 @@ export function deleteEdge(projectId: string, edgeId: string): Promise<void> {
   return request(`/projects/${projectId}/edges/${edgeId}`, { method: 'DELETE' });
 }
 
-export function listTaskBacklinks(taskId: string): Promise<SerializedEntityLink[]> {
-  return request(`/tasks/${taskId}/backlinks`);
-}
-
-export function getTaskDocument(taskId: string): Promise<SerializedDocument> {
-  return request(`/tasks/${taskId}/document`);
-}
-
 /** Session-minted org-wide owner key for `plandesk login` (BA4b-2). Shown once. */
 export type CreateCliTokenResponse = {
   token: string;
@@ -1169,17 +1134,6 @@ export type CreateGoalInput = {
   budget?: string | null;
 };
 
-export type PatchGoalInput = {
-  name?: string | null;
-  objective?: string;
-  verification_surface?: string | null;
-  constraints?: string | null;
-  boundaries?: string | null;
-  iteration_policy?: string | null;
-  stop_condition?: string | null;
-  budget?: string | null;
-};
-
 export type VerificationEvidence =
   | { kind: 'gate_command'; exit_code: number; stdout?: string; stderr?: string }
   | { kind: 'acceptance_checklist'; checked: string[] }
@@ -1198,10 +1152,6 @@ export function createGoal(projectId: string, input: CreateGoalInput): Promise<S
     method: 'POST',
     body: JSON.stringify(input),
   });
-}
-
-export function patchGoal(goalId: string, input: PatchGoalInput): Promise<SerializedGoal> {
-  return request(`/goals/${goalId}`, { method: 'PATCH', body: JSON.stringify(input) });
 }
 
 export function pauseGoal(goalId: string): Promise<SerializedGoal> {
