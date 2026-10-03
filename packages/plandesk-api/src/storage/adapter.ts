@@ -22,3 +22,14 @@ export type StorageAdapter = {
 export function fileUrl(id: string): string {
   return `/api/v1/files/${id}`;
 }
+
+/** The backing store refused a write; `status` is its HTTP status. */
+export class StorageError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'StorageError';
+    this.status = status;
+  }
+}

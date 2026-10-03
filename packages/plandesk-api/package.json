@@ -44,6 +44,7 @@
     "@hono/node-server": "^2.0.4",
     "@libsql/kysely-libsql": "^0.4.1",
     "@plandesk/db": "workspace:*",
+    "aws4fetch": "^1.0.20",
     "better-auth": "1.6.23",
     "csv-stringify": "^6.8.1",
     "diff": "^9.0.0",
