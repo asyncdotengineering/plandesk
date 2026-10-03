@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  # sqld from the official libSQL release; the hash is the release's own .sha256.
+  SQLD_VERSION: libsql-server-v0.24.32
+  SQLD_SHA256: 71720fc8648c19efef416efebd47145ef59b62e198770533530a858e1336879f
+  # The sqld-backed vitest suites fail instead of skipping when sqld is missing.
+  PLANDESK_REQUIRE_SQLD: '1'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - run: corepack enable
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install sqld
+        run: &install-sqld |
+          asset=libsql-server-x86_64-unknown-linux-gnu
+          curl -fsSLo "$RUNNER_TEMP/$asset.tar.xz" "https://github.com/tursodatabase/libsql/releases/download/$SQLD_VERSION/$asset.tar.xz"
+          echo "$SQLD_SHA256  $RUNNER_TEMP/$asset.tar.xz" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/$asset.tar.xz" -C "$RUNNER_TEMP"
+          sudo install "$RUNNER_TEMP/$asset/sqld" /usr/local/bin/sqld
+          sqld --version
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm -r typecheck
+      - run: pnpm --filter plandesk-web exec tsc --noEmit
+      - run: pnpm lint
+      - run: pnpm -r test
+      - run: node packages/plandesk-db/scripts/bundle-migrations.mjs --check
+
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [docker, cloudflare, vercel]
+    steps:
+      - uses: actions/checkout@v7
+      - run: corepack enable
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install sqld
+        run: *install-sqld
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # On Linux the script binds sqld on 0.0.0.0 for the docker target and maps
+      # host.docker.internal to the host gateway, so the container reaches it.
+      - run: node scripts/smoke-deploy.mjs ${{ matrix.target }}
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-${{ matrix.target }}-logs
+          path: .agents/factory/runs/smoke-*.log
+          include-hidden-files: true

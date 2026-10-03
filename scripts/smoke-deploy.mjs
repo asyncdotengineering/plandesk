@@ -92,9 +92,13 @@ function start(cmd, args, opts = {}) {
 
 function run(cmd, args, opts = {}, { logStdout = true } = {}) {
   logCmd(cmd, args);
+  const t0 = Date.now();
   const res = spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8', ...opts });
   const out = logStdout ? (res.stdout ?? '') : '<stdout withheld>\n';
-  appendFileSync(logFd, `${out}${res.stderr ?? ''}${res.error ? res.error.message : ''}\n`);
+  appendFileSync(
+    logFd,
+    `${out}${res.stderr ?? ''}${res.error ? res.error.message : ''}\n(${Date.now() - t0}ms)\n`,
+  );
   return res;
 }
 
@@ -111,10 +115,23 @@ function freePort() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// One connection per probe. `run` blocks the event loop on spawnSync; a pooled
+// keep-alive socket the target closed meanwhile (its idle timeout is 5 s) gets
+// reused for the next request and resets, and fetch never retries a POST.
 async function probe(url, init = {}) {
+  const t0 = Date.now();
+  const line = (what) =>
+    appendFileSync(logFd, `probe ${init.method ?? 'GET'} ${url} -> ${what} ${Date.now() - t0}ms\n`);
   try {
-    return await fetch(url, { ...init, signal: AbortSignal.timeout(5_000) });
-  } catch {
+    const res = await fetch(url, {
+      ...init,
+      headers: { ...init.headers, connection: 'close' },
+      signal: AbortSignal.timeout(5_000),
+    });
+    line(res.status);
+    return res;
+  } catch (err) {
+    line(`no answer (${err.cause?.code ?? err.name})`);
     return undefined;
   }
 }

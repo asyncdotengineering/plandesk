@@ -139,9 +139,15 @@ describe('bundled migrate on a local database', () => {
   });
 });
 
+// CI sets PLANDESK_REQUIRE_SQLD=1 so a missing binary fails the run instead of
+// silently skipping the remote-database coverage.
 function findSqld(): string | undefined {
   const onPath = (process.env.PATH ?? '').split(delimiter).map((dir) => join(dir, 'sqld'));
-  return [...onPath, join(homedir(), '.turso', 'sqld')].find((bin) => existsSync(bin));
+  const bin = [...onPath, join(homedir(), '.turso', 'sqld')].find((path) => existsSync(path));
+  if (bin === undefined && process.env.PLANDESK_REQUIRE_SQLD === '1') {
+    throw new Error('PLANDESK_REQUIRE_SQLD=1 but no sqld on PATH or at ~/.turso/sqld');
+  }
+  return bin;
 }
 
 async function freePort(): Promise<number> {
