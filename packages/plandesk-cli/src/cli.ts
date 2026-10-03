@@ -29,13 +29,6 @@ import {
 } from './admin.js';
 import { runExport, ProjectNotFoundError } from './export.js';
 import { runImport, InvalidImportFileError } from './import.js';
-import {
-  formatLegacyUpgradePreview,
-  formatLegacyUpgradeSummary,
-  LegacyUpgradeError,
-  previewLegacyUpgrade,
-  runLegacyUpgrade,
-} from './legacy-upgrade.js';
 import { formatGoOnlineSummary, GoOnlineError, runGoOnline } from './go-online.js';
 import { formatDoctorReport, runDoctor } from './doctor.js';
 import { ConnectError, formatConnectPrint, formatConnectSummary, runConnect } from './connect.js';
@@ -274,39 +267,6 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
           return reportCorruptDb();
         }
         if (err instanceof InvalidImportFileError) {
-          process.stderr.write(`${err.message}\n`);
-          return 1;
-        }
-        throw err;
-      }
-    }
-    case 'legacy-upgrade': {
-      try {
-        printBoard(parsed.dataDir);
-        if (parsed.print) {
-          const preview = await previewLegacyUpgrade({
-            from: parsed.from,
-            dataDir: parsed.dataDir,
-          });
-          process.stdout.write(formatLegacyUpgradePreview(preview));
-          return 0;
-        }
-        const result = await runLegacyUpgrade({
-          from: parsed.from,
-          dataDir: parsed.dataDir,
-          intoWorkspace: parsed.intoWorkspace,
-        });
-        process.stdout.write(`${formatLegacyUpgradeSummary(result)}\n`);
-        return 0;
-      } catch (err) {
-        if (err instanceof CorruptWorkspaceError) {
-          return reportCorruptDb();
-        }
-        if (err instanceof LegacyUpgradeError) {
-          process.stderr.write(`${err.message}\n`);
-          return 1;
-        }
-        if (err instanceof WorkspaceNotFoundError) {
           process.stderr.write(`${err.message}\n`);
           return 1;
         }

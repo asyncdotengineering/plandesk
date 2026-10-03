@@ -142,7 +142,7 @@ Edge count after migration should equal your old edge count **plus** the number 
 ## The 0.20.x → better-auth upgrade (breaking)
 
 :::danger[Version boundary — read before you upgrade past 0.20.0]
-If you're running **0.20.0 or earlier**, the next upgrade is **not** routine. The database schema baseline was replaced (no in-place migration) and the workspace moved from a per-repo `.plandesk/workspace.db` default to a **machine-global board** at `~/.plandesk/workspace.db`. `npm i -g @plandesk/cli@latest` followed by `plandesk serve` will **not** carry your old data forward automatically — you must run `plandesk legacy-upgrade` to bring it into the new board. Nothing is deleted: your old `workspace.db` is backed up in place before anything is imported.
+If you're running **0.20.0 or earlier**, the next upgrade is **not** routine. The database schema baseline was replaced (no in-place migration) and the workspace moved from a per-repo `.plandesk/workspace.db` default to a **machine-global board** at `~/.plandesk/workspace.db`. `npm i -g @plandesk/cli@latest` followed by `plandesk serve` will **not** carry your old data forward automatically — you must run `npx @plandesk/cli@3.6.0 legacy-upgrade` to bring it into the new board. Nothing is deleted: your old `workspace.db` is backed up in place before anything is imported.
 :::
 
 ### What changed and why
@@ -153,11 +153,13 @@ At the same time, the workspace default moved to one **global board per machine*
 
 ### Lift your old data in — one command
 
-`plandesk legacy-upgrade` **creates the new global board itself** if it doesn't exist yet, then imports your old data — so the whole upgrade is a single command:
+The upgrader ships in releases up to **3.6.0** and was retired after it, so run it from that release with `npx` (no global install needed); afterwards upgrade to the latest version the routine way.
+
+`npx @plandesk/cli@3.6.0 legacy-upgrade` **creates the new global board itself** if it doesn't exist yet, then imports your old data — so the whole upgrade is a single command:
 
 ```bash
 npm i -g @plandesk/cli@latest
-plandesk legacy-upgrade [--from <path-to-old-workspace.db>]
+npx @plandesk/cli@3.6.0 legacy-upgrade [--from <path-to-old-workspace.db>]
 ```
 
 (Prefer to create the board explicitly? Run `plandesk init` first — `legacy-upgrade` reuses it. Either way, your old database is never touched — only read and backed up.)
@@ -241,7 +243,7 @@ Without `--prune` you keep both rosters — thirteen skills instead of six, with
 
 Released as `1.0.0-beta.1`–`1.0.0-beta.8` (2026-07-18) under the `beta` npm tag; `@latest` moved to `1.0.0` at GA.
 
-**Breaking.** See [The 0.20.x → better-auth upgrade](#the-020x--better-auth-upgrade-breaking) above for the full migration path. Summary: auth is now 100% better-auth (GitHub social web sign-in, paste-a-token CLI, project-scoped agent keys); `mcp_tokens`, GitHub device-code CLI login, hand-rolled sessions, and the old `orgs`/`org_members` schema are removed; the Drizzle migration baseline was reset (no in-place migration); the workspace default moved to one global board per machine. Use `plandesk legacy-upgrade` to lift a 0.20.x-era board into the new one.
+**Breaking.** See [The 0.20.x → better-auth upgrade](#the-020x--better-auth-upgrade-breaking) above for the full migration path. Summary: auth is now 100% better-auth (GitHub social web sign-in, paste-a-token CLI, project-scoped agent keys); `mcp_tokens`, GitHub device-code CLI login, hand-rolled sessions, and the old `orgs`/`org_members` schema are removed; the Drizzle migration baseline was reset (no in-place migration); the workspace default moved to one global board per machine. Use `npx @plandesk/cli@3.6.0 legacy-upgrade` to lift a 0.20.x-era board into the new one.
 
 Hardening across the beta line: Cloudflare Workers deploy fixes (beta.2); R2 file storage, a public `/api/v1/health`, and `plandesk admin invite-owner --db` for remote bootstrap (beta.3); dashboard member invites for owners and admins (beta.4); the working `/invite/:id` claim flow and branded auth pages (beta.5); and a full web user-flow UX audit (beta.6–beta.7).
 

@@ -65,7 +65,6 @@ This is enforced in the service layer (`assertProjectInWorkspace`), extending th
 | `plandesk workspace list [--to <org>]`                             | List workspaces in an org                                        |
 | `plandesk connect [--workspace <name>] [--to <org>]`               | Bind a repo to a workspace; mint a workspace-scoped key (hosted) |
 | `plandesk go-online [--to <org>] [--all \| --workspace <name>...]` | Push local workspaces + projects up to a hosted org              |
-| `plandesk legacy-upgrade [--into-workspace <name>]`                | Import an old board into a workspace                             |
 
 See [CLI reference](/reference/cli/) for flags. Connecting a repo to a workspace writes a `plandesk-connect-v2` config — see [plandesk connect](/connecting-agents/connect/).
 

@@ -11,7 +11,7 @@ Data lives in a local SQLite file. Docs: https://plandesk.asyncdot.com (or
 
 - **Already on Plan Desk 0.20.x or earlier?** The 1.0 schema change is
   breaking — do not run `plandesk init`/`connect` straight against an old
-  board. Run `plandesk legacy-upgrade` first; see
+  board. Run `npx @plandesk/cli@3.6.0 legacy-upgrade` first; see
   https://plandesk.asyncdot.com/reference/upgrading.
 - **A server might already be running on the default port** — possibly
   serving a _different_ board than the one you expect. Check with
@@ -84,7 +84,7 @@ plandesk init
 
 # UPGRADING an existing install (Plan Desk 0.20.x or earlier)? The schema + board
 # location changed — an old workspace.db won't load directly. Instead of `init`,
-# run `plandesk legacy-upgrade` once: it creates the new board AND imports your
+# run `npx @plandesk/cli@3.6.0 legacy-upgrade` once: it creates the new board AND imports your
 # old projects/tasks/docs (old file backed up). See docs → Upgrading. Fresh
 # install: ignore this and keep the `plandesk init` above.
 
@@ -121,7 +121,7 @@ binding model didn't exist yet), not a v1 binding — do not run `connect` on to
 of it, it will not pick up that data. Either move it aside first
 (`mv .plandesk/workspace.db .plandesk/workspace.db.pre-1.0`) so `init`/`connect`
 start clean, or import it into the current board with
-`plandesk legacy-upgrade --from .plandesk/workspace.db` (see
+`npx @plandesk/cli@3.6.0 legacy-upgrade --from .plandesk/workspace.db` (see
 https://plandesk.asyncdot.com/reference/upgrading), then continue below.
 
 Otherwise, ask the user: **reuse an existing Plan Desk project, or create a new one?**

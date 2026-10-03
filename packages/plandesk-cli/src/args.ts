@@ -68,8 +68,7 @@ export type ResolvedBoard = {
 
 /**
  * Single source of truth for which board (data-dir) a command operates on.
- * Every board-touching command (init, serve, doctor, legacy-upgrade,
- * export/import/push) resolves through this one function so they always
+ * Every board-touching command (init, serve, doctor, export/import/push) resolves through this one function so they always
  * agree on the same board in the same repo.
  *
  * Precedence: explicit override (`--data-dir`) → `PLANDESK_DATA_DIR` env →
@@ -149,7 +148,6 @@ export const RESERVED_COMMANDS = new Set([
   'admin',
   'export',
   'import',
-  'legacy-upgrade',
   'go-online',
   'connect',
   'disconnect',
@@ -211,13 +209,6 @@ export type ParsedArgs =
     }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
-  | {
-      command: 'legacy-upgrade';
-      from?: string;
-      dataDir?: string;
-      intoWorkspace?: string | true;
-      print: boolean;
-    }
   | {
       command: 'go-online';
       dataDir?: string;
@@ -526,22 +517,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
     return { command: 'import', inPath, dataDir };
   }
 
-  if (command === 'legacy-upgrade') {
-    const intoWorkspaceRaw = flags['into-workspace'];
-    return {
-      command: 'legacy-upgrade',
-      from: flagString(flags, 'from'),
-      dataDir,
-      intoWorkspace:
-        typeof intoWorkspaceRaw === 'string'
-          ? intoWorkspaceRaw
-          : intoWorkspaceRaw === true
-            ? true
-            : undefined,
-      print: flags['print'] === true,
-    };
-  }
-
   if (command === 'go-online') {
     return {
       command: 'go-online',
@@ -717,7 +692,6 @@ Usage:
   plandesk admin invite-owner --email <email> --db <url> [--db-token <t>] [--secret <s>]  # remote Turso bootstrap (secret or PLANDESK_BETTER_AUTH_SECRET)
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]
-  plandesk legacy-upgrade [--from <old-workspace.db>] [--data-dir <dir>]   # lift a 0.20.0-era board into the global board
   plandesk go-online [--to <orgId>] [--server <url>] [--token <key>] [--all | --workspace <name>...]   # push local workspaces + projects up to a hosted org (requires plandesk login)
   plandesk connect [--repo <dir>] [--project <id|name>] [--workspace <name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
   plandesk connect --to <orgId> [--project <id|name>] [--workspace <name>] [--repo <dir>] [--print]   # hosted: mint scoped agent key (requires plandesk login)
@@ -759,7 +733,6 @@ Options:
   --prune     (factory sync) delete what the CLI no longer ships: owned policy files, plus skills it wrote that you have not edited (foreign skills are never touched)
   --out       Output file for export
   --in        Input file for import
-  --from      (legacy-upgrade) path to an old workspace.db (default: ~/.plandesk/workspace.db or ./.plandesk/workspace.db)
   --to        Hosted org id: connect mints a scoped agent key; push promotes into this org
   --message   (progress-checkpoint) checkpoint text (default: "checkpoint (hook)")
 `;
@@ -867,22 +840,6 @@ AND serving the same board doctor itself resolved (prints a
   --config     Server config file to resolve (default: <data-dir>/plandesk.server.json).
 
 Exit code: 0 healthy, 1 issues found, 2 corrupt database.
-`,
-  'legacy-upgrade': `plandesk legacy-upgrade [--from <old-workspace.db>] [--data-dir <dir>] [--into-workspace [<name>]] [--print]
-
-Lift a pre-1.0 (0.20.0-era) board into the current board. Reads the old
-workspace.db (--from, else ~/.plandesk/workspace.db or
-./.plandesk/workspace.db), imports its projects/tasks/documents into the
-target board (--data-dir, else the resolved board), and backs the old
-file up to <path>.pre-legacy-upgrade before writing.
-
-  --from            Path to the old workspace.db.
-  --data-dir        Target board directory (default: resolved board).
-  --into-workspace  Import into a named workspace/team (default: source folder name).
-  --print           Dry-run: print resolved source/target and would-be import/skip counts. Writes nothing.
-
-Refuses (exit 1) instead of crashing when the target already holds an
-unmigrated old-schema database at that path.
 `,
   status: `plandesk status (alias: ps)
 

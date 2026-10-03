@@ -12,7 +12,6 @@ export {
   type DbTx,
 } from './client.js';
 export { isSqliteBusy, retryOnSqliteBusy } from './sqlite-errors.js';
-export { checkpointWalForFileCopy, WalCheckpointError } from './wal-file-copy.js';
 export { migrate } from './migrate.js';
 export {
   SchemaDriftError,

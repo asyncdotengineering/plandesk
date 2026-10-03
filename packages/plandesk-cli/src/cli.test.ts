@@ -105,7 +105,7 @@ describe('parseArgs', () => {
   });
 
   describe('per-command --help (REQ-A6a)', () => {
-    it.each(['legacy-upgrade', 'serve', 'init', 'connect', 'doctor', 'status'])(
+    it.each(['serve', 'init', 'connect', 'doctor', 'status'])(
       "`%s --help` routes to that command's own help, not the generic banner",
       (command) => {
         expect(parseArgs(['node', 'plandesk', command, '--help'])).toEqual({
@@ -115,18 +115,6 @@ describe('parseArgs', () => {
         });
       },
     );
-
-    it('legacy-upgrade --help names --from, --data-dir, and --print', () => {
-      expect(parseArgs(['node', 'plandesk', 'legacy-upgrade', '--help'])).toEqual({
-        command: 'help',
-        full: false,
-        topic: 'legacy-upgrade',
-      });
-      const help = commandHelp('legacy-upgrade');
-      expect(help).toContain('--from');
-      expect(help).toContain('--data-dir');
-      expect(help).toContain('--print');
-    });
 
     it('bare `plandesk --help` and `plandesk help` still resolve to the generic banner', () => {
       expect(parseArgs(['node', 'plandesk', '--help'])).toEqual({ command: 'help', full: false });
@@ -146,7 +134,7 @@ describe('parseArgs', () => {
       expect(commandHelp('not-a-real-command')).toBeUndefined();
     });
 
-    it('`plandesk legacy-upgrade --help` prints per-command help via the CLI, not the crash course', async () => {
+    it('`plandesk doctor --help` prints per-command help via the CLI, not the crash course', async () => {
       const stdoutChunks: string[] = [];
       const stdoutSpy = vi
         .spyOn(process.stdout, 'write')
@@ -156,14 +144,14 @@ describe('parseArgs', () => {
         });
       let code = 1;
       try {
-        code = await main(['node', 'plandesk', 'legacy-upgrade', '--help']);
+        code = await main(['node', 'plandesk', 'doctor', '--help']);
       } finally {
         stdoutSpy.mockRestore();
       }
       const stdout = stdoutChunks.join('');
       expect(code).toBe(0);
-      expect(stdout).toContain('--from');
-      expect(stdout).toContain('--print');
+      expect(stdout).toContain('--repo');
+      expect(stdout).toContain('--config');
       expect(stdout).not.toEqual(crashCourse());
     });
   });
