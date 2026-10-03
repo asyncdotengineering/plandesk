@@ -35,6 +35,8 @@ const TASK_UPDATE_COLUMN_BY_KEY: Record<keyof TaskUpdate, string> = {
   dueDate: 'due_date',
   goalId: 'goal_id',
   commitRefs: 'commit_refs',
+  verifiedAt: 'verified_at',
+  verifiedRef: 'verified_ref',
 };
 
 export function taskUpdateColumns(input: TaskUpdate): string[] {

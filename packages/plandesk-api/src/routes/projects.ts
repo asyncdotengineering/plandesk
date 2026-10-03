@@ -7,7 +7,7 @@ import {
   InvalidTaskStatusError,
   InvalidTaskSeverityError,
   UnstoredColumnError,
-  isValidFolderPath,
+  isValidRepoRelativePath,
   isValidRegisteredRepoRoot,
   isValidRepoUrl,
 } from '@plandesk/db';
@@ -31,11 +31,13 @@ import {
 import { isValidCommitRefs, normalizeCommitRefs } from '@plandesk/db';
 import { parsePaginationParams } from '../serialize.js';
 import { WorkspaceNotFoundError } from '../services/scope.js';
+import type { ReferenceCheckService } from '../services/reference-check.js';
 
 export function createProjectsRouter(
   projectService: ProjectService,
   taskService: TaskService,
   exportService: ProjectExportService,
+  referenceCheckService: ReferenceCheckService,
 ): Hono {
   const router = new Hono();
 
@@ -80,7 +82,7 @@ export function createProjectsRouter(
       }
     }
     if (body.folder_path !== undefined && body.folder_path !== null) {
-      if (typeof body.folder_path !== 'string' || !isValidFolderPath(body.folder_path)) {
+      if (typeof body.folder_path !== 'string' || !isValidRepoRelativePath(body.folder_path)) {
         return invalidArgument(c, 'folder_path', 'folder_path must be a string');
       }
     }
@@ -112,6 +114,14 @@ export function createProjectsRouter(
       }
       throw error;
     }
+  });
+
+  router.get('/projects/:id/reference-check', async (c) => {
+    const result = await referenceCheckService.check(c.req.param('id'));
+    if (!result) {
+      return c.json({ error: 'not_found' }, 404);
+    }
+    return c.json(result);
   });
 
   router.get('/projects/:id', async (c) => {
@@ -157,7 +167,7 @@ export function createProjectsRouter(
     if (body.folder_path !== undefined && body.folder_path !== null) {
       if (
         typeof body.folder_path !== 'string' ||
-        (!isValidFolderPath(body.folder_path) && !isValidRegisteredRepoRoot(body.folder_path))
+        (!isValidRepoRelativePath(body.folder_path) && !isValidRegisteredRepoRoot(body.folder_path))
       ) {
         return invalidArgument(c, 'folder_path', 'folder_path must be a string');
       }

@@ -23,6 +23,16 @@ const commitRefsField = z
   .nullable()
   .optional();
 
+const verifiedAtField = z
+  .string()
+  .refine((value) => !Number.isNaN(new Date(value).getTime()), {
+    message: 'verified_at must be a valid date',
+  })
+  .nullable()
+  .optional();
+
+const verifiedRefField = z.string().min(1).nullable().optional();
+
 const tagsField = z.array(z.string().min(1)).optional();
 
 const taskMutableFields = {
@@ -45,6 +55,9 @@ export const patchTaskBodySchema = z
     label: z.string().optional(),
     goal_id: z.string().uuid().nullable().optional(),
     ...taskMutableFields,
+    // Verification is an event on an existing task, so only updates carry it.
+    verified_at: verifiedAtField,
+    verified_ref: verifiedRefField,
   })
   .strict();
 

@@ -37,6 +37,8 @@ export type NewTask = {
   dueDate?: Date | null;
   /** JSON text of a string[], or null. */
   commitRefs?: string | null;
+  verifiedAt?: Date | null;
+  verifiedRef?: string | null;
   id?: string;
 };
 
@@ -56,6 +58,8 @@ export type TaskUpdate = {
   goalId?: string | null;
   /** JSON text of a string[], or null to clear. */
   commitRefs?: string | null;
+  verifiedAt?: Date | null;
+  verifiedRef?: string | null;
 };
 
 export class InvalidTaskStatusError extends Error {

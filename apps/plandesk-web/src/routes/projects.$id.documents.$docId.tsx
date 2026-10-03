@@ -15,6 +15,7 @@ import {
   useDocuments,
   usePatchDocument,
   useProject,
+  useProjectReferenceCheck,
 } from '../lib/queries.js';
 
 function DocumentPage() {
@@ -23,6 +24,13 @@ function DocumentPage() {
   const { data: project, isLoading: projectLoading, error: projectError } = useProject(id);
   const { data: document, isLoading: docLoading, error: docError } = useDocument(docId);
   const { data: allDocuments } = useDocuments(id);
+  const { data: referenceCheck } = useProjectReferenceCheck(id);
+  const sourcePathMissing =
+    document !== undefined &&
+    document.source_path !== null &&
+    referenceCheck !== undefined &&
+    !referenceCheck.unknown &&
+    referenceCheck.findings.some((f) => f.document_id === docId);
   const patchDocument = usePatchDocument();
   const deleteDocument = useDeleteDocument();
   const createComment = useCreateComment({ type: 'document', id: docId });
@@ -109,6 +117,7 @@ function DocumentPage() {
           mode={mode}
           projectId={id}
           docLinks={docLinks}
+          sourcePathMissing={sourcePathMissing}
           isSaving={patchDocument.isPending}
           isDeleting={deleteDocument.isPending}
           onCreateComment={async ({ passage, body }) => {

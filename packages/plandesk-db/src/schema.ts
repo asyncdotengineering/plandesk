@@ -151,6 +151,8 @@ export const tasks = sqliteTable('tasks', {
   dueDate: integer('due_date', { mode: 'timestamp_ms' }),
   // JSON array of lowercase hex SHAs (7–40 chars). Null when never set / cleared.
   commitRefs: text('commit_refs'),
+  verifiedAt: integer('verified_at', { mode: 'timestamp_ms' }),
+  verifiedRef: text('verified_ref'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),
@@ -208,6 +210,9 @@ export const documents = sqliteTable('documents', {
   statusLine: text('status_line'),
   parentId: text('parent_id').references((): AnySQLiteColumn => documents.id),
   folderId: text('folder_id').references(() => folders.id),
+  sourcePath: text('source_path'),
+  verifiedAt: integer('verified_at', { mode: 'timestamp_ms' }),
+  verifiedRef: text('verified_ref'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .default(sql`(cast((julianday('now') - 2440587.5)*86400000 as integer))`),

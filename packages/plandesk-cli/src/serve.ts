@@ -1,6 +1,8 @@
+import { existsSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { getRequestListener } from '@hono/node-server';
 import {
+  isLoopbackBind,
   createApp,
   createBetterAuth,
   createServices,
@@ -10,7 +12,7 @@ import {
   mountStatic,
   runBetterAuthMigrations,
 } from '@plandesk/api';
-import { assertSchemaCurrent, createDb, migrate } from '@plandesk/db';
+import { assertSchemaCurrent, createDb, migrate, type ReferenceCheckFs } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
 import { resolveServerConfig } from './config.js';
@@ -79,6 +81,21 @@ export type ServeRuntime = {
   configPath?: string;
   strictPort: boolean;
 };
+
+/**
+ * Disk access for check_references, granted only on a loopback bind.
+ *
+ * Any org member can point a project's folder_path at an arbitrary absolute
+ * path, so on a server others can reach a disk probe would tell them whether
+ * any file on the host exists. Loopback means the caller is the machine's
+ * owner — the same rule attach_file follows. Elsewhere the check reports
+ * unknown.
+ */
+export function referenceCheckFsFor(bindHost: string): ReferenceCheckFs | undefined {
+  return isLoopbackBind(bindHost)
+    ? { pathExists: existsSync, folderExists: existsSync }
+    : undefined;
+}
 
 export function resolveServeOrigin(host: string, port: number): string {
   const advertisedHost = host.trim().toLowerCase() === 'localhost' ? '127.0.0.1' : host;
@@ -170,7 +187,13 @@ export async function startServer(
     cfg.values.storage.kind === 's3'
       ? createS3Adapter({ db, config: cfg.values.storage })
       : undefined;
-  const services = createServices({ db, auth, ...(storage !== undefined ? { storage } : {}) });
+  const referenceCheckFs = referenceCheckFsFor(host);
+  const services = createServices({
+    db,
+    auth,
+    ...(storage !== undefined ? { storage } : {}),
+    ...(referenceCheckFs !== undefined ? { referenceCheckFs } : {}),
+  });
   await backfillRepoFolderPathFromCwd(db);
   // Parent createApp resolves better-auth apiKey / session / loopback;
   // MCP requires that context (no independent auth path).

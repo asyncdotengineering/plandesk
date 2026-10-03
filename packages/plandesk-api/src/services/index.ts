@@ -21,10 +21,14 @@ import { createSyncService, type SyncService } from './sync.js';
 import { createRevisionService, type RevisionService } from './revisions.js';
 import { createSearchService, type SearchService } from './search.js';
 import { maxRevisionsFromEnv } from './revision-capture.js';
+import { createReferenceCheckService, type ReferenceCheckService } from './reference-check.js';
+import type { ReferenceCheckFs } from '@plandesk/db';
 
 export type ServicesDeps = {
   db: Db;
   storage?: StorageAdapter;
+  /** Node-only filesystem probes for reference checks; omit on Workers. */
+  referenceCheckFs?: ReferenceCheckFs | null;
   /** Fixed org scope for unit tests; production request path uses auth context. */
   orgId?: string;
   /** better-auth instance for workspace resolution (project creation). */
@@ -56,6 +60,7 @@ export type Services = {
   artifactService: ArtifactService;
   revisionService: RevisionService;
   searchService: SearchService;
+  referenceCheckService: ReferenceCheckService;
   storage: StorageAdapter;
 };
 
@@ -93,6 +98,10 @@ export function createServices(deps: ServicesDeps): Services {
     artifactService,
   });
   const searchService = createSearchService(scoped);
+  const referenceCheckService = createReferenceCheckService({
+    ...scoped,
+    referenceCheckFs: deps.referenceCheckFs,
+  });
 
   return {
     projectService,
@@ -114,6 +123,7 @@ export function createServices(deps: ServicesDeps): Services {
     artifactService,
     revisionService,
     searchService,
+    referenceCheckService,
     storage,
   };
 }

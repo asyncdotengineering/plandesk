@@ -53,6 +53,8 @@ const sampleProjectDetail: SerializedProjectDetail = {
 };
 
 const sampleTask: SerializedTask = {
+  verified_at: null,
+  verified_ref: null,
   id: 'task-1',
   project_id: 'proj-1',
   goal_id: 'goal-1',
@@ -70,6 +72,9 @@ const sampleTask: SerializedTask = {
 };
 
 const sampleDocument: SerializedDocument = {
+  verified_at: null,
+  verified_ref: null,
+  source_path: null,
   id: 'doc-1',
   project_id: 'proj-1',
   title: 'Spec',

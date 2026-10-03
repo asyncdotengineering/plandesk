@@ -3,7 +3,7 @@ import {
   artifactKinds,
   goalStatuses,
   isValidCommitRef,
-  isValidFolderPath,
+  isValidRepoRelativePath,
   isValidRepoUrl,
   linkEntityTypes,
   MAX_COMMIT_REFS,
@@ -23,7 +23,7 @@ const repoUrlSchema = z
 
 const folderPathSchema = z
   .string()
-  .refine(isValidFolderPath, { message: 'invalid folder_path' })
+  .refine(isValidRepoRelativePath, { message: 'invalid folder_path' })
   .nullable()
   .optional();
 
@@ -65,6 +65,31 @@ const DUE_DATE_FIELD = z
   .nullable()
   .optional()
   .describe('Due date (ISO 8601 string). Pass null to clear on update.');
+
+const SOURCE_PATH_FIELD = z
+  .string()
+  .refine(isValidRepoRelativePath, { message: 'invalid source_path' })
+  .nullable()
+  .optional()
+  .describe(
+    'Repo-relative path to the file this document mirrors. Pass null to clear. Never absolute and never contains .. segments.',
+  );
+
+const VERIFIED_AT_FIELD = z
+  .string()
+  .refine((value) => !Number.isNaN(new Date(value).getTime()), { message: 'invalid verified_at' })
+  .nullable()
+  .optional()
+  .describe(
+    'When this item was last verified against reality (ISO 8601). Explicit only — ordinary edits do not change it.',
+  );
+
+const VERIFIED_REF_FIELD = z
+  .string()
+  .min(1)
+  .nullable()
+  .optional()
+  .describe('Commit SHA or short ref recorded with verified_at. Requires verified_at when set.');
 
 const TAGS_FILTER_DESCRIPTION =
   'Optional tag-name filter with OR semantics: a task matches if it carries ANY of the given tags.';
@@ -154,6 +179,8 @@ export const updateTaskInputSchema = z.strictObject({
   tags: z.array(z.string().min(1)).optional().describe(TAGS_SET_DESCRIPTION),
   commit_refs: COMMIT_REFS_FIELD,
   due_date: DUE_DATE_FIELD,
+  verified_at: VERIFIED_AT_FIELD,
+  verified_ref: VERIFIED_REF_FIELD,
 });
 
 export const createDocumentInputSchema = z.strictObject({
@@ -171,6 +198,7 @@ export const createDocumentInputSchema = z.strictObject({
     .uuid()
     .optional()
     .describe('Folder to place the document in on create. Omit for Unfiled (project root).'),
+  source_path: SOURCE_PATH_FIELD,
 });
 
 export const updateDocumentInputSchema = z.strictObject({
@@ -191,6 +219,13 @@ export const updateDocumentInputSchema = z.strictObject({
     .describe(
       'Move the document into a folder (MCP equivalent of dragging onto a folder). Pass null to move it to Unfiled at the project root.',
     ),
+  source_path: SOURCE_PATH_FIELD,
+  verified_at: VERIFIED_AT_FIELD,
+  verified_ref: VERIFIED_REF_FIELD,
+});
+
+export const checkReferencesInputSchema = z.strictObject({
+  project_id: z.string().uuid(),
 });
 
 export const getDocumentInputSchema = z.strictObject({
@@ -492,6 +527,9 @@ const documentOutputShape = {
   status_line: z.string().nullable(),
   parent_id: z.string().uuid().nullable(),
   folder_id: z.string().uuid().nullable(),
+  source_path: z.string().nullable(),
+  verified_at: z.string().nullable(),
+  verified_ref: z.string().nullable(),
   links: z.array(z.object(entityLinkOutputShape)),
   backlinks: z.array(z.object(entityLinkOutputShape)),
   created_at: z.string(),
@@ -911,6 +949,7 @@ export const v1ToolNames = [
   'add_artifact_comment',
   'resolve_comment',
   'search',
+  'check_references',
   'sync_pull',
   'list_submissions',
   'triage_submission',
@@ -980,6 +1019,7 @@ export const v1ToolSchemas = {
   add_artifact_comment: addArtifactCommentInputSchema,
   resolve_comment: resolveCommentInputSchema,
   search: searchInputSchema,
+  check_references: checkReferencesInputSchema,
   sync_pull: syncPullInputSchema,
   list_submissions: listSubmissionsInputSchema,
   triage_submission: triageSubmissionInputSchema,

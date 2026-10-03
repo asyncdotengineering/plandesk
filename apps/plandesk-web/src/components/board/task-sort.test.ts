@@ -9,6 +9,8 @@ import { sortTasks, type SortSpec } from './task-sort.js';
 
 function makeTask(id: string, overrides: Partial<SerializedTask> = {}): SerializedTask {
   return {
+    verified_at: null,
+    verified_ref: null,
     id,
     project_id: 'proj-1',
     goal_id: 'goal-1',

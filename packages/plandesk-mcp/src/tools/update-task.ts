@@ -2,6 +2,8 @@ import {
   InvalidCommitRefsError,
   InvalidGoalReferenceError,
   InvalidTagError,
+  InvalidVerificationError,
+  parseVerificationInput,
   type TaskService,
 } from '@plandesk/api';
 import {
@@ -37,9 +39,24 @@ export function createUpdateTaskHandler(
   tags?: string[];
   commit_refs?: string[] | null;
   due_date?: string | null;
+  verified_at?: string | null;
+  verified_ref?: string | null;
 }) => Promise<ToolResult> {
   return async (args) => {
     try {
+      let verification;
+      try {
+        verification = parseVerificationInput({
+          verified_at: args.verified_at,
+          verified_ref: args.verified_ref,
+        });
+      } catch (error) {
+        if (error instanceof InvalidVerificationError) {
+          return toolInvalidArgument(error.message);
+        }
+        throw error;
+      }
+
       const task = await taskService.update(args.task_id, {
         ...(args.status !== undefined ? { status: args.status as TaskStatus } : {}),
         ...(args.kind !== undefined ? { kind: args.kind as TaskKind } : {}),
@@ -57,6 +74,10 @@ export function createUpdateTaskHandler(
         ...(args.due_date !== undefined
           ? { dueDate: args.due_date === null ? null : new Date(args.due_date) }
           : {}),
+        ...(verification.verifiedAt !== undefined ? { verifiedAt: verification.verifiedAt } : {}),
+        ...(verification.verifiedRef !== undefined
+          ? { verifiedRef: verification.verifiedRef }
+          : {}),
       });
       if (!task) {
         return toolNotFound();
@@ -72,7 +93,8 @@ export function createUpdateTaskHandler(
         error instanceof InvalidTagError ||
         error instanceof InvalidGoalReferenceError ||
         error instanceof InvalidCommitRefsError ||
-        error instanceof UnstoredColumnError
+        error instanceof UnstoredColumnError ||
+        error instanceof InvalidVerificationError
       ) {
         return toolInvalidArgument(error.message);
       }

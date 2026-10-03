@@ -28,7 +28,7 @@ import type {
 } from '../../lib/api.js';
 import { goalOptionLabel } from '../../lib/goal-choice.js';
 import { commitUrl } from '../../lib/commit-url.js';
-import { EntityTimestamps } from '../../lib/format-timestamp.js';
+import { EntityTimestamps, VerificationStatus } from '../../lib/format-timestamp.js';
 import { laneFromTags, LANE_TAG_PREFIX } from './board-utils.js';
 import { StatusMenu } from './StatusChip.js';
 
@@ -240,8 +240,9 @@ function TaskDrawerBody({
           <h2 className="mb-1 text-[15px] font-semibold leading-snug">{task.label}</h2>
         )}
 
-        <div className="mb-3">
+        <div className="mb-3 space-y-1">
           <EntityTimestamps createdAt={task.created_at} updatedAt={task.updated_at} />
+          <VerificationStatus verifiedAt={task.verified_at} verifiedRef={task.verified_ref} />
         </div>
 
         <dl className="grid grid-cols-1 gap-y-2 py-1 text-[12.5px] sm:grid-cols-[92px_1fr]">

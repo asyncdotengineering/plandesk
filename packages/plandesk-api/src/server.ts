@@ -97,6 +97,7 @@ export function createApp(deps: AppDeps): Hono {
     shareService,
     revisionService,
     searchService,
+    referenceCheckService,
     storage,
   } = services;
 
@@ -151,7 +152,10 @@ export function createApp(deps: AppDeps): Hono {
       baseURL: deps.betterAuth?.baseURL,
     }),
   );
-  app.route('/api/v1', createProjectsRouter(projectService, taskService, projectExportService));
+  app.route(
+    '/api/v1',
+    createProjectsRouter(projectService, taskService, projectExportService, referenceCheckService),
+  );
   app.route('/api/v1', createGoalsRouter(goalService));
   app.route('/api/v1', createTasksRouter(taskService));
   app.route('/api/v1', createTagsRouter(tagService));

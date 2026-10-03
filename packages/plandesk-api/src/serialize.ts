@@ -182,6 +182,8 @@ export function serializeTask(task: Task, tags?: Tag[], waitingOn?: string[]) {
     assignee: task.assignee,
     due_date: task.dueDate?.toISOString() ?? null,
     commit_refs: parseCommitRefs(task.commitRefs),
+    verified_at: task.verifiedAt?.toISOString() ?? null,
+    verified_ref: task.verifiedRef,
     created_at: task.createdAt.toISOString(),
     updated_at: task.updatedAt.toISOString(),
     ...(tags !== undefined ? { tags: tags.map(serializeTag) } : {}),
@@ -220,6 +222,9 @@ export type SerializedDocument = {
   status_line: string | null;
   parent_id: string | null;
   folder_id: string | null;
+  source_path: string | null;
+  verified_at: string | null;
+  verified_ref: string | null;
   /** Outgoing edges from this document (what it points at). */
   links: SerializedEntityLink[];
   /** Incoming edges to this document (what points at it). */
@@ -247,6 +252,9 @@ export function serializeDocument(
     status_line: document.statusLine,
     parent_id: document.parentId,
     folder_id: document.folderId,
+    source_path: document.sourcePath,
+    verified_at: document.verifiedAt?.toISOString() ?? null,
+    verified_ref: document.verifiedRef,
     links: options?.links ?? [],
     backlinks: options?.backlinks ?? [],
     created_at: document.createdAt.toISOString(),

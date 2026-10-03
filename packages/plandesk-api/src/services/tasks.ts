@@ -337,6 +337,8 @@ export type UpdateTaskInput = {
   tags?: string[];
   // Replaces the FULL commit_refs array. Pass null to clear; omit to leave unchanged.
   commitRefs?: string[] | null;
+  verifiedAt?: Date | null;
+  verifiedRef?: string | null;
 };
 
 export type GoalResolution = 'explicit' | 'current_goal' | 'none';
@@ -634,7 +636,7 @@ export function createTaskService(deps: TaskServiceDeps) {
         }
       }
 
-      const { tags: tagNames, commitRefs, ...columns } = input;
+      const { tags: tagNames, commitRefs, verifiedAt, verifiedRef, ...columns } = input;
       const normalizedCommitRefs =
         commitRefs === undefined
           ? undefined
@@ -667,6 +669,8 @@ export function createTaskService(deps: TaskServiceDeps) {
                         normalizedCommitRefs === null ? null : JSON.stringify(normalizedCommitRefs),
                     }
                   : {}),
+                ...(verifiedAt !== undefined ? { verifiedAt } : {}),
+                ...(verifiedRef !== undefined ? { verifiedRef } : {}),
               },
               { expectedUpdatedAt: prior.updatedAt },
             ),

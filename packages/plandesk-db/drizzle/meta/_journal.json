@@ -162,6 +162,13 @@
       "when": 1791030455137,
       "tag": "0022_search_index",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1791032947624,
+      "tag": "0023_wandering_clea",
+      "breakpoints": true
     }
   ]
 }

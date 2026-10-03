@@ -1,5 +1,6 @@
 import type { CanvasService, DocumentService, TaskService } from '@plandesk/api';
-import { InvalidCanvasError, InvalidDocumentError } from '@plandesk/api';
+import { InvalidCanvasError, InvalidDocumentError, InvalidVerificationError } from '@plandesk/api';
+import { parseVerificationInput } from '@plandesk/api';
 import { defaultLinkLabel, normalizeLinkTo, type LinkEntityKind } from './link-to.js';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
@@ -12,6 +13,9 @@ export type UpdateDocumentArgs = {
   link_to?: string | string[];
   parent_id?: string | null;
   folder_id?: string | null;
+  source_path?: string | null;
+  verified_at?: string | null;
+  verified_ref?: string | null;
 };
 
 async function resolveEntityKind(
@@ -43,12 +47,30 @@ export function createUpdateDocumentHandler(
         return toolNotFound();
       }
 
+      let verification;
+      try {
+        verification = parseVerificationInput({
+          verified_at: args.verified_at,
+          verified_ref: args.verified_ref,
+        });
+      } catch (error) {
+        if (error instanceof InvalidVerificationError) {
+          return toolInvalidArgument(error.message);
+        }
+        throw error;
+      }
+
       const document = await documentService.update(args.document_id, {
         ...(args.title !== undefined ? { title: args.title } : {}),
         ...(args.body !== undefined ? { body: args.body } : {}),
         ...(args.status_line !== undefined ? { statusLine: args.status_line } : {}),
         ...(args.parent_id !== undefined ? { parentId: args.parent_id } : {}),
         ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
+        ...(args.source_path !== undefined ? { sourcePath: args.source_path } : {}),
+        ...(verification.verifiedAt !== undefined ? { verifiedAt: verification.verifiedAt } : {}),
+        ...(verification.verifiedRef !== undefined
+          ? { verifiedRef: verification.verifiedRef }
+          : {}),
       });
       if (!document) {
         return toolNotFound();
@@ -81,7 +103,11 @@ export function createUpdateDocumentHandler(
       const hydrated = await documentService.get(document.id);
       return toolSuccess('document', hydrated ?? document);
     } catch (error) {
-      if (error instanceof InvalidDocumentError || error instanceof InvalidCanvasError) {
+      if (
+        error instanceof InvalidDocumentError ||
+        error instanceof InvalidCanvasError ||
+        error instanceof InvalidVerificationError
+      ) {
         return toolInvalidArgument(error.message);
       }
       throw error;

@@ -2,6 +2,8 @@ import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
 import { InvalidDocumentError, type DocumentService } from '../services/documents.js';
 import { parsePaginationParams } from '../serialize.js';
+import { isValidRepoRelativePath } from '@plandesk/db';
+import { InvalidVerificationError, parseVerificationInput } from '../verification-fields.js';
 
 type CreateDocumentBody = {
   title?: string;
@@ -9,6 +11,7 @@ type CreateDocumentBody = {
   status_line?: string | null;
   parent_id?: string | null;
   folder_id?: string | null;
+  source_path?: string | null;
 };
 
 type UpdateDocumentBody = {
@@ -17,6 +20,9 @@ type UpdateDocumentBody = {
   status_line?: string | null;
   parent_id?: string | null;
   folder_id?: string | null;
+  source_path?: string | null;
+  verified_at?: string | null;
+  verified_ref?: string | null;
 };
 
 export function createDocumentsRouter(documentService: DocumentService): Hono {
@@ -40,6 +46,12 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
       return invalidArgument(c, 'title', 'title is required and must be a non-empty string');
     }
 
+    if (body.source_path !== undefined && body.source_path !== null) {
+      if (typeof body.source_path !== 'string' || !isValidRepoRelativePath(body.source_path)) {
+        return invalidArgument(c, 'source_path', 'source_path must be a valid repo-relative path');
+      }
+    }
+
     try {
       const document = await documentService.create(c.req.param('id'), {
         title: body.title,
@@ -47,6 +59,7 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
         statusLine: body.status_line,
         parentId: body.parent_id,
         folderId: body.folder_id,
+        ...(body.source_path !== undefined ? { sourcePath: body.source_path } : {}),
       });
 
       if (!document) {
@@ -73,6 +86,25 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
   router.patch('/documents/:id', async (c) => {
     const body = await c.req.json<UpdateDocumentBody>();
 
+    if (body.source_path !== undefined && body.source_path !== null) {
+      if (typeof body.source_path !== 'string' || !isValidRepoRelativePath(body.source_path)) {
+        return invalidArgument(c, 'source_path', 'source_path must be a valid repo-relative path');
+      }
+    }
+
+    let verification;
+    try {
+      verification = parseVerificationInput({
+        verified_at: body.verified_at,
+        verified_ref: body.verified_ref,
+      });
+    } catch (error) {
+      if (error instanceof InvalidVerificationError) {
+        return invalidRequest(c, error.message);
+      }
+      throw error;
+    }
+
     try {
       const document = await documentService.update(c.req.param('id'), {
         ...(body.title !== undefined ? { title: body.title } : {}),
@@ -80,6 +112,11 @@ export function createDocumentsRouter(documentService: DocumentService): Hono {
         ...(body.status_line !== undefined ? { statusLine: body.status_line } : {}),
         ...(body.parent_id !== undefined ? { parentId: body.parent_id } : {}),
         ...(body.folder_id !== undefined ? { folderId: body.folder_id } : {}),
+        ...(body.source_path !== undefined ? { sourcePath: body.source_path } : {}),
+        ...(verification.verifiedAt !== undefined ? { verifiedAt: verification.verifiedAt } : {}),
+        ...(verification.verifiedRef !== undefined
+          ? { verifiedRef: verification.verifiedRef }
+          : {}),
       });
 
       if (!document) {

@@ -122,6 +122,7 @@ import {
   recordAgentProgressInputSchema,
   resolveCommentInputSchema,
   searchInputSchema,
+  checkReferencesInputSchema,
   scaffoldProjectFromPlanInputSchema,
   startAgentRunInputSchema,
   syncPullInputSchema,
@@ -135,6 +136,7 @@ import {
 import { createStartAgentRunHandler } from './tools/start-agent-run.js';
 import { createUpdateDocumentHandler } from './tools/update-document.js';
 import { createUpdateTaskHandler } from './tools/update-task.js';
+import { createCheckReferencesHandler } from './tools/check-references.js';
 
 export type McpAppDeps = {
   services: Services;
@@ -847,6 +849,18 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       inputSchema: resolveCommentInputSchema,
     },
     createResolveCommentHandler(services.commentService),
+  );
+
+  server.registerTool(
+    'check_references',
+    {
+      title: 'Check References',
+      description:
+        'Report documents whose source_path does not exist under the project folder_path. Read-only — never edits board data. Returns unknown: true when the server cannot access the repo: hosted Workers, a server bound to a non-loopback address (a disk probe there would let any member test for files on the host), or no folder_path.',
+      inputSchema: checkReferencesInputSchema,
+      annotations: { readOnlyHint: true },
+    },
+    createCheckReferencesHandler(services.referenceCheckService),
   );
 
   server.registerTool(

@@ -28,6 +28,10 @@ import {
   type Document,
   type Edge,
   type LinkEntityType,
+  getProject,
+  isValidRegisteredRepoRoot,
+  isValidRepoRelativePath,
+  resolvedPathStaysUnderRoot,
 } from '@plandesk/db';
 import { ensureWikiLinkEdges, prepareDocumentBody } from '../document-wiki-links.js';
 import type { WikiLinkResolved } from '../markdown.js';
@@ -85,6 +89,7 @@ export type CreateDocumentInput = {
   statusLine?: string | null;
   parentId?: string | null;
   folderId?: string | null;
+  sourcePath?: string | null;
 };
 
 export type UpdateDocumentInput = {
@@ -93,6 +98,9 @@ export type UpdateDocumentInput = {
   statusLine?: string | null;
   parentId?: string | null;
   folderId?: string | null;
+  sourcePath?: string | null;
+  verifiedAt?: Date | null;
+  verifiedRef?: string | null;
 };
 
 export class InvalidDocumentError extends Error {
@@ -147,6 +155,25 @@ async function assertParentInProject(db: Db, projectId: string, parentId: string
 async function assertFolderInProject(db: Db, projectId: string, folderId: string): Promise<void> {
   if (!(await getFolderByProjectAndId(db, projectId, folderId))) {
     throw new InvalidDocumentError('Folder does not belong to project');
+  }
+}
+
+async function assertSourcePathForProject(
+  db: Db,
+  projectId: string,
+  sourcePath: string | null | undefined,
+): Promise<void> {
+  if (sourcePath === undefined || sourcePath === null) {
+    return;
+  }
+  if (!isValidRepoRelativePath(sourcePath)) {
+    throw new InvalidDocumentError('invalid source_path');
+  }
+  const project = await getProject(db, projectId);
+  if (project?.folderPath && isValidRegisteredRepoRoot(project.folderPath)) {
+    if (!resolvedPathStaysUnderRoot(project.folderPath, sourcePath)) {
+      throw new InvalidDocumentError('source_path resolves outside project folder_path');
+    }
   }
 }
 
@@ -447,6 +474,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       if (input.folderId !== undefined && input.folderId !== null) {
         await assertFolderInProject(db, projectId, input.folderId);
       }
+      await assertSourcePathForProject(db, projectId, input.sourcePath);
 
       const projectDocuments = await dbListDocuments(db, projectId);
       const prepared = prepareDocumentBody(input.body, projectId, projectDocuments);
@@ -459,6 +487,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
           statusLine: input.statusLine,
           parentId: input.parentId,
           folderId: input.folderId,
+          ...(input.sourcePath !== undefined ? { sourcePath: input.sourcePath } : {}),
         });
         await ensureWikiLinkEdges(tx, projectId, row.id, prepared.resolved);
         return row;
@@ -511,6 +540,7 @@ export function createDocumentService(deps: DocumentServiceDeps) {
       if (input.folderId !== undefined && input.folderId !== null) {
         await assertFolderInProject(db, existing.projectId, input.folderId);
       }
+      await assertSourcePathForProject(db, existing.projectId, input.sourcePath);
 
       const document = await withTransaction<Document | undefined>(db, async (tx) => {
         const prior = await dbGetDocument(tx, id);

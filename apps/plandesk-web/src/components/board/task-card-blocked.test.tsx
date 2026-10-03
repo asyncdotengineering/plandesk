@@ -9,6 +9,8 @@ const projectId = 'proj-1';
 
 function makeTask(id: string, label: string, status: SerializedTask['status']): SerializedTask {
   return {
+    verified_at: null,
+    verified_ref: null,
     id,
     project_id: projectId,
     goal_id: 'goal-1',

@@ -43,6 +43,9 @@ function makeDocument(
   children: SerializedDocumentTree[] = [],
 ): SerializedDocumentTree {
   return {
+    verified_at: null,
+    verified_ref: null,
+    source_path: null,
     id,
     project_id: projectId,
     title,

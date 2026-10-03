@@ -334,6 +334,11 @@ export function emitTasksImport(ctx: ImportContext): void {
         assignee: task.assignee,
         dueDate: task.due_date ? new Date(task.due_date) : null,
         commitRefs: commitRefsColumn,
+        verifiedAt:
+          task.verified_at === undefined || task.verified_at === null
+            ? null
+            : new Date(task.verified_at),
+        verifiedRef: task.verified_ref ?? null,
         createdAt: ctx.now,
         updatedAt: ctx.now,
       }),
@@ -462,6 +467,12 @@ export function emitDocumentsImport(ctx: ImportContext): void {
         statusLine: document.status_line,
         parentId: remapId(ctx.documentIdMap, document.parent_id),
         folderId: remapId(ctx.folderIdMap, document.folder_id ?? null),
+        sourcePath: document.source_path ?? null,
+        verifiedAt:
+          document.verified_at === undefined || document.verified_at === null
+            ? null
+            : new Date(document.verified_at),
+        verifiedRef: document.verified_ref ?? null,
         createdAt: ctx.now,
         updatedAt: ctx.now,
       }),

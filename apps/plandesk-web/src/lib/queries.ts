@@ -30,6 +30,7 @@ import {
   getDocument,
   getNote,
   getProject,
+  getProjectReferenceCheck,
   listAgentRuns,
   listOrgMembers,
   listComments,
@@ -101,6 +102,7 @@ export const queryKeys = {
   tags: (projectId: string) => ['projects', projectId, 'tags'] as const,
   canvas: (projectId: string) => ['projects', projectId, 'canvas'] as const,
   documents: (projectId: string) => ['projects', projectId, 'documents'] as const,
+  referenceCheck: (projectId: string) => ['projects', projectId, 'reference-check'] as const,
   document: (id: string) => ['documents', id] as const,
   folders: (projectId: string) => ['projects', projectId, 'folders'] as const,
   artifacts: (projectId: string) => ['projects', projectId, 'artifacts'] as const,
@@ -249,6 +251,14 @@ export function useDocuments(projectId: string) {
   return useQuery({
     queryKey: queryKeys.documents(projectId),
     queryFn: () => listDocuments(projectId),
+    ...liveQueryOptions,
+  });
+}
+
+export function useProjectReferenceCheck(projectId: string) {
+  return useQuery({
+    queryKey: queryKeys.referenceCheck(projectId),
+    queryFn: () => getProjectReferenceCheck(projectId),
     ...liveQueryOptions,
   });
 }

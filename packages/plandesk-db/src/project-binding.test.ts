@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isValidFolderPath, isValidRegisteredRepoRoot, isValidRepoUrl } from './project-binding.js';
+import {
+  isValidRepoRelativePath,
+  isValidRegisteredRepoRoot,
+  isValidRepoUrl,
+  resolvedPathStaysUnderRoot,
+} from './project-binding.js';
 
 describe('isValidRepoUrl', () => {
   it('accepts http(s), ssh, git, and scp-style remotes', () => {
@@ -30,35 +35,35 @@ describe('isValidRepoUrl', () => {
   });
 });
 
-describe('isValidFolderPath', () => {
+describe('isValidRepoRelativePath', () => {
   it('accepts relative paths without traversal', () => {
-    expect(isValidFolderPath('packages/plandesk-api')).toBe(true);
-    expect(isValidFolderPath('apps/web')).toBe(true);
-    expect(isValidFolderPath('single')).toBe(true);
+    expect(isValidRepoRelativePath('packages/plandesk-api')).toBe(true);
+    expect(isValidRepoRelativePath('apps/web')).toBe(true);
+    expect(isValidRepoRelativePath('single')).toBe(true);
   });
 
   it('rejects absolute, traversal, empty segments, and slash edges', () => {
-    expect(isValidFolderPath('/etc')).toBe(false);
-    expect(isValidFolderPath('/etc/passwd')).toBe(false);
-    expect(isValidFolderPath('C:\\Windows')).toBe(false);
-    expect(isValidFolderPath('C:/Windows')).toBe(false);
-    expect(isValidFolderPath('\\\\server\\share')).toBe(false);
-    expect(isValidFolderPath('//server/share')).toBe(false);
-    expect(isValidFolderPath('../../other')).toBe(false);
-    expect(isValidFolderPath('a/../b')).toBe(false);
-    expect(isValidFolderPath('a//b')).toBe(false);
-    expect(isValidFolderPath('/leading')).toBe(false);
-    expect(isValidFolderPath('trailing/')).toBe(false);
-    expect(isValidFolderPath('')).toBe(false);
+    expect(isValidRepoRelativePath('/etc')).toBe(false);
+    expect(isValidRepoRelativePath('/etc/passwd')).toBe(false);
+    expect(isValidRepoRelativePath('C:\\Windows')).toBe(false);
+    expect(isValidRepoRelativePath('C:/Windows')).toBe(false);
+    expect(isValidRepoRelativePath('\\\\server\\share')).toBe(false);
+    expect(isValidRepoRelativePath('//server/share')).toBe(false);
+    expect(isValidRepoRelativePath('../../other')).toBe(false);
+    expect(isValidRepoRelativePath('a/../b')).toBe(false);
+    expect(isValidRepoRelativePath('a//b')).toBe(false);
+    expect(isValidRepoRelativePath('/leading')).toBe(false);
+    expect(isValidRepoRelativePath('trailing/')).toBe(false);
+    expect(isValidRepoRelativePath('')).toBe(false);
   });
 
   it('rejects every Windows drive prefix, including drive-relative forms', () => {
     // Drive-relative: path.win32.resolve(repoRoot, 'C:..\\secret') escapes the root.
-    expect(isValidFolderPath('C:..\\secret')).toBe(false);
-    expect(isValidFolderPath('C:relative\\path')).toBe(false);
-    expect(isValidFolderPath('C:\\abs')).toBe(false);
-    expect(isValidFolderPath('c:..')).toBe(false);
-    expect(isValidFolderPath('packages/plandesk-api')).toBe(true);
+    expect(isValidRepoRelativePath('C:..\\secret')).toBe(false);
+    expect(isValidRepoRelativePath('C:relative\\path')).toBe(false);
+    expect(isValidRepoRelativePath('C:\\abs')).toBe(false);
+    expect(isValidRepoRelativePath('c:..')).toBe(false);
+    expect(isValidRepoRelativePath('packages/plandesk-api')).toBe(true);
   });
 });
 
@@ -67,5 +72,19 @@ describe('isValidRegisteredRepoRoot', () => {
     expect(isValidRegisteredRepoRoot('/Users/dev/my-repo')).toBe(true);
     expect(isValidRegisteredRepoRoot('packages/plandesk-api')).toBe(false);
     expect(isValidRegisteredRepoRoot('/tmp/../etc')).toBe(false);
+  });
+});
+
+describe('isValidRepoRelativePath', () => {
+  it('matches folder path policy', () => {
+    expect(isValidRepoRelativePath('docs/spec.md')).toBe(true);
+    expect(isValidRepoRelativePath('../escape.md')).toBe(false);
+  });
+});
+
+describe('resolvedPathStaysUnderRoot', () => {
+  it('rejects paths that resolve outside the root', () => {
+    expect(resolvedPathStaysUnderRoot('/tmp/repo', 'docs/a.md')).toBe(true);
+    expect(resolvedPathStaysUnderRoot('/tmp/repo', '../outside.md')).toBe(false);
   });
 });

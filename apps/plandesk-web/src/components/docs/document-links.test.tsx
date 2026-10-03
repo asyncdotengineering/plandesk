@@ -17,6 +17,9 @@ function makeLink(
 
 function makeDocument(links: SerializedEntityLink[]): SerializedDocument {
   return {
+    verified_at: null,
+    verified_ref: null,
+    source_path: null,
     id: 'doc-1',
     project_id: projectId,
     title: 'Spec',

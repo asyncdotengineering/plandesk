@@ -5,7 +5,7 @@ import { createAgentRunEvent } from './repositories/agent-run-events.js';
 import { createAgentRun, updateAgentRunStatus } from './repositories/agent-runs.js';
 import { createArtifact } from './repositories/artifacts.js';
 import { createComment } from './repositories/comments.js';
-import { createDocument } from './repositories/documents.js';
+import { createDocument, updateDocument } from './repositories/documents.js';
 import { createEdge } from './repositories/edges.js';
 import { createFile } from './repositories/files.js';
 import { createFolder } from './repositories/folders.js';
@@ -111,6 +111,8 @@ export async function seedDeterministicFullyPopulatedProject(db: Db): Promise<st
   });
   await updateTask(db, task.id, {
     commitRefs: JSON.stringify(['abcdef1', '1234567890abcdef1234567890abcdef12345678']),
+    verifiedAt: new Date('2031-05-01T08:00:00.000Z'),
+    verifiedRef: 'abc1234',
   });
   await db
     .update(tasks)
@@ -157,6 +159,11 @@ export async function seedDeterministicFullyPopulatedProject(db: Db): Promise<st
     statusLine: 'Status: DISTINCT-child-status',
     parentId: parentDoc.id,
     folderId: childFolder.id,
+  });
+  await updateDocument(db, parentDoc.id, {
+    sourcePath: 'docs/DISTINCT-parent.md',
+    verifiedAt: new Date('2031-05-02T09:15:00.000Z'),
+    verifiedRef: 'def5678',
   });
 
   await updateProject(db, project.id, { overviewDocumentId: parentDoc.id });

@@ -12,6 +12,7 @@ export type CreateDocumentArgs = {
   parent_id?: string;
   status_line?: string;
   folder_id?: string;
+  source_path?: string | null;
 };
 
 async function resolveEntityKind(
@@ -54,6 +55,7 @@ export function createCreateDocumentHandler(
         ...(args.parent_id !== undefined ? { parentId: args.parent_id } : {}),
         ...(args.status_line !== undefined ? { statusLine: args.status_line } : {}),
         ...(args.folder_id !== undefined ? { folderId: args.folder_id } : {}),
+        ...(args.source_path !== undefined ? { sourcePath: args.source_path } : {}),
       });
       if (!document) {
         return toolNotFound();

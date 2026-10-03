@@ -66,7 +66,18 @@ export {
   createTaskWithDefaultGoal,
 } from './testing.js';
 export * from './schema.js';
-export { isValidFolderPath, isValidRegisteredRepoRoot, isValidRepoUrl } from './project-binding.js';
+export {
+  isValidRepoRelativePath,
+  isValidRegisteredRepoRoot,
+  isValidRepoUrl,
+  resolvedPathStaysUnderRoot,
+} from './project-binding.js';
+export {
+  checkDocumentReferences,
+  type ReferenceCheckFs,
+  type ReferenceCheckResult,
+  type ReferenceFinding,
+} from './reference-check.js';
 export {
   COMMIT_REF_PATTERN,
   MAX_COMMIT_REFS,

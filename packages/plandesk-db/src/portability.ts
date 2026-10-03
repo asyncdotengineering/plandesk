@@ -106,6 +106,8 @@ export type PlandeskExportTask = {
   tag_ids?: string[];
   // Always written on export; optional on import for exports written before commit_refs.
   commit_refs?: string[] | null;
+  verified_at?: string | null;
+  verified_ref?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -157,6 +159,9 @@ export type PlandeskExportDocument = {
   parent_id: string | null;
   // Optional for backward compatibility with exports written before folders existed.
   folder_id?: string | null;
+  source_path?: string | null;
+  verified_at?: string | null;
+  verified_ref?: string | null;
 };
 
 export type PlandeskExportNote = {

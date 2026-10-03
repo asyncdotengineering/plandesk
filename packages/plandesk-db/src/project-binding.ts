@@ -3,7 +3,7 @@
  * Used by the HTTP route and MCP tool schemas — one policy, both boundaries.
  */
 
-import { isAbsolute } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 
 const ALLOWED_REPO_SCHEMES = new Set(['http:', 'https:', 'ssh:', 'git:']);
 
@@ -38,7 +38,7 @@ export function isValidRepoUrl(value: string): boolean {
 
 /**
  * Absolute repo root recorded by connect/serve for workspace file_path bounds.
- * Distinct from {@link isValidFolderPath} (monorepo-relative package paths).
+ * Distinct from {@link isValidRepoRelativePath} (monorepo-relative package paths).
  */
 export function isValidRegisteredRepoRoot(value: string): boolean {
   if (value === '' || !isAbsolute(value)) {
@@ -52,11 +52,22 @@ export function isValidRegisteredRepoRoot(value: string): boolean {
 }
 
 /**
+ * True when `resolve(rootFolder, relativePath)` stays under `rootFolder`
+ * (rejects `..` escapes after normalization).
+ */
+export function resolvedPathStaysUnderRoot(rootFolder: string, relativePath: string): boolean {
+  const root = resolve(rootFolder);
+  const resolved = resolve(root, relativePath);
+  const rel = relative(root, resolved);
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+}
+
+/**
  * Path relative to the repo root: never absolute, never `..`, no empty
  * segments, no leading/trailing slashes. Rejects POSIX absolute, Windows
  * drive paths, and UNC forms.
  */
-export function isValidFolderPath(value: string): boolean {
+export function isValidRepoRelativePath(value: string): boolean {
   if (value === '') {
     return false;
   }

@@ -4,6 +4,9 @@ import type { PatchDocumentInput, SerializedDocument } from '../../lib/api.js';
 import { DocumentEditor } from './DocumentEditor.js';
 
 const sampleDocument: SerializedDocument = {
+  verified_at: null,
+  verified_ref: null,
+  source_path: null,
   id: 'doc-1',
   project_id: 'proj-1',
   title: 'Spec',
@@ -226,5 +229,40 @@ describe('DocumentEditor', () => {
   it('shows no Add-comment affordance when onCommentOnSelection is not provided', () => {
     render(<DocumentEditor document={sampleDocument} mode="reader" onSave={vi.fn()} />);
     expect(screen.queryByRole('button', { name: /add comment/i })).toBeNull();
+  });
+
+  it('shows the mirrored repo file and flags it when the file is gone', () => {
+    render(
+      <DocumentEditor
+        document={{ ...sampleDocument, source_path: 'docs/BLUEPRINT.md' }}
+        mode="reader"
+        onSave={vi.fn()}
+        sourcePathMissing
+      />,
+    );
+    expect(screen.getByText('docs/BLUEPRINT.md')).toBeTruthy();
+    expect(screen.getByText('Missing')).toBeTruthy();
+  });
+
+  it('tells a never-verified document apart from one verified with a ref', () => {
+    const { unmount } = render(
+      <DocumentEditor document={sampleDocument} mode="reader" onSave={vi.fn()} />,
+    );
+    expect(screen.getByText('Never verified')).toBeTruthy();
+    unmount();
+
+    render(
+      <DocumentEditor
+        document={{
+          ...sampleDocument,
+          verified_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+          verified_ref: 'abc1234',
+        }}
+        mode="reader"
+        onSave={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText('Never verified')).toBeNull();
+    expect(screen.getByText(/Verified .*abc1234/)).toBeTruthy();
   });
 });

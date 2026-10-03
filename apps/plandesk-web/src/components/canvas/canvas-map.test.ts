@@ -12,6 +12,8 @@ import {
 } from './canvas-map.js';
 
 const sampleTask: SerializedTask = {
+  verified_at: null,
+  verified_ref: null,
   id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   project_id: 'proj-1',
   goal_id: 'goal-1',
@@ -105,6 +107,9 @@ describe('canvas-map', () => {
   it('maps linked documents onto task nodes', () => {
     const docTree: SerializedDocumentTree[] = [
       {
+        verified_at: null,
+        verified_ref: null,
+        source_path: null,
         id: 'doc-1',
         project_id: 'proj-1',
         title: 'Spec',

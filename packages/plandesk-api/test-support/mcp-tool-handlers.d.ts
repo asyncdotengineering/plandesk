@@ -67,6 +67,7 @@ export declare function createAddArtifactCommentHandler(
 ): McpToolHandler;
 export declare function createAddCommentHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createAttachFileHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+export declare function createCheckReferencesHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createClaimTaskHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createCompleteAgentRunHandler(
   dep?: unknown,

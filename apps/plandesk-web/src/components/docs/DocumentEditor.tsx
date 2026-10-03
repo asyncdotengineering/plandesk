@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import type { PatchDocumentInput, SerializedDocument, SerializedTask } from '../../lib/api.js';
 import { ShareButton } from '@/components/share/ShareButton';
-import { EntityTimestamps } from '../../lib/format-timestamp.js';
+import { EntityTimestamps, VerificationStatus } from '../../lib/format-timestamp.js';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,6 +32,7 @@ type DocumentEditorProps = {
   // Enables the "/" slash menu + "[[" document links in the editor.
   projectId?: string;
   docLinks?: { id: string; title: string }[];
+  sourcePathMissing?: boolean;
 };
 
 export function DocumentEditor({
@@ -45,6 +47,7 @@ export function DocumentEditor({
   onConvertListItems,
   projectId,
   docLinks,
+  sourcePathMissing = false,
 }: DocumentEditorProps) {
   // State is initialized once per mount; the route remounts this via key={docId}
   // when a different document loads, so a save echoing back into props never
@@ -125,6 +128,22 @@ export function DocumentEditor({
       </div>
 
       <EntityTimestamps createdAt={document.created_at} updatedAt={document.updated_at} />
+
+      <VerificationStatus verifiedAt={document.verified_at} verifiedRef={document.verified_ref} />
+
+      {document.source_path !== null ? (
+        <div className="flex flex-wrap items-center gap-2 text-[12px]">
+          <span className="text-muted-foreground">Source</span>
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
+            {document.source_path}
+          </code>
+          {sourcePathMissing ? (
+            <Badge variant="destructive" className="text-[10px] uppercase tracking-wide">
+              Missing
+            </Badge>
+          ) : null}
+        </div>
+      ) : null}
 
       {mode === 'editor' ? (
         <div className="space-y-1.5">

@@ -279,6 +279,8 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
         goal_id: task.goalId,
         tag_ids: (tagsByTask.get(task.id) ?? []).map((tag) => tag.id),
         commit_refs: parseCommitRefs(task.commitRefs),
+        verified_at: task.verifiedAt?.toISOString() ?? null,
+        verified_ref: task.verifiedRef,
         created_at: task.createdAt.toISOString(),
         updated_at: task.updatedAt.toISOString(),
       };
@@ -300,6 +302,8 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
         'assignee',
         'due_date',
         'commit_refs',
+        'verified_at',
+        'verified_ref',
       ],
       columnExclusions: {
         id: 'Remapped on import',
@@ -435,11 +439,23 @@ export const PLANDESK_EXPORT_TABLE_MANIFEST = {
       status_line: document.statusLine,
       parent_id: document.parentId,
       folder_id: document.folderId,
+      source_path: document.sourcePath,
+      verified_at: document.verifiedAt?.toISOString() ?? null,
+      verified_ref: document.verifiedRef,
     }),
     import: { order: 80, preallocateIds: preallocateDocumentIds, emit: emitDocumentsImport },
     portability: {
       drizzleTable: documents,
-      roundTrippedColumns: ['title', 'body', 'status_line', 'parent_id', 'folder_id'],
+      roundTrippedColumns: [
+        'title',
+        'body',
+        'status_line',
+        'parent_id',
+        'folder_id',
+        'source_path',
+        'verified_at',
+        'verified_ref',
+      ],
       columnExclusions: {
         id: 'Remapped on import',
         project_id: 'Implied by nesting under the imported project',

@@ -80,6 +80,8 @@ type PortableSnapshot = {
     goal_objective: string | null;
     tag_names: string[];
     commit_refs: string[] | null | undefined;
+    verified_at: string | null | undefined;
+    verified_ref: string | null | undefined;
   }>;
   tags: Array<{ name: string; color: string | null }>;
   edges: Array<{
@@ -98,6 +100,9 @@ type PortableSnapshot = {
     status_line: string | null;
     parent_title: string | null;
     folder_name: string | null;
+    source_path: string | null | undefined;
+    verified_at: string | null | undefined;
+    verified_ref: string | null | undefined;
   }>;
   notes: Array<{ title: string; body: string | null }>;
   views: Array<{ name: string; config: SavedViewConfig; position: number }>;
@@ -226,6 +231,8 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
           task.goal_id == null ? null : (goalObjectiveById.get(task.goal_id) ?? task.goal_id),
         tag_names: (task.tag_ids ?? []).map((id) => tagNameById.get(id) ?? id).sort(),
         commit_refs: task.commit_refs ?? null,
+        verified_at: task.verified_at ?? null,
+        verified_ref: task.verified_ref ?? null,
       })),
     tags: [...exported.tags]
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -290,6 +297,9 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
           document.folder_id === null || document.folder_id === undefined
             ? null
             : (folderNameById.get(document.folder_id) ?? document.folder_id),
+        source_path: document.source_path ?? null,
+        verified_at: document.verified_at ?? null,
+        verified_ref: document.verified_ref ?? null,
       })),
     notes: [...exported.notes]
       .sort((a, b) => a.title.localeCompare(b.title))

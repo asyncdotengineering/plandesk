@@ -40,6 +40,8 @@ function makeTask(
   tags: SerializedTag[] = [],
 ): SerializedTask {
   return {
+    verified_at: null,
+    verified_ref: null,
     id,
     project_id: projectId,
     goal_id: 'goal-1',

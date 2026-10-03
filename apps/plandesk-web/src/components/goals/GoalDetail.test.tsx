@@ -110,6 +110,8 @@ describe('GoalDetail', () => {
       ...humanSignOffGoal,
       cycle_tasks: [
         {
+          verified_at: null,
+          verified_ref: null,
           id: 'task-1',
           project_id: projectId,
           goal_id: humanSignOffGoal.id,

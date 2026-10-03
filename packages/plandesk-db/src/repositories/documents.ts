@@ -13,6 +13,9 @@ export type NewDocument = {
   statusLine?: string | null;
   parentId?: string | null;
   folderId?: string | null;
+  sourcePath?: string | null;
+  verifiedAt?: Date | null;
+  verifiedRef?: string | null;
   id?: string;
 };
 
@@ -22,6 +25,9 @@ export type DocumentUpdate = {
   statusLine?: string | null;
   parentId?: string | null;
   folderId?: string | null;
+  sourcePath?: string | null;
+  verifiedAt?: Date | null;
+  verifiedRef?: string | null;
 };
 
 export async function createDocument(db: DbClient, input: NewDocument): Promise<Document> {
@@ -37,6 +43,9 @@ export async function createDocument(db: DbClient, input: NewDocument): Promise<
       statusLine: input.statusLine ?? null,
       parentId: input.parentId ?? null,
       folderId: input.folderId ?? null,
+      sourcePath: input.sourcePath ?? null,
+      verifiedAt: input.verifiedAt ?? null,
+      verifiedRef: input.verifiedRef ?? null,
       createdAt: now,
       updatedAt: now,
     })

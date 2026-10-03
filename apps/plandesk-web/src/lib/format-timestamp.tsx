@@ -38,6 +38,33 @@ export function Timestamp({ iso, label }: { iso: string; label: string }) {
   );
 }
 
+export function VerificationStatus({
+  verifiedAt,
+  verifiedRef,
+}: {
+  verifiedAt?: string | null;
+  verifiedRef?: string | null;
+}) {
+  if (verifiedAt === null || verifiedAt === undefined) {
+    return (
+      <span className="inline-flex items-center rounded-md border border-dashed px-2 py-0.5 text-[11px] text-muted-foreground">
+        Never verified
+      </span>
+    );
+  }
+  const relative = formatRelativeTimestamp(verifiedAt);
+  const refSuffix =
+    verifiedRef !== null && verifiedRef !== undefined && verifiedRef.trim() !== ''
+      ? ` · ${verifiedRef}`
+      : '';
+  return (
+    <span className="text-[11px] text-muted-foreground">
+      Verified {relative}
+      {refSuffix}
+    </span>
+  );
+}
+
 export function EntityTimestamps({
   createdAt,
   updatedAt,

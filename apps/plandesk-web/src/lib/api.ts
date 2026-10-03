@@ -124,6 +124,8 @@ export type SerializedTask = {
   assignee: string | null;
   due_date: string | null;
   commit_refs: string[];
+  verified_at: string | null;
+  verified_ref: string | null;
   created_at: string;
   updated_at: string;
   // Present on task endpoints; canvas nodes omit it.
@@ -163,6 +165,9 @@ export type SerializedDocument = {
   status_line: string | null;
   parent_id: string | null;
   folder_id: string | null;
+  source_path: string | null;
+  verified_at: string | null;
+  verified_ref: string | null;
   /** Outgoing edges from this document. */
   links: SerializedEntityLink[];
   /** Incoming edges to this document. */
@@ -531,6 +536,21 @@ export function createProject(input: CreateProjectInput): Promise<SerializedProj
 
 export function getProject(id: string): Promise<SerializedProjectDetail> {
   return request(`/projects/${id}`);
+}
+
+export type ReferenceCheckResult = {
+  checked: number;
+  findings: Array<{
+    document_id: string;
+    title: string;
+    source_path: string;
+    state: 'missing';
+  }>;
+  unknown: boolean;
+};
+
+export function getProjectReferenceCheck(projectId: string): Promise<ReferenceCheckResult> {
+  return request(`/projects/${projectId}/reference-check`);
 }
 
 export function listTasks(

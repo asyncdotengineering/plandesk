@@ -62,7 +62,13 @@ async function withMcpServer(
   const project = await createProject(db, { name: 'MCP Test Project', description: 'via MCP' });
   const token = '';
 
-  const services = createServices({ db, orgId: project.orgId, auth });
+  const { existsSync } = await import('node:fs');
+  const services = createServices({
+    db,
+    orgId: project.orgId,
+    auth,
+    referenceCheckFs: { pathExists: existsSync, folderExists: existsSync },
+  });
   // Auth comes from parent createApp (loopback owner on 127.0.0.1).
   const mcpApp = createMcpApp({ services });
   // Default bindHost is loopback (local zero-token). Invalid bearer → 401.
@@ -125,6 +131,9 @@ async function connectClient(baseUrl: string, token?: string): Promise<Client> {
 function parseDocumentResult(result: unknown): {
   id: string;
   title: string;
+  source_path?: string | null;
+  verified_at?: string | null;
+  verified_ref?: string | null;
   links?: Array<{ type: string; id: string; title: string; label: string | null; edge_id: string }>;
   backlinks?: Array<{
     type: string;
@@ -199,7 +208,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(64);
+      expect(names).toHaveLength(65);
       await client.close();
     });
   });
@@ -503,6 +512,78 @@ describe('createMcpApp', () => {
       expect(updatedDoc.links?.map((l) => l.id).sort()).toEqual([task.id, other.id].sort());
 
       await client.close();
+    });
+  });
+
+  it('source_path and verified_* round-trip via MCP; check_references reports missing paths', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, app }) => {
+      const client = await connectClient(baseUrl);
+      const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+      const { join } = await import('node:path');
+      const { tmpdir } = await import('node:os');
+      const repoDir = mkdtempSync(join(tmpdir(), 'mcp-ref-'));
+      try {
+        writeFileSync(join(repoDir, 'ok.md'), '# ok');
+        const created = await client.callTool({
+          name: 'create_document',
+          arguments: {
+            project_id: projectId,
+            title: 'Mirrored',
+            source_path: 'ok.md',
+          },
+        });
+        expect(created.isError).not.toBe(true);
+        const doc = parseDocumentResult(created);
+        expect(doc.source_path).toBe('ok.md');
+
+        const verifiedAt = '2026-02-01T10:00:00.000Z';
+        const verified = await client.callTool({
+          name: 'update_document',
+          arguments: {
+            document_id: doc.id,
+            verified_at: verifiedAt,
+            verified_ref: 'deadbeef',
+          },
+        });
+        expect(verified.isError).not.toBe(true);
+        const verifiedDoc = parseDocumentResult(verified);
+        expect(verifiedDoc.verified_at).toBe(verifiedAt);
+        expect(verifiedDoc.verified_ref).toBe('deadbeef');
+
+        await client.callTool({
+          name: 'create_document',
+          arguments: { project_id: projectId, title: 'Gone', source_path: 'missing.md' },
+        });
+
+        const unknownCheck = await client.callTool({
+          name: 'check_references',
+          arguments: { project_id: projectId },
+        });
+        expect(unknownCheck.isError).not.toBe(true);
+        const unknownPayload = JSON.parse(
+          (unknownCheck.content as Array<{ text?: string }>)[0]?.text ?? '{}',
+        ) as { unknown: boolean };
+        expect(unknownPayload.unknown).toBe(true);
+
+        await app.request(`/api/v1/projects/${projectId}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ folder_path: repoDir }),
+        });
+
+        const check = await client.callTool({
+          name: 'check_references',
+          arguments: { project_id: projectId },
+        });
+        const checkPayload = JSON.parse(
+          (check.content as Array<{ text?: string }>)[0]?.text ?? '{}',
+        ) as { unknown: boolean; findings: unknown[] };
+        expect(checkPayload.unknown).toBe(false);
+        expect(checkPayload.findings).toHaveLength(1);
+      } finally {
+        rmSync(repoDir, { recursive: true, force: true });
+        await client.close();
+      }
     });
   });
 

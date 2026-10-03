@@ -68,6 +68,7 @@ import {
   createAddArtifactCommentHandler,
   createAddCommentHandler,
   createAttachFileHandler,
+  createCheckReferencesHandler,
   createClaimTaskHandler,
   createCompleteAgentRunHandler,
   createCompleteGoalHandler,
@@ -196,6 +197,7 @@ const MCP_TOOLS = [
   'list_artifact_comments',
   'add_artifact_comment',
   'resolve_comment',
+  'check_references',
   'sync_pull',
   'list_submissions',
   'triage_submission',
@@ -967,6 +969,11 @@ async function runMcpForeignSweep(
     [
       'resolve_comment',
       () => createResolveCommentHandler(s.commentService)({ comment_id: target.comment.id }),
+    ],
+    [
+      'check_references',
+      () =>
+        createCheckReferencesHandler(s.referenceCheckService)({ project_id: target.project.id }),
     ],
     ['sync_pull', () => createSyncPullHandler(s.syncService)({ project_id: target.project.id })],
     [

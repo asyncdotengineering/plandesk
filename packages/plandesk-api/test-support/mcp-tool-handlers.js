@@ -5,6 +5,7 @@
 export { createAddArtifactCommentHandler } from '../../plandesk-mcp/src/tools/add-artifact-comment.js';
 export { createAddCommentHandler } from '../../plandesk-mcp/src/tools/add-comment.js';
 export { createAttachFileHandler } from '../../plandesk-mcp/src/tools/attach-file.js';
+export { createCheckReferencesHandler } from '../../plandesk-mcp/src/tools/check-references.js';
 export { createClaimTaskHandler } from '../../plandesk-mcp/src/tools/claim-task.js';
 export { createCompleteAgentRunHandler } from '../../plandesk-mcp/src/tools/complete-agent-run.js';
 export { createCreateArtifactHandler } from '../../plandesk-mcp/src/tools/create-artifact.js';
