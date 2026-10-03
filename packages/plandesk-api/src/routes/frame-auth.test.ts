@@ -255,6 +255,8 @@ describe('frame auth (render token + share credential)', () => {
     );
     expect(allowed.status).toBe(200);
     expect(Buffer.from(await allowed.arrayBuffer())).toEqual(bytes);
+    expect(allowed.headers.get('Content-Security-Policy')).toContain("default-src 'none'");
+    expect(allowed.headers.get('Content-Security-Policy')).toMatch(/(^|;\s*)sandbox\s*(;|$)/);
 
     const screen = await createArtifact(db, {
       projectId: project.id,

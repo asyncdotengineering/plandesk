@@ -11,7 +11,65 @@ type UploadedFileResponse = {
   size: number;
 };
 
+// Directive list of a response CSP, so `sandbox allow-scripts` can't pass for `sandbox`.
+function cspDirectives(res: Response): string[] {
+  return (res.headers.get('Content-Security-Policy') ?? '').split(';').map((d) => d.trim());
+}
+
+async function upload(
+  app: Awaited<ReturnType<typeof createTestApp>>['app'],
+  projectId: string,
+  filename: string,
+  mime: string,
+  bytes: Buffer,
+): Promise<UploadedFileResponse> {
+  const res = await app.request(`/api/v1/projects/${projectId}/files`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename, mime, content_base64: bytes.toString('base64') }),
+  });
+  expect(res.status).toBe(201);
+  return parseJson<UploadedFileResponse>(res);
+}
+
 describe('files routes', () => {
+  it('serves an uploaded SVG carrying <script> inline under a script-free sandbox CSP', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'SVG xss' });
+    const svg = Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg"><script>window.__pwned=1</script></svg>',
+      'utf8',
+    );
+    const created = await upload(app, project.id, 'diagram.svg', 'image/svg+xml', svg);
+
+    const res = await app.request(created.url);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('image/svg+xml');
+    expect(res.headers.get('Content-Disposition')).toBeNull();
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    const directives = cspDirectives(res);
+    expect(directives).toContain('sandbox');
+    expect(directives).toContain("default-src 'none'");
+    expect(directives.some((d) => d.startsWith('script-src'))).toBe(false);
+  });
+
+  it('serves a PNG inline as image/png under the same CSP as an SVG', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'PNG csp' });
+    const png = await upload(app, project.id, 'a.png', 'image/png', Buffer.from('png-bytes'));
+    const svg = await upload(app, project.id, 'b.svg', 'image/svg+xml', Buffer.from('<svg/>'));
+
+    const pngRes = await app.request(png.url);
+    const svgRes = await app.request(svg.url);
+    expect(pngRes.headers.get('Content-Type')).toBe('image/png');
+    expect(pngRes.headers.get('Content-Disposition')).toBeNull();
+    expect(cspDirectives(pngRes)).toContain('sandbox');
+    expect(cspDirectives(pngRes)).toContain("default-src 'none'");
+    expect(pngRes.headers.get('Content-Security-Policy')).toBe(
+      svgRes.headers.get('Content-Security-Policy'),
+    );
+  });
+
   it('uploads a file and serves it back with an image content-type', async () => {
     const { app, db } = await createTestApp();
     const project = await createProject(db, { name: 'Files' });
@@ -67,6 +125,7 @@ describe('files routes', () => {
     expect(getRes.headers.get('Content-Type')).toBe('application/octet-stream');
     expect(getRes.headers.get('Content-Disposition')).toBe('attachment; filename="evil.html"');
     expect(getRes.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(cspDirectives(getRes)).toContain('sandbox');
   });
 
   it('sanitizes a hostile filename in Content-Disposition', async () => {

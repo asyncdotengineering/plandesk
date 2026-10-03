@@ -25,9 +25,15 @@ function sanitizeFilenameForHeader(filename: string): string {
     .replace(/"/g, '\\"');
 }
 
+// Applies when a file is opened directly (top-level navigation), not when it is
+// embedded via <img>. `sandbox` with no allow-* tokens plus no script-src means
+// an uploaded SVG carrying <script> can never run on the Plan Desk origin.
+const FILE_CSP = "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox";
+
 function fileResponseHeaders(mime: string, filename: string): Record<string, string> {
   const headers: Record<string, string> = {
     'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': FILE_CSP,
   };
 
   // Only image/* is safe to render inline; every other mime (including
