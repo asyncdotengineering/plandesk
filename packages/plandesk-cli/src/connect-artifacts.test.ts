@@ -456,24 +456,12 @@ describe('connect artifacts', () => {
       hooks: {
         SessionStart: [
           {
-            matcher: 'startup|resume|compact',
-            hooks: [{ type: 'command', command: '.agents/curator/hooks/session-start.sh' }],
-          },
-        ],
-        Stop: [{ hooks: [{ type: 'command', command: '.agents/curator/hooks/checkpoint.sh' }] }],
-      },
-    });
-
-    const taggedSnippet = JSON.stringify({
-      hooks: {
-        SessionStart: [
-          {
             _plandesk: true,
             matcher: 'startup|resume|compact',
             hooks: [
               {
                 type: 'command',
-                command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/session-start.sh',
+                command: '$CLAUDE_PROJECT_DIR/.agents/factory/hooks/session-start.sh',
               },
             ],
           },
@@ -484,7 +472,7 @@ describe('connect artifacts', () => {
             hooks: [
               {
                 type: 'command',
-                command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/checkpoint.sh',
+                command: '$CLAUDE_PROJECT_DIR/.agents/factory/hooks/checkpoint.sh',
               },
             ],
           },
@@ -495,7 +483,7 @@ describe('connect artifacts', () => {
             hooks: [
               {
                 type: 'command',
-                command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/checkpoint.sh',
+                command: '$CLAUDE_PROJECT_DIR/.agents/factory/hooks/checkpoint.sh',
               },
             ],
           },
@@ -554,7 +542,7 @@ describe('connect artifacts', () => {
               hooks: [
                 {
                   type: 'command',
-                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/old-session-start.sh',
+                  command: '$CLAUDE_PROJECT_DIR/.agents/factory/hooks/old-session-start.sh',
                 },
               ],
             },
@@ -565,7 +553,7 @@ describe('connect artifacts', () => {
               hooks: [
                 {
                   type: 'command',
-                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/old-checkpoint.sh',
+                  command: '$CLAUDE_PROJECT_DIR/.agents/factory/hooks/old-checkpoint.sh',
                 },
               ],
             },
@@ -576,7 +564,7 @@ describe('connect artifacts', () => {
               hooks: [
                 {
                   type: 'command',
-                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/old-checkpoint.sh',
+                  command: '$CLAUDE_PROJECT_DIR/.agents/factory/hooks/old-checkpoint.sh',
                 },
               ],
             },
@@ -584,8 +572,8 @@ describe('connect artifacts', () => {
         },
       });
       const once = mergeHooksJson(undefined, priorSnippet);
-      const twice = mergeHooksJson(once, taggedSnippet);
-      const thrice = mergeHooksJson(twice, taggedSnippet);
+      const twice = mergeHooksJson(once, snippet);
+      const thrice = mergeHooksJson(twice, snippet);
       expect(thrice).toBe(twice);
       const parsed = JSON.parse(thrice) as { hooks: Record<string, unknown[]> };
       for (const event of ['SessionStart', 'Stop', 'PreCompact'] as const) {
@@ -602,59 +590,6 @@ describe('connect artifacts', () => {
       expect(JSON.stringify(parsed.hooks)).not.toContain('old-checkpoint.sh');
     });
 
-    it('converges legacy untagged curator entries to the tagged shape without orphans', () => {
-      const legacy = JSON.stringify({
-        hooks: {
-          SessionStart: [
-            {
-              matcher: 'startup|resume|compact',
-              hooks: [
-                {
-                  type: 'command',
-                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/session-start.sh',
-                },
-              ],
-            },
-          ],
-          Stop: [
-            {
-              hooks: [
-                {
-                  type: 'command',
-                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/checkpoint.sh',
-                },
-              ],
-            },
-          ],
-          PreCompact: [
-            {
-              hooks: [
-                {
-                  type: 'command',
-                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/checkpoint.sh',
-                },
-              ],
-            },
-          ],
-        },
-      });
-      const merged = mergeHooksJson(legacy, taggedSnippet);
-      const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
-      for (const event of ['SessionStart', 'Stop', 'PreCompact'] as const) {
-        const hooks = parsed.hooks[event];
-        if (hooks === undefined) {
-          throw new Error(`missing ${event} hooks`);
-        }
-        expect(hooks).toHaveLength(1);
-        const entry = hooks[0] as { _plandesk?: boolean };
-        expect(entry._plandesk).toBe(true);
-      }
-      // No untagged orphan left: every remaining entry on these events is tagged.
-      const serialized = JSON.stringify(parsed.hooks);
-      expect((serialized.match(/session-start\.sh/g) ?? []).length).toBe(1);
-      expect((serialized.match(/checkpoint\.sh/g) ?? []).length).toBe(2);
-    });
-
     it("preserves a user's own hook inside the same SessionStart array on replace", () => {
       const existing = JSON.stringify({
         hooks: {
@@ -666,14 +601,14 @@ describe('connect artifacts', () => {
               hooks: [
                 {
                   type: 'command',
-                  command: '$CLAUDE_PROJECT_DIR/.agents/curator/hooks/old-session-start.sh',
+                  command: '$CLAUDE_PROJECT_DIR/.agents/factory/hooks/old-session-start.sh',
                 },
               ],
             },
           ],
         },
       });
-      const merged = mergeHooksJson(existing, taggedSnippet);
+      const merged = mergeHooksJson(existing, snippet);
       const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
       expect(parsed.hooks.SessionStart).toHaveLength(2);
       expect(JSON.stringify(parsed.hooks.SessionStart)).toContain('echo mine');
@@ -696,7 +631,7 @@ describe('connect artifacts', () => {
           Notification: [{ hooks: [{ type: 'command', command: 'echo notify' }] }],
         },
       });
-      const merged = mergeHooksJson(existing, taggedSnippet);
+      const merged = mergeHooksJson(existing, snippet);
       const parsed = JSON.parse(merged) as { hooks: Record<string, unknown[]> };
       expect(parsed.hooks.PostToolUse).toEqual(userOnly);
       expect(parsed.hooks.Notification).toEqual([

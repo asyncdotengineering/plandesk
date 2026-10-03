@@ -408,33 +408,6 @@ function isPlandeskOwnedEntry(entry: unknown): boolean {
   );
 }
 
-// Pre-marker path used by every shipped curator hook before ownership tags.
-// One-time migration: drop untagged entries whose command still points here so
-// a first post-upgrade `factory init` converges without leaving orphans.
-// Removable after one release cycle (see CHANGELOG).
-const LEGACY_CURATOR_HOOKS_PATH = '.agents/curator/hooks/';
-
-function entryCommandContains(entry: unknown, needle: string): boolean {
-  if (entry === null || typeof entry !== 'object') {
-    return false;
-  }
-  if (Array.isArray(entry)) {
-    return entry.some((item) => entryCommandContains(item, needle));
-  }
-  const obj = entry as Record<string, unknown>;
-  if (typeof obj['command'] === 'string' && obj['command'].includes(needle)) {
-    return true;
-  }
-  return Object.values(obj).some((value) => entryCommandContains(value, needle));
-}
-
-function isLegacyUntaggedCuratorEntry(entry: unknown): boolean {
-  if (isPlandeskOwnedEntry(entry)) {
-    return false;
-  }
-  return entryCommandContains(entry, LEGACY_CURATOR_HOOKS_PATH);
-}
-
 export function mergeHooksJson(
   existingContent: string | undefined,
   snippetContent: string,
@@ -447,10 +420,8 @@ export function mergeHooksJson(
   const hooks = doc.hooks ?? {};
   for (const [event, snippetEntries] of Object.entries(snippet.hooks ?? {})) {
     const existingEntries = hooks[event] ?? [];
-    // Drop Plan Desk–owned and legacy untagged curator entries, keep user hooks.
-    const kept = existingEntries.filter(
-      (entry) => !isPlandeskOwnedEntry(entry) && !isLegacyUntaggedCuratorEntry(entry),
-    );
+    // Replace Plan Desk–owned entries, keep the user's own hooks.
+    const kept = existingEntries.filter((entry) => !isPlandeskOwnedEntry(entry));
     hooks[event] = [...kept, ...snippetEntries];
   }
   doc.hooks = hooks;
