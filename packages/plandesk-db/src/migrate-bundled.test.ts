@@ -1,15 +1,14 @@
-import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { createServer } from 'node:net';
-import { homedir, tmpdir } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { migrate as drizzleFileMigrate } from 'drizzle-orm/libsql/migrator';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDb, type Db } from './client.js';
 import { migrate } from './migrate.js';
 import { getSchemaMigrationSummary } from './schema-drift.js';
+import { findSqld, startSqld } from './testing/sqld.js';
 
 const SEARCH_TRIGGERS = ['documents', 'notes', 'tasks']
   .flatMap((table) => ['ad', 'ai', 'au'].map((op) => `${table}_search_index_${op}`))
@@ -139,72 +138,25 @@ describe('bundled migrate on a local database', () => {
   });
 });
 
-// CI sets PLANDESK_REQUIRE_SQLD=1 so a missing binary fails the run instead of
-// silently skipping the remote-database coverage.
-function findSqld(): string | undefined {
-  const onPath = (process.env.PATH ?? '').split(delimiter).map((dir) => join(dir, 'sqld'));
-  const bin = [...onPath, join(homedir(), '.turso', 'sqld')].find((path) => existsSync(path));
-  if (bin === undefined && process.env.PLANDESK_REQUIRE_SQLD === '1') {
-    throw new Error('PLANDESK_REQUIRE_SQLD=1 but no sqld on PATH or at ~/.turso/sqld');
-  }
-  return bin;
-}
-
-async function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer();
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      server.close(() => {
-        if (address === null || typeof address === 'string') {
-          reject(new Error('no port'));
-          return;
-        }
-        resolve(address.port);
-      });
-    });
-  });
-}
-
 const sqld = findSqld();
-const running: { proc: ChildProcess; dir: string }[] = [];
+const stops: (() => void)[] = [];
 
-// A throwaway sqld per test: libSQL over HTTP (Hrana) runs each request on its
-// own stream, so connection-level PRAGMAs don't carry between calls.
-async function startSqld(binary: string): Promise<string> {
-  const port = await freePort();
-  const dir = mkdtempSync(join(tmpdir(), 'plandesk-sqld-'));
-  const proc = spawn(binary, ['--http-listen-addr', `127.0.0.1:${String(port)}`, '-d', dir], {
-    stdio: 'ignore',
-  });
-  running.push({ proc, dir });
-  const url = `http://127.0.0.1:${String(port)}`;
-  for (let attempt = 0; attempt < 100; attempt++) {
-    try {
-      if ((await fetch(`${url}/health`)).ok) {
-        return url;
-      }
-    } catch {
-      // not listening yet
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  throw new Error(`sqld did not come up on ${url}`);
+// A throwaway sqld per test.
+async function sqldUrl(binary: string): Promise<string> {
+  const server = await startSqld(binary);
+  stops.push(server.stop);
+  return server.url;
 }
 
 afterEach(() => {
-  for (const { proc, dir } of running.splice(0)) {
-    proc.kill();
-    rmSync(dir, { recursive: true, force: true });
-  }
+  for (const stop of stops.splice(0)) stop();
 });
 
 describe.skipIf(sqld === undefined)('bundled migrate against sqld over HTTP', () => {
   const binary = sqld ?? '';
 
   it('opens a remote database and applies the full chain', async () => {
-    const db = await createDb(await startSqld(binary));
+    const db = await createDb(await sqldUrl(binary));
     expect(await migrate(db)).toEqual({ applied: journalTags });
 
     const summary = await getSchemaMigrationSummary(db);
@@ -223,7 +175,7 @@ describe.skipIf(sqld === undefined)('bundled migrate against sqld over HTTP', ()
   // streams start with foreign_keys=1, so the drop only succeeds when FK checks
   // are off inside the migration's own stream.
   it('keeps foreign keys off while a migration rebuilds a referenced table', async () => {
-    const db = await createDb(await startSqld(binary));
+    const db = await createDb(await sqldUrl(binary));
     await applyJournalPrefix(db, 2);
     await db.$client.batch(
       [
@@ -245,7 +197,7 @@ describe.skipIf(sqld === undefined)('bundled migrate against sqld over HTTP', ()
   });
 
   it('retires sync_state on a populated sync-era board', async () => {
-    const db = await createDb(await startSqld(binary));
+    const db = await createDb(await sqldUrl(binary));
     await seedSyncEraBoard(db);
     await expectSyncStateRetired(db);
   });

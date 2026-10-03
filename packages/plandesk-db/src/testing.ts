@@ -1,5 +1,6 @@
 import type { DbClient } from './client.js';
 import { and, asc, eq, isNull } from 'drizzle-orm';
+export { findSqld, startSqld } from './testing/sqld.js';
 import { createGoal, type Goal } from './repositories/goals.js';
 import type { PrototypeLink } from './repositories/prototype-links.js';
 import {

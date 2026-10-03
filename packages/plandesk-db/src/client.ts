@@ -61,15 +61,37 @@ export async function createDb(path: string, authToken?: string) {
 }
 
 /**
- * Run `fn` inside a same-connection SQL transaction.
+ * Run `fn` atomically; `fn` gets a `Db` bound to the transaction.
  *
- * Prefer this over `db.transaction()` for work that must stay on one
- * connection. libsql's interactive `client.transaction()` nulls the client
- * handle and opens a new connection for later work — with a bare `:memory:`
- * URL that new connection is a different empty database, so the schema and
- * data from the first connection vanish.
+ * Remote URLs (http/ws) run each `execute` on its own stream, so a plain BEGIN
+ * there holds nothing: they use libsql's interactive `client.transaction()`,
+ * which keeps one stream for the whole unit. Local databases must not: on
+ * them it hands the connection to the transaction and lazily opens a new one
+ * for later work — with `:memory:` a different empty database, with a file one
+ * missing the PRAGMAs `createDb` set. They run BEGIN/COMMIT on their one
+ * connection instead.
+ *
+ * Inside `fn` on a remote database, `db.$client` is the libsql Transaction:
+ * pass statements as `{ sql, args }` (the two-argument `execute(sql, args)`
+ * drops its args there), and never nest `withTransaction` or call
+ * `db.transaction()` — the Transaction has neither.
  */
 export async function withTransaction<T>(db: Db, fn: (db: Db) => Promise<T>): Promise<T> {
+  if (db.$client.protocol !== 'file') {
+    const tx = await db.$client.transaction('write');
+    try {
+      // The transaction serves drizzle as its client: same execute/batch shape.
+      const result = await fn(drizzle({ client: tx as unknown as Client, schema }));
+      await tx.commit();
+      return result;
+    } catch (error) {
+      await tx.rollback().catch(() => undefined);
+      if (error instanceof TransactionRollback) {
+        return error.result as T;
+      }
+      throw error;
+    }
+  }
   await db.$client.execute('BEGIN');
   try {
     const result = await fn(db);

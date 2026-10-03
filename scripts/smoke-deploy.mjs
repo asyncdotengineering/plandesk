@@ -439,6 +439,21 @@ async function assertServing(t, env) {
     bytes.equals(got),
     `status ${down?.status}, ${got.length}/${bytes.length} bytes`,
   );
+
+  // (e) a write the service runs in withTransaction commits on the remote database.
+  const gr = await probe(`${base}/api/v1/projects/${project.id}/goals`, {
+    method: 'POST',
+    headers: { ...auth, 'content-type': 'application/json' },
+    body: JSON.stringify({ objective: 'Smoke transactional write' }),
+  });
+  const goal = await gr?.json().catch(() => undefined);
+  const gg = await probe(`${base}/api/v1/goals/${goal?.id}`, { headers: auth });
+  const read = await gg?.json().catch(() => undefined);
+  check(
+    'POST /api/v1/projects/:id/goals (transactional) then GET /api/v1/goals/:id',
+    gr?.status === 201 && gg?.status === 200 && read?.objective === 'Smoke transactional write',
+    `status ${gr?.status} then ${gg?.status}`,
+  );
 }
 
 async function assertStaleRefused(t, env) {

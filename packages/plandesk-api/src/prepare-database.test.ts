@@ -1,9 +1,8 @@
-import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
-import { createServer } from 'node:net';
-import { homedir, tmpdir } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createDb, migrate, MIGRATIONS, SchemaDriftError, type Db } from '@plandesk/db';
+import { findSqld, startSqld } from '@plandesk/db/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   createBetterAuth,
@@ -50,31 +49,6 @@ afterEach(() => {
   for (const fn of cleanups.splice(0)) fn();
 });
 
-// CI sets PLANDESK_REQUIRE_SQLD=1 so a missing binary fails the run instead of
-// silently skipping the remote-database coverage.
-function findSqld(): string | undefined {
-  const onPath = (process.env.PATH ?? '').split(delimiter).map((dir) => join(dir, 'sqld'));
-  const bin = [...onPath, join(homedir(), '.turso', 'sqld')].find((path) => existsSync(path));
-  if (bin === undefined && process.env.PLANDESK_REQUIRE_SQLD === '1') {
-    throw new Error('PLANDESK_REQUIRE_SQLD=1 but no sqld on PATH or at ~/.turso/sqld');
-  }
-  return bin;
-}
-
-async function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer();
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address();
-      server.close(() => {
-        if (address === null || typeof address === 'string') reject(new Error('no port'));
-        else resolve(address.port);
-      });
-    });
-  });
-}
-
 function fileUrl(): Promise<string> {
   const dir = mkdtempSync(join(tmpdir(), 'plandesk-prepare-'));
   cleanups.push(() => {
@@ -84,27 +58,9 @@ function fileUrl(): Promise<string> {
 }
 
 async function sqldUrl(): Promise<string> {
-  const port = await freePort();
-  const dir = mkdtempSync(join(tmpdir(), 'plandesk-prepare-sqld-'));
-  const proc: ChildProcess = spawn(
-    sqld ?? '',
-    ['--http-listen-addr', `127.0.0.1:${String(port)}`, '-d', dir],
-    { stdio: 'ignore' },
-  );
-  cleanups.push(() => {
-    proc.kill();
-    rmSync(dir, { recursive: true, force: true });
-  });
-  const url = `http://127.0.0.1:${String(port)}`;
-  for (let attempt = 0; attempt < 100; attempt++) {
-    try {
-      if ((await fetch(`${url}/health`)).ok) return url;
-    } catch {
-      // not listening yet
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  throw new Error(`sqld did not come up on ${url}`);
+  const server = await startSqld(sqld ?? '');
+  cleanups.push(server.stop);
+  return server.url;
 }
 
 const sqld = findSqld();
