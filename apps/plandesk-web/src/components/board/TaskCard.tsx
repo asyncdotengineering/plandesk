@@ -40,7 +40,7 @@ export function TaskCard({
   onChangeStatus,
   onRequestDelete,
 }: TaskCardProps) {
-  const lane = laneFromTags(task.tags);
+  const lane = task.lane ?? laneFromTags(task.tags);
   const chips = (task.tags ?? []).filter((tag) => !tag.name.startsWith(LANE_TAG_PREFIX));
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -210,7 +210,7 @@ export function TaskCardPreview({
   task: SerializedTask;
   hasLinkedDoc: boolean;
 }) {
-  const lane = laneFromTags(task.tags);
+  const lane = task.lane ?? laneFromTags(task.tags);
   return (
     // The drag preview must match the card it lifted off, which is the width of
     // its column — 86vw on a phone, the fixed track at tablet and up.

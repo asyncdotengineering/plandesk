@@ -29,6 +29,7 @@ import type {
 import { goalOptionLabel } from '../../lib/goal-choice.js';
 import { commitUrl } from '../../lib/commit-url.js';
 import { EntityTimestamps, VerificationStatus } from '../../lib/format-timestamp.js';
+import { taskLanes, type TaskLane } from '@plandesk/db/vocabulary';
 import { laneFromTags, LANE_TAG_PREFIX } from './board-utils.js';
 import { StatusMenu } from './StatusChip.js';
 
@@ -156,7 +157,7 @@ function TaskDrawerBody({
     setEditing(false);
   }, [task.id, task.label, task.updated_at]);
 
-  const lane = laneFromTags(task.tags);
+  const lane = task.lane ?? laneFromTags(task.tags);
 
   // Only re-serialize the description when the user actually edited it. Task
   // descriptions are Markdown the MCP reads/writes; the rich round-trip is
@@ -256,24 +257,27 @@ function TaskDrawerBody({
               <Select
                 value={lane ?? 'none'}
                 onValueChange={(value) => {
-                  const names = (task.tags ?? [])
+                  // A legacy `lane:` tag would shadow a cleared column, so drop it on write.
+                  const tags = task.tags ?? [];
+                  const names = tags
                     .map((t) => t.name)
                     .filter((n) => !n.startsWith(LANE_TAG_PREFIX));
-                  if (value !== 'none') {
-                    onPatch({ tags: [...names, `${LANE_TAG_PREFIX}${value}`] });
-                  } else {
-                    onPatch({ tags: names });
-                  }
+                  onPatch({
+                    lane: value === 'none' ? null : (value as TaskLane),
+                    ...(names.length !== tags.length ? { tags: names } : {}),
+                  });
                 }}
               >
-                <SelectTrigger className="w-40 text-xs">
+                <SelectTrigger className="w-40 text-xs" aria-label="Lane">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="auto">auto</SelectItem>
-                  <SelectItem value="approve">approve</SelectItem>
-                  <SelectItem value="full">full</SelectItem>
+                  {taskLanes.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             ) : (

@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedGoal, SerializedTask } from '../../lib/api.js';
 import { TaskDrawer } from './TaskDrawer.js';
 
@@ -184,5 +184,67 @@ describe('TaskDrawer goal', () => {
       />,
     );
     expect(screen.getByRole('combobox', { name: 'Goal' }).textContent).toContain('customization');
+  });
+});
+
+describe('TaskDrawer lane', () => {
+  beforeEach(() => {
+    const el = window.Element.prototype as unknown as Record<string, () => unknown>;
+    el.hasPointerCapture = () => false;
+    el.setPointerCapture = () => undefined;
+    el.releasePointerCapture = () => undefined;
+    el.scrollIntoView = () => undefined;
+  });
+
+  const renderDrawer = (
+    task: SerializedTask,
+    onPatch: (input: unknown) => void = () => undefined,
+  ) =>
+    render(
+      <TaskDrawer
+        task={task}
+        tagSuggestions={[]}
+        open
+        onOpenChange={() => undefined}
+        onPatch={onPatch}
+        onChangeStatus={() => undefined}
+        onAddTag={() => undefined}
+        onRemoveTag={() => undefined}
+      />,
+    );
+
+  const tag = (id: string, name: string) => ({
+    id,
+    project_id: 'proj-1',
+    name,
+    color: null,
+    created_at: '2026-06-07T00:00:00.000Z',
+  });
+
+  it('shows the typed lane when the task carries no lane tag', () => {
+    renderDrawer({ ...baseTask, lane: 'full' });
+    expect(screen.getByText('FULL')).toBeTruthy();
+  });
+
+  it('sets the lane as a typed field and drops a legacy lane tag', () => {
+    const onPatch = vi.fn();
+    renderDrawer({ ...baseTask, tags: [tag('l1', 'lane:auto'), tag('t1', 'ui')] }, onPatch);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit task' }));
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Lane' }), { key: 'Enter' });
+    fireEvent.click(screen.getByRole('option', { name: 'approve' }));
+
+    expect(onPatch).toHaveBeenCalledWith({ lane: 'approve', tags: ['ui'] });
+  });
+
+  it('sets the lane without touching tags when no lane tag exists', () => {
+    const onPatch = vi.fn();
+    renderDrawer({ ...baseTask, lane: 'full' }, onPatch);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit task' }));
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Lane' }), { key: 'Enter' });
+    fireEvent.click(screen.getByRole('option', { name: 'None' }));
+
+    expect(onPatch).toHaveBeenCalledWith({ lane: null });
   });
 });

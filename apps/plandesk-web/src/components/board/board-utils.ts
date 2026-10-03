@@ -29,8 +29,8 @@ export function groupTasksByStatus(tasks: SerializedTask[]): Record<TaskStatus, 
 
 export const LANE_TAG_PREFIX = 'lane:';
 
-// Lane/severity is intentionally NOT a task field. It is carried as a
-// `lane:<value>` tag when present and surfaced separately from tag chips.
+// Legacy fallback: lane is the typed `task.lane` column; older tasks may still
+// carry a `lane:<value>` tag, surfaced separately from tag chips.
 export function laneFromTags(tags: SerializedTag[] | undefined): string | undefined {
   for (const tag of tags ?? []) {
     if (tag.name.startsWith(LANE_TAG_PREFIX)) {

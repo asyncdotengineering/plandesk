@@ -57,7 +57,6 @@ import {
   columnLabels,
   filterTasksByAnyTag,
   groupTasksByStatus,
-  LANE_TAG_PREFIX,
 } from './board-utils.js';
 import { BoardColumn } from './BoardColumn.js';
 import { TaskDrawer } from './TaskDrawer.js';
@@ -190,12 +189,11 @@ export function Board({
     lane: LaneOption;
     goal_id?: string;
   }) => {
-    const tags = input.lane !== 'none' ? [`${LANE_TAG_PREFIX}${input.lane}`] : undefined;
     createTask.mutate(
       {
         label: input.label,
         status: input.status,
-        tags,
+        ...(input.lane !== 'none' && { lane: input.lane }),
         ...(input.goal_id !== undefined && { goal_id: input.goal_id }),
       },
       {

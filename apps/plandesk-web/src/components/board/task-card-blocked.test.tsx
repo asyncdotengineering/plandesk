@@ -88,3 +88,18 @@ describe('TaskCard blocked indicator', () => {
     expect(clearCard?.querySelector('[data-blocked]')).toBeNull();
   });
 });
+
+describe('TaskCard lane', () => {
+  it('shows the typed lane when the task carries no lane tag', async () => {
+    const { container } = await renderBoard([
+      { ...makeTask('t-lane', 'Typed lane card', 'todo'), lane: 'full' },
+    ]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Typed lane card')).toBeTruthy();
+    });
+
+    const card = container.querySelector('[data-task-id="t-lane"]');
+    expect(card?.textContent).toContain('full');
+  });
+});

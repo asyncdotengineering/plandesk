@@ -55,6 +55,7 @@ import {
   type ShareSubmissionStatus,
   type TaskStatus,
   type TaskPriority,
+  type TaskLane,
   type LinkEntityType,
   type TaskEdgeLabel,
   type DocumentEdgeLabel,
@@ -172,6 +173,7 @@ export type CreateTaskInput = {
   label: string;
   status?: TaskStatus;
   priority?: TaskPriority | null;
+  lane?: TaskLane | null;
   description?: string | null;
   x?: number;
   y?: number;
@@ -186,6 +188,7 @@ export type CreateTaskInput = {
 export type PatchTaskInput = {
   status?: TaskStatus;
   priority?: TaskPriority | null;
+  lane?: TaskLane | null;
   label?: string;
   description?: string | null;
   x?: number;
