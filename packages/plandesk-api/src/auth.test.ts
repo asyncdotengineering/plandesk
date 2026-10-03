@@ -1,11 +1,22 @@
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
-import { createAuthMiddleware } from './auth.js';
+import { createAuthMiddleware, isLoopbackBind } from './auth.js';
 import { createTestApp, parseJson } from './test-helpers.js';
 
 function basicAuth(password: string): string {
   return `Basic ${Buffer.from(`plandesk:${password}`).toString('base64')}`;
 }
+
+describe('isLoopbackBind', () => {
+  it('classifies loopback hosts', () => {
+    for (const host of ['127.0.0.1', 'localhost', 'LocalHost', '::1', '[::1]']) {
+      expect(isLoopbackBind(host)).toBe(true);
+    }
+    for (const host of ['0.0.0.0', '127.0.0.2', '::', '192.168.1.1', 'localhost.example.com']) {
+      expect(isLoopbackBind(host)).toBe(false);
+    }
+  });
+});
 
 describe('createAuthMiddleware (basic)', () => {
   it('returns 401 for REST without credentials when auth is enabled', async () => {

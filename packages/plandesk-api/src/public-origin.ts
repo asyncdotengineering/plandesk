@@ -1,3 +1,5 @@
+import { isLoopbackBind } from './auth.js';
+
 /**
  * The origin for a URL Plan Desk hands to someone else — a share link, an
  * artifact frame's CSP. One owner, so a link and the page it opens can never
@@ -27,8 +29,6 @@ export function resolvePublicOrigin(
 /** Who can open a URL on this origin: only this host, or the wider network. */
 export type Reach = 'this_machine' | 'network';
 
-const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
-
 export function reachOf(origin: string): Reach {
-  return LOOPBACK_HOSTS.has(new URL(origin).hostname) ? 'this_machine' : 'network';
+  return isLoopbackBind(new URL(origin).hostname) ? 'this_machine' : 'network';
 }

@@ -78,10 +78,15 @@ function extractBearerToken(header: string | undefined): string | undefined {
   return raw.length > 0 ? raw : undefined;
 }
 
-/** True when the server is bound only to loopback (trusted local network boundary). */
+/**
+ * The one loopback-host rule, for a bind address or a URL hostname: exactly
+ * `127.0.0.1`, `localhost`, `::1` and `[::1]` (WHATWG URL keeps the brackets),
+ * case-insensitive. A loopback bind grants owner trust without auth, so never
+ * widen this to `0.0.0.0`, the rest of `127.0.0.0/8`, or LAN names.
+ */
 export function isLoopbackBind(host: string): boolean {
   const h = host.trim().toLowerCase();
-  return h === '127.0.0.1' || h === '::1' || h === 'localhost';
+  return h === '127.0.0.1' || h === 'localhost' || h === '::1' || h === '[::1]';
 }
 
 export type OrgAuthOptions = {

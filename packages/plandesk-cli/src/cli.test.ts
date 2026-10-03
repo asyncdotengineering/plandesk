@@ -9,7 +9,6 @@ import {
   DEFAULT_BIND_HOST,
   DEFAULT_PORT,
   findLocalPlandeskDir,
-  isLoopbackHost,
   parseArgs,
   resolveAuthPassword,
   resolveBindHost,
@@ -350,14 +349,6 @@ describe('bind host', () => {
     vi.stubEnv('PLANDESK_HOST', '0.0.0.0');
     expect(resolveBindHost()).toBe('0.0.0.0');
     vi.unstubAllEnvs();
-  });
-
-  it('classifies loopback hosts', () => {
-    expect(isLoopbackHost('127.0.0.1')).toBe(true);
-    expect(isLoopbackHost('localhost')).toBe(true);
-    expect(isLoopbackHost('::1')).toBe(true);
-    expect(isLoopbackHost('0.0.0.0')).toBe(false);
-    expect(isLoopbackHost('192.168.1.1')).toBe(false);
   });
 });
 

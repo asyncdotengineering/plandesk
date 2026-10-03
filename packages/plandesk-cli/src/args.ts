@@ -104,11 +104,6 @@ export function resolveDataDir(override?: string, startDir?: string): string {
   return resolveBoard({ override, startDir }).dataDir;
 }
 
-export function isLoopbackHost(host: string): boolean {
-  const normalized = host.trim().toLowerCase();
-  return normalized === '127.0.0.1' || normalized === 'localhost' || normalized === '::1';
-}
-
 export function resolveBindHost(flagHost?: string): string {
   if (flagHost !== undefined && flagHost.trim() !== '') {
     return flagHost.trim();

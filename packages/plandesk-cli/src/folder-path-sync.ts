@@ -1,3 +1,4 @@
+import { isLoopbackBind } from '@plandesk/api';
 import { normalizeServerUrl } from './connect-artifacts.js';
 import { resolveRegisteredRepoRoot } from './repo-root.js';
 
@@ -14,8 +15,7 @@ export type SyncRepoFolderPathResult =
 
 function isLoopbackServerUrl(serverUrl: string): boolean {
   try {
-    const host = new URL(normalizeServerUrl(serverUrl)).hostname;
-    return host === '127.0.0.1' || host === 'localhost' || host === '::1';
+    return isLoopbackBind(new URL(normalizeServerUrl(serverUrl)).hostname);
   } catch {
     return false;
   }
