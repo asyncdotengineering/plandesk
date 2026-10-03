@@ -843,10 +843,6 @@ export const resolveCommentInputSchema = z.strictObject({
   comment_id: z.string().uuid(),
 });
 
-export const syncPullInputSchema = z.strictObject({
-  project_id: z.string().uuid(),
-});
-
 export const listSubmissionsInputSchema = z.strictObject({
   project_id: z.string().uuid(),
   status: z.enum(shareSubmissionStatuses).optional(),
@@ -950,7 +946,6 @@ export const v1ToolNames = [
   'resolve_comment',
   'search',
   'check_references',
-  'sync_pull',
   'list_submissions',
   'triage_submission',
 ] as const;
@@ -1020,7 +1015,6 @@ export const v1ToolSchemas = {
   resolve_comment: resolveCommentInputSchema,
   search: searchInputSchema,
   check_references: checkReferencesInputSchema,
-  sync_pull: syncPullInputSchema,
   list_submissions: listSubmissionsInputSchema,
   triage_submission: triageSubmissionInputSchema,
 } as const;

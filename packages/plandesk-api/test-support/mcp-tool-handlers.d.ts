@@ -125,7 +125,6 @@ export declare function createScaffoldProjectFromPlanHandler(
   dep2?: unknown,
 ): McpToolHandler;
 export declare function createStartAgentRunHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createSyncPullHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createTriageSubmissionHandler(
   dep?: unknown,
   dep2?: unknown,

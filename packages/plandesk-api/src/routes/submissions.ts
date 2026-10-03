@@ -4,8 +4,6 @@ import { shareSubmissionStatuses, type ShareSubmissionStatus } from '@plandesk/d
 import {
   InvalidTriageError,
   SubmissionRetriageMismatchError,
-  SyncUnauthorizedError,
-  SyncUnavailableError,
   type SyncService,
 } from '../services/sync.js';
 import type { ProjectService } from '../services/projects.js';
@@ -55,10 +53,6 @@ export function createSubmissionsRouter(
       return c.json({ error: 'not_found' }, 404);
     }
 
-    // Optional remote: single-server guest submit has no cross-server ack target.
-    // Legacy local→remote pull still stores a remote when present.
-    const remote = await syncService.getRemote(submission.project_id);
-
     try {
       // Triage never creates a `todo` task — the scope->todo release is the human's own
       // board action, enforced in syncService.triage(). A merge (link_task_id) links to
@@ -68,7 +62,6 @@ export function createSubmissionsRouter(
       const result = await syncService.triage(
         submissionId,
         body.action,
-        remote,
         body.action === 'accept' && linkTaskId === undefined ? body.as_task : undefined,
         linkTaskId,
       );
@@ -79,12 +72,6 @@ export function createSubmissionsRouter(
       }
       if (error instanceof SubmissionRetriageMismatchError) {
         return c.json({ error: 'conflict' }, 409);
-      }
-      if (error instanceof SyncUnauthorizedError) {
-        return c.json({ error: 'sync_unauthorized' }, 400);
-      }
-      if (error instanceof SyncUnavailableError) {
-        return c.json({ error: 'sync_unavailable' }, 502);
       }
       throw error;
     }

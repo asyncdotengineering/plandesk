@@ -1,7 +1,7 @@
 import type { Db } from '@plandesk/db';
 import { DEFAULT_ORG_ID } from '@plandesk/db';
 import { createServices } from '@plandesk/api';
-import { resolveProjectId } from './sync.js';
+import { resolveProjectId } from './project-resolve.js';
 
 export type ShareCreateOptions = {
   repoDir: string;

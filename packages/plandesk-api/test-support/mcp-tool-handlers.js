@@ -54,7 +54,6 @@ export { createRecordAgentProgressHandler } from '../../plandesk-mcp/src/tools/r
 export { createResolveCommentHandler } from '../../plandesk-mcp/src/tools/resolve-comment.js';
 export { createScaffoldProjectFromPlanHandler } from '../../plandesk-mcp/src/tools/scaffold-project-from-plan.js';
 export { createStartAgentRunHandler } from '../../plandesk-mcp/src/tools/start-agent-run.js';
-export { createSyncPullHandler } from '../../plandesk-mcp/src/tools/sync-pull.js';
 export { createTriageSubmissionHandler } from '../../plandesk-mcp/src/tools/triage-submission.js';
 export { createUpdateArtifactHandler } from '../../plandesk-mcp/src/tools/update-artifact.js';
 export {

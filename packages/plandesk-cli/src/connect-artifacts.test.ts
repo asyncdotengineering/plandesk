@@ -13,7 +13,6 @@ import {
   deleteServerInfo,
   fetchServedDataDir,
   GITIGNORE_SERVER_INFO_LINE,
-  GITIGNORE_SYNC_TOKEN_LINE,
   GITIGNORE_TOKEN_LINE,
   insertFactorySentinelBlock,
   insertSentinelBlock,
@@ -255,9 +254,6 @@ describe('connect artifacts', () => {
     const twice = appendGitignoreLine(once, GITIGNORE_TOKEN_LINE);
     expect(twice).toBe(once);
     expect(twice.split('\n').filter((line) => line === GITIGNORE_TOKEN_LINE).length).toBe(1);
-    const withSync = appendGitignoreLine(once, GITIGNORE_SYNC_TOKEN_LINE);
-    expect(withSync).toContain(GITIGNORE_SYNC_TOKEN_LINE);
-    expect(appendGitignoreLine(withSync, GITIGNORE_SYNC_TOKEN_LINE)).toBe(withSync);
     const withServerInfo = appendGitignoreLine(once, GITIGNORE_SERVER_INFO_LINE);
     expect(withServerInfo).toContain(GITIGNORE_SERVER_INFO_LINE);
     expect(appendGitignoreLine(withServerInfo, GITIGNORE_SERVER_INFO_LINE)).toBe(withServerInfo);

@@ -16,7 +16,6 @@ import {
   DEFAULT_ORG_ID,
   createProjectInDefaultOrg as createProject,
   exportProject,
-  getSyncRemote,
   listSubmissions,
   migrate,
   createDb,
@@ -146,8 +145,8 @@ async function captureIo(
   };
 }
 
-describe('parseArgs push/pull', () => {
-  it('parses push and pull with project and repo', () => {
+describe('parseArgs push', () => {
+  it('parses push with project and repo', () => {
     expect(
       parseArgs([
         'node',
@@ -187,13 +186,6 @@ describe('parseArgs push/pull', () => {
       remoteUrl: 'https://api.example',
       repoDir: undefined,
       dataDir: undefined,
-    });
-    expect(
-      parseArgs(['node', 'plandesk', 'pull', '--project', 'proj-1', '--data-dir', '/tmp/ws']),
-    ).toEqual({
-      command: 'pull',
-      projectId: 'proj-1',
-      dataDir: '/tmp/ws',
     });
   });
 });
@@ -462,9 +454,6 @@ describe('CLI push/pull', () => {
     expect(hostedExport?.project.name).toBe('Sync CLI');
 
     const { db: localDb } = await openWorkspace(dataDir);
-    const remote = await getSyncRemote(localDb, projectId);
-    expect(remote?.globalProjectId).toBe(configProjectId);
-    expect(remote?.serverUrl).toBe(serverUrl);
 
     const columns = await localDb.$client.execute('PRAGMA table_info(projects)');
     const names = columns.rows

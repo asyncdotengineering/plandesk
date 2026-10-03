@@ -3,11 +3,10 @@ import {
   DEFAULT_ORG_ID,
   createDb,
   createProjectInDefaultOrg as createProject,
-  getPullCursor,
   getSubmission,
-  listSubmissions,
   listTasks,
   migrate,
+  upsertSubmission,
   type Db,
 } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
@@ -17,20 +16,17 @@ import {
   InvalidTriageError,
   InvalidTriageInputError,
   SubmissionRetriageMismatchError,
-  SyncUnauthorizedError,
-  SyncUnavailableError,
 } from './sync.js';
 
 const remoteSubmission = {
   id: 'sub-remote-1',
   share_id: 'hosted-share-1',
-  participant: { id: 'participant-1', name: 'Alex' },
+  participant_name: 'Alex',
   title: 'Bug report',
   body: 'Something broke',
   severity: 'high',
-  task_ref: null,
-  status: 'pending',
-  created_at: '2026-01-15T12:00:00.000Z',
+  created_at: new Date('2026-01-15T12:00:00.000Z'),
+  pulled_at: new Date('2026-01-15T12:01:00.000Z'),
 };
 
 describe('syncService', () => {
@@ -59,158 +55,24 @@ describe('syncService', () => {
     return createSyncService({ db, taskService, orgId });
   }
 
-  const remote = {
-    serverUrl: 'https://sync.example',
-    globalProjectId: 'gid-1',
-    syncToken: 'plandesk_sync_test',
-  };
-
-  it('pull_idempotent: pulling the same submission twice yields one triage row', async () => {
-    const project = await createProject(db, { name: 'Pull' });
-    orgId = project.orgId;
-    const service = createService();
-
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockImplementation(() =>
-        Promise.resolve(
-          new Response(JSON.stringify([remoteSubmission]), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          }),
-        ),
-      ),
-    );
-
-    const first = await service.pull(project.id, {
-      serverUrl: 'https://sync.example',
-      globalProjectId: 'gid-1',
-      syncToken: 'plandesk_sync_test',
+  async function seedSubmission(projectId: string) {
+    await upsertSubmission(db, {
+      id: remoteSubmission.id,
+      projectId,
+      hostedShareId: remoteSubmission.share_id,
+      participantName: remoteSubmission.participant_name,
+      title: remoteSubmission.title,
+      body: remoteSubmission.body,
+      severity: remoteSubmission.severity,
+      createdAt: remoteSubmission.created_at,
+      pulledAt: remoteSubmission.pulled_at,
     });
-    expect(first.pulled).toBe(1);
-    expect(await listSubmissions(db, project.id)).toHaveLength(1);
-
-    const second = await service.pull(project.id, {
-      serverUrl: 'https://sync.example',
-      globalProjectId: 'gid-1',
-      syncToken: 'plandesk_sync_test',
-    });
-    expect(second.pulled).toBe(0);
-    expect(await listSubmissions(db, project.id)).toHaveLength(1);
-  });
-
-  it('advances pull cursor to the max created_at', async () => {
-    const project = await createProject(db, { name: 'Cursor' });
-    const service = createService();
-
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify([
-            remoteSubmission,
-            {
-              ...remoteSubmission,
-              id: 'sub-remote-2',
-              created_at: '2026-01-16T12:00:00.000Z',
-            },
-          ]),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-      ),
-    );
-
-    await service.pull(project.id, {
-      serverUrl: 'https://sync.example',
-      globalProjectId: 'gid-1',
-      syncToken: 'plandesk_sync_test',
-    });
-
-    expect(await getPullCursor(db, project.id)).toBe('2026-01-16T12:00:00.000Z');
-  });
-
-  it('throws SyncUnauthorizedError on 401 without mutating local state', async () => {
-    const project = await createProject(db, { name: 'Auth' });
-    const service = createService();
-
-    vi.stubGlobal(
-      'fetch',
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401 }),
-        ),
-    );
-
-    await expect(
-      service.pull(project.id, {
-        serverUrl: 'https://sync.example',
-        globalProjectId: 'gid-1',
-        syncToken: 'bad-token',
-      }),
-    ).rejects.toBeInstanceOf(SyncUnauthorizedError);
-    expect(await listSubmissions(db, project.id)).toHaveLength(0);
-    expect(await getPullCursor(db, project.id)).toBeUndefined();
-  });
-
-  it('throws SyncUnavailableError when fetch fails', async () => {
-    const project = await createProject(db, { name: 'Down' });
-    const service = createService();
-
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
-
-    await expect(
-      service.pull(project.id, {
-        serverUrl: 'https://sync.example',
-        globalProjectId: 'gid-1',
-        syncToken: 'plandesk_sync_test',
-      }),
-    ).rejects.toBeInstanceOf(SyncUnavailableError);
-    expect(await listSubmissions(db, project.id)).toHaveLength(0);
-  });
-
-  it('materializes new rows on pull', async () => {
-    const project = await createProject(db, { name: 'Events' });
-    const service = createService();
-
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify([remoteSubmission]), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
-
-    await service.pull(project.id, {
-      serverUrl: 'https://sync.example',
-      globalProjectId: 'gid-1',
-      syncToken: 'plandesk_sync_test',
-    });
-
-    expect(await listSubmissions(db, project.id)).toHaveLength(1);
-  });
+  }
 
   it('listTriage returns serialized pending submissions', async () => {
     const project = await createProject(db, { name: 'Triage' });
     const service = createService();
-
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify([remoteSubmission]), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
-
-    await service.pull(project.id, {
-      serverUrl: 'https://sync.example',
-      globalProjectId: 'gid-1',
-      syncToken: 'plandesk_sync_test',
-    });
+    await seedSubmission(project.id);
 
     const triage = await service.listTriage(project.id, 'pending');
     expect(triage).toHaveLength(1);
@@ -223,34 +85,12 @@ describe('syncService', () => {
     });
   });
 
-  async function pullSubmission(projectId: string) {
-    const service = createService();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify([remoteSubmission]), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
-    await service.pull(projectId, remote);
-    return service;
-  }
-
-  it('triage accept creates task, acks hosted, and sets local accepted', async () => {
+  it('triage accept creates task and sets local accepted', async () => {
     const project = await createProject(db, { name: 'Accept' });
-    const service = await pullSubmission(project.id);
+    const service = createService();
+    await seedSubmission(project.id);
 
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-    vi.stubGlobal('fetch', fetchMock);
-
-    const result = await service.triage('sub-remote-1', 'accept', remote);
+    const result = await service.triage('sub-remote-1', 'accept');
 
     expect(result.status).toBe('accepted');
     expect(result.linked_task_id).toBeTruthy();
@@ -258,8 +98,6 @@ describe('syncService', () => {
     const tasks = await listTasks(db, project.id);
     expect(tasks).toHaveLength(1);
     expect(tasks[0]?.label).toBe('Bug report');
-    // Accept with no as_task (the MCP-style call) must land in `scope`, never `todo` —
-    // the human-only scope->todo gate is enforced at this service chokepoint.
     expect(tasks[0]?.status).toBe('scope');
     expect(tasks[0]?.description).toContain('Something broke');
     expect(tasks[0]?.description).toContain('Reported by Alex (client) via Plan Desk');
@@ -267,140 +105,44 @@ describe('syncService', () => {
     const local = await getSubmission(db, 'sub-remote-1');
     expect(local?.status).toBe('accepted');
     expect(local?.linkedTaskId).toBe(result.linked_task_id);
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://sync.example/api/sync/v1/projects/gid-1/submissions/sub-remote-1/ack',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({ status: 'accepted' }),
-      }),
-    );
   });
 
-  it('triage reject sets local rejected and acks hosted', async () => {
+  it('triage reject sets local rejected', async () => {
     const project = await createProject(db, { name: 'Reject' });
-    const service = await pullSubmission(project.id);
+    const service = createService();
+    await seedSubmission(project.id);
 
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-    vi.stubGlobal('fetch', fetchMock);
-
-    const result = await service.triage('sub-remote-1', 'reject', remote);
+    const result = await service.triage('sub-remote-1', 'reject');
 
     expect(result.status).toBe('rejected');
     expect(result.linked_task_id).toBeNull();
     expect(await listTasks(db, project.id)).toHaveLength(0);
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://sync.example/api/sync/v1/projects/gid-1/submissions/sub-remote-1/ack',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({ status: 'rejected' }),
-      }),
-    );
   });
 
   it('triage re-accept is idempotent and does not create a duplicate task', async () => {
     const project = await createProject(db, { name: 'Idempotent' });
-    const service = await pullSubmission(project.id);
+    const service = createService();
+    await seedSubmission(project.id);
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
-
-    const first = await service.triage('sub-remote-1', 'accept', remote);
-    const second = await service.triage('sub-remote-1', 'accept', remote);
+    const first = await service.triage('sub-remote-1', 'accept');
+    const second = await service.triage('sub-remote-1', 'accept');
 
     expect(second).toEqual(first);
     expect(await listTasks(db, project.id)).toHaveLength(1);
   });
 
-  it('triage accept keeps task and local accepted when ack fails', async () => {
-    const project = await createProject(db, { name: 'Ack fail' });
-    const service = await pullSubmission(project.id);
-
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'down' }), { status: 503 })),
-    );
-
-    await expect(service.triage('sub-remote-1', 'accept', remote)).rejects.toBeInstanceOf(
-      SyncUnavailableError,
-    );
-
-    expect(await listTasks(db, project.id)).toHaveLength(1);
-    expect((await getSubmission(db, 'sub-remote-1'))?.status).toBe('accepted');
-  });
-
-  it('triage retry re-acks after an ack failure (recovers local/remote divergence)', async () => {
-    const project = await createProject(db, { name: 'Recover ack' });
-    const service = await pullSubmission(project.id);
-
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'down' }), { status: 503 }))
-      .mockResolvedValue(
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
-    vi.stubGlobal('fetch', fetchMock);
-
-    // First attempt commits `accepted` locally, then the ack fails — local/remote diverge.
-    await expect(service.triage('sub-remote-1', 'accept', remote)).rejects.toBeInstanceOf(
-      SyncUnavailableError,
-    );
-    expect((await getSubmission(db, 'sub-remote-1'))?.status).toBe('accepted');
-
-    // Retry: the submission is already accepted, so instead of short-circuiting we re-ack
-    // the remote (idempotent) — the recovery path. No duplicate task is created.
-    const result = await service.triage('sub-remote-1', 'accept', remote);
-    expect(result.status).toBe('accepted');
-    expect(await listTasks(db, project.id)).toHaveLength(1);
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      'https://sync.example/api/sync/v1/projects/gid-1/submissions/sub-remote-1/ack',
-      expect.objectContaining({ method: 'POST', body: JSON.stringify({ status: 'accepted' }) }),
-    );
-  });
-
   it('triage throws InvalidTriageError for unknown submission', async () => {
     const service = createService();
-    await expect(service.triage('missing', 'accept', remote)).rejects.toBeInstanceOf(
-      InvalidTriageError,
-    );
+    await expect(service.triage('missing', 'accept')).rejects.toBeInstanceOf(InvalidTriageError);
   });
 
   it('triage accept-as-merge links an existing task without creating a new one', async () => {
     const project = await createProject(db, { name: 'Merge' });
     const existingTask = await createTask(db, { projectId: project.id, label: 'Existing task' });
-    const service = await pullSubmission(project.id);
+    const service = createService();
+    await seedSubmission(project.id);
 
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-    vi.stubGlobal('fetch', fetchMock);
-
-    const result = await service.triage(
-      'sub-remote-1',
-      'accept',
-      remote,
-      undefined,
-      existingTask.id,
-    );
+    const result = await service.triage('sub-remote-1', 'accept', undefined, existingTask.id);
 
     expect(result.status).toBe('accepted');
     expect(result.linked_task_id).toBe(existingTask.id);
@@ -412,23 +154,16 @@ describe('syncService', () => {
     const local = await getSubmission(db, 'sub-remote-1');
     expect(local?.status).toBe('accepted');
     expect(local?.linkedTaskId).toBe(existingTask.id);
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://sync.example/api/sync/v1/projects/gid-1/submissions/sub-remote-1/ack',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({ status: 'accepted' }),
-      }),
-    );
   });
 
   it('triage rejects when both as_task and link_task_id are provided', async () => {
     const project = await createProject(db, { name: 'Mutually exclusive' });
     const existingTask = await createTask(db, { projectId: project.id, label: 'Existing task' });
-    const service = await pullSubmission(project.id);
+    const service = createService();
+    await seedSubmission(project.id);
 
     await expect(
-      service.triage('sub-remote-1', 'accept', remote, { label: 'New task' }, existingTask.id),
+      service.triage('sub-remote-1', 'accept', { label: 'New task' }, existingTask.id),
     ).rejects.toBeInstanceOf(InvalidTriageInputError);
 
     expect(await listTasks(db, project.id)).toHaveLength(1);
@@ -437,10 +172,11 @@ describe('syncService', () => {
 
   it('triage rejects link_task_id for a task that does not exist', async () => {
     const project = await createProject(db, { name: 'Missing link target' });
-    const service = await pullSubmission(project.id);
+    const service = createService();
+    await seedSubmission(project.id);
 
     await expect(
-      service.triage('sub-remote-1', 'accept', remote, undefined, 'missing-task-id'),
+      service.triage('sub-remote-1', 'accept', undefined, 'missing-task-id'),
     ).rejects.toBeInstanceOf(InvalidTriageInputError);
 
     expect(await listTasks(db, project.id)).toHaveLength(0);
@@ -454,10 +190,11 @@ describe('syncService', () => {
       projectId: otherProject.id,
       label: 'Other project task',
     });
-    const service = await pullSubmission(project.id);
+    const service = createService();
+    await seedSubmission(project.id);
 
     await expect(
-      service.triage('sub-remote-1', 'accept', remote, undefined, otherTask.id),
+      service.triage('sub-remote-1', 'accept', undefined, otherTask.id),
     ).rejects.toBeInstanceOf(InvalidTriageInputError);
 
     expect((await getSubmission(db, 'sub-remote-1'))?.status).toBe('pending');
@@ -466,32 +203,11 @@ describe('syncService', () => {
   it('triage accept-as-merge re-run is idempotent and does not create an orphan task', async () => {
     const project = await createProject(db, { name: 'Merge idempotent' });
     const existingTask = await createTask(db, { projectId: project.id, label: 'Existing task' });
-    const service = await pullSubmission(project.id);
+    const service = createService();
+    await seedSubmission(project.id);
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
-
-    const first = await service.triage(
-      'sub-remote-1',
-      'accept',
-      remote,
-      undefined,
-      existingTask.id,
-    );
-    const second = await service.triage(
-      'sub-remote-1',
-      'accept',
-      remote,
-      undefined,
-      existingTask.id,
-    );
+    const first = await service.triage('sub-remote-1', 'accept', undefined, existingTask.id);
+    const second = await service.triage('sub-remote-1', 'accept', undefined, existingTask.id);
 
     expect(second).toEqual(first);
     expect(await listTasks(db, project.id)).toHaveLength(1);
@@ -501,23 +217,14 @@ describe('syncService', () => {
     const project = await createProject(db, { name: 'Merge mismatch' });
     const taskA = await createTask(db, { projectId: project.id, label: 'Task A' });
     const taskB = await createTask(db, { projectId: project.id, label: 'Task B' });
-    const service = await pullSubmission(project.id);
+    const service = createService();
+    await seedSubmission(project.id);
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
-
-    const first = await service.triage('sub-remote-1', 'accept', remote, undefined, taskA.id);
+    const first = await service.triage('sub-remote-1', 'accept', undefined, taskA.id);
     expect(first.linked_task_id).toBe(taskA.id);
 
     await expect(
-      service.triage('sub-remote-1', 'accept', remote, undefined, taskB.id),
+      service.triage('sub-remote-1', 'accept', undefined, taskB.id),
     ).rejects.toBeInstanceOf(SubmissionRetriageMismatchError);
 
     const stored = await getSubmission(db, 'sub-remote-1');
@@ -528,23 +235,14 @@ describe('syncService', () => {
   it('triage accept-as-merge retry with as_task throws SubmissionRetriageMismatchError', async () => {
     const project = await createProject(db, { name: 'Merge as-task mismatch' });
     const taskA = await createTask(db, { projectId: project.id, label: 'Task A' });
-    const service = await pullSubmission(project.id);
+    const service = createService();
+    await seedSubmission(project.id);
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
-
-    const first = await service.triage('sub-remote-1', 'accept', remote, undefined, taskA.id);
+    const first = await service.triage('sub-remote-1', 'accept', undefined, taskA.id);
     expect(first.linked_task_id).toBe(taskA.id);
 
     await expect(
-      service.triage('sub-remote-1', 'accept', remote, { label: 'New task' }),
+      service.triage('sub-remote-1', 'accept', { label: 'New task' }),
     ).rejects.toBeInstanceOf(SubmissionRetriageMismatchError);
 
     const stored = await getSubmission(db, 'sub-remote-1');
@@ -555,21 +253,12 @@ describe('syncService', () => {
   it('triage accept then reject throws SubmissionRetriageMismatchError', async () => {
     const project = await createProject(db, { name: 'Accept then reject' });
     const taskA = await createTask(db, { projectId: project.id, label: 'Task A' });
-    const service = await pullSubmission(project.id);
+    const service = createService();
+    await seedSubmission(project.id);
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
+    await service.triage('sub-remote-1', 'accept', undefined, taskA.id);
 
-    await service.triage('sub-remote-1', 'accept', remote, undefined, taskA.id);
-
-    await expect(service.triage('sub-remote-1', 'reject', remote)).rejects.toBeInstanceOf(
+    await expect(service.triage('sub-remote-1', 'reject')).rejects.toBeInstanceOf(
       SubmissionRetriageMismatchError,
     );
 
@@ -578,21 +267,12 @@ describe('syncService', () => {
 
   it('triage reject then accept throws SubmissionRetriageMismatchError', async () => {
     const project = await createProject(db, { name: 'Reject then accept' });
-    const service = await pullSubmission(project.id);
+    const service = createService();
+    await seedSubmission(project.id);
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
+    await service.triage('sub-remote-1', 'reject');
 
-    await service.triage('sub-remote-1', 'reject', remote);
-
-    await expect(service.triage('sub-remote-1', 'accept', remote)).rejects.toBeInstanceOf(
+    await expect(service.triage('sub-remote-1', 'accept')).rejects.toBeInstanceOf(
       SubmissionRetriageMismatchError,
     );
 
@@ -602,20 +282,11 @@ describe('syncService', () => {
   it('triage accept-as-merge retry with the same link_task_id stays idempotent', async () => {
     const project = await createProject(db, { name: 'Same link recovery' });
     const taskA = await createTask(db, { projectId: project.id, label: 'Task A' });
-    const service = await pullSubmission(project.id);
+    const service = createService();
+    await seedSubmission(project.id);
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
-
-    const first = await service.triage('sub-remote-1', 'accept', remote, undefined, taskA.id);
-    const second = await service.triage('sub-remote-1', 'accept', remote, undefined, taskA.id);
+    const first = await service.triage('sub-remote-1', 'accept', undefined, taskA.id);
+    const second = await service.triage('sub-remote-1', 'accept', undefined, taskA.id);
 
     expect(second).toEqual(first);
     expect((await getSubmission(db, 'sub-remote-1'))?.status).toBe('accepted');

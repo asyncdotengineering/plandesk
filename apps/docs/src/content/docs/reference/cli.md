@@ -37,7 +37,6 @@ plandesk factory sync [--write] [--prune] [--force] [--repo <dir>]
 
 # Collaboration (share a project with a client or team)
 plandesk push --to <org-id> [--project <id>] [--repo <dir>]
-plandesk pull [--project <id>] [--repo <dir>]
 plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>]
 plandesk deploy [target]
 ```
@@ -117,10 +116,9 @@ Share a planned project with a client or another team over a read-only live port
 | -------------- | --------------------------------------------------------------------------------- |
 | `deploy`       | List deploy guides; `deploy <target>` prints one for a coding agent to run        |
 | `push`         | Promote a local project to a hosted org (`--to <org-id>`); one-way                |
-| `pull`         | Fetch participant submissions into the local triage inbox                         |
 | `share create` | Mint a participant share (token shown once); prints the `<portal>/p/<token>` link |
 
-`share create` flags: `--public` (open named-join) or `--invite a@b,c@d` (invite-only); `--allow-submit` (let the audience file issues); `--expires 30d` (`h`/`d`/`w`). The sync token lives only in git-ignored `.plandesk/sync-token` (or `PLANDESK_SYNC_TOKEN`); participant tokens are stored hashed.
+`share create` flags: `--public` (open named-join) or `--invite a@b,c@d` (invite-only); `--allow-submit` (let the audience file issues); `--expires 30d` (`h`/`d`/`w`). Participant tokens are stored hashed.
 
 ## Options
 
@@ -173,7 +171,6 @@ board should be reachable from anywhere but this machine, bind `--host 0.0.0.0` 
 | `PLANDESK_PORT`                         | (see `--port`)     | Serve port override                                                                                   |
 | `PLANDESK_BETTER_AUTH_SECRET`           | (unset)            | better-auth signing secret; required for hosted/non-loopback auth and for remote `admin invite-owner` |
 | `PLANDESK_DB_URL` / `PLANDESK_DB_TOKEN` | (unset)            | Remote libSQL/Turso URL + token for `plandesk migrate` and hosted serve                               |
-| `PLANDESK_SYNC_TOKEN`                   | (unset)            | Legacy remote-pull credential for the sync path                                                       |
 
 ## Validation and metrics
 

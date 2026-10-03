@@ -18,7 +18,6 @@ import {
   getProject,
   getSubmission,
   migrate,
-  setSyncRemote,
   type Db,
 } from '@plandesk/db';
 import { createProjectInDefaultOrg as createProject } from '@plandesk/db/testing';
@@ -395,48 +394,6 @@ describe('workspace-tier adversarial audit round 2', () => {
       status: 200,
       leakedBodies: [],
     });
-  });
-
-  it('CONFIRMED REPRO — sync_pull cannot read a sibling remote or write submissions into its project', async () => {
-    const f = await fixture();
-    const remote = {
-      serverUrl: 'https://sync.workspace-b.example',
-      globalProjectId: 'workspace-b-global',
-      syncToken: 'workspace-b-secret-token',
-    };
-    await setSyncRemote(f.db, f.projectB.id, remote);
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify([
-          {
-            id: 'workspace-b-remote-submission',
-            share_id: 'workspace-b-share',
-            participant: { id: 'participant-b', name: 'Workspace B client' },
-            title: 'Workspace B remote secret',
-            body: 'remote secret body',
-            severity: null,
-            task_ref: null,
-            status: 'pending',
-            created_at: '2026-07-18T00:00:00.000Z',
-          },
-        ]),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
-    );
-
-    const result = await runWithAuthContext(workspaceKeyContext(f, f.workspaceA), async () => {
-      const siblingRemote = await f.services.syncService.getRemote(f.projectB.id);
-      if (siblingRemote === undefined) {
-        return { remoteVisible: false, pulled: 0 };
-      }
-      const pulled = await f.services.syncService.pull(f.projectB.id, siblingRemote);
-      return { remoteVisible: true, pulled: pulled.pulled };
-    });
-
-    expect({
-      ...result,
-      persisted: (await getSubmission(f.db, 'workspace-b-remote-submission')) !== undefined,
-    }).toEqual({ remoteVisible: false, pulled: 0, persisted: false });
   });
 
   it('files: a workspace-A key cannot upload to or download from workspace B', async () => {

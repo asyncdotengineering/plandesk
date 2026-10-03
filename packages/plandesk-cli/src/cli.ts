@@ -58,7 +58,6 @@ import { runContext } from './context.js';
 import { DEFAULT_CHECKPOINT_MESSAGE, runProgressCheckpoint } from './progress-checkpoint.js';
 import { formatStatusReport, runStatus } from './status.js';
 import { formatPushSummary, PromotePushError, runPush } from './push.js';
-import { formatPullSummary, runPull } from './pull.js';
 import { formatShareCreateSummary, InvalidShareArgsError, runShareCreate } from './share.js';
 import {
   DeploySpecUnavailableError,
@@ -68,7 +67,7 @@ import {
   formatUnknownTarget,
   isKnownTarget,
 } from './deploy.js';
-import { SyncConfigError } from './sync.js';
+import { ProjectConfigError } from './project-resolve.js';
 import {
   CORRUPT_DB_HINT,
   CorruptWorkspaceError,
@@ -81,8 +80,6 @@ import {
   createBetterAuth,
   InvalidShareError,
   runBetterAuthMigrations,
-  SyncUnauthorizedError,
-  SyncUnavailableError,
 } from '@plandesk/api';
 import { createDb, migrate } from '@plandesk/db';
 
@@ -448,35 +445,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         if (err instanceof CorruptWorkspaceError) {
           return reportCorruptDb();
         }
-        if (
-          err instanceof SyncConfigError ||
-          err instanceof PromotePushError ||
-          err instanceof SyncUnauthorizedError ||
-          err instanceof SyncUnavailableError
-        ) {
-          process.stderr.write(`${err.message}\n`);
-          return 1;
-        }
-        throw err;
-      }
-    }
-    case 'pull': {
-      try {
-        printBoard(parsed.dataDir);
-        const repoDir = resolveRepoDir(parsed.repoDir);
-        const { db } = await openWorkspace(parsed.dataDir);
-        const result = await runPull(db, { repoDir, projectId: parsed.projectId });
-        process.stdout.write(formatPullSummary(result));
-        return 0;
-      } catch (err) {
-        if (err instanceof CorruptWorkspaceError) {
-          return reportCorruptDb();
-        }
-        if (
-          err instanceof SyncConfigError ||
-          err instanceof SyncUnauthorizedError ||
-          err instanceof SyncUnavailableError
-        ) {
+        if (err instanceof ProjectConfigError || err instanceof PromotePushError) {
           process.stderr.write(`${err.message}\n`);
           return 1;
         }
@@ -503,7 +472,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
           return reportCorruptDb();
         }
         if (
-          err instanceof SyncConfigError ||
+          err instanceof ProjectConfigError ||
           err instanceof InvalidShareArgsError ||
           err instanceof InvalidShareError
         ) {

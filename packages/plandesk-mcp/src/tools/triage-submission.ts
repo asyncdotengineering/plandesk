@@ -1,10 +1,5 @@
 import type { SyncService } from '@plandesk/api';
-import {
-  InvalidTriageError,
-  InvalidTriageInputError,
-  SyncUnavailableError,
-  SyncUnauthorizedError,
-} from '@plandesk/api';
+import { InvalidTriageError, InvalidTriageInputError } from '@plandesk/api';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createTriageSubmissionHandler(
@@ -21,15 +16,10 @@ export function createTriageSubmissionHandler(
       return toolNotFound();
     }
 
-    // Remote is optional: single-server guest submit lands in local triage with no
-    // cross-server ack. Legacy local→remote pull still has a remote when present.
-    const remote = await syncService.getRemote(submission.project_id);
-
     try {
       const result = await syncService.triage(
         args.submission_id,
         args.action,
-        remote,
         args.as_task,
         args.link_task_id,
       );
@@ -40,12 +30,6 @@ export function createTriageSubmissionHandler(
       }
       if (error instanceof InvalidTriageError) {
         return toolNotFound();
-      }
-      if (error instanceof SyncUnauthorizedError) {
-        return toolInvalidArgument('sync token unauthorized');
-      }
-      if (error instanceof SyncUnavailableError) {
-        return toolInvalidArgument('sync server unavailable');
       }
       throw error;
     }

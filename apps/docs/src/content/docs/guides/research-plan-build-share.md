@@ -24,10 +24,6 @@ plandesk share create --audience "Acme" --public --allow-submit
 
 The portal serves a read-only view computed from the hosted project and polls for changes. Participants can submit issues into a moderated inbox; they cannot edit the plan.
 
-## 4. Pull and triage
+## 4. Triage
 
-```bash
-plandesk pull
-```
-
-Review each submission and use `triage_submission` to reject it, accept it as a task, or link it to existing work. The accepted task returns to the normal agent loop.
+Review each submission with `list_submissions` and use `triage_submission` to reject it, accept it as a task, or link it to existing work. The accepted task returns to the normal agent loop.

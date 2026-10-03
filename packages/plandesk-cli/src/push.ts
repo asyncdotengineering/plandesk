@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { exportProject, setSyncRemote, type Db } from '@plandesk/db';
+import { exportProject, type Db } from '@plandesk/db';
 import { readCliConfig } from './config.js';
 import {
   buildConfigJson,
@@ -10,7 +10,7 @@ import {
   readPlandeskToken,
   TOKEN_ENV_VAR,
 } from './connect-artifacts.js';
-import { resolveProjectId, SyncConfigError, type ResolvedSync } from './sync.js';
+import { resolveProjectId, ProjectConfigError } from './project-resolve.js';
 
 export type PushOptions = {
   repoDir: string;
@@ -53,7 +53,7 @@ export function resolvePromoteToken(repoDir: string, home = homedir()): string {
   if (fromFile !== undefined && fromFile.trim() !== '') {
     return fromFile.trim();
   }
-  throw new SyncConfigError(
+  throw new ProjectConfigError(
     `Token is required for promote. Set ${TOKEN_ENV_VAR}, run plandesk login, or write .plandesk/token.`,
   );
 }
@@ -80,11 +80,11 @@ export function resolvePromoteServerUrl(
     return normalizeServerUrl(global.server);
   }
   if (config === undefined) {
-    throw new SyncConfigError(
+    throw new ProjectConfigError(
       'Missing .plandesk/config.json. Run plandesk connect or plandesk login first.',
     );
   }
-  throw new SyncConfigError('serverUrl is required in .plandesk/config.json for promote.');
+  throw new ProjectConfigError('serverUrl is required in .plandesk/config.json for promote.');
 }
 
 async function runPromotePush(
@@ -142,12 +142,6 @@ async function runPromotePush(
   }
   const globalProjectId = payload.globalProjectId;
 
-  await setSyncRemote(db, localProjectId, {
-    serverUrl,
-    globalProjectId,
-    syncToken: token,
-  });
-
   // Sole record of hosted authority: repoint config (local rows are left alone).
   const configPath = join(options.repoDir, '.plandesk', 'config.json');
   const existing = readPlandeskConfig(options.repoDir);
@@ -186,5 +180,3 @@ export async function runPush(db: Db, options: PushOptions): Promise<PromotePush
 export function formatPushSummary(result: PromotePushResult): string {
   return `Promoted to org ${result.orgId} as ${result.globalProjectId} on ${result.serverUrl}.\n`;
 }
-
-export type { ResolvedSync };

@@ -114,7 +114,6 @@ import {
   createResumeGoalHandler,
   createScaffoldProjectFromPlanHandler,
   createStartAgentRunHandler,
-  createSyncPullHandler,
   createTriageSubmissionHandler,
   createUpdateArtifactHandler,
   createMoveScreenHandler,
@@ -198,7 +197,6 @@ const MCP_TOOLS = [
   'add_artifact_comment',
   'resolve_comment',
   'check_references',
-  'sync_pull',
   'list_submissions',
   'triage_submission',
 ] as const;
@@ -975,7 +973,6 @@ async function runMcpForeignSweep(
       () =>
         createCheckReferencesHandler(s.referenceCheckService)({ project_id: target.project.id }),
     ],
-    ['sync_pull', () => createSyncPullHandler(s.syncService)({ project_id: target.project.id })],
     [
       'list_submissions',
       () =>

@@ -69,7 +69,7 @@ export type ResolvedBoard = {
 /**
  * Single source of truth for which board (data-dir) a command operates on.
  * Every board-touching command (init, serve, doctor, legacy-upgrade,
- * export/import/push/pull) resolves through this one function so they always
+ * export/import/push) resolves through this one function so they always
  * agree on the same board in the same repo.
  *
  * Precedence: explicit override (`--data-dir`) → `PLANDESK_DATA_DIR` env →
@@ -155,7 +155,6 @@ export const RESERVED_COMMANDS = new Set([
   'disconnect',
   'doctor',
   'push',
-  'pull',
   'share',
   'deploy',
   'factory',
@@ -257,7 +256,6 @@ export type ParsedArgs =
       toOrgId?: string;
       remoteUrl?: string;
     }
-  | { command: 'pull'; repoDir?: string; projectId?: string; dataDir?: string }
   | {
       command: 'share';
       subcommand: 'create';
@@ -609,15 +607,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
     };
   }
 
-  if (command === 'pull') {
-    return {
-      command: 'pull',
-      repoDir: flagString(flags, 'repo'),
-      projectId: flagString(flags, 'project'),
-      dataDir,
-    };
-  }
-
   if (command === 'share') {
     const subcommand = positional[1];
     if (subcommand === 'create') {
@@ -736,7 +725,6 @@ Usage:
   plandesk doctor [--data-dir <dir>] [--repo <dir>] [--config <file>]
   plandesk migrate --db <url> [--db-token <token>] [--config <file>] [--data-dir <dir>]   # apply schema migrations to a remote (self-host) database
   plandesk push [--project <id>] [--to <orgId>] [--url <server>] [--repo <dir>] [--data-dir <dir>]
-  plandesk pull [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk share create --audience <name> [--public] [--invite <email[,email]>] [--allow-submit] [--expires <30d>] [--project <id>] [--repo <dir>] [--data-dir <dir>]
   plandesk push-artifact <file.md|file.html> [--prototype <name>] [--force] [--repo <dir>]   # upload a file as an artifact; --prototype files it as a screen of that prototype
   plandesk attach <file.png> [--repo <dir>]   # upload an image and print its url for embedding in a doc, task or comment

@@ -11,6 +11,7 @@ import {
   listShares,
   listSubmissions,
   migrate,
+  upsertSubmission,
   parseSharePolicy,
   type Db,
 } from '@plandesk/db';
@@ -448,32 +449,16 @@ describe('shareService', () => {
       orgId,
     });
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify([
-            {
-              id: 'sub-cascade',
-              share_id: 'hosted-share-1',
-              participant: { id: 'p1', name: 'Alex' },
-              title: 'Gone',
-              body: null,
-              severity: null,
-              task_ref: null,
-              status: 'pending',
-              created_at: '2026-01-15T12:00:00.000Z',
-            },
-          ]),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-      ),
-    );
-
-    await syncService.pull(project.id, {
-      serverUrl: 'https://sync.example',
-      globalProjectId: 'gid-1',
-      syncToken: 'plandesk_sync_test',
+    await upsertSubmission(db, {
+      id: 'sub-cascade',
+      projectId: project.id,
+      hostedShareId: 'hosted-share-1',
+      participantName: 'Alex',
+      title: 'Gone',
+      body: null,
+      severity: null,
+      createdAt: new Date('2026-01-15T12:00:00.000Z'),
+      pulledAt: new Date('2026-01-15T12:01:00.000Z'),
     });
     expect(await syncService.listTriage(project.id)).toHaveLength(1);
 

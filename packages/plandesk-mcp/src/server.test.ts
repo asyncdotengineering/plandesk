@@ -208,7 +208,7 @@ describe('createMcpApp', () => {
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
       expect(names).toEqual([...v1ToolNames].sort());
-      expect(names).toHaveLength(65);
+      expect(names).toHaveLength(64);
       await client.close();
     });
   });

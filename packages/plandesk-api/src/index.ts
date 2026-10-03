@@ -164,9 +164,6 @@ export {
   InvalidTriageError,
   InvalidTriageInputError,
   SubmissionRetriageMismatchError,
-  SyncUnavailableError,
-  SyncUnauthorizedError,
-  type SyncRemote,
   type SyncService,
 } from './services/sync.js';
 

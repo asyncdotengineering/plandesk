@@ -63,7 +63,6 @@ import { createListSubmissionsHandler } from './tools/list-submissions.js';
 import { createResolveCommentHandler } from './tools/resolve-comment.js';
 import { createSearchHandler } from './tools/search.js';
 import { createScaffoldProjectFromPlanHandler } from './tools/scaffold-project-from-plan.js';
-import { createSyncPullHandler } from './tools/sync-pull.js';
 import { createTriageSubmissionHandler } from './tools/triage-submission.js';
 import {
   attachFileInputSchema,
@@ -125,7 +124,6 @@ import {
   checkReferencesInputSchema,
   scaffoldProjectFromPlanInputSchema,
   startAgentRunInputSchema,
-  syncPullInputSchema,
   triageSubmissionInputSchema,
   updateDocumentInputSchema,
   updateTaskInputSchema,
@@ -861,16 +859,6 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
       annotations: { readOnlyHint: true },
     },
     createCheckReferencesHandler(services.referenceCheckService),
-  );
-
-  server.registerTool(
-    'sync_pull',
-    {
-      title: 'Sync Pull',
-      description: 'Pull participant submissions into the local triage inbox',
-      inputSchema: syncPullInputSchema,
-    },
-    createSyncPullHandler(services.syncService),
   );
 
   server.registerTool(

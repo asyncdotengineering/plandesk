@@ -18,16 +18,9 @@ const submission = {
   pulled_at: '2026-01-15T12:00:00.000Z',
 };
 
-const remote = {
-  serverUrl: 'https://sync.example',
-  globalProjectId: 'gid-1',
-  syncToken: 'plandesk_sync_test',
-};
-
 function createMockSyncService(triage: ReturnType<typeof vi.fn>) {
   return {
     getSubmission: vi.fn().mockReturnValue(submission),
-    getRemote: vi.fn().mockReturnValue(remote),
     triage,
   } as unknown as SyncService;
 }
@@ -43,7 +36,7 @@ describe('createTriageSubmissionHandler', () => {
       link_task_id: 'task-1',
     });
 
-    expect(triage).toHaveBeenCalledWith('sub-1', 'accept', remote, undefined, 'task-1');
+    expect(triage).toHaveBeenCalledWith('sub-1', 'accept', undefined, 'task-1');
     expect(result.isError).not.toBe(true);
   });
 

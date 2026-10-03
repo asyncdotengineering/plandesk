@@ -12,9 +12,7 @@ export const SENTINEL_START = '<!-- plandesk:start -->';
 export const SENTINEL_END = '<!-- plandesk:end -->';
 export const SENTINEL_INCLUDE = '@.plandesk/skill.md';
 export const TOKEN_ENV_VAR = 'PLANDESK_MCP_TOKEN';
-export const SYNC_TOKEN_ENV_VAR = 'PLANDESK_SYNC_TOKEN';
 export const GITIGNORE_TOKEN_LINE = '.plandesk/token';
-export const GITIGNORE_SYNC_TOKEN_LINE = '.plandesk/sync-token';
 export const MCP_SERVER_KEY = 'plandesk';
 
 export type PlanDeskSyncConfig = {

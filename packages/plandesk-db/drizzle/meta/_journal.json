@@ -169,6 +169,13 @@
       "when": 1791032947624,
       "tag": "0023_wandering_clea",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1791035238684,
+      "tag": "0024_sloppy_dark_phoenix",
+      "breakpoints": true
     }
   ]
 }

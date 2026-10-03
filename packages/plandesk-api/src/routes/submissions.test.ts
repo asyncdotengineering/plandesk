@@ -10,12 +10,6 @@ import { createApp } from '../server.js';
 import { createServices, type Services } from '../services/index.js';
 import { parseJson } from '../test-helpers.js';
 
-const remote = {
-  serverUrl: 'https://sync.example',
-  globalProjectId: 'gid-1',
-  syncToken: 'plandesk_sync_test',
-};
-
 async function createTestAppWithServices() {
   const db = await createDb(':memory:');
   await migrate(db);
@@ -94,15 +88,9 @@ describe('submissions routes', () => {
   });
 
   it('POST triage accept creates a scope task even if a different status is requested', async () => {
-    const { app, db, services } = await createTestAppWithServices();
+    const { app, db } = await createTestAppWithServices();
     const project = await createProject(db, { name: 'Accept' });
     await seedSubmission(db, project.id);
-    await services.syncService.setRemote(project.id, remote);
-
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 })),
-    );
 
     const res = await app.request('/api/v1/submissions/sub-1/triage', {
       method: 'POST',
@@ -124,15 +112,9 @@ describe('submissions routes', () => {
   });
 
   it('POST triage reject marks the submission rejected', async () => {
-    const { app, db, services } = await createTestAppWithServices();
+    const { app, db } = await createTestAppWithServices();
     const project = await createProject(db, { name: 'Reject' });
     await seedSubmission(db, project.id);
-    await services.syncService.setRemote(project.id, remote);
-
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 })),
-    );
 
     const res = await app.request('/api/v1/submissions/sub-1/triage', {
       method: 'POST',
@@ -145,10 +127,9 @@ describe('submissions routes', () => {
   });
 
   it('POST triage 400s on an invalid action and 404s on an unknown submission', async () => {
-    const { app, db, services } = await createTestAppWithServices();
+    const { app, db } = await createTestAppWithServices();
     const project = await createProject(db, { name: 'Invalid' });
     await seedSubmission(db, project.id);
-    await services.syncService.setRemote(project.id, remote);
 
     const invalidRes = await app.request('/api/v1/submissions/sub-1/triage', {
       method: 'POST',
@@ -169,18 +150,12 @@ describe('submissions routes', () => {
     const { app, db, services } = await createTestAppWithServices();
     const project = await createProject(db, { name: 'Merge' });
     await seedSubmission(db, project.id);
-    await services.syncService.setRemote(project.id, remote);
 
     const existing = await services.taskService.create(project.id, {
       label: 'Existing task',
       status: 'scope',
       description: 'already here',
     });
-
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 })),
-    );
 
     const res = await app.request('/api/v1/submissions/sub-1/triage', {
       method: 'POST',

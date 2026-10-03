@@ -21,15 +21,9 @@ Plan Desk collaboration keeps authoring local while the hosted portal exposes a 
 
 3. Participants open the link. The portal computes the read-only view live from the hosted project and polls for updates. Internal data and edit access are not exposed.
 
-4. Participants file feedback into the moderated submission inbox. Submissions do not change the source plan.
+4. Participants file feedback into the moderated submission inbox on the hosted API. Submissions do not change the source plan.
 
-5. Pull submissions into the local triage inbox:
-
-   ```bash
-   plandesk pull
-   ```
-
-6. Review and run `triage_submission` to accept, reject, or connect a submission to a task. Accepted feedback enters the normal task workflow, where the agent can build it.
+5. Review the inbox with `list_submissions` and run `triage_submission` to accept, reject, or connect a submission to a task. Accepted feedback enters the normal task workflow, where the agent can build it.
 
 ## What participants can see
 
