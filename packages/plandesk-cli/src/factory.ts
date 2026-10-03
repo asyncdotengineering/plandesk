@@ -23,6 +23,7 @@ import {
   SHIPPED_SKILL_NAMES,
   SHIPPED_TEMPLATES,
   agentsArtifactPath,
+  readVendoredTemplate,
   shippedSkillFiles,
   skillSymlinkTarget,
 } from './shipped-templates.js';
@@ -266,7 +267,7 @@ export function buildFactoryArtifacts(repoDir: string): FactoryArtifact[] {
       const adapterPath = join(repoDir, '.claude', 'skills', name, ...rel.split('/'));
       const content = existsSync(canonicalPath)
         ? readFileSync(canonicalPath, 'utf8')
-        : readTemplate(`skills/${name}/${rel}`);
+        : readVendoredTemplate(`skills/${name}/${rel}`);
       artifacts.push({
         path: adapterPath,
         content,

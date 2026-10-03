@@ -147,6 +147,34 @@ plandesk serve
 
 </details>
 
+<details>
+<summary><b>Use the skills from Cursor, Codex, OpenCode, or another agent</b></summary>
+
+<br/>
+
+The ten skills install with the [`skills` CLI](https://github.com/vercel-labs/skills), which
+supports most coding agents:
+
+```bash
+npx skills add asyncdotengineering/plandesk                              # all ten
+npx skills add asyncdotengineering/plandesk --skill plandesk-groom-task  # just one
+npx skills add asyncdotengineering/plandesk -g                           # for every project
+```
+
+**The skills are instructions for the Plan Desk MCP tools, not the tools themselves.** They
+need a running `plandesk serve` and a repo bound with `plandesk connect`. Without those,
+every tool a skill names (`get_next_task`, `create_task`, …) is missing, and the agent
+follows the procedure into a wall.
+
+|                       | `npx skills add` | `plandesk connect`                                                                                                        |
+| --------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Skills                | Installs the ten | Writes them into `.agents/skills/` and links them into `.claude/skills/`                                                  |
+| MCP wiring            | No               | Writes `.mcp.json` and the agent's command files                                                                          |
+| Project binding       | No               | Writes `.plandesk/config.json`                                                                                            |
+| Shows up in listings? | n/a              | No. The copies it writes are marked `metadata.internal: true`, so a connected public repo does not appear to publish them |
+
+</details>
+
 New here? Run `plandesk onboard` for the full model — how the board works, the execution
 loop, delegation, and the MCP surface.
 

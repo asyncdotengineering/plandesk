@@ -27,7 +27,8 @@
   },
   "devDependencies": {
     "typescript": "^6.0.3",
-    "vitest": "^3.2.6"
+    "vitest": "^3.2.6",
+    "yaml": "^2.9.0"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.4",

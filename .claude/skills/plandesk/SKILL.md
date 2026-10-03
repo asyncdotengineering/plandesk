@@ -1,1 +1,1 @@
-../../../.plandesk/skill.md
+../../../.agents/skills/plandesk/SKILL.md

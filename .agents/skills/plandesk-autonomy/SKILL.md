@@ -1,6 +1,6 @@
 ---
 name: plandesk-autonomy
-description: Runs another skill — or the whole Plan Desk board loop — unattended, without pausing for permission between steps, bounded strictly by the board's own risk lanes. Chain it onto any skill invocation ("/plandesk-autonomy /plandesk-foreman all todo") or run it bare to drive the board. Use whenever asked to work autonomously, run unattended, keep going without asking, clear the board on its own, or go do the whole thing — and whenever a long run must survive compaction without losing what is next.
+description: "Runs another skill, or the whole Plan Desk board loop, unattended: no pausing for permission between steps, bounded strictly by the board's risk lanes. Chain it onto any skill invocation (\"/plandesk-autonomy /plandesk-foreman all todo\") or run it bare to drive the board. Use when asked to work autonomously, run unattended, stop asking for permission, clear the board on its own, or go do the whole thing, and when a long run must survive compaction."
 user-invocable: true
 argument-hint: "[<a skill invocation to run unattended> | nothing, to drive the board]"
 ---

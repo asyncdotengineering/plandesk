@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { readTemplate } from './templates.js';
+import { readVendoredTemplate } from './shipped-templates.js';
 
 /** Path of the conventions skill inside the templates root. */
 export const PLANDESK_SKILL_TEMPLATE_PATH = 'skills/plandesk/SKILL.md';
@@ -674,7 +674,7 @@ export function appendGitignoreLine(content: string | undefined, line: string): 
  * only ever runs `connect` still gets the skill.
  */
 export function buildSkillMarkdown(): string {
-  return readTemplate(PLANDESK_SKILL_TEMPLATE_PATH);
+  return readVendoredTemplate(PLANDESK_SKILL_TEMPLATE_PATH);
 }
 
 export function buildCommandMarkdown(): string {

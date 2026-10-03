@@ -1,6 +1,6 @@
 ---
 name: plandesk-plan-writer
-description: Writes the reasoning behind a change as a Plan Desk document, in one of two forms. An RFC / design proposal for something still to be built — problem, requirements, design, alternatives, verification surface — landing as a `Design:` document. Or an ADR / architecture decision record for a call already made — context, what was chosen, who signed off, what follows — landing as a `Decision:` document. Use whenever asked to write an RFC, spec out a change, draft a design doc, write an ADR, record an architecture decision, capture why we chose X over Y, or write down a call settled in a meeting. It picks the form by asking whether anything will actually be built from it; it is the upstream of plandesk-scope-work.
+description: "Writes the reasoning behind a change as a Plan Desk document: an RFC or design proposal for something still to be built (a `Design:` doc), or an ADR for a call already made (a `Decision:` doc). Use when asked to write an RFC, spec out a change, draft a design doc, write an ADR, record an architecture decision, or capture why we chose X over Y. Upstream of plandesk-scope-work."
 user-invocable: true
 argument-hint: "<feature, problem, or decision to write up>"
 ---

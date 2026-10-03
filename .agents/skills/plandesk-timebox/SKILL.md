@@ -1,6 +1,6 @@
 ---
 name: plandesk-timebox
-description: Paces a long run in pomodoro-style timeboxes over a work list the user defines — sets an interval, works items until it expires, verifies what actually completed, reports at every boundary, and continues into the next box while work remains. Chain it onto another skill ("/plandesk-timebox 25m /plandesk-foreman next") or run it bare over a list of items. Use whenever asked to timebox, pomodoro, work in sprints or intervals, keep going for an hour, check in every N minutes, or grind through a list without going dark.
+description: "Paces a long run in fixed intervals over a work list: works items until the interval expires, verifies what actually completed, reports at every boundary, and starts the next interval while work remains. Chain it onto another skill (\"/plandesk-timebox 25m /plandesk-foreman next\") or run it over a list. Use when asked to timebox, pomodoro, work in sprints or intervals, check in every N minutes, or report progress on a schedule."
 user-invocable: true
 argument-hint: "[<interval, e.g. 25m>] [<a skill invocation, or a list of work items>]"
 ---

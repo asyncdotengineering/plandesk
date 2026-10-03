@@ -1,0 +1,26 @@
+{
+  "$schema": "https://skills.sh/schemas/skills.sh.schema.json",
+  "notGrouped": "bottom",
+  "groupings": [
+    {
+      "title": "Planning",
+      "description": "Turn intent into board-ready work.",
+      "skills": ["plandesk", "plandesk-scope-work", "plandesk-plan-writer", "plandesk-groom-task"]
+    },
+    {
+      "title": "Execution",
+      "description": "Work the board: dispatch, verify, gate, ship.",
+      "skills": ["plandesk-foreman", "plandesk-autonomy", "plandesk-timebox"]
+    },
+    {
+      "title": "Session",
+      "description": "Open and close a working session with context intact.",
+      "skills": ["plandesk-standup", "plandesk-standdown"]
+    },
+    {
+      "title": "Prototyping",
+      "description": "Author click-through HTML prototype screens.",
+      "skills": ["plandesk-prototype"]
+    }
+  ]
+}

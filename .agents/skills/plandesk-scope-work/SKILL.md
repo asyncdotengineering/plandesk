@@ -1,6 +1,6 @@
 ---
 name: plandesk-scope-work
-description: Turns raw signal or a whole idea into board-ready Plan Desk tasks. Dedups client submissions, an ungroomed backlog, or a pasted brain-dump into `scope` tasks with recorded provenance, and scaffolds an idea, RFC, or PRD into a full project — tasks, dependency edges, lanes, and a Design doc — in one scaffold_project_from_plan call. Use whenever asked to triage a backlog or submissions, sort a brain-dump into tasks, plan a feature or RFC onto the board, scaffold a project, or decompose a Goal into cycle-sized tasks, even when Plan Desk is not named.
+description: "Turns raw signal or a whole idea into board-ready Plan Desk tasks: dedups submissions, a backlog, or a brain-dump into `scope` tasks with provenance, and scaffolds an idea, RFC, or PRD into tasks, edges, lanes, and a Design doc in one call. Use when asked to triage a backlog or submissions, sort a brain-dump into tasks, plan a feature onto the board, or decompose a Goal, even when Plan Desk is not named."
 user-invocable: true
 argument-hint: "[backlog | submissions | <brain-dump> | <idea, RFC, or PRD>]"
 ---

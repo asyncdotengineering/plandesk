@@ -432,10 +432,11 @@ describe('connect artifacts', () => {
     });
   });
 
-  it('ships the conventions skill verbatim from the templates root', () => {
-    expect(buildSkillMarkdown()).toBe(
-      readFileSync(join(templatesRoot(), PLANDESK_SKILL_TEMPLATE_PATH), 'utf8'),
-    );
+  it('ships the conventions skill body verbatim, marked internal for the consumer repo', () => {
+    const source = readFileSync(join(templatesRoot(), PLANDESK_SKILL_TEMPLATE_PATH), 'utf8');
+    const body = (markdown: string): string => markdown.replace(/^---\n[\s\S]*?\n---\n/, '');
+    expect(body(buildSkillMarkdown())).toBe(body(source));
+    expect(buildSkillMarkdown()).toContain('metadata:\n  internal: true\n---\n');
   });
 
   /**
@@ -448,7 +449,10 @@ describe('connect artifacts', () => {
     const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
     const generated = join(repoRoot, '.plandesk', 'skill.md');
     expect(lstatSync(generated).isSymbolicLink()).toBe(true);
-    expect(readFileSync(generated, 'utf8')).toBe(buildSkillMarkdown());
+    // This is the source repo: the pointer resolves to the unmarked source.
+    expect(readFileSync(generated, 'utf8')).toBe(
+      readFileSync(join(templatesRoot(), PLANDESK_SKILL_TEMPLATE_PATH), 'utf8'),
+    );
   });
 
   describe('mergeHooksJson', () => {

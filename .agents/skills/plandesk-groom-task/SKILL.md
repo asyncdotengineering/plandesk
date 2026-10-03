@@ -1,6 +1,6 @@
 ---
 name: plandesk-groom-task
-description: Groom one thin task — or a bare one-line requirement with no card yet — into a build contract in place: read the code it names, fill the description to build-contract depth, assign a lane, add the edges it implies. Use when asked to groom, refine, flesh out, size, or make a task buildable, when a ticket is too thin to hand to anyone, or when checking whether a batch is ready to release.
+description: "Groom one thin task, or a bare one-line requirement with no card yet, into a build contract in place: read the code it names, fill the description to build-contract depth, assign a lane, add the edges it implies. Use when asked to groom, refine, flesh out, size, or make a task buildable, when a ticket is too thin to hand to anyone, or when checking whether a batch is ready to release."
 user-invocable: true
 argument-hint: "<task id | 'all scope' | 'all todo' | a one-line requirement>"
 ---

@@ -16,10 +16,28 @@ export type ShippedTemplate = {
   executable?: boolean;
 };
 
+/**
+ * A template as it is written into a consumer repo — the one reader every
+ * write path uses, so `connect`, `factory init`/`sync` and the copy fallback
+ * cannot disagree about a file's content.
+ *
+ * A vendored SKILL.md is marked `metadata.internal: true`. `.agents/skills/`
+ * is a standard discovery path for the `skills` CLI, so without the mark every
+ * connected repo lists plandesk's skills as if it published them. The source
+ * in this repo stays unmarked, so it is still the installable copy.
+ */
+export function readVendoredTemplate(relativePath: string): string {
+  const content = readTemplate(relativePath);
+  if (!relativePath.startsWith('skills/') || !relativePath.endsWith('/SKILL.md')) {
+    return content;
+  }
+  return content.replace(/^(---\n[\s\S]*?\n)---\n/, '$1metadata:\n  internal: true\n---\n');
+}
+
 function shippedTemplate(relativePath: string, executable?: boolean): ShippedTemplate {
   return {
     relativePath,
-    content: readTemplate(relativePath),
+    content: readVendoredTemplate(relativePath),
     ...(executable === true ? { executable: true } : {}),
   };
 }
