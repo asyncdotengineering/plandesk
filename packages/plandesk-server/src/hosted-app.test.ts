@@ -133,24 +133,27 @@ describe('createHostedApp', () => {
     expect(((await res.json()) as { schema: { current: boolean } }).schema.current).toBe(true);
   });
 
-  it('answers 503 schema_behind on /api and /mcp while another instance holds the lease, then retries', async () => {
+  it('answers 503 schema_behind on /api and /mcp while another instance holds the lease, and retries after a backoff', async () => {
     const db = await createDb(':memory:');
     await db.$client.execute(LEASE_DDL);
     await db.$client.execute({
       sql: 'INSERT INTO __plandesk_lease (id, holder, expires_at) VALUES (1, ?, ?)',
       args: ['other-instance', Date.now() + 10 * 60_000],
     });
-    const app = await createHostedApp(env(), { openDb: () => Promise.resolve(db) });
 
     vi.useFakeTimers({ toFake: ['setTimeout', 'Date'] });
-    const pending = Promise.all([
-      app.request(`${BASE}/api/v1/projects`),
-      app.request(`${BASE}/mcp/`, { method: 'POST' }),
-      app.request(`${BASE}/api/v1/health`),
-    ]);
-    await vi.advanceTimersByTimeAsync(5_000);
+    const building = createHostedApp(env(), { openDb: () => Promise.resolve(db) });
+    const pending = building.then((app) =>
+      Promise.all([
+        app.request(`${BASE}/api/v1/projects`),
+        app.request(`${BASE}/mcp/`, { method: 'POST' }),
+        app.request(`${BASE}/api/v1/health`),
+      ]),
+    );
+    // Past the 2 s lease wait, short of the 2 s retry backoff that follows it.
+    await vi.advanceTimersByTimeAsync(3_000);
+    const app = await building;
     const responses = await pending;
-    vi.useRealTimers();
 
     for (const res of responses) {
       expect(res.status).toBe(503);
@@ -164,11 +167,14 @@ describe('createHostedApp', () => {
       expect(body.schema.missingTags.length).toBeGreaterThan(0);
     }
 
-    // The other instance goes away: the next request prepares instead of
-    // replaying the failure.
+    // The other instance goes away. Inside the backoff the failure is replayed
+    // rather than retried hot against the database.
     await db.$client.execute('DELETE FROM __plandesk_lease');
-    const health = await app.request(`${BASE}/api/v1/health`);
-    expect(health.status).toBe(200);
+    expect((await app.request(`${BASE}/api/v1/health`)).status).toBe(503);
+
+    // After it, a later request prepares: a Worker has no timer to rely on.
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect((await app.request(`${BASE}/api/v1/health`)).status).toBe(200);
   });
 
   it('answers misconfigured JSON 500 for a bad env instead of throwing', async () => {

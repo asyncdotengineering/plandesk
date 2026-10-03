@@ -45,7 +45,7 @@ else
   echo "source: locally packed tarballs"
   (cd "$REPO_ROOT" && pnpm build >/dev/null 2>&1)
   mkdir -p "$WORK/tarballs"
-  for p in db api mcp cli; do
+  for p in db api mcp server cli; do
     (cd "$REPO_ROOT/packages/plandesk-$p" && pnpm pack --pack-destination "$WORK/tarballs" >/dev/null 2>&1)
   done
   npm install --no-audit --no-fund "$WORK"/tarballs/*.tgz >/dev/null 2>&1

@@ -30,6 +30,7 @@
     "@plandesk/api": "workspace:*",
     "@plandesk/db": "workspace:*",
     "@plandesk/mcp": "workspace:*",
+    "@plandesk/server": "workspace:*",
     "hono": "^4.12.23",
     "marked": "^18.0.5",
     "marked-shiki": "^1.2.1",

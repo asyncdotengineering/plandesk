@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { referenceCheckFsFor } from './serve.js';
+import { referenceCheckFsFor } from './node.js';
 
 // A member can PATCH folder_path to any absolute path, so a disk probe on a
 // server other people can reach is a host-filesystem existence oracle.

@@ -14,10 +14,10 @@ packages/plandesk-mcp/      MCP server (Streamable HTTP; tools registered from s
 packages/plandesk-cli/      plandesk binary (init, serve, connect, …)
 packages/plandesk-mcp-client/  Factory Desk / programmatic MCP consumer
 packages/plandesk-runner/   Machine-side runner: polls a board and dispatches work to worker CLIs
-packages/plandesk-server/   Hosted entries: Cloudflare Workers + Vercel (not published)
+packages/plandesk-server/   Server composition: Node (serve, Docker), Cloudflare Workers, Vercel
 ```
 
-`plandesk-server` is the hosted **composition root**: `plandesk-mcp` imports runtime values from `plandesk-api`, so `plandesk-api` cannot import the MCP server back without a dependency cycle. The Workers and Vercel entries therefore live in their own package (one `createHostedApp`) that depends on both and wires them together — the same role `serve.ts` plays in `plandesk-cli` on Node. This is what lets a hosted board serve `/mcp` alongside the REST API.
+`plandesk-server` is the **composition root**: `plandesk-mcp` imports runtime values from `plandesk-api`, so `plandesk-api` cannot import the MCP server back without a dependency cycle. One composition in its own package depends on both and wires them together; the Node (`@plandesk/server/node`, which `plandesk serve` calls), Workers and Vercel entries differ only in the platform they pass in. This is what lets every target serve `/mcp` alongside the REST API.
 
 ## Published npm packages
 
@@ -29,6 +29,7 @@ Core packages ship under the `@plandesk/*` scope on npm (published under the `la
 | `@plandesk/api`        | Hono REST server                                  |
 | `@plandesk/db`         | SQLite schema + migrations                        |
 | `@plandesk/mcp`        | MCP server                                        |
+| `@plandesk/server`     | API + MCP composition for Node, Workers, Vercel   |
 | `@plandesk/mcp-client` | Programmatic MCP consumer                         |
 
 Install with `npm i -g @plandesk/cli` to run Plan Desk without cloning the repo.

@@ -17,6 +17,7 @@ COPY packages/plandesk-api/package.json packages/plandesk-api/
 COPY packages/plandesk-cli/package.json packages/plandesk-cli/
 COPY packages/plandesk-db/package.json packages/plandesk-db/
 COPY packages/plandesk-mcp/package.json packages/plandesk-mcp/
+COPY packages/plandesk-server/package.json packages/plandesk-server/
 COPY apps/plandesk-web/package.json apps/plandesk-web/
 RUN pnpm install --frozen-lockfile --filter "@plandesk/cli..." --filter "plandesk-web..."
 
@@ -24,6 +25,7 @@ COPY packages/plandesk-api packages/plandesk-api
 COPY packages/plandesk-cli packages/plandesk-cli
 COPY packages/plandesk-db packages/plandesk-db
 COPY packages/plandesk-mcp packages/plandesk-mcp
+COPY packages/plandesk-server packages/plandesk-server
 COPY apps/plandesk-web apps/plandesk-web
 # The CLI build vendors .agents/ into dist/templates, as for the npm package.
 COPY .agents .agents

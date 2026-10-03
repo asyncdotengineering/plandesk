@@ -1,19 +1,7 @@
-import { randomBytes } from 'node:crypto';
-import { existsSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { getRequestListener } from '@hono/node-server';
-import {
-  isLoopbackBind,
-  createApp,
-  createBetterAuth,
-  createServices,
-  createStorageAdapter,
-  mountStatic,
-  prepareDatabase,
-  readServerEnv,
-} from '@plandesk/api';
-import { createDb, SchemaDriftError, type ReferenceCheckFs } from '@plandesk/db';
-import { createMcpApp } from '@plandesk/mcp';
+import { readServerEnv } from '@plandesk/api';
+import { createNodeApp } from '@plandesk/server/node';
 import { resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
 import { resolveServerConfig } from './config.js';
 import {
@@ -36,9 +24,6 @@ export type ServeOptions = {
 };
 
 export type ExitFn = (code: number) => never;
-
-/** Pause between background prepare retries while the schema is behind. */
-const PREPARE_RETRY_MS = 2_000;
 
 const defaultExit: ExitFn = (code) => {
   process.exit(code);
@@ -84,21 +69,6 @@ export type ServeRuntime = {
   strictPort: boolean;
 };
 
-/**
- * Disk access for check_references, granted only on a loopback bind.
- *
- * Any org member can point a project's folder_path at an arbitrary absolute
- * path, so on a server others can reach a disk probe would tell them whether
- * any file on the host exists. Loopback means the caller is the machine's
- * owner — the same rule attach_file follows. Elsewhere the check reports
- * unknown.
- */
-export function referenceCheckFsFor(bindHost: string): ReferenceCheckFs | undefined {
-  return isLoopbackBind(bindHost)
-    ? { pathExists: existsSync, folderExists: existsSync }
-    : undefined;
-}
-
 export function resolveServeOrigin(host: string, port: number): string {
   const advertisedHost = host.trim().toLowerCase() === 'localhost' ? '127.0.0.1' : host;
   const urlHost =
@@ -141,91 +111,29 @@ export async function startServer(
   const { host } = validateServeBind(options);
   const dataDir = resolveDataDir(options.dataDir);
 
-  // Server config: env > file > default (see config.ts). Flags layer above this
-  // at the cli boundary; here we read env/file for db, storage, github, and the
-  // file-only fallback for authPassword.
+  // Server config: env > file > default (see config.ts); the auth password
+  // flag layers on top.
   const cfg = resolveServerConfig({ configPath: options.configPath, dataDir });
-  // flag (options.authPassword) > env > file — resolveServerConfig already
-  // folded env > file, so this is the full precedence.
-  const authPassword = options.authPassword ?? cfg.values.authPassword;
-
-  // Database: a remote libSQL URL (self-host/cloud) or, with no URL, the local
-  // file. Either way the server prepares it under the lease (prepareDatabase).
-  const dbUrl = cfg.values.dbUrl;
-  const local = dbUrl === undefined;
-  const dbPath = workspaceDbPath(dataDir);
-  const dbDisplay = dbUrl ?? dbPath;
-  const db = local ? await createDb(dbPath) : await createDb(dbUrl, cfg.values.dbToken);
-  const betterAuthBaseURL = cfg.values.baseUrl ?? resolveServeOrigin(host, options.port);
-  const betterAuthSecret =
-    cfg.values.authSecret ?? (local ? ensureLocalBetterAuthSecret(dataDir) : undefined);
-  // A remote board without a secret serves no better-auth, but its tables are
-  // still prepared, so a throwaway secret drives the migrator.
-  const auth = createBetterAuth({
-    client: db.$client,
-    secret: betterAuthSecret ?? randomBytes(32).toString('base64url'),
-    baseURL: betterAuthBaseURL,
-    github: cfg.values.github,
-  });
-  if (auth === undefined) throw new Error('Better-auth migrator secret was not created');
-  // A peer holding the lease past prepareDatabase's wait leaves the schema
-  // behind. Like the hosted entries, answer 503 schema_behind and keep trying
-  // instead of exiting, so a container doesn't crash-loop behind a slow peer.
-  let behind: SchemaDriftError | undefined;
-  const prepare = async (): Promise<void> => {
-    try {
-      await prepareDatabase(db, auth, { local });
-      behind = undefined;
-      await backfillRepoFolderPathFromCwd(db);
-    } catch (error) {
-      if (!(error instanceof SchemaDriftError)) throw error;
-      if (behind === undefined) {
-        process.stderr.write(`${error.message} Answering 503 until it is current.\n`);
-      }
-      behind = error;
-      // A database newer than this binary (an image rollback) fails at once;
-      // pause so the retry loop never hammers it.
-      setTimeout(() => void prepare(), PREPARE_RETRY_MS).unref();
-    }
-  };
-  await prepare();
-
-  const storage = createStorageAdapter({ db, storage: cfg.values.storage });
-  const referenceCheckFs = referenceCheckFsFor(host);
-  const services = createServices({
-    db,
-    auth,
-    storage,
-    ...(referenceCheckFs !== undefined ? { referenceCheckFs } : {}),
-  });
-  // Parent createApp resolves better-auth apiKey / session / loopback;
-  // MCP requires that context (no independent auth path).
-  const mcpApp = createMcpApp({ services, bindHost: host });
-  const app = createApp({
-    db,
-    services,
-    mcp: mcpApp,
-    authPassword,
-    bindHost: host,
+  // No database URL: the local single-org board, on a file in the data dir.
+  const local = cfg.values.dbUrl === undefined;
+  const dbUrl = cfg.values.dbUrl ?? workspaceDbPath(dataDir);
+  const app = await createNodeApp({
+    config: {
+      ...cfg.values,
+      dbUrl,
+      authPassword: options.authPassword ?? cfg.values.authPassword,
+      authSecret:
+        cfg.values.authSecret ?? (local ? ensureLocalBetterAuthSecret(dataDir) : undefined),
+    },
+    local,
+    host,
+    origin: resolveServeOrigin(host, options.port),
     dataDir,
-    // GitHub sign-in comes from the resolved config (env > file). With no
-    // client id/secret configured, the server simply has no GitHub sign-in
-    // (REQ-20) — the supported self-host path, not a degraded one.
-    github: cfg.values.github,
-    ...(betterAuthSecret === undefined
-      ? {}
-      : { betterAuth: { secret: betterAuthSecret, baseURL: betterAuthBaseURL } }),
+    afterPrepare: backfillRepoFolderPathFromCwd,
   });
-  // Node-only: serve the bundled web SPA from disk. Edge entries use platform assets.
-  mountStatic(app);
 
   const listener = getRequestListener(app.fetch);
   const server = createServer((req, res) => {
-    if (behind !== undefined) {
-      res.writeHead(503, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: 'schema_behind', schema: behind.summary }));
-      return;
-    }
     void listener(req, res);
   });
 
@@ -239,9 +147,7 @@ export async function startServer(
       startedAt: new Date().toISOString(),
       dataDir,
     });
-    process.stdout.write(
-      `Plan Desk → ${resolveServeOrigin(host, boundPort)}  (db: ${dbDisplay})\n`,
-    );
+    process.stdout.write(`Plan Desk → ${resolveServeOrigin(host, boundPort)}  (db: ${dbUrl})\n`);
   };
 
   server.once('close', () => {

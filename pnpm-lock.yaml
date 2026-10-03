@@ -292,6 +292,9 @@ importers:
       '@plandesk/mcp':
         specifier: workspace:*
         version: link:../plandesk-mcp
+      '@plandesk/server':
+        specifier: workspace:*
+        version: link:../plandesk-server
       hono:
         specifier: ^4.12.23
         version: 4.12.23
@@ -427,6 +430,9 @@ importers:
         specifier: ^4.12.23
         version: 4.12.23
     devDependencies:
+      '@types/node':
+        specifier: 25.9.2
+        version: 25.9.2
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
