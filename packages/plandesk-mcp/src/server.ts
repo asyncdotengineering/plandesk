@@ -5,6 +5,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { resolvePublicOrigin, tryGetAuthContext, type Services } from '@plandesk/api';
 import { createWorkspaceRootsResolver } from './tools/workspace-roots.js';
 import { TOOLS } from './tools/table.js';
+import pkg from '../package.json' with { type: 'json' };
 
 export type McpAppDeps = {
   services: Services;
@@ -13,7 +14,7 @@ export type McpAppDeps = {
 };
 
 function createMcpServer(services: Services, origin: string, bindHost: string): McpServer {
-  const server = new McpServer({ name: 'plandesk', version: '1.0.0' });
+  const server = new McpServer({ name: 'plandesk', version: pkg.version });
   const workspaceRoots = createWorkspaceRootsResolver(services.projectService);
   const ctx = {
     origin,

@@ -124,7 +124,7 @@ async function connectClient(baseUrl: string, token?: string): Promise<Client> {
     new URL(`${baseUrl}/mcp`),
     requestInit === undefined ? undefined : { requestInit },
   );
-  const client = new Client({ name: 'plandesk-mcp-test', version: '1.0.0' });
+  const client = new Client({ name: 'plandesk-mcp-test', version: '0.0.0' });
   await client.connect(transport);
   return client;
 }

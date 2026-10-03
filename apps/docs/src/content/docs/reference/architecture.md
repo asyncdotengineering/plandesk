@@ -10,9 +10,10 @@ apps/plandesk-web/          React SPA (canvas, docs, board, settings)
 apps/docs/                  Astro Starlight documentation site
 packages/plandesk-api/      Hono REST
 packages/plandesk-db/       SQLite schema + Drizzle migrations
-packages/plandesk-mcp/      MCP server (Streamable HTTP, 45 tools)
+packages/plandesk-mcp/      MCP server (Streamable HTTP; tools registered from src/tools/table.ts)
 packages/plandesk-cli/      plandesk binary (init, serve, connect, …)
 packages/plandesk-mcp-client/  Factory Desk / programmatic MCP consumer
+packages/plandesk-runner/   Machine-side runner: polls a board and dispatches work to worker CLIs
 packages/plandesk-worker/   Cloudflare Workers deploy entry (not published)
 ```
 
@@ -20,14 +21,14 @@ packages/plandesk-worker/   Cloudflare Workers deploy entry (not published)
 
 ## Published npm packages
 
-Core packages ship under the `@plandesk/*` scope on npm (currently `1.0.0`, published under the `latest` npm tag):
+Core packages ship under the `@plandesk/*` scope on npm (published under the `latest` npm tag):
 
 | Package                | Purpose                                           |
 | ---------------------- | ------------------------------------------------- |
 | `@plandesk/cli`        | `plandesk` binary; bundles the web UI for `serve` |
 | `@plandesk/api`        | Hono REST server                                  |
 | `@plandesk/db`         | SQLite schema + migrations                        |
-| `@plandesk/mcp`        | MCP server (45 tools)                             |
+| `@plandesk/mcp`        | MCP server                                        |
 | `@plandesk/mcp-client` | Programmatic MCP consumer                         |
 
 Install with `npm i -g @plandesk/cli` to run Plan Desk without cloning the repo.
@@ -62,7 +63,7 @@ MCP writes go through the same service layer as REST; the web UI picks them up o
 
 A workspace-scoped key can read only its workspace’s projects; a project outside the scoped workspace returns the **same 404 as a missing project** (no existence leak), enforced in the service layer by `assertProjectInWorkspace`. Owner keys skip the guard. Cross-workspace and cross-org requests are indistinguishable from missing ones.
 
-**Upgrade note.** Pre–better-auth installs used a separate token table, a GitHub device-code CLI login, hand-rolled browser sessions, and a parallel org-membership schema. Those paths are deleted — not dual-stacked. Operators on 0.20.x or earlier must **re-initialize the database** (fresh migration baseline; no in-place migration) and regenerate CLI tokens from the dashboard. Full migration path — including `npx @plandesk/cli@3.6.0 legacy-upgrade` (the last release that ships it) to lift an old board's planning data into the new global one: [Upgrading → The 0.20.x → better-auth upgrade](/reference/upgrading/#the-020x--better-auth-upgrade-breaking). Concrete breaking-change list: [CHANGELOG 1.0.0-beta.1 → Breaking](https://github.com/asyncdotengineering/plandesk/blob/main/CHANGELOG.md).
+**Upgrade note.** Pre–better-auth installs used a separate token table, a GitHub device-code CLI login, hand-rolled browser sessions, and a parallel org-membership schema. Those paths are deleted — not dual-stacked. Operators on 0.20.x or earlier must **re-initialize the database** (fresh migration baseline; no in-place migration) and regenerate CLI tokens from the dashboard. Full migration path — including lifting an old board's planning data into the new global one: [Upgrading → The 0.20.x → better-auth upgrade](/reference/upgrading/#the-020x--better-auth-upgrade-breaking). Concrete breaking-change list: [CHANGELOG 1.0.0-beta.1 → Breaking](https://github.com/asyncdotengineering/plandesk/blob/main/CHANGELOG.md).
 
 ## Real-time updates
 

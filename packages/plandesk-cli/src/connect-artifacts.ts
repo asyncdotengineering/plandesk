@@ -391,8 +391,7 @@ export function mergeMcpJson(
 // Board-as-memory hooks (F1): a `.claude/settings.json` `hooks` block merged from the
 // project-local snippet. Plan Desk owns entries marked `_plandesk` — on each
 // merge those are dropped and the current snippet set is re-inserted, so path
-// or matcher changes reclaim cleanly. Untagged entries are never touched,
-// except a one-time legacy sweep for pre-marker curator hook paths (see below).
+// or matcher changes reclaim cleanly. Untagged entries are never touched.
 export type SettingsJson = {
   hooks?: Record<string, unknown[]>;
 };
@@ -525,9 +524,8 @@ const FACTORY_SECTION_HEADING = FACTORY_SENTINEL_PREAMBLE.split('\n', 1)[0] ?? '
  * so an agent read two contradictory contracts and had no way to tell which was
  * current.
  *
- * The heading is the CLI's own string, so a section under it is ours to reclaim —
- * the same reasoning that lets the hooks merge drop untagged legacy entries. The
- * section runs to the next `##` heading, or to end of file.
+ * The heading is the CLI's own string, so a section under it is ours to reclaim.
+ * The section runs to the next `##` heading, or to end of file.
  */
 function adoptLegacyFactorySection(content: string): string {
   if (content.includes(FACTORY_SENTINEL_START) || FACTORY_SECTION_HEADING.length === 0) {

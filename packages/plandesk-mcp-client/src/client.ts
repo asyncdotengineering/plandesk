@@ -1,5 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import pkg from '../package.json' with { type: 'json' };
 
 const DEFAULT_URL = 'http://127.0.0.1:7526';
 
@@ -168,7 +169,7 @@ export async function createPlandeskClient(
         },
   );
 
-  const client = new Client({ name: 'plandesk-mcp-client', version: '0.0.0' });
+  const client = new Client({ name: 'plandesk-mcp-client', version: pkg.version });
 
   try {
     await client.connect(transport);
