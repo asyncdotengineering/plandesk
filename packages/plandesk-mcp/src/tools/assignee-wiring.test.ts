@@ -9,7 +9,7 @@ import {
 import { createServices } from '@plandesk/api';
 import { createCreateTaskHandler } from './create-task.js';
 import { createUpdateTaskHandler } from './update-task.js';
-import { createClaimTaskHandler } from './claim-task.js';
+import { serviceToolPayload } from './service-tool.js';
 import { createTaskInputSchema, updateTaskInputSchema } from './registry.js';
 
 const PROJECT_ID = '00000000-0000-4000-8000-000000000001';
@@ -61,7 +61,10 @@ describe('MCP assignee wiring (closes create/update gap)', () => {
     const services = createServices({ db, orgId });
     const create = createCreateTaskHandler(services.taskService);
     const update = createUpdateTaskHandler(services.taskService);
-    const claim = createClaimTaskHandler(services.taskService);
+    const claim = serviceToolPayload(
+      ({ task_id, agent_ref }: { task_id: string; agent_ref: string }) =>
+        services.taskService.claim(task_id, agent_ref),
+    );
 
     const createdResult = await create({
       project_id: projectId,

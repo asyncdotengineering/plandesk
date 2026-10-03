@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { createServices } from '@plandesk/api';
 import { createDb, createProject, insertRevision, migrate } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
-import { createGetRevisionHandler } from './get-revision.js';
 import { createListRevisionsHandler } from './list-revisions.js';
+import { serviceTool } from './service-tool.js';
 
 const ORG_A = '00000000-0000-4000-8000-00000000aaaa';
 const ORG_B = '00000000-0000-4000-8000-00000000bbbb';
@@ -48,7 +48,10 @@ describe('MCP revision tools', () => {
 
     const servicesB = createServices({ db, orgId: ORG_B });
     const list = createListRevisionsHandler(servicesB.revisionService);
-    const get = createGetRevisionHandler(servicesB.revisionService);
+    const get = serviceTool(
+      ({ revision_id }: { revision_id: string }) => servicesB.revisionService.get(revision_id),
+      'revision',
+    );
 
     const listed = await list({
       project_id: projectA.id,

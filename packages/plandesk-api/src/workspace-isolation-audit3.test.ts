@@ -30,9 +30,9 @@ import { createApp } from './server.js';
 import { createServices, type Services } from './services/index.js';
 import { parseJson } from './test-helpers.js';
 import {
-  createGetTaskHandler,
   createListCommentsHandler,
   createListSubmissionsHandler,
+  toolHandler,
 } from '../test-support/mcp-tool-handlers.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
@@ -501,7 +501,7 @@ describe('workspace-tier adversarial audit round 3', () => {
       projectId: otherOrgProject.id,
       label: 'cross-org MCP secret',
     });
-    const handler = createGetTaskHandler(f.services.taskService);
+    const handler = toolHandler('get_task', f.services);
 
     const [workspaceResult, crossOrgResult] = await runWithAuthContext(workspaceKeyContext(f), () =>
       Promise.all([handler({ task_id: taskB.id }), handler({ task_id: otherOrgTask.id })]),

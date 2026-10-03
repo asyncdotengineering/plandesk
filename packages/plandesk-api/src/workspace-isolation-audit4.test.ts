@@ -68,8 +68,6 @@ import {
   createAddArtifactCommentHandler,
   createAddCommentHandler,
   createAttachFileHandler,
-  createCheckReferencesHandler,
-  createClaimTaskHandler,
   createCompleteAgentRunHandler,
   createCompleteGoalHandler,
   createCreateArtifactHandler,
@@ -82,38 +80,22 @@ import {
   createCreateProjectHandler,
   createCreateShareLinkHandler,
   createCreateTaskHandler,
-  createDeleteEdgeHandler,
-  createGetArtifactHandler,
-  createGetDocumentHandler,
   createGetGoalHandler,
   createGetNextTaskHandler,
-  createGetTaskGraphHandler,
-  createGetNoteHandler,
-  createGetPrototypeHandler,
-  createGetProjectHandler,
-  createGetTaskHandler,
   createListArtifactCommentsHandler,
-  createListArtifactsHandler,
   createListCommentsHandler,
   createListDocumentsHandler,
-  createListEdgesHandler,
-  createListGoalsHandler,
   createListNotesHandler,
   createSearchHandler,
-  createListPrototypesHandler,
   createListProjectsHandler,
   createListSubmissionsHandler,
-  createListTagsHandler,
   createListViewsHandler,
   createListRevisionsHandler,
-  createGetRevisionHandler,
   createListTasksHandler,
   createPauseGoalHandler,
   createRecordAgentProgressHandler,
-  createResolveCommentHandler,
   createResumeGoalHandler,
   createScaffoldProjectFromPlanHandler,
-  createStartAgentRunHandler,
   createTriageSubmissionHandler,
   createUpdateArtifactHandler,
   createMoveScreenHandler,
@@ -129,6 +111,7 @@ import {
   createUpdateNoteHandler,
   createUpdateProjectHandler,
   createUpdateTaskHandler,
+  toolHandler,
 } from '../test-support/mcp-tool-handlers.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
@@ -619,10 +602,7 @@ async function runMcpForeignSweep(
   }
 
   const deniedCalls: Array<[string, () => Promise<McpResult>]> = [
-    [
-      'get_project',
-      () => createGetProjectHandler(s.projectService)({ project_id: target.project.id }),
-    ],
+    ['get_project', () => toolHandler('get_project', s)({ project_id: target.project.id })],
     [
       'update_project',
       () =>
@@ -659,10 +639,7 @@ async function runMcpForeignSweep(
           title: 'escaped',
         }),
     ],
-    [
-      'get_document',
-      () => createGetDocumentHandler(s.documentService)({ document_id: target.document.id }),
-    ],
+    ['get_document', () => toolHandler('get_document', s)({ document_id: target.document.id })],
     [
       'list_documents',
       () => createListDocumentsHandler(s.documentService)({ project_id: target.project.id }),
@@ -708,14 +685,8 @@ async function runMcpForeignSweep(
           viewport_height: 844,
         }),
     ],
-    [
-      'list_prototypes',
-      () => createListPrototypesHandler(s.prototypeService)({ project_id: target.project.id }),
-    ],
-    [
-      'get_prototype',
-      () => createGetPrototypeHandler(s.prototypeService)({ prototype_id: target.prototype.id }),
-    ],
+    ['list_prototypes', () => toolHandler('list_prototypes', s)({ project_id: target.project.id })],
+    ['get_prototype', () => toolHandler('get_prototype', s)({ prototype_id: target.prototype.id })],
     [
       'update_prototype',
       () =>
@@ -736,7 +707,7 @@ async function runMcpForeignSweep(
       'update_note',
       () => createUpdateNoteHandler(s.noteService)({ note_id: target.note.id, title: 'escaped' }),
     ],
-    ['get_note', () => createGetNoteHandler(s.noteService)({ note_id: target.note.id })],
+    ['get_note', () => toolHandler('get_note', s)({ note_id: target.note.id })],
     ['list_notes', () => createListNotesHandler(s.noteService)({ project_id: target.project.id })],
     [
       // A read tool is exactly the shape that leaks: it returns rows rather than
@@ -757,10 +728,7 @@ async function runMcpForeignSweep(
           content: 'escaped',
         }),
     ],
-    [
-      'get_artifact',
-      () => createGetArtifactHandler(s.artifactService)({ artifact_id: target.artifact.id }),
-    ],
+    ['get_artifact', () => toolHandler('get_artifact', s)({ artifact_id: target.artifact.id })],
     [
       'update_artifact',
       () =>
@@ -785,10 +753,7 @@ async function runMcpForeignSweep(
           prototype_id: target.prototype.id,
         }),
     ],
-    [
-      'list_artifacts',
-      () => createListArtifactsHandler(s.artifactService)({ project_id: target.project.id }),
-    ],
+    ['list_artifacts', () => toolHandler('list_artifacts', s)({ project_id: target.project.id })],
     [
       'create_edge',
       () =>
@@ -798,11 +763,8 @@ async function runMcpForeignSweep(
           to_task_id: target.task2.id,
         }),
     ],
-    [
-      'list_edges',
-      () => createListEdgesHandler(s.canvasService)({ project_id: target.project.id }),
-    ],
-    ['delete_edge', () => createDeleteEdgeHandler(s.canvasService)({ edge_id: target.edge.id })],
+    ['list_edges', () => toolHandler('list_edges', s)({ project_id: target.project.id })],
+    ['delete_edge', () => toolHandler('delete_edge', s)({ edge_id: target.edge.id })],
     [
       'attach_file',
       () =>
@@ -826,7 +788,10 @@ async function runMcpForeignSweep(
     [
       'start_agent_run',
       () =>
-        createStartAgentRunHandler(s.agentRunService)({
+        toolHandler(
+          'start_agent_run',
+          s,
+        )({
           project_id: target.project.id,
           label: 'escaped run',
         }),
@@ -864,7 +829,7 @@ async function runMcpForeignSweep(
         }),
     ],
     ['get_goal', () => createGetGoalHandler(s.goalService)({ goal_id: target.activeGoal.id })],
-    ['list_goals', () => createListGoalsHandler(s.goalService)({ project_id: target.project.id })],
+    ['list_goals', () => toolHandler('list_goals', s)({ project_id: target.project.id })],
     [
       'update_goal',
       () =>
@@ -907,19 +872,21 @@ async function runMcpForeignSweep(
     [
       'get_task_graph',
       () =>
-        createGetTaskGraphHandler(s.taskService)({
+        toolHandler(
+          'get_task_graph',
+          s,
+        )({
           project_id: target.project.id,
           goal_id: target.activeGoal.id,
         }),
     ],
     [
       'claim_task',
-      () =>
-        createClaimTaskHandler(s.taskService)({ task_id: target.task.id, agent_ref: 'attacker' }),
+      () => toolHandler('claim_task', s)({ task_id: target.task.id, agent_ref: 'attacker' }),
     ],
-    ['get_task', () => createGetTaskHandler(s.taskService)({ task_id: target.task.id })],
+    ['get_task', () => toolHandler('get_task', s)({ task_id: target.task.id })],
     ['list_tasks', () => createListTasksHandler(s.taskService)({ project_id: target.project.id })],
-    ['list_tags', () => createListTagsHandler(s.tagService)({ project_id: target.project.id })],
+    ['list_tags', () => toolHandler('list_tags', s)({ project_id: target.project.id })],
     ['list_views', () => createListViewsHandler(s.viewService)({ project_id: target.project.id })],
     [
       'list_revisions',
@@ -930,10 +897,7 @@ async function runMcpForeignSweep(
           target_id: target.task.id,
         }),
     ],
-    [
-      'get_revision',
-      () => createGetRevisionHandler(s.revisionService)({ revision_id: target.revision.id }),
-    ],
+    ['get_revision', () => toolHandler('get_revision', s)({ revision_id: target.revision.id })],
     [
       'list_comments',
       () => createListCommentsHandler(s.commentService)({ project_id: target.project.id }),
@@ -964,14 +928,10 @@ async function runMcpForeignSweep(
           body: 'escaped artifact comment',
         }),
     ],
-    [
-      'resolve_comment',
-      () => createResolveCommentHandler(s.commentService)({ comment_id: target.comment.id }),
-    ],
+    ['resolve_comment', () => toolHandler('resolve_comment', s)({ comment_id: target.comment.id })],
     [
       'check_references',
-      () =>
-        createCheckReferencesHandler(s.referenceCheckService)({ project_id: target.project.id }),
+      () => toolHandler('check_references', s)({ project_id: target.project.id }),
     ],
     [
       'list_submissions',
@@ -1035,14 +995,12 @@ async function runMcpForeignSweep(
 }
 
 describe('workspace-tier adversarial audit round 4', () => {
-  it('locks the sweep inventory to every tool registered in server.ts', () => {
-    const serverSource = readFileSync(
-      new URL('../../plandesk-mcp/src/server.ts', import.meta.url),
+  it('locks the sweep inventory to every tool registered in the MCP tools table', () => {
+    const tableSource = readFileSync(
+      new URL('../../plandesk-mcp/src/tools/table.ts', import.meta.url),
       'utf8',
     );
-    const registered = [...serverSource.matchAll(/registerTool\(\s*'([^']+)'/g)].map(
-      (match) => match[1],
-    );
+    const registered = [...tableSource.matchAll(/name: '([^']+)'/g)].map((match) => match[1]);
     expect(registered).toEqual([...MCP_TOOLS]);
   });
 
@@ -1427,11 +1385,11 @@ describe('workspace-tier adversarial audit round 4', () => {
       headers: bearer(f.ownerKey),
     });
     const sessionSameOrg = await runWithAuthContext(sessionOwnerContext(f), () =>
-      createGetProjectHandler(f.services.projectService)({ project_id: f.projectB.id }),
+      toolHandler('get_project', f.services)({ project_id: f.projectB.id }),
     );
     const workspaceHappyMcp = await runWithAuthContext(workspaceContext(f), () =>
       Promise.all([
-        createGetProjectHandler(f.services.projectService)({ project_id: f.projectA.id }),
+        toolHandler('get_project', f.services)({ project_id: f.projectA.id }),
         createCreateTaskHandler(f.services.taskService)({
           project_id: f.projectA.id,
           label: 'legitimate MCP task',

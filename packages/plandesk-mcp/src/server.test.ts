@@ -28,11 +28,11 @@ import {
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { z } from 'zod';
 import {
-  v1ToolNames,
   getDocumentOutputSchema,
   listEdgesOutputSchema,
   createEdgeOutputSchema,
 } from './tools/registry.js';
+import { TOOLS } from './tools/table.js';
 import { createMcpApp } from './server.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
@@ -207,7 +207,7 @@ describe('createMcpApp', () => {
       const client = await connectClient(baseUrl);
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
-      expect(names).toEqual([...v1ToolNames].sort());
+      expect(names).toEqual([...TOOLS.map((tool) => tool.name)].sort());
       expect(names).toHaveLength(64);
       await client.close();
     });
@@ -219,7 +219,7 @@ describe('createMcpApp', () => {
 
       const tools = await client.listTools();
       const names = tools.tools.map((tool) => tool.name).sort();
-      expect(names).toEqual([...v1ToolNames].sort());
+      expect(names).toEqual([...TOOLS.map((tool) => tool.name)].sort());
 
       const listed = await client.callTool({ name: 'list_projects', arguments: {} });
       const listContent = listed.content as Array<{ type: string; text?: string }>;

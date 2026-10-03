@@ -67,8 +67,6 @@ export declare function createAddArtifactCommentHandler(
 ): McpToolHandler;
 export declare function createAddCommentHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createAttachFileHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createCheckReferencesHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createClaimTaskHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createCompleteAgentRunHandler(
   dep?: unknown,
   dep2?: unknown,
@@ -84,47 +82,31 @@ export declare function createCreateNoteHandler(dep?: unknown, dep2?: unknown): 
 export declare function createCreateProjectHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createCreateShareLinkHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createCreateTaskHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createDeleteEdgeHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createGetArtifactHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createGetDocumentHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createGetGoalHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createGetNextTaskHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createGetTaskGraphHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createGetNoteHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createGetPrototypeHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createGetProjectHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createGetTaskHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListArtifactCommentsHandler(
   dep?: unknown,
   dep2?: unknown,
 ): McpToolHandler;
-export declare function createListArtifactsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListCommentsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListDocumentsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createListEdgesHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createListGoalsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListNotesHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createSearchHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createListPrototypesHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListProjectsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListSubmissionsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createListTagsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListViewsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListRevisionsHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
-export declare function createGetRevisionHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createListTasksHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createPauseGoalHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createRecordAgentProgressHandler(
   dep?: unknown,
   dep2?: unknown,
 ): McpToolHandler;
-export declare function createResolveCommentHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createResumeGoalHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createScaffoldProjectFromPlanHandler(
   dep?: unknown,
   dep2?: unknown,
 ): McpToolHandler;
-export declare function createStartAgentRunHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createTriageSubmissionHandler(
   dep?: unknown,
   dep2?: unknown,
@@ -143,3 +125,9 @@ export declare function createInvokeGoalHandler(dep?: unknown, dep2?: unknown): 
 export declare function createUpdateNoteHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateProjectHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
 export declare function createUpdateTaskHandler(dep?: unknown, dep2?: unknown): McpToolHandler;
+
+export declare function toolHandler(
+  name: string,
+  services: unknown,
+  ctx?: Record<string, unknown>,
+): (args?: Record<string, unknown>) => Promise<McpToolResult>;

@@ -21,36 +21,36 @@ import {
   updateProjectInputSchema,
   updateGoalInputSchema,
   updateTaskInputSchema,
-  v1ToolNames,
-  v1ToolSchemas,
 } from './registry.js';
+import { TOOLS } from './table.js';
 
 const PROJECT_ID = '00000000-0000-4000-8000-000000000001';
 const TASK_ID = '00000000-0000-4000-8000-000000000002';
 
 describe('tool registry tag schemas', () => {
   it('registers list_tags with a schema for every v1 tool', () => {
-    expect(v1ToolNames).toContain('list_tags');
-    expect(v1ToolNames).toContain('list_views');
-    expect(v1ToolNames).toContain('list_revisions');
-    expect(v1ToolNames).toContain('get_revision');
-    expect(v1ToolNames).toContain('claim_task');
-    expect(v1ToolNames).toContain('get_task_graph');
-    expect(v1ToolNames).toContain('update_project');
-    expect(v1ToolNames).toContain('create_prototype');
-    expect(v1ToolNames).toContain('list_prototypes');
-    expect(v1ToolNames).toContain('get_prototype');
-    expect(v1ToolNames).toContain('update_prototype');
-    expect(v1ToolNames).toContain('move_screen');
-    expect(v1ToolNames).toContain('copy_screen');
-    expect(v1ToolNames).toHaveLength(64);
-    for (const name of v1ToolNames) {
-      expect(v1ToolSchemas[name]).toBeDefined();
+    const toolNames = TOOLS.map((tool) => tool.name);
+    expect(toolNames).toContain('list_tags');
+    expect(toolNames).toContain('list_views');
+    expect(toolNames).toContain('list_revisions');
+    expect(toolNames).toContain('get_revision');
+    expect(toolNames).toContain('claim_task');
+    expect(toolNames).toContain('get_task_graph');
+    expect(toolNames).toContain('update_project');
+    expect(toolNames).toContain('create_prototype');
+    expect(toolNames).toContain('list_prototypes');
+    expect(toolNames).toContain('get_prototype');
+    expect(toolNames).toContain('update_prototype');
+    expect(toolNames).toContain('move_screen');
+    expect(toolNames).toContain('copy_screen');
+    expect(toolNames).toHaveLength(64);
+    for (const tool of TOOLS) {
+      expect(tool.inputSchema).toBeDefined();
     }
   });
 
   it('REVERT-PROOF: MCP surface has no mutating or restore revision tools', () => {
-    const names: readonly string[] = v1ToolNames;
+    const names: readonly string[] = TOOLS.map((tool) => tool.name);
     expect(names).toContain('list_revisions');
     expect(names).toContain('get_revision');
     expect(names).not.toContain('restore_revision');
@@ -342,8 +342,8 @@ describe('tool registry tag schemas', () => {
   });
 
   it('MCP surface has list_views and no create/update/delete view tools', () => {
-    expect(v1ToolNames).toContain('list_views');
-    const names: readonly string[] = v1ToolNames;
+    expect(TOOLS.map((tool) => tool.name)).toContain('list_views');
+    const names: readonly string[] = TOOLS.map((tool) => tool.name);
     const mutatingViewTools = names.filter((name) => /^(create|update|delete)_views?$/.test(name));
     expect(mutatingViewTools).toEqual([]);
   });

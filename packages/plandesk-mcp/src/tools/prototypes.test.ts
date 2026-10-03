@@ -7,11 +7,9 @@ import {
 } from '@plandesk/db';
 import { createServices } from '@plandesk/api';
 import { createCreatePrototypeHandler } from './create-prototype.js';
-import { createGetPrototypeHandler } from './get-prototype.js';
-import { createListPrototypesHandler } from './list-prototypes.js';
 import { createUpdatePrototypeHandler } from './update-prototype.js';
 import { createCreateArtifactHandler } from './create-artifact.js';
-import { createGetArtifactHandler } from './get-artifact.js';
+import { serviceTool } from './service-tool.js';
 
 describe('prototype MCP tools', () => {
   let db: Db;
@@ -29,8 +27,14 @@ describe('prototype MCP tools', () => {
   it('create → list → get with screens → update', async () => {
     const services = createServices({ db, orgId });
     const create = createCreatePrototypeHandler(services.prototypeService);
-    const list = createListPrototypesHandler(services.prototypeService);
-    const get = createGetPrototypeHandler(services.prototypeService);
+    const list = serviceTool(
+      ({ project_id }: { project_id: string }) => services.prototypeService.list(project_id),
+      'prototypes',
+    );
+    const get = serviceTool(
+      ({ prototype_id }: { prototype_id: string }) => services.prototypeService.get(prototype_id),
+      'prototype',
+    );
     const update = createUpdatePrototypeHandler(services.prototypeService);
     const createArtifact = createCreateArtifactHandler(services.artifactService);
 
@@ -127,7 +131,10 @@ describe('prototype MCP tools', () => {
   it('get_artifact serializes a prototype-less markdown report with null prototype_id, x, y', async () => {
     const services = createServices({ db, orgId });
     const createArtifact = createCreateArtifactHandler(services.artifactService);
-    const getArtifact = createGetArtifactHandler(services.artifactService);
+    const getArtifact = serviceTool(
+      ({ artifact_id }: { artifact_id: string }) => services.artifactService.get(artifact_id),
+      'artifact',
+    );
 
     const created = await createArtifact({
       project_id: projectId,
