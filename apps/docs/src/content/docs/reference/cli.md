@@ -53,7 +53,7 @@ plandesk deploy [target]
 | `serve`                     | Start REST + MCP + web UI; reads the port from `workspace.json` if no `--port` flag is given                                                                                                                                                                                                                                                                                                      |
 | `url`                       | Print the server URL for this project (`$(plandesk url)` in scripts); `--lan` returns the LAN IP instead of loopback                                                                                                                                                                                                                                                                              |
 | `export` / `import`         | Lossless `plandesk-export-v2` JSON round-trip; `plandesk-export-v1` files still import                                                                                                                                                                                                                                                                                                            |
-| `admin invite-owner`        | Bootstrap the first org owner of a self-hosted instance without GitHub — mints a link-only owner invitation to deliver by hand. Local uses `--data-dir`; **remote** (Turso/libSQL) uses `--db <url> [--db-token]` plus `--secret` (or `PLANDESK_BETTER_AUTH_SECRET`) matching the deployed instance — run `plandesk migrate` against the remote DB first                                          |
+| `admin invite-owner`        | Bootstrap the first org owner of a self-hosted instance without GitHub — mints a link-only owner invitation to deliver by hand. Local uses `--data-dir`; **remote** (Turso/libSQL) uses `--db <url> [--db-token]` plus `--secret` (or `PLANDESK_BETTER_AUTH_SECRET`) matching the deployed instance — the database must be prepared first (start the server once, or run `plandesk migrate`)      |
 | `connect` / `disconnect`    | Bind / unbind a repo to a project **or workspace** + agent configs; re-run `connect` after upgrading to regenerate artifacts. `--project` binds one project; `--workspace <name>` binds a whole workspace (writes a `plandesk-connect-v2` config). Hosted: `connect --to <org>` mints a scoped agent key (requires prior `login`) — workspace-scoped with `--workspace`, project-scoped otherwise |
 | `workspace create <name>`   | Create a workspace (better-auth team) in an org. Local by default (no login); `--to <org>` targets a hosted org (requires `login`). See [Workspaces](/reference/workspaces/)                                                                                                                                                                                                                      |
 | `workspace list`            | List workspaces in an org (`--to <org>` for hosted)                                                                                                                                                                                                                                                                                                                                               |
@@ -157,6 +157,8 @@ board should be reachable from anywhere but this machine, bind `--host 0.0.0.0` 
 
 ## Environment variables
 
+The variables the CLI itself reads. Every server setting (database, storage, GitHub, base URL) is in [Server configuration](/self-hosting/server-config/#environment-variables).
+
 | Variable                                | Default            | Purpose                                                                                               |
 | --------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------- |
 | `PLANDESK_DATA_DIR`                     | (see `--data-dir`) | Workspace directory override                                                                          |
@@ -165,7 +167,7 @@ board should be reachable from anywhere but this machine, bind `--host 0.0.0.0` 
 | `PLANDESK_MCP_TOKEN`                    | (unset)            | Overrides the token read from `.plandesk/token`                                                       |
 | `PLANDESK_PORT`                         | (see `--port`)     | Serve port override                                                                                   |
 | `PLANDESK_BETTER_AUTH_SECRET`           | (unset)            | better-auth signing secret; required for hosted/non-loopback auth and for remote `admin invite-owner` |
-| `PLANDESK_DB_URL` / `PLANDESK_DB_TOKEN` | (unset)            | Remote libSQL/Turso URL + token for `plandesk migrate` and hosted serve                               |
+| `PLANDESK_DB_URL` / `PLANDESK_DB_TOKEN` | (unset)            | Remote libSQL/Turso URL + token for `serve` and `migrate`                                             |
 
 ## Validation and metrics
 

@@ -1,6 +1,6 @@
 ---
 title: Take a local board online
-description: Move a project you've been planning locally into a hosted Plan Desk organization — managed or self-hosted — and bind your repo to it.
+description: Move a project you've been planning locally into a self-hosted Plan Desk organization and bind your repo to it.
 ---
 
 Plan Desk is local-first by default: `plandesk init && plandesk serve` runs entirely on your machine, no account, no network. Going online is an opt-in step you take when you want your board reachable from somewhere other than `127.0.0.1` — for a teammate, another machine, or just to stop worrying about backups.
@@ -9,16 +9,13 @@ This guide takes work you've already been planning locally — a single project 
 
 ## 1. Pick a hosted home
 
-You have two options, and they use the exact same CLI flow:
+Stand up your own instance on Docker, Cloudflare Workers or Vercel; see [Self-host Plan Desk for your team](./self-host-for-teams/) for the runbook, or [Deployment topologies](/self-hosting/topologies/) if you're still deciding. No managed instance is offered today; one may be offered later.
 
-- **Managed** — sign in at `plandesk.asyncdot.com`. asyncdot runs the server; you bring nothing but a browser and a GitHub account.
-- **Self-hosted** — stand up your own instance (Docker or Cloudflare Workers) and point the same commands at it with `--server <your-url>`. See [Self-host Plan Desk for your team](./self-host-for-teams/) for the full runbook, or the [deployment topologies](/self-hosting/topologies/) overview if you're still deciding.
-
-Everything below reads the same either way — swap in your own server URL wherever `plandesk login` appears.
+Everything below uses your server's URL wherever `--server` appears.
 
 ## 2. Sign in and get a CLI token
 
-Open the hosted dashboard and sign in with **GitHub**. The first time you sign in, Plan Desk auto-provisions a personal organization for you — you're its owner, with nothing to configure.
+Open your server's dashboard and sign in, with **GitHub** if the server has it configured, or by claiming the owner invitation (see [bootstrapping the first owner](/guides/self-host-for-teams/#2-invite-your-team)). A first GitHub sign-in auto-provisions a personal organization for you — you're its owner, with nothing to configure.
 
 Once signed in, go to **Settings → MCP → Generate CLI token** and copy the org-wide owner key. It's shown once — store it somewhere safe before you navigate away.
 
@@ -30,7 +27,7 @@ Back in your terminal:
 plandesk login --server <your-hosted-url>
 ```
 
-Omit `--server` to use the built-in default (`https://plandesk.asyncdot.com`). Paste the token when prompted. It's written to `~/.plandesk/config.json` alongside the server URL and your organization id — this is a one-time, per-machine step, not per-repo.
+Always pass `--server`: the built-in default points at the docs site, which serves no API. Paste the token when prompted. It's written to `~/.plandesk/config.json` alongside the server URL and your organization id — this is a one-time, per-machine step, not per-repo.
 
 ## 4. Promote your local work
 
@@ -79,5 +76,5 @@ This mints a **scoped agent key** (not your owner key) and writes it to `.plande
 
 Your board now lives in the hosted org, and your agent talks to it with a key scoped to just this project. From here:
 
-- Working solo, self-hosted or managed — you're done.
+- Working solo — you're done.
 - Bringing a team onto a shared, always-on instance — continue to [Self-host Plan Desk for your team](./self-host-for-teams/) to invite them and connect their repos.

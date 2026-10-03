@@ -1,95 +1,87 @@
 ---
 title: Deployment topologies
-description: The three ways to run Plan Desk — local single-project (default), self-host, and free-hosted — and who runs database migrations in each.
+description: Local or self-hosted on Docker, Cloudflare Workers or Vercel — what each needs, and how every target prepares its own database.
 ---
 
-Plan Desk is **local-first** by default and **cloud-optional** everywhere. There are three ways to run it, and the difference is entirely about **who owns the database**. Pick the one that matches your trust and operational appetite.
+Plan Desk is **local-first**. Running it somewhere else is opt-in, and every option runs the same open-source server.
 
-:::tip[Cloud is opt-in — REQ-9]
-No login, no `syncUrl`, no account → the tool stays **entirely on your machine**. Nothing leaves your device unless you explicitly connect a hosted server. This is the product's core promise; the cloud is an addition, never a requirement.
+:::tip[Cloud is opt-in]
+No login, no server URL, no account: the tool stays entirely on your machine. Nothing leaves your device unless you connect it to a server you chose. The CLI sends no telemetry.
 :::
 
-## The three topologies
-
-### 1. Local single-project — the default
-
-**What it is.** You install the CLI from npm, run `plandesk init && plandesk serve`, and work against a SQLite file on your own disk. No account, no network, no server you don't control.
-
-**When to pick it.** For yourself and your coding agent on one machine. This is what 95% of users want and what every guide starts from.
-
-**How to run it.**
+## Local — the default
 
 ```bash
 npm i -g @plandesk/cli
 plandesk init && plandesk serve          # UI at http://127.0.0.1:7526
 ```
 
-**Migrations.** The schema is migrated **automatically at `serve` boot**. You never run a migration command — `serve` checks and applies them to your local file.
+A SQLite file on your disk, bound to loopback, no account. This is what most people want: you and your coding agent on one machine.
 
-### 2. Self-host — your server, your database
+## Self-hosted — your server, your database
 
-**What it is.** You run the Plan Desk server (the same binary) on a host you control — a VM, a Docker host, a NAS — pointed at **your own database**. No dependency on asyncdot infrastructure. No GitHub app required ([REQ-20](#)).
+One board for a team, on infrastructure you own. Pick a target:
 
-**When to pick it.** A small team that wants a shared, always-on planning server behind their own firewall/TLS, with data in a database they back up — without depending on a vendor's hosted instance.
+| Target                                          | Runs as                              | Database                            | Files                      | Pick it when                                     |
+| ----------------------------------------------- | ------------------------------------ | ----------------------------------- | -------------------------- | ------------------------------------------------ |
+| [Docker](/self-hosting/docker/)                 | `plandesk serve` in a container      | SQLite on a volume, or libSQL/Turso | database or S3             | You have a box (VM, NAS, home server).           |
+| [Cloudflare Workers](/self-hosting/cloudflare/) | a Worker plus static assets          | libSQL/Turso (required)             | R2 binding, database or S3 | You want public HTTPS without running a machine. |
+| [Vercel](/self-hosting/vercel/)                 | a Vercel function plus static output | libSQL/Turso (required)             | database or S3             | Your team already deploys to Vercel.             |
 
-**How to run it.** The fastest path is the server container + compose quickstart:
+Each serves the web app, the REST API and MCP at `/mcp`. Settings are the same environment variables everywhere: see [Server configuration](/self-hosting/server-config/). GitHub sign-in is optional on every target.
+
+No managed instance is offered today. One may be offered later; until then, the docs site is only documentation.
+
+## The server prepares its own database
+
+There is no separate migrate step. Before serving, every target brings its database up to date: domain migrations, the better-auth tables and the workspace backfills. This works the same for a SQLite file and for a remote libSQL/Turso database, and it is what makes the Deploy buttons one-click.
+
+**Only one instance migrates at a time.** Preparation runs under a lease: one row in a `__plandesk_lease` table, taken with a single compare-and-set write that only succeeds when no lease exists or the current one has expired.
+
+- The lease lasts **60 seconds**, and the holder renews it every 20 seconds while it works. A holder that crashes stops renewing, and its lease expires.
+- A database that is already current costs reads only: no lease, no write.
+- Instances that find the lease taken wait for it. `plandesk serve` (and so Docker) waits up to **90 seconds**, longer than a lease, so it outlives a crashed holder. Workers and Vercel wait 2 seconds, so a request is never held open.
+- An instance that gives up answers every request with **`503 {"error":"schema_behind","schema":{…}}`**, where `schema` is the migration summary (`applied`, `shipped`, `current`, `missingTags`). It keeps retrying: `plandesk serve` every 2 seconds, Workers and Vercel on the next request. Once the schema is current it serves normally.
+
+`GET /api/v1/health` reports the same `schema` summary, so a load balancer or uptime check can tell a stale schema from a down server.
+
+### `plandesk migrate` in CI (optional)
+
+If you would rather migrate before traffic arrives, run the same preparation from CI, under the same lease:
 
 ```bash
-export PLANDESK_AUTH_PASSWORD='choose-a-strong-password'
-docker compose up --build
+plandesk migrate --db "$PLANDESK_DB_URL" --db-token "$PLANDESK_DB_TOKEN"
 ```
 
-Open [http://127.0.0.1:7526](http://127.0.0.1:7526). For a durable database, point `PLANDESK_DB_URL` at your own libSQL/Turso database — see [Docker (self-host)](./docker/) and [Server configuration](./server-config/).
+It prints the migrations it applied, or that the database is already current. The servers then find a current schema and start straight away.
 
-**Migrations.** _You_ own the database, so _you_ run migrations:
+### Rolling back to an older version
 
-```bash
-plandesk migrate --db "libsql://your-db.example" --db-token "<token>"
+A database migrated by a newer Plan Desk is ahead of an older binary. The older server cannot un-apply migrations, so it answers `503 schema_behind` (with `applied` greater than `shipped`) until you deploy the newer version again. Roll forward rather than back, or restore the database from a backup taken before the upgrade.
+
+### Every boot fails: a project without its organization
+
+Preparation repairs projects whose workspace is missing by putting them in their organization's default workspace. A project row whose organization no longer exists cannot be repaired that way, so preparation fails on every boot and the server never starts serving.
+
+Find such rows. Stop the server first, then open the database with `turso db shell <db>` (Turso) or `sqlite3 <data-dir>/workspace.db` (a local file):
+
+```sql
+SELECT p.id, p.name, p.org_id
+FROM projects p
+WHERE NOT EXISTS (SELECT 1 FROM organization o WHERE o.id = p.org_id);
 ```
 
-The server does **not** auto-migrate a remote database — that's a deliberate choice so a multi-replica deploy never races on the schema. Run it once per database, whenever you upgrade. See [the operator migration story](#who-runs-migrations) below.
+Fix each one by moving it into an organization that exists. Preparation then gives it that organization's default workspace on the next boot:
 
-If the same database is also served by Workers or Vercel, use the same value for `PLANDESK_BETTER_AUTH_SECRET` in every topology. The old `PLANDESK_SESSION_SECRET` name is no longer read — a server that still has it set (without `PLANDESK_BETTER_AUTH_SECRET`) refuses to start and tells you to rename it.
+```sql
+SELECT id, name FROM organization;                           -- pick the right one
+UPDATE projects SET org_id = '<organization-id>' WHERE id = '<project-id>';
+```
 
-### 3. Free-hosted — the asyncdot instance
-
-**What it is.** asyncdot runs the server for you at `plandesk.asyncdot.com`. You sign in (GitHub) and use the hosted web app + MCP endpoint. No install, no database to manage.
-
-**When to pick it.** You want zero setup and are fine with the data living on the hosted instance. Ideal for trying Plan Desk or for users who never want to touch a terminal.
-
-**How to run it.** Open the hosted app and connect your agent to the hosted MCP URL. (The hosted tier is the asyncdot-operated instance of this same open-source server.)
-
-**Connect a CLI/agent.** Hosted auth is paste-based and two-actor: a human generates a CLI token in the dashboard, runs `plandesk login` and pastes it, then `plandesk connect --to <org> [--project <id|name>]` mints a scoped agent key into `.plandesk/token`. Agents never log in. Same flow against a self-hosted API with `plandesk login --server <url>`. Full grammar: [CLI Reference](/reference/cli/#hosted-login-and-connect-two-actor).
-
-**Migrations.** **You never migrate, and you never receive a database URL.** The provider (asyncdot) runs migrations in CI against their own secret database URL. As a cloud user, your only surface is the API — you never touch the schema.
-
-## Who runs migrations
-
-Migrations are keyed to **who owns the database**, not to which client you use:
-
-| Topology             | Database owner   | Who migrates          | How                                                   |
-| -------------------- | ---------------- | --------------------- | ----------------------------------------------------- |
-| Local single-project | You (local file) | The tool              | Automatically, at `serve` boot                        |
-| Self-host            | You (your DB)    | **You, the operator** | `plandesk migrate --db <your-url>` after each upgrade |
-| Free-hosted          | The provider     | The provider, in CI   | Against their own secret URL — invisible to you       |
-
-:::caution[A cloud user never migrates]
-On the free-hosted topology there is **no** `plandesk migrate`, **no** database URL, and **no** schema access. If you are ever asked to run a migration against a URL while using the hosted instance, something is wrong — stop and report it.
-:::
-
-## How cloud stays opt-in
-
-The local tool has no phone-home. Specifically:
-
-- **No account needed.** `plandesk init && plandesk serve` works offline, forever.
-- **No `syncUrl` until you set one.** Sync/share only activates when you explicitly run `plandesk deploy …` and `plandesk share create …` against a server URL you chose.
-- **No telemetry.** The CLI does not send usage data anywhere.
-
-The hosted instance is one _option_ for running the same open-source server — not a dependency of the local tool.
+Take a backup before editing rows by hand.
 
 ## Next
 
-- [Server configuration](./server-config/) — the `plandesk.server.json` file, env overrides, and `plandesk doctor`.
-- [Docker (self-host)](./docker/) — the `Dockerfile` / `compose.yaml` quickstart.
-- [Cloudflare Workers](./cloudflare/) — edge deploy (Turso + better-auth + R2); operator runs `plandesk migrate`.
-- [Collaboration & sync](/reference/collaboration/) — the optional hosted sync tier architecture.
+- [Server configuration](/self-hosting/server-config/): every variable, storage choices, custom domains.
+- [Self-host Plan Desk for your team](/guides/self-host-for-teams/): invite teammates and connect their repos.
+- [Collaboration](/reference/collaboration/): sharing a plan with a client from the same server.

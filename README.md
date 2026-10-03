@@ -18,7 +18,7 @@ tools over the same data. One plan, two readers, one audit trail.
 [Docs](https://plandesk.asyncdot.com) ·
 [Quickstart](https://plandesk.asyncdot.com/getting-started/quickstart/) ·
 [Connect an agent](https://plandesk.asyncdot.com/connecting-agents/mcp-setup/) ·
-[Self-hosting](https://plandesk.asyncdot.com/self-hosting/docker/) ·
+[Self-hosting](https://plandesk.asyncdot.com/self-hosting/topologies/) ·
 [CLI reference](https://plandesk.asyncdot.com/reference/cli/)
 
 </div>
@@ -81,7 +81,7 @@ _It runs on your machine. It stays on your machine unless you say otherwise._
 
 - **[Local SQLite](https://plandesk.asyncdot.com/reference/architecture/)** — one workspace file, no cloud in the request path.
 - **[Lossless export/import](https://plandesk.asyncdot.com/reference/upgrading/)** — `plandesk-export-v2` JSON moves a project between machines.
-- **[Docker self-hosting](https://plandesk.asyncdot.com/self-hosting/docker/)** — run it for a team, with auth, on your own infrastructure.
+- **[Self-hosting](https://plandesk.asyncdot.com/self-hosting/topologies/)** — run it for a team on Docker, Cloudflare Workers or Vercel, with auth, on your own account.
 - **[Client portal](https://plandesk.asyncdot.com/reference/collaboration/)** — share a curated projection of the plan with a client; guests file issues into a moderated inbox.
 
 ---
@@ -211,7 +211,7 @@ docker compose up --build
 - Optional: a Turso/libSQL database URL and auth token; without one the board uses a SQLite file on a volume.
 - A random secret for `PLANDESK_BETTER_AUTH_SECRET`: `openssl rand -hex 32`.
 
-Full guides: [Self-hosting](https://plandesk.asyncdot.com/self-hosting/docker/).
+Full guides: [Docker](https://plandesk.asyncdot.com/self-hosting/docker/) · [Cloudflare Workers](https://plandesk.asyncdot.com/self-hosting/cloudflare/) · [Vercel](https://plandesk.asyncdot.com/self-hosting/vercel/) · [every setting](https://plandesk.asyncdot.com/self-hosting/server-config/). `plandesk deploy <docker|cloudflare|vercel>` prints a version your coding agent can run.
 
 ---
 
@@ -322,13 +322,13 @@ A task with no lane is `approve`, never `auto`. Full explanation:
               └───────────────────┘
 ```
 
-| Layer           | Stack                                                                                |
-| --------------- | ------------------------------------------------------------------------------------ |
-| Web             | React 19, TanStack Router, React Flow, TipTap                                        |
-| API             | Node + Hono, REST JSON (`@plandesk/api`)                                             |
-| Agent surface   | MCP server, 64 tools (`@plandesk/mcp`)                                               |
-| Storage         | Drizzle ORM over libSQL (`@plandesk/db`) — a local SQLite file, lossless JSON export |
-| Sync (optional) | Cloudflare Workers + Turso + R2 (`@plandesk/server`)                                 |
+| Layer         | Stack                                                                                |
+| ------------- | ------------------------------------------------------------------------------------ |
+| Web           | React 19, TanStack Router, React Flow, TipTap                                        |
+| API           | Node + Hono, REST JSON (`@plandesk/api`)                                             |
+| Agent surface | MCP server, 64 tools (`@plandesk/mcp`)                                               |
+| Storage       | Drizzle ORM over libSQL (`@plandesk/db`) — a local SQLite file, lossless JSON export |
+| Hosting       | Docker, Cloudflare Workers or Vercel over libSQL/Turso (`@plandesk/server`)          |
 
 ---
 

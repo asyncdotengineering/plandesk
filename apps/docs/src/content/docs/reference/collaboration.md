@@ -4,7 +4,7 @@ description: How Plan Desk shares a project with external clients — one hosted
 ---
 
 :::note[Single server]
-As of BA6, collaboration runs on **one server** (`@plandesk/api` / `plandesk serve`). There is no separate `@plandesk/sync-server` deployable. Guest join, portal view, and moderated submissions all live on the same API that holds your projects.
+As of BA6, collaboration runs on **one server** (`@plandesk/api` / `plandesk serve`). There is no separate sync server to deploy. Guest join, portal view, and moderated submissions all live on the same API that holds your projects.
 :::
 
 Plan Desk stays local-first while letting you share a project — read-only and live — with an external client or another team, and take their issues back into your plan.

@@ -26,13 +26,13 @@ These fail loudly with the exact next step — here's what each means:
 **The share link shows "Loading…" forever.** The portal can't get the view. Check, in order:
 
 1. **Nothing was promoted yet** — run `plandesk push --to <org-id>` so the hosted project exists for that share.
-2. **Wrong API origin** — the portal calls the same origin (or `VITE_API_URL` at build time). Point it at the Plan Desk API that holds the share, not a removed sync-server URL.
+2. **Wrong API origin** — the portal calls the same origin (or `VITE_API_URL` at build time). Point it at the Plan Desk API that holds the share, not the URL of the separate sync server older versions used.
 3. **No guest session** — open the share, join with a name; view and submissions require a guest session (401 without one).
 4. **Token revoked or expired** — a share past its `--expires` window, or revoked, returns 401. Mint a fresh share.
 
 ## Deploy
 
-**`plandesk deploy <target>` says the guide is "unavailable" (or 404).** The CLI fetches the guide from the docs site. Either the target name is wrong — run `plandesk deploy` with no argument to list valid targets (`cloudflare`, `fly`, `docker`) — or the docs site hasn't published that guide yet. The error prints the exact URL; open it directly to confirm.
+**`plandesk deploy <target>` says the guide is "unavailable" (or 404).** The CLI fetches the guide from the docs site. Either the target name is wrong — run `plandesk deploy` with no argument to list valid targets (`cloudflare`, `vercel`, `docker`) — or the docs site hasn't published that guide yet. The error prints the exact URL; open it directly to confirm.
 
 **Unknown deploy target.** Run `plandesk deploy` to see the list. Point a coding agent at one with `plandesk deploy cloudflare | claude`.
 

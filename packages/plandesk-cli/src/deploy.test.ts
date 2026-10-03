@@ -1,3 +1,4 @@
+import { readdirSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { main } from './cli.js';
@@ -71,9 +72,20 @@ describe('plandesk deploy', () => {
     expect(code).toBe(0);
     expect(stdout).toContain('Available deploy guides:');
     expect(stdout).toContain('cloudflare');
-    expect(stdout).toContain('fly');
     expect(stdout).toContain('docker');
+    expect(stdout).toContain('vercel');
     expect(stdout).toContain('plandesk deploy cloudflare | claude');
+    // Retired: no Fly config ships, D1 and Pages were never the real recipe,
+    // and there has been no separate sync server since 1.x.
+    expect(stdout).not.toMatch(/\bfly\b|\bD1\b|Pages|sync server/i);
+  });
+
+  it('has a published guide for every target and a target for every guide', () => {
+    const guides = readdirSync(new URL('../../../apps/docs/public/deploy/', import.meta.url))
+      .filter((file) => file.endsWith('.md'))
+      .map((file) => file.replace(/\.md$/, ''))
+      .sort();
+    expect(DEPLOY_TARGETS.map((t) => t.name).sort()).toEqual(guides);
   });
 
   it('fetches and prints the spec for a known target', async () => {

@@ -2,6 +2,46 @@
 
 All notable changes to Plan Desk are documented here.
 
+## Unreleased
+
+Self-hosting is now one command or one button on Docker, Cloudflare Workers or Vercel, and every target prepares its own database. See [Self-hosting → Deployment topologies](https://plandesk.asyncdot.com/self-hosting/topologies/).
+
+### Breaking
+
+- **`PLANDESK_SESSION_SECRET` is no longer read.** Rename it to `PLANDESK_BETTER_AUTH_SECRET` (same value). A server that still has only the old name refuses to start and says so.
+- **S3 storage needs `PLANDESK_STORAGE=s3`.** Setting `PLANDESK_S3_*` without it is now an error that says so, instead of a setting `plandesk serve` silently ignored.
+- **Docker files are renamed.** `Dockerfile.server` is now `Dockerfile` and `docker-compose.hosted.yml` is now `compose.yaml`, which reads `.env` (`cp .env.example .env`). The container listens on **7526**, the same port as `plandesk serve`.
+- **`plandesk deploy fly` is gone**; no Fly configuration ever shipped. `plandesk deploy vercel` is new, and the `cloudflare` and `docker` guides describe what the repository actually deploys (Workers + Turso + R2, not D1 or Pages).
+- **Removed package exports**, none of which had a caller:
+  - `@plandesk/api`: `version`, `removeOrganizationMember`, `updateOrganizationMemberRole`, `parseActor`, `InvalidActorSerializationError`, `healthRouter`. `SyncService` is now `TriageService`.
+  - `@plandesk/db`: `version`, `getArtifactByProjectAndId`, `getNoteByProjectAndId`, `viewConfig`. `upsertSubmission`/`UpsertSubmissionInput`, `revokeGuestSession`, `revokeRenderToken` and `listPrototypeLinksByFromArtifact` moved to `@plandesk/db/testing`.
+  - `@plandesk/mcp-client`: `version`.
+  - `@plandesk/cli` and `@plandesk/runner`: the `"."` entry. Both are command-line packages; run their binaries.
+- **Migration 0025 drops the unused `sync_state` table.**
+- **`@plandesk/server` is a new published package**, and `@plandesk/cli` now depends on it: `plandesk serve`, the Docker image, the Worker and the Vercel function share its one composition. Publish it before the CLI that depends on it.
+
+### Added
+
+- **The server prepares its own database.** `plandesk serve`, the Docker image, the Worker and the Vercel function all run migrations, the better-auth tables and the workspace backfills before serving, under a 60-second lease row (`__plandesk_lease`) so only one instance migrates at a time. While another instance holds it, requests answer `503 {"error":"schema_behind","schema":…}` and retry. A remote database no longer needs a manual `plandesk migrate`; the command stays for operators who prefer a CI step.
+- **Deploy to Cloudflare and Deploy with Vercel** from the repository root (`wrangler.jsonc` with `pnpm run deploy`; `vercel.json`). Both serve MCP at `/mcp`; the Vercel entry never did before.
+- **Real S3-compatible storage** (AWS S3, R2's S3 API, MinIO): signed PUT and GET, bytes proxied through the server. An unreachable bucket answers `502 storage_unavailable`.
+- **One environment reader for every target.** Values are trimmed and blank means unset; GitHub and S3 settings are all-or-nothing and a half-set group names what is missing. Workers and Vercel answer `500 misconfigured` naming the variable.
+
+### Changed
+
+- **Storage kind `local` is now `db`** (bytes in the database). `local` is still accepted in `PLANDESK_STORAGE` and `plandesk.server.json`.
+- **Notes and comments written over REST or the web app are stored as HTML**, converted from Markdown in the service, the same as MCP writes.
+- **Uploaded files are served under a script-free sandbox CSP.** An uploaded SVG carrying `<script>` cannot run on the Plan Desk origin when opened directly; SVG still renders in `<img>`.
+- **`[::1]` is recognised as loopback** for a server URL, like `127.0.0.1` and `localhost`.
+- **The task lane shows and can be set on cards and the task drawer.**
+- **`plandesk login` has no default server.** With no `--server` it reuses the one saved in `~/.plandesk/config.json`, or tells you to pass `--server <your Plan Desk URL>`. It used to fall back to a host that serves only these docs.
+- **`plandesk admin invite-owner` builds its claim link on your server's public URL**: `--base-url`, then `PLANDESK_BASE_URL` or `baseUrl` in `plandesk.server.json`. It warns when it can only fall back to loopback.
+- **Imported file URLs must be `https:`** (or `http:` to a loopback host), and their userinfo is dropped. An org export that carries any other `external_url` is now refused on import, all or nothing; edit that URL in the export and import again. File responses also send `Referrer-Policy: no-referrer`.
+
+### Fixed
+
+- **Writes on a remote database are atomic again.** Every multi-statement write (goals, tasks, projects, documents, folders, artifacts, prototypes, canvas) ran `BEGIN` and `COMMIT` on separate libSQL streams, so on Turso or sqld a successful write answered 500 and a failed one was not rolled back. Local file boards were never affected.
+
 ## [4.0.0] — 2026-10-03
 
 A major release because three surfaces are removed and every write path now rejects input it cannot honour. Everything else is additive. The board migrates in place on the next `plandesk serve` (migrations 0021–0024); see [Upgrading → 3.x → 4.0.0](https://plandesk.asyncdot.com/reference/upgrading/#the-3x--400-upgrade).

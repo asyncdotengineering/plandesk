@@ -10,18 +10,18 @@ export type DeployTarget = {
 export const DEPLOY_TARGETS: DeployTarget[] = [
   {
     name: 'cloudflare',
-    store: 'Workers + D1',
-    summary: 'Edge sync server on Cloudflare Workers + D1, portal on Cloudflare Pages.',
+    store: 'Workers + Turso + R2',
+    summary: 'The board, API and MCP on Cloudflare Workers; files in R2.',
   },
   {
-    name: 'fly',
-    store: 'Node + libSQL volume',
-    summary: 'Sync server on Fly.io — single machine, auto-stop, SQLite on a volume.',
+    name: 'vercel',
+    store: 'Functions + Turso',
+    summary: 'The board, API and MCP on Vercel; files in the database or S3.',
   },
   {
     name: 'docker',
-    store: 'Node + libSQL',
-    summary: 'Sync server as a Docker container on any host, SQLite on a mounted volume.',
+    store: 'Node + SQLite or Turso',
+    summary: 'The board, API and MCP in a container you build; SQLite on a volume by default.',
   },
 ];
 

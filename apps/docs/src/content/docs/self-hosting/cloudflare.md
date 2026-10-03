@@ -1,126 +1,72 @@
 ---
 title: Cloudflare Workers
-description: Deploy the Plan Desk API + SPA on Cloudflare Workers with Turso, R2, and better-auth (GitHub social + paste-token CLI).
+description: Deploy Plan Desk to Cloudflare Workers from the repository root — Turso for the database, R2 for files, one button or one command.
 ---
 
-This is the **edge self-host** path: the same open-source server as Docker/`plandesk serve`, packaged for Cloudflare Workers. You own the database (Turso/libSQL); the Worker never auto-migrates. Auth is **better-auth** — browser sign-in via optional GitHub social, CLI/agent via paste-a-token (`plandesk login`).
+The repository root is a Worker project: `wrangler.jsonc` points at `packages/plandesk-server/src/worker.ts` (`@plandesk/server`, the hosted composition of the API and MCP) and serves the built web app from `apps/plandesk-web/dist`. `/api/*` and `/mcp/*` reach the Worker; every other path is the web app.
 
-:::tip[When to use this]
-Pick Workers when you want a public HTTPS API + SPA without running a long-lived VM. For a single-box LAN deploy, prefer [Docker](./docker/) instead.
-:::
+## What you need
 
-## Prerequisites
+- A [Turso](https://turso.tech) (or other libSQL) database URL and auth token. Workers cannot use a local file.
+- A secret for `PLANDESK_BETTER_AUTH_SECRET`: `openssl rand -hex 32`. Keep it stable; changing it signs everyone out and invalidates API keys.
+- A Cloudflare account.
 
-- A [Turso](https://turso.tech/) (or other libSQL) database and auth token
-- Cloudflare account + [Wrangler](https://developers.cloudflare.com/workers/wrangler/) (`npm i -g wrangler` or use the package-local binary)
-- Optional: a GitHub OAuth App if you want dashboard “Sign in with GitHub”
-- An R2 bucket for file blobs (or S3-compatible credentials pointing at R2)
+## Option 1: the Deploy button
 
-## 1. Provision the database and migrate
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/asyncdotengineering/plandesk)
 
-You own the schema. Apply domain migrations **and** better-auth tables once (and again on upgrades):
+The button forks the repository, creates the `plandesk-files` R2 bucket, and asks for `PLANDESK_DB_URL`, `PLANDESK_DB_TOKEN` and `PLANDESK_BETTER_AUTH_SECRET`. `PLANDESK_AUTH_PASSWORD` is optional.
 
-```bash
-plandesk migrate \
-  --db "libsql://your-db.turso.io" \
-  --db-token "<token>"
-```
-
-The Worker **does not** run migrations at request time. Skipping this step means empty/missing tables and opaque runtime failures.
-
-## 2. GitHub OAuth app (optional)
-
-GitHub is optional ([REQ-20](./topologies/)). Without it, the dashboard uses token entry only; CLI still uses `plandesk login` paste-a-token.
-
-If you want social sign-in:
-
-1. Create a GitHub OAuth App.
-2. Set the **Authorization callback URL** to:
-
-   ```text
-   <PLANDESK_BASE_URL>/api/auth/callback/github
-   ```
-
-   Example: `https://plandesk-api.your-subdomain.workers.dev/api/auth/callback/github`
-
-   This is **better-auth’s** callback route. Do **not** use the removed path `/api/v1/auth/github/callback`.
-
-3. Note the client id and client secret for Wrangler secrets below.
-
-## 3. Configure secrets and public URL
-
-From the repository root: `wrangler.jsonc` there is the Worker's only config. `.dev.vars.example` lists the secrets.
+## Option 2: from a clone
 
 ```bash
-# Database
-wrangler secret put PLANDESK_DB_URL
-wrangler secret put PLANDESK_DB_TOKEN
-
-# better-auth (required on Workers — non-loopback bind has no default-org trust)
-wrangler secret put PLANDESK_BETTER_AUTH_SECRET   # long random string; keep stable across deploys
-
-# Object storage — no secrets needed: the native R2 binding (`FILES` in
-# wrangler.jsonc `r2_buckets`) is used automatically when present. Just
-# create the bucket and keep the binding:
-#   wrangler r2 bucket create plandesk-files
-# S3-compatible credentials are only a fallback for non-R2 object stores:
-# wrangler secret put PLANDESK_STORAGE   # value: s3
-# wrangler secret put PLANDESK_S3_BUCKET
-# wrangler secret put PLANDESK_S3_REGION
-# wrangler secret put PLANDESK_S3_ACCESS_KEY_ID
-# wrangler secret put PLANDESK_S3_SECRET_ACCESS_KEY
-# wrangler secret put PLANDESK_S3_ENDPOINT
-# wrangler secret put PLANDESK_AUTH_PASSWORD   # optional shared-secret gate
-
-# Optional GitHub social (all-or-nothing)
-wrangler secret put PLANDESK_GITHUB_CLIENT_ID
-wrangler secret put PLANDESK_GITHUB_CLIENT_SECRET
-# Required with the two above (all-or-nothing); set to the better-auth callback:
-wrangler secret put PLANDESK_GITHUB_CALLBACK_URL
-# value: https://<your-worker>/api/auth/callback/github
-```
-
-Set the public origin (not a secret) in `wrangler.jsonc` `vars`:
-
-```jsonc
-"vars": { "PLANDESK_BASE_URL": "https://plandesk.your-subdomain.workers.dev" }
-```
-
-`PLANDESK_BASE_URL` is better-auth’s `baseURL` (OAuth redirect + cookies). If unset, the Worker falls back to the request URL origin — set it explicitly for stable OAuth.
-
-**Misconfiguration:** without `PLANDESK_BETTER_AUTH_SECRET`, API requests return **500** with a clear `misconfigured` message naming the secret — not a silent 401 storm.
-
-## 4. Build and deploy
-
-The Workers entry lives in **`packages/plandesk-server`** (`@plandesk/server`) — a deploy-only package whose `createHostedApp` composes the REST API (`@plandesk/api`) with the MCP server (`@plandesk/mcp`), so a hosted board serves agent tools at `/mcp` as well as the API. The root `wrangler.jsonc` points `main` at its `src/worker.ts` and serves the SPA from `apps/plandesk-web/dist`; `/api/*` and `/mcp/*` always reach the Worker first.
-
-```bash
+git clone https://github.com/asyncdotengineering/plandesk && cd plandesk
 pnpm install
-pnpm run deploy   # builds the SPA + server packages, then wrangler deploy
+pnpm exec wrangler login
+pnpm exec wrangler r2 bucket create plandesk-files     # skip if it exists
+pnpm exec wrangler secret put PLANDESK_DB_URL
+pnpm exec wrangler secret put PLANDESK_DB_TOKEN
+pnpm exec wrangler secret put PLANDESK_BETTER_AUTH_SECRET
+pnpm run deploy                                         # builds the web app and server, then wrangler deploy
 ```
 
-Open `PLANDESK_BASE_URL`. Sign in with GitHub (if configured) or mint a CLI token from a signed-in dashboard session and run:
+`.dev.vars.example` lists the same secrets; copy it to `.dev.vars` for `pnpm exec wrangler dev`.
+
+## First request
+
+There is no migrate step. The first request prepares the database (migrations, auth tables, backfills) under a lease, so concurrent isolates never race. An isolate that finds another one mid-migration answers `503 schema_behind` for up to a few seconds instead of holding the request; the next request retries. Details: [The server prepares its own database](/self-hosting/topologies/#the-server-prepares-its-own-database).
 
 ```bash
-plandesk login --server "$PLANDESK_BASE_URL"
-plandesk connect --to <org> [--project <id|name>]
+curl -s https://plandesk.<your-subdomain>.workers.dev/api/v1/health
 ```
 
-Agents never log in themselves — humans paste tokens; `connect` writes a scoped agent key into `.plandesk/token`. Full grammar: [CLI Reference](/reference/cli/#hosted-login-and-connect-two-actor).
+A missing or malformed secret answers `500 {"error":"misconfigured"}` naming the variable.
 
-## Checklist
+## Files: R2 or S3
 
-| Step                       | Done when                                                  |
-| -------------------------- | ---------------------------------------------------------- |
-| Turso + `plandesk migrate` | Domain + better-auth tables exist                          |
-| GitHub callback            | `{baseURL}/api/auth/callback/github`                       |
-| Secrets                    | DB, `PLANDESK_BETTER_AUTH_SECRET`, S3/R2, optional GitHub  |
-| Vars                       | `PLANDESK_BASE_URL` public origin                          |
-| SPA                        | `apps/plandesk-web/dist` built (`pnpm run deploy` does it) |
-| Deploy                     | `wrangler deploy` succeeds; `/api/v1/health` is 200        |
+The `FILES` R2 binding in `wrangler.jsonc` stores uploads and needs no keys. When it is present it wins over any `PLANDESK_STORAGE`/`PLANDESK_S3_*` setting. Remove the binding only if you want files in the database (`PLANDESK_STORAGE` unset) or in another S3-compatible store (`PLANDESK_STORAGE=s3` plus `PLANDESK_S3_*` secrets).
 
-## Related
+Switching storage later does not move existing files: they stay in the old backend and stop resolving. See [Storage](/self-hosting/server-config/#storage).
 
-- [Deployment topologies](./topologies/) — local vs self-host vs free-hosted; who migrates
-- [Server configuration](./server-config/) — env/file knobs for Node/`plandesk serve`
-- [Docker (self-host)](./docker/) — long-running container alternative
+## Custom domain
+
+Add the domain to the Worker (Cloudflare dashboard → Workers → your Worker → Domains & Routes), then set the public origin:
+
+```bash
+pnpm exec wrangler secret put PLANDESK_BASE_URL       # https://plan.example.com
+```
+
+Without it the Worker takes its base URL from the first request each isolate sees, which may be the `workers.dev` host. A secret survives redeploys; `vars` in `wrangler.jsonc` would also work but edits a tracked file.
+
+## Optional settings
+
+All are `wrangler secret put <NAME>`; the full list is in [Server configuration](/self-hosting/server-config/#environment-variables).
+
+- `PLANDESK_AUTH_PASSWORD`: HTTP Basic in front of the whole board.
+- GitHub sign-in: `PLANDESK_GITHUB_CLIENT_ID`, `PLANDESK_GITHUB_CLIENT_SECRET`, `PLANDESK_GITHUB_CALLBACK_URL` (all three). Register the OAuth app's callback as `<PLANDESK_BASE_URL>/api/auth/callback/github`.
+
+## After deploy
+
+Mint the first owner and connect a repo: [Self-host Plan Desk for your team](/guides/self-host-for-teams/).
+
+Agent-runnable version of this page: `plandesk deploy cloudflare`.

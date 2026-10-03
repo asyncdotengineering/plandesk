@@ -240,23 +240,23 @@ See https://plandesk.asyncdot.com/guides/idea-to-development/ for the full loop.
 
 **Local is the default.** Everything above is zero-auth, offline, and agent-runnable
 unattended. Hosting is opt-in — only do this when the user wants this repo bound to a
-hosted organization (asyncdot or their self-hosted instance).
+hosted organization on their self-hosted instance.
 
 **Agents never log in.** Hosted auth has an irreducible human step. A fresh agent cannot
 authenticate to a hosted org from nothing. You **ask the human** to generate and paste
 the owner key; you only run `connect --to` after that.
 
-1. **Ask the human** to open the Plan Desk dashboard (signed in via GitHub), click
+1. **Ask the human** to open their Plan Desk dashboard (signed in), click
    **Generate CLI token**, and copy the org-wide owner key (shown once).
 2. **Ask the human** to run (or paste into your terminal for them):
 
 ```bash
-plandesk login
+plandesk login --server https://your-host.example
 # prompts: Plan Desk token:  ← human pastes the owner key
 # stores { server, token, orgId } in ~/.plandesk/config.json
 ```
 
-For a non-default server: `plandesk login --server https://your-host.example`.
+Always pass `--server` with the user's own instance URL.
 
 3. **You (the agent)** then provision a scoped agent key for this repo:
 

@@ -1,104 +1,127 @@
 ---
 title: Server configuration
-description: The plandesk.server.json config file — one place for every server knob, with environment overrides and source reporting via plandesk doctor.
+description: Every environment variable the Plan Desk server reads, the rules it applies to them, the plandesk.server.json file, storage choices and plandesk doctor.
 ---
 
-When you run the Plan Desk server yourself (`plandesk serve`, or the [self-host container](./docker/)), every knob is configurable three ways. **Precedence is strict: environment > file > default** (12-factor).
+Every target — `plandesk serve` (and the Docker image, which runs it), Cloudflare Workers and Vercel — reads its settings through one function, `readServerEnv`, so the names and rules below are the same everywhere. This page is the single reference; the target guides link here instead of repeating it.
 
-| Source                            | Wins?             | Use for                                                        |
-| --------------------------------- | ----------------- | -------------------------------------------------------------- |
-| **Environment** (`PLANDESK_*`)    | ✅ always wins    | Secrets, containers, CI — anything that must override the file |
-| **File** (`plandesk.server.json`) | when env is unset | Collecting every knob in one place for a self-host operator    |
-| **Defaults**                      | last resort       | Safe local defaults (loopback host, port 7526, local storage)  |
+## Environment variables
 
-## The config file — `plandesk.server.json`
+| Variable                        | Targets             | Default                                    | Purpose                                                                                                                                                               |
+| ------------------------------- | ------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PLANDESK_DB_URL`               | all                 | Node: a SQLite file in the data dir        | libSQL/Turso URL, e.g. `libsql://plandesk-you.turso.io`. **Required on Workers and Vercel.**                                                                          |
+| `PLANDESK_DB_TOKEN`             | all                 | (unset)                                    | Auth token for `PLANDESK_DB_URL` (`turso db tokens create <db>`). **Secret.**                                                                                         |
+| `PLANDESK_BETTER_AUTH_SECRET`   | all                 | Node with a file DB: generated in data dir | Signs sessions and API keys (`openssl rand -hex 32`). **Secret.** Required on Workers and Vercel and with any remote database. Keep it stable across deploys.         |
+| `PLANDESK_BASE_URL`             | all                 | see [Custom domains](#custom-domains)      | Public origin: sign-in cookies, OAuth callbacks, share links. Set it whenever the board has a domain of its own.                                                      |
+| `PLANDESK_AUTH_PASSWORD`        | all                 | (unset)                                    | HTTP Basic password (user `plandesk`) in front of the UI and REST API. **Secret.** Recommended off loopback; compose requires it.                                     |
+| `PLANDESK_STORAGE`              | all                 | `db`                                       | Where file bytes live: `db` (in the database) or `s3`. `local` is the old name for `db` and is still accepted. Ignored on Workers when the `FILES` R2 binding exists. |
+| `PLANDESK_S3_BUCKET`            | all                 | (unset)                                    | Bucket name. Needs `PLANDESK_STORAGE=s3`.                                                                                                                             |
+| `PLANDESK_S3_REGION`            | all                 | (unset)                                    | Region, e.g. `us-east-1`, or `auto` for R2.                                                                                                                           |
+| `PLANDESK_S3_ACCESS_KEY_ID`     | all                 | (unset)                                    | Access key id.                                                                                                                                                        |
+| `PLANDESK_S3_SECRET_ACCESS_KEY` | all                 | (unset)                                    | Secret access key. **Secret.**                                                                                                                                        |
+| `PLANDESK_S3_ENDPOINT`          | all                 | AWS                                        | S3-compatible endpoint (R2, MinIO, …), e.g. `https://<account-id>.r2.cloudflarestorage.com`.                                                                          |
+| `PLANDESK_GITHUB_CLIENT_ID`     | all                 | (unset)                                    | GitHub OAuth app client id. All three GitHub variables together, or none.                                                                                             |
+| `PLANDESK_GITHUB_CLIENT_SECRET` | all                 | (unset)                                    | GitHub OAuth app client secret. **Secret.**                                                                                                                           |
+| `PLANDESK_GITHUB_CALLBACK_URL`  | all                 | (unset)                                    | `<PLANDESK_BASE_URL>/api/auth/callback/github`, registered on the OAuth app.                                                                                          |
+| `PLANDESK_DASHBOARD_URL`        | all                 | (unset)                                    | Where to send the browser after GitHub sign-in (optional).                                                                                                            |
+| `PLANDESK_HOST`                 | Node                | `127.0.0.1` (the image: `0.0.0.0`)         | Bind address. See [the bind address is the trust boundary](/self-hosting/docker/#the-bind-address-is-the-trust-boundary).                                             |
+| `PLANDESK_PORT`                 | Node                | `7526`                                     | Listen port. The image always listens on 7526.                                                                                                                        |
+| `PLANDESK_DATA_DIR`             | Node                | nearest `.plandesk/`, else `~/.plandesk`   | Data directory: the SQLite file, the generated secret, `plandesk.server.json`. The image uses `/data`.                                                                |
+| `PLANDESK_HOST_PORT`            | `compose.yaml` only | `7526`                                     | Host port compose publishes the container on.                                                                                                                         |
 
-A single JSON file holding every server setting. It is resolved from your data dir, or from an explicit `--config <path>`:
+[`.env.example`](https://github.com/asyncdotengineering/plandesk/blob/main/.env.example) lists the same names with a comment each; [`.dev.vars.example`](https://github.com/asyncdotengineering/plandesk/blob/main/.dev.vars.example) lists the Workers secrets.
 
-```bash
-plandesk serve --config /etc/plandesk/plandesk.server.json
-```
+### Rules
+
+- **Values are trimmed and blank means unset.** `PLANDESK_DB_URL=` in an env file is the same as not setting it.
+- **Groups are all-or-nothing.** A half-set group is an error that names what is missing, never a silently disabled feature:
+  - GitHub: client id, client secret and callback URL together, or none.
+  - S3: `PLANDESK_STORAGE=s3` needs bucket, region, access key id and secret access key. Setting any `PLANDESK_S3_*` without `PLANDESK_STORAGE=s3` is also an error.
+- **`PLANDESK_SESSION_SECRET` is no longer read.** If it is set and `PLANDESK_BETTER_AUTH_SECRET` is not, the server refuses to start and tells you to rename it. Same value, new name.
+- **One secret per database.** When one database is served by more than one deployment (say Docker and Workers), give them the same `PLANDESK_BETTER_AUTH_SECRET`; otherwise each invalidates the other's sessions and API keys.
+
+How a bad value surfaces: `plandesk serve` refuses to start and prints the message. Workers and Vercel answer every request with `500 {"error":"misconfigured","message":"…"}` naming the variable.
+
+## Storage
+
+Uploaded files (attachments, images, prototype assets) go to one of three places:
+
+| Backend              | Where it works | How to choose it                                                                                            |
+| -------------------- | -------------- | ----------------------------------------------------------------------------------------------------------- |
+| Database (`db`)      | every target   | The default. Bytes live next to the board, so a database backup covers them.                                |
+| R2 binding           | Workers only   | The `FILES` binding in `wrangler.jsonc`. When it exists it wins over everything else.                       |
+| S3-compatible (`s3`) | every target   | `PLANDESK_STORAGE=s3` plus the `PLANDESK_S3_*` variables. Works with AWS S3, R2's S3 API, MinIO and others. |
+
+On Workers the R2 binding needs no keys: keep `FILES` in `wrangler.jsonc` and leave `PLANDESK_S3_*` unset. On Vercel and Docker, R2 is reachable only through its S3 API: `PLANDESK_STORAGE=s3`, region `auto`, endpoint `https://<account-id>.r2.cloudflarestorage.com` and an R2 API token's key pair.
+
+:::caution[Pick storage before you upload]
+Switching backends later does not move anything. Files already stored stay in the old backend, and the board can no longer read them from the new one. Choose before the first upload, or copy the objects across yourself when you switch.
+:::
+
+## Custom domains
+
+Set `PLANDESK_BASE_URL` to the origin people open, e.g. `https://plan.example.com`. Sign-in cookies, the GitHub callback and share links are all built on it. Without it:
+
+- **Docker / `plandesk serve`** uses compose's `http://127.0.0.1:<PLANDESK_HOST_PORT>`, or the bind host and port.
+- **Workers** use the origin of the first request each isolate sees. If the Worker answers on both `*.workers.dev` and your domain, that is whichever was hit first, so set the variable.
+- **Vercel** uses the project's production domain (`VERCEL_PROJECT_PRODUCTION_URL`). Preview deployments therefore cannot sign in: their cookies and callbacks point at the production domain, not the preview URL.
+
+If you use GitHub sign-in, update the OAuth app's callback URL and `PLANDESK_GITHUB_CALLBACK_URL` when the domain changes.
+
+## The config file: `plandesk.server.json`
+
+`plandesk serve` (and so the Docker image) can also read a JSON file from the data directory, or from `--config <path>`. Precedence is **environment > file > default**, per key. Workers and Vercel read only their environment.
 
 ```json
 {
-  "dbUrl": "libsql://your-db.turso.io",
-  "dbToken": "<libSQL auth token>",
+  "dbUrl": "libsql://plandesk-you.turso.io",
+  "dbToken": "<token>",
   "host": "0.0.0.0",
   "port": 7526,
-  "baseUrl": "https://plandesk.example.com",
-  "authPassword": "<HTTP basic-auth password>",
-  "sessionSecret": "<better-auth secret — long random string>",
+  "baseUrl": "https://plan.example.com",
+  "authPassword": "<password>",
+  "sessionSecret": "<better-auth secret>",
   "storage": { "kind": "db" },
   "github": {
-    "clientId": "<GitHub OAuth app client id>",
-    "clientSecret": "<GitHub OAuth app client secret>",
-    "callbackUrl": "https://plandesk.example.com/api/auth/callback/github",
+    "clientId": "<client id>",
+    "clientSecret": "<client secret>",
+    "callbackUrl": "https://plan.example.com/api/auth/callback/github",
     "dashboardUrl": "/"
   }
 }
 ```
 
-Every field is optional. The keys:
+Every key is optional. They map onto the variables above; `sessionSecret` is the file's name for `PLANDESK_BETTER_AUTH_SECRET`. `storage` is `{ "kind": "db" }` or `{ "kind": "s3", "bucket", "region", "accessKeyId", "secretAccessKey", "endpoint"? }`. Setting `PLANDESK_STORAGE` replaces the file's `storage` block as a whole, and the GitHub variables replace its `github` block. An unknown key or a wrong type fails at start, naming the file and the key:
 
-| Key             | Env override                                                                        | Purpose                                                                                                                                                                                                                                                                                                                                                                                              |
-| --------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dbUrl`         | `PLANDESK_DB_URL`                                                                   | Remote libSQL/Turso URL. Unset → local file SQLite (the [local topology](./topologies/)).                                                                                                                                                                                                                                                                                                            |
-| `dbToken`       | `PLANDESK_DB_TOKEN`                                                                 | Auth token for a remote libSQL DB. **Secret.**                                                                                                                                                                                                                                                                                                                                                       |
-| `host`          | `PLANDESK_HOST`                                                                     | Bind address (`127.0.0.1` loopback default; `0.0.0.0` for LAN/container).                                                                                                                                                                                                                                                                                                                            |
-| `port`          | `PLANDESK_PORT`                                                                     | Bind port (default `7526`).                                                                                                                                                                                                                                                                                                                                                                          |
-| `baseUrl`       | `PLANDESK_BASE_URL`                                                                 | Public base URL the server is reachable at (better-auth `baseURL`, OAuth callbacks, share links).                                                                                                                                                                                                                                                                                                    |
-| `authPassword`  | `PLANDESK_AUTH_PASSWORD`                                                            | Enables HTTP basic-auth on the UI/REST API. **Secret.** Recommended for any non-loopback host.                                                                                                                                                                                                                                                                                                       |
-| `sessionSecret` | `PLANDESK_BETTER_AUTH_SECRET`                                                       | **better-auth secret** (sessions + API keys). **Secret.** Local `serve` auto-generates one under the data dir if unset; set explicitly for multi-replica / durable hosted deploys so sessions and keys stay valid across restarts.                                                                                                                                                                   |
-| `storage`       | `PLANDESK_STORAGE` + `PLANDESK_S3_*`                                                | `{ "kind": "db" }` (default, blobs in the DB; the old `"local"` is still accepted) or `{ "kind": "s3", "bucket", "region", "accessKeyId", "secretAccessKey", "endpoint"? }`. The S3 `secretAccessKey` is a **secret**. Setting `PLANDESK_STORAGE` replaces the file's `storage` block as a whole.                                                                                                    |
-| `github`        | `PLANDESK_GITHUB_CLIENT_ID` / `_SECRET` / `_CALLBACK_URL`, `PLANDESK_DASHBOARD_URL` | GitHub **social** sign-in for the web dashboard (better-auth). **All-or-nothing**: set all three of client id / secret / callback URL, or none. Register the OAuth app callback as `{baseUrl}/api/auth/callback/github`. The `clientSecret` is a **secret**. Unset → no GitHub sign-in; CLI still uses paste-a-token (`plandesk login`). The env trio replaces the file's `github` block as a whole. |
-
-:::caution[This file can hold secrets — gitignore it]
-`plandesk.server.json` is in the repo's `.gitignore`. Never commit a file that contains tokens, passwords, or keys. Prefer env (`PLANDESK_*`) for secrets in containers, and keep the file for the non-secret knobs if you like.
-:::
-
-## The file is never required
-
-You can run the server with **env alone** and no file at all:
-
-```bash
-PLANDESK_DB_URL=libsql://... PLANDESK_DB_TOKEN=... PLANDESK_AUTH_PASSWORD=... plandesk serve --host 0.0.0.0
-```
-
-This is exactly how the **edge paths** work. The Cloudflare Workers and Vercel entries read their secrets from the platform (`wrangler secret put …`, Vercel env) and never look for a config file — so the cloud/edge deployment needs **no file at all**. The file is developer convenience, never a dependency.
-
-Edge entries require **`PLANDESK_BETTER_AUTH_SECRET`** (Workers/Vercel env — the canonical name, also accepted by Node `serve`) and should set **`PLANDESK_BASE_URL`** to the public origin. Full Workers steps: [Cloudflare Workers](./cloudflare/).
-
-When one database is served by both `plandesk serve` and a Workers/Vercel deployment, set the exact same secret value in `PLANDESK_BETTER_AUTH_SECRET` on both. Mismatched values invalidate sessions and API keys across topologies. The old `PLANDESK_SESSION_SECRET` name is no longer read: if it is set without `PLANDESK_BETTER_AUTH_SECRET`, the server refuses to start and names the variable to rename it to.
-
-## `plandesk doctor` shows where each value came from
-
-`plandesk doctor` resolves the config and prints every key's **value and its source** (`env`, `file`, or `default`), with **secret values always redacted** — they are never printed:
-
-```
-config:
-  host: 0.0.0.0 (env)
-  port: 7526 (default)
-  db-url: libsql://your-db.turso.io (env)
-  db-token: <redacted> (env)
-  base-url: <unset>
-  storage: db (default)
-  auth-password: <redacted> (env)
-  auth-secret: <unset>
-  github: <unset>
-  file: /etc/plandesk/plandesk.server.json
-```
-
-Run `plandesk doctor` (optionally with `--config <path>`) to confirm an operator wired the right values from the right places — without ever exposing a secret in a terminal or log.
-
-## A malformed file fails loudly
-
-A present-but-invalid file is an error (a missing file is not). The error names the file and the offending key:
-
-```
+```text
 /etc/plandesk/plandesk.server.json: "port" must be an integer port (0–65535)
 ```
 
+:::caution[The file can hold secrets]
+Never commit it. Prefer environment variables for secrets and keep the file for the rest.
+:::
+
+## `plandesk doctor`
+
+`plandesk doctor` prints each resolved setting and where it came from (`env`, `file` or `default`). Secrets are never printed:
+
+```text
+config:
+  host: 0.0.0.0 (env)
+  port: 7526 (default)
+  db-url: libsql://plandesk-you.turso.io (env)
+  db-token: <redacted> (env)
+  base-url: https://plan.example.com (env)
+  storage: db (default)
+  auth-password: <redacted> (env)
+  auth-secret: <redacted> (env)
+  github: <unset>
+  file: <none>
+```
+
+In the container: `docker compose run --rm plandesk doctor`.
+
 ## Next
 
-- [Deployment topologies](./topologies/) — local vs self-host vs free-hosted, and who runs migrations.
-- [Docker (self-host)](./docker/) — the container quickstart.
+- [Deployment topologies](/self-hosting/topologies/): which target to pick, and how the database is prepared.
+- [Docker](/self-hosting/docker/) · [Cloudflare Workers](/self-hosting/cloudflare/) · [Vercel](/self-hosting/vercel/)
