@@ -76,7 +76,7 @@ describe('commentService', () => {
       target_type: 'document',
       target_id: documentId,
       document_id: documentId,
-      body: 'Fix this section',
+      body: '<p>Fix this section</p>\n',
       passage: '§2',
       resolved: false,
     });
@@ -92,13 +92,13 @@ describe('commentService', () => {
       target_type: 'task',
       target_id: taskId,
       document_id: null,
-      body: 'Task note',
+      body: '<p>Task note</p>\n',
     });
     expect(noteComment).toMatchObject({
       target_type: 'note',
       target_id: noteId,
       document_id: null,
-      body: 'Note note',
+      body: '<p>Note note</p>\n',
     });
   });
 
@@ -113,7 +113,7 @@ describe('commentService', () => {
       target_type: 'submission',
       target_id: submissionId,
       document_id: null,
-      body: 'Submission note',
+      body: '<p>Submission note</p>\n',
     });
   });
 

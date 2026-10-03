@@ -1,11 +1,6 @@
 import type { ShareService } from '@plandesk/api';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
-const EXPIRES_MS: Record<'24h' | '7d', number> = {
-  '24h': 24 * 60 * 60 * 1000,
-  '7d': 7 * 24 * 60 * 60 * 1000,
-};
-
 export function createCreateShareLinkHandler(
   shareService: ShareService,
   getOrigin: () => string,
@@ -27,9 +22,6 @@ export function createCreateShareLinkHandler(
       );
     }
 
-    const expires = args.expires ?? '24h';
-    const expiresAt = expires === 'never' ? null : new Date(Date.now() + EXPIRES_MS[expires]);
-
     const resource =
       args.task_id !== undefined
         ? { kind: 'task' as const, id: args.task_id }
@@ -37,7 +29,10 @@ export function createCreateShareLinkHandler(
           ? { kind: 'document' as const, id: args.document_id }
           : { kind: 'prototype' as const, ids: [args.prototype_id as string] };
 
-    const result = await shareService.createResourceShare({ resource, expiresAt }, getOrigin());
+    const result = await shareService.createResourceShare(
+      { resource, expires: args.expires },
+      getOrigin(),
+    );
 
     if (!result) {
       return toolNotFound();

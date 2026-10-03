@@ -1,6 +1,5 @@
 import type { NoteService } from '@plandesk/api';
 import { InvalidNoteError } from '@plandesk/api';
-import { ensureHtmlBody } from './markdown.js';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createCreateNoteHandler(
@@ -10,7 +9,7 @@ export function createCreateNoteHandler(
     try {
       const note = await noteService.create(args.project_id, {
         title: args.title,
-        ...(args.body !== undefined ? { body: ensureHtmlBody(args.body) } : {}),
+        ...(args.body !== undefined ? { body: args.body } : {}),
       });
       if (!note) {
         return toolNotFound();

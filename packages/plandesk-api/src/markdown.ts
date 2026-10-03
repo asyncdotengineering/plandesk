@@ -132,7 +132,7 @@ export function convertDocumentBody(
   return { html: restoreWikiLinkPlaceholders(parsed, wiki.segments), resolved };
 }
 
-// Document and note bodies are stored and rendered as HTML (the web editor is
+// Document, note and comment bodies are stored and rendered as HTML (the web editor is
 // rich text). Agents naturally write Markdown, so convert it here; bodies that
 // already look like HTML pass through untouched.
 export function ensureHtmlBody(body: string, resolve?: WikiLinkResolver): string {

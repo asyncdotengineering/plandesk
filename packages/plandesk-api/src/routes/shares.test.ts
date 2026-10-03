@@ -22,6 +22,7 @@ import {
 } from '../better-auth.js';
 import { createServices } from '../services/index.js';
 import { createApp } from '../server.js';
+import { toolHandler } from '../../test-support/mcp-tool-handlers.js';
 
 import type { Hono } from 'hono';
 
@@ -363,6 +364,33 @@ describe('shares routes', () => {
       body: JSON.stringify({ expires: 'forever' }),
     });
     expect(bad.status).toBe(400);
+  });
+
+  it('REST and the create_share_link tool default to the same expiry', async () => {
+    const now = new Date('2026-10-03T12:00:00.000Z');
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(now);
+    try {
+      const { app, db, services } = await createTestAppWithServices();
+      const project = await createProject(db, { name: 'TTL parity' });
+      const task = await createTask(db, { projectId: project.id, label: 'Same default' });
+
+      const res = await app.request(`/api/v1/tasks/${task.id}/share`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      expect(res.status).toBe(201);
+      const rest = (await res.json()) as { expires_at: string | null };
+
+      const tool = await toolHandler('create_share_link', services)({ task_id: task.id });
+      const mcp = (tool.structuredContent as { share: { expires_at: string | null } }).share;
+
+      expect(rest.expires_at).toBe('2026-10-04T12:00:00.000Z');
+      expect(mcp.expires_at).toBe(rest.expires_at);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

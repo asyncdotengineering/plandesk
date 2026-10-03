@@ -82,7 +82,7 @@ describe('prototype canvas share', () => {
     });
 
     const minted = await shares().createResourceShare(
-      { resource: { kind: 'prototype', ids: [proto.id] }, expiresAt: null },
+      { resource: { kind: 'prototype', ids: [proto.id] }, expires: 'never' },
       'http://localhost',
     );
     expect(minted).toBeDefined();
@@ -130,7 +130,7 @@ describe('prototype canvas share', () => {
     }
 
     const minted = await shares().createResourceShare(
-      { resource: { kind: 'prototype', ids: [a.id, b.id] }, expiresAt: null },
+      { resource: { kind: 'prototype', ids: [a.id, b.id] }, expires: 'never' },
       'http://localhost',
     );
     expect(minted).toBeDefined();
@@ -164,7 +164,7 @@ describe('prototype canvas share', () => {
     }
 
     const minted = await shares().createResourceShare(
-      { resource: { kind: 'prototype', ids: [proto.id] }, expiresAt: null },
+      { resource: { kind: 'prototype', ids: [proto.id] }, expires: 'never' },
       'http://localhost',
     );
     expect(minted).toBeDefined();
@@ -237,7 +237,7 @@ describe('prototype canvas share', () => {
     });
 
     const result = await shares().createResourceShare(
-      { resource: { kind: 'prototype', ids: [protoB.id] }, expiresAt: null },
+      { resource: { kind: 'prototype', ids: [protoB.id] }, expires: 'never' },
       'http://localhost',
     );
     expect(result).toBeUndefined();
@@ -248,11 +248,11 @@ describe('prototype canvas share', () => {
     const doc = await createDocument(db, { projectId, title: 'Shared doc', body: 'hello' });
 
     const taskShare = await shares().createResourceShare(
-      { resource: { kind: 'task', id: task.id }, expiresAt: null },
+      { resource: { kind: 'task', id: task.id }, expires: 'never' },
       'http://localhost',
     );
     const docShare = await shares().createResourceShare(
-      { resource: { kind: 'document', id: doc.id }, expiresAt: null },
+      { resource: { kind: 'document', id: doc.id }, expires: 'never' },
       'http://localhost',
     );
     expect(taskShare?.url).toContain('/p/');

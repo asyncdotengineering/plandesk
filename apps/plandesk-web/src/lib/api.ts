@@ -7,6 +7,8 @@
 // module's own scope.
 import type {
   CanvasResponse,
+  DiffHunk,
+  ShareTtl,
   FlowCoverage,
   SerializedAgentRunEvent,
   SerializedAgentRunWithEvents,
@@ -28,6 +30,7 @@ import type {
   SerializedPrototypeWithScreens,
   SerializedRevision,
   SerializedRevisionMeta,
+  SerializedSubmission,
   SerializedTag,
   SerializedTask,
   SerializedView,
@@ -116,6 +119,7 @@ export type {
   SerializedGoal,
   SerializedRevisionMeta,
   SerializedRevision,
+  SerializedSubmission,
   TaskStatusSummary,
 };
 
@@ -483,17 +487,9 @@ export function deleteTask(id: string): Promise<void> {
   return request(`/tasks/${id}`, { method: 'DELETE' });
 }
 
-export type RevisionDiffHunk = {
-  old_start: number;
-  old_lines: number;
-  new_start: number;
-  new_lines: number;
-  lines: string[];
-};
-
 export type RevisionFieldDiff = {
   field: string;
-  hunks: RevisionDiffHunk[];
+  hunks: DiffHunk[];
 };
 
 export function listRevisions(
@@ -523,7 +519,7 @@ export function restoreRevision(id: string): Promise<SerializedTask | Serialized
   return request(`/revisions/${id}/restore`, { method: 'POST' });
 }
 
-export type ShareTtl = '24h' | '7d' | 'never';
+export type { ShareTtl };
 
 export type ShareLinkResult = {
   url: string;
@@ -916,26 +912,10 @@ export function listAgentRuns(projectId: string): Promise<SerializedAgentRun[]> 
   return request(`/projects/${projectId}/agent-runs`);
 }
 
-export type SerializedSubmission = {
-  id: string;
-  project_id: string;
-  hosted_share_id: string;
-  participant_name: string;
-  title: string;
-  body: string | null;
-  severity: string | null;
-  task_ref: string | null;
-  status: SubmissionStatus;
-  created_at: string;
-  pulled_at: string;
-};
-
 export type TriageSubmissionInput = {
   action: 'accept' | 'reject';
   as_task?: { label?: string; description?: string | null };
-  // Reserved for merge-into; not yet honored by the server (see api's
-  // submissions route) — accepted here so the UI wiring doesn't need to
-  // change once the server supports it.
+  // Merge-into: link the submission to this existing task instead of creating one.
   link_task_id?: string;
 };
 

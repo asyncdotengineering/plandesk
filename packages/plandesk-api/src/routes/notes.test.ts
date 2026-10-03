@@ -56,6 +56,38 @@ describe('notes routes', () => {
     expect(afterGet.status).toBe(404);
   });
 
+  it('stores a Markdown body as HTML and an HTML body unchanged, on create and patch', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Markdown notes' });
+
+    const html = '<h2>Kept</h2><ul><li><p>as sent</p></li></ul>';
+    const asHtml = await app.request(`/api/v1/projects/${project.id}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'HTML', body: html }),
+    });
+    expect((await parseJson<NoteResponse>(asHtml)).body).toBe(html);
+
+    const asMarkdown = await app.request(`/api/v1/projects/${project.id}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Markdown', body: '## Plan\n\n- **one**' }),
+    });
+    const created = await parseJson<NoteResponse>(asMarkdown);
+    expect(created.body).toContain('<h2>Plan</h2>');
+    expect(created.body).toContain('<li><strong>one</strong></li>');
+    expect(created.body).not.toContain('##');
+
+    const patched = await app.request(`/api/v1/notes/${created.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'Use `get_next_task`' }),
+    });
+    expect((await parseJson<NoteResponse>(patched)).body).toContain(
+      '<p>Use <code>get_next_task</code></p>',
+    );
+  });
+
   it('POST rejects missing or blank title with 400', async () => {
     const { app, db } = await createTestApp();
     const project = await createProject(db, { name: 'Validate' });

@@ -118,7 +118,12 @@ export type WorkspaceShareResult = {
   url: string;
 };
 
-const RESOURCE_SHARE_DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
+export type ShareTtl = '24h' | '7d' | 'never';
+
+const SHARE_TTL_MS: Record<Exclude<ShareTtl, 'never'>, number> = {
+  '24h': 24 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
+};
 
 export type ShareResourceRef =
   | { kind: 'task'; id: string }
@@ -127,8 +132,8 @@ export type ShareResourceRef =
 
 export type CreateResourceShareInput = {
   resource: ShareResourceRef;
-  // undefined -> default 24h; null -> never expires.
-  expiresAt?: Date | null;
+  /** Defaults to 24h; 'never' means the link does not expire. */
+  expires?: ShareTtl;
   /** Resource links are read-only by default; prototype links may opt into feedback. */
   permissions?: SharePermissions;
 };
@@ -712,10 +717,8 @@ export function createShareService(deps: ShareServiceDeps) {
         throw error;
       }
 
-      const expiresAt =
-        input.expiresAt === null
-          ? null
-          : (input.expiresAt ?? new Date(Date.now() + RESOURCE_SHARE_DEFAULT_TTL_MS));
+      const ttl = input.expires ?? '24h';
+      const expiresAt = ttl === 'never' ? null : new Date(Date.now() + SHARE_TTL_MS[ttl]);
 
       const { share, token } = await dbCreateShare(db, {
         projectId,

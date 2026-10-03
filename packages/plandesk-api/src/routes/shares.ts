@@ -3,19 +3,6 @@ import { type Context, Hono } from 'hono';
 import { resolvePublicOrigin } from '../public-origin.js';
 import type { ShareResourceRef, ShareService } from '../services/share.js';
 
-const EXPIRES_MS: Record<'24h' | '7d', number> = {
-  '24h': 24 * 60 * 60 * 1000,
-  '7d': 7 * 24 * 60 * 60 * 1000,
-};
-
-// Body `expires` → the Date | null | undefined the share service expects:
-// '24h'/'7d' → a future Date, 'never' → null, absent → undefined (service default).
-function resolveExpiresAt(expires: unknown): Date | null | undefined {
-  if (expires === 'never') return null;
-  if (expires === '24h' || expires === '7d') return new Date(Date.now() + EXPIRES_MS[expires]);
-  return undefined;
-}
-
 export function createSharesRouter(shareService: ShareService): Hono {
   const router = new Hono();
 
@@ -41,7 +28,7 @@ export function createSharesRouter(shareService: ShareService): Hono {
     const result = await shareService.createResourceShare(
       {
         resource,
-        expiresAt: resolveExpiresAt(body.expires),
+        expires: body.expires,
         permissions: { read: true, submit: body.submit === true },
       },
       origin,

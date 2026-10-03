@@ -353,22 +353,32 @@ describe('shareService', () => {
     expect(markdown.markdown).not.toContain('Foreign');
   });
 
-  it('createResourceShare defaults to a 24h expiry; explicit null never expires', async () => {
-    const service = createService();
-    const project = await createProject(db, { name: 'Expiry' });
-    const task = await createTask(db, { projectId: project.id, label: 'Expire me' });
+  it('createResourceShare turns a TTL into an expiry: 24h by default, 7d, never', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-03T12:00:00.000Z'));
+    try {
+      const service = createService();
+      const project = await createProject(db, { name: 'Expiry' });
+      const task = await createTask(db, { projectId: project.id, label: 'Expire me' });
+      const resource = { kind: 'task' as const, id: task.id };
 
-    const defaulted = await service.createResourceShare(
-      { resource: { kind: 'task', id: task.id } },
-      'https://plandesk.example',
-    );
-    expect(defaulted?.expiresAt).toBeTruthy();
+      const defaulted = await service.createResourceShare({ resource }, 'https://plandesk.example');
+      expect(defaulted?.expiresAt).toBe('2026-10-04T12:00:00.000Z');
 
-    const forever = await service.createResourceShare(
-      { resource: { kind: 'task', id: task.id }, expiresAt: null },
-      'https://plandesk.example',
-    );
-    expect(forever?.expiresAt).toBeNull();
+      const week = await service.createResourceShare(
+        { resource, expires: '7d' },
+        'https://plandesk.example',
+      );
+      expect(week?.expiresAt).toBe('2026-10-10T12:00:00.000Z');
+
+      const forever = await service.createResourceShare(
+        { resource, expires: 'never' },
+        'https://plandesk.example',
+      );
+      expect(forever?.expiresAt).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('createResourceShare returns undefined for a missing task or document', async () => {
@@ -409,15 +419,21 @@ describe('shareService', () => {
     ).toBe('gone');
 
     const expired = await service.createResourceShare(
-      { resource: { kind: 'task', id: task.id }, expiresAt: new Date(Date.now() - 1000) },
+      { resource: { kind: 'task', id: task.id } },
       'https://plandesk.example',
     );
     if (!expired) {
       throw new Error('expected share to be created');
     }
-    expect(
-      (await service.getResourceMarkdown(expired.token, 'https://plandesk.example')).status,
-    ).toBe('gone');
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 25 * 60 * 60 * 1000);
+    try {
+      expect(
+        (await service.getResourceMarkdown(expired.token, 'https://plandesk.example')).status,
+      ).toBe('gone');
+    } finally {
+      vi.useRealTimers();
+    }
 
     expect(
       (

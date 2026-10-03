@@ -7,6 +7,7 @@ import {
   updateNote as dbUpdateNote,
   type Db,
 } from '@plandesk/db';
+import { ensureHtmlBody } from '../markdown.js';
 import { serializeNote, type PaginationParams, type SerializedNote } from '../serialize.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
@@ -73,7 +74,7 @@ export function createNoteService(deps: NoteServiceDeps) {
       const note = await dbCreateNote(db, {
         projectId,
         title: input.title,
-        body: input.body,
+        body: typeof input.body === 'string' ? ensureHtmlBody(input.body) : input.body,
       });
 
       return serializeNote(note);
@@ -114,7 +115,10 @@ export function createNoteService(deps: NoteServiceDeps) {
         assertNonEmptyTitle(input.title);
       }
 
-      const note = await dbUpdateNote(db, id, input);
+      const note = await dbUpdateNote(db, id, {
+        ...input,
+        ...(typeof input.body === 'string' ? { body: ensureHtmlBody(input.body) } : {}),
+      });
       if (!note) {
         return undefined;
       }

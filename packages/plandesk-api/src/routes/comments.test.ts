@@ -23,6 +23,29 @@ type CommentResponse = {
 };
 
 describe('comments routes', () => {
+  it('stores a Markdown comment body as HTML and an HTML body unchanged', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Markdown comments' });
+    const doc = await createDocument(db, { projectId: project.id, title: 'Spec', body: '' });
+
+    const html = '<p>Already <em>rich</em></p>';
+    const asHtml = await app.request(`/api/v1/documents/${doc.id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: html }),
+    });
+    expect((await parseJson<CommentResponse>(asHtml)).body).toBe(html);
+
+    const asMarkdown = await app.request(`/api/v1/documents/${doc.id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: 'Please **revise** the intro' }),
+    });
+    expect((await parseJson<CommentResponse>(asMarkdown)).body).toContain(
+      '<p>Please <strong>revise</strong> the intro</p>',
+    );
+  });
+
   it('creates, lists, updates, and deletes document comments via REST', async () => {
     const { app } = await createTestApp();
 
@@ -51,7 +74,7 @@ describe('comments routes', () => {
       target_type: 'document',
       target_id: doc.id,
       document_id: doc.id,
-      body: 'Revise intro',
+      body: '<p>Revise intro</p>\n',
       passage: '§1',
       resolved: false,
     });
@@ -112,7 +135,7 @@ describe('comments routes', () => {
       target_type: 'task',
       target_id: task.id,
       document_id: null,
-      body: 'Task feedback',
+      body: '<p>Task feedback</p>\n',
     });
 
     const noteCreateRes = await app.request(`/api/v1/notes/${note.id}/comments`, {
@@ -126,7 +149,7 @@ describe('comments routes', () => {
       target_type: 'note',
       target_id: note.id,
       document_id: null,
-      body: 'Note feedback',
+      body: '<p>Note feedback</p>\n',
     });
 
     const taskListRes = await app.request(`/api/v1/tasks/${task.id}/comments`);
@@ -161,7 +184,7 @@ describe('comments routes', () => {
       target_type: 'submission',
       target_id: 'sub-1',
       document_id: null,
-      body: 'Needs triage context',
+      body: '<p>Needs triage context</p>\n',
     });
 
     const listRes = await app.request('/api/v1/submissions/sub-1/comments');

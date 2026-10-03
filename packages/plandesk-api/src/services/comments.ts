@@ -13,6 +13,7 @@ import {
   type CommentTargetType,
   type Db,
 } from '@plandesk/db';
+import { ensureHtmlBody } from '../markdown.js';
 import { serializeComment, type SerializedComment } from '../serialize.js';
 import { assertPermission, resolveOrgId, type OrgScopedDeps } from './org-scope.js';
 import { assertProjectInOrg, ProjectNotInOrgError } from './scope.js';
@@ -99,7 +100,7 @@ export function createCommentService(deps: CommentServiceDeps) {
         projectId,
         targetType: target.type,
         targetId: target.id,
-        body: input.body,
+        body: ensureHtmlBody(input.body),
         passage: input.passage,
         anchor: input.anchor,
       });

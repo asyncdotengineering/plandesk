@@ -213,14 +213,16 @@ export { InvalidCommentError } from './services/comments.js';
 export { InvalidCanvasError } from './services/canvas.js';
 export { InvalidAgentRunError } from './services/agent-runs.js';
 export { InvalidScaffoldError, InvalidOverviewDocumentError } from './services/projects.js';
-export { InvalidShareError, type ShareService } from './services/share.js';
+export { InvalidShareError, type ShareService, type ShareTtl } from './services/share.js';
 export { InvalidRevisionQueryError, type RevisionService } from './services/revisions.js';
 export {
   InvalidTriageError,
   InvalidTriageInputError,
   SubmissionRetriageMismatchError,
+  type SerializedSubmission,
   type SyncService,
 } from './services/sync.js';
+export type { DiffHunk } from './revision-diff.js';
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

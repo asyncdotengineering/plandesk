@@ -291,7 +291,7 @@ describe('frame auth (render token + share credential)', () => {
 
     const shares = createShareService({ db, principal: localOwner(project.orgId) });
     const minted = await shares.createResourceShare(
-      { resource: { kind: 'prototype', ids: [proto.id] }, expiresAt: null },
+      { resource: { kind: 'prototype', ids: [proto.id] }, expires: 'never' },
       'http://localhost',
     );
     expect(minted).toBeDefined();
