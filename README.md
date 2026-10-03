@@ -293,7 +293,7 @@ A task with no lane is `approve`, never `auto`. Full explanation:
 | API             | Node + Hono, REST JSON (`@plandesk/api`)                                             |
 | Agent surface   | MCP server, 64 tools (`@plandesk/mcp`)                                               |
 | Storage         | Drizzle ORM over libSQL (`@plandesk/db`) — a local SQLite file, lossless JSON export |
-| Sync (optional) | Cloudflare Workers + Turso + R2 (`@plandesk/worker`)                                 |
+| Sync (optional) | Cloudflare Workers + Turso + R2 (`@plandesk/server`)                                 |
 
 ---
 

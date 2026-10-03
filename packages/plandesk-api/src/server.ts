@@ -34,6 +34,7 @@ import { createSearchRouter } from './routes/search.js';
 import { createServices, type Services } from './services/index.js';
 import { ProjectNotInOrgError, WorkspaceNotFoundError } from './services/scope.js';
 import { PermissionDeniedError } from './permissions.js';
+import { StorageError } from './storage/index.js';
 
 export type AppDeps = {
   db: Db;
@@ -138,6 +139,11 @@ export function createApp(deps: AppDeps): Hono {
       return err.field === undefined
         ? invalidRequest(c, err.message)
         : invalidArgument(c, err.field, err.message);
+    }
+    // The upstream message names the bucket and its status: log it, never echo it.
+    if (err instanceof StorageError) {
+      console.error(err);
+      return c.json({ error: 'storage_unavailable', message: 'File storage request failed' }, 502);
     }
     throw err;
   });

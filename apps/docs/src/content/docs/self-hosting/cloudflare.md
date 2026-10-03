@@ -49,7 +49,7 @@ If you want social sign-in:
 
 ## 3. Configure secrets and public URL
 
-From `packages/plandesk-worker` (or your deploy checkout that contains `wrangler.toml`):
+From `packages/plandesk-server` (or your deploy checkout that contains `wrangler.toml`). Inside this repository, add `-c wrangler.toml` to each `wrangler` command: otherwise wrangler picks up the repository root's `wrangler.jsonc`, which names a different Worker.
 
 ```bash
 # Database
@@ -93,7 +93,7 @@ PLANDESK_BASE_URL = "https://plandesk-api.your-subdomain.workers.dev"
 
 ## 4. Build the web SPA into the package
 
-The Workers entry lives in **`packages/plandesk-worker`** — a deploy-only package that composes the REST API (`@plandesk/api`) with the MCP server (`@plandesk/mcp`), so a hosted board serves agent tools at `/mcp` as well as the API. It reads the SPA from `packages/plandesk-api/web` (`[assets]` in its `wrangler.toml`). Build the web app and copy it there (the API package's `prepack` script does this when publishing; for a local deploy):
+The Workers entry lives in **`packages/plandesk-server`** (`@plandesk/server`) — a deploy-only package whose `createHostedApp` composes the REST API (`@plandesk/api`) with the MCP server (`@plandesk/mcp`), so a hosted board serves agent tools at `/mcp` as well as the API. It reads the SPA from `packages/plandesk-api/web` (`[assets]` in its `wrangler.toml`). Build the web app and copy it there (the API package's `prepack` script does this when publishing; for a local deploy):
 
 ```bash
 # 1. Build the SPA (outputs to apps/plandesk-web/dist)
@@ -108,8 +108,8 @@ The `prepack` step copies `apps/plandesk-web/dist` → `packages/plandesk-api/we
 ## 5. Deploy
 
 ```bash
-cd packages/plandesk-worker
-wrangler deploy
+cd packages/plandesk-server
+pnpm run deploy   # wrangler deploy -c wrangler.toml
 ```
 
 Open `PLANDESK_BASE_URL`. Sign in with GitHub (if configured) or mint a CLI token from a signed-in dashboard session and run:

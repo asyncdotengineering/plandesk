@@ -58,6 +58,14 @@ const GITHUB_VARS = [
   'PLANDESK_GITHUB_CALLBACK_URL',
 ] as const;
 
+/** The environment names a configuration the server cannot run with. */
+export class ServerEnvError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ServerEnvError';
+  }
+}
+
 /** `env` may carry non-string platform bindings (Workers); only strings are read. */
 export function readServerEnv(env: Readonly<Record<string, unknown>>): ServerEnv {
   const get = (name: string): string | undefined => {
@@ -67,7 +75,7 @@ export function readServerEnv(env: Readonly<Record<string, unknown>>): ServerEnv
 
   const authSecret = get('PLANDESK_BETTER_AUTH_SECRET');
   if (authSecret === undefined && get('PLANDESK_SESSION_SECRET') !== undefined) {
-    throw new Error(
+    throw new ServerEnvError(
       'PLANDESK_SESSION_SECRET is no longer read. Rename it to PLANDESK_BETTER_AUTH_SECRET ' +
         '(same value) and restart.',
     );
@@ -90,14 +98,16 @@ function readStorage(get: (name: string) => string | undefined): StorageConfig |
   const [bucket, region, accessKeyId, secretAccessKey] = s3;
   if (kind === undefined) {
     if (s3.some((value) => value !== undefined)) {
-      throw new Error('PLANDESK_S3_* is set but PLANDESK_STORAGE is not. Set PLANDESK_STORAGE=s3.');
+      throw new ServerEnvError(
+        'PLANDESK_S3_* is set but PLANDESK_STORAGE is not. Set PLANDESK_STORAGE=s3.',
+      );
     }
     return undefined;
   }
   // 'local' is the pre-4.x name for bytes-in-the-database, still in deployed env files.
   if (kind === 'db' || kind === 'local') return { kind: 'db' };
   if (kind !== 's3') {
-    throw new Error(`Unknown PLANDESK_STORAGE "${kind}". Expected "db" or "s3".`);
+    throw new ServerEnvError(`Unknown PLANDESK_STORAGE "${kind}". Expected "db" or "s3".`);
   }
   if (
     bucket === undefined ||
@@ -105,7 +115,7 @@ function readStorage(get: (name: string) => string | undefined): StorageConfig |
     accessKeyId === undefined ||
     secretAccessKey === undefined
   ) {
-    throw new Error(`PLANDESK_STORAGE=s3 requires ${S3_VARS.join(', ')}.`);
+    throw new ServerEnvError(`PLANDESK_STORAGE=s3 requires ${S3_VARS.join(', ')}.`);
   }
   const endpoint = get('PLANDESK_S3_ENDPOINT');
   return {
@@ -124,7 +134,7 @@ function readGithub(get: (name: string) => string | undefined): GithubConfig | u
     return undefined;
   }
   if (clientId === undefined || clientSecret === undefined || callbackUrl === undefined) {
-    throw new Error(
+    throw new ServerEnvError(
       `GitHub sign-in needs ${GITHUB_VARS.join(', ')} together. ` +
         'Unset all three to run without GitHub sign-in.',
     );

@@ -1,0 +1,15 @@
+// Minimal Workers config for `node scripts/smoke-deploy.mjs cloudflare`.
+// Secrets (PLANDESK_DB_URL, PLANDESK_DB_TOKEN, PLANDESK_BETTER_AUTH_SECRET):
+// `wrangler secret put <NAME>`.
+{
+  "name": "plandesk",
+  "main": "packages/plandesk-server/src/worker.ts",
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "apps/plandesk-web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+  },
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "plandesk-files" }],
+}

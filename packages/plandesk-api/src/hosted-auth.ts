@@ -4,7 +4,7 @@
  * require an explicit PLANDESK_BETTER_AUTH_SECRET so a misdeploy fails loud
  * instead of 401-ing every request on a non-loopback bind.
  */
-import type { ServerEnv } from './read-server-env.js';
+import { ServerEnvError, type ServerEnv } from './read-server-env.js';
 
 export const MISSING_BETTER_AUTH_SECRET_MESSAGE =
   'Hosted Plan Desk requires PLANDESK_BETTER_AUTH_SECRET. ' +
@@ -46,6 +46,7 @@ export function resolveHostedBetterAuth(
 export function hostedMisconfigResponse(err: unknown): Response | undefined {
   if (!(err instanceof Error)) return undefined;
   if (
+    !(err instanceof ServerEnvError) &&
     err.message !== MISSING_BETTER_AUTH_SECRET_MESSAGE &&
     err.message !== MISSING_BASE_URL_MESSAGE
   ) {

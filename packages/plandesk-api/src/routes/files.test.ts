@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createProjectInDefaultOrg as createProject } from '@plandesk/db';
+import { StorageError } from '../storage/index.js';
 import { createTestApp, parseJson } from '../test-helpers.js';
 
 type UploadedFileResponse = {
@@ -235,5 +236,37 @@ describe('files routes', () => {
 
     const countRow = (await db.$client.execute('SELECT COUNT(*) AS count FROM files')).rows[0];
     expect(Number(countRow?.['count'])).toBe(1);
+  });
+
+  it('answers 502 storage_unavailable when the backing store fails, naming neither bucket nor status', async () => {
+    const failing = new StorageError('S3 PUT to bucket "acme-private-bucket" failed: 403', 403);
+    const { app, db } = await createTestApp({
+      storage: {
+        put: () => Promise.reject(failing),
+        resolve: () => Promise.reject(failing),
+      },
+    });
+    const project = await createProject(db, { name: 'Storage down' });
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const res = await app.request(`/api/v1/projects/${project.id}/files`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: 'a.bin',
+          mime: 'application/octet-stream',
+          content_base64: Buffer.from('x').toString('base64'),
+        }),
+      });
+      expect(res.status).toBe(502);
+      expect(await res.json()).toEqual({
+        error: 'storage_unavailable',
+        message: 'File storage request failed',
+      });
+      expect(logged).toHaveBeenCalledTimes(1);
+      expect(logged.mock.calls[0]).toContain(failing);
+    } finally {
+      logged.mockRestore();
+    }
   });
 });

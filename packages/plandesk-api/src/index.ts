@@ -43,6 +43,7 @@ export {
 } from './invitations.js';
 export {
   readServerEnv,
+  ServerEnvError,
   type GithubConfig,
   type S3Config,
   type ServerEnv,
@@ -100,8 +101,8 @@ export {
 } from './permissions.js';
 export { healthRouter } from './routes/health.js';
 export { mountStatic } from './static.js';
-// Hosted (non-loopback) entry helpers — used by the deployment composition root
-// (@plandesk/worker), which wires this app together with the MCP app.
+// Hosted (non-loopback) entry helpers — used by createHostedApp in
+// @plandesk/server, which wires this app together with the MCP app.
 export { hostedMisconfigResponse, resolveHostedBetterAuth } from './hosted-auth.js';
 export {
   createStorageAdapter,

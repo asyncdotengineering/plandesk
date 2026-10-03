@@ -6,6 +6,8 @@ import { createApp } from './server.js';
 import type { GithubConfig } from './read-server-env.js';
 import { createBetterAuth, runBetterAuthMigrations } from './better-auth.js';
 import { ensureLocalBetterAuthOrganization } from './identity.js';
+import { createServices } from './services/index.js';
+import type { StorageAdapter } from './storage/index.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
 const TEST_BASE_URL = 'http://localhost:3000';
@@ -15,6 +17,8 @@ export async function createTestApp(opts?: {
   bindHost?: string;
   github?: GithubConfig;
   dataDir?: string;
+  /** Replaces the bytes-in-the-database default. */
+  storage?: StorageAdapter;
 }): Promise<{
   app: Hono;
   db: Db;
@@ -39,6 +43,12 @@ export async function createTestApp(opts?: {
       github: opts?.github,
       betterAuth: { secret: TEST_SECRET, baseURL: TEST_BASE_URL },
       dataDir: opts?.dataDir,
+      ...(opts?.storage !== undefined
+        ? {
+            services: createServices({ db, auth, storage: opts.storage }),
+            betterAuthInstance: auth,
+          }
+        : {}),
     }),
     db,
     orgId: DEFAULT_ORG_ID,

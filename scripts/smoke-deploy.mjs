@@ -185,7 +185,6 @@ const docker = {
 const wranglerBin = [
   'packages/plandesk-server/node_modules/.bin/wrangler',
   'node_modules/.bin/wrangler',
-  'packages/plandesk-worker/node_modules/.bin/wrangler',
 ]
   .map((p) => join(ROOT, p))
   .find((p) => existsSync(p));
@@ -327,9 +326,17 @@ async function assertServing(t, env) {
     cookie.status === 0 && cookie.stdout !== '',
     `exit ${cookie.status}`,
   );
+  // The SPA calls this from a browser that already passed the Basic prompt
+  // PLANDESK_AUTH_PASSWORD puts in front of the UI, so it sends both.
+  const basic = Buffer.from(`plandesk:${env.PLANDESK_AUTH_PASSWORD}`).toString('base64');
   const tokenRes = await probe(`${base}/api/v1/auth/cli-token`, {
     method: 'POST',
-    headers: { cookie: cookie.stdout, origin: base, 'content-type': 'application/json' },
+    headers: {
+      cookie: cookie.stdout,
+      authorization: `Basic ${basic}`,
+      origin: base,
+      'content-type': 'application/json',
+    },
     body: JSON.stringify({ name: 'smoke-deploy' }),
   });
   const tb = await tokenRes?.json().catch(() => undefined);
