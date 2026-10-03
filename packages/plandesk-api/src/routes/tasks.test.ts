@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createProjectInDefaultOrg as createProject } from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mountStatic } from '../static.js';
 import { createTestApp, parseJson, type TaskResponse } from '../test-helpers.js';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
@@ -89,5 +93,27 @@ describe('task member routes', () => {
     // A path with no route at all stays a 404, so the two stay distinguishable.
     const absent = await app.request('/api/v1/no-such-collection');
     expect(absent.status).toBe(404);
+  });
+
+  it('the SPA fallback does not turn an unknown API path into a 405', async () => {
+    // `plandesk serve` mounts the web shell on the same app. Its fallback is a
+    // fallback, not a resource: it must not make every path "support GET".
+    const { app } = await createTestApp();
+    const distDir = mkdtempSync(join(tmpdir(), 'plandesk-static-405-'));
+    writeFileSync(join(distDir, 'index.html'), '<!doctype html><body>SPA</body>');
+    mountStatic(app, distDir);
+
+    const unknown = await app.request('/api/v1/no-such-collection', { method: 'POST' });
+    expect(unknown.status).toBe(404);
+
+    const wrongVerb = await app.request('/api/v1/projects', { method: 'DELETE' });
+    expect(wrongVerb.status).toBe(405);
+    expect(wrongVerb.headers.get('Allow')).not.toBeNull();
+
+    const shell = await app.request('/projects/abc/board');
+    expect(shell.status).toBe(200);
+    expect(await shell.text()).toContain('SPA');
+
+    rmSync(distDir, { recursive: true, force: true });
   });
 });

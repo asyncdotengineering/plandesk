@@ -64,15 +64,22 @@ export function mountStatic(app: Hono, distPath: string = resolveDefaultDistPath
   // disk, so serve index.html for any non-API GET that didn't match an asset.
   // Without this, a deep-link or reload on a client route falls through to the
   // API's 404. API/MCP paths keep their own not_found handling.
+  //
+  // Middleware, not a `GET *` route: the 405 handler derives `Allow` from the
+  // registered routes, and a catch-all GET route would make every unknown API
+  // path look like it supports GET.
   const indexHtml = join(distPath, 'index.html');
   if (existsSync(indexHtml)) {
-    app.get('*', (c) => {
+    app.use('*', async (c, next) => {
       const path = c.req.path;
-      if (path.startsWith('/api') || path.startsWith('/mcp')) {
-        return c.notFound();
-      }
-      if (looksLikeAsset(path)) {
-        return c.notFound();
+      if (
+        (c.req.method !== 'GET' && c.req.method !== 'HEAD') ||
+        path.startsWith('/api') ||
+        path.startsWith('/mcp') ||
+        looksLikeAsset(path)
+      ) {
+        await next();
+        return;
       }
       return c.html(readFileSync(indexHtml, 'utf8'));
     });
