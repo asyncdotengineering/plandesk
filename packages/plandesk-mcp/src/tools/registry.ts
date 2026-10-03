@@ -837,7 +837,10 @@ export const triageSubmissionInputSchema = z.strictObject({
 });
 
 export const searchInputSchema = z.strictObject({
-  query: z.string().min(1).describe('Title/label substring to match (documents, tasks, notes).'),
+  query: z
+    .string()
+    .min(1)
+    .describe('Text to match in titles, labels, or bodies (documents, tasks, notes).'),
   project_id: z.string().uuid().optional().describe('Limit search to one project.'),
   workspace_id: z
     .string()

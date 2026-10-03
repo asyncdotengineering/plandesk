@@ -481,9 +481,27 @@ export function listProjects(): Promise<SerializedProject[]> {
 }
 
 export type SearchResults = {
-  documents: Array<{ id: string; project_id: string; title: string }>;
-  tasks: Array<{ id: string; project_id: string; label: string }>;
-  notes: Array<{ id: string; project_id: string; title: string }>;
+  documents: Array<{
+    id: string;
+    project_id: string;
+    title: string;
+    matched: 'title' | 'body';
+    excerpt: string | null;
+  }>;
+  tasks: Array<{
+    id: string;
+    project_id: string;
+    label: string;
+    matched: 'title' | 'body';
+    excerpt: string | null;
+  }>;
+  notes: Array<{
+    id: string;
+    project_id: string;
+    title: string;
+    matched: 'title' | 'body';
+    excerpt: string | null;
+  }>;
 };
 
 export function searchWorkspace(

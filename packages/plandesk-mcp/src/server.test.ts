@@ -237,6 +237,30 @@ describe('createMcpApp', () => {
     });
   });
 
+  it('search returns body hits with excerpts via MCP', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db }) => {
+      await createDocument(db, {
+        projectId,
+        title: 'MCP search doc',
+        body: '<p>Find the Zalando integration notes here.</p>',
+      });
+      const client = await connectClient(baseUrl);
+      const result = await client.callTool({
+        name: 'search',
+        arguments: { query: 'Zalando', project_id: projectId },
+      });
+      expect(result.isError).not.toBe(true);
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const text = content[0]?.type === 'text' ? (content[0].text ?? '{}') : '{}';
+      const payload = JSON.parse(text) as {
+        documents: Array<{ matched: string; excerpt: string | null }>;
+      };
+      expect(payload.documents.some((doc) => doc.matched === 'body')).toBe(true);
+      expect(payload.documents[0]?.excerpt?.toLowerCase()).toContain('zalando');
+      await client.close();
+    });
+  });
+
   it('test:mcp_update_task updates via MCP, REST reflects change', async () => {
     await withMcpServer(async ({ baseUrl, projectId, db, app }) => {
       const task = await createTask(db, { projectId, label: 'MCP task', status: 'todo' });

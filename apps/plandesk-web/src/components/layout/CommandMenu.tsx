@@ -73,11 +73,15 @@ export function CommandMenu() {
   const [contentResults, setContentResults] = useState<SearchResults | null>(null);
 
   const go = useCallback(
-    (to: string, navParams?: Record<string, string>) => {
+    (
+      to: string,
+      navParams?: Record<string, string>,
+      search?: Record<string, string | undefined>,
+    ) => {
       setOpen(false);
       setQuery('');
       setContentResults(null);
-      void navigate({ to, params: navParams });
+      void navigate({ to, params: navParams, ...(search !== undefined ? { search } : {}) });
     },
     [navigate, setOpen],
   );
@@ -141,27 +145,36 @@ export function CommandMenu() {
         {hasContentResults ? (
           <>
             {contentResults.tasks.length > 0 ? (
-              <CommandGroup heading="Tasks">
+              <CommandGroup heading="Tasks" forceMount>
                 {contentResults.tasks.map((task) => (
                   <CommandItem
+                    forceMount
                     key={task.id}
-                    value={`task ${task.label}`}
+                    value={`task ${task.label} ${task.excerpt ?? ''}`}
                     onSelect={() => {
-                      go('/projects/$id/board', { id: task.project_id });
+                      go('/projects/$id/board', { id: task.project_id }, { task: task.id });
                     }}
                   >
                     <CheckSquareIcon />
-                    {task.label}
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span>{task.label}</span>
+                      {task.excerpt !== null ? (
+                        <span className="truncate text-xs text-muted-foreground">
+                          {task.excerpt}
+                        </span>
+                      ) : null}
+                    </span>
                   </CommandItem>
                 ))}
               </CommandGroup>
             ) : null}
             {contentResults.documents.length > 0 ? (
-              <CommandGroup heading="Documents">
+              <CommandGroup heading="Documents" forceMount>
                 {contentResults.documents.map((document) => (
                   <CommandItem
+                    forceMount
                     key={document.id}
-                    value={`document ${document.title}`}
+                    value={`document ${document.title} ${document.excerpt ?? ''}`}
                     onSelect={() => {
                       go('/projects/$id/documents/$docId', {
                         id: document.project_id,
@@ -170,17 +183,25 @@ export function CommandMenu() {
                     }}
                   >
                     <FileTextIcon />
-                    {document.title}
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span>{document.title}</span>
+                      {document.excerpt !== null ? (
+                        <span className="truncate text-xs text-muted-foreground">
+                          {document.excerpt}
+                        </span>
+                      ) : null}
+                    </span>
                   </CommandItem>
                 ))}
               </CommandGroup>
             ) : null}
             {contentResults.notes.length > 0 ? (
-              <CommandGroup heading="Notes">
+              <CommandGroup heading="Notes" forceMount>
                 {contentResults.notes.map((note) => (
                   <CommandItem
+                    forceMount
                     key={note.id}
-                    value={`note ${note.title}`}
+                    value={`note ${note.title} ${note.excerpt ?? ''}`}
                     onSelect={() => {
                       go('/projects/$id/notes/$noteId', {
                         id: note.project_id,
@@ -189,7 +210,14 @@ export function CommandMenu() {
                     }}
                   >
                     <StickyNoteIcon />
-                    {note.title}
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span>{note.title}</span>
+                      {note.excerpt !== null ? (
+                        <span className="truncate text-xs text-muted-foreground">
+                          {note.excerpt}
+                        </span>
+                      ) : null}
+                    </span>
                   </CommandItem>
                 ))}
               </CommandGroup>

@@ -11,8 +11,8 @@ export function createSearchRouter(searchService: SearchService): Hono {
     const workspaceId = c.req.query('workspace_id') ?? c.req.header('x-plandesk-workspace-id');
     const limitRaw = c.req.query('limit');
     const limit = limitRaw === undefined ? undefined : Number(limitRaw);
-    if (limitRaw !== undefined && (Number.isNaN(limit) || limit === undefined)) {
-      return invalidArgument(c, 'limit', 'limit must be a number');
+    if (limitRaw !== undefined && !Number.isInteger(limit)) {
+      return invalidArgument(c, 'limit', 'limit must be an integer');
     }
 
     const result = await searchService.search({

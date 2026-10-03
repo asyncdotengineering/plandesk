@@ -405,7 +405,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Search',
       description:
-        'Search documents, tasks, and notes by title or label within the active workspace (or a single project). Body text is not searched.',
+        'Search documents, tasks, and notes by title, label, or body text within the active workspace (or a single project). Returns ranked matches with excerpts for body hits.',
       inputSchema: searchInputSchema,
       annotations: { readOnlyHint: true },
     },

@@ -93,6 +93,7 @@ describe('migrate', () => {
     for (const table of EXPECTED_TABLES) {
       expect(tables).toContain(table);
     }
+    expect(tables).toContain('search_index');
     for (const table of LEGACY_TABLES) {
       expect(tables).not.toContain(table);
     }
@@ -949,5 +950,76 @@ describe('migrate', () => {
     );
     const loose = await db.$client.execute("SELECT goal_id FROM tasks WHERE id = 't-loose'");
     expect(loose.rows).toEqual([{ goal_id: null }]);
+  });
+
+  it('0022 search_index backfills and stays in sync via triggers', async () => {
+    const files = readdirSync(drizzleDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    const target = '0022_search_index.sql';
+    const idx = files.indexOf(target);
+    expect(idx).toBeGreaterThan(0);
+    const preamble = files.slice(0, idx);
+
+    const db = await createDb(':memory:');
+    await db.$client.execute('PRAGMA foreign_keys = OFF');
+    for (const f of preamble) {
+      await applyMigrationSqlRaw(db, f);
+    }
+    await db.$client.execute(
+      "INSERT INTO projects (id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at, repo_url, folder_path) VALUES ('p22','o1','w1','Migrate 22',NULL,NULL,100,200,NULL,NULL)",
+    );
+    await db.$client.execute(
+      "INSERT INTO documents (id, project_id, title, body, status_line, parent_id, folder_id, created_at, updated_at) VALUES ('d22','p22','Backfill me', '<p>indexed body</p>', NULL, NULL, NULL, 100, 200)",
+    );
+
+    await applyMigrationSqlRaw(db, target);
+    await db.$client.execute('PRAGMA foreign_keys = ON');
+    const fkCheck = await db.$client.execute('PRAGMA foreign_key_check');
+    expect(fkCheck.rows).toHaveLength(0);
+
+    const backfill = await db.$client.execute(
+      "SELECT kind, item_id, title FROM search_index WHERE item_id = 'd22'",
+    );
+    expect(backfill.rows).toEqual([{ kind: 'document', item_id: 'd22', title: 'Backfill me' }]);
+
+    await db.$client.execute("UPDATE documents SET body = '<p>updated token</p>' WHERE id = 'd22'");
+    const updated = await db.$client.execute("SELECT body FROM search_index WHERE item_id = 'd22'");
+    expect(cell(updated.rows[0]?.body)).toContain('updated token');
+
+    await db.$client.execute("DELETE FROM documents WHERE id = 'd22'");
+    const gone = await db.$client.execute(
+      "SELECT COUNT(*) AS count FROM search_index WHERE item_id = 'd22'",
+    );
+    expect(cell(gone.rows[0]?.count)).toBe('0');
+  });
+
+  it('keeps every search-index trigger after the full migration chain', async () => {
+    // SQLite drops a table's triggers with the table, so a later migration that
+    // rebuilds documents, notes or tasks would silently stop search sync.
+    const db = await createDb(':memory:');
+    await migrate(db);
+    const rows = await db.$client.execute(
+      "SELECT name FROM sqlite_master WHERE type = 'trigger' AND name LIKE '%search_index%'",
+    );
+    const names = rows.rows.map((row) => row.name as string).sort();
+    expect(names).toEqual(
+      ['documents', 'notes', 'tasks']
+        .flatMap((table) => ['ad', 'ai', 'au'].map((op) => `${table}_search_index_${op}`))
+        .sort(),
+    );
+  });
+
+  it('updates and deletes reach the index by rowid, not by scanning it', async () => {
+    const db = await createDb(':memory:');
+    await migrate(db);
+    const plan = await db.$client.execute(
+      "EXPLAIN QUERY PLAN DELETE FROM search_index WHERE rowid = (SELECT fts_rowid FROM search_index_rowids WHERE kind = 'task' AND item_id = 'x')",
+    );
+    const detail = plan.rows.map((row) => row.detail as string).join(' | ');
+    // FTS5 always reports SCAN; `INDEX 0:=` means the rowid equality was pushed
+    // down (a point lookup). A search by kind/item_id shows `INDEX 0:` — a full scan.
+    expect(detail).toMatch(/search_index VIRTUAL TABLE INDEX \d+:=/);
+    expect(detail).toMatch(/SEARCH search_index_rowids USING PRIMARY KEY/);
   });
 });

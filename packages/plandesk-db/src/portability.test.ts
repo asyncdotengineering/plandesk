@@ -399,6 +399,18 @@ describe('export/import portability', () => {
     expect(await exportProject(db, '00000000-0000-4000-8000-000000009999')).toBeUndefined();
   });
 
+  it('never exports search_index shadow rows', async () => {
+    const sourceProjectId = await buildFixtureProject(db);
+    const exported = await exportProject(db, sourceProjectId);
+    expect(exported).toBeDefined();
+    if (!exported) {
+      return;
+    }
+    expect('search_index' in exported).toBe(false);
+    const serialized = JSON.stringify(exported);
+    expect(serialized.includes('search_index')).toBe(false);
+  });
+
   it('round-trips comment.anchor through export and import', async () => {
     const project = await createProject(db, { name: 'Anchor Portable' });
     const artifact = await createArtifact(db, {
