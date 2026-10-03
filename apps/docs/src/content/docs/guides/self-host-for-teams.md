@@ -33,12 +33,13 @@ There's no dashboard "Invite member" button yet — invitations today are link-o
 
 ```bash
 plandesk admin invite-owner --email <you@example.com> \
-  --db "$PLANDESK_DB_URL" --db-token "$PLANDESK_DB_TOKEN" --secret "$PLANDESK_BETTER_AUTH_SECRET"
+  --db "$PLANDESK_DB_URL" --db-token "$PLANDESK_DB_TOKEN" --secret "$PLANDESK_BETTER_AUTH_SECRET" \
+  --base-url "<your-base-url>"
 ```
 
 For Docker with the default file database, run it inside the container instead: `docker compose run --rm plandesk admin invite-owner --email <you@example.com>`.
 
-This prints a claim link. If it starts with `http://127.0.0.1`, replace that origin with your `PLANDESK_BASE_URL`. Open it and it walks you through claiming ownership of the default organization.
+This prints a claim link on `--base-url`, else `PLANDESK_BASE_URL`, else the config file's `baseUrl`. With none of them it falls back to `http://127.0.0.1` and warns that the link only works on that machine. Open it and it walks you through claiming ownership of the default organization.
 
 **Inviting a teammate once you have an owner session.** This endpoint requires a signed-in owner's browser session (not a CLI/agent token), so call it with your dashboard session cookie attached — from a script, or your browser's dev tools:
 

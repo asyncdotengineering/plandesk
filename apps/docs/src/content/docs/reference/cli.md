@@ -22,8 +22,8 @@ plandesk migrate [--db <url>] [--db-token <token>] [--data-dir <dir>]   # run sc
 plandesk url [--repo <dir>] [--lan]
 plandesk export --project <id> --out <file.json> [--data-dir <dir>]
 plandesk import --in <file.json> [--data-dir <dir>]
-plandesk admin invite-owner --email <email> [--data-dir <dir>]                       # self-host first owner (local)
-plandesk admin invite-owner --email <email> --db <url> [--db-token <t>] [--secret <s>] # remote (Turso) first owner
+plandesk admin invite-owner --email <email> [--data-dir <dir>] [--base-url <origin>]                       # self-host first owner (local)
+plandesk admin invite-owner --email <email> --db <url> [--db-token <t>] [--secret <s>] [--base-url <origin>] # remote (Turso) first owner
 plandesk workspace create <name> [--to <org>] [--repo <dir>]
 plandesk workspace list [--to <org>] [--repo <dir>]
 plandesk connect [--repo <dir>] [--project <id|name>] [--workspace <name>] [--url <url>] [--token <token>] [--agent claude|codex|both] [--print]
@@ -47,7 +47,7 @@ plandesk deploy [target]
 | `<file.md\|.html>` / `open` | Preview & annotate files in the browser (see [Preview & annotate](#preview--annotate)); glob-friendly (`plandesk *.md`)                                                                                                                                                                                                                                                                           |
 | `help`                      | A crash course (orientation + key commands + doc links) for humans and agents; `help --commands` prints the full grammar                                                                                                                                                                                                                                                                          |
 | `init`                      | Create workspace DB, run migrations, and record the board's fixed port (`7526`) in `.plandesk/workspace.json`                                                                                                                                                                                                                                                                                     |
-| `login`                     | Paste a CLI token from the dashboard (owner key) into `~/.plandesk/config.json` (`{ server, token, orgId }`); optional `--server <url>`                                                                                                                                                                                                                                                           |
+| `login`                     | Paste a CLI token from the dashboard (owner key) into `~/.plandesk/config.json` (`{ server, token, orgId }`); `--server <url>`, else the saved one                                                                                                                                                                                                                                                |
 | `logout`                    | Remove the global hosted-server credentials                                                                                                                                                                                                                                                                                                                                                       |
 | `whoami`                    | Print the configured hosted server and organization                                                                                                                                                                                                                                                                                                                                               |
 | `serve`                     | Start REST + MCP + web UI; reads the port from `workspace.json` if no `--port` flag is given                                                                                                                                                                                                                                                                                                      |
@@ -61,6 +61,8 @@ plandesk deploy [target]
 | `doctor`                    | Check DB health; with `--repo`, validate binding + MCP reachability                                                                                                                                                                                                                                                                                                                               |
 | `factory init`              | Scaffold the project-local `.agents/` factory workspace (policy files + command adapters); see [Factory workspace](/reference/factory/)                                                                                                                                                                                                                                                           |
 | `version`                   | Print the installed CLI version (also `--version`); see [Upgrading](/reference/upgrading/)                                                                                                                                                                                                                                                                                                        |
+
+`admin invite-owner` builds the claim link on `--base-url`, else `PLANDESK_BASE_URL`, else the config file's `baseUrl`. With none it uses `http://127.0.0.1` and warns that the link only works on that machine.
 
 ## Preview & annotate
 
@@ -85,7 +87,7 @@ Markdown gets **syntax-highlighted code** (Shiki, light/dark), **Mermaid diagram
 Local setup needs no account (`init` → `serve` → `connect --project`). Hosted orgs use a **human + agent** split:
 
 1. **Human** opens the dashboard (signed in via GitHub), clicks **Generate CLI token**, copies the org-wide owner key (shown once).
-2. **Human** runs `plandesk login` (or `plandesk login --server https://your-host.example`) and pastes the token when prompted. Credentials land in `~/.plandesk/config.json` as `{ server, token, orgId }`.
+2. **Human** runs `plandesk login --server https://your-host.example` and pastes the token when prompted. Later logins can drop `--server` to reuse the saved one; there is no default server. Credentials land in `~/.plandesk/config.json` as `{ server, token, orgId }`.
 3. **Agent (or human)** runs `plandesk connect --to <org> [--project <id|name>]`. That mints a **project-scoped agent key** and writes it to `.plandesk/token` (gitignored). MCP loads it via `${PLANDESK_MCP_TOKEN:-$(cat .plandesk/token)}`.
 
 Agents never run `login`. The owner key stays on the human machine; only the scoped key is in the repo’s ignored token file. There is no `--org` flag — use `--to <org>`.

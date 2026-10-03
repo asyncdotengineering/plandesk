@@ -128,10 +128,11 @@ Mint the first owner invitation with the user's installed `plandesk` CLI, readin
 ```bash
 ( set -a; . ./.dev.vars; set +a
   plandesk admin invite-owner --email "<owner email>" \
-    --db "$PLANDESK_DB_URL" --db-token "$PLANDESK_DB_TOKEN" --secret "$PLANDESK_BETTER_AUTH_SECRET" )
+    --db "$PLANDESK_DB_URL" --db-token "$PLANDESK_DB_TOKEN" --secret "$PLANDESK_BETTER_AUTH_SECRET" \
+    --base-url "<WORKER_URL or the custom domain>" )
 ```
 
-It prints a claim link. If the link starts with `http://127.0.0.1`, replace that origin with WORKER_URL (or the custom domain). Give the link to the human; it is a credential, so do not paste it anywhere else.
+It prints a claim link on that origin. Give the link to the human; it is a credential, so do not paste it anywhere else.
 
 ## Report back
 

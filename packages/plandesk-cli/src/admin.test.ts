@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -8,7 +8,7 @@ import {
   runBetterAuthMigrations,
 } from '@plandesk/api';
 import { DEFAULT_ORG_ID, createDb, migrate } from '@plandesk/db';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseArgs } from './args.js';
 import { main } from './cli.js';
 import { runInit } from './init.js';
@@ -216,5 +216,93 @@ describe('plandesk admin invite-owner (BA3c REQ-3)', () => {
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('admin invite-owner claim link origin', () => {
+  const secret = 'claim-origin-test-secret';
+  const dirs: string[] = [];
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    while (dirs.length > 0) rmSync(dirs.pop() ?? '', { recursive: true, force: true });
+  });
+
+  /** A prepared file database standing in for the deployed one, plus an empty data dir. */
+  async function preparedDb(): Promise<{ dbPath: string; dataDir: string }> {
+    const dir = mkdtempSync(join(tmpdir(), 'plandesk-admin-origin-'));
+    dirs.push(dir);
+    const dbPath = join(dir, 'deployed.db');
+    const db = await createDb(dbPath);
+    await migrate(db);
+    const auth = createBetterAuth({ client: db.$client, secret, baseURL: 'http://unused' });
+    if (auth === undefined) throw new Error('expected better-auth');
+    await runBetterAuthMigrations(auth);
+    const dataDir = join(dir, 'data');
+    mkdirSync(dataDir);
+    return { dbPath, dataDir };
+  }
+
+  function invite(dbPath: string, dataDir: string, extra: string[] = []) {
+    return captureIo(() =>
+      main([
+        'node',
+        'plandesk',
+        'admin',
+        'invite-owner',
+        '--email',
+        'owner@example.com',
+        '--db',
+        dbPath,
+        '--secret',
+        secret,
+        '--data-dir',
+        dataDir,
+        ...extra,
+      ]),
+    );
+  }
+
+  function claimLink(stdout: string): string {
+    return /claim link:\s+(\S+)/.exec(stdout)?.[1] ?? '';
+  }
+
+  it('builds the link on PLANDESK_BASE_URL', async () => {
+    const { dbPath, dataDir } = await preparedDb();
+    vi.stubEnv('PLANDESK_BASE_URL', 'https://boards.example');
+    const io = await invite(dbPath, dataDir);
+    expect(io.code).toBe(0);
+    expect(claimLink(io.stdout).startsWith('https://boards.example/')).toBe(true);
+    expect(io.stderr).not.toContain('only works on this machine');
+  });
+
+  it('builds the link on the config file baseUrl when the env is unset', async () => {
+    const { dbPath, dataDir } = await preparedDb();
+    vi.stubEnv('PLANDESK_BASE_URL', '');
+    writeFileSync(
+      join(dataDir, 'plandesk.server.json'),
+      JSON.stringify({ baseUrl: 'https://file.example' }),
+    );
+    const io = await invite(dbPath, dataDir);
+    expect(io.code).toBe(0);
+    expect(claimLink(io.stdout).startsWith('https://file.example/')).toBe(true);
+  });
+
+  it('--base-url wins over PLANDESK_BASE_URL', async () => {
+    const { dbPath, dataDir } = await preparedDb();
+    vi.stubEnv('PLANDESK_BASE_URL', 'https://boards.example');
+    const io = await invite(dbPath, dataDir, ['--base-url', 'https://flag.example']);
+    expect(io.code).toBe(0);
+    expect(claimLink(io.stdout).startsWith('https://flag.example/')).toBe(true);
+  });
+
+  it('with no base URL, keeps the loopback link and warns it only works here', async () => {
+    const { dbPath, dataDir } = await preparedDb();
+    vi.stubEnv('PLANDESK_BASE_URL', '');
+    const io = await invite(dbPath, dataDir);
+    expect(io.code).toBe(0);
+    expect(claimLink(io.stdout).startsWith('http://127.0.0.1')).toBe(true);
+    expect(io.stderr).toContain('only works on this machine');
+    expect(io.stderr).toContain('PLANDESK_BASE_URL');
+    expect(io.stderr).toContain('--base-url');
   });
 });

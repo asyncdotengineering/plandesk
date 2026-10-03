@@ -122,7 +122,7 @@ With `PLANDESK_DB_URL` set, use the user's installed CLI against that database:
     --db "$PLANDESK_DB_URL" --db-token "$PLANDESK_DB_TOKEN" --secret "$PLANDESK_BETTER_AUTH_SECRET" )
 ```
 
-It prints a claim link. If the link starts with `http://127.0.0.1` and the board has a domain, replace that origin with `PLANDESK_BASE_URL`. Give the link to the human; it is a credential, so do not paste it anywhere else.
+It prints a claim link on `PLANDESK_BASE_URL` (inside the container, compose defaults it to `http://127.0.0.1:<port>`). If the CLI warns that no base URL is set, rerun it with `--base-url "<board URL>"`. Give the link to the human; it is a credential, so do not paste it anywhere else.
 
 ## Report back
 

@@ -122,7 +122,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
   switch (parsed.command) {
     case 'login':
       try {
-        await runLogin(parsed.server ?? 'https://plandesk.asyncdot.com');
+        await runLogin(parsed.server);
         return 0;
       } catch (err) {
         process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
@@ -195,6 +195,14 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     }
     case 'admin': {
       try {
+        const baseURL =
+          parsed.baseUrl ?? resolveServerConfig({ dataDir: parsed.dataDir }).values.baseUrl;
+        if (baseURL === undefined) {
+          process.stderr.write(
+            'Warning: no base URL set, so the claim link below only works on this machine. ' +
+              'Set PLANDESK_BASE_URL or pass --base-url <origin> to get a link for your server.\n',
+          );
+        }
         if (parsed.dbUrl !== undefined && parsed.dbUrl.trim() !== '') {
           const secret = parsed.secret?.trim() || readServerEnv(process.env).authSecret;
           if (secret === undefined || secret === '') {
@@ -207,6 +215,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
           const result = await runAdminInviteOwner(db, {
             email: parsed.email,
             secret,
+            baseURL,
           });
           process.stdout.write(`${formatAdminInviteOwnerSummary(result)}\n`);
           return 0;
@@ -216,6 +225,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         const result = await runAdminInviteOwner(db, {
           email: parsed.email,
           dataDir,
+          baseURL,
         });
         process.stdout.write(`${formatAdminInviteOwnerSummary(result)}\n`);
         return 0;
@@ -223,7 +233,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         if (err instanceof CorruptWorkspaceError) {
           return reportCorruptDb();
         }
-        if (err instanceof AdminInviteOwnerError) {
+        if (err instanceof AdminInviteOwnerError || err instanceof ConfigFileError) {
           process.stderr.write(`${err.message}\n`);
           return 1;
         }

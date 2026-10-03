@@ -16,11 +16,21 @@ async function requestJson<T>(fetcher: typeof fetch, url: string, init?: Request
   return (await response.json()) as T;
 }
 
-/** Paste an owner API key from the dashboard (BA4b-2). Device flow is gone. */
-export async function runLogin(server: string, deps: LoginDeps = {}): Promise<CliConfig> {
+/**
+ * Paste an owner API key from the dashboard (BA4b-2). Device flow is gone.
+ * With no `server`, logs in again to the saved one; there is no default host.
+ */
+export async function runLogin(server?: string, deps: LoginDeps = {}): Promise<CliConfig> {
   const fetcher = deps.fetch ?? fetch;
   const output = deps.out ?? stdout;
-  const base = normalizeServerUrl(server);
+  const target = server ?? readCliConfig(deps.home)?.server;
+  if (target === undefined || target.trim() === '') {
+    throw new Error(
+      'No Plan Desk server to log in to. Run: plandesk login --server <your Plan Desk URL>\n' +
+        'No server yet? Host one: https://plandesk.asyncdot.com/guides/self-host-for-teams/',
+    );
+  }
+  const base = normalizeServerUrl(target);
 
   const rl = createInterface({ input: deps.input ?? stdin, output });
   const token = await rl.question('Plan Desk token: ');

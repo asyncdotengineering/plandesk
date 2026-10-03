@@ -27,7 +27,7 @@ Back in your terminal:
 plandesk login --server <your-hosted-url>
 ```
 
-Always pass `--server`: the built-in default points at the docs site, which serves no API. Paste the token when prompted. It's written to `~/.plandesk/config.json` alongside the server URL and your organization id — this is a one-time, per-machine step, not per-repo.
+The first login needs `--server`; later ones reuse the saved server when you leave it off. Paste the token when prompted. It's written to `~/.plandesk/config.json` alongside the server URL and your organization id — this is a one-time, per-machine step, not per-repo.
 
 ## 4. Promote your local work
 

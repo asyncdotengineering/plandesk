@@ -2,9 +2,10 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { main } from './cli.js';
 import { runLogin, runLogout, runWhoami } from './login.js';
-import { cliConfigPath } from './config.js';
+import { cliConfigPath, writeCliConfig } from './config.js';
 
 const tempDirs: string[] = [];
 
@@ -15,6 +16,7 @@ function makeHome(): string {
 }
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   while (tempDirs.length > 0) {
     rmSync(tempDirs.pop() ?? '', { recursive: true, force: true });
   }
@@ -122,6 +124,58 @@ describe('runLogin — token paste path (BA4b-2 owner key)', () => {
         out: { write: () => true } as unknown as NodeJS.WritableStream,
       }),
     ).rejects.toThrow(/required/i);
+  });
+});
+
+describe('runLogin — which server', () => {
+  const quiet = { write: () => true } as unknown as NodeJS.WritableStream;
+
+  it('with no --server and no saved login, refuses and names the --server flag', async () => {
+    await expect(
+      runLogin(undefined, {
+        fetch: (() => Promise.reject(new Error('should not fetch'))) as unknown as typeof fetch,
+        home: makeHome(),
+        input: Readable.from(['tok\n']),
+        out: quiet,
+      }),
+    ).rejects.toThrow('plandesk login --server <your Plan Desk URL>');
+  });
+
+  it('with no --server, logs in again to the saved server', async () => {
+    const home = makeHome();
+    writeCliConfig({ server: 'https://boards.example', token: 'old', orgId: 'org-1' }, home);
+    const hrefs: string[] = [];
+    const fetch: typeof globalThis.fetch = (url) => {
+      hrefs.push(requestHref(url));
+      return Promise.resolve(json({ org: { id: 'org-1' } }));
+    };
+
+    const config = await runLogin(undefined, {
+      fetch,
+      home,
+      input: Readable.from(['new-tok\n']),
+      out: quiet,
+    });
+
+    expect(hrefs).toEqual(['https://boards.example/api/v1/auth/session']);
+    expect(config).toEqual({ server: 'https://boards.example', token: 'new-tok', orgId: 'org-1' });
+  });
+
+  it('`plandesk login` with nothing saved exits 1 with the --server hint', async () => {
+    vi.stubEnv('HOME', makeHome());
+    const stderr: string[] = [];
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+      stderr.push(String(chunk));
+      return true;
+    });
+    let code: number;
+    try {
+      code = await main(['node', 'plandesk', 'login']);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(code).toBe(1);
+    expect(stderr.join('')).toContain('plandesk login --server <your Plan Desk URL>');
   });
 });
 

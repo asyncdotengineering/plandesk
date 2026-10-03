@@ -193,6 +193,8 @@ export type ParsedArgs =
       dbToken?: string;
       /** better-auth secret for remote (or set PLANDESK_BETTER_AUTH_SECRET). */
       secret?: string;
+      /** Claim-link origin; beats PLANDESK_BASE_URL and the config file's baseUrl. */
+      baseUrl?: string;
     }
   | { command: 'export'; projectId: string; outPath: string; dataDir?: string }
   | { command: 'import'; inPath: string; dataDir?: string }
@@ -479,6 +481,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
         dbUrl: flagString(flags, 'db'),
         dbToken: flagString(flags, 'db-token'),
         secret: flagString(flags, 'secret'),
+        baseUrl: flagString(flags, 'base-url'),
       };
     }
     return { command: 'unknown', name: command };
@@ -675,8 +678,8 @@ Usage:
   plandesk whoami
   plandesk serve [--port <n>] [--strict-port] [--host <addr>] [--data-dir <dir>] [--config <file>]
   plandesk url [--repo <dir>] [--lan]
-  plandesk admin invite-owner --email <email> [--data-dir <dir>]  # self-host first owner (no GitHub)
-  plandesk admin invite-owner --email <email> --db <url> [--db-token <t>] [--secret <s>]  # remote Turso bootstrap (secret or PLANDESK_BETTER_AUTH_SECRET)
+  plandesk admin invite-owner --email <email> [--data-dir <dir>] [--base-url <origin>]  # self-host first owner (no GitHub)
+  plandesk admin invite-owner --email <email> --db <url> [--db-token <t>] [--secret <s>] [--base-url <origin>]  # remote Turso bootstrap (secret or PLANDESK_BETTER_AUTH_SECRET; link origin from --base-url or PLANDESK_BASE_URL)
   plandesk export --project <id> --out <file.json> [--data-dir <dir>]
   plandesk import --in <file.json> [--data-dir <dir>]
   plandesk go-online [--to <orgId>] [--server <url>] [--token <key>] [--all | --workspace <name>...]   # push local workspaces + projects up to a hosted org (requires plandesk login)

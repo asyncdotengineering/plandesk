@@ -301,12 +301,14 @@ async function assertServing(t, env) {
       'owner@smoke.test',
       '--db',
       db.url,
+      '--base-url',
+      base,
     ],
     { env: cliEnv },
   );
   check(
-    'plandesk admin invite-owner against the target database',
-    invite.status === 0,
+    'plandesk admin invite-owner against the target database, claim link on the deployment',
+    invite.status === 0 && invite.stdout.includes(`claim link:    ${base}/invite/`),
     `exit ${invite.status}`,
   );
   const cookie = run(
