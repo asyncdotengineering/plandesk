@@ -93,5 +93,7 @@ describe('vocabulary owner guard', () => {
     }
 
     expect(duplicates).toEqual([]);
-  });
+    // Walks every source file in the monorepo; the default 5s is too tight on a
+    // loaded machine.
+  }, 30_000);
 });
