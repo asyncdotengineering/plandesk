@@ -43,6 +43,7 @@ const taskMutableFields = {
 export const patchTaskBodySchema = z
   .object({
     label: z.string().optional(),
+    goal_id: z.string().uuid().nullable().optional(),
     ...taskMutableFields,
   })
   .strict();
@@ -51,7 +52,7 @@ export const createProjectTaskBodySchema = z
   .object({
     label: z.string().min(1),
     ...taskMutableFields,
-    goal_id: z.string().uuid().optional(),
+    goal_id: z.string().uuid().nullable().optional(),
   })
   .strict();
 

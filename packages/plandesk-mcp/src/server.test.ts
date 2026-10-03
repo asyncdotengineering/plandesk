@@ -2639,15 +2639,21 @@ describe('createMcpApp', () => {
 
   it('list_tasks and get_next_task tags filters use OR semantics', async () => {
     await withMcpServer(async ({ baseUrl, projectId, services }) => {
+      const goal = await services.goalService.create(projectId, { objective: 'Tagged work' });
+      if (!goal) {
+        throw new Error('expected goal');
+      }
       const frontend = await services.taskService.create(projectId, {
         label: 'Frontend',
         tags: ['frontend'],
+        goalId: goal.id,
       });
       const backend = await services.taskService.create(projectId, {
         label: 'Backend',
         tags: ['backend'],
+        goalId: goal.id,
       });
-      await services.taskService.create(projectId, { label: 'Untagged' });
+      await services.taskService.create(projectId, { label: 'Untagged', goalId: goal.id });
 
       const client = await connectClient(baseUrl);
 
@@ -3298,6 +3304,60 @@ describe('createMcpApp', () => {
         ).toBe('forward');
         await client.close();
       });
+    });
+  });
+
+  it('nullable goal_id: MCP create/update detach and get_next_task goal-less frontier', async () => {
+    await withMcpServer(async ({ baseUrl, projectId, db, services }) => {
+      const client = await connectClient(baseUrl);
+      try {
+        const goal = await services.goalService.create(projectId, { objective: 'Active' });
+        if (!goal) {
+          throw new Error('expected goal');
+        }
+        const onGoal = await createTask(db, {
+          projectId,
+          goalId: goal.id,
+          label: 'In goal',
+          status: 'todo',
+        });
+        const createdLoose = await client.callTool({
+          name: 'create_task',
+          arguments: { project_id: projectId, label: 'Loose work', goal_id: null },
+        });
+        expect(createdLoose.isError).not.toBe(true);
+        const createPayload = JSON.parse(
+          (createdLoose.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { task: { id: string; goal_id: string | null; goal_resolution?: string } };
+        expect(createPayload.task.goal_id).toBeNull();
+        expect(createPayload.task.goal_resolution).toBe('explicit');
+
+        const detached = await client.callTool({
+          name: 'update_task',
+          arguments: { task_id: onGoal.id, goal_id: null },
+        });
+        expect(detached.isError).not.toBe(true);
+        const detachPayload = JSON.parse(
+          (detached.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { task: { goal_id: string | null } };
+        expect(detachPayload.task.goal_id).toBeNull();
+
+        const goalDetail = await services.goalService.get(goal.id);
+        expect(goalDetail?.cycle_tasks.some((task) => task.id === onGoal.id)).toBe(false);
+
+        const nextScoped = await client.callTool({
+          name: 'get_next_task',
+          arguments: { project_id: projectId, goal_id: null },
+        });
+        const nextPayload = JSON.parse(
+          (nextScoped.content as Array<{ type: string; text?: string }>)[0]?.text ?? '{}',
+        ) as { next: { next_task: { id: string; goal_id: string | null } | null; reason: string } };
+        expect(nextPayload.next.reason).toBe('ok');
+        expect(nextPayload.next.next_task?.goal_id).toBeNull();
+        expect([onGoal.id, createPayload.task.id]).toContain(nextPayload.next.next_task?.id);
+      } finally {
+        await client.close();
+      }
     });
   });
 });

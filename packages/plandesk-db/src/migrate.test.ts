@@ -911,4 +911,43 @@ describe('migrate', () => {
       { id: 'a1', title: 'Report', kind: 'html', prototype_id: null, x: null, y: null },
     ]);
   });
+
+  it('0021 nullable goal_id preserves populated tasks and passes foreign_key_check', async () => {
+    const files = readdirSync(drizzleDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
+    const target = '0021_lame_typhoid_mary.sql';
+    const idx = files.indexOf(target);
+    expect(idx).toBeGreaterThan(0);
+    const preamble = files.slice(0, idx);
+
+    const db = await createDb(':memory:');
+    await db.$client.execute('PRAGMA foreign_keys = OFF');
+    for (const f of preamble) {
+      await applyMigrationSqlRaw(db, f);
+    }
+    await db.$client.execute(
+      "INSERT INTO projects (id, org_id, workspace_id, name, description, canvas_layout, created_at, updated_at, repo_url, folder_path) VALUES ('p21','o1','w1','Migrate 21',NULL,NULL,100,200,NULL,NULL)",
+    );
+    await db.$client.execute(
+      "INSERT INTO goals (id, project_id, name, objective, status, verification_surface, constraints, boundaries, iteration_policy, stop_condition, budget, last_verification, created_at, updated_at) VALUES ('g21','p21',NULL,'Ship','active',NULL,NULL,NULL,NULL,NULL,NULL,NULL,100,200)",
+    );
+    await db.$client.execute(
+      "INSERT INTO tasks (id, project_id, goal_id, label, status, kind, description, x, y, assignee, due_date, commit_refs, created_at, updated_at) VALUES ('t21','p21','g21','Keep me','todo','build',NULL,0,0,NULL,NULL,NULL,100,200)",
+    );
+
+    await applyMigrationSqlRaw(db, target);
+    await db.$client.execute('PRAGMA foreign_keys = ON');
+    const fkCheck = await db.$client.execute('PRAGMA foreign_key_check');
+    expect(fkCheck.rows).toHaveLength(0);
+
+    const kept = await db.$client.execute("SELECT id, goal_id, label FROM tasks WHERE id = 't21'");
+    expect(kept.rows).toEqual([{ id: 't21', goal_id: 'g21', label: 'Keep me' }]);
+
+    await db.$client.execute(
+      "INSERT INTO tasks (id, project_id, goal_id, label, status, kind, description, x, y, assignee, due_date, commit_refs, created_at, updated_at) VALUES ('t-loose','p21',NULL,'No goal','todo','build',NULL,0,0,NULL,NULL,NULL,100,200)",
+    );
+    const loose = await db.$client.execute("SELECT goal_id FROM tasks WHERE id = 't-loose'");
+    expect(loose.rows).toEqual([{ goal_id: null }]);
+  });
 });

@@ -33,7 +33,7 @@ export function createCreateTaskHandler(
   x?: number;
   y?: number;
   assignee?: string | null;
-  goal_id?: string;
+  goal_id?: string | null;
   tags?: string[];
   commit_refs?: string[] | null;
   due_date?: string | null;

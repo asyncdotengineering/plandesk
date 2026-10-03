@@ -119,10 +119,13 @@ function memberships(task: SerializedTask, field: GroupableField): Membership[] 
   switch (field) {
     case 'status':
       return [{ key: task.status, value: task.status }];
-    case 'goal_id':
-      return isEmptyText(task.goal_id)
-        ? [{ key: EMPTY_SENTINEL, value: null }]
-        : [{ key: task.goal_id, value: task.goal_id }];
+    case 'goal_id': {
+      const goalId = task.goal_id;
+      if (goalId === null || goalId === '') {
+        return [{ key: EMPTY_SENTINEL, value: null }];
+      }
+      return [{ key: goalId, value: goalId }];
+    }
     case 'assignee': {
       const assignee = task.assignee;
       if (assignee === null || assignee === '') {

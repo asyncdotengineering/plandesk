@@ -323,6 +323,8 @@ export function Board({
         repoUrl={repoUrl}
         linkedDocs={drawerTask !== undefined ? (linkedDocsByTask.get(drawerTask.id) ?? []) : []}
         tagSuggestions={tagNames}
+        activeGoals={goalChoice.activeGoals}
+        goals={goals ?? []}
         isSaving={patchTask.isPending}
         onOpenChange={(open) => {
           if (!open) {

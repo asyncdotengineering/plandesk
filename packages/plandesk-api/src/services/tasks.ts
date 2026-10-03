@@ -312,7 +312,7 @@ export type CreateTaskInput = {
   y?: number;
   assignee?: string | null;
   dueDate?: Date | null;
-  goalId?: string;
+  goalId?: string | null;
   commitRefs?: string[] | null;
   // Sets the task's tags by name; names without an existing tag are auto-created.
   tags?: string[];
@@ -331,13 +331,17 @@ export type UpdateTaskInput = {
   y?: number;
   assignee?: string | null;
   dueDate?: Date | null;
-  goalId?: string;
+  goalId?: string | null;
   // Replaces the task's FULL tag set by name; names without an existing tag are
   // auto-created. Pass [] to clear all tags. Omit to leave tags unchanged.
   tags?: string[];
   // Replaces the FULL commit_refs array. Pass null to clear; omit to leave unchanged.
   commitRefs?: string[] | null;
 };
+
+export type GoalResolution = 'explicit' | 'current_goal' | 'none';
+
+export type SerializedCreateTask = SerializedTask & { goal_resolution: GoalResolution };
 
 export class InvalidCommitRefsError extends Error {
   constructor() {
@@ -502,6 +506,7 @@ export function createTaskService(deps: TaskServiceDeps) {
 
       if (
         input.goalId !== undefined &&
+        input.goalId !== null &&
         !(await listGoals(db, projectId)).some((g) => g.id === input.goalId)
       ) {
         throw new InvalidGoalReferenceError(input.goalId);
@@ -524,8 +529,22 @@ export function createTaskService(deps: TaskServiceDeps) {
       if (normalizedCreateCommitRefs !== undefined) {
         await assertTableStoresColumns(db, 'tasks', ['commit_refs']);
       }
-      const { task, tags } = await withTransaction(db, async (tx) => {
-        const goalId = input.goalId ?? (await resolveGoalForNewWork(tx, projectId)).id;
+      const { task, tags, goalResolution } = await withTransaction(db, async (tx) => {
+        let goalId: string | null;
+        let goalResolution: GoalResolution;
+        if (input.goalId !== undefined) {
+          goalId = input.goalId;
+          goalResolution = 'explicit';
+        } else {
+          const resolved = await resolveGoalForNewWork(tx, projectId);
+          if (resolved === null) {
+            goalId = null;
+            goalResolution = 'none';
+          } else {
+            goalId = resolved.id;
+            goalResolution = 'current_goal';
+          }
+        }
         const row = await createTask(tx, {
           projectId,
           goalId,
@@ -552,10 +571,14 @@ export function createTaskService(deps: TaskServiceDeps) {
         if (input.tags !== undefined) {
           await setTaskTags(tx, row.id, await resolveTagIdsByName(tx, projectId, input.tags));
         }
-        return { task: row, tags: await listTagsForTask(tx, row.id) };
+        return {
+          task: row,
+          tags: await listTagsForTask(tx, row.id),
+          goalResolution,
+        };
       });
 
-      return serializeTask(task, tags);
+      return { ...serializeTask(task, tags), goal_resolution: goalResolution };
     },
 
     async update(id: string, input: UpdateTaskInput) {
@@ -599,6 +622,7 @@ export function createTaskService(deps: TaskServiceDeps) {
 
       if (
         input.goalId !== undefined &&
+        input.goalId !== null &&
         !(await listGoals(db, existing.projectId)).some((g) => g.id === input.goalId)
       ) {
         throw new InvalidGoalReferenceError(input.goalId);
@@ -738,7 +762,12 @@ export function createTaskService(deps: TaskServiceDeps) {
     // prerequisite completion is still evaluated against all tasks in the project.
     async nextActionable(
       projectId: string,
-      filter: { goalId?: string; goalName?: string; tags?: string[]; verbose?: boolean } = {},
+      filter: {
+        goalId?: string | null;
+        goalName?: string;
+        tags?: string[];
+        verbose?: boolean;
+      } = {},
     ): Promise<NextActionableResult | undefined> {
       try {
         await assertProjectInOrg(db, projectId, resolveOrgId(deps));
@@ -749,7 +778,8 @@ export function createTaskService(deps: TaskServiceDeps) {
         throw error;
       }
 
-      let goalIds: Set<string>;
+      let goallessOnly = false;
+      let goalIds: Set<string> | undefined;
       if (filter.goalName !== undefined) {
         const namedGoal = (await listGoals(db, projectId)).find(
           (goal) => goal.name === filter.goalName,
@@ -758,34 +788,37 @@ export function createTaskService(deps: TaskServiceDeps) {
           return undefined;
         }
         goalIds = new Set([namedGoal.id]);
+      } else if (filter.goalId === null) {
+        goallessOnly = true;
       } else if (filter.goalId === undefined) {
         const active = (await listGoals(db, projectId)).filter((goal) => goal.status === 'active');
         if (active.length === 0) {
-          return { next_task: null, reason: 'no_active_goal', blocked: [] };
-        }
-        const project = await getProject(db, projectId);
-        const currentGoalId = project?.currentGoalId ?? null;
-        let resolvedGoal = currentGoalId
-          ? active.find((goal) => goal.id === currentGoalId)
-          : undefined;
-        if (resolvedGoal === undefined) {
-          const [soleActive] = active;
-          if (active.length === 1 && soleActive !== undefined) {
-            resolvedGoal = soleActive;
-          } else {
-            return {
-              next_task: null,
-              reason: 'ambiguous_goal',
-              blocked: [],
-              ambiguous_goals: active.map((goal) => ({
-                id: goal.id,
-                name: goal.name,
-                objective: goal.objective,
-              })),
-            };
+          goallessOnly = true;
+        } else {
+          const project = await getProject(db, projectId);
+          const currentGoalId = project?.currentGoalId ?? null;
+          let resolvedGoal = currentGoalId
+            ? active.find((goal) => goal.id === currentGoalId)
+            : undefined;
+          if (resolvedGoal === undefined) {
+            const [soleActive] = active;
+            if (active.length === 1 && soleActive !== undefined) {
+              resolvedGoal = soleActive;
+            } else {
+              return {
+                next_task: null,
+                reason: 'ambiguous_goal',
+                blocked: [],
+                ambiguous_goals: active.map((goal) => ({
+                  id: goal.id,
+                  name: goal.name,
+                  objective: goal.objective,
+                })),
+              };
+            }
           }
+          goalIds = new Set([resolvedGoal.id]);
         }
-        goalIds = new Set([resolvedGoal.id]);
       } else {
         if (!(await listGoals(db, projectId)).some((goal) => goal.id === filter.goalId)) {
           return undefined;
@@ -817,12 +850,16 @@ export function createTaskService(deps: TaskServiceDeps) {
 
       const todoTasks = tasks.filter(
         (task) =>
-          goalIds.has(task.goalId) &&
+          (goallessOnly
+            ? task.goalId === null
+            : task.goalId !== null && goalIds !== undefined && goalIds.has(task.goalId)) &&
           task.status === 'todo' &&
           (tagMatches === undefined || tagMatches.has(task.id)),
       );
       if (todoTasks.length === 0) {
-        return { next_task: null, reason: 'no_todo_tasks', blocked: [] };
+        const reason =
+          goallessOnly && filter.goalId === undefined ? 'no_active_goal' : 'no_todo_tasks';
+        return { next_task: null, reason, blocked: [] };
       }
 
       const blocked: NextActionableResult['blocked'] = [];

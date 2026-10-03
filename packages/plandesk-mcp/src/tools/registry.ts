@@ -121,9 +121,10 @@ export const createTaskInputSchema = z.strictObject({
   goal_id: z
     .string()
     .uuid()
+    .nullable()
     .optional()
     .describe(
-      'Goal this task belongs to (a cycle within the goal). Omit to attach to the project default goal.',
+      'Goal this task belongs to. Omit to attach to the current goal (see goal_resolution on create). Pass null for no goal.',
     ),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_SET_DESCRIPTION),
   commit_refs: COMMIT_REFS_FIELD,
@@ -145,9 +146,10 @@ export const updateTaskInputSchema = z.strictObject({
   goal_id: z
     .string()
     .uuid()
+    .nullable()
     .optional()
     .describe(
-      'Reassign the task to a different goal in the same project. Omit to leave it unchanged.',
+      'Reassign the task to a goal in the same project, or null to detach from all goals. Omit to leave unchanged.',
     ),
   tags: z.array(z.string().min(1)).optional().describe(TAGS_SET_DESCRIPTION),
   commit_refs: COMMIT_REFS_FIELD,
@@ -552,9 +554,10 @@ export const scaffoldProjectFromPlanInputSchema = z.strictObject({
   goal_id: z
     .string()
     .uuid()
+    .nullable()
     .optional()
     .describe(
-      'Goal to attach scaffolded tasks to. Must belong to the target project (new or existing). Omit to use the project default goal.',
+      'Goal to attach scaffolded tasks to; must belong to the target project. Omit to use the current goal (then the sole active goal); pass null for tasks that belong to no goal.',
     ),
   tasks: z
     .array(
@@ -706,9 +709,10 @@ export const getNextTaskInputSchema = z.strictObject({
   goal_id: z
     .string()
     .uuid()
+    .nullable()
     .optional()
     .describe(
-      'Scope the frontier to a specific goal. When omitted, resolves via the project current_goal_id, then the sole active goal, then ambiguous_goal.',
+      'Scope the frontier to a specific goal, or null for goal-less todo tasks only. When omitted, resolves via current_goal_id, then the sole active goal, then the goal-less frontier when no goals are active.',
     ),
   goal: z
     .string()

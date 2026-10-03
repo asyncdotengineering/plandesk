@@ -11,7 +11,7 @@ import {
   normalizeCommitRefs,
 } from '@plandesk/db';
 import type { TaskService } from '../services/tasks.js';
-import { InvalidCommitRefsError } from '../services/tasks.js';
+import { InvalidCommitRefsError, InvalidGoalReferenceError } from '../services/tasks.js';
 import { InvalidTagError } from '../services/tags.js';
 import { parseDueDate, patchTaskBodySchema, zodValidationField } from './task-route-schemas.js';
 
@@ -62,6 +62,7 @@ export function createTasksRouter(taskService: TaskService): Hono {
         ...(body.y !== undefined ? { y: body.y } : {}),
         ...(body.assignee !== undefined ? { assignee: body.assignee } : {}),
         ...(dueDate !== undefined ? { dueDate } : {}),
+        ...(body.goal_id !== undefined ? { goalId: body.goal_id } : {}),
         ...(body.tags !== undefined ? { tags: body.tags } : {}),
         ...(commitRefs !== undefined ? { commitRefs } : {}),
       });
@@ -79,6 +80,7 @@ export function createTasksRouter(taskService: TaskService): Hono {
         error instanceof InvalidTaskLaneError ||
         error instanceof InvalidTaskSeverityError ||
         error instanceof InvalidTagError ||
+        error instanceof InvalidGoalReferenceError ||
         error instanceof InvalidCommitRefsError ||
         error instanceof UnstoredColumnError
       ) {

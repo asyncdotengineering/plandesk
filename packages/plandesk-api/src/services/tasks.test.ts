@@ -10,7 +10,6 @@ import {
   createProjectInDefaultOrg as createProject,
   createTag,
   getDocument,
-  getOrCreateDefaultGoal,
   getTask,
   setProjectCurrentGoalId,
   insertRevision,
@@ -21,13 +20,17 @@ import {
   InvalidTaskPriorityError,
   InvalidTaskSeverityError,
   listEdges,
+  listGoals,
   listTags,
   listTasks,
   migrate,
   updateGoalStatus,
   type Db,
 } from '@plandesk/db';
-import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
+import {
+  createTaskWithDefaultGoal as createTask,
+  getOrCreateDefaultGoal,
+} from '@plandesk/db/testing';
 import { InvalidTagError } from './tags.js';
 import { createTaskService, InvalidCommitRefsError, InvalidGoalReferenceError } from './tasks.js';
 
@@ -712,16 +715,81 @@ describe('taskService', () => {
     expect(result?.next_task?.goal_id).toBe(defaultGoal.id);
   });
 
-  it('nextActionable returns no_active_goal when no active goal exists', async () => {
+  it('nextActionable serves goal-less todo tasks when no active goal exists', async () => {
     const service = createService();
     const goal = await createGoal(db, { projectId, objective: 'Paused', status: 'paused' });
     await createTask(db, { projectId, goalId: goal.id, label: 'Orphan todo', status: 'todo' });
+    const maintenance = await createTask(db, {
+      projectId,
+      goalId: null,
+      label: 'Maintenance',
+      status: 'todo',
+    });
+
+    const result = await service.nextActionable(projectId);
+    expect(result?.reason).toBe('ok');
+    expect(result?.next_task?.id).toBe(maintenance.id);
+    expect(result?.next_task?.goal_id).toBeNull();
+  });
+
+  it('nextActionable returns no_active_goal when no active goal and no goal-less todos', async () => {
+    const service = createService();
+    await createGoal(db, { projectId, objective: 'Paused', status: 'paused' });
 
     expect(await service.nextActionable(projectId)).toEqual({
       next_task: null,
-      reason: 'no_active_goal',
+      reason: 'no_tasks',
       blocked: [],
     });
+  });
+
+  it('nextActionable with goalId null serves only goal-less todos while goals are active', async () => {
+    const service = createService();
+    const goal = await createGoal(db, { projectId, objective: 'Active', status: 'active' });
+    await createTask(db, { projectId, goalId: goal.id, label: 'In goal', status: 'todo' });
+    const loose = await createTask(db, {
+      projectId,
+      goalId: null,
+      label: 'Loose',
+      status: 'todo',
+    });
+
+    const result = await service.nextActionable(projectId, { goalId: null });
+    expect(result?.reason).toBe('ok');
+    expect(result?.next_task?.id).toBe(loose.id);
+  });
+
+  it('create_task with explicit null goal_id stores null and reports explicit resolution', async () => {
+    const service = createService();
+    const created = await service.create(projectId, { label: 'Detached', goalId: null });
+    expect(created?.goal_id).toBeNull();
+    expect(created?.goal_resolution).toBe('explicit');
+  });
+
+  it('create without goal_id reports current_goal when a current goal exists', async () => {
+    const service = createService();
+    const goal = await createGoal(db, { projectId, objective: 'Current', status: 'active' });
+    await setProjectCurrentGoalId(db, projectId, goal.id);
+
+    const created = await service.create(projectId, { label: 'Scoped' });
+    expect(created?.goal_id).toBe(goal.id);
+    expect(created?.goal_resolution).toBe('current_goal');
+  });
+
+  it('create without goal_id in a project with no goals stores null', async () => {
+    const service = createService();
+    const created = await service.create(projectId, { label: 'Maintenance' });
+    expect(created?.goal_id).toBeNull();
+    expect(created?.goal_resolution).toBe('none');
+    expect(await listGoals(db, projectId)).toHaveLength(0);
+  });
+
+  it('update with goalId null detaches the task', async () => {
+    const service = createService();
+    const goal = await createGoal(db, { projectId, objective: 'G' });
+    const created = await service.create(projectId, { label: 'Move off', goalId: goal.id });
+    const updated = await service.update(created?.id ?? '', { goalId: null });
+    expect(updated?.goal_id).toBeNull();
   });
 
   it('nextActionable returns no_tasks with multiple active goals when the project has no tasks', async () => {

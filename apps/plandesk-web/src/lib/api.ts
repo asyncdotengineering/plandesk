@@ -112,7 +112,7 @@ export type SerializedTag = {
 export type SerializedTask = {
   id: string;
   project_id: string;
-  goal_id: string;
+  goal_id: string | null;
   label: string;
   status: TaskStatus;
   priority: TaskPriority | null;
@@ -222,8 +222,8 @@ export type CreateTaskInput = {
   y?: number;
   assignee?: string | null;
   due_date?: string | null;
-  // Goal this task belongs to; omit to attach to the project default goal.
-  goal_id?: string;
+  // Goal this task belongs to; omit to attach to the current goal; null for no goal.
+  goal_id?: string | null;
   // Sets the task's tags by name; unknown names are auto-created.
   tags?: string[];
 };
@@ -237,6 +237,8 @@ export type PatchTaskInput = {
   y?: number;
   assignee?: string | null;
   due_date?: string | null;
+  // Reassign goal or null to detach; omit to leave unchanged.
+  goal_id?: string | null;
   // Replaces the task's FULL tag set by name; unknown names are auto-created.
   tags?: string[];
   // Replaces the FULL commit_refs array; null clears. Omit to leave unchanged.

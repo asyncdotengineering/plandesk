@@ -320,9 +320,10 @@ export function createCanvasService(deps: CanvasServiceDeps) {
             throw new InvalidCanvasError('New canvas node requires label');
           }
 
+          const resolvedGoal = await resolveGoalForNewWork(tx, projectId);
           const created = await createTask(tx, {
             projectId,
-            goalId: (await resolveGoalForNewWork(tx, projectId)).id,
+            goalId: resolvedGoal?.id ?? null,
             id: node.id,
             label: node.label,
             status: 'todo',

@@ -206,6 +206,13 @@ describe('tool registry tag schemas', () => {
     expect(
       createTaskInputSchema.safeParse({ project_id: PROJECT_ID, label: 'T', tags: [''] }).success,
     ).toBe(false);
+    expect(
+      createTaskInputSchema.safeParse({
+        project_id: PROJECT_ID,
+        label: 'T',
+        goal_id: null,
+      }).success,
+    ).toBe(true);
   });
 
   it('accepts only the typed lane and severity vocabularies', () => {
@@ -301,6 +308,9 @@ describe('tool registry tag schemas', () => {
     expect(getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID }).success).toBe(true);
     expect(
       getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID, goal_id: GOAL_ID }).success,
+    ).toBe(true);
+    expect(
+      getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID, goal_id: null }).success,
     ).toBe(true);
     expect(
       getNextTaskInputSchema.safeParse({ project_id: PROJECT_ID, goal_id: 'not-a-uuid' }).success,

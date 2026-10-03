@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { createEdge, createProjectInDefaultOrg as createProject } from '@plandesk/db';
+import {
+  createDocument,
+  createEdge,
+  createGoal,
+  createProjectInDefaultOrg as createProject,
+  updateGoalStatus,
+} from '@plandesk/db';
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { ensureHtmlBody } from '../markdown.js';
 import { createTestApp, parseJson } from '../test-helpers.js';
@@ -453,5 +459,27 @@ describe('documents routes', () => {
       await app.request(`/api/v1/documents/${document.id}`),
     );
     expect(after.body).toBe(bodyBefore);
+  });
+
+  it('an ambiguous goal choice is a 400 the caller can act on, not a 500', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Two live goals' });
+    await createGoal(db, { projectId: project.id, objective: 'A' });
+    await createGoal(db, { projectId: project.id, objective: 'B' });
+    // The newest goal becomes current; retiring it leaves two active and no pointer.
+    const current = await createGoal(db, { projectId: project.id, objective: 'C' });
+    await updateGoalStatus(db, current.id, 'paused');
+    const document = await createDocument(db, {
+      projectId: project.id,
+      title: 'Plan',
+      body: '<ul><li><p>Ship it</p></li></ul>',
+    });
+
+    const convert = await app.request(`/api/v1/documents/${document.id}/convert-bullets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ labels: ['Ship it'] }),
+    });
+    expect(convert.status).toBe(400);
   });
 });

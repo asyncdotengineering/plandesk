@@ -31,7 +31,7 @@ export type ExportTask = {
   due_date: string | null;
   created_at: string;
   updated_at: string;
-  goal_id: string;
+  goal_id: string | null;
   tags?: Array<{ name: string }>;
   blocked?: boolean;
 };
@@ -42,6 +42,10 @@ const STATUS_ORDER: Record<string, number> = Object.fromEntries(
 
 function isEmptyText(value: string | null | undefined): boolean {
   return value === null || value === undefined || value === '';
+}
+
+export function isNonemptyText(value: string | null | undefined): value is string {
+  return value !== null && value !== undefined && value !== '';
 }
 
 function asString(value: unknown): string {
@@ -349,10 +353,13 @@ function memberships(task: ExportTask, field: GroupableField): Membership[] {
   switch (field) {
     case 'status':
       return [{ key: task.status, value: task.status }];
-    case 'goal_id':
-      return isEmptyText(task.goal_id)
-        ? [{ key: EMPTY_SENTINEL, value: null }]
-        : [{ key: task.goal_id, value: task.goal_id }];
+    case 'goal_id': {
+      const goalId = task.goal_id;
+      if (!isNonemptyText(goalId)) {
+        return [{ key: EMPTY_SENTINEL, value: null }];
+      }
+      return [{ key: goalId, value: goalId }];
+    }
     case 'assignee': {
       const assignee = task.assignee;
       if (assignee === null || assignee === '') {

@@ -1,5 +1,5 @@
 import type { SavedViewConfig } from '@plandesk/db';
-import { applyViewOrder, type ExportTask } from './view-eval.js';
+import { applyViewOrder, isNonemptyText, type ExportTask } from './view-eval.js';
 
 const COLUMN_HEADERS: Record<string, string> = {
   label: 'Label',
@@ -37,8 +37,13 @@ function cellValue(
     case 'priority':
       return task.priority;
     case 'goal':
-    case 'goal_id':
-      return isEmptyText(task.goal_id) ? null : (goalLabels.get(task.goal_id) ?? task.goal_id);
+    case 'goal_id': {
+      const goalId = task.goal_id;
+      if (!isNonemptyText(goalId)) {
+        return null;
+      }
+      return goalLabels.get(goalId) ?? goalId;
+    }
     case 'assignee':
       return task.assignee;
     case 'tags':
@@ -61,10 +66,6 @@ function cellValue(
     default:
       return null;
   }
-}
-
-function isEmptyText(value: string | null | undefined): boolean {
-  return value === null || value === undefined || value === '';
 }
 
 function resolveColumns(visibleColumns: string[]): string[] {

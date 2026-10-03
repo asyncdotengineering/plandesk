@@ -107,7 +107,7 @@ export type ScaffoldTaskInput = {
   assignee?: string | null;
   tags?: string[];
   /** Overrides the call-level goalId for this task. */
-  goalId?: string;
+  goalId?: string | null;
   x?: number;
   y?: number;
 };
@@ -130,7 +130,7 @@ export type ScaffoldPlanInput = {
   /** Target an existing project; when set, the plan is added to it. Omit to create a new project. */
   projectId?: string;
   /** Goal to attach scaffolded tasks to. Must belong to the target project; omit for the default goal. */
-  goalId?: string;
+  goalId?: string | null;
   /** Name for a new project. Required when projectId is omitted; ignored when it is set. */
   name?: string;
   description?: string | null;
@@ -595,6 +595,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
         }
         if (
           input.goalId !== undefined &&
+          input.goalId !== null &&
           !(await listGoals(tx, projectId)).some((goal) => goal.id === input.goalId)
         ) {
           throw new InvalidGoalReferenceError(input.goalId);
@@ -603,21 +604,25 @@ export function createProjectService(deps: ProjectServiceDeps) {
         for (const taskInput of input.tasks) {
           if (
             taskInput.goalId !== undefined &&
+            taskInput.goalId !== null &&
             !projectGoals.some((goal) => goal.id === taskInput.goalId)
           ) {
             throw new InvalidGoalReferenceError(taskInput.goalId);
           }
         }
-        let defaultGoalId: string | undefined;
+        let defaultGoalId: string | null | undefined;
 
         for (const [i, taskInput] of input.tasks.entries()) {
-          let taskGoalId: string;
+          let taskGoalId: string | null;
           if (taskInput.goalId !== undefined) {
             taskGoalId = taskInput.goalId;
           } else if (input.goalId !== undefined) {
             taskGoalId = input.goalId;
           } else {
-            defaultGoalId ??= (await resolveGoalForNewWork(tx, projectId)).id;
+            if (defaultGoalId === undefined) {
+              const resolved = await resolveGoalForNewWork(tx, projectId);
+              defaultGoalId = resolved?.id ?? null;
+            }
             taskGoalId = defaultGoalId;
           }
           const x = taskInput.x ?? (i % 4) * 240;

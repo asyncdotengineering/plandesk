@@ -694,7 +694,7 @@ function createMcpServer(services: Services, origin: string, bindHost: string): 
     {
       title: 'Get Next Task',
       description:
-        'Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id or project-scoped goal name). When both are omitted: resolves via current_goal_id, then the sole active goal, then ambiguous_goal — never unions active goals. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.',
+        'Return the next actionable todo on the project active goal frontier (or a specific goal via goal_id or project-scoped goal name). When both are omitted: resolves via current_goal_id, then the sole active goal, then ambiguous_goal — never unions active goals; with no active goal it serves tasks that belong to no goal. Pass goal_id: null to serve the goal-less tasks explicitly. Optional tags filter uses OR semantics; prerequisite completion is evaluated against all project tasks. Does not claim — call claim_task on the candidate.',
       inputSchema: getNextTaskInputSchema,
       annotations: { readOnlyHint: true },
     },

@@ -1,7 +1,6 @@
 import { invalidArgument, invalidRequest } from './errors.js';
 import { Hono } from 'hono';
 import {
-  AmbiguousActiveGoalsError,
   InvalidTaskKindError,
   InvalidTaskLaneError,
   InvalidTaskPriorityError,
@@ -284,7 +283,6 @@ export function createProjectsRouter(
         error instanceof InvalidTagError ||
         error instanceof InvalidGoalReferenceError ||
         error instanceof InvalidCommitRefsError ||
-        error instanceof AmbiguousActiveGoalsError ||
         error instanceof UnstoredColumnError
       ) {
         return invalidRequest(c, error.message);

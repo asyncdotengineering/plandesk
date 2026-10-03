@@ -23,7 +23,7 @@ import { toolInvalidArgument, toolSuccess, type ToolResult } from './result.js';
 
 type ScaffoldArgs = {
   project_id?: string;
-  goal_id?: string;
+  goal_id?: string | null;
   workspace_id?: string;
   name?: string;
   description?: string;
@@ -32,7 +32,7 @@ type ScaffoldArgs = {
     label: string;
     status?: string;
     description?: string;
-    goal_id?: string;
+    goal_id?: string | null;
     x?: number;
     y?: number;
     kind?: string;

@@ -5,7 +5,6 @@ import { createProjectInDefaultOrg as createProject } from '../testing.js';
 import {
   createGoal,
   getGoal,
-  getOrCreateDefaultGoal,
   AmbiguousActiveGoalsError,
   InvalidGoalStatusError,
   listGoals,
@@ -93,36 +92,20 @@ describe('goals repository', () => {
     expect(updated?.status).toBe('paused');
   });
 
-  it('getOrCreateDefaultGoal returns earliest goal or creates General', async () => {
-    const first = await getOrCreateDefaultGoal(db, projectId);
-    expect(first.objective).toBe('General');
-    expect(first.status).toBe('active');
-
-    const second = await createGoal(db, {
-      projectId,
-      objective: 'Earlier',
-      id: '11111111-1111-4111-8111-111111111111',
-    });
-    await db.$client.execute({
-      sql: 'UPDATE goals SET created_at = ? WHERE id = ?',
-      args: [Date.now() - 10_000, second.id],
-    });
-
-    const resolved = await getOrCreateDefaultGoal(db, projectId);
-    expect(resolved.id).toBe(second.id);
-
-    const again = await getOrCreateDefaultGoal(db, projectId);
-    expect(again.id).toBe(resolved.id);
-    expect(await listGoals(db, projectId)).toHaveLength(2);
+  it('resolveGoalForNewWork returns null when no goals are active', async () => {
+    expect(await resolveGoalForNewWork(db, projectId)).toBeNull();
+    expect(await listGoals(db, projectId)).toHaveLength(0);
   });
 
-  it('resolveGoalForNewWork returns the sole active goal or creates General', async () => {
-    const created = await resolveGoalForNewWork(db, projectId);
-    expect(created.objective).toBe('General');
-    expect(created.status).toBe('active');
+  it('resolveGoalForNewWork returns the sole active goal without creating General', async () => {
+    const active = await createGoal(db, {
+      projectId,
+      objective: 'Only active',
+      status: 'active',
+    });
 
-    const again = await resolveGoalForNewWork(db, projectId);
-    expect(again.id).toBe(created.id);
+    const resolved = await resolveGoalForNewWork(db, projectId);
+    expect(resolved?.id).toBe(active.id);
     expect(await listGoals(db, projectId)).toHaveLength(1);
   });
 
@@ -146,7 +129,7 @@ describe('goals repository', () => {
     });
 
     const resolved = await resolveGoalForNewWork(db, projectId);
-    expect(resolved.id).toBe(active.id);
+    expect(resolved?.id).toBe(active.id);
   });
 
   it('resolveGoalForNewWork throws when several are active and none is current', async () => {
@@ -181,7 +164,7 @@ describe('goals repository', () => {
     await setProjectCurrentGoalId(db, projectId, current.id);
 
     const resolved = await resolveGoalForNewWork(db, projectId);
-    expect(resolved.id).toBe(current.id);
+    expect(resolved?.id).toBe(current.id);
   });
 
   it('resolveGoalForNewWork ignores a current goal that is no longer active', async () => {
@@ -200,6 +183,6 @@ describe('goals repository', () => {
     await setProjectCurrentGoalId(db, projectId, paused.id);
 
     const resolved = await resolveGoalForNewWork(db, projectId);
-    expect(resolved.id).toBe(active.id);
+    expect(resolved?.id).toBe(active.id);
   });
 });

@@ -22,7 +22,7 @@ export type Task = typeof tasks.$inferSelect;
 
 export type NewTask = {
   projectId: string;
-  goalId: string;
+  goalId: string | null;
   label: string;
   status?: TaskStatus;
   kind?: TaskKind;
@@ -53,7 +53,7 @@ export type TaskUpdate = {
   y?: number;
   assignee?: string | null;
   dueDate?: Date | null;
-  goalId?: string;
+  goalId?: string | null;
   /** JSON text of a string[], or null to clear. */
   commitRefs?: string | null;
 };

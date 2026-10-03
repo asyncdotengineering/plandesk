@@ -50,7 +50,6 @@ export type ImportContext = {
   documentIdMap: Map<string, string>;
   artifactIdMap: Map<string, string>;
   agentRunIdMap: Map<string, string>;
-  defaultGoalId: string;
   statements: BatchItem<'sqlite'>[];
 };
 
@@ -286,28 +285,9 @@ export function emitProjectOverviewLink(ctx: ImportContext): void {
 }
 
 export function emitGoalsImport(ctx: ImportContext): void {
+  // An export with no goals imports none: a task with no goal stays goal-less
+  // rather than being parked on an invented one.
   const exportGoals = ctx.data.goals ?? [];
-  if (exportGoals.length === 0) {
-    ctx.statements.push(
-      ctx.root.insert(goals).values({
-        id: ctx.defaultGoalId,
-        projectId: ctx.projectId,
-        objective: 'General',
-        status: 'active',
-        verificationSurface: null,
-        constraints: null,
-        boundaries: null,
-        iterationPolicy: null,
-        stopCondition: null,
-        budget: null,
-        lastVerification: null,
-        createdAt: ctx.now,
-        updatedAt: ctx.now,
-      }),
-    );
-    return;
-  }
-
   for (const goal of exportGoals) {
     ctx.statements.push(
       ctx.root.insert(goals).values({
@@ -333,8 +313,9 @@ export function emitGoalsImport(ctx: ImportContext): void {
 export function emitTasksImport(ctx: ImportContext): void {
   for (const task of ctx.data.tasks) {
     const goalId =
-      (task.goal_id !== undefined ? ctx.goalIdMap.get(task.goal_id) : undefined) ??
-      ctx.defaultGoalId;
+      task.goal_id === undefined || task.goal_id === null
+        ? null
+        : (ctx.goalIdMap.get(task.goal_id) ?? null);
     const commitRefsColumn = commitRefsForImport(task.commit_refs);
     ctx.statements.push(
       ctx.root.insert(tasks).values({
@@ -668,18 +649,6 @@ export function emitArtifactsImport(ctx: ImportContext): void {
   }
 }
 
-export function resolveDefaultGoalId(ctx: ImportContext): string {
-  const exportGoals = ctx.data.goals ?? [];
-  if (exportGoals.length === 0) {
-    return randomUUID();
-  }
-  const firstGoal = exportGoals[0];
-  if (firstGoal === undefined) {
-    throw new Error('export goals unexpectedly empty');
-  }
-  return remapId(ctx.goalIdMap, firstGoal.id) ?? firstGoal.id;
-}
-
 export async function runImportFromManifest(
   db: DbClient,
   data: PlandeskExportInput,
@@ -706,15 +675,12 @@ export async function runImportFromManifest(
     documentIdMap: new Map(),
     artifactIdMap: new Map(),
     agentRunIdMap: new Map(),
-    defaultGoalId: '',
     statements: [],
   };
 
   for (const { import: handler } of manifestEntries) {
     handler.preallocateIds?.(ctx);
   }
-  ctx.defaultGoalId = resolveDefaultGoalId(ctx);
-
   const sorted = [...manifestEntries].sort((a, b) => a.import.order - b.import.order);
   for (const { import: handler } of sorted) {
     handler.emit(ctx);

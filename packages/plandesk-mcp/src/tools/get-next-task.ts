@@ -5,13 +5,13 @@ export function createGetNextTaskHandler(
   taskService: TaskService,
 ): (args: {
   project_id: string;
-  goal_id?: string;
+  goal_id?: string | null;
   goal?: string;
   tags?: string[];
   verbose?: boolean;
 }) => Promise<ToolResult> {
   return async (args) => {
-    const filter: { goalId?: string; goalName?: string; tags?: string[] } = {};
+    const filter: { goalId?: string | null; goalName?: string; tags?: string[] } = {};
     if (args.goal_id !== undefined) {
       filter.goalId = args.goal_id;
     }

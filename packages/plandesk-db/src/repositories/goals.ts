@@ -139,24 +139,6 @@ export async function updateGoalStatus(
   return updateGoal(db, id, { status });
 }
 
-export async function getOrCreateDefaultGoal(db: DbClient, projectId: string): Promise<Goal> {
-  const existing = await db
-    .select()
-    .from(goals)
-    .where(eq(goals.projectId, projectId))
-    .orderBy(asc(goals.createdAt), asc(goals.id))
-    .limit(1)
-    .get();
-  if (existing) {
-    return existing;
-  }
-  return createGoal(db, {
-    projectId,
-    objective: 'General',
-    status: 'active',
-  });
-}
-
 /**
  * Resolves where new work should land: active goals only; never complete/paused/blocked.
  *
@@ -164,7 +146,7 @@ export async function getOrCreateDefaultGoal(db: DbClient, projectId: string): P
  * goal_id — current_goal_id, then the sole active goal. Reads and writes that
  * disagree put a new task on a different goal than the one being worked.
  */
-export async function resolveGoalForNewWork(db: DbClient, projectId: string): Promise<Goal> {
+export async function resolveGoalForNewWork(db: DbClient, projectId: string): Promise<Goal | null> {
   const projectGoals = await db
     .select()
     .from(goals)
@@ -174,11 +156,7 @@ export async function resolveGoalForNewWork(db: DbClient, projectId: string): Pr
   const activeGoals = projectGoals.filter((goal) => goal.status === 'active');
 
   if (activeGoals.length === 0) {
-    return createGoal(db, {
-      projectId,
-      objective: 'General',
-      status: 'active',
-    });
+    return null;
   }
 
   const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).all();

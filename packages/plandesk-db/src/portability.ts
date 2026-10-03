@@ -101,7 +101,7 @@ export type PlandeskExportTask = {
   assignee: string | null;
   due_date: string | null;
   // Always written on export; optional on import for exports written before goals existed.
-  goal_id?: string;
+  goal_id?: string | null;
   // Optional for backward compatibility with exports written before tags existed.
   tag_ids?: string[];
   // Always written on export; optional on import for exports written before commit_refs.

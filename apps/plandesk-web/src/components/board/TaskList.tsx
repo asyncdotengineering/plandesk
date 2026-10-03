@@ -454,6 +454,8 @@ export function TaskList({
         repoUrl={repoUrl}
         linkedDocs={drawerTask !== undefined ? (linkedDocsByTask.get(drawerTask.id) ?? []) : []}
         tagSuggestions={tagNames}
+        activeGoals={(goals ?? []).filter((goal) => goal.status === 'active')}
+        goals={goals ?? []}
         isSaving={patchTask.isPending}
         onOpenChange={(open) => {
           if (!open) {
@@ -777,7 +779,9 @@ function TaskListCell({
       return <StatusChip status={task.status} tabIndex={-1} className="pointer-events-none" />;
     case 'goal':
       return (
-        <span className="text-muted-foreground">{goalById.get(task.goal_id) ?? task.goal_id}</span>
+        <span className="text-muted-foreground">
+          {task.goal_id === null ? 'No goal' : (goalById.get(task.goal_id) ?? task.goal_id)}
+        </span>
       );
     case 'assignee':
       return <span>{task.assignee ?? '—'}</span>;

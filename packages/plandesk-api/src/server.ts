@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
-import type { Db } from '@plandesk/db';
+import { AmbiguousActiveGoalsError, type Db } from '@plandesk/db';
 import {
   createAuthMiddleware,
   createOrgAuthMiddleware,
   createWriteGuardMiddleware,
 } from './auth.js';
-import { allowedMethodsForPath } from './routes/errors.js';
+import { allowedMethodsForPath, invalidRequest } from './routes/errors.js';
 import { createHealthRouter } from './routes/health.js';
 import { createAuthRouter } from './routes/auth.js';
 import type { GithubConfig } from './github.js';
@@ -126,6 +126,11 @@ export function createApp(deps: AppDeps): Hono {
     }
     if (err instanceof PermissionDeniedError) {
       return c.json({ error: 'forbidden' }, 403);
+    }
+    // Any path that creates work without naming a goal can hit this; it is the
+    // caller's choice to make, never a server fault.
+    if (err instanceof AmbiguousActiveGoalsError) {
+      return invalidRequest(c, err.message);
     }
     throw err;
   });

@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { SerializedTask } from '../../lib/api.js';
+import type { SerializedGoal, SerializedTask } from '../../lib/api.js';
 import { TaskDrawer } from './TaskDrawer.js';
 
 vi.mock('@tanstack/react-router', () => ({
@@ -155,5 +155,29 @@ describe('TaskDrawer commit refs', () => {
     expect(screen.getByRole('link', { name: 'abc1234' }).getAttribute('href')).toBe(
       'https://github.com/org/repo/commit/abc1234def',
     );
+  });
+});
+
+describe('TaskDrawer goal', () => {
+  const goal = (id: string, status: SerializedGoal['status'], name: string): SerializedGoal =>
+    ({ id, project_id: 'proj-1', name, objective: name, status }) as SerializedGoal;
+
+  it('names a task’s goal even when that goal is no longer active', () => {
+    const paused = goal('goal-1', 'paused', 'customization');
+    render(
+      <TaskDrawer
+        task={{ ...baseTask, goal_id: 'goal-1' }}
+        tagSuggestions={[]}
+        activeGoals={[goal('goal-2', 'active', 'mobile')]}
+        goals={[paused, goal('goal-2', 'active', 'mobile')]}
+        open
+        onOpenChange={() => undefined}
+        onPatch={() => undefined}
+        onChangeStatus={() => undefined}
+        onAddTag={() => undefined}
+        onRemoveTag={() => undefined}
+      />,
+    );
+    expect(screen.getByRole('combobox', { name: 'Goal' }).textContent).toContain('customization');
   });
 });

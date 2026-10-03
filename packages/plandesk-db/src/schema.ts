@@ -136,9 +136,7 @@ export const tasks = sqliteTable('tasks', {
   projectId: text('project_id')
     .notNull()
     .references(() => projects.id),
-  goalId: text('goal_id')
-    .notNull()
-    .references(() => goals.id),
+  goalId: text('goal_id').references(() => goals.id),
   label: text('label').notNull(),
   status: text('status', { enum: taskStatuses }).notNull().default('todo'),
   kind: text('kind', { enum: taskKinds }).notNull().default('build'),

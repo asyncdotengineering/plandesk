@@ -19,7 +19,14 @@ import { flattenDocumentTree } from '../docs/DocumentsPanel.js';
 import { ContentHistoryButton } from '../history/ContentHistoryPanel.js';
 import { useDocuments } from '../../lib/queries.js';
 import { CommentsPanel } from '../docs/CommentsPanel.js';
-import type { PatchTaskInput, SerializedTag, SerializedTask, TaskStatus } from '../../lib/api.js';
+import type {
+  PatchTaskInput,
+  SerializedGoal,
+  SerializedTag,
+  SerializedTask,
+  TaskStatus,
+} from '../../lib/api.js';
+import { goalOptionLabel } from '../../lib/goal-choice.js';
 import { commitUrl } from '../../lib/commit-url.js';
 import { EntityTimestamps } from '../../lib/format-timestamp.js';
 import { laneFromTags, LANE_TAG_PREFIX } from './board-utils.js';
@@ -37,6 +44,9 @@ type TaskDrawerProps = {
   repoUrl?: string | null;
   linkedDocs?: LinkedDocRef[];
   tagSuggestions: string[];
+  activeGoals?: SerializedGoal[];
+  /** Every goal in the project — only used to name a task's goal once it is no longer active. */
+  goals?: SerializedGoal[];
   open: boolean;
   isSaving?: boolean;
   onOpenChange: (open: boolean) => void;
@@ -51,6 +61,8 @@ export function TaskDrawer({
   repoUrl = null,
   linkedDocs = [],
   tagSuggestions,
+  activeGoals = [],
+  goals = [],
   open,
   isSaving = false,
   onOpenChange,
@@ -75,6 +87,8 @@ export function TaskDrawer({
             repoUrl={repoUrl}
             linkedDocs={linkedDocs}
             tagSuggestions={tagSuggestions}
+            activeGoals={activeGoals}
+            goals={goals}
             isSaving={isSaving}
             onPatch={onPatch}
             onChangeStatus={onChangeStatus}
@@ -95,6 +109,8 @@ type TaskDrawerBodyProps = {
   repoUrl: string | null;
   linkedDocs: LinkedDocRef[];
   tagSuggestions: string[];
+  activeGoals: SerializedGoal[];
+  goals: SerializedGoal[];
   isSaving: boolean;
   onPatch: (input: PatchTaskInput) => void;
   onChangeStatus: (status: TaskStatus) => void;
@@ -108,6 +124,8 @@ function TaskDrawerBody({
   repoUrl,
   linkedDocs,
   tagSuggestions,
+  activeGoals,
+  goals,
   isSaving,
   onPatch,
   onChangeStatus,
@@ -116,6 +134,11 @@ function TaskDrawerBody({
   onClose,
 }: TaskDrawerBodyProps) {
   const [label, setLabel] = useState(task.label);
+  // A paused or completed goal is not offered as a choice, but a task already
+  // on one must still show it — a blank select would hide where the task lives.
+  const currentInactiveGoal = activeGoals.some((goal) => goal.id === task.goal_id)
+    ? undefined
+    : goals.find((goal) => goal.id === task.goal_id);
   const [newTag, setNewTag] = useState('');
   // Open in read mode; editing is an explicit choice via the Edit toggle.
   const [editing, setEditing] = useState(false);
@@ -260,6 +283,33 @@ function TaskDrawerBody({
                 {lane?.toUpperCase() ?? '—'}
               </span>
             )}
+          </dd>
+          <dt className="text-muted-foreground">Goal</dt>
+          <dd>
+            <Select
+              value={task.goal_id ?? '__none__'}
+              onValueChange={(value) => {
+                onPatch({ goal_id: value === '__none__' ? null : value });
+              }}
+              disabled={isSaving}
+            >
+              <SelectTrigger className="w-full max-w-xs text-xs" aria-label="Goal">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">No goal</SelectItem>
+                {currentInactiveGoal !== undefined ? (
+                  <SelectItem value={currentInactiveGoal.id}>
+                    {`${goalOptionLabel(currentInactiveGoal)} (${currentInactiveGoal.status})`}
+                  </SelectItem>
+                ) : null}
+                {activeGoals.map((goal) => (
+                  <SelectItem key={goal.id} value={goal.id}>
+                    {goalOptionLabel(goal)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </dd>
           {linkedDocs.length > 0 ? (
             <>

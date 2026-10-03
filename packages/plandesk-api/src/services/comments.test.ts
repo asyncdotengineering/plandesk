@@ -7,12 +7,12 @@ import {
   createProjectInDefaultOrg as createProject,
   createTask,
   getComment,
-  getOrCreateDefaultGoal,
   listCommentsByTarget,
   migrate,
   upsertSubmission,
   type Db,
 } from '@plandesk/db';
+import { getOrCreateDefaultGoal } from '@plandesk/db/testing';
 import { createCommentService, InvalidCommentError } from './comments.js';
 
 describe('commentService', () => {

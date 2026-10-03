@@ -40,7 +40,7 @@ type ComparableExport = {
     y: number;
     assignee: string | null;
     due_date: string | null;
-    goal_objective: string;
+    goal_objective: string | null;
     tag_names: string[];
   }>;
   tags: Array<{
@@ -116,7 +116,7 @@ function toComparable(exported: PlandeskExport): ComparableExport {
         due_date: task.due_date,
         // exportProject always writes goal_id; coerce for the optional import type.
         goal_objective:
-          task.goal_id === undefined ? '' : (goalObjectiveById.get(task.goal_id) ?? task.goal_id),
+          task.goal_id == null ? null : (goalObjectiveById.get(task.goal_id) ?? task.goal_id),
         tag_names: (task.tag_ids ?? []).map((id) => tagNameById.get(id) ?? id).sort(),
       })),
     tags: [...exported.tags]
@@ -657,6 +657,32 @@ describe('export/import portability', () => {
       'updated_at',
       'workspace_id',
     ]);
+  });
+
+  it('round-trips a goal-less task (null goal_id)', async () => {
+    const source = await createProject(db, { name: 'Goalless export' });
+    const loose = await createTask(db, {
+      projectId: source.id,
+      label: 'Maintenance',
+      goalId: null,
+    });
+
+    const exported = await exportProject(db, source.id);
+    expect(exported).toBeDefined();
+    if (!exported) {
+      return;
+    }
+    expect(exported.tasks.find((task) => task.id === loose.id)?.goal_id).toBeNull();
+
+    const targetDb = await createDb(':memory:');
+    await migrate(targetDb);
+    const { projectId: importedId } = await importProject(targetDb, exported);
+    const reExported = await exportProject(targetDb, importedId);
+    const roundTripped = reExported?.tasks.find((task) => task.label === 'Maintenance');
+    expect(roundTripped?.goal_id).toBeNull();
+    // No synthetic goal: an active 'General' would capture get_next_task and
+    // hide the imported goal-less todos from the default frontier.
+    expect(reExported?.goals).toEqual([]);
   });
 
   it('round-trips repo_url, folder_path, and commit_refs; omits stay optional on import', async () => {

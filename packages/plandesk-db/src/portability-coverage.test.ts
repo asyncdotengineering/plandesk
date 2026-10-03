@@ -77,7 +77,7 @@ type PortableSnapshot = {
     y: number;
     assignee: string | null;
     due_date: string | null;
-    goal_objective: string;
+    goal_objective: string | null;
     tag_names: string[];
     commit_refs: string[] | null | undefined;
   }>;
@@ -223,7 +223,7 @@ function toPortableSnapshot(exported: PlandeskExport): PortableSnapshot {
         assignee: task.assignee,
         due_date: task.due_date,
         goal_objective:
-          task.goal_id === undefined ? '' : (goalObjectiveById.get(task.goal_id) ?? task.goal_id),
+          task.goal_id == null ? null : (goalObjectiveById.get(task.goal_id) ?? task.goal_id),
         tag_names: (task.tag_ids ?? []).map((id) => tagNameById.get(id) ?? id).sort(),
         commit_refs: task.commit_refs ?? null,
       })),

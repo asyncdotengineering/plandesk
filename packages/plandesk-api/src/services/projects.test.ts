@@ -14,7 +14,6 @@ import {
   getArtifact,
   getDocument,
   getComment,
-  getOrCreateDefaultGoal,
   AmbiguousActiveGoalsError,
   getProject,
   getPrototype,
@@ -33,7 +32,10 @@ import {
   type Db,
   type GoalStatus,
 } from '@plandesk/db';
-import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
+import {
+  createTaskWithDefaultGoal as createTask,
+  getOrCreateDefaultGoal,
+} from '@plandesk/db/testing';
 import { createBetterAuth, runBetterAuthMigrations } from '../better-auth.js';
 import { createTeamForOrg, ensureLocalBetterAuthOrganization } from '../identity.js';
 import { runWithAuthContext, type AuthContext } from '../auth-context.js';
