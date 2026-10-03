@@ -1,9 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { Db } from './client.js';
-
-type JournalEntry = { tag: string; when: number };
+import { MIGRATIONS } from './migrations.generated.js';
 
 export type SchemaMigrationSummary = {
   applied: number;
@@ -21,19 +17,8 @@ export class SchemaDriftError extends Error {
   }
 }
 
-function journalPath(): string {
-  return join(dirname(fileURLToPath(import.meta.url)), '../drizzle/meta/_journal.json');
-}
-
-function readShippedJournalEntries(): JournalEntry[] {
-  const journal = JSON.parse(readFileSync(journalPath(), 'utf8')) as {
-    entries: JournalEntry[];
-  };
-  return journal.entries;
-}
-
 export function listShippedMigrationTags(): string[] {
-  return readShippedJournalEntries().map((entry) => entry.tag);
+  return MIGRATIONS.map((entry) => entry.tag);
 }
 
 function cellToNumber(value: unknown): number | null {
@@ -66,16 +51,15 @@ export async function listAppliedMigrationCreatedAts(db: Db): Promise<number[]> 
 }
 
 export async function getSchemaMigrationSummary(db: Db): Promise<SchemaMigrationSummary> {
-  const shippedEntries = readShippedJournalEntries();
-  const shippedTags = shippedEntries.map((entry) => entry.tag);
+  const shippedTags = listShippedMigrationTags();
   const appliedCreatedAts = await listAppliedMigrationCreatedAts(db);
   const appliedSet = new Set(appliedCreatedAts);
-  const missingTags = shippedEntries
-    .filter((entry) => !appliedSet.has(entry.when))
-    .map((entry) => entry.tag);
-  const appliedTags = shippedEntries
-    .filter((entry) => appliedSet.has(entry.when))
-    .map((entry) => entry.tag);
+  const missingTags = MIGRATIONS.filter((entry) => !appliedSet.has(entry.when)).map(
+    (entry) => entry.tag,
+  );
+  const appliedTags = MIGRATIONS.filter((entry) => appliedSet.has(entry.when)).map(
+    (entry) => entry.tag,
+  );
   return {
     applied: appliedCreatedAts.length,
     shipped: shippedTags.length,

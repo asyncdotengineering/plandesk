@@ -40,7 +40,7 @@
     "build": "rm -rf dist && tsc -p tsconfig.json",
     "test": "vitest run",
     "lint": "eslint src",
-    "generate": "drizzle-kit generate",
+    "generate": "drizzle-kit generate && node scripts/bundle-migrations.mjs",
     "migrate:kit": "drizzle-kit migrate",
     "prepublishOnly": "node ../../scripts/assert-pnpm-publish.mjs"
   },

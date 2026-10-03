@@ -49,9 +49,13 @@ export async function createDb(path: string, authToken?: string) {
     authToken !== undefined && authToken.length > 0 ? { url, authToken } : { url },
   );
   await client.execute('PRAGMA foreign_keys = ON');
-  await client.execute('PRAGMA busy_timeout = 250');
-  if (url !== ':memory:') {
-    await client.execute('PRAGMA journal_mode = WAL');
+  // sqld and Turso reject these over HTTP (SQL_PARSE_ERROR); they only mean
+  // something for a local file anyway.
+  if (url === ':memory:' || url.startsWith('file:')) {
+    await client.execute('PRAGMA busy_timeout = 250');
+    if (url !== ':memory:') {
+      await client.execute('PRAGMA journal_mode = WAL');
+    }
   }
   return drizzle(client, { schema });
 }

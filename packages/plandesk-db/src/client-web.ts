@@ -11,7 +11,7 @@ import * as schema from './schema.js';
 
 /**
  * Create a Drizzle db against a remote libSQL/Turso URL using the web client.
- * Never migrates — edge runtimes have no migration filesystem (REQ-23).
+ * Never migrates on its own; `migrate(db)` runs here too (migrations are bundled).
  */
 export async function createWebDb(url: string, authToken?: string): Promise<Db> {
   const client = createClient(

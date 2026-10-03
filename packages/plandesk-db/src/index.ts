@@ -13,6 +13,7 @@ export {
 } from './client.js';
 export { isSqliteBusy, retryOnSqliteBusy } from './sqlite-errors.js';
 export { migrate } from './migrate.js';
+export { MIGRATIONS } from './migrations.generated.js';
 export {
   SchemaDriftError,
   assertSchemaCurrent,
