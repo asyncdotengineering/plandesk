@@ -25,7 +25,12 @@
     "test:contract": "pnpm test && pnpm validate",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "release:e2e": "bash scripts/release-e2e.sh"
+    "release:e2e": "bash scripts/release-e2e.sh",
+    "build:cloudflare": "turbo run build --filter=plandesk-web --filter=@plandesk/server",
+    "deploy": "pnpm run build:cloudflare && wrangler deploy"
+  },
+  "dependencies": {
+    "@plandesk/server": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "^9.28.0",
@@ -34,11 +39,31 @@
     "turbo": "^2.5.4",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.33.1",
-    "vitest": "^3.2.6"
+    "vitest": "^3.2.6",
+    "wrangler": "^4.98.0"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/asyncdotengineering/plandesk.git"
+  },
+  "cloudflare": {
+    "bindings": {
+      "FILES": {
+        "description": "R2 bucket for uploaded files (attachments, images)."
+      },
+      "PLANDESK_DB_URL": {
+        "description": "Your libSQL/[Turso](https://turso.tech) database URL, e.g. `libsql://plandesk-you.turso.io`. Plan Desk migrates it on first request."
+      },
+      "PLANDESK_DB_TOKEN": {
+        "description": "The database auth token: `turso db tokens create <db>`."
+      },
+      "PLANDESK_BETTER_AUTH_SECRET": {
+        "description": "Signs sessions. Generate with `openssl rand -hex 32` and keep it stable across deploys."
+      },
+      "PLANDESK_AUTH_PASSWORD": {
+        "description": "Optional shared password in front of the whole board (HTTP Basic). Leave blank to rely on sign-in alone."
+      }
+    }
   }
 }

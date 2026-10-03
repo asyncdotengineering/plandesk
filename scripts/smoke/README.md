@@ -19,12 +19,12 @@ Every run writes `.agents/factory/runs/smoke-<target>-<timestamp>.log` (gitignor
 
 ## Prerequisites
 
-| target     | needs                                                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------ |
-| all        | `sqld` (`~/.turso/sqld`, on `PATH`, or `SMOKE_SQLD`), a built workspace (`pnpm build`)                                   |
-| docker     | a running Docker daemon, `./Dockerfile`                                                                                  |
-| cloudflare | `./wrangler.jsonc`, `packages/plandesk-server/src/worker.ts`, wrangler (`pnpm install`)                                  |
-| vercel     | `packages/plandesk-server/dist/vercel.js`; `vercel build` runs only when the CLI is logged in and the checkout is linked |
+| target     | needs                                                                                                                                        |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| all        | `sqld` (`~/.turso/sqld`, on `PATH`, or `SMOKE_SQLD`), a built workspace (`pnpm build`)                                                       |
+| docker     | a running Docker daemon, `./Dockerfile`                                                                                                      |
+| cloudflare | `./wrangler.jsonc`, `packages/plandesk-server/src/worker.ts`, wrangler (`pnpm install`)                                                      |
+| vercel     | `api/index.ts` over `packages/plandesk-server/dist/vercel.js`; `vercel build` runs only when the CLI is logged in and the checkout is linked |
 
 A missing prerequisite fails that target with one line that names it.
 

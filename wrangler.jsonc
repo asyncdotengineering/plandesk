@@ -1,7 +1,8 @@
-// Minimal Workers config for `node scripts/smoke-deploy.mjs cloudflare`.
-// Secrets (PLANDESK_DB_URL, PLANDESK_DB_TOKEN, PLANDESK_BETTER_AUTH_SECRET):
-// `wrangler secret put <NAME>`.
+// The Cloudflare Worker: REST API + MCP + the built SPA, deployed from the
+// repository root (the Deploy to Cloudflare button needs the whole workspace).
+// Secrets are listed in .dev.vars.example; set them with `wrangler secret put`.
 {
+  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "plandesk",
   "main": "packages/plandesk-server/src/worker.ts",
   "compatibility_date": "2025-04-01",
@@ -10,6 +11,8 @@
     "directory": "apps/plandesk-web/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
+    // Otherwise the SPA fallback answers unknown /api and /mcp paths with index.html.
+    "run_worker_first": ["/api", "/api/*", "/mcp", "/mcp/*"],
   },
   "r2_buckets": [{ "binding": "FILES", "bucket_name": "plandesk-files" }],
 }

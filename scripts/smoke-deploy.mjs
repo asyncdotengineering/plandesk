@@ -182,19 +182,14 @@ const docker = {
   },
 };
 
-const wranglerBin = [
-  'packages/plandesk-server/node_modules/.bin/wrangler',
-  'node_modules/.bin/wrangler',
-]
-  .map((p) => join(ROOT, p))
-  .find((p) => existsSync(p));
+const wranglerBin = join(ROOT, 'node_modules/.bin/wrangler');
 
 const cloudflare = {
   prerequisites() {
     if (!existsSync(join(ROOT, 'wrangler.jsonc'))) return './wrangler.jsonc (root Workers config)';
     if (!existsSync(join(ROOT, 'packages/plandesk-server/src/worker.ts')))
       return 'packages/plandesk-server/src/worker.ts (Workers entry)';
-    if (wranglerBin === undefined) return 'wrangler (pnpm install)';
+    if (!existsSync(wranglerBin)) return 'wrangler (pnpm install)';
     return undefined;
   },
   async boot(env, dbPort) {
@@ -214,8 +209,7 @@ const cloudflare = {
 
 const vercel = {
   prerequisites() {
-    if (!existsSync(join(ROOT, 'packages/plandesk-server/src/vercel.ts')))
-      return 'packages/plandesk-server/src/vercel.ts (Vercel entry)';
+    if (!existsSync(join(ROOT, 'api/index.ts'))) return 'api/index.ts (Vercel function)';
     if (!existsSync(join(ROOT, 'packages/plandesk-server/dist/vercel.js')))
       return 'packages/plandesk-server/dist/vercel.js (run pnpm build)';
     return undefined;

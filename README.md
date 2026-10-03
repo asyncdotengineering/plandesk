@@ -178,6 +178,41 @@ follows the procedure into a wall.
 New here? Run `plandesk onboard` for the full model — how the board works, the execution
 loop, delegation, and the MCP surface.
 
+## Self-host
+
+Run one board for a team on your own account. Every target migrates its own database on
+first start, then serves the web app, the REST API and MCP at `/mcp`.
+
+**Cloudflare Workers**
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/asyncdotengineering/plandesk)
+
+- A [Turso](https://turso.tech)/libSQL database URL and auth token (`PLANDESK_DB_URL`, `PLANDESK_DB_TOKEN`).
+- A random secret for `PLANDESK_BETTER_AUTH_SECRET`: `openssl rand -hex 32`.
+- The button creates the R2 bucket for files; from a clone, `pnpm run deploy` does the same.
+
+**Vercel**
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fasyncdotengineering%2Fplandesk&env=PLANDESK_DB_URL,PLANDESK_DB_TOKEN,PLANDESK_BETTER_AUTH_SECRET&envDescription=Turso%2FlibSQL%20database%20URL%20and%20token%2C%20and%20a%20random%20secret%20from%20%60openssl%20rand%20-hex%2032%60.&envLink=https%3A%2F%2Fplandesk.asyncdot.com%2Fself-hosting%2Fserver-config%2F)
+
+- A [Turso](https://turso.tech)/libSQL database URL and auth token (`PLANDESK_DB_URL`, `PLANDESK_DB_TOKEN`).
+- A random secret for `PLANDESK_BETTER_AUTH_SECRET`: `openssl rand -hex 32`.
+- Files are stored in the database unless you configure S3-compatible storage.
+
+**Docker**
+
+```bash
+git clone https://github.com/asyncdotengineering/plandesk && cd plandesk
+cp .env.example .env   # then fill it in
+docker compose up --build
+```
+
+- Docker with Compose.
+- Optional: a Turso/libSQL database URL and auth token; without one the board uses a SQLite file on a volume.
+- A random secret for `PLANDESK_BETTER_AUTH_SECRET`: `openssl rand -hex 32`.
+
+Full guides: [Self-hosting](https://plandesk.asyncdot.com/self-hosting/docker/).
+
 ---
 
 ## What the agent actually does

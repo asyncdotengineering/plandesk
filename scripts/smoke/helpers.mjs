@@ -66,8 +66,10 @@ if (cmd === 'owner-cookie') {
   const { serve } = await load(
     'packages/plandesk-api/node_modules/@hono/node-server/dist/index.mjs',
   );
-  const { default: handler } = await load('packages/plandesk-server/dist/vercel.js');
-  serve({ fetch: handler, port: Number(port), hostname: '127.0.0.1' });
+  // The deployed function itself (Node strips its types), so the smoke covers
+  // the `@plandesk/server/vercel` export and the `{ fetch }` shape Vercel calls.
+  const { default: entry } = await load('api/index.ts');
+  serve({ fetch: entry.fetch, port: Number(port), hostname: '127.0.0.1' });
 } else {
   process.stderr.write(`unknown helper: ${cmd}\n`);
   process.exit(2);

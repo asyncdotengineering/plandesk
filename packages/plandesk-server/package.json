@@ -4,9 +4,14 @@
   "private": true,
   "type": "module",
   "description": "Hosted Plan Desk entries (Cloudflare Workers, Vercel) over one createHostedApp composition of the API and MCP apps. Not published.",
+  "exports": {
+    "./vercel": {
+      "types": "./dist/vercel.d.ts",
+      "default": "./dist/vercel.js"
+    }
+  },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json",
-    "deploy": "wrangler deploy -c wrangler.toml",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
     "test": "vitest run"
@@ -19,7 +24,6 @@
   },
   "devDependencies": {
     "typescript": "^5.9.3",
-    "wrangler": "^4.98.0",
     "vitest": "^3.2.4"
   }
 }

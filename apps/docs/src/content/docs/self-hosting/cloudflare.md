@@ -49,7 +49,7 @@ If you want social sign-in:
 
 ## 3. Configure secrets and public URL
 
-From `packages/plandesk-server` (or your deploy checkout that contains `wrangler.toml`). Inside this repository, add `-c wrangler.toml` to each `wrangler` command: otherwise wrangler picks up the repository root's `wrangler.jsonc`, which names a different Worker.
+From the repository root: `wrangler.jsonc` there is the Worker's only config. `.dev.vars.example` lists the secrets.
 
 ```bash
 # Database
@@ -60,7 +60,7 @@ wrangler secret put PLANDESK_DB_TOKEN
 wrangler secret put PLANDESK_BETTER_AUTH_SECRET   # long random string; keep stable across deploys
 
 # Object storage — no secrets needed: the native R2 binding (`FILES` in
-# wrangler.toml `[[r2_buckets]]`) is used automatically when present. Just
+# wrangler.jsonc `r2_buckets`) is used automatically when present. Just
 # create the bucket and keep the binding:
 #   wrangler r2 bucket create plandesk-files
 # S3-compatible credentials are only a fallback for non-R2 object stores:
@@ -80,36 +80,23 @@ wrangler secret put PLANDESK_GITHUB_CALLBACK_URL
 # value: https://<your-worker>/api/auth/callback/github
 ```
 
-Set the public origin (not a secret) in `wrangler.toml` `[vars]`:
+Set the public origin (not a secret) in `wrangler.jsonc` `vars`:
 
-```toml
-[vars]
-PLANDESK_BASE_URL = "https://plandesk-api.your-subdomain.workers.dev"
+```jsonc
+"vars": { "PLANDESK_BASE_URL": "https://plandesk.your-subdomain.workers.dev" }
 ```
 
 `PLANDESK_BASE_URL` is better-auth’s `baseURL` (OAuth redirect + cookies). If unset, the Worker falls back to the request URL origin — set it explicitly for stable OAuth.
 
 **Misconfiguration:** without `PLANDESK_BETTER_AUTH_SECRET`, API requests return **500** with a clear `misconfigured` message naming the secret — not a silent 401 storm.
 
-## 4. Build the web SPA into the package
+## 4. Build and deploy
 
-The Workers entry lives in **`packages/plandesk-server`** (`@plandesk/server`) — a deploy-only package whose `createHostedApp` composes the REST API (`@plandesk/api`) with the MCP server (`@plandesk/mcp`), so a hosted board serves agent tools at `/mcp` as well as the API. It reads the SPA from `packages/plandesk-api/web` (`[assets]` in its `wrangler.toml`). Build the web app and copy it there (the API package's `prepack` script does this when publishing; for a local deploy):
-
-```bash
-# 1. Build the SPA (outputs to apps/plandesk-web/dist)
-pnpm --filter plandesk-web build
-
-# 2. Copy it into the API package's web/ (wrangler [assets] serves it)
-pnpm --filter @plandesk/api run prepack
-```
-
-The `prepack` step copies `apps/plandesk-web/dist` → `packages/plandesk-api/web`. Confirm `packages/plandesk-api/web/index.html` exists before deploying.
-
-## 5. Deploy
+The Workers entry lives in **`packages/plandesk-server`** (`@plandesk/server`) — a deploy-only package whose `createHostedApp` composes the REST API (`@plandesk/api`) with the MCP server (`@plandesk/mcp`), so a hosted board serves agent tools at `/mcp` as well as the API. The root `wrangler.jsonc` points `main` at its `src/worker.ts` and serves the SPA from `apps/plandesk-web/dist`; `/api/*` and `/mcp/*` always reach the Worker first.
 
 ```bash
-cd packages/plandesk-server
-pnpm run deploy   # wrangler deploy -c wrangler.toml
+pnpm install
+pnpm run deploy   # builds the SPA + server packages, then wrangler deploy
 ```
 
 Open `PLANDESK_BASE_URL`. Sign in with GitHub (if configured) or mint a CLI token from a signed-in dashboard session and run:
@@ -123,14 +110,14 @@ Agents never log in themselves — humans paste tokens; `connect` writes a scope
 
 ## Checklist
 
-| Step                       | Done when                                                 |
-| -------------------------- | --------------------------------------------------------- |
-| Turso + `plandesk migrate` | Domain + better-auth tables exist                         |
-| GitHub callback            | `{baseURL}/api/auth/callback/github`                      |
-| Secrets                    | DB, `PLANDESK_BETTER_AUTH_SECRET`, S3/R2, optional GitHub |
-| Vars                       | `PLANDESK_BASE_URL` public origin                         |
-| SPA                        | `web/` next to `wrangler.toml`                            |
-| Deploy                     | `wrangler deploy` succeeds; `/api/v1/health` is 200       |
+| Step                       | Done when                                                  |
+| -------------------------- | ---------------------------------------------------------- |
+| Turso + `plandesk migrate` | Domain + better-auth tables exist                          |
+| GitHub callback            | `{baseURL}/api/auth/callback/github`                       |
+| Secrets                    | DB, `PLANDESK_BETTER_AUTH_SECRET`, S3/R2, optional GitHub  |
+| Vars                       | `PLANDESK_BASE_URL` public origin                          |
+| SPA                        | `apps/plandesk-web/dist` built (`pnpm run deploy` does it) |
+| Deploy                     | `wrangler deploy` succeeds; `/api/v1/health` is 200        |
 
 ## Related
 

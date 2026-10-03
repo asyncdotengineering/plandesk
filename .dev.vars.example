@@ -1,0 +1,13 @@
+# Secrets for the Cloudflare Worker (`wrangler secret put <NAME>`; the Deploy
+# to Cloudflare button asks for each). Copy to .dev.vars for `wrangler dev`.
+
+# libSQL/Turso database URL, e.g. libsql://plandesk-you.turso.io
+PLANDESK_DB_URL=
+# Database auth token: `turso db tokens create <db>`
+PLANDESK_DB_TOKEN=
+# Signs sessions; keep it stable across deploys: `openssl rand -hex 32`
+PLANDESK_BETTER_AUTH_SECRET=
+# Optional: a shared password in front of the whole board (HTTP Basic).
+# Commented out so the deploy form doesn't require it; set it later with
+# `wrangler secret put PLANDESK_AUTH_PASSWORD`.
+# PLANDESK_AUTH_PASSWORD=
