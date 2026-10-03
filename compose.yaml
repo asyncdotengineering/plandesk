@@ -1,0 +1,29 @@
+# Plan Desk, self-hosted: builds the image from ./Dockerfile and serves it on
+# http://127.0.0.1:7526 (PLANDESK_HOST_PORT to change the host port).
+#
+#   cp .env.example .env    # set PLANDESK_AUTH_PASSWORD and PLANDESK_BETTER_AUTH_SECRET
+#   docker compose up --build -d
+#
+# Database: a SQLite file on the plandesk-data volume by default. Set
+# PLANDESK_DB_URL (and PLANDESK_DB_TOKEN) in .env to use libSQL/Turso instead.
+# Either way the server migrates its database at boot.
+
+services:
+  plandesk:
+    build: .
+    image: plandesk:local
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PLANDESK_PORT: '7526'
+      PLANDESK_BASE_URL: ${PLANDESK_BASE_URL:-http://127.0.0.1:${PLANDESK_HOST_PORT:-7526}}
+      PLANDESK_AUTH_PASSWORD: ${PLANDESK_AUTH_PASSWORD:?set PLANDESK_AUTH_PASSWORD in .env}
+    ports:
+      - '127.0.0.1:${PLANDESK_HOST_PORT:-7526}:7526'
+    volumes:
+      - plandesk-data:/data
+    restart: unless-stopped
+
+volumes:
+  plandesk-data:

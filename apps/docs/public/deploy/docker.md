@@ -22,14 +22,14 @@ node --version
 
 ## Step 1 — Prefer the shipped compose file when present
 
-If `docker-compose.hosted.yml` exists in the checkout:
+If `compose.yaml` exists in the checkout:
 
 ```bash
-export PLANDESK_AUTH_PASSWORD='choose-a-strong-password'
-docker compose -f docker-compose.hosted.yml up --build -d
+cp .env.example .env   # set PLANDESK_AUTH_PASSWORD and PLANDESK_BETTER_AUTH_SECRET
+docker compose up --build -d
 ```
 
-**API URL** is `http://<host>:7526` (or the port in the compose file). Skip to Step 4.
+**API URL** is `http://127.0.0.1:7526` (`PLANDESK_HOST_PORT` in `.env` changes the host port). Skip to Step 4.
 
 ## Step 2 — Or build a minimal image from the published CLI
 

@@ -36,6 +36,7 @@ plandesk.server.json
 # local secrets — never commit (GitHub OAuth, DB tokens, wrangler dev vars)
 .env
 .env.*
+!.env.example
 .dev.vars
 .dev.vars.*
 

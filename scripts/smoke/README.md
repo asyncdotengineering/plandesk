@@ -31,7 +31,7 @@ A missing prerequisite fails that target with one line that names it.
 ## Env
 
 - `SMOKE_KEEP=1` keeps containers, processes and temp dirs.
-- `SMOKE_DOCKERFILE=<path>` builds another Dockerfile, for example `Dockerfile.server`.
+- `SMOKE_DOCKERFILE=<path>` builds another Dockerfile (default `Dockerfile`).
 - `SMOKE_SQLD=<path>` sets the sqld binary.
 
 Every port is a free random one, bound to `127.0.0.1`. The script never binds or probes 7526 on the host, and the CLI runs with `HOME`, `PLANDESK_DATA_DIR` and `PLANDESK_STATE_DIR` pointed at temp dirs.

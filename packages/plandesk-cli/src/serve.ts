@@ -12,7 +12,7 @@ import {
   prepareDatabase,
   readServerEnv,
 } from '@plandesk/api';
-import { createDb, type ReferenceCheckFs } from '@plandesk/db';
+import { createDb, SchemaDriftError, type ReferenceCheckFs } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
 import { resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
 import { resolveServerConfig } from './config.js';
@@ -36,6 +36,9 @@ export type ServeOptions = {
 };
 
 export type ExitFn = (code: number) => never;
+
+/** Pause between background prepare retries while the schema is behind. */
+const PREPARE_RETRY_MS = 2_000;
 
 const defaultExit: ExitFn = (code) => {
   process.exit(code);
@@ -165,17 +168,36 @@ export async function startServer(
     github: cfg.values.github,
   });
   if (auth === undefined) throw new Error('Better-auth migrator secret was not created');
-  await prepareDatabase(db, auth, { local });
+  // A peer holding the lease past prepareDatabase's wait leaves the schema
+  // behind. Like the hosted entries, answer 503 schema_behind and keep trying
+  // instead of exiting, so a container doesn't crash-loop behind a slow peer.
+  let behind: SchemaDriftError | undefined;
+  const prepare = async (): Promise<void> => {
+    try {
+      await prepareDatabase(db, auth, { local });
+      behind = undefined;
+      await backfillRepoFolderPathFromCwd(db);
+    } catch (error) {
+      if (!(error instanceof SchemaDriftError)) throw error;
+      if (behind === undefined) {
+        process.stderr.write(`${error.message} Answering 503 until it is current.\n`);
+      }
+      behind = error;
+      // A database newer than this binary (an image rollback) fails at once;
+      // pause so the retry loop never hammers it.
+      setTimeout(() => void prepare(), PREPARE_RETRY_MS).unref();
+    }
+  };
+  await prepare();
 
   const storage = createStorageAdapter({ db, storage: cfg.values.storage });
   const referenceCheckFs = referenceCheckFsFor(host);
   const services = createServices({
     db,
-    auth: local ? auth : undefined,
+    auth,
     storage,
     ...(referenceCheckFs !== undefined ? { referenceCheckFs } : {}),
   });
-  await backfillRepoFolderPathFromCwd(db);
   // Parent createApp resolves better-auth apiKey / session / loopback;
   // MCP requires that context (no independent auth path).
   const mcpApp = createMcpApp({ services, bindHost: host });
@@ -197,8 +219,14 @@ export async function startServer(
   // Node-only: serve the bundled web SPA from disk. Edge entries use platform assets.
   mountStatic(app);
 
+  const listener = getRequestListener(app.fetch);
   const server = createServer((req, res) => {
-    void getRequestListener(app.fetch)(req, res);
+    if (behind !== undefined) {
+      res.writeHead(503, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'schema_behind', schema: behind.summary }));
+      return;
+    }
+    void listener(req, res);
   });
 
   const logListening = (): void => {

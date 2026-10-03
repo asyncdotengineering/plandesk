@@ -36,7 +36,7 @@ plandesk init && plandesk serve          # UI at http://127.0.0.1:7526
 
 ```bash
 export PLANDESK_AUTH_PASSWORD='choose-a-strong-password'
-docker compose -f docker-compose.hosted.yml up --build
+docker compose up --build
 ```
 
 Open [http://127.0.0.1:7526](http://127.0.0.1:7526). For a durable database, point `PLANDESK_DB_URL` at your own libSQL/Turso database — see [Docker (self-host)](./docker/) and [Server configuration](./server-config/).
@@ -90,6 +90,6 @@ The hosted instance is one _option_ for running the same open-source server — 
 ## Next
 
 - [Server configuration](./server-config/) — the `plandesk.server.json` file, env overrides, and `plandesk doctor`.
-- [Docker (self-host)](./docker/) — the `Dockerfile.server` / `docker-compose.hosted.yml` quickstart.
+- [Docker (self-host)](./docker/) — the `Dockerfile` / `compose.yaml` quickstart.
 - [Cloudflare Workers](./cloudflare/) — edge deploy (Turso + better-auth + R2); operator runs `plandesk migrate`.
 - [Collaboration & sync](/reference/collaboration/) — the optional hosted sync tier architecture.

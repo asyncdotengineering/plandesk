@@ -10,3 +10,5 @@ sprints
 **/.turbo
 .env
 .env.*
+.agents/factory/runs/*
+!.agents/factory/runs/.gitignore

@@ -15,10 +15,10 @@ Two supported paths — pick one:
 
 ```bash
 export PLANDESK_AUTH_PASSWORD='choose-a-strong-password'
-docker compose -f docker-compose.hosted.yml up --build
+docker compose up --build
 ```
 
-By default this persists to a local SQLite file on a Docker volume. For a durable, shared database, point it at your own libSQL/Turso database instead and apply the schema once — see [Docker (self-host)](/self-hosting/docker/) for the full flow.
+By default this persists to a local SQLite file on a Docker volume. For a durable, shared database, point it at your own libSQL/Turso database instead (the server migrates it at boot) — see [Docker (self-host)](/self-hosting/docker/) for the full flow.
 
 **Cloudflare Workers + Turso:**
 

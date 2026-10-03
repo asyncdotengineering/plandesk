@@ -1,49 +1,46 @@
 ---
 title: Docker (self-host)
-description: Run the Plan Desk server as a container on your own host — the Dockerfile.server image and docker-compose.hosted.yml quickstart.
+description: Run the Plan Desk server as a container on your own host — the Dockerfile image and compose.yaml quickstart.
 ---
 
-The **server image** (`Dockerfile.server`) runs the full Plan Desk server on a host you control — the [self-host topology](./topologies/). You bring the database; there is no dependency on asyncdot infrastructure and no GitHub app required.
+The **server image** (`Dockerfile`, built locally; nothing is published to a registry) runs the full Plan Desk server on a host you control — the [self-host topology](./topologies/). You bring the database; there is no dependency on asyncdot infrastructure and no GitHub app required.
 
 ## Quickstart (compose)
 
 ```bash
-export PLANDESK_AUTH_PASSWORD='choose-a-strong-password'
-docker compose -f docker-compose.hosted.yml up --build
+cp .env.example .env   # set PLANDESK_AUTH_PASSWORD and PLANDESK_BETTER_AUTH_SECRET (openssl rand -hex 32)
+docker compose up --build -d
 ```
 
-Open [http://127.0.0.1:7526](http://127.0.0.1:7526).
+Open [http://127.0.0.1:7526](http://127.0.0.1:7526). Set `PLANDESK_HOST_PORT` in `.env` to publish on another host port.
 
-By default this uses a local SQLite file on a Docker volume (migrated automatically at boot). For a **durable** database, point it at your own libSQL/Turso database and apply the schema once:
+By default this uses a local SQLite file on the `plandesk-data` volume. For a **durable** database, set your own libSQL/Turso database in `.env`:
 
 ```bash
-export PLANDESK_DB_URL='libsql://your-db.turso.io'
-export PLANDESK_DB_TOKEN='<libSQL auth token>'
-
-# Apply the schema once (you own this database — REQ-8)
-docker compose -f docker-compose.hosted.yml run --rm plandesk \
-  migrate --db "$PLANDESK_DB_URL" --db-token "$PLANDESK_DB_TOKEN"
-
-docker compose -f docker-compose.hosted.yml up --build
+PLANDESK_DB_URL=libsql://your-db.turso.io
+PLANDESK_DB_TOKEN=<libSQL auth token>
 ```
+
+Either way the server migrates its database at boot, under a lease so only one instance migrates at a time. An instance that can't take the lease within 30 s answers `503 schema_behind` and keeps retrying until the schema is current. `plandesk migrate` remains for operators who prefer a CI step.
 
 ## Build the image directly
 
 ```bash
-docker build -f Dockerfile.server -t plandesk-server .
-docker run -p 7526:7526 \
-  -e PLANDESK_DB_URL='libsql://your-db.turso.io' \
-  -e PLANDESK_DB_TOKEN='<token>' \
+docker build -t plandesk:local .
+docker run -p 127.0.0.1:7526:7526 -v plandesk-data:/data \
   -e PLANDESK_AUTH_PASSWORD='<password>' \
-  plandesk-server
+  -e PLANDESK_BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
+  plandesk:local
 ```
+
+The image runs as a non-root user, keeps its data in `/data`, listens on 7526 and reports health to Docker from `/api/v1/health`. Its entrypoint is the `plandesk` CLI, so `docker run --rm plandesk:local doctor` runs any other command.
 
 ## Configuration
 
 Everything the server needs can be set by **environment** or by a [`plandesk.server.json` file](./server-config/) mounted at `/data/plandesk.server.json` (env always wins). Inspect the resolved config and its source with `plandesk doctor` — secret values are redacted:
 
 ```bash
-docker compose -f docker-compose.hosted.yml run --rm plandesk doctor
+docker compose run --rm plandesk doctor
 ```
 
 ## Securing the server
@@ -69,8 +66,8 @@ Two safe shapes:
 | **Local board**  | `127.0.0.1` | this machine only, no proxy | none needed — loopback is the boundary    |
 | **Served board** | `0.0.0.0`   | proxy or network            | better-auth, and `PLANDESK_AUTH_PASSWORD` |
 
-The compose file already does the right thing: `PLANDESK_HOST` defaults to `0.0.0.0`, and the
-container's network isolation — not a loopback bind — is what keeps the port private.
+The image already does the right thing: it binds `0.0.0.0`, and compose publishes the port on
+the host's `127.0.0.1` only. The container's network isolation, not a loopback bind, keeps it private.
 
 ### Other controls
 
@@ -85,13 +82,16 @@ container's network isolation — not a loopback bind — is what keeps the port
 
 ## Environment variables
 
+Every variable the server reads is listed, with a comment, in [`.env.example`](https://github.com/asyncdotengineering/plandesk/blob/main/.env.example).
+
 | Variable                                                  | Default              | Purpose                                                   |
 | --------------------------------------------------------- | -------------------- | --------------------------------------------------------- |
 | `PLANDESK_DB_URL`                                         | (unset → local file) | libSQL/Turso URL for the server's database                |
 | `PLANDESK_DB_TOKEN`                                       | (unset)              | Auth token for a remote libSQL DB (**secret**)            |
-| `PLANDESK_HOST`                                           | `0.0.0.0`            | Bind address                                              |
-| `PLANDESK_PORT`                                           | `7526`               | Bind port                                                 |
 | `PLANDESK_AUTH_PASSWORD`                                  | (unset)              | HTTP basic-auth password (**secret**)                     |
+| `PLANDESK_BETTER_AUTH_SECRET`                             | (generated on /data) | Signs sessions and API keys; required with a remote DB    |
+| `PLANDESK_BASE_URL`                                       | `http://127.0.0.1:…` | Public URL (sign-in callbacks, share links)               |
+| `PLANDESK_HOST_PORT`                                      | `7526`               | Host port compose publishes on (compose only)             |
 | `PLANDESK_STORAGE`                                        | `db`                 | `db` (blobs in DB) or `s3`                                |
 | `PLANDESK_S3_*`                                           | (unset)              | S3 credentials when `PLANDESK_STORAGE=s3`                 |
 | `PLANDESK_GITHUB_CLIENT_ID` / `_SECRET` / `_CALLBACK_URL` | (unset)              | GitHub OAuth (all-or-nothing; omit for no GitHub sign-in) |
