@@ -304,6 +304,14 @@ the reason the previous slice is committed before the next one starts.
 - **Check for debris.** `git checkout` does not remove untracked files. Run
   `git status --short --untracked=all` — invented files and codemod scripts
   survive a revert and break the next build.
+- **A failing gate is never "load" until one failure is reproduced alone.**
+  Re-run a single failing test in isolation before attributing a red run to a
+  busy machine. (Observed: 37 browser-contract failures were waved off as load
+  on a machine at load average 60; the web bundle had in fact shipped server
+  code and rendered every page blank. Unit tests run on Node, where the missing
+  API exists, so only the browser gate could see it — and it was ignored.)
+- **Gate the push on the gate.** Chain `validate && push`, never
+  `validate ; push`: a `;` pushes a red tree.
 - Only after claims verify does the engine read the diff and apply the lane
   gate from [lanes.md](lanes.md).
 
