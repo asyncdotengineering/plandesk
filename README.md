@@ -324,6 +324,10 @@ moderated issue intake, and status that flows back to the guest's view).
 
 Shipped changes are in [`CHANGELOG.md`](CHANGELOG.md).
 
+## Contributing
+
+Copying code from another project? Only from MIT/Apache-2.0/BSD sources, and add it to THIRD_PARTY_NOTICES.md in the same commit.
+
 ## License
 
 [MIT](LICENSE) © asyncdotengineering.
