@@ -44,7 +44,7 @@ describe('resolveServerConfig — defaults', () => {
     const resolved = resolveServerConfig({ dataDir, env: {} });
     expect(resolved.values.host).toBe(DEFAULT_BIND_HOST);
     expect(resolved.values.port).toBe(DEFAULT_PORT);
-    expect(resolved.values.storage).toEqual({ kind: 'local' });
+    expect(resolved.values.storage).toEqual({ kind: 'db' });
     expect(resolved.values.dbUrl).toBeUndefined();
     expect(resolved.values.github).toBeUndefined();
     expect(resolved.configFile).toBeUndefined();
@@ -119,24 +119,37 @@ describe('resolveServerConfig — precedence env > file > default (REQ-2)', () =
     expect(resolved.sources.dbToken).toBe('env');
   });
 
-  it('accepts the canonical better-auth secret env name and prefers it over the legacy alias', () => {
+  it('env better-auth secret overrides the file sessionSecret', () => {
+    const dataDir = makeDataDir();
+    writeConfig(dataDir, JSON.stringify({ sessionSecret: 'file-secret' }));
     const resolved = resolveServerConfig({
-      dataDir: makeDataDir(),
-      env: {
-        PLANDESK_BETTER_AUTH_SECRET: 'canonical-secret',
-        PLANDESK_SESSION_SECRET: 'legacy-secret',
-      },
+      dataDir,
+      env: { PLANDESK_BETTER_AUTH_SECRET: 'canonical-secret' },
     });
-    expect(resolved.values.sessionSecret).toBe('canonical-secret');
-    expect(resolved.sources.sessionSecret).toBe('env');
+    expect(resolved.values.authSecret).toBe('canonical-secret');
+    expect(resolved.sources.authSecret).toBe('env');
+  });
+
+  it('the removed PLANDESK_SESSION_SECRET alias fails loud, naming the new variable', () => {
+    expect(() =>
+      resolveServerConfig({ dataDir: makeDataDir(), env: { PLANDESK_SESSION_SECRET: 'legacy' } }),
+    ).toThrow(/PLANDESK_BETTER_AUTH_SECRET/);
   });
 });
 
 describe('resolveServerConfig — storage', () => {
-  it('local is the default', () => {
+  it('db is the default', () => {
     const resolved = resolveServerConfig({ env: {}, dataDir: makeDataDir() });
-    expect(resolved.values.storage).toEqual({ kind: 'local' });
+    expect(resolved.values.storage).toEqual({ kind: 'db' });
     expect(resolved.sources.storage).toBe('default');
+  });
+
+  it.each(['db', 'local'])('file storage.kind "%s" means bytes in the database', (kind) => {
+    const dataDir = makeDataDir();
+    writeConfig(dataDir, JSON.stringify({ storage: { kind } }));
+    const resolved = resolveServerConfig({ dataDir, env: {} });
+    expect(resolved.values.storage).toEqual({ kind: 'db' });
+    expect(resolved.sources.storage).toBe('file');
   });
 
   it('s3 from env credentials', () => {
@@ -179,7 +192,7 @@ describe('resolveServerConfig — storage', () => {
     expect(resolved.sources.storage).toBe('file');
   });
 
-  it('env s3 credential overrides the file value for that key', () => {
+  it('env storage replaces the file storage as a whole', () => {
     const dataDir = makeDataDir();
     writeConfig(
       dataDir,
@@ -193,12 +206,9 @@ describe('resolveServerConfig — storage', () => {
         },
       }),
     );
-    const resolved = resolveServerConfig({
-      dataDir,
-      env: { PLANDESK_S3_BUCKET: 'env-bucket' },
-    });
-    expect(resolved.values.storage.kind).toBe('s3');
-    expect((resolved.values.storage as { bucket: string }).bucket).toBe('env-bucket');
+    const resolved = resolveServerConfig({ dataDir, env: { PLANDESK_STORAGE: 'db' } });
+    expect(resolved.values.storage).toEqual({ kind: 'db' });
+    expect(resolved.sources.storage).toBe('env');
   });
 
   it('s3 with incomplete credentials throws', () => {
@@ -207,7 +217,7 @@ describe('resolveServerConfig — storage', () => {
         env: { PLANDESK_STORAGE: 's3', PLANDESK_S3_BUCKET: 'b' },
         dataDir: makeDataDir(),
       }),
-    ).toThrow(/storage=s3 requires/);
+    ).toThrow(/PLANDESK_S3_REGION/);
   });
 });
 
@@ -269,10 +279,10 @@ describe('resolveServerConfig — malformed file (clear error naming file + key)
 });
 
 describe('resolveServerConfig — secret keys are classified for redaction (REQ-4)', () => {
-  it('classifies dbToken, authPassword, sessionSecret as secret', () => {
+  it('classifies dbToken, authPassword, authSecret as secret', () => {
     expect(SECRET_CONFIG_KEYS.has('dbToken')).toBe(true);
     expect(SECRET_CONFIG_KEYS.has('authPassword')).toBe(true);
-    expect(SECRET_CONFIG_KEYS.has('sessionSecret')).toBe(true);
+    expect(SECRET_CONFIG_KEYS.has('authSecret')).toBe(true);
     expect(SECRET_CONFIG_KEYS.has('host')).toBe(false);
   });
 });

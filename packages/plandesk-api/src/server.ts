@@ -8,7 +8,7 @@ import {
 import { allowedMethodsForPath, invalidRequest } from './routes/errors.js';
 import { createHealthRouter } from './routes/health.js';
 import { createAuthRouter } from './routes/auth.js';
-import type { GithubConfig } from './github.js';
+import type { GithubConfig } from './read-server-env.js';
 import { createBetterAuth } from './better-auth.js';
 import type { BetterAuthInstance } from './better-auth.js';
 import { createProjectsRouter } from './routes/projects.js';

@@ -115,14 +115,6 @@ export function resolveBindHost(flagHost?: string): string {
   return DEFAULT_BIND_HOST;
 }
 
-export function resolveAuthPassword(): string | undefined {
-  const password = process.env['PLANDESK_AUTH_PASSWORD'];
-  if (password === undefined || password.length === 0) {
-    return undefined;
-  }
-  return password;
-}
-
 export type ConnectAgent = 'claude' | 'codex' | 'both' | 'detect';
 
 /** File extensions the previewer/annotator can open. */

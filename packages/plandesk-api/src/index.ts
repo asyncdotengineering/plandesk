@@ -36,7 +36,13 @@ export {
   INVITATION_ROLES,
   type InvitationRole,
 } from './invitations.js';
-export { githubConfigFromEnv, type GithubConfig, type GithubEnv } from './github.js';
+export {
+  readServerEnv,
+  type GithubConfig,
+  type S3Config,
+  type ServerEnv,
+  type StorageConfig,
+} from './read-server-env.js';
 export { GUEST_SESSION_COOKIE, readGuestSessionCookie } from './session.js';
 export { createAuthRouter, type AuthRouterDeps } from './routes/auth.js';
 export {
@@ -91,13 +97,13 @@ export { healthRouter } from './routes/health.js';
 export { mountStatic } from './static.js';
 // Hosted (non-loopback) entry helpers — used by the deployment composition root
 // (@plandesk/worker), which wires this app together with the MCP app.
+export { hostedMisconfigResponse, resolveHostedBetterAuth } from './hosted-auth.js';
 export {
-  hostedMisconfigResponse,
-  resolveHostedBetterAuth,
-  type HostedAuthEnv,
-} from './hosted-auth.js';
-export { createS3Adapter, type S3AdapterConfig } from './storage/s3.js';
-export { createR2Adapter, type R2BucketLike } from './storage/r2.js';
+  createStorageAdapter,
+  createS3Adapter,
+  createR2Adapter,
+  type R2BucketLike,
+} from './storage/index.js';
 export type { StorageAdapter } from './storage/adapter.js';
 export { createServices, type Services, type ServicesDeps } from './services/index.js';
 export {

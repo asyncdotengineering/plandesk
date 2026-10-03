@@ -3,7 +3,7 @@ import { listProjects, type Db } from '@plandesk/db';
 import { createOrgOwnerKey } from '../agent-keys.js';
 import { getAuthContext } from '../auth-context.js';
 import type { BetterAuthInstance } from '../better-auth.js';
-import type { GithubConfig } from '../github.js';
+import type { GithubConfig } from '../read-server-env.js';
 import { getActiveTeamForSession, listTeamsForOrg } from '../identity.js';
 import { listOrganizationsForUser, resolveOrganizationName } from '../organizations.js';
 import { requirePermission } from '../permissions.js';

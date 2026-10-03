@@ -92,7 +92,7 @@ container's network isolation — not a loopback bind — is what keeps the port
 | `PLANDESK_HOST`                                           | `0.0.0.0`            | Bind address                                              |
 | `PLANDESK_PORT`                                           | `7526`               | Bind port                                                 |
 | `PLANDESK_AUTH_PASSWORD`                                  | (unset)              | HTTP basic-auth password (**secret**)                     |
-| `PLANDESK_STORAGE`                                        | `local`              | `local` (blobs in DB) or `s3`                             |
+| `PLANDESK_STORAGE`                                        | `db`                 | `db` (blobs in DB) or `s3`                                |
 | `PLANDESK_S3_*`                                           | (unset)              | S3 credentials when `PLANDESK_STORAGE=s3`                 |
 | `PLANDESK_GITHUB_CLIENT_ID` / `_SECRET` / `_CALLBACK_URL` | (unset)              | GitHub OAuth (all-or-nothing; omit for no GitHub sign-in) |
 

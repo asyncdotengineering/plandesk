@@ -10,12 +10,19 @@
  *   - The file is never required: missing file is not an error (REQ-3).
  *
  * This module is consumed by the Node entry only (`serve`, `doctor`, `migrate`).
- * The Workers/Vercel entries read their runtime env bindings directly and never
- * import this — that keeps the cloud path file-free.
+ * Environment parsing is `readServerEnv` from `@plandesk/api` — the same reader
+ * the Workers/Vercel entries use — so this file only adds the file overlay and
+ * the Node-only host/port.
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import {
+  readServerEnv,
+  type GithubConfig,
+  type ServerEnv,
+  type StorageConfig,
+} from '@plandesk/api';
 import { DEFAULT_BIND_HOST, DEFAULT_PORT, resolveDataDir } from './args.js';
 
 export const SERVER_CONFIG_FILENAME = 'plandesk.server.json';
@@ -52,54 +59,25 @@ export function removeCliConfig(home = homedir()): void {
 
 export type ConfigSource = 'default' | 'file' | 'env';
 
-export type GithubServerConfig = {
-  clientId: string;
-  clientSecret: string;
-  callbackUrl: string;
-  dashboardUrl?: string;
-};
-
-export type S3ServerConfig = {
-  bucket: string;
-  region: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  endpoint?: string;
-};
-
-export type StorageServerConfig = { kind: 'local' } | ({ kind: 's3' } & S3ServerConfig);
-
-export type ServerConfig = {
-  /** Remote libSQL/Turso URL. Unset → local file SQLite (the local topology). */
-  dbUrl?: string;
-  /** Auth token for a remote libSQL DB. */
-  dbToken?: string;
+export type ServerConfig = ServerEnv & {
   host: string;
   port: number;
-  /** Public base URL the server is reachable at (callbacks/links). */
-  baseUrl?: string;
-  storage: StorageServerConfig;
-  /** GitHub OAuth (browser sign-in). All-or-nothing: all three or none. */
-  github?: GithubServerConfig;
-  /** HTTP basic-auth password for the UI/REST API. */
-  authPassword?: string;
-  /**
-   * Better Auth secret for sessions and API keys. PLANDESK_BETTER_AUTH_SECRET
-   * is the canonical env name; PLANDESK_SESSION_SECRET remains supported.
-   */
-  sessionSecret?: string;
+  /** Always resolved — `{ kind: 'db' }` (bytes in the database) by default. */
+  storage: StorageConfig;
 };
 
-export type ConfigKey =
-  | 'dbUrl'
-  | 'dbToken'
-  | 'host'
-  | 'port'
-  | 'baseUrl'
-  | 'storage'
-  | 'github'
-  | 'authPassword'
-  | 'sessionSecret';
+/** Every key `readServerEnv` can set, overlaid onto the file in this order. */
+const ENV_KEYS = [
+  'dbUrl',
+  'dbToken',
+  'baseUrl',
+  'authSecret',
+  'authPassword',
+  'storage',
+  'github',
+] as const satisfies readonly (keyof ServerEnv)[];
+
+export type ConfigKey = (typeof ENV_KEYS)[number] | 'host' | 'port';
 
 export type ResolvedServerConfig = {
   values: ServerConfig;
@@ -142,10 +120,10 @@ export function formatConfigForDoctor(resolved: ResolvedServerConfig): string[] 
   if (v.storage.kind === 's3') {
     line('storage', `s3 [bucket: ${v.storage.bucket}, region: ${v.storage.region}]`, s.storage);
   } else {
-    line('storage', 'local', s.storage);
+    line('storage', 'db', s.storage);
   }
   line('auth-password', v.authPassword !== undefined ? '<redacted>' : '<unset>', s.authPassword);
-  line('session-secret', v.sessionSecret !== undefined ? '<redacted>' : '<unset>', s.sessionSecret);
+  line('auth-secret', v.authSecret !== undefined ? '<redacted>' : '<unset>', s.authSecret);
   line('github', v.github !== undefined ? '<redacted>' : '<unset>', s.github);
   lines.push(`  file: ${configFile ?? '<none>'}`);
   return lines;
@@ -164,15 +142,11 @@ export type ResolveServerConfigOptions = {
 export const SECRET_CONFIG_KEYS: ReadonlySet<ConfigKey> = new Set([
   'dbToken',
   'authPassword',
-  'sessionSecret',
+  'authSecret',
 ]);
 
 function present(value: string | undefined): value is string {
   return value !== undefined && value.trim() !== '';
-}
-
-function trim(value: string | undefined): string | undefined {
-  return value !== undefined && value.trim() !== '' ? value.trim() : undefined;
 }
 
 /** Shape of the optional config file. Every field is optional. */
@@ -252,138 +226,63 @@ function readConfigFile(path: string): ServerConfigFile {
   return obj;
 }
 
-function parseS3FromFile(raw: unknown, file: string): S3ServerConfig {
+function parseStorageFromFile(raw: unknown, file: string): StorageConfig {
   const obj = assertObject(raw, file, 'storage');
-  const bucket = assertString(obj['bucket'], file, 'storage.bucket');
-  const region = assertString(obj['region'], file, 'storage.region');
-  const accessKeyId = assertString(obj['accessKeyId'], file, 'storage.accessKeyId');
-  const secretAccessKey = assertString(obj['secretAccessKey'], file, 'storage.secretAccessKey');
+  const kind = obj['kind'];
+  // "local" is the pre-4.x name for bytes-in-the-database; deployed files still carry it.
+  if (kind === 'db' || kind === 'local') {
+    return { kind: 'db' };
+  }
+  if (kind !== 's3') {
+    throw new ConfigFileError(`${file}: "storage.kind" must be "db" or "s3"`);
+  }
   const endpoint = obj['endpoint'];
   return {
-    bucket,
-    region,
-    accessKeyId,
-    secretAccessKey,
-    endpoint: typeof endpoint === 'string' ? endpoint : undefined,
+    kind: 's3',
+    bucket: assertString(obj['bucket'], file, 'storage.bucket'),
+    region: assertString(obj['region'], file, 'storage.region'),
+    accessKeyId: assertString(obj['accessKeyId'], file, 'storage.accessKeyId'),
+    secretAccessKey: assertString(obj['secretAccessKey'], file, 'storage.secretAccessKey'),
+    ...(endpoint !== undefined
+      ? { endpoint: assertString(endpoint, file, 'storage.endpoint') }
+      : {}),
   };
 }
 
-function parseGithubFromFile(raw: unknown, file: string): Partial<GithubServerConfig> {
+function parseGithubFromFile(raw: unknown, file: string): GithubConfig {
   const obj = assertObject(raw, file, 'github');
-  const pick = (key: string): string | undefined => {
-    const value = obj[key];
-    if (value === undefined) {
-      return undefined;
-    }
-    if (typeof value !== 'string') {
-      throw new ConfigFileError(`${file}: "github.${key}" must be a string`);
-    }
-    return value;
-  };
-  return {
-    clientId: pick('clientId'),
-    clientSecret: pick('clientSecret'),
-    callbackUrl: pick('callbackUrl'),
-    dashboardUrl: pick('dashboardUrl'),
-  };
-}
-
-type FileStorage = { kind: 'local' } | ({ kind: 's3' } & S3ServerConfig);
-
-function parseStorageFromFile(raw: unknown, file: string): FileStorage {
-  const obj = assertObject(raw, file, 'storage');
-  const kindRaw = obj['kind'];
-  if (kindRaw !== 'local' && kindRaw !== 's3') {
-    throw new ConfigFileError(`${file}: "storage.kind" must be "local" or "s3"`);
-  }
-  if (kindRaw === 'local') {
-    return { kind: 'local' };
-  }
-  return { kind: 's3', ...parseS3FromFile(obj, file) };
-}
-
-function resolveStorage(
-  file: ServerConfigFile | undefined,
-  env: NodeJS.ProcessEnv,
-  filePath: string | undefined,
-): { storage: StorageServerConfig; source: ConfigSource } {
-  const fileStorage =
-    file?.storage !== undefined
-      ? parseStorageFromFile(file.storage, filePath ?? '<file>')
-      : undefined;
-
-  const envKind = env.PLANDESK_STORAGE;
-  if (envKind !== undefined && envKind !== 's3' && envKind !== 'local') {
-    throw new Error(`Unknown PLANDESK_STORAGE adapter: "${envKind}". Expected "local" or "s3".`);
-  }
-
-  // The selector: environment wins, then the file, then local default.
-  const wantS3 = envKind === 's3' || fileStorage?.kind === 's3';
-  if (!wantS3) {
-    const source: ConfigSource =
-      envKind === 'local' ? 'env' : fileStorage !== undefined ? 'file' : 'default';
-    return { storage: { kind: 'local' }, source };
-  }
-
-  // S3: credentials merge env > file; all four required.
-  const fromFile = fileStorage?.kind === 's3' ? fileStorage : undefined;
-  const bucket = trim(env.PLANDESK_S3_BUCKET) ?? fromFile?.bucket;
-  const region = trim(env.PLANDESK_S3_REGION) ?? fromFile?.region;
-  const accessKeyId = trim(env.PLANDESK_S3_ACCESS_KEY_ID) ?? fromFile?.accessKeyId;
-  const secretAccessKey = trim(env.PLANDESK_S3_SECRET_ACCESS_KEY) ?? fromFile?.secretAccessKey;
-  const endpoint = trim(env.PLANDESK_S3_ENDPOINT) ?? fromFile?.endpoint;
-
-  if (
-    bucket === undefined ||
-    region === undefined ||
-    accessKeyId === undefined ||
-    secretAccessKey === undefined
-  ) {
-    throw new Error(
-      'storage=s3 requires PLANDESK_S3_BUCKET, PLANDESK_S3_REGION, PLANDESK_S3_ACCESS_KEY_ID, and ' +
-        'PLANDESK_S3_SECRET_ACCESS_KEY (env, or storage.* in plandesk.server.json).',
+  const pick = (key: string): string | undefined =>
+    obj[key] === undefined ? undefined : assertString(obj[key], file, `github.${key}`);
+  const clientId = pick('clientId');
+  const clientSecret = pick('clientSecret');
+  const callbackUrl = pick('callbackUrl');
+  const dashboardUrl = pick('dashboardUrl');
+  if (clientId === undefined || clientSecret === undefined || callbackUrl === undefined) {
+    throw new ConfigFileError(
+      `${file}: GitHub sign-in needs github.clientId, clientSecret and callbackUrl together. ` +
+        'Remove the github block to run without GitHub sign-in.',
     );
   }
-  const source: ConfigSource =
-    envKind === 's3' || env.PLANDESK_S3_BUCKET !== undefined ? 'env' : 'file';
   return {
-    storage: { kind: 's3', bucket, region, accessKeyId, secretAccessKey, endpoint },
-    source,
+    clientId,
+    clientSecret,
+    callbackUrl,
+    ...(dashboardUrl !== undefined ? { dashboardUrl } : {}),
   };
 }
 
-function resolveGithub(
-  file: ServerConfigFile | undefined,
-  env: NodeJS.ProcessEnv,
-  filePath: string | undefined,
-): { github: GithubServerConfig | undefined; source: ConfigSource } {
-  const fileGithub =
-    file?.github !== undefined ? parseGithubFromFile(file.github, filePath ?? '<file>') : undefined;
-  const clientId = trim(env.PLANDESK_GITHUB_CLIENT_ID) ?? fileGithub?.clientId;
-  const clientSecret = trim(env.PLANDESK_GITHUB_CLIENT_SECRET) ?? fileGithub?.clientSecret;
-  const callbackUrl = trim(env.PLANDESK_GITHUB_CALLBACK_URL) ?? fileGithub?.callbackUrl;
-  const dashboardUrl = trim(env.PLANDESK_DASHBOARD_URL) ?? fileGithub?.dashboardUrl;
-
-  const set = [clientId, clientSecret, callbackUrl].filter((v) => v !== undefined);
-  if (set.length === 0) {
-    return { github: undefined, source: 'default' };
-  }
-  if (set.length !== 3) {
-    throw new Error(
-      'GitHub sign-in needs clientId, clientSecret and callbackUrl together (PLANDESK_GITHUB_CLIENT_ID, ' +
-        'PLANDESK_GITHUB_CLIENT_SECRET, PLANDESK_GITHUB_CALLBACK_URL, or github.* in plandesk.server.json). ' +
-        'Unset all three to run without GitHub sign-in.',
-    );
-  }
-  const source: ConfigSource = env.PLANDESK_GITHUB_CLIENT_ID !== undefined ? 'env' : 'file';
+/** The file's values under the same keys `readServerEnv` returns. */
+function fileToServerEnv(file: ServerConfigFile, path: string): ServerEnv {
+  const str = (key: keyof ServerConfigFile): string | undefined =>
+    file[key] === undefined ? undefined : assertString(file[key], path, key);
   return {
-    github: {
-      clientId: clientId as string,
-      clientSecret: clientSecret as string,
-      callbackUrl: callbackUrl as string,
-      dashboardUrl,
-    },
-    source,
+    dbUrl: str('dbUrl'),
+    dbToken: str('dbToken'),
+    baseUrl: str('baseUrl'),
+    authSecret: str('sessionSecret'),
+    authPassword: str('authPassword'),
+    storage: file.storage === undefined ? undefined : parseStorageFromFile(file.storage, path),
+    github: file.github === undefined ? undefined : parseGithubFromFile(file.github, path),
   };
 }
 
@@ -448,69 +347,23 @@ export function resolveServerConfig(opts: ResolveServerConfigOptions = {}): Reso
     sources.port = 'default';
   }
 
-  // --- dbUrl ---
-  let dbUrl: string | undefined;
-  if (present(env.PLANDESK_DB_URL)) {
-    dbUrl = env.PLANDESK_DB_URL.trim();
-    sources.dbUrl = 'env';
-  } else if (file?.dbUrl !== undefined) {
-    dbUrl = assertString(file.dbUrl, configFilePath ?? '<file>', 'dbUrl');
-    sources.dbUrl = 'file';
+  // Every other key: environment (one reader, shared with Workers/Vercel) over file.
+  const fromEnv = readServerEnv(env);
+  const fromFile = file !== undefined ? fileToServerEnv(file, configFilePath ?? '<file>') : {};
+  const overlay: ServerEnv = {};
+  for (const key of ENV_KEYS) {
+    if (fromEnv[key] !== undefined) {
+      Object.assign(overlay, { [key]: fromEnv[key] });
+      sources[key] = 'env';
+    } else if (fromFile[key] !== undefined) {
+      Object.assign(overlay, { [key]: fromFile[key] });
+      sources[key] = 'file';
+    }
   }
-
-  // --- dbToken ---
-  let dbToken: string | undefined;
-  if (present(env.PLANDESK_DB_TOKEN)) {
-    dbToken = env.PLANDESK_DB_TOKEN.trim();
-    sources.dbToken = 'env';
-  } else if (file?.dbToken !== undefined) {
-    dbToken = assertString(file.dbToken, configFilePath ?? '<file>', 'dbToken');
-    sources.dbToken = 'file';
-  }
-
-  // --- baseUrl ---
-  let baseUrl: string | undefined;
-  if (present(env.PLANDESK_BASE_URL)) {
-    baseUrl = env.PLANDESK_BASE_URL.trim();
-    sources.baseUrl = 'env';
-  } else if (file?.baseUrl !== undefined) {
-    baseUrl = assertString(file.baseUrl, configFilePath ?? '<file>', 'baseUrl');
-    sources.baseUrl = 'file';
-  }
-
-  // --- authPassword ---
-  let authPassword: string | undefined;
-  if (present(env.PLANDESK_AUTH_PASSWORD)) {
-    authPassword = env.PLANDESK_AUTH_PASSWORD.trim();
-    sources.authPassword = 'env';
-  } else if (file?.authPassword !== undefined) {
-    authPassword = assertString(file.authPassword, configFilePath ?? '<file>', 'authPassword');
-    sources.authPassword = 'file';
-  }
-
-  // --- sessionSecret ---
-  let sessionSecret: string | undefined;
-  if (present(env.PLANDESK_BETTER_AUTH_SECRET)) {
-    sessionSecret = env.PLANDESK_BETTER_AUTH_SECRET.trim();
-    sources.sessionSecret = 'env';
-  } else if (present(env.PLANDESK_SESSION_SECRET)) {
-    sessionSecret = env.PLANDESK_SESSION_SECRET.trim();
-    sources.sessionSecret = 'env';
-  } else if (file?.sessionSecret !== undefined) {
-    sessionSecret = assertString(file.sessionSecret, configFilePath ?? '<file>', 'sessionSecret');
-    sources.sessionSecret = 'file';
-  }
-
-  const { storage, source: storageSource } = resolveStorage(file, env, configFilePath);
-  sources.storage = storageSource;
-
-  const { github, source: githubSource } = resolveGithub(file, env, configFilePath);
-  if (github !== undefined) {
-    sources.github = githubSource;
-  }
+  sources.storage ??= 'default';
 
   return {
-    values: { dbUrl, dbToken, host, port, baseUrl, storage, github, authPassword, sessionSecret },
+    values: { ...overlay, host, port, storage: overlay.storage ?? { kind: 'db' } },
     sources,
     configFile,
   };

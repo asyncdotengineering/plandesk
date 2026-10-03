@@ -64,6 +64,7 @@ wrangler secret put PLANDESK_BETTER_AUTH_SECRET   # long random string; keep sta
 # create the bucket and keep the binding:
 #   wrangler r2 bucket create plandesk-files
 # S3-compatible credentials are only a fallback for non-R2 object stores:
+# wrangler secret put PLANDESK_STORAGE   # value: s3
 # wrangler secret put PLANDESK_S3_BUCKET
 # wrangler secret put PLANDESK_S3_REGION
 # wrangler secret put PLANDESK_S3_ACCESS_KEY_ID
@@ -74,7 +75,7 @@ wrangler secret put PLANDESK_BETTER_AUTH_SECRET   # long random string; keep sta
 # Optional GitHub social (all-or-nothing)
 wrangler secret put PLANDESK_GITHUB_CLIENT_ID
 wrangler secret put PLANDESK_GITHUB_CLIENT_SECRET
-# Still required by githubConfigFromEnv for githubEnabled; set to the better-auth callback:
+# Required with the two above (all-or-nothing); set to the better-auth callback:
 wrangler secret put PLANDESK_GITHUB_CALLBACK_URL
 # value: https://<your-worker>/api/auth/callback/github
 ```

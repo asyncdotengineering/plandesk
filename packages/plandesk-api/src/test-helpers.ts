@@ -3,7 +3,7 @@ import { createDb, DEFAULT_ORG_ID, migrate, type Db } from '@plandesk/db';
 import type { Hono } from 'hono';
 import type { BetterAuthInstance } from './better-auth.js';
 import { createApp } from './server.js';
-import type { GithubConfig } from './github.js';
+import type { GithubConfig } from './read-server-env.js';
 import { createBetterAuth, runBetterAuthMigrations } from './better-auth.js';
 import { ensureLocalBetterAuthOrganization } from './identity.js';
 

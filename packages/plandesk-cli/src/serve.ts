@@ -6,15 +6,16 @@ import {
   createApp,
   createBetterAuth,
   createServices,
-  createS3Adapter,
+  createStorageAdapter,
   ensureLocalBetterAuthOrganization,
   backfillProjectWorkspaces,
   mountStatic,
+  readServerEnv,
   runBetterAuthMigrations,
 } from '@plandesk/api';
 import { assertSchemaCurrent, createDb, migrate, type ReferenceCheckFs } from '@plandesk/db';
 import { createMcpApp } from '@plandesk/mcp';
-import { resolveAuthPassword, resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
+import { resolveBindHost, resolveDataDir, workspaceDbPath } from './args.js';
 import { resolveServerConfig } from './config.js';
 import {
   deleteServerInfo,
@@ -47,7 +48,7 @@ export function validateServeBind(options: ServeOptions): {
   authPassword?: string;
 } {
   const host = resolveBindHost(options.host);
-  const authPassword = options.authPassword ?? resolveAuthPassword();
+  const authPassword = options.authPassword ?? readServerEnv(process.env).authPassword;
   return { host, authPassword };
 }
 
@@ -156,7 +157,7 @@ export async function startServer(
   const db =
     dbUrl !== undefined ? await createDb(dbUrl, cfg.values.dbToken) : await createDb(dbPath);
   const betterAuthBaseURL = cfg.values.baseUrl ?? resolveServeOrigin(host, options.port);
-  let betterAuthSecret = cfg.values.sessionSecret;
+  let betterAuthSecret = cfg.values.authSecret;
   let auth: ReturnType<typeof createBetterAuth> | undefined;
   if (dbUrl === undefined) {
     betterAuthSecret ??= ensureLocalBetterAuthSecret(dataDir);
@@ -183,15 +184,12 @@ export async function startServer(
     await assertSchemaCurrent(db);
   }
 
-  const storage =
-    cfg.values.storage.kind === 's3'
-      ? createS3Adapter({ db, config: cfg.values.storage })
-      : undefined;
+  const storage = createStorageAdapter({ db, storage: cfg.values.storage });
   const referenceCheckFs = referenceCheckFsFor(host);
   const services = createServices({
     db,
     auth,
-    ...(storage !== undefined ? { storage } : {}),
+    storage,
     ...(referenceCheckFs !== undefined ? { referenceCheckFs } : {}),
   });
   await backfillRepoFolderPathFromCwd(db);

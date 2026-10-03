@@ -13,10 +13,12 @@ import { isLoopbackBind } from './auth.js';
  * deployments already require `PLANDESK_BASE_URL` for better-auth; local
  * loopback serves are not remotely reachable.
  */
+import { readServerEnv } from './read-server-env.js';
+
 export function resolvePublicOrigin(
   requestUrl: string,
   envBaseUrl: string | undefined = typeof process !== 'undefined'
-    ? process.env.PLANDESK_BASE_URL
+    ? readServerEnv(process.env).baseUrl
     : undefined,
 ): string {
   const fromEnv = envBaseUrl?.trim();

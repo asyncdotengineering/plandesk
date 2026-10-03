@@ -72,6 +72,7 @@ import {
   backfillProjectWorkspaces,
   createBetterAuth,
   InvalidShareError,
+  readServerEnv,
   runBetterAuthMigrations,
 } from '@plandesk/api';
 import { createDb, migrate } from '@plandesk/db';
@@ -202,8 +203,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
     case 'admin': {
       try {
         if (parsed.dbUrl !== undefined && parsed.dbUrl.trim() !== '') {
-          const secret =
-            parsed.secret?.trim() || process.env.PLANDESK_BETTER_AUTH_SECRET?.trim() || undefined;
+          const secret = parsed.secret?.trim() || readServerEnv(process.env).authSecret;
           if (secret === undefined || secret === '') {
             process.stderr.write(
               'Remote invite-owner requires --secret or PLANDESK_BETTER_AUTH_SECRET (must match the deployed Worker secret).\n',
@@ -361,7 +361,7 @@ async function dispatch(parsed: ReturnType<typeof parseArgs>): Promise<number> {
         await migrate(db);
         const auth = createBetterAuth({
           client: db.$client,
-          secret: cfg.values.sessionSecret ?? randomBytes(32).toString('base64url'),
+          secret: cfg.values.authSecret ?? randomBytes(32).toString('base64url'),
           baseURL: cfg.values.baseUrl ?? 'http://127.0.0.1',
           github: cfg.values.github,
         });

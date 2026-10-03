@@ -513,7 +513,7 @@ describe('CLI export/import/doctor', () => {
       expect(stdout).toContain('db-token: <redacted> (env)');
       // Non-secret keys print their value + source.
       expect(stdout).toContain('host: 127.0.0.1 (default)');
-      expect(stdout).toContain('storage: local (default)');
+      expect(stdout).toContain('storage: db (default)');
     } finally {
       delete process.env.PLANDESK_AUTH_PASSWORD;
       delete process.env.PLANDESK_DB_TOKEN;

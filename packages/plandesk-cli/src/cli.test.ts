@@ -10,7 +10,6 @@ import {
   DEFAULT_PORT,
   findLocalPlandeskDir,
   parseArgs,
-  resolveAuthPassword,
   resolveBindHost,
   resolveBoard,
   resolveDataDir,
@@ -368,20 +367,6 @@ describe('validateServeBind', () => {
       host: '0.0.0.0',
       authPassword: 'secret',
     });
-    vi.unstubAllEnvs();
-  });
-});
-
-describe('resolveAuthPassword', () => {
-  it('returns undefined when unset', () => {
-    vi.stubEnv('PLANDESK_AUTH_PASSWORD', '');
-    expect(resolveAuthPassword()).toBeUndefined();
-    vi.unstubAllEnvs();
-  });
-
-  it('reads PLANDESK_AUTH_PASSWORD', () => {
-    vi.stubEnv('PLANDESK_AUTH_PASSWORD', 'secret');
-    expect(resolveAuthPassword()).toBe('secret');
     vi.unstubAllEnvs();
   });
 });

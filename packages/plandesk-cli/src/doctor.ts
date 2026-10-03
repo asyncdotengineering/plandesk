@@ -221,7 +221,7 @@ export async function runDoctor(
     await migrate(db);
     const auth = createBetterAuth({
       client: db.$client,
-      secret: config.values.sessionSecret ?? ensureLocalBetterAuthSecret(dataDir),
+      secret: config.values.authSecret ?? ensureLocalBetterAuthSecret(dataDir),
       baseURL: config.values.baseUrl ?? 'http://127.0.0.1',
       github: config.values.github,
     });

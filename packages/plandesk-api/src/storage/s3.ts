@@ -1,33 +1,12 @@
 import { createHash } from 'node:crypto';
 import { getFileInOrg, type Db } from '@plandesk/db';
 import { tryGetAuthContext } from '../auth-context.js';
+import type { S3Config } from '../read-server-env.js';
 import { type StorageAdapter } from './adapter.js';
-
-export type S3AdapterConfig = {
-  bucket: string;
-  region: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  endpoint?: string;
-};
-
-export function readS3ConfigFromEnv(env: NodeJS.ProcessEnv = process.env): S3AdapterConfig {
-  const bucket = env.PLANDESK_S3_BUCKET;
-  const region = env.PLANDESK_S3_REGION;
-  const accessKeyId = env.PLANDESK_S3_ACCESS_KEY_ID;
-  const secretAccessKey = env.PLANDESK_S3_SECRET_ACCESS_KEY;
-  if (!bucket || !region || !accessKeyId || !secretAccessKey) {
-    throw new Error(
-      'PLANDESK_STORAGE=s3 requires PLANDESK_S3_BUCKET, PLANDESK_S3_REGION, ' +
-        'PLANDESK_S3_ACCESS_KEY_ID, and PLANDESK_S3_SECRET_ACCESS_KEY to be set.',
-    );
-  }
-  return { bucket, region, accessKeyId, secretAccessKey, endpoint: env.PLANDESK_S3_ENDPOINT };
-}
 
 export type S3AdapterDeps = {
   db: Db;
-  config: S3AdapterConfig;
+  config: S3Config;
 };
 
 // No AWS SDK dependency is present in this workspace (see plandesk-api/package.json).

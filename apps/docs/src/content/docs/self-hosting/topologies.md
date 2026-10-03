@@ -49,7 +49,7 @@ plandesk migrate --db "libsql://your-db.example" --db-token "<token>"
 
 The server does **not** auto-migrate a remote database — that's a deliberate choice so a multi-replica deploy never races on the schema. Run it once per database, whenever you upgrade. See [the operator migration story](#who-runs-migrations) below.
 
-If the same database is also served by Workers or Vercel, use the same value for `PLANDESK_BETTER_AUTH_SECRET` in every topology (`plandesk serve` accepts `PLANDESK_SESSION_SECRET` as a legacy alias).
+If the same database is also served by Workers or Vercel, use the same value for `PLANDESK_BETTER_AUTH_SECRET` in every topology. The old `PLANDESK_SESSION_SECRET` name is no longer read — a server that still has it set (without `PLANDESK_BETTER_AUTH_SECRET`) refuses to start and tells you to rename it.
 
 ### 3. Free-hosted — the asyncdot instance
 

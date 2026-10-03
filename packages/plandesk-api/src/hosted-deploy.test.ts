@@ -14,6 +14,7 @@ import {
   hostedMisconfigResponse,
   resolveHostedBetterAuth,
 } from './hosted-auth.js';
+import { readServerEnv } from './read-server-env.js';
 import { parseJson } from './test-helpers.js';
 
 const TEST_SECRET = 'test-secret-not-a-real-one-0123456789abcdef';
@@ -133,12 +134,12 @@ async function seedSession(
 
 describe('hosted better-auth wiring (BA9)', () => {
   it('resolveHostedBetterAuth fails loud when secret is missing (not silent 401)', () => {
-    expect(() => resolveHostedBetterAuth({}, 'https://example.workers.dev')).toThrow(
+    expect(() => resolveHostedBetterAuth(readServerEnv({}), 'https://example.workers.dev')).toThrow(
       MISSING_BETTER_AUTH_SECRET_MESSAGE,
     );
     expect(() =>
       resolveHostedBetterAuth(
-        { PLANDESK_BETTER_AUTH_SECRET: '   ' },
+        readServerEnv({ PLANDESK_BETTER_AUTH_SECRET: '   ' }),
         'https://example.workers.dev',
       ),
     ).toThrow(MISSING_BETTER_AUTH_SECRET_MESSAGE);
@@ -151,24 +152,24 @@ describe('hosted better-auth wiring (BA9)', () => {
   it('resolveHostedBetterAuth prefers PLANDESK_BASE_URL, falls back to request origin', () => {
     expect(
       resolveHostedBetterAuth(
-        {
+        readServerEnv({
           PLANDESK_BETTER_AUTH_SECRET: TEST_SECRET,
           PLANDESK_BASE_URL: 'https://configured.example.com/',
-        },
+        }),
         'https://request-origin.example',
       ),
     ).toEqual({ secret: TEST_SECRET, baseURL: 'https://configured.example.com' });
 
     expect(
       resolveHostedBetterAuth(
-        { PLANDESK_BETTER_AUTH_SECRET: TEST_SECRET },
+        readServerEnv({ PLANDESK_BETTER_AUTH_SECRET: TEST_SECRET }),
         'https://from-request.dev/',
       ),
     ).toEqual({ secret: TEST_SECRET, baseURL: 'https://from-request.dev' });
 
-    expect(() => resolveHostedBetterAuth({ PLANDESK_BETTER_AUTH_SECRET: TEST_SECRET })).toThrow(
-      MISSING_BASE_URL_MESSAGE,
-    );
+    expect(() =>
+      resolveHostedBetterAuth(readServerEnv({ PLANDESK_BETTER_AUTH_SECRET: TEST_SECRET })),
+    ).toThrow(MISSING_BASE_URL_MESSAGE);
   });
 
   it('createApp on 0.0.0.0 WITH betterAuth: /api/auth/* reachable + session resolves /auth/session 200', async () => {
@@ -193,10 +194,10 @@ describe('hosted better-auth wiring (BA9)', () => {
 
     // Mirrors worker/vercel: non-loopback bind + betterAuth from resolveHostedBetterAuth.
     const betterAuth = resolveHostedBetterAuth(
-      {
+      readServerEnv({
         PLANDESK_BETTER_AUTH_SECRET: TEST_SECRET,
         PLANDESK_BASE_URL: TEST_BASE_URL,
-      },
+      }),
       'https://ignored-when-env-set.example',
     );
     const app = createApp({
