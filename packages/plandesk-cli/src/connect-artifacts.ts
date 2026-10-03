@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { DEFAULT_PORT } from './args.js';
 import { readVendoredTemplate } from './shipped-templates.js';
 
 /** Path of the conventions skill inside the templates root. */
@@ -224,12 +225,17 @@ export type PlanDeskBinding = {
   token?: string;
 };
 
-export function readPlandeskConfig(repoDir: string): AnyPlanDeskConfig | undefined {
-  const configPath = join(repoDir, '.plandesk', 'config.json');
-  if (!existsSync(configPath)) {
+export function readOptionalFile(path: string): string | undefined {
+  if (!existsSync(path)) {
     return undefined;
   }
-  return parseConfigJson(readFileSync(configPath, 'utf8'));
+  return readFileSync(path, 'utf8');
+}
+
+/** The repo's validated binding, or undefined when unbound. Throws on a malformed file. */
+export function readPlandeskConfig(repoDir: string): AnyPlanDeskConfig | undefined {
+  const content = readOptionalFile(join(repoDir, '.plandesk', 'config.json'));
+  return content === undefined ? undefined : parseConfigJson(content);
 }
 
 export function readPlandeskToken(repoDir: string): string | undefined {
@@ -756,4 +762,10 @@ export function deleteServerInfo(plandeskDir: string): void {
 
 export function resolveEffectivePort(plandeskDir: string, defaultPort: number): number {
   return readServerInfo(plandeskDir)?.port ?? readWorkspaceJson(plandeskDir)?.port ?? defaultPort;
+}
+
+/** Loopback URL of the repo's local board: live server.json → workspace.json → DEFAULT_PORT. */
+export function resolveDefaultServerUrl(repoDir: string): string {
+  const plandeskDir = join(repoDir, '.plandesk');
+  return `http://127.0.0.1:${String(resolveEffectivePort(plandeskDir, DEFAULT_PORT))}`;
 }

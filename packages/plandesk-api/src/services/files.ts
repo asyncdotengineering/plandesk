@@ -9,6 +9,33 @@ export type FileServiceDeps = OrgScopedDeps & {
   storage: StorageAdapter;
 };
 
+/** Upload mime by extension; shared by the MCP attach tools and `plandesk attach`. */
+export function mimeFromFilename(filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  const ext = dot <= 0 ? '' : filename.slice(dot).toLowerCase();
+  switch (ext) {
+    case '.png':
+      return 'image/png';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.gif':
+      return 'image/gif';
+    case '.webp':
+      return 'image/webp';
+    case '.svg':
+      return 'image/svg+xml';
+    case '.html':
+    case '.htm':
+      return 'text/html';
+    case '.md':
+    case '.markdown':
+      return 'text/markdown';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
 export type CreateFileInput = {
   projectId: string;
   filename: string;

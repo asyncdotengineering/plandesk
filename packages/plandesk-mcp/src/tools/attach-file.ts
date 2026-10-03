@@ -1,8 +1,7 @@
-import type { FileService } from '@plandesk/api';
+import { mimeFromFilename, type FileService } from '@plandesk/api';
 import { toolInvalidArgument, toolNotFound, toolSuccess, type ToolResult } from './result.js';
 import {
   filenameFromPath,
-  mimeFromFilename,
   readScopedFileBytes,
   emptyWorkspaceRoots,
   type WorkspaceRootsResolver,

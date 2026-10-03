@@ -1,5 +1,6 @@
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
+import { normalizeServerUrl } from './connect-artifacts.js';
 import { readCliConfig, removeCliConfig, writeCliConfig, type CliConfig } from './config.js';
 
 type LoginDeps = {
@@ -8,10 +9,6 @@ type LoginDeps = {
   out?: NodeJS.WritableStream;
   input?: NodeJS.ReadableStream;
 };
-
-function serverUrl(value: string): string {
-  return value.replace(/\/+$/, '');
-}
 
 async function requestJson<T>(fetcher: typeof fetch, url: string, init?: RequestInit): Promise<T> {
   const response = await fetcher(url, init);
@@ -23,7 +20,7 @@ async function requestJson<T>(fetcher: typeof fetch, url: string, init?: Request
 export async function runLogin(server: string, deps: LoginDeps = {}): Promise<CliConfig> {
   const fetcher = deps.fetch ?? fetch;
   const output = deps.out ?? stdout;
-  const base = serverUrl(server);
+  const base = normalizeServerUrl(server);
 
   const rl = createInterface({ input: deps.input ?? stdin, output });
   const token = await rl.question('Plan Desk token: ');

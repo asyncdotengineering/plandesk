@@ -7,7 +7,7 @@
  * project org scope.
  */
 import { readFileSync, existsSync, statSync, realpathSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve, basename, extname } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, basename } from 'node:path';
 import { isLoopbackBind } from '@plandesk/api';
 import { isValidRegisteredRepoRoot } from '@plandesk/db';
 import { toolInvalidArgument, type ToolResult } from './result.js';
@@ -115,31 +115,6 @@ export async function readScopedFileBytes(
     return { ok: false, error: toolInvalidArgument('file_path does not exist or is not a file') };
   }
   return { ok: true, bytes: readFileSync(absolute), absolutePath: absolute };
-}
-
-export function mimeFromFilename(filename: string): string {
-  const ext = extname(filename).toLowerCase();
-  switch (ext) {
-    case '.png':
-      return 'image/png';
-    case '.jpg':
-    case '.jpeg':
-      return 'image/jpeg';
-    case '.gif':
-      return 'image/gif';
-    case '.webp':
-      return 'image/webp';
-    case '.svg':
-      return 'image/svg+xml';
-    case '.html':
-    case '.htm':
-      return 'text/html';
-    case '.md':
-    case '.markdown':
-      return 'text/markdown';
-    default:
-      return 'application/octet-stream';
-  }
 }
 
 export function filenameFromPath(filePath: string): string {

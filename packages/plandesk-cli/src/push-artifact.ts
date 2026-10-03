@@ -1,11 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, isAbsolute, join, relative, resolve } from 'node:path';
-import {
-  getBoundProjectId,
-  normalizeServerUrl,
-  resolvePlandeskBinding,
-} from './connect-artifacts.js';
-import { findLocalPlandeskDir } from './args.js';
+import { basename, join, relative } from 'node:path';
+import { prepareUpload } from './attach.js';
 
 const ARTIFACT_SENTINEL_RE = /<!--\s*plandesk-artifact:([0-9a-f-]{36})\s*-->/i;
 const PUSH_MAP = 'artifact-pushes.json';
@@ -22,13 +17,6 @@ export class PushArtifactError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'PushArtifactError';
-  }
-}
-
-function assertUnderProjectRoot(root: string, absolute: string): void {
-  const rel = relative(root, absolute);
-  if (rel.startsWith('..') || isAbsolute(rel)) {
-    throw new PushArtifactError('file must be inside the project directory');
   }
 }
 
@@ -109,34 +97,15 @@ export async function runPushArtifact(
     force?: boolean;
   },
 ): Promise<{ url: string; artifactId: string; created: boolean; forced: boolean }> {
-  const binding = resolvePlandeskBinding(options.repoDir);
-  if (binding === undefined) {
-    throw new PushArtifactError(
-      'No Plan Desk binding in this repo — run `plandesk connect` first.',
-    );
-  }
-  const projectId = getBoundProjectId(binding.config);
-  if (projectId === undefined) {
-    throw new PushArtifactError('No project bound — run `plandesk connect --project <name>`.');
-  }
-
-  const plandeskDir = findLocalPlandeskDir(options.repoDir);
-  if (plandeskDir === undefined) {
-    throw new PushArtifactError('No .plandesk directory found.');
-  }
-  const root = resolve(plandeskDir, '..');
-  const absolute = resolve(options.repoDir, filePath);
-  assertUnderProjectRoot(root, absolute);
+  const { absolute, root, plandeskDir, projectId, base, headers } = prepareUpload(
+    options.repoDir,
+    filePath,
+    (message) => new PushArtifactError(message),
+  );
 
   const content = readFileSync(absolute, 'utf8');
   const titleFromFile = basename(absolute).replace(/\.(html?|md|markdown)$/i, '');
   const kind = /\.html?$/i.test(absolute) ? 'html' : 'markdown';
-
-  const base = normalizeServerUrl(binding.config.serverUrl);
-  const headers: ApiHeaders = { 'Content-Type': 'application/json' };
-  if (binding.token !== undefined) {
-    headers.Authorization = `Bearer ${binding.token}`;
-  }
 
   let prototypeId: string | undefined;
   const prototypeName = options.prototypeName?.trim();

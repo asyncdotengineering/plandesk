@@ -1,8 +1,10 @@
-import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { DEFAULT_ORG_ID } from '@plandesk/db';
-import { normalizeServerUrl } from './connect-artifacts.js';
+import {
+  normalizeServerUrl,
+  readPlandeskConfig,
+  resolveDefaultServerUrl,
+} from './connect-artifacts.js';
 import { readCliConfig } from './config.js';
 
 export class WorkspaceCommandError extends Error {
@@ -42,17 +44,16 @@ function resolveServerUrl(to: string | undefined, repoDir: string): string {
     return normalizeServerUrl(cliConfig.server);
   }
 
-  // Local: derive from repoDir's .plandesk/config.json or default loopback.
-  const configPath = join(repoDir, '.plandesk', 'config.json');
+  // Local: the repo's binding, else its local board's port.
   try {
-    const raw = JSON.parse(readFileSync(configPath, 'utf8')) as { serverUrl?: string };
-    if (typeof raw.serverUrl === 'string') {
-      return normalizeServerUrl(raw.serverUrl);
+    const config = readPlandeskConfig(repoDir);
+    if (config !== undefined) {
+      return config.serverUrl;
     }
   } catch {
-    // fallthrough
+    // A malformed binding falls back to the local board, as before.
   }
-  return 'http://127.0.0.1:7526';
+  return resolveDefaultServerUrl(repoDir);
 }
 
 async function fetchWorkspaces(

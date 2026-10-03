@@ -1,6 +1,11 @@
-import { existsSync, lstatSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { removeMcpServerEntry, removeSentinelBlock, SKILL_DIRS } from './connect-artifacts.js';
+import {
+  readOptionalFile,
+  removeMcpServerEntry,
+  removeSentinelBlock,
+  SKILL_DIRS,
+} from './connect-artifacts.js';
 
 export type DisconnectOptions = {
   repoDir: string;
@@ -9,13 +14,6 @@ export type DisconnectOptions = {
 export type DisconnectResult = {
   removed: string[];
 };
-
-function readOptionalFile(path: string): string | undefined {
-  if (!existsSync(path)) {
-    return undefined;
-  }
-  return readFileSync(path, 'utf8');
-}
 
 export function runDisconnect(options: DisconnectOptions): DisconnectResult {
   const removed: string[] = [];

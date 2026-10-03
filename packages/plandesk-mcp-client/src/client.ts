@@ -2,6 +2,8 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import pkg from '../package.json' with { type: 'json' };
 
+// The CLI's DEFAULT_PORT. Kept as a literal: this package must not depend on the CLI,
+// so a board on a custom port is reached via `url` or PLANDESK_URL.
 const DEFAULT_URL = 'http://127.0.0.1:7526';
 
 export type PlandeskProject = {

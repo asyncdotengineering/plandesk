@@ -1,6 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { getBoundProjectId, parseConfigJson, type AnyPlanDeskConfig } from './connect-artifacts.js';
+import {
+  getBoundProjectId,
+  readPlandeskConfig,
+  type AnyPlanDeskConfig,
+} from './connect-artifacts.js';
 
 export class ProjectConfigError extends Error {
   constructor(message: string) {
@@ -9,20 +11,12 @@ export class ProjectConfigError extends Error {
   }
 }
 
-function readOptionalFile(path: string): string | undefined {
-  if (!existsSync(path)) {
-    return undefined;
-  }
-  return readFileSync(path, 'utf8');
-}
-
 function loadConfig(repoDir: string): AnyPlanDeskConfig {
-  const configPath = join(repoDir, '.plandesk', 'config.json');
-  const content = readOptionalFile(configPath);
-  if (content === undefined) {
+  const config = readPlandeskConfig(repoDir);
+  if (config === undefined) {
     throw new ProjectConfigError('Missing .plandesk/config.json. Run plandesk connect first.');
   }
-  return parseConfigJson(content);
+  return config;
 }
 
 export function resolveProjectId(options: { repoDir: string; projectId?: string }): string {

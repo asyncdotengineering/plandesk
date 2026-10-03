@@ -128,7 +128,7 @@ export type { NoteService } from './services/notes.js';
 export type { SearchService } from './services/search.js';
 export type { ReferenceCheckService } from './services/reference-check.js';
 export { InvalidVerificationError, parseVerificationInput } from './verification-fields.js';
-export type { FileService } from './services/files.js';
+export { mimeFromFilename, type FileService } from './services/files.js';
 export type { ArtifactService } from './services/artifacts.js';
 export type { CommentService } from './services/comments.js';
 export type { AgentRunService } from './services/agent-runs.js';

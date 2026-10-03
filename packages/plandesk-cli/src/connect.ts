@@ -1,12 +1,4 @@
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
@@ -24,8 +16,9 @@ import {
   globalDirRefusalReason,
   mergeMcpJson,
   normalizeServerUrl,
-  parseConfigJson,
-  resolveEffectivePort,
+  readOptionalFile,
+  readPlandeskConfig,
+  resolveDefaultServerUrl,
   insertSentinelBlock,
   GENERATED_SKILL_SYMLINK_TARGET,
   SKILL_DIRS,
@@ -34,7 +27,6 @@ import {
   TOKEN_ENV_VAR,
   type AnyPlanDeskConfig,
 } from './connect-artifacts.js';
-import { DEFAULT_PORT } from './args.js';
 import { readCliConfig } from './config.js';
 import { createWorkspaceViaApi } from './workspace-command.js';
 import {
@@ -134,18 +126,6 @@ export class ConnectError extends Error {
     super(message);
     this.name = 'ConnectError';
   }
-}
-
-function resolveDefaultServerUrl(repoDir: string): string {
-  const plandeskDir = join(repoDir, '.plandesk');
-  return `http://127.0.0.1:${String(resolveEffectivePort(plandeskDir, DEFAULT_PORT))}`;
-}
-
-function readOptionalFile(path: string): string | undefined {
-  if (!existsSync(path)) {
-    return undefined;
-  }
-  return readFileSync(path, 'utf8');
 }
 
 async function fetchProjects(serverUrl: string, bearerToken?: string): Promise<ProjectSummary[]> {
@@ -375,8 +355,6 @@ async function resolveProject(
   serverUrl: string,
   bearerToken?: string,
 ): Promise<{ project: ProjectSummary; explicitProject: boolean }> {
-  const configPath = join(options.repoDir, '.plandesk', 'config.json');
-  const existingConfig = readOptionalFile(configPath);
   const projects = await fetchProjects(serverUrl, bearerToken);
 
   if (options.project !== undefined) {
@@ -396,8 +374,8 @@ async function resolveProject(
     return { project: match, explicitProject: true };
   }
 
-  if (existingConfig !== undefined) {
-    const config = parseConfigJson(existingConfig);
+  const config = readPlandeskConfig(options.repoDir);
+  if (config !== undefined) {
     const boundProjectId = getBoundProjectId(config);
     if (boundProjectId !== undefined) {
       const bound = projects.find((project) => project.id === boundProjectId);
@@ -839,10 +817,7 @@ export async function runConnect(options: ConnectOptions): Promise<ConnectResult
     return connectToWorkspace(options, serverUrl, orgId, workspace);
   }
 
-  const configPath = join(options.repoDir, '.plandesk', 'config.json');
-  const existingConfigContent = readOptionalFile(configPath);
-  const existingConfig =
-    existingConfigContent !== undefined ? parseConfigJson(existingConfigContent) : undefined;
+  const existingConfig = readPlandeskConfig(options.repoDir);
 
   /**
    * An unbound repo with nothing of its own on the board gets its own
@@ -989,10 +964,7 @@ async function runHostedConnect(options: ConnectOptions, orgId: string): Promise
     return result;
   }
 
-  const configPath = join(options.repoDir, '.plandesk', 'config.json');
-  const existingConfigContent = readOptionalFile(configPath);
-  const existingConfig =
-    existingConfigContent !== undefined ? parseConfigJson(existingConfigContent) : undefined;
+  const existingConfig = readPlandeskConfig(options.repoDir);
 
   const { project, explicitProject } = await resolveProject(options, serverUrl, ownerToken);
   assertRebindAllowed(existingConfig, project, explicitProject);

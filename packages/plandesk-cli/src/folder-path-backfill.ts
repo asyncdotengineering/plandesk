@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { getBoundProjectId, parseConfigJson } from './connect-artifacts.js';
+import { dirname } from 'node:path';
+import { getBoundProjectId, readPlandeskConfig } from './connect-artifacts.js';
 import { findLocalPlandeskDir } from './args.js';
 import { resolveRegisteredRepoRoot } from './repo-root.js';
 import { getProject, updateProject, type Db } from '@plandesk/db';
@@ -15,11 +14,13 @@ export async function backfillRepoFolderPathFromCwd(
   if (plandeskDir === undefined) {
     return undefined;
   }
-  const configPath = join(plandeskDir, 'config.json');
   let config;
   try {
-    config = parseConfigJson(readFileSync(configPath, 'utf8'));
+    config = readPlandeskConfig(dirname(plandeskDir));
   } catch {
+    return undefined;
+  }
+  if (config === undefined) {
     return undefined;
   }
   const projectId = getBoundProjectId(config);
