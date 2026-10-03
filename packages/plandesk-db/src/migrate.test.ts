@@ -43,7 +43,6 @@ const EXPECTED_TABLES = [
   'shares',
   'guest_sessions',
   'share_submissions',
-  'sync_state',
   'files',
   'artifacts',
   'prototypes',

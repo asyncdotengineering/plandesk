@@ -225,8 +225,8 @@ export {
   InvalidTriageInputError,
   SubmissionRetriageMismatchError,
   type SerializedSubmission,
-  type SyncService,
-} from './services/sync.js';
+  type TriageService,
+} from './services/triage.js';
 export type { DiffHunk } from './revision-diff.js';
 
 import { readFileSync } from 'node:fs';

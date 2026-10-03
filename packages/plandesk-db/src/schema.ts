@@ -442,14 +442,6 @@ export const shareSubmissions = sqliteTable('share_submissions', {
   pulledAt: integer('pulled_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
-export const syncState = sqliteTable('sync_state', {
-  projectId: text('project_id')
-    .primaryKey()
-    .references(() => projects.id),
-  pullCursor: text('pull_cursor'),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-});
-
 /**
  * Named flow of screens with a declared viewport. Flat (no nesting).
  * folderId is set on create with the prototype's flow-document folder.

@@ -358,13 +358,13 @@ describe('CLI push/pull', () => {
     const mine = (await listRes.json()) as Array<{ title: string }>;
     expect(mine.map((s) => s.title)).toEqual(['Client bug']);
 
-    const triage = await services.syncService.listTriage(project.id, 'pending');
+    const triage = await services.triageService.listTriage(project.id, 'pending');
     expect(triage).toHaveLength(1);
     expect(triage?.[0]?.title).toBe('Client bug');
     expect(triage?.[0]?.participant_name).toBe('Alex');
     expect(await listSubmissions(hostedDb, project.id, 'pending')).toHaveLength(1);
 
-    const accepted = await services.syncService.triage(submitBody.submission.id, 'accept');
+    const accepted = await services.triageService.triage(submitBody.submission.id, 'accept');
     expect(accepted.status).toBe('accepted');
     expect(accepted.linked_task_id).toBeTruthy();
     expect(await listSubmissions(hostedDb, project.id, 'pending')).toHaveLength(0);

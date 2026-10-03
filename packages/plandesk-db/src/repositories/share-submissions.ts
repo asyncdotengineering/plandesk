@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, asc, count, desc, eq, gt } from 'drizzle-orm';
 import type { DbClient } from '../client.js';
-import { shareSubmissions, syncState, type ShareSubmissionStatus } from '../schema.js';
+import { shareSubmissions, type ShareSubmissionStatus } from '../schema.js';
 
 export type ShareSubmission = typeof shareSubmissions.$inferSelect;
 export type { ShareSubmissionStatus };
@@ -164,47 +164,6 @@ export async function setSubmissionStatus(
   return rows[0];
 }
 
-export async function getPullCursor(db: DbClient, projectId: string): Promise<string | undefined> {
-  const row = await db
-    .select({ pullCursor: syncState.pullCursor })
-    .from(syncState)
-    .where(eq(syncState.projectId, projectId))
-    .get();
-
-  return row?.pullCursor ?? undefined;
-}
-
-export async function setPullCursor(
-  db: DbClient,
-  projectId: string,
-  cursor: string,
-): Promise<void> {
-  const now = new Date();
-  const existing = await db
-    .select({ projectId: syncState.projectId })
-    .from(syncState)
-    .where(eq(syncState.projectId, projectId))
-    .get();
-
-  if (existing !== undefined) {
-    await db
-      .update(syncState)
-      .set({ pullCursor: cursor, updatedAt: now })
-      .where(eq(syncState.projectId, projectId))
-      .run();
-    return;
-  }
-
-  await db
-    .insert(syncState)
-    .values({
-      projectId,
-      pullCursor: cursor,
-      updatedAt: now,
-    })
-    .run();
-}
-
 export async function deleteShareSubmissionsByProjectId(
   db: DbClient,
   projectId: string,
@@ -213,10 +172,5 @@ export async function deleteShareSubmissionsByProjectId(
     .delete(shareSubmissions)
     .where(eq(shareSubmissions.projectId, projectId))
     .run();
-  return result.rowsAffected;
-}
-
-export async function deleteSyncStateByProjectId(db: DbClient, projectId: string): Promise<number> {
-  const result = await db.delete(syncState).where(eq(syncState.projectId, projectId)).run();
   return result.rowsAffected;
 }

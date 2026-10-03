@@ -952,7 +952,7 @@ async function runMcpForeignSweep(
     [
       'triage_submission',
       () =>
-        createTriageSubmissionHandler(s.syncService)({
+        createTriageSubmissionHandler(s.triageService)({
           submission_id: target.submission.id,
           action: 'accept',
           as_task: { label: 'escaped triage task' },
@@ -1116,7 +1116,7 @@ describe('workspace-tier adversarial audit round 4', () => {
           from_task_id: taskA.id,
           to_task_id: f.foreignB.task.id,
         }),
-        createTriageSubmissionHandler(f.services.syncService)({
+        createTriageSubmissionHandler(f.services.triageService)({
           submission_id: submissionA.id,
           action: 'accept',
           link_task_id: f.foreignB.task.id,

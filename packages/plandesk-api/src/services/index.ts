@@ -17,7 +17,7 @@ import { createGoalService, type GoalService } from './goals.js';
 import { createTaskService, type TaskService } from './tasks.js';
 import { createViewService, type ViewService } from './views.js';
 import { createShareService, type ShareService } from './share.js';
-import { createSyncService, type SyncService } from './sync.js';
+import { createTriageService, type TriageService } from './triage.js';
 import { createRevisionService, type RevisionService } from './revisions.js';
 import { createSearchService, type SearchService } from './search.js';
 import { maxRevisionsFromEnv } from './revision-capture.js';
@@ -56,7 +56,7 @@ export type Services = {
   commentService: CommentService;
   agentRunService: AgentRunService;
   shareService: ShareService;
-  syncService: SyncService;
+  triageService: TriageService;
   fileService: FileService;
   artifactService: ArtifactService;
   revisionService: RevisionService;
@@ -89,7 +89,7 @@ export function createServices(deps: ServicesDeps): Services {
   const commentService = createCommentService(scoped);
   const agentRunService = createAgentRunService(scoped);
   const shareService = createShareService(scoped);
-  const syncService = createSyncService({ ...scoped, taskService });
+  const triageService = createTriageService({ ...scoped, taskService });
   const fileService = createFileService({ ...scoped, storage });
   const artifactService = createArtifactService(versioned);
   const revisionService = createRevisionService({
@@ -119,7 +119,7 @@ export function createServices(deps: ServicesDeps): Services {
     commentService,
     agentRunService,
     shareService,
-    syncService,
+    triageService,
     fileService,
     artifactService,
     revisionService,

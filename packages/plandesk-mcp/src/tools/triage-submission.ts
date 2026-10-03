@@ -1,9 +1,9 @@
-import type { SyncService } from '@plandesk/api';
+import type { TriageService } from '@plandesk/api';
 import { InvalidTriageError } from '@plandesk/api';
 import { toolNotFound, toolSuccess, type ToolResult } from './result.js';
 
 export function createTriageSubmissionHandler(
-  syncService: SyncService,
+  triageService: TriageService,
 ): (args: {
   submission_id: string;
   action: 'accept' | 'reject';
@@ -11,13 +11,13 @@ export function createTriageSubmissionHandler(
   link_task_id?: string;
 }) => Promise<ToolResult> {
   return async (args) => {
-    const submission = await syncService.getSubmission(args.submission_id);
+    const submission = await triageService.getSubmission(args.submission_id);
     if (submission === undefined) {
       return toolNotFound();
     }
 
     try {
-      const result = await syncService.triage(
+      const result = await triageService.triage(
         args.submission_id,
         args.action,
         args.as_task,

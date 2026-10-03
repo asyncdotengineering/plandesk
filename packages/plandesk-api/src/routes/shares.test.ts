@@ -583,7 +583,7 @@ describe('BA6b guest submissions (single-server)', () => {
       expect.objectContaining({ id: body.submission.id, title: 'Broken button' }),
     ]);
 
-    const triage = await services.syncService.listTriage(project.id, 'pending');
+    const triage = await services.triageService.listTriage(project.id, 'pending');
     expect(triage).toHaveLength(1);
     expect(triage?.[0]).toMatchObject({
       title: 'Broken button',

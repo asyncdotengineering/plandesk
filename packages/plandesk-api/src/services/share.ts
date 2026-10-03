@@ -779,7 +779,7 @@ export function createShareService(deps: ShareServiceDeps) {
     },
 
     // Named join: mints a guest session scoped to this share. invite mode requires
-    // an allow-listed email (sync-server semantics: 403 email_not_invited).
+    // an allow-listed email (403 email_not_invited).
     async joinShare(token: string, input: JoinShareInput): Promise<JoinShareResult> {
       const share = await getShareByTokenHashRaw(db, hashShareToken(token));
       if (!share || !isShareLive(share)) {

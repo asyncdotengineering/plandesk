@@ -303,5 +303,13 @@ export const MIGRATIONS: readonly {
     "statements": [
       "DROP TABLE `sync_remotes`;"
     ]
+  },
+  {
+    "tag": "0025_dry_namorita",
+    "when": 1791050198587,
+    "hash": "65e141d19f8bd38b3141a551c6467e016a307d8da94df333354c00765baa200d",
+    "statements": [
+      "DROP TABLE `sync_state`;"
+    ]
   }
 ];

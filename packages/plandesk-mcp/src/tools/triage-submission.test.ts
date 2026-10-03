@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { InvalidTriageError, InvalidTriageInputError } from '@plandesk/api';
-import type { SyncService } from '@plandesk/api';
+import type { TriageService } from '@plandesk/api';
 import { toolHandler } from '../../../plandesk-api/test-support/mcp-tool-handlers.js';
 import { createTriageSubmissionHandler } from './triage-submission.js';
 
@@ -19,17 +19,17 @@ const submission = {
   pulled_at: '2026-01-15T12:00:00.000Z',
 };
 
-function createMockSyncService(triage: ReturnType<typeof vi.fn>) {
+function createMockTriageService(triage: ReturnType<typeof vi.fn>) {
   return {
     getSubmission: vi.fn().mockReturnValue(submission),
     triage,
-  } as unknown as SyncService;
+  } as unknown as TriageService;
 }
 
 describe('createTriageSubmissionHandler', () => {
-  it('passes link_task_id through to syncService.triage', async () => {
+  it('passes link_task_id through to triageService.triage', async () => {
     const triage = vi.fn().mockResolvedValue({ ...submission, status: 'accepted' });
-    const handler = createTriageSubmissionHandler(createMockSyncService(triage));
+    const handler = createTriageSubmissionHandler(createMockTriageService(triage));
 
     const result = await handler({
       submission_id: 'sub-1',
@@ -44,7 +44,7 @@ describe('createTriageSubmissionHandler', () => {
   it('maps InvalidTriageInputError to a tool invalid_argument error', async () => {
     const triage = vi.fn().mockRejectedValue(new InvalidTriageInputError('mutually exclusive'));
     const handler = toolHandler('triage_submission', {
-      syncService: createMockSyncService(triage),
+      triageService: createMockTriageService(triage),
     });
 
     const result = await handler({
@@ -61,7 +61,7 @@ describe('createTriageSubmissionHandler', () => {
 
   it('still maps InvalidTriageError to a not_found tool error', async () => {
     const triage = vi.fn().mockRejectedValue(new InvalidTriageError());
-    const handler = createTriageSubmissionHandler(createMockSyncService(triage));
+    const handler = createTriageSubmissionHandler(createMockTriageService(triage));
 
     const result = await handler({ submission_id: 'sub-1', action: 'accept' });
 

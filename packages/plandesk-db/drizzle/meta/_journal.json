@@ -176,6 +176,13 @@
       "when": 1791035238684,
       "tag": "0024_sloppy_dark_phoenix",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1791050198587,
+      "tag": "0025_dry_namorita",
+      "breakpoints": true
     }
   ]
 }

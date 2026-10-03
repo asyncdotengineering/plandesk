@@ -4,15 +4,15 @@ import { shareSubmissionStatuses, type ShareSubmissionStatus } from '@plandesk/d
 import {
   InvalidTriageError,
   SubmissionRetriageMismatchError,
-  type SyncService,
-} from '../services/sync.js';
+  type TriageService,
+} from '../services/triage.js';
 import type { ProjectService } from '../services/projects.js';
 
 type TriageBody = {
   action?: string;
   as_task?: { label?: string; description?: string };
   // Merge-into: link the submission to an existing task instead of creating a new one.
-  // Mutually exclusive with as_task; forwarded to syncService.triage().
+  // Mutually exclusive with as_task; forwarded to triageService.triage().
   link_task_id?: string;
 };
 
@@ -21,7 +21,7 @@ function isSubmissionStatus(value: string): value is ShareSubmissionStatus {
 }
 
 export function createSubmissionsRouter(
-  syncService: SyncService,
+  triageService: TriageService,
   projectService: ProjectService,
 ): Hono {
   const router = new Hono();
@@ -37,7 +37,7 @@ export function createSubmissionsRouter(
       return invalidArgument(c, 'status', 'status must be a valid submission status');
     }
 
-    return c.json(await syncService.listTriage(projectId, statusParam));
+    return c.json(await triageService.listTriage(projectId, statusParam));
   });
 
   router.post('/submissions/:id/triage', async (c) => {
@@ -48,18 +48,18 @@ export function createSubmissionsRouter(
       return invalidArgument(c, 'action', 'action is not valid');
     }
 
-    const submission = await syncService.getSubmission(submissionId);
+    const submission = await triageService.getSubmission(submissionId);
     if (submission === undefined) {
       return c.json({ error: 'not_found' }, 404);
     }
 
     try {
       // Triage never creates a `todo` task — the scope->todo release is the human's own
-      // board action, enforced in syncService.triage(). A merge (link_task_id) links to
+      // board action, enforced in triageService.triage(). A merge (link_task_id) links to
       // an existing task instead of creating one; the two are mutually exclusive, so
       // only one is forwarded.
       const linkTaskId = body.action === 'accept' ? body.link_task_id : undefined;
-      const result = await syncService.triage(
+      const result = await triageService.triage(
         submissionId,
         body.action,
         body.action === 'accept' && linkTaskId === undefined ? body.as_task : undefined,

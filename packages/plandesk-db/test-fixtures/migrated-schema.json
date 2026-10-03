@@ -151,12 +151,6 @@
   },
   {
     "type": "index",
-    "name": "sqlite_autoindex_sync_state_1",
-    "tbl_name": "sync_state",
-    "sql": null
-  },
-  {
-    "type": "index",
     "name": "sqlite_autoindex_tags_1",
     "tbl_name": "tags",
     "sql": null
@@ -352,12 +346,6 @@
     "name": "shares",
     "tbl_name": "shares",
     "sql": "CREATE TABLE \"shares\" (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`project_id` text,\n\t`workspace_id` text,\n\t`audience_name` text NOT NULL,\n\t`mode` text DEFAULT 'invite' NOT NULL,\n\t`token_hash` text NOT NULL,\n\t`permissions` text NOT NULL,\n\t`policy` text NOT NULL,\n\t`invited_emails` text,\n\t`expires_at` integer,\n\t`revoked_at` integer,\n\t`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,\n\tFOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE no action\n)"
-  },
-  {
-    "type": "table",
-    "name": "sync_state",
-    "tbl_name": "sync_state",
-    "sql": "CREATE TABLE `sync_state` (\n\t`project_id` text PRIMARY KEY NOT NULL,\n\t`pull_cursor` text,\n\t`updated_at` integer NOT NULL,\n\tFOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE no action\n)"
   },
   {
     "type": "table",

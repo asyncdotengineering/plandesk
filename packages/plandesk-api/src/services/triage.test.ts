@@ -13,11 +13,11 @@ import {
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createTaskService } from './tasks.js';
 import {
-  createSyncService,
+  createTriageService,
   InvalidTriageError,
   InvalidTriageInputError,
   SubmissionRetriageMismatchError,
-} from './sync.js';
+} from './triage.js';
 
 const remoteSubmission = {
   id: 'sub-remote-1',
@@ -30,7 +30,7 @@ const remoteSubmission = {
   pulled_at: new Date('2026-01-15T12:01:00.000Z'),
 };
 
-describe('syncService', () => {
+describe('triageService', () => {
   let db: Db;
   let orgId = '';
 
@@ -39,7 +39,6 @@ describe('syncService', () => {
     await migrate(db);
     orgId = DEFAULT_ORG_ID;
     await db.$client.execute('DELETE FROM share_submissions');
-    await db.$client.execute('DELETE FROM sync_state');
     await db.$client.execute('DELETE FROM tasks');
     await db.$client.execute('DELETE FROM goals');
     await db.$client.execute('DELETE FROM projects');
@@ -53,7 +52,7 @@ describe('syncService', () => {
 
   function createService() {
     const taskService = createTaskService({ db, principal: localOwner(orgId) });
-    return createSyncService({ db, taskService, principal: localOwner(orgId) });
+    return createTriageService({ db, taskService, principal: localOwner(orgId) });
   }
 
   async function seedSubmission(projectId: string) {

@@ -811,7 +811,7 @@ const DEFINITIONS: McpToolDefinition[] = [
   {
     name: 'list_submissions',
     title: 'List Submissions',
-    description: 'List pulled participant submissions for triage',
+    description: 'List participant submissions for triage',
     inputSchema: listSubmissionsInputSchema,
     annotations: { readOnlyHint: true },
     handler: (services) =>
@@ -819,7 +819,7 @@ const DEFINITIONS: McpToolDefinition[] = [
         async (args: { project_id: string; status?: ShareSubmissionStatus }) =>
           (await services.projectService.get(args.project_id)) === undefined
             ? undefined
-            : services.syncService.listTriage(args.project_id, args.status),
+            : services.triageService.listTriage(args.project_id, args.status),
         'submissions',
       ),
   },
@@ -828,7 +828,7 @@ const DEFINITIONS: McpToolDefinition[] = [
     title: 'Triage Submission',
     description: 'Accept or reject a participant submission',
     inputSchema: triageSubmissionInputSchema,
-    handler: (services) => createTriageSubmissionHandler(services.syncService),
+    handler: (services) => createTriageSubmissionHandler(services.triageService),
   },
 ];
 

@@ -19,7 +19,7 @@ import {
 import { createTaskWithDefaultGoal as createTask } from '@plandesk/db/testing';
 import { createProjectService } from './projects.js';
 import { createShareService, InvalidShareError, serializeShare } from './share.js';
-import { createSyncService } from './sync.js';
+import { createTriageService } from './triage.js';
 import { createTaskService } from './tasks.js';
 
 describe('shareService', () => {
@@ -31,7 +31,6 @@ describe('shareService', () => {
     await migrate(db);
     orgId = DEFAULT_ORG_ID;
     await db.$client.execute('DELETE FROM share_submissions');
-    await db.$client.execute('DELETE FROM sync_state');
     await db.$client.execute('DELETE FROM shares');
     await db.$client.execute('DELETE FROM documents');
     await db.$client.execute('DELETE FROM tasks');
@@ -460,7 +459,7 @@ describe('shareService', () => {
     const projectService = createProjectService({ db, principal: localOwner(orgId) });
     const project = await createProject(db, { name: 'Cascade submissions' });
     const taskService = createTaskService({ db, principal: localOwner(orgId) });
-    const syncService = createSyncService({
+    const triageService = createTriageService({
       db,
       taskService,
       principal: localOwner(orgId),
@@ -477,7 +476,7 @@ describe('shareService', () => {
       createdAt: new Date('2026-01-15T12:00:00.000Z'),
       pulledAt: new Date('2026-01-15T12:01:00.000Z'),
     });
-    expect(await syncService.listTriage(project.id)).toHaveLength(1);
+    expect(await triageService.listTriage(project.id)).toHaveLength(1);
 
     expect(await projectService.delete(project.id)).toBe(true);
     expect(await listSubmissions(db, project.id)).toHaveLength(0);

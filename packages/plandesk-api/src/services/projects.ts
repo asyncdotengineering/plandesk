@@ -23,7 +23,6 @@ import {
   deleteSharesByProjectId,
   deleteTagsByProjectId,
   deleteViewsByProjectId,
-  deleteSyncStateByProjectId,
   deleteProject as dbDeleteProject,
   deleteTasksByProjectId,
   resolveGoalForNewWork,
@@ -535,7 +534,6 @@ export function createProjectService(deps: ProjectServiceDeps) {
         await dbUpdateProject(tx, id, { currentGoalId: null });
         await deleteGoalsByProjectId(tx, id);
         await deleteShareSubmissionsByProjectId(tx, id);
-        await deleteSyncStateByProjectId(tx, id);
         await deleteSharesByProjectId(tx, id);
         await dbDeleteProject(tx, id);
       });

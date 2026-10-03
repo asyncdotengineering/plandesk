@@ -206,7 +206,7 @@ describe('submissions routes', () => {
     expect(retry.status).toBe(409);
     expect(await parseJson(retry)).toEqual({ error: 'conflict' });
 
-    const stored = await services.syncService.getSubmission('sub-1');
+    const stored = await services.triageService.getSubmission('sub-1');
     expect(stored?.linked_task_id).toBe(taskA?.id);
   });
 });

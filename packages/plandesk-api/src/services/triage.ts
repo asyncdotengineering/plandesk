@@ -65,7 +65,7 @@ export function serializeSubmission(row: ShareSubmission): SerializedSubmission 
   };
 }
 
-export type SyncServiceDeps = OrgScopedDeps & {
+export type TriageServiceDeps = OrgScopedDeps & {
   db: Db;
   taskService: TaskService;
 };
@@ -78,7 +78,7 @@ function buildDesc(submission: ShareSubmission): string | null {
   return `${submission.body}\n\n${footer}`;
 }
 
-export function createSyncService(deps: SyncServiceDeps) {
+export function createTriageService(deps: TriageServiceDeps) {
   const { db, taskService } = deps;
 
   return {
@@ -207,4 +207,4 @@ export function createSyncService(deps: SyncServiceDeps) {
   };
 }
 
-export type SyncService = ReturnType<typeof createSyncService>;
+export type TriageService = ReturnType<typeof createTriageService>;

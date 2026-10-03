@@ -91,7 +91,7 @@ export function createApp(deps: AppDeps): Hono {
     noteService,
     commentService,
     agentRunService,
-    syncService,
+    triageService,
     fileService,
     artifactService,
     shareService,
@@ -177,7 +177,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api/v1', createSharesRouter(shareService));
   app.route('/api/v1', createCommentsRouter(commentService));
   app.route('/api/v1', createAgentRunsRouter(agentRunService));
-  app.route('/api/v1', createSubmissionsRouter(syncService, projectService));
+  app.route('/api/v1', createSubmissionsRouter(triageService, projectService));
   app.route('/api/v1', createRevisionsRouter(revisionService));
   app.route('/api/v1', createSearchRouter(searchService));
 

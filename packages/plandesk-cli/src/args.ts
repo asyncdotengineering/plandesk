@@ -753,7 +753,7 @@ RUN IT WITH YOUR AGENT  (optional — delegated, lane-gated execution)
   tasks, groom them into build contracts, and run the board. Read .agents/index.md after init.
 
 SHARE WITH YOUR TEAM  (optional)
-  plandesk deploy cloudflare | claude        # agent stands up your sync server
+  plandesk deploy cloudflare | claude        # agent stands up your hosted board
   plandesk share create --audience "Acme" --public --allow-submit
   plandesk push --to <orgId>                   # promote the project to your hosted org; the portal reads it live
 

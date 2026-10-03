@@ -7,11 +7,8 @@ import {
 } from '../testing.js';
 import {
   deleteShareSubmissionsByProjectId,
-  deleteSyncStateByProjectId,
-  getPullCursor,
   getSubmission,
   listSubmissions,
-  setPullCursor,
   setSubmissionStatus,
   upsertSubmission,
 } from './share-submissions.js';
@@ -151,18 +148,7 @@ describe('share-submissions repository', () => {
     expect(stored?.linkedTaskId).toBe(winners[0]?.linkedTaskId);
   });
 
-  it('stores and updates pull cursor per project', async () => {
-    const project = await createProject(db, { name: 'Cursor' });
-    expect(await getPullCursor(db, project.id)).toBeUndefined();
-
-    await setPullCursor(db, project.id, '2026-01-01T00:00:00.000Z');
-    expect(await getPullCursor(db, project.id)).toBe('2026-01-01T00:00:00.000Z');
-
-    await setPullCursor(db, project.id, '2026-01-02T00:00:00.000Z');
-    expect(await getPullCursor(db, project.id)).toBe('2026-01-02T00:00:00.000Z');
-  });
-
-  it('deletes submissions and sync state by project id', async () => {
+  it('deletes submissions by project id', async () => {
     const project = await createProject(db, { name: 'Delete' });
     const now = new Date();
     await upsertSubmission(db, {
@@ -174,11 +160,8 @@ describe('share-submissions repository', () => {
       createdAt: now,
       pulledAt: now,
     });
-    await setPullCursor(db, project.id, '2026-01-01T00:00:00.000Z');
 
     expect(await deleteShareSubmissionsByProjectId(db, project.id)).toBe(1);
-    expect(await deleteSyncStateByProjectId(db, project.id)).toBe(1);
     expect(await listSubmissions(db, project.id)).toHaveLength(0);
-    expect(await getPullCursor(db, project.id)).toBeUndefined();
   });
 });
