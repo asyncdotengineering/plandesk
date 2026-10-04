@@ -8,6 +8,7 @@ Plan Desk ships as one npm package: `@plandesk/cli` contains the CLI, the server
 There are three kinds of upgrade on this page:
 
 - **[Routine upgrade](#routine-upgrade)** — same schema, most releases: update the package, restart the server, migrations run automatically. Your data is untouched.
+- **[The 4.x → 5.0.0 upgrade](#the-4x--500-upgrade)** — the board migrates automatically. It is a major version because a few environment variables, CLI defaults and package exports changed, which matters if you self-host or import the packages.
 - **[The 3.x → 4.0.0 upgrade](#the-3x--400-upgrade)** — the board migrates automatically and in place. It is a major version because MCP and REST now reject arguments they cannot honour, and `sync_pull`, `plandesk pull` and `plandesk legacy-upgrade` are removed.
 - **[The 1.x → 2.0.0 upgrade](#the-1x--200-upgrade-one-link-shape)** — your board migrates **automatically and in place**, and the web UI and CLI need nothing from you. It is a major version because `linked_task_id` was removed from the API and MCP payloads, so it breaks anything _you_ wrote that read that field.
 - **[The 0.20.0 → better-auth upgrade](#the-020x--better-auth-upgrade-breaking)** — a one-time **breaking** migration for anyone on 0.20.0 or earlier. The database schema was reset (no in-place migration) and the board moved to a machine-global default. Read that section before you upgrade past 0.20.0.
@@ -20,6 +21,7 @@ If you don't know which applies, run `plandesk --version`:
 | `1.x`               | [The 1.x → 2.0.0 upgrade](#the-1x--200-upgrade-one-link-shape) — automatic, but read it if you built anything on the API |
 | `2.x`               | [Routine upgrade](#routine-upgrade), then the 3.x → 4.0.0 note below                                                     |
 | `3.x`               | [The 3.x → 4.0.0 upgrade](#the-3x--400-upgrade) — automatic migration; read it if you call MCP tools or the REST API     |
+| `4.x`               | [The 4.x → 5.0.0 upgrade](#the-4x--500-upgrade) — automatic migration; read it if you self-host or import the packages   |
 
 ## Routine upgrade
 
@@ -79,6 +81,26 @@ plandesk doctor --repo .
 ```
 
 Checks the workspace DB, the binding, the token, and that the MCP server lists its tools.
+
+## The 4.x → 5.0.0 upgrade
+
+The same three steps as a [routine upgrade](#routine-upgrade). The server now prepares its own database on every target, so the board migrates when it boots (migration 0025 drops the unused `sync_state` table). Take a backup first; stop the server before copying the file:
+
+```bash
+cp ~/.plandesk/workspace.db ~/plandesk-backup-4x.db
+npm i -g @plandesk/cli@latest
+plandesk serve          # migration 0025 runs here
+```
+
+### What breaks
+
+- **`PLANDESK_SESSION_SECRET` is no longer read.** Rename it to `PLANDESK_BETTER_AUTH_SECRET` (same value). A server with only the old name refuses to start and says so.
+- **S3 storage needs `PLANDESK_STORAGE=s3`.** Setting `PLANDESK_S3_*` without it is now an error.
+- **`plandesk login` has no default server.** Pass `--server <your Plan Desk URL>` the first time; later logins reuse it.
+- **Docker files are renamed:** `Dockerfile.server` → `Dockerfile`, `docker-compose.hosted.yml` → `compose.yaml` (reads `.env`). The container listens on **7526**.
+- **Package exports changed** if you import `@plandesk/*` in your own code. See the [changelog](https://github.com/asyncdotengineering/plandesk/blob/main/CHANGELOG.md) for the list; `SyncService` is now `TriageService`. `@plandesk/server` is a new package the CLI depends on.
+
+A hosted database no longer needs `plandesk migrate` before an upgrade: each server migrates it under a lease when it boots. The command stays for operators who prefer to run it from CI.
 
 ## The 3.x → 4.0.0 upgrade
 

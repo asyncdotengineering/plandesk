@@ -2,7 +2,7 @@
 
 All notable changes to Plan Desk are documented here.
 
-## Unreleased
+## [5.0.0] — 2026-10-04
 
 Self-hosting is now one command or one button on Docker, Cloudflare Workers or Vercel, and every target prepares its own database. See [Self-hosting → Deployment topologies](https://plandesk.asyncdot.com/self-hosting/topologies/).
 
@@ -19,6 +19,7 @@ Self-hosting is now one command or one button on Docker, Cloudflare Workers or V
   - `@plandesk/cli` and `@plandesk/runner`: the `"."` entry. Both are command-line packages; run their binaries.
 - **Migration 0025 drops the unused `sync_state` table.**
 - **`@plandesk/server` is a new published package**, and `@plandesk/cli` now depends on it: `plandesk serve`, the Docker image, the Worker and the Vercel function share its one composition. Publish it before the CLI that depends on it.
+- **`@plandesk/mcp-client` and `@plandesk/runner` are not part of this release.** Their export changes above ship with their own next versions; the published `1.0.0` and `0.1.0` are unchanged.
 
 ### Added
 

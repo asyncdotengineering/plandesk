@@ -1,6 +1,6 @@
 {
   "name": "@plandesk/server",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "type": "module",
   "description": "Plan Desk server composition: the REST API and MCP apps over a self-prepared database, with Node, Cloudflare Workers and Vercel entries.",
   "exports": {
