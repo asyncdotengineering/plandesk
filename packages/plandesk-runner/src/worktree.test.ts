@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, userInfo } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RunnerConfig } from './config.js';
@@ -222,7 +222,8 @@ describe('prepareWorktree', () => {
     const markerFile = join(markerDir, 'plandesk-runner-marker.txt');
     mkdirSync(markerDir, { recursive: true });
     writeFileSync(markerFile, 'must survive\n');
-    const username = gitText(undefined, ['config', '--get', 'user.name']);
+    // What `$(whoami)` would have expanded to: the OS user, not git's user.name.
+    const username = userInfo().username;
 
     try {
       const wtA = await prepareWorktree(
