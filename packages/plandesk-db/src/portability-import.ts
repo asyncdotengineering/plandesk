@@ -3,6 +3,8 @@ import { eq } from 'drizzle-orm';
 import type { BatchItem } from 'drizzle-orm/batch';
 import type { Db, DbClient } from './client.js';
 import { isValidCommitRefs, normalizeCommitRefs } from './commit-refs.js';
+import { safeExternalUrl } from './external-url.js';
+import { InvalidArgumentError } from './invalid-argument.js';
 import type { PlandeskExportInput } from './portability.js';
 import type { ManifestImportEntry } from './portability-export-manifest.js';
 import {
@@ -622,6 +624,12 @@ export function emitAgentRunEventsImport(ctx: ImportContext): void {
 
 export function emitFilesImport(ctx: ImportContext): void {
   for (const file of ctx.data.files ?? []) {
+    if (file.external_url && safeExternalUrl(file.external_url) === undefined) {
+      throw new InvalidArgumentError(
+        `File ${file.id} has an unsupported external_url: only https, or http to a loopback host, is allowed`,
+        'external_url',
+      );
+    }
     ctx.statements.push(
       ctx.root
         .insert(files)

@@ -1,6 +1,6 @@
 import { invalidArgument } from './errors.js';
-import { Hono } from 'hono';
-import type { Db } from '@plandesk/db';
+import { Hono, type Context } from 'hono';
+import { safeExternalUrl, type Db } from '@plandesk/db';
 import { runWithAuthContext } from '../auth-context.js';
 import { orgRoleToPermissionSet } from '../permissions.js';
 import type { FileService } from '../services/files.js';
@@ -34,6 +34,9 @@ function fileResponseHeaders(mime: string, filename: string): Record<string, str
   const headers: Record<string, string> = {
     'X-Content-Type-Options': 'nosniff',
     'Content-Security-Policy': FILE_CSP,
+    // A file opened via `?token=` must not leak that token in Referer when a
+    // link inside it is followed.
+    'Referrer-Policy': 'no-referrer',
   };
 
   // Only image/* is safe to render inline; every other mime (including
@@ -47,6 +50,13 @@ function fileResponseHeaders(mime: string, filename: string): Record<string, str
       `attachment; filename="${sanitizeFilenameForHeader(filename)}"`;
   }
   return headers;
+}
+
+// Defence in depth: rows imported before external_url was validated may hold
+// any string, so never turn an unsafe one into a redirect on this origin.
+function redirectExternal(c: Context, stored: string): Response {
+  const url = safeExternalUrl(stored);
+  return url ? c.redirect(url, 302) : c.json({ error: 'not_found' }, 404);
 }
 
 export type FilesRouterDeps = {
@@ -124,7 +134,7 @@ export function createFilesRouter(fileService: FileService, deps: FilesRouterDep
         return c.json({ error: 'not_found' }, 404);
       }
       if ('redirectUrl' in resolved) {
-        return c.redirect(resolved.redirectUrl, 302);
+        return redirectExternal(c, resolved.redirectUrl);
       }
       return c.body(
         new Uint8Array(resolved.bytes),
@@ -139,7 +149,7 @@ export function createFilesRouter(fileService: FileService, deps: FilesRouterDep
     }
 
     if ('redirectUrl' in resolved) {
-      return c.redirect(resolved.redirectUrl, 302);
+      return redirectExternal(c, resolved.redirectUrl);
     }
 
     return c.body(

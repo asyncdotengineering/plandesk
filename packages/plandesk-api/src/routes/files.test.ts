@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { createProjectInDefaultOrg as createProject } from '@plandesk/db';
+import {
+  createFile,
+  createPrototype,
+  createRenderToken,
+  createProjectInDefaultOrg as createProject,
+  type Db,
+} from '@plandesk/db';
 import { StorageError } from '../storage/index.js';
 import { createTestApp, parseJson } from '../test-helpers.js';
 
@@ -31,6 +37,18 @@ async function upload(
   });
   expect(res.status).toBe(201);
   return parseJson<UploadedFileResponse>(res);
+}
+
+// Seeds a row the way a pre-validation import could have left it on a live board.
+async function seedExternal(db: Db, projectId: string, id: string, externalUrl: string) {
+  await createFile(db, {
+    id,
+    projectId,
+    filename: 'ext.pdf',
+    mime: 'application/pdf',
+    size: 1,
+    externalUrl,
+  });
 }
 
 describe('files routes', () => {
@@ -236,6 +254,77 @@ describe('files routes', () => {
 
     const countRow = (await db.$client.execute('SELECT COUNT(*) AS count FROM files')).rows[0];
     expect(Number(countRow?.['count'])).toBe(1);
+  });
+
+  it('redirects only to https or loopback http external_url; anything else is 404', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'External urls' });
+    const cases: Array<[string, string | null]> = [
+      ['javascript:alert(1)', null],
+      ['data:text/html,<script>alert(1)</script>', null],
+      ['//evil.example/a.pdf', null],
+      ['http://192.168.1.10/a.pdf', null],
+      ['http://evil.example/a.pdf', null],
+      ['not a url', null],
+      ['https://cdn.example.com/a.pdf', 'https://cdn.example.com/a.pdf'],
+      ['http://localhost:8080/a.pdf', 'http://localhost:8080/a.pdf'],
+    ];
+    for (const [i, [stored, location]] of cases.entries()) {
+      const id = `ext-${String(i)}`;
+      await seedExternal(db, project.id, id, stored);
+      const res = await app.request(`/api/v1/files/${id}`);
+      if (location === null) {
+        expect(res.status, stored).toBe(404);
+        expect(res.headers.get('Location'), stored).toBeNull();
+      } else {
+        expect(res.status, stored).toBe(302);
+        expect(res.headers.get('Location'), stored).toBe(location);
+      }
+    }
+  });
+
+  it('token path never redirects to an unsafe stored external_url', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'External via token' });
+    const proto = await createPrototype(db, {
+      projectId: project.id,
+      name: 'Flow',
+      viewportWidth: 1,
+      viewportHeight: 1,
+    });
+    const minted = await createRenderToken(db, {
+      orgId: project.orgId,
+      projectId: project.id,
+      prototypeIds: [proto.id],
+    });
+    await seedExternal(db, project.id, 'ext-bad', 'javascript:alert(1)');
+    await seedExternal(db, project.id, 'ext-good', 'https://cdn.example.com/a.pdf');
+    const token = encodeURIComponent(minted.token);
+
+    const bad = await app.request(`/api/v1/files/ext-bad?token=${token}`);
+    expect(bad.status).toBe(404);
+    expect(bad.headers.get('Location')).toBeNull();
+    const good = await app.request(`/api/v1/files/ext-good?token=${token}`);
+    expect(good.status).toBe(302);
+    expect(good.headers.get('Location')).toBe('https://cdn.example.com/a.pdf');
+  });
+
+  it('pins Referrer-Policy no-referrer and the sandbox CSP on GET and HEAD', async () => {
+    const { app, db } = await createTestApp();
+    const project = await createProject(db, { name: 'Headers' });
+    const png = await upload(app, project.id, 'a.png', 'image/png', Buffer.from('png'));
+    const pdf = await upload(app, project.id, 'a.pdf', 'application/pdf', Buffer.from('pdf'));
+
+    for (const url of [png.url, pdf.url]) {
+      for (const method of ['GET', 'HEAD']) {
+        const res = await app.request(url, { method });
+        expect(res.status, `${method} ${url}`).toBe(200);
+        expect(res.headers.get('Referrer-Policy'), `${method} ${url}`).toBe('no-referrer');
+        const directives = cspDirectives(res);
+        expect(directives, `${method} ${url}`).toContain('sandbox');
+        expect(directives, `${method} ${url}`).toContain("default-src 'none'");
+      }
+    }
   });
 
   it('answers 502 storage_unavailable when the backing store fails, naming neither bucket nor status', async () => {

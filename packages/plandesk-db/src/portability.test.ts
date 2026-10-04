@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type Db } from './client.js';
+import { InvalidArgumentError } from './invalid-argument.js';
 import { migrate } from './migrate.js';
 import {
   buildExportFromManifest,
@@ -592,6 +593,65 @@ describe('export/import portability', () => {
     expect(imported?.kind).toBe('html');
     expect(imported?.content).toBe('<h1>Diagram</h1>');
     expect(imported?.projectId).toBe(importedProjectId);
+  });
+
+  it('imports external_url only when it is https or http on a loopback host', async () => {
+    const withExternalUrl = (id: string, externalUrl: string) => ({
+      version: PLANDESK_EXPORT_VERSION,
+      project: { name: 'External file', description: null, canvas_layout: null },
+      goals: [],
+      tasks: [],
+      tags: [],
+      edges: [],
+      folders: [],
+      prototypes: [],
+      documents: [],
+      notes: [],
+      views: [],
+      comments: [],
+      agent_runs: [],
+      artifacts: [],
+      files: [
+        {
+          id,
+          filename: 'a.pdf',
+          mime: 'application/pdf',
+          size: 1,
+          bytes_base64: null,
+          external_url: externalUrl,
+          created_at: new Date().toISOString(),
+        },
+      ],
+    });
+
+    for (const bad of [
+      'javascript:alert(1)',
+      'data:text/html,<script>alert(1)</script>',
+      'file:///etc/passwd',
+      '//evil.example/a.pdf',
+      '/relative/a.pdf',
+      'http://192.168.1.10/a.pdf',
+      'http://evil.example/a.pdf',
+      'not a url',
+    ]) {
+      const attempt = importProject(db, withExternalUrl('file-bad', bad));
+      await expect(attempt, bad).rejects.toThrow(InvalidArgumentError);
+      await expect(importProject(db, withExternalUrl('file-bad', bad)), bad).rejects.toThrow(
+        /file-bad/,
+      );
+    }
+    const projectCount = (await db.$client.execute('SELECT COUNT(*) AS n FROM projects')).rows[0];
+    expect(Number(projectCount?.['n'])).toBe(0);
+
+    for (const good of [
+      'https://cdn.example.com/a.pdf',
+      'http://localhost:8080/a.pdf',
+      'http://127.0.0.1/a.pdf',
+      'http://[::1]:3000/a.pdf',
+    ]) {
+      const { projectId } = await importProject(db, withExternalUrl('file-good', good));
+      expect((await getFile(db, projectId, 'file-good'))?.externalUrl).toBe(good);
+    }
   });
 
   it('importing the same file bytes into two different orgs does not collide', async () => {

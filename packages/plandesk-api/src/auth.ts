@@ -6,6 +6,7 @@ import {
   orgRoles,
   verifyGuestSession,
   getAgentRun,
+  isLoopbackBind,
   type Db,
   type OrgRole,
 } from '@plandesk/db';
@@ -78,16 +79,9 @@ function extractBearerToken(header: string | undefined): string | undefined {
   return raw.length > 0 ? raw : undefined;
 }
 
-/**
- * The one loopback-host rule, for a bind address or a URL hostname: exactly
- * `127.0.0.1`, `localhost`, `::1` and `[::1]` (WHATWG URL keeps the brackets),
- * case-insensitive. A loopback bind grants owner trust without auth, so never
- * widen this to `0.0.0.0`, the rest of `127.0.0.0/8`, or LAN names.
- */
-export function isLoopbackBind(host: string): boolean {
-  const h = host.trim().toLowerCase();
-  return h === '127.0.0.1' || h === 'localhost' || h === '::1' || h === '[::1]';
-}
+// The loopback rule lives in @plandesk/db (file import validates external_url
+// with it); re-exported so api callers keep one import site.
+export { isLoopbackBind };
 
 export type OrgAuthOptions = {
   db: Db;
